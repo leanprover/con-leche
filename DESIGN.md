@@ -114509,3 +114509,256 @@ run each; stdout minus `stats:` identical to master 1657d27f0's on every stream;
 | folded-constant-last | 0.073 | 0.066 | −8.72 % |
 | args-before-unfold | 0.050 | 0.048 | −3.87 % |
 | church-numerals, identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.4 % |
+
+## TASK #588 — the minor's β fused into the ι step: a prototype (2026-11-15, probe/588-fuse-minor)
+
+The question (after #585 and #586's counting probe): when the substituted minor of a fired ι
+step is a manifest λ with at least as many λs as the rule body `minor f₁…fₙ ih₁…ihₖ` has
+arguments, take the minor's β inside the ι step — never build the minor redex, never make it a
+whnf-memo key — substitute the fields, the IHs (lazily: only those whose variable occurs) and
+as many extra spine arguments as the minor has further λs, and apply the rest.  Prototype
+only: the executable builds, the proofs of the changed functions are not repaired.
+
+**Answer: no.**  The minor redex is exactly the key official `whnf_core` stores at the β step
+that follows every ι step, and its hits are the hits #572 brought in.  Dropping it gives back
+the pre-#572 ι counts on the fixture (`Mon.rec` 30 739, `Bool.rec` 32 785) and quadruples two
+arena perf streams; the IH laziness is worth at most 0.2 % and cannot coexist with the key
+(the key's hash needs the IHs).  The variant that keeps the key and only saves the loop round
+trip is −0.1…−0.2 %, below what it would cost in proofs.
+
+**The variants** (`ConLeche/Cached/CoreC.lean`, switch `fuseMode`; `iotaRecI` now takes the
+spine range `xs[xi:]` after the redex and returns the full term, `WhnfStep.contK` for mode 4):
+* `mode0` — today's reduct on the new plumbing (`Option (Option Expr × Expr)` out of
+  `iotaRecI`), the plumbing's own cost;
+* `all` (mode 1) — the fusion, every rule-body argument substituted (the ablation that builds
+  all IHs): split (a);
+* `lazy` (mode 2) — the fusion, an IH built only where its variable occurs, the occurrences
+  found by a second walk of the minor's body (`occGo`, memoised on `(node, depth)`);
+* `lazyT` (mode 3) — the same with a memo-free walk (`occGoT`, a lower bound on that walk);
+* `keyed2` (mode 4) — the minor redex is built as today and handed to the loop as one more
+  step: it is looked up, pushed as a pending key (a β key, cheap-safe), and on a miss its β
+  is taken right there (`keyedBetaC`), without the step dispatch (spine array, `whnfCoreI` on
+  the λ head, `whnfAppI`, `betaPeelI`).  A first version took the β inside the ι step, before
+  the lookup: it wastes the β on every hit (fixture 1.997 G, +5.9 %).
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1`, init-full `--jobs=8`, one run
+each; stdout minus `stats:` identical to master on every stream and variant; data in
+`_tmp/588/logs/`):
+
+| stream | master | mode0 | all | lazyT | lazy | keyed2 |
+|---|---:|---:|---:|---:|---:|---:|
+| grind_field_cancel_inv | 1.886 | +0.48 % | +10.43 % | +19.04 % | +45.75 % | −0.21 % |
+| grind-ring-5 | 8.936 | +0.35 % | +2.13 % | +5.87 % | +23.20 % | −0.17 % |
+| init-full | 270.875 | +0.15 % | −0.88 % | −0.58 % | +0.65 % | −0.10 % |
+| init-prelude | 1.131 | +0.04 % | −0.21 % | −0.19 % | −0.05 % | −0.03 % |
+| shared-subterm | 0.133 | +0.55 % | +293.29 % | +291.62 % | +295.73 % | −0.87 % |
+| discarded-argument | 0.066 | +0.38 % | +156.03 % | +157.68 % | +160.23 % | −0.53 % |
+| discarded-argument-match | 0.197 | +0.22 % | +0.28 % | +1.50 % | +6.77 % | −0.33 % |
+| folded-constant-first | 0.066 | +0.42 % | −8.59 % | −6.74 % | −3.65 % | −1.14 % |
+| folded-constant-last | 0.066 | +0.41 % | −8.60 % | −6.73 % | −3.64 % | −1.12 % |
+| args-before-unfold | 0.048 | +0.30 % | −3.71 % | −2.55 % | −0.95 % | −0.74 % |
+| beta-ladder | 4.940 | −0.28 % | −0.29 % | −0.06 % | −0.26 % | −0.26 % |
+| app-lam, church-numerals, identical-nesting, irrelevance-before-evaluation, let-ladder, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | within ±0.4 % | | | | |
+
+**The drift** (scratch `dbgTrace` counters at the ι fire site, the `whnfAppI` β arm, a
+`whnfCore` memo hit and a successful δ unfold, in separate scratch binaries; whole streams,
+`--jobs=1`; `F` = fused βs):
+
+| | master | fused (`all`, `lazy`) | keyed |
+|---|---:|---:|---:|
+| fixture `Mon.rec` | 26 516 | 30 739 | 26 516 |
+| fixture `Bool.rec` (theorem + 75 outside) | 20 625 | 32 785 | 20 625 |
+| fixture `Ordering.rec` / `Poly.rec` | 10 334 / 9 310 | 10 334 / 9 310 | same |
+| fixture ι total / β / F / memo hits / δ | 68 623 / 58 004 / 0 / 17 523 / 36 154 | 85 006 / 27 073 / 41 523 / 11 090 / 36 154 | 68 623 / 26 999 / 37 438 / 17 523 / 36 154 |
+| grind-ring-5 ι / memo hits | 180 179 / 56 060 | 200 215 / 48 231 (`Mon.rec` 22 029 → 33 819, `Bool.rec` 49 099 → 57 109) | 180 179 / 56 060 |
+| init-full ι / δ / memo hits | 1 758 538 / 7 206 826 / 2 259 185 | 1 758 688 / 7 206 826 / 2 213 717 | 1 758 538 / 7 206 826 / 2 259 185 |
+| shared-subterm ι / memo hits | 6 000 / 1 995 | 6 000 / 0 | 6 000 / 1 995 |
+| discarded-argument ι / memo hits | 1 802 / 595 | 1 802 / 0 | 1 802 / 595 |
+
+The fixture's fused counts are #572's "before" counts exactly: the fusion undoes the official
+memo policy at the one place it pays.  On shared-subterm and discarded-argument the ι count is
+unchanged but every minor-redex hit is lost, and with it the whole chain each hit answered
+(×4 and ×2.6 instructions).  δ is unchanged everywhere.  `keyed2` reproduces master's counts
+by construction (the key is looked up and stored as the loop's β step would).
+
+**The split.**
+* (a) dropping the key and the loop round trip (`all` against master): −0.88 % on init-full,
+  −8.6 % on the folded-constant streams, but +10.4 % on the fixture, +2.1 % on grind-ring-5
+  and ×3.9 / ×2.6 on shared-subterm / discarded-argument — the lost memo hits.  The round
+  trip alone, with the key kept (`keyed2` against `mode0`, the same plumbing): −0.7 % on the
+  fixture, −0.5 % on grind-ring-5, −0.25 % on init-full; against master −0.1…−0.2 %, as the
+  plumbing (`mode0`) eats most of it.
+* (b) not building unused IHs (`lazy`/`lazyT` against `all`): negative as built — the
+  occurrence walk is a second walk of the minor's body, and the cutoff cannot prune it (the
+  fields' variables sit above the IHs', so every node mentioning a field is visited); the
+  memoised walk costs +32 % on the fixture, the memo-free one +8 %.  The bound on what (b) can
+  give: the unused IHs are 448 k nodes on grind-ring-5 and 4.1 M on init-full (#586's
+  counts), some 0.2 % and 0.06 % at a few tens of instructions per built node.  Getting near
+  that needs the lazy slots inside the substitution walk itself (no second walk), and (b)
+  requires (a): with the key kept, the IHs are part of the key and are built anyway.
+
+**What landing would cost in proofs** (not done).
+* *The fusion (a, b).*  The specification's ι (`iotaRec`, `RecRule.iotaReduct`) would end at
+  the minor's body: `iotaReduct` the peeled rule body when the minor is not a manifest λ with
+  enough λs, else the minor's body under its λs substituted with the rule body's arguments
+  and the extra spine arguments.  Total by the case split itself (no runtime fallback, no new
+  invariant).  The model takes it cheaply: `Red.iota_sound` already ends in
+  `Red.betaSpine_sound` steps (#585); it gets more of them (the minor's λs and the extras).
+  The syntactic kit needs a composition law — the minor's body substituted with substituted
+  arguments is the substitution of the rule body followed by the β — in `IotaReduct.lean`,
+  and the lazy IHs a lemma that an unbuilt value at a variable that does not occur changes
+  nothing.  The step triples stay one step against one step.  But the spec's ι would no longer
+  be official's, and the counts this lane measured contradict #572's ruling (official's memo
+  policy) — not a candidate.
+* *The keyed variant.*  The specification unchanged.  `WhnfStep.contK` (or a loop arm on the
+  ι step) gets one more induction case in the `whnfCoreLoopI` triple (`PendOK.push` of the
+  key, the hit lemma, and `keyedBetaC k` identified with the β step on `k` through
+  `betaPeelC_spec` / `BetaSpine`), plus the congruence lemmas (`KnotCongr`) and the plumbing
+  through `iotaRecI`'s two callers.  Some hundred lines for −0.1…−0.2 % — not worth it.
+
+**Recommendation.**  Drop the fusion.  The minor redex stays a β step of the loop with its
+memo key, as official.  If the ι step is to get cheaper, the place is not the β after it.
+
+**Outcome** (2026-11-15): not pursued.  The prototype stays on `probe/588-fuse-minor`; this record was copied to master so the negative result can be found.
+
+## TASK #589 — memo-free substitution on loose-bvar trees: a prototype (2026-11-15, probe/589-tree-walks)
+
+**Question** (maintainer): where a substituted term has definitely no sharing (the rule
+rhs, where else?), are memo-free `Expr` walks worth having?  A probe before #583/#585 that
+switched the memo off in `instantiateListXP` measured −14 % on grind_field_cancel_inv, but
+a memo-free walk is exponential on a DAG, and "no sharing" is not given (the export
+hash-conses; a stated rule rhs is accepted up to defeq and may be any DAG).  PROTOTYPE:
+the branch is not for landing (pointer reads by `unsafe` escapes with a `false` model,
+`ConLeche/Cached/LooseTree.lean`; probe switches `probeSites`, `probeMode`, `probeRun`,
+`probeStats`, an env-gated install-cost probe in `Driver/CheckPool.lean`).  Data and
+scripts: `_tmp/589/`.
+
+**The criterion.**  A term is a *loose-bvar tree* if no compound node with `bvarB > 0` is
+reachable twice from its root by pointer, descending only through nodes with `bvarB > 0`
+(a substitution walk at cursor `d` cuts every node with `bvarB ≤ d`, so it never reaches
+the others); with `chain`, the root's `λ`/`∀` chain is followed unconditionally, because
+the β peel and the spine walk substitute into any suffix of it.  On a tree every walk
+visits each compound node once, so the memo cannot hit.  The flag is a DFS with a visited
+set (an array up to 16 entries, then a hash set).  Level instantiation preserves it:
+`instLevelParams` maps each input node to one output node (fresh, or the input itself
+below its cutoff) and keeps `bvarB`, so an output node reached twice has an input node
+reached twice.  Checked empirically: the flag of the stored term and of its
+level-instantiated entry agreed on every entry of gfci, grind-ring-5 and init-prelude.
+
+**The walk.**  `instantiateRevTXP` (`ExprOpsC.lean`): same specification
+`instantiateRevP` as `instantiateRevXP`, no memo, no exclusivity read, no `(term, memo)`
+pair, the result the bare subtype; a re-entry (a value with loose bound variables) goes
+to the memo walk.  `instantiateRevRangeT tree` picks it when `tree`.  A first attempt
+that gave the existing walk a `tree : Bool` parameter instead cost +3 % on beta-ladder
+with the flag always false (codegen of the walk), so the memo-free walk must be a
+separate function.
+
+**Call-site census** (callgrind, master 9e3c81972, `--jobs=1`; calls / inclusive Ir;
+inclusive figures are outside recursion cycles here — the walks call no checker code):
+
+| site (walk) | walked term's provenance | gfci | init-prelude |
+|---|---|---:|---:|
+| `betaPeelI` → `instantiateRevRange` | the body of any β head: δ-unfolded values (`constValAtM`), minor premises, user λs, substitution results | 58 004 / 552 M (29 %) | 13 225 / 67 M |
+| `iotaRecI` → `instantiateRev` | the stored rule body (`ruleBodyAtM`) | 68 623 / 162 M (8.6 %) | 1 730 / 3.1 M |
+| `inferSpineI`/`IOI` → `instListRevM` | the head's type (a stored type, `constTyAtM`, when the head is a constant): domains, residual | 17 115 / 9.2 M | 79 596 / 35.7 M |
+| `inferLams*`/`inferPis*` → `instantiateRevRange`, `abstractRangeC` | the declaration's own binder telescopes | ~4 600 / 16 M | ~38 000 / 75 M |
+| `defeqBindersI`/`defeqDomainI` → `instantiateRevRange` | both sides' binder bodies | 2 395 / 2.6 M | 12 189 / 12 M |
+| `constTyAtM`/`constValAtM`/`ruleBodyAtM` → `instLevelParams` | stored records | 2 398 / 5.5 M | 16 524 / 78 M (6.9 %) |
+| `checkDivModPinLoopC` → `substConstAllC` | the Nat-op pin proofs | 3 / 6.3 M | 18 / 34.7 M (3.1 %) |
+| `instantiate1C` (ζ, io binders, inductive install), `instantiateListC` (`openPis*`), `replaceFVarsC`, `instantiateLiftC`, `liftLooseBVarsC`, `unitLikeShapeF`, `pinArgsI` | mixed | < 5 M each | < 3 M each |
+
+(`allLevelParamsDefinedC`, a Bool walk over the declaration's own type and value, is
+another 37 M on init-prelude.)  The shared memo insert (`HashMap.insert`, CSE'd across all
+walks) is 4.1 % of gfci and 3.3 % of init-prelude.  `instLevelParams` is not a candidate:
+its walk memoises leaves (`const`/`sort` nodes, a `Level.subst` each), and those are
+hash-consed everywhere, so a level-param tree would almost never hold.
+
+**Flag rates** (stats build; entries = per-declaration memo entries, walks = calls that
+substitute anything):
+
+| site | gfci entries | gfci walks | grind-ring-5 entries | grind-ring-5 walks | init-prelude entries | init-prelude walks |
+|---|---:|---:|---:|---:|---:|---:|
+| ι rule body | 138/140 | 68 492/68 623 | 2 856/2 934 | 179 974/180 179 | 829/850 | 1 918/1 945 |
+| δ value (β walks whose head is a registered value) | 411/459 | 18 385/57 346 | 14 229/16 085 | 119 710/277 982 | 2 139/2 692 | 4 780/11 801 |
+| constant type (spine walks) | 1 763/1 799 | 6 618/7 293 | 32 434/33 749 | 175 603/188 244 | 12 575/12 982 | 28 662/33 175 |
+
+A true flag's walk visits ~5 nodes on average (gfci 9 943 nodes over 2 312 true flags).
+The β walks whose head is not a stored value (68 % of gfci's, 57 % of grind-ring-5's) are
+out of reach: of those heads, computed directly, 86 % (gfci) are NOT trees — hash-consed
+export terms repeat loose-bvar subterms (instance arguments and the like) — and that is
+where the old −14 % lived (making every `instantiateRev` walk memo-free: gfci −14.5 %,
+grind-ring-5 +164 %, app-lam killed at 613 G).
+
+**Numbers** (`instructions:u`, `--verified`, `--jobs=1` except init-full at `--jobs=8`, one
+run each (init-full repeated: master 270.911/270.939 G, ι + δ 268.983/268.955 G); stdout
+identical to master on every stream):
+
+| stream | master | ι only | ι + δ | ι + δ + types | flags only (computed, ignored) |
+|---|---:|---:|---:|---:|---:|
+| grind_field_cancel_inv | 1.886 G | −3.6 % | −4.4 % | −4.4 % | +0.5 % |
+| grind-ring-5 | 8.937 G | −2.0 % | −3.3 % | −2.6 % | +2.8 % |
+| init-full | 270.911 G | −0.4 % | −0.7 % | | |
+| init-prelude | 1.131 G | +0.2 % | +1.9 % | +4.5 % | +5.9 % |
+| shared-subterm | 0.133 G | −4.3 % | −5.1 % | −4.8 % | +0.0 % |
+| identical-nesting | 0.020 G | +0.0 % | +0.3 % | +0.4 % | +0.3 % |
+| repeated-subproblem | 0.022 G | −0.2 % | −0.2 % | +0.2 % | +0.4 % |
+| discarded-argument-match | 0.197 G | −2.0 % | −7.0 % | | |
+| discarded-argument | 0.066 G | −4.0 % | −5.2 % | | |
+| folded-constant-first / -last | 0.066 G | −4.3 % | −6.2 % | | |
+| args-before-unfold | 0.048 G | −3.0 % | −2.9 % | | |
+| app-lam, beta-ladder, church-numerals, irrelevance-before-evaluation, let-ladder, shift-cascade, unroll-versus-evaluate | | within ±0.2 % | within ±0.2 % | | |
+
+Each site alone (the "types" column's build, short set): ι alone −3.2 % gfci, δ alone
+−0.5 %, types alone **+0.8 %** gfci, +1.1 % grind-ring-5, +2.7 % init-prelude — the type
+site loses: its walks are domains of a few nodes, and the flag of every instantiated
+constant type costs more than the memo it saves.
+
+**Flag cost: per declaration or at install.**  Lazily per declaration (this probe) the
+flag is recomputed for every memo entry of every declaration.  Computing it once per
+stored record instead (a run-wide cache keyed by the stored term's address, the install
+emulation) changed nothing measurable for ι + δ (init-prelude 1.1547 vs 1.1537 G): the
+ι + δ init-prelude regression is the δ site's registry and its lookup at every β head,
+not the flag.  The install cost itself (every rule body and definition value, once,
+serial, before the workers): init-prelude +17.6 M (+1.5 %), gfci +1.9 M, grind-ring-5
++14.5 M (+0.17 %), init-full +237 M (+0.09 % at `--jobs=1`); with constant types too,
+init-full +944 M.  As a static per-record fact (task #573's pattern) it is level-free
+(above), so one bit per rule / definition would do.
+
+**Adversarial check** (`tests/e2e/dag_beta_tower.ndjson.gz`, generator
+`_tmp/589/scripts/mkadv.py`): two definitions `fun x => t26`, `t0 = Nat.add x x`,
+`t(k+1) = Nat.add tk tk` — 28 DAG nodes, 2^27 tree nodes, all under the binder — and
+`dagF 0 = dagF2 0 := rfl`, which δ-unfolds and β-reduces both.  The value's flag is false
+(both entries), the memo walk runs: master 43.08 M, prototype 43.29 M, both accept.  The
+control with every `instantiateRev` walk memo-free: 511 G instructions, 16 GiB peak RSS.
+Pinned in `tests/e2e-expected.txt` (accept).
+
+**What landing would take in proofs.**  The memo-free walk carries its own subtype proofs
+(the memo walk's arm proofs, unchanged), and `instantiateRevRangeT_eq :
+instantiateRevRangeT tree e vs s n d = instantiateRevRange e vs s n d`
+(`Verify/Cached/OpsC.lean`, ten lines) uses only the two walks' subtypes: **the flag's
+meaning is never used** — confirmed.  Everything above the walk only threads a `Bool`:
+the three `KnotCongr` congruence lemmas of the threaded functions take one more `funext`
+argument (done); the executable's closure builds.  Outside it, `SimCEff`'s three
+per-declaration memo specs (`constTyAtM_spec`, `constValAtM_spec_of_find`, and the rule
+twin) fail in `finish`: the probe's registry is a new `CState` field updated beside the
+memo, and `CSOK` needs a frame lemma for it (it constrains nothing there).  `DiscC1/3/4`
+and `BetaSpine` (not reached past `SimCEff`) consume `instantiateRevRange_spec`-style
+equations, which `instantiateRevRangeT_spec`/`instantiateRevT_spec` provide.  The probe's
+pointer registry (an address-keyed map of the flagged values, looked up at each β head and
+spine) would need `withPtrAddr`, its obligation discharged by the spec equality; the ι site
+needs no pointer at all: the flag can sit beside the `ruleBodyAt` entry (or be a static
+bit on the rule), and the ι step passes it straight to `instantiateRevT`.
+
+**Recommendation.**  Not worth a campaign; at most the ι site.  The exact criterion
+reaches only the stored-record walks, and those are a minority of the substitution cost:
+ι + δ give −4.4 % gfci, −3.3 % grind-ring-5, −0.7 % init-full and −3…−7 % on the small
+arena perf streams, but +1.9 % init-prelude, at the price of a pointer registry in the
+core; the type site loses everywhere.  ι alone gives −3.6 % gfci, −2.0 % grind-ring-5,
+−0.4 % init-full, +0.2 % init-prelude, with no registry and the smallest proof (a second
+walk with its subtype, the ten-line equality, a flag in the `ruleBodyAt` entry). The
+large old win came from β walks over hash-consed user terms that are not trees; a
+memo-free walk there needs a different, non-exact criterion (a node budget), which the
+no-arbitrary-cut-offs ruling excludes.  Note that the #588 lane (fused minor β) reshapes
+exactly those β walks.
+
+**Outcome** (2026-11-15): the maintainer ruled that blow-ups on crafted input are acceptable as long as Lean-produced recursors have no sharing worth keeping between non-closed subterms.  So the ι site takes a memo-free walk with no flag (task #590), and the δ and type sites keep their memo.  The prototype stays on `probe/589-tree-walks`; this record and its fixture `dag_beta_tower` were copied to master.
