@@ -114761,7 +114761,7 @@ memo-free walk there needs a different, non-exact criterion (a node budget), whi
 no-arbitrary-cut-offs ruling excludes.  Note that the #588 lane (fused minor β) reshapes
 exactly those β walks.
 
-**Outcome** (2026-11-15): the maintainer ruled that blow-ups on crafted input are acceptable as long as Lean-produced recursors have no sharing worth keeping between non-closed subterms.  So the ι site takes a memo-free walk with no flag (task #590), and the δ and type sites keep their memo.  The prototype stays on `probe/589-tree-walks`; this record and its fixture `dag_beta_tower` were copied to master.
+**Outcome** (2026-11-15): the maintainer ruled that blow-ups on crafted input are acceptable as long as Lean-produced recursors have no sharing worth keeping between non-closed subterms.  So the ι site took a memo-free walk with no flag (task #590), and the δ and type sites kept their memo; #590 was then reverted (see its record).  The prototype stays on `probe/589-tree-walks`; this record and its fixture `dag_beta_tower` were copied to master.
 
 ## TASK #590 — the ι step substitutes the rule body without a memo (2026-11-15, agent/590-iota-treewalk)
 
@@ -114817,3 +114817,5 @@ run each; stdout minus `stats:` identical to master ed8fc008f's on every stream;
 | discarded-argument-match | 0.197 | 0.192 | −2.33 % |
 | beta-ladder | 4.936 | 4.926 | −0.20 % |
 | app-lam, church-numerals, identical-nesting, irrelevance-before-evaluation, let-ladder, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.3 % |
+
+**Reverted** (2026-11-15, maintainer).  The census covers init-full and mathlib-full only.  A recursor's rule body can contain constructor field types: the binder type of a reflexive field's induction hypothesis (`fun (a : A) => T.rec … (f a)`, `A` the field's domain) and the index arguments of an induction hypothesis (taken from the field's type).  A field type built from a dependent, instance-laden telescope, such as the FLT export's JZero structure (task #214: a 4 464-node DAG that is 38.8 M nodes as a tree, from `Rat` reached 666 617 times through the coercion chain), would then put a large shared DAG with loose bound variables into the body, and the memo-free walk would expand it at every ι step.  In JZero that DAG sat only in the leading λs' binder types, which the ι step strips (task #585), so JZero itself would not have been affected.  But no measurement excludes the reflexive-field and index shapes on FLT or NS, whose exports were never censused.  The exact flag of task #589 (memo-free only on a loose-bvar tree) was considered and rejected: two code paths and a performance cliff are not worth −0.2 … −0.8 points.  The ι step keeps the memo walk.

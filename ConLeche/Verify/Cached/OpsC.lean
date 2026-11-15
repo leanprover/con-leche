@@ -603,26 +603,6 @@ theorem instantiateRev_spec {e : Expr} {vs : Array Expr} {d : Nat} :
       = (Expr.instantiateList e (vs.toList.reverse) d) := by
   rw [Expr.instantiateRev, instantiateRevRange_spec, Array.extract_size]
 
-/-- The memo-free walk of the ι step has the memo walk's equation. -/
-theorem instantiateRevNoMemo_spec {e : Expr} {vs : Array Expr} :
-    (Expr.instantiateRevNoMemo e vs) = (Expr.instantiateList e (vs.toList.reverse) 0) := by
-  unfold Expr.instantiateRevNoMemo
-  split
-  · rename_i h0
-    have hnil : vs.toList.reverse = [] := by simp [Array.size_eq_zero_iff.mp h0]
-    rw [hnil]
-    exact (Expr.instantiateList_nil _ _).symm
-  · split
-    · rename_i hcut
-      exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
-    · rw [(Expr.instantiateRevNoMemoXP ..).2, instantiateRevP_eq (Nat.le_refl _),
-        instantiateListP_spec vs.size e (by simp)]
-      simp [List.take_of_length_le]
-
-theorem instantiateRevNoMemo_eq {e : Expr} {vs : Array Expr} :
-    Expr.instantiateRevNoMemo e vs = Expr.instantiateRev e vs := by
-  rw [instantiateRevNoMemo_spec, instantiateRev_spec]
-
 theorem instSpineC_spec {args : List Expr} {t : Nat} {e : Expr} :
     (Expr.instSpineC args t e) = Expr.instSpine args t e := by
   rw [Expr.instSpineC]

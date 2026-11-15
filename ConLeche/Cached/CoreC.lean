@@ -1044,15 +1044,9 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Ex
                     else pure true) then do
                   -- lean4 PR #10565's ι step: the rule's body under its
                   -- binders (the per-declaration memo), one substitution
-                  -- from the spine, no β-redex.  The substitution keeps
-                  -- no memo (`instantiateRevNoMemo`): the body is held by
-                  -- the rule memo, so the memo walk would insert every
-                  -- node, while Lean's rule bodies are (near-)trees below
-                  -- their binders (task #590's census: under three times
-                  -- the distinct nodes); a crafted body with sharing there
-                  -- is slow, never wrong
+                  -- from the spine, no β-redex
                   let body ← ruleBodyAtM fe c cj cn cjn us
-                  pure (some (Expr.instantiateRevNoMemo body (iotaVals args (min rP k) margs cnP)))
+                  pure (some (Expr.instantiateRev body (iotaVals args (min rP k) margs cnP)))
                 else pure none
               else pure none
             | none => pure none
