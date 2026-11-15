@@ -18,12 +18,13 @@ CHEAPPROJ split the body into the official kernel's pieces.)
   the shape-directed certificates and the `stuckIrrel` fallback every
   non-firing arm takes, on the *same* pair, which is why one disjunct
   covers them all.
+* `defeqLazy_inv` — the lazy comparison's case tree: the easy cases and
+  proof irrelevance on the unreduced pair (task #333), and then, under
+  the two cheap `whnfCore` reducts, the easy cases again, a lazy-delta
+  verdict, or — on the pair the lazy loop got stuck on — the proj/proj
+  check, the stuck comparison, or the restart after the full `whnfCore`.
 * `defeqBody_inv` — the body's case tree: the syntactic fast path, the
-  `Bool.true` shortcut, the easy cases and proof irrelevance on the
-  unreduced pair (task #333), and then, under the two cheap `whnfCore`
-  reducts, the easy cases again, a lazy-delta verdict, or — on the pair
-  the lazy loop got stuck on — the proj/proj check, the stuck
-  comparison, or the restart after the full `whnfCore`.
+  constructor shortcut's two sides, and the lazy comparison.
 
 The loops (`lazyDeltaReduction`, `lazyDeltaProjReduction`) and the
 one-step helpers are bridged directly in `DefEqBridge.lean`, by
@@ -298,21 +299,13 @@ theorem defeqStuck_inv {d : Nat} {a b : Expr}
   · -- distinct stuck head symbols
     exact hfall h
 
-/-- `Expr.isBoolTrue` reads exactly the constant `Bool.true`. -/
-theorem isBoolTrue_iff {e : Expr} : e.isBoolTrue = true ↔ e = .const boolTrueName [] := by
-  cases e <;> (try cases ‹List Level›) <;> simp [Expr.isBoolTrue]
-
-/-- **The inversion of `defeqBody`** (`Kernel/Core.lean`): the
-prefix's four exits (the syntactic fast path, the `Bool.true` shortcut,
-the easy cases and proof irrelevance, both on the unreduced pair) and,
-under the two cheap `whnfCore` reducts, the easy cases, a lazy-delta
-verdict, or the three ways
-the comparison of the pair the lazy loop got stuck on can succeed. -/
-theorem defeqBody_inv {d : Nat} {a b : Expr}
-    (h : defeqBody μ eager (pureFns μ eager env fuel) env d a b = .ok true) :
-    a = b ∨
-    (b = .const boolTrueName [] ∧
-      boolTrueShortcutFueled μ eager env fuel d a = .ok true) ∨
+/-- **The inversion of `defeqLazy`** (`Kernel/Core.lean`): the easy
+cases and proof irrelevance, both on the unreduced pair, and, under the
+two cheap `whnfCore` reducts, the easy cases, a lazy-delta verdict, or
+the three ways the comparison of the pair the lazy loop got stuck on can
+succeed. -/
+theorem defeqLazy_inv {d : Nat} {a b : Expr}
+    (h : defeqLazyFueled μ eager env fuel d a b = .ok true) :
     quickDefEqFueled μ eager env fuel d a b = .ok (some true) ∨
     propIrrelFueled μ eager env fuel d a b = .ok true ∨
     ∃ a' b', whnfCore μ eager env fuel d a true = .ok a' ∧
@@ -327,30 +320,9 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
           ∃ a₂ b₂, whnfCore μ eager env fuel d a₁ = .ok a₂ ∧
             whnfCore μ eager env fuel d b₁ = .ok b₂ ∧
             isDefEqCore μ eager env fuel d a₂ b₂ = .ok true)) := by
-  simp only [defeqBody, Bind.bind, Except.bind, whnfCore_def,
-    propIrrel_fold, boolTrueShortcut_fold, quickDefEq_fold,
+  simp only [defeqLazyFueled, defeqLazy, Bind.bind, Except.bind, whnfCore_def,
+    propIrrel_fold, quickDefEq_fold,
     lazyDeltaReduction_fold, defeqProjPair_fold, defeqStuck_fold, defeq_def] at h
-  by_cases hab : (a == b) = true
-  · exact Or.inl (eq_of_beq hab)
-  rw [ite_eq_right hab] at h
-  cases hbt : (if b.isBoolTrue && (eager || !a.hasFvar) then
-      boolTrueShortcutFueled μ eager env fuel d a else pure false) with
-  | error err => rw [hbt] at h; exact nomatch h
-  | ok rbt =>
-  rw [hbt] at h
-  dsimp only at h
-  cases rbt with
-  | true =>
-    have hbt' : boolTrueShortcutFueled μ eager env fuel d a = .ok true ∧
-        b.isBoolTrue = true := by
-      split at hbt
-      · next hc =>
-        simp only [Bool.and_eq_true] at hc
-        exact ⟨hbt, hc.1⟩
-      · exact nomatch hbt
-    exact Or.inr (Or.inl ⟨isBoolTrue_iff.mp hbt'.2, hbt'.1⟩)
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte] at h
   cases hq₀ : quickDefEqFueled μ eager env fuel d a b with
   | error err => rw [hq₀] at h; exact nomatch h
   | ok oq₀ =>
@@ -360,7 +332,7 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
   | some v =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
-    exact Or.inr (Or.inr (Or.inl rfl))
+    exact Or.inl rfl
   | none =>
   dsimp only at h
   cases hir : propIrrelFueled μ eager env fuel d a b with
@@ -369,7 +341,7 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
   rw [hir] at h
   dsimp only at h
   cases r with
-  | true => exact Or.inr (Or.inr (Or.inr (Or.inl rfl)))
+  | true => exact Or.inr (Or.inl rfl)
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   cases hwca : whnfCore μ eager env fuel d a true with
@@ -382,7 +354,7 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
   | ok b' =>
   rw [hwcb] at h
   dsimp only at h
-  refine Or.inr (Or.inr (Or.inr (Or.inr ⟨a', b', rfl, rfl, ?_⟩)))
+  refine Or.inr (Or.inr ⟨a', b', rfl, rfl, ?_⟩)
   cases hq : quickDefEqFueled μ eager env fuel d a' b' with
   | error err => rw [hq] at h; exact nomatch h
   | ok oq =>
@@ -432,5 +404,43 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
   split at h
   · exact Or.inr (Or.inl h)
   · exact Or.inr (Or.inr ⟨a₂, b₂, rfl, rfl, h⟩)
+
+/-- **The inversion of `defeqBody`** (`Kernel/Core.lean`): the syntactic
+fast path, the constructor shortcut's two sides (the lazy comparison of
+one side's head normal form against the other side) and the lazy
+comparison of the pair. -/
+theorem defeqBody_inv {d : Nat} {a b : Expr}
+    (h : defeqBody μ eager (pureFns μ eager env fuel) env d a b = .ok true) :
+    a = b ∨
+    (∃ w, whnf μ eager env fuel d a = .ok w ∧
+      defeqLazyFueled μ eager env fuel d w b = .ok true) ∨
+    (∃ w, whnf μ eager env fuel d b = .ok w ∧
+      defeqLazyFueled μ eager env fuel d a w = .ok true) ∨
+    defeqLazyFueled μ eager env fuel d a b = .ok true := by
+  simp only [defeqBody, Bind.bind, Except.bind, whnf_def, defeqLazy_fold] at h
+  by_cases hab : (a == b) = true
+  · exact Or.inl (eq_of_beq hab)
+  rw [ite_eq_right hab] at h
+  split at h
+  · cases hw : whnf μ eager env fuel d a with
+    | error err => rw [hw] at h; exact nomatch h
+    | ok w =>
+    rw [hw] at h
+    dsimp only at h
+    split at h
+    · exact Or.inr (Or.inl ⟨w, rfl, h⟩)
+    · exact nomatch h
+    · exact Or.inr (Or.inr (Or.inr h))
+  · split at h
+    · cases hw : whnf μ eager env fuel d b with
+      | error err => rw [hw] at h; exact nomatch h
+      | ok w =>
+      rw [hw] at h
+      dsimp only at h
+      split at h
+      · exact Or.inr (Or.inr (Or.inl ⟨w, rfl, h⟩))
+      · exact nomatch h
+      · exact Or.inr (Or.inr (Or.inr h))
+    · exact Or.inr (Or.inr (Or.inr h))
 
 end ConLeche.Rules

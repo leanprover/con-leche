@@ -141,6 +141,35 @@ def iotaNumArgs : Expr → Nat → Nat
   | .app f _, n => iotaNumArgs f (n + 1)
   | _, n => n
 
+/-- Twin of `ctorTarget` (the spine's length counted, not listed). -/
+def ctorTargetC (fe : FEnv) (e : Expr) : Option Name :=
+  if Expr.hasFvar e then none else
+  match Expr.getAppFn e with
+  | .const c _ =>
+    match fe.find? c with
+    | some (.ctorInfo _ cnP cnF T) =>
+      if T != natName && iotaNumArgs e 0 == cnP + cnF then
+        match fe.find? T with
+        | some (.indInfo _ caps) => if caps.neverZero && !caps.eta then some c else none
+        | _ => none
+      else none
+    | _ => none
+  | _ => none
+
+/-- Twin of `ctorTargetFor`. -/
+def ctorTargetForC (fe : FEnv) (eager : Bool) (o e : Expr) : Option Name :=
+  if eager || !Expr.hasFvar o then ctorTargetC fe e else none
+
+/-- Twin of `ctorHeadAgainst`. -/
+def ctorHeadAgainstC (fe : FEnv) (c : Name) (w : Expr) : Option Bool :=
+  match Expr.getAppFn w with
+  | .const d _ =>
+    if d == c then some true else
+    match fe.find? d with
+    | some (.ctorInfo ..) => some false
+    | _ => none
+  | _ => none
+
 /-- Fill `acc` from position `i` down with the arguments of the spine `e`,
 innermost first (`getAppArgsArr`). -/
 def getAppArgsArrGo : Expr → Nat → Array Expr → Array Expr
@@ -1662,12 +1691,6 @@ def inferBodyIOI (eager : Bool) (lv : Nat) : Nat → Expr → CheckCM Expr :=
     | _ => inferBodyI eager lv true depth e
 termination_by (lv, 49, 0, 0)
 
-/-- Twin of `boolTrueShortcut`. -/
-def boolTrueShortcutI (eager : Bool) (lv : Nat) (depth : Nat) (a : Expr) : CheckCM Bool := do
-  let w ← whnfI eager lv depth a
-  pure (Expr.isBoolTrue w)
-termination_by (lv, 50, 0, 0)
-
 /-- Twin of `defeqBindersInner`. -/
 def defeqBindersInnerI (eager : Bool) (lv : Nat) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) :
     CheckCM Bool := do
@@ -1907,36 +1930,51 @@ def defeqStuckI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) :
   | _, _ => stuckIrrelI eager lv depth a b
 termination_by (lv, 62, 0, 0)
 
+/-- Twin of `defeqLazy`. -/
+def defeqLazyI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) : CheckCM Bool := do
+  match ← quickDefEqI eager lv depth a b with
+  | some v => pure v
+  | none =>
+  -- task #333: proof irrelevance before any head normalization
+  if ← propIrrelI eager lv depth a b then pure true else
+  let a' ← whnfCoreI eager lv true depth a
+  let b' ← whnfCoreI eager lv true depth b
+  match ← quickDefEqI eager lv depth a' b' with
+  | some v => pure v
+  | none =>
+  match ← lazyDeltaReductionI eager lv depth defeqLoopFuel a' b' with
+  | .verdict v => pure v
+  | .unknown a₁ b₁ =>
+  if ← defeqProjPairI eager lv depth a₁ b₁ then pure true else
+  if !(Expr.headIsProj a₁) && !(Expr.headIsProj b₁) then
+    defeqStuckI eager lv depth a₁ b₁ else
+  let a₂ ← whnfCoreI eager lv false depth a₁
+  let b₂ ← whnfCoreI eager lv false depth b₁
+  if a₂ == a₁ && b₂ == b₁ then defeqStuckI eager lv depth a₁ b₁
+  else defeqI eager lv depth a₂ b₂
+termination_by (lv, 63, 0, 0)
+
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (eager : Bool) (lv : Nat) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => do
     if a == b then pure true else
-    -- the eq-true shortcut (E2), as in the spec
-    let bt ← pure (Expr.isBoolTrue b)
-    let af ← pure (Expr.hasFvar a)
-    if ← (if bt && (eager || !af) then boolTrueShortcutI eager lv depth a
-        else pure false) then pure true else
-    match ← quickDefEqI eager lv depth a b with
-    | some v => pure v
+    match ctorTargetForC fe eager a b with
+    | some c =>
+      let w ← whnfI eager lv depth a
+      match ctorHeadAgainstC fe c w with
+      | some true => defeqLazyI eager lv depth w b
+      | some false => pure false
+      | none => defeqLazyI eager lv depth a b
     | none =>
-    -- task #333: proof irrelevance before any head normalization
-    if ← propIrrelI eager lv depth a b then pure true else
-    let a' ← whnfCoreI eager lv true depth a
-    let b' ← whnfCoreI eager lv true depth b
-    match ← quickDefEqI eager lv depth a' b' with
-    | some v => pure v
-    | none =>
-    match ← lazyDeltaReductionI eager lv depth defeqLoopFuel a' b' with
-    | .verdict v => pure v
-    | .unknown a₁ b₁ =>
-    if ← defeqProjPairI eager lv depth a₁ b₁ then pure true else
-    if !(Expr.headIsProj a₁) && !(Expr.headIsProj b₁) then
-      defeqStuckI eager lv depth a₁ b₁ else
-    let a₂ ← whnfCoreI eager lv false depth a₁
-    let b₂ ← whnfCoreI eager lv false depth b₁
-    if a₂ == a₁ && b₂ == b₁ then defeqStuckI eager lv depth a₁ b₁
-    else defeqI eager lv depth a₂ b₂
-termination_by (lv, 63, 0, 0)
+    match ctorTargetForC fe eager b a with
+    | some c =>
+      let w ← whnfI eager lv depth b
+      match ctorHeadAgainstC fe c w with
+      | some true => defeqLazyI eager lv depth a w
+      | some false => pure false
+      | none => defeqLazyI eager lv depth a b
+    | none => defeqLazyI eager lv depth a b
+termination_by (lv, 64, 0, 0)
 
 /-- **The whnfCore entry point** at knot level `lv`: the loop, which
 looks its terms up in the mode's memo (`whnfCoreLoopI`). -/

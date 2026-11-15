@@ -92,6 +92,21 @@ theorem etaCtorShapeC_congr (hfe : fe₁.find? = fe₂.find?) :
     etaCtorShapeC fe₁ = etaCtorShapeC fe₂ := by
   funext e; unfold etaCtorShapeC; simp only [hfe]
 
+/-- `ctorTargetC` reads `fe` only through `find?`. -/
+theorem ctorTargetC_congr (hfe : fe₁.find? = fe₂.find?) :
+    ctorTargetC fe₁ = ctorTargetC fe₂ := by
+  funext e; unfold ctorTargetC; simp only [hfe]
+
+/-- `ctorTargetForC` reads `fe` only through `find?`. -/
+theorem ctorTargetForC_congr (hfe : fe₁.find? = fe₂.find?) :
+    ctorTargetForC fe₁ = ctorTargetForC fe₂ := by
+  funext eager o e; unfold ctorTargetForC; simp only [ctorTargetC_congr hfe]
+
+/-- `ctorHeadAgainstC` reads `fe` only through `find?`. -/
+theorem ctorHeadAgainstC_congr (hfe : fe₁.find? = fe₂.find?) :
+    ctorHeadAgainstC fe₁ = ctorHeadAgainstC fe₂ := by
+  funext c w; unfold ctorHeadAgainstC; simp only [hfe]
+
 /-- `constTyAtM` reads `fe` only through `find?`. -/
 theorem constTyAtM_congr (hfe : fe₁.find? = fe₂.find?) :
     constTyAtM fe₁ = constTyAtM fe₂ := by
@@ -641,18 +656,23 @@ theorem defeqStuckI_congr (hfe : fe₁.find? = fe₂.find?)
   simp only [stuckIrrelI_congr hfe htb h, FEnv.strLit_congr hfe,
     defEqListI_congr hfe h, etaCertI_congr hfe h, h]
 
+/-- `defeqLazyI` reads `fe` only through `find?` and `findTable?`. -/
+theorem defeqLazyI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    defeqLazyI mode fe₁ eager lv = defeqLazyI mode fe₂ eager lv := by
+  have hpp : defeqProjPairI mode fe₁ eager lv = defeqProjPairI mode fe₂ eager lv := by
+    funext depth a b; rw [defeqProjPairI.eq_def, defeqProjPairI.eq_def]
+    simp only [lazyDeltaProjReductionI_congr hfe htb h]
+  funext depth a b; rw [defeqLazyI.eq_def, defeqLazyI.eq_def]
+  simp only [quickDefEqI_congr hfe h, propIrrelI_congr hfe htb h,
+    lazyDeltaReductionI_congr hfe h, hpp, defeqStuckI_congr hfe htb h, h]
+
 /-- `defeqBodyI` reads `fe` only through `find?` and `findTable?`. -/
 theorem defeqBodyI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     defeqBodyI mode fe₁ eager lv = defeqBodyI mode fe₂ eager lv := by
-  have hbt : boolTrueShortcutI mode fe₁ eager lv = boolTrueShortcutI mode fe₂ eager lv := by
-    funext depth a; rw [boolTrueShortcutI.eq_def, boolTrueShortcutI.eq_def]; simp only [h]
-  have hpp : defeqProjPairI mode fe₁ eager lv = defeqProjPairI mode fe₂ eager lv := by
-    funext depth a b; rw [defeqProjPairI.eq_def, defeqProjPairI.eq_def]
-    simp only [lazyDeltaProjReductionI_congr hfe htb h]
   funext depth a b; rw [defeqBodyI.eq_def, defeqBodyI.eq_def]
-  simp only [hbt, quickDefEqI_congr hfe h, propIrrelI_congr hfe htb h,
-    lazyDeltaReductionI_congr hfe h, hpp, defeqStuckI_congr hfe htb h, h]
+  simp only [ctorTargetForC_congr hfe, ctorHeadAgainstC_congr hfe, defeqLazyI_congr hfe htb h, h]
 
 end Level
 

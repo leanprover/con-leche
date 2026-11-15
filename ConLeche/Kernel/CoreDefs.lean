@@ -452,12 +452,6 @@ arguments, any universe levels. -/
 def boolTrueName : Name := boolName.str "true"
 def boolFalseName : Name := boolName.str "false"
 
-/-- Is `e` the constant `Bool.true` — the official kernel's
-`is_constant(e, Bool.true)` (`type_checker.cpp:1097`): the name, no
-universe levels. -/
-def Expr.isBoolTrue : Expr → Bool
-  | .const c [] => c == boolTrueName
-  | _ => false
 
 /-- The certified structural-`Nat` operations.  Six of them
 (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
@@ -746,6 +740,45 @@ def etaCtorPartial (env : Env) (a : Expr) : Option Nat :=
           | none => none
         | _ => none
       else none
+    | _ => none
+  | _ => none
+
+/-- **The constructor shortcut's target** (`defeqBody`): `some c` when
+`e` is a closed application of the stored constructor `c` to exactly its
+parameters and fields, whose family is never a proposition
+(`IndCaps.neverZero`), has no η law (`IndCaps.eta`: the structures and
+the unit-like types) and is not `Nat`.  On such a side a comparison is
+decided by the other side's head normal form (`ctorHeadAgainst`). -/
+def ctorTarget (env : Env) (e : Expr) : Option Name :=
+  if e.hasFvar then none else
+  match e.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.ctorInfo _ cnP cnF T) =>
+      if T != natName && e.getAppArgs.length == cnP + cnF then
+        match env.find? T with
+        | some (.indInfo _ caps) => if caps.neverZero && !caps.eta then some c else none
+        | _ => none
+      else none
+    | _ => none
+  | _ => none
+
+/-- **The constructor shortcut's gate**: the target `e` (`ctorTarget`)
+when the other side `o`, the one to be head-normalised, is fvar-free or
+the eager flag is set (official's `!has_fvar(t) || m_eager_reduce`, task
+#353). -/
+def ctorTargetFor (env : Env) (eager : Bool) (o e : Expr) : Option Name :=
+  if eager || !o.hasFvar then ctorTarget env e else none
+
+/-- **A head normal form against the constructor `c`**: `some true` when
+its head is `c`, `some false` when it is another stored constructor,
+`none` otherwise. -/
+def ctorHeadAgainst (env : Env) (c : Name) (w : Expr) : Option Bool :=
+  match w.getAppFn with
+  | .const d _ =>
+    if d == c then some true else
+    match env.find? d with
+    | some (.ctorInfo ..) => some false
     | _ => none
   | _ => none
 

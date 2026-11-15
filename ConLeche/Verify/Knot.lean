@@ -261,9 +261,6 @@ abbrev projLitToCtorFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel :
 abbrev reduceNatFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM (Option Expr) := reduceNat (pureFns mode eager env fuel) env
 
-abbrev boolTrueShortcutFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat →
-    Expr →
-    CheckM Bool := boolTrueShortcut (pureFns mode eager env fuel)
 
 abbrev defeqSpineFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
     Expr →
@@ -317,6 +314,9 @@ abbrev defeqStuckFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Na
     Expr →
     CheckM Bool := defeqStuck mode (pureFns mode eager env fuel) env
 
+abbrev defeqLazyFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
+    Expr → CheckM Bool := defeqLazy mode eager (pureFns mode eager env fuel) env
+
 /-! Folding rewrites: record-applied helper spellings into their fueled
 `P` names (used right after unfolding a body in an inversion proof). -/
 
@@ -366,9 +366,6 @@ theorem projLitToCtor_fold (env : Env) (fuel : Nat) :
     projLitToCtor (pureFns mode eager env fuel) env = projLitToCtorFueled mode eager env fuel := rfl
 theorem reduceNat_fold (env : Env) (fuel : Nat) :
     reduceNat (pureFns mode eager env fuel) env = reduceNatFueled mode eager env fuel := rfl
-theorem boolTrueShortcut_fold (env : Env) (fuel : Nat) :
-    boolTrueShortcut (pureFns mode eager env fuel) = boolTrueShortcutFueled mode eager env fuel :=
-        rfl
 theorem defeqSpine_fold (env : Env) (fuel : Nat) :
     defeqSpine (pureFns mode eager env fuel) env = defeqSpineFueled mode eager env fuel := rfl
 theorem reduceProjCore_fold (env : Env) (fuel : Nat) :
@@ -397,5 +394,8 @@ theorem defeqProjPair_fold (env : Env) (fuel : Nat) :
         := rfl
 theorem defeqStuck_fold (env : Env) (fuel : Nat) :
     defeqStuck mode (pureFns mode eager env fuel) env = defeqStuckFueled mode eager env fuel := rfl
+theorem defeqLazy_fold (env : Env) (fuel : Nat) :
+    defeqLazy mode eager (pureFns mode eager env fuel) env = defeqLazyFueled mode eager env fuel :=
+        rfl
 
 end ConLeche

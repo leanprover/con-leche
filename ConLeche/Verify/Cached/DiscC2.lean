@@ -40,16 +40,6 @@ theorem propIrrelC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s�
       -- the pure side is nine binds deep, one `Runs.bind_eq` generation each
       finish (gen := 12)
 
-/-- The eq-true shortcut (the audit's E2) simulates its specification:
-one `whnf`, then the store read of the head test. -/
-theorem boolTrueShortcutC_spec (ih : SSimC mode eager env f) {d : Nat} {a : Expr} {s₀ : CState}
-    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d a) :
-    ⦃fun s => s = s₀⦄ boolTrueShortcutI mode (mkFEnv env) eager f d a
-    ⦃fun v s' => CSOK mode eager env s' ∧ Runs (boolTrueShortcut (fueledFns mode eager env) d a) v;
-        ⊤⦄ := by
-  sym only [conleche_grind, boolTrueShortcut] =>
-    vcgen [boolTrueShortcutI.eq_def, ih.whnf_spec] <;> finish
-
 /-- `proofIrrelI` simulates its fueled original. -/
 theorem proofIrrelC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
