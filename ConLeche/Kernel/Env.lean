@@ -125,7 +125,9 @@ inductive RecRuleFire where
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
 `nfields` fields: the record's three fields, as Lean's `RecursorRule`
-has them.  `fire` (the plain/nested firing mode) is read off the
+has them.  The ι step reads `rhs` under those leading λs and substitutes
+the arguments there (`RecRule.iotaReduct`); the install checks that the
+λs are there (`RuleWF`).  `fire` (the plain/nested firing mode) is read off the
 recursor's record, the group alone (`storedFire`); input rules carry the
 parse placeholder `.plain`.  The constructor's parameter count is the
 constructor's, looked up where the rule fires. -/

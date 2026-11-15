@@ -2492,8 +2492,8 @@
    124  /-- Store one more constant. -/
    125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L457
-   457  structure Env where
+== ConLeche/Kernel/Env.lean#L459
+   459  structure Env where
 
 == whitepaper/Fragment/Env.lean#L63-L100
     63  /-- What kind of constant a name is stored as. -/
@@ -2535,31 +2535,31 @@
     99    kind : ConstKind
    100    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L289-L312
-   289  inductive ConstantInfo where
-   290    | axiomInfo (val : ConstantVal)
-   291    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   292    | thmInfo (val : ConstantVal)
-   293    /-- An inductive type former (whnf-stuck) with its capabilities. -/
-   294    | indInfo (val : ConstantVal) (caps : IndCaps)
-   295    /-- A constructor (whnf-stuck; the iota target), with its family's name
-   296    (official's `ConstructorVal.induct`): the head constant of its declared
-   297    type's result, which its install reads off the member it is checked
-   298    against (an environment invariant, `CtorWF`).  The readers that need the
-   299    family (the ι case split, the rescues, η) look it up by this name instead
-   300    of walking the type. -/
-   301    | ctorInfo (val : ConstantVal) (numParams numFields : Nat) (induct : Name)
-   302    /-- A recursor with its iota rules and the record's K flag (official's
-   303    `recursor_val::is_k`, read off the stream's record; the block's job
-   304    checks it).  Only the two sums the
-   305    firing path reads are stored: `majorIdx` (= numParams + numMotives +
-   306    numMinors + numIndices, the major premise's argument position) and
-   307    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
-   308    argument prefix a rule's rhs is applied to).  The individual counts
-   309    are consumed at its check only and are not stored. -/
-   310    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-   311        (isK : Bool) (rules : List RecRule)
-   312    deriving DecidableEq, Repr, Inhabited
+== ConLeche/Kernel/Env.lean#L291-L314
+   291  inductive ConstantInfo where
+   292    | axiomInfo (val : ConstantVal)
+   293    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   294    | thmInfo (val : ConstantVal)
+   295    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   296    | indInfo (val : ConstantVal) (caps : IndCaps)
+   297    /-- A constructor (whnf-stuck; the iota target), with its family's name
+   298    (official's `ConstructorVal.induct`): the head constant of its declared
+   299    type's result, which its install reads off the member it is checked
+   300    against (an environment invariant, `CtorWF`).  The readers that need the
+   301    family (the ι case split, the rescues, η) look it up by this name instead
+   302    of walking the type. -/
+   303    | ctorInfo (val : ConstantVal) (numParams numFields : Nat) (induct : Name)
+   304    /-- A recursor with its iota rules and the record's K flag (official's
+   305    `recursor_val::is_k`, read off the stream's record; the block's job
+   306    checks it).  Only the two sums the
+   307    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   308    numMinors + numIndices, the major premise's argument position) and
+   309    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   310    argument prefix a rule's rhs is applied to).  The individual counts
+   311    are consumed at its check only and are not stored. -/
+   312    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+   313        (isK : Bool) (rules : List RecRule)
+   314    deriving DecidableEq, Repr, Inhabited
 
 == whitepaper/Fragment/Syntax.lean#L35-L36
     35    /-- A constant of the environment at a level instantiation. -/
@@ -3399,16 +3399,16 @@
     79    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
     80    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L132-L140
-   132  structure RecRule where
-   133    ctor : Name
-   134    nfields : Nat
-   135    /-- The firing mode (install-computed, parse placeholder `.plain`):
-   136    `.plain` at a member major, `.nested` at an outside one. -/
-   137    fire : RecRuleFire
-   138    rhs : Expr
-   139    deriving DecidableEq, Repr, Inhabited
-   140  
+== ConLeche/Kernel/Env.lean#L134-L142
+   134  structure RecRule where
+   135    ctor : Name
+   136    nfields : Nat
+   137    /-- The firing mode (install-computed, parse placeholder `.plain`):
+   138    `.plain` at a member major, `.nested` at an outside one. -/
+   139    fire : RecRuleFire
+   140    rhs : Expr
+   141    deriving DecidableEq, Repr, Inhabited
+   142  
 
 == whitepaper/Fragment/Env.lean#L53-L60
     53    /-- **The K flag** (Lean's `RecursorVal.k`): the rule

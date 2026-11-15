@@ -884,15 +884,15 @@
 == ConLeche/Kernel/Inductives/BlockShape.lean#L401
    401  def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
 
-== ConLeche/Kernel/Env.lean#L416-L423
-   416  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   417    block.all fun ci => match ci with
-   418      | .indInfo cvT _ =>
-   419        match cvT.type.piSortTeleLen? with
-   420        | some n => decide (nP ≤ n)
-   421        | none => true
-   422      | .ctorInfo _ nPc _ _ => nPc == nP
-   423      | _ => true
+== ConLeche/Kernel/Env.lean#L418-L425
+   418  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   419    block.all fun ci => match ci with
+   420      | .indInfo cvT _ =>
+   421        match cvT.type.piSortTeleLen? with
+   422        | some n => decide (nP ≤ n)
+   423        | none => true
+   424      | .ctorInfo _ nPc _ _ => nPc == nP
+   425      | _ => true
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L153
    153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :

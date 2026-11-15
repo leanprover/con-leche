@@ -302,7 +302,7 @@ generated type a well-denoted type.
 The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
 (#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 132, 140)[as in con-leche]). Written
+#src("ConLeche/Kernel/Env.lean", 134, 142)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$, a definition (@sec:env);
