@@ -182,9 +182,9 @@ theorem streamRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf Check
     {ops : CheckerOps m} {fe₁ fe₂ : FEnv}
     (hfe : fe₁.find? = fe₂.find?) (henv : fe₁.env = fe₂.env) :
     streamRecsCheck ops fe₁ = streamRecsCheck ops fe₂ := by
-  have hrules : ∀ rec lps rs gs, streamRulesCheck ops fe₁ rec lps rs gs
-      = streamRulesCheck ops fe₂ rec lps rs gs := by
-    intro rec lps rs
+  have hrules : ∀ rec lps rP rs gs, streamRulesCheck ops fe₁ rec lps rP rs gs
+      = streamRulesCheck ops fe₂ rec lps rP rs gs := by
+    intro rec lps rP rs
     induction rs with
     | nil => intro gs; cases gs <;> rfl
     | cons r rs ih =>

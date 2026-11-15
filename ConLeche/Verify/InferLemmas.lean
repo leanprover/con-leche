@@ -9,6 +9,7 @@ import ConLeche.Verify.Knot
 public import ConLeche.Verify.StrLitExpr
 import ConLeche.Verify.InstList
 public import ConLeche.Verify.InstSpine
+import ConLeche.Verify.IotaReduct
 
 public section
 
@@ -714,9 +715,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
         iotaIndexOkFueled mode eager env fuel d mI rP cnP
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs ((e.getAppArgs.take mI).drop rP) = .ok true)) ∧
-      eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
-        (e.getAppArgs.take rP ++
-          major.getAppArgs.drop cnP) := by
+      eout = r.iotaReduct cv.levelParams us rP
+        (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP) := by
   dsimp only [iotaRecFueled] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
   simp only [prepareMajor_fold, defEqList_fold,
@@ -2663,13 +2663,9 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
             exact ⟨hwf', hw.2⟩
           have hargs : ∀ x, x ∈ (Expr.app f' a).getAppArgs → WScoped d x :=
             fun x hx => hwapp.getAppArgs x hx
-          have hrhs : WScoped d
-              (r.rhs.instantiateLevelParams cv.levelParams us) := by
+          have hrf : r.rhs.hasFvar = false := by
             obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
-            obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl r
-              (List.mem_of_find?_eq_some hrule)
-            exact WScoped.of_not_hasFvar
-              (by rw [hasFvar_instantiateLevelParams]; exact hrf)
+            exact (hrules cv mI rP isK rules rfl r (List.mem_of_find?_eq_some hrule)).1
           -- the major's scoping, through the chain in either order
           have hmajw : WScoped d major :=
             prepareMajorFueled_ind hprep (WScoped d)
@@ -2684,7 +2680,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
                 · exact WScoped.of_wscopedB hwsc)
               (hargs _ (getD_mem (by omega)))
           refine ihCore hwe'' ?_
-          refine Expr.WScoped.mkAppN hrhs ?_
+          refine RecRule.iotaReduct_WScoped hrf ?_
           intro x hx
           rcases List.mem_append.mp hx with hx | hx
           · exact hargs _ (List.mem_of_mem_take hx)

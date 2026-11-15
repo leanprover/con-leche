@@ -210,6 +210,10 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         subst h4
         intro r hr; exact nomatch hr)⟩
+      (hr := fun _ _ _ _ _ heq => by
+        injection heq with _ _ _ _ h4
+        subst h4
+        intro r hr; exact nomatch hr)
     show Expr.constsResolve _ emptyRecA.toConstantVal.type = true
     simp only [show emptyRecA.toConstantVal.type
         = Expr.forallE

@@ -6,6 +6,7 @@ public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.PinRen
+import ConLeche.Verify.IotaReduct
 
 @[expose] public section
 
@@ -43,7 +44,7 @@ theorem ConstantValRun.envWF_cons {F : Nat} {env : Env} {cv : ConstantVal} {type
   obtain ⟨-, -, hlbt, hitf, hann, htp, htr, -, hshape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   refine EnvWF.cons (hshape _ (by rw [hc, hann])) henv ?_ (IndWF.of_not_ind hni)
-    (CtorWF.of_not_ctor hnc)
+    (CtorWF.of_not_ctor hnc) (RuleWF.of_not_rec hnr)
   refine ⟨?_, ?_, ?_, ?_, fun cv' v h heq => absurd heq (hnd cv' v h),
     fun cv' mI rP isK rules heq => absurd heq (hnr cv' mI rP isK rules)⟩ <;> rw [hc]
   · exact htf'
@@ -129,6 +130,24 @@ def recRulesOkB (E₀ : Env) : ConstantInfo → Bool
       r.rhs.looseBVarsBounded 0 && fireNotNestedB r.fire
   | _ => true
 
+/-- **A copy at other level-parameter names binds what the original binds.** -/
+theorem ruleWF_atLps {pin : ConstantInfo} (ps : List Name) (h : recRulesBindB pin = true) :
+    RuleWF (pin.atLps ps) := by
+  intro cv mI rP isK rules heq r hr
+  cases pin with
+  | recInfo cvp a b c rs =>
+    simp only [ConstantInfo.atLps] at heq
+    injection heq with e0 e1 e2 e3 e4
+    subst e0 e1 e2 e3 e4
+    obtain ⟨rp, hrp, rfl⟩ := List.mem_map.mp hr
+    have hg := (List.all_eq_true.mp h) rp hrp
+    simp only [Bool.and_eq_true, decide_eq_true_eq] at hg
+    refine ⟨hg.1, ?_⟩
+    show ((rp.rhs.instantiateLevelParams _ _).stripLams _).isSome = true
+    rw [stripLams_instantiateLevelParams, Option.isSome_map]
+    exact hg.2
+  | _ => simp [ConstantInfo.atLps] at heq
+
 /-- **A copy of a constant at other level-parameter names keeps its well-formedness**, read at
 any environment storing what the original's resolution needs (`hdom`). -/
 theorem constWF_atLps {E E₀ : Env}
@@ -184,8 +203,9 @@ theorem quotPin_facts (k : QuotKind) :
       (quotPin k).toConstantVal.levelParams = true ∧
     (quotPin k).toConstantVal.type.constsResolve (quotStub k) = true ∧
     (quotPin k).toConstantVal.type.looseBVarsBounded 0 = true ∧
-    notDefnB (quotPin k) = true ∧ recRulesOkB (quotStub k) (quotPin k) = true := by
-  cases k <;> exact ⟨by decide, by decide, by decide, by decide, by decide, by decide⟩
+    notDefnB (quotPin k) = true ∧ recRulesOkB (quotStub k) (quotPin k) = true ∧
+    recRulesBindB (quotPin k) = true := by
+  cases k <;> exact ⟨by decide, by decide, by decide, by decide, by decide, by decide, by decide⟩
 
 /-- **A quotient record's install keeps well-formedness.** -/
 theorem declQuotRun_envWF {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
@@ -208,7 +228,7 @@ theorem declQuotRun_envWF {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
     · rw [ite_eq_left hs]; rfl
     · rw [ite_eq_right hs]
       exact hpred n (quotStub_find hn) fun he => hs (hname.trans he.symm)
-  obtain ⟨f1, f2, f3, f4, f5, f6⟩ := quotPin_facts k
+  obtain ⟨f1, f2, f3, f4, f5, f6, f7⟩ := quotPin_facts k
   have hshape : litShapeOk (quotAt k cv) = true :=
     litShapeOk_of_not_lit (by rw [hname]; cases k <;> decide)
   exact EnvWF.cons hshape henv
@@ -225,6 +245,7 @@ theorem declQuotRun_envWF {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
         quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at h
       obtain ⟨rfl, -, -, rfl⟩ := h
       exact ⟨_, rfl⟩)
+    (ruleWF_atLps _ f7)
 
 /-! ## The step and the folds -/
 
@@ -277,7 +298,7 @@ theorem checkDecl_envWF {F : Nat} {env env₂ : Env} {d : Declaration} (henv : E
 /-- The empty environment is well formed. -/
 theorem EnvWF.empty : EnvWF Env.empty :=
   ⟨fun _ hc => (nomatch hc), fun _ hc => (nomatch hc), fun _ ht => (nomatch ht),
-    fun _ hc => (nomatch hc), fun _ hc => (nomatch hc)⟩
+    fun _ hc => (nomatch hc), fun _ hc => (nomatch hc), fun _ hc => (nomatch hc)⟩
 
 /-- **The pure fold keeps the environment well formed**, from any well-formed start. -/
 theorem foldlM_checkDecl_envWF {F : Nat} :

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.DiscC2
 
+import ConLeche.Verify.IotaReduct
 public section
 
 /-!
@@ -22,7 +23,7 @@ cached match's own arm hypotheses (`iotaRec_rec`, `iotaRecK_ctor`,
 the arms are named functions (`iotaRecK`, `iotaCertGate`, `iotaCertP`,
 `iotaRecFire`, `mtcBodyP`; the cached blocks `iotaCertI`, `mtcBodyI`), so
 that no `fun` holding a `match` reaches grind.  The environment reads
-are named (`ctorVal?`; the caches' `findRule`, `constTyOf`, `ruleRhsOf`
+are named (`ctorVal?`; the caches' `findRule`, `constTyOf`, `ruleBodyOf`
 in `SimCEff.lean`), with one guarded equation each at the arm that reads
 them.
 -/
@@ -123,17 +124,29 @@ theorem mkAppRange_eq (f : Expr) (A : Array Expr) (i j : Nat) :
       apply List.drop_eq_nil_of_le; simp; omega
     rw [this]; rfl
 
-/-- **The ι reduct, from ranges**: the right-hand side applied to the redex's leading arguments
-and the constructor's fields. -/
-@[conleche_grind =] theorem iotaReduct_eq (r : Expr) (A M : Array Expr) (rP k i : Nat) :
-    mkAppRange (mkAppRange r A 0 (min rP k)) M i M.size =
-      Expr.mkAppN r ((A.toList.take k).take rP ++ M.toList.drop i) := by
-  have happ : ∀ (as bs : List Expr) (f : Expr),
-      Expr.mkAppN f (as ++ bs) = Expr.mkAppN (Expr.mkAppN f as) bs := by
-    intro as; induction as with
-    | nil => intro _ _; rfl
-    | cons a as ih => intro bs f; exact ih bs (.app f a)
-  rw [mkAppRange_eq, mkAppRange_eq, happ,
+/-- A range pushed is the range's list appended. -/
+theorem pushRange_toList (acc A : Array Expr) (i j : Nat) :
+    (pushRange acc A i j).toList = acc.toList ++ (A.toList.take j).drop i := by
+  induction acc, i using pushRange.induct A j with
+  | case1 acc i h ih =>
+    rw [pushRange, dite_eq_left h, ih]
+    have hi : i < (A.toList.take j).length := by simp; omega
+    rw [show List.drop i (List.take j A.toList) = _ :: _ from List.drop_eq_getElem_cons hi]
+    simp
+  | case2 acc i h =>
+    rw [pushRange, dite_eq_right h]
+    have : (A.toList.take j).drop i = [] := by
+      apply List.drop_eq_nil_of_le; simp; omega
+    rw [this, List.append_nil]
+
+/-- **The ι reduct, from ranges**: the rule's peeled body with the redex's leading arguments
+and the constructor's fields substituted. -/
+@[conleche_grind =] theorem iotaReduct_eq (rl : RecRule) (lps : List Name) (us : List Level)
+    (A M : Array Expr) (rP k i : Nat) :
+    Expr.instantiateRev ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams lps us)
+        (iotaVals A (min rP k) M i) =
+      rl.iotaReduct lps us rP ((A.toList.take k).take rP ++ M.toList.drop i) := by
+  rw [instantiateRev_spec, iotaVals, pushRange_toList, pushRange_toList, RecRule.iotaReduct,
     show M.toList.take M.size = M.toList from List.take_of_length_le (by simp)]
   simp [List.take_take]
 
@@ -711,6 +724,13 @@ theorem EnvWF.rules_ok (henv : EnvWF env) {c : Name} {cv : ConstantVal} {mI rP :
   | nested lvls pins => exact fun pin hpin => ((g5 lvls pins hf).2.2.1 pin hpin).1
   | levels _ => trivial
 
+/-- The ι reduct of a free-variable-free rule at well-scoped values is well scoped. -/
+theorem wscoped_iotaReduct {d : Nat} {rl : RecRule} {lps : List Name} {us : List Level}
+    {rP : Nat} {vals : List Expr} (hf : rl.rhs.hasFvar = false) (hv : AllWS d vals) :
+    Expr.WScoped d (rl.iotaReduct lps us rP vals) :=
+  RecRule.iotaReduct_WScoped hf hv
+grind_pattern [conleche_grind] wscoped_iotaReduct => Expr.WScoped d (rl.iotaReduct lps us rP vals)
+
 /-- The constructor record stored under `n`. -/
 @[expose] def ctorVal? (env : Env) (n : Name) : Option ConstantVal :=
   match env.find? n with
@@ -730,13 +750,14 @@ theorem ctorVal?_of {n : Name} {cv : ConstantVal} {nP nF : Nat} {T : Name}
 grind_pattern [conleche_grind] ctorVal?_of => ctorVal? env n, ConstantInfo.ctorInfo cv nP nF T where
   guard env.find? n = some (.ctorInfo cv nP nF T)
 
-theorem ruleRhsOf_some {c j : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
+theorem ruleBodyOf_some {c j : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
     {rl : RecRule} (h2 : env.find? c = some (.recInfo cv mI rP isK rules))
     (h3 : findRule rules j = some rl) (us : List Level) :
-    ruleRhsOf env c j us = some (rl.rhs.instantiateLevelParams cv.levelParams us) := by
-  simp only [ruleRhsOf, h2, h3]
-grind_pattern [conleche_grind] ruleRhsOf_some =>
-    ruleRhsOf env c j us, ConstantInfo.recInfo cv mI rP isK rules, some rl where
+    ruleBodyOf env c j us =
+      some ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams us) := by
+  simp only [ruleBodyOf, h2, h3]
+grind_pattern [conleche_grind] ruleBodyOf_some =>
+    ruleBodyOf env c j us, ConstantInfo.recInfo cv mI rP isK rules, some rl where
   guard env.find? c = some (.recInfo cv mI rP isK rules)
   guard findRule rules j = some rl
 
@@ -809,9 +830,7 @@ major's `margs`, read as lists past the case decision. -/
     (args : List Expr) (rP cnP : Nat) (rl : RecRule) (margs : List Expr) (ok : Bool) :
     m (Option Expr) :=
   if ok then
-    pure (some (Expr.mkAppN
-      (rl.rhs.instantiateLevelParams cv.levelParams us)
-      (args.take rP ++ margs.drop cnP)))
+    pure (some (rl.iotaReduct cv.levelParams us rP (args.take rP ++ margs.drop cnP)))
   else pure none
 
 /-- The pure ι step past the major's preparation. -/
@@ -856,9 +875,8 @@ theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (h : Expr) (args : Arra
                   if ← certAtI mode
                       (iotaCertI mode fe eager lv depth cv mI rP isK us args k cj cjn usj cvj induct cnP rl
                         margs) then do
-                    let rhs ← ruleRhsAtM fe c cj cn cjn us
-                    pure (some (mkAppRange (mkAppRange rhs args 0 (min rP k))
-                      margs cnP margs.size))
+                    let body ← ruleBodyAtM fe c cj cn cjn us
+                    pure (some (Expr.instantiateRev body (iotaVals args (min rP k) margs cnP)))
                   else pure none
                 else pure none
               | none => pure none
@@ -978,8 +996,7 @@ omit [MonadExceptOf CheckError m] in
 @[conleche_grind =] theorem iotaRecFire_true (cv : ConstantVal) (us : List Level)
     (args : List Expr) (rP cnP : Nat) (rl : RecRule) (margs : List Expr) :
     (iotaRecFire cv us args rP cnP rl margs true : m (Option Expr)) =
-      pure (some (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
-        (args.take rP ++ margs.drop cnP))) := rfl
+      pure (some (rl.iotaReduct cv.levelParams us rP (args.take rP ++ margs.drop cnP))) := rfl
 
 omit [MonadExceptOf CheckError m] in
 @[conleche_grind =] theorem iotaRecFire_false (cv : ConstantVal) (us : List Level)
@@ -1081,7 +1098,7 @@ theorem iotaRecC_spec (ih : SSimC .verified eager env f)
       iotaCertGate_of, CheckMode.verifiedChecks, → EnvWF.rules_ok henv] =>
     vcgen [iotaRecI_eq, certAtI, prepareMajorC_spec ih henv,
       iotaCertC_spec ih henv (mode := .verified) (eager := eager) (env := env),
-      ruleRhsAtM_spec (mode := .verified) (eager := eager) (env := env)] <;> finish
+      ruleBodyAtM_spec (mode := .verified) (eager := eager) (env := env)] <;> finish
 
 end Walks
 

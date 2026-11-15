@@ -973,6 +973,18 @@ def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
   | .levels lvls =>
     (lvls.map (Level.subst lps us), args.take cnP)
 
+/-- **The ι reduct** of the rule `rl` of a recursor with level parameters
+`lps` and rule prefix `rP`, at the levels `us` and the values `vals` (the
+recursor's `rP` leading arguments, then the constructor's fields): the
+right-hand side's body under its `rP + nfields` λs (`lamBody`; the install
+checks it has them, `RuleWF`), at the levels, the values substituted at
+once in reverse (official's `instantiate_rev`, lean4 PR #10565's peel): no
+β-redex is built. -/
+def RecRule.iotaReduct (rl : RecRule) (lps : List Name) (us : List Level) (rP : Nat)
+    (vals : List Expr) : Expr :=
+  ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams lps us).instantiateList
+    vals.reverse
+
 /-- **How many comparand levels a rule has** (`recFireComparands`' first
 component's length, read without substituting). -/
 def recFireLevelCount (rl : RecRule) (cvjLps : List Name) : Nat :=

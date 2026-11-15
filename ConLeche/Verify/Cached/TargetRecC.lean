@@ -309,6 +309,21 @@ theorem mem_consBlockRecsT {q : BlockShape} :
       rw [show m + (i + 1) = m + 1 + i by omega]
       exact hj
 
+/-- A generated rule is a constructor's with the right-hand side at its position. -/
+theorem generatedRules_getElem {rP : Nat} {M : TargetMajor} {rhss : List Expr} {rl : RecRule}
+    (h : rl ∈ generatedRules rP M rhss) :
+    ∃ (j : Nat) (rhs : Expr) (ctor : ConstantVal × Nat), rhss[j]? = some rhs ∧
+      M.ctors[j]? = some ctor ∧ rl.rhs = rhs ∧ rl.nfields = ctor.2 := by
+  unfold generatedRules at h
+  dsimp only at h
+  cases hM : M.member with
+  | some _ => rw [hM] at h; exact sumRules_getElem h
+  | none =>
+    rw [hM] at h
+    obtain ⟨rl₀, hrl₀, rfl⟩ := List.mem_map.mp h
+    obtain ⟨j, rhs, ctor, h1, h2, h3, h4⟩ := sumRules_getElem hrl₀
+    exact ⟨j, rhs, ctor, h1, h2, h3, h4⟩
+
 /-- **The family consed at its majors keeps well-formedness**
 (`envWF_consBlockRecs` at the majors): the rules' right-hand
 sides as there, and an outside major's `.nested` fire is `auxRuleFire`'s
@@ -329,6 +344,10 @@ theorem envWF_consBlockRecsT {q : BlockShape}
       NestedRead (·.constsResolve env) t.1.levelParams t.1.type (q.majorIdxAt i)
         (q.rulePrefixAt i) t.2.1.nPc t.2.1.lvls
         (t.2.1.ds.map (Expr.abstractPrefix (q.rulePrefixAt i) 0)))
+    (hbinds : ∀ i t, out[i]? = some t → ∀ (j : Nat) (rhs : Expr) (ctor : ConstantVal × Nat),
+      t.2.2[j]? = some rhs → t.2.1.ctors[j]? = some ctor →
+      q.rulePrefixAt i ≤ q.majorIdxAt i ∧
+      (rhs.stripLams (q.rulePrefixAt i + ctor.2)).isSome = true)
     (hlit : ∀ t ∈ out, LitShapeAt t.1) :
     EnvWF (consBlockRecsT q 0 out env) := by
   have hdomEnv : ∀ n, (env.find? n).isSome = true →
@@ -341,7 +360,7 @@ theorem envWF_consBlockRecsT {q : BlockShape}
     find?_consBlockRecsT_of_bare (fun _ hn => hn)
   refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
     (henv.tables t (by rw [consBlockRecsT_tables] at ht; exact ht)), fun c hc => ?_,
-    fun c hc => ?_⟩
+    fun c hc => ?_, fun c hc => ?_⟩
   rotate_left
   · rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
     · exact henv.shapes c hc'
@@ -352,6 +371,15 @@ theorem envWF_consBlockRecsT {q : BlockShape}
   · rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
     · exact henv.ctors c hc'
     · exact CtorWF.of_not_ctor fun _ _ _ _ heq => ConstantInfo.noConfusion heq
+  · rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
+    · exact henv.rules c hc'
+    · intro cvR' mI' rP' isK' rules' heq rl hrl
+      injection heq with e1 e2 e3 e5 e4
+      subst e2 e3 e4
+      rw [Nat.zero_add] at hrl ⊢
+      obtain ⟨j, rhs, ctor, hrhs, hctor, h3, h4⟩ := generatedRules_getElem hrl
+      rw [h3, h4]
+      exact hbinds i t hti j rhs ctor hrhs hctor
   rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
   · exact ConstWF.mono hdomEnv (henv.consts c hc')
   · rw [Nat.zero_add]

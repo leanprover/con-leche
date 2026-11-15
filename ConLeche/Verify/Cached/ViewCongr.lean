@@ -996,9 +996,9 @@ theorem streamRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
   | [], [] => rfl
   | rc :: rcs, g :: gs => by
     have ih := streamRecsCheck_twin h hR rcs gs
-    have hrules : ∀ lps rec rs gs', streamRulesCheck ops fe₁ rec lps rs gs'
-        = streamRulesCheck ops fe₂ rec lps rs gs' := by
-      intro lps rec rs
+    have hrules : ∀ lps rec rP rs gs', streamRulesCheck ops fe₁ rec lps rP rs gs'
+        = streamRulesCheck ops fe₂ rec lps rP rs gs' := by
+      intro lps rec rP rs
       induction rs with
       | nil => intro gs'; cases gs' <;> rfl
       | cons r rs ihr =>

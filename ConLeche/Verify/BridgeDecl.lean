@@ -936,17 +936,22 @@ theorem streamRulesShape_datF (rec : Name) (F : Nat) :
   | [], _ :: _ => by unfold streamRulesShape; simp only [FueledM.atF_throw]
   | _ :: _, [] => by unfold streamRulesShape; simp only [FueledM.atF_throw]
 
-theorem streamRulesCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (F : Nat) :
+theorem ruleBinds_datF (rec : Name) (rP : Nat) (r : RecRule) (F : Nat) :
+    (ruleBinds (m := FueledM) rec rP r).val F = ruleBinds (m := CheckM) rec rP r := by
+  unfold ruleBinds
+  simp only [FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
+
+theorem streamRulesCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (rP F : Nat) :
     ∀ (rs : List RecRule) (gs : List Expr),
-      (streamRulesCheck (fueledOpsM mode) fe rec lps rs gs).val F =
-        streamRulesCheck (fueledOps mode F) fe rec lps rs gs
+      (streamRulesCheck (fueledOpsM mode) fe rec lps rP rs gs).val F =
+        streamRulesCheck (fueledOps mode F) fe rec lps rP rs gs
   | [], [] => by unfold streamRulesCheck; rfl
   | [], _ :: _ => by unfold streamRulesCheck; simp only [FueledM.atF_throw]
   | _ :: _, [] => by unfold streamRulesCheck; simp only [FueledM.atF_throw]
   | r :: rs, g :: gs => by
     unfold streamRulesCheck
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, ruleAgree_datF,
-      streamRulesCheck_datF fe rec lps F rs gs]
+      ruleBinds_datF, streamRulesCheck_datF fe rec lps rP F rs gs]
 
 theorem streamRecCompare_datF (fe : FEnv) (rc : RecShape)
     (g : ConstantVal × TargetMajor × List Expr) (F : Nat) :

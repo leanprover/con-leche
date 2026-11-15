@@ -1343,7 +1343,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         eqReflName = some eqReflA := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR2
     refine EnvWF.cons (by decide) hwf2 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), ?_⟩
+      (fun _ _ _ heq => nomatch heq), ?_⟩ (hr := ruleWF_of_recRulesBindB (by decide))
     · show Expr.constsResolve _ eqRecA.toConstantVal.type = true
       rw [show eqRecA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))

@@ -152,12 +152,13 @@ def streamRulesShapeC (rec : Name) : List RecRule → List (ConstantVal × Nat) 
       generated one ({cs.length} unmatched)")
 
 /-- The cached `streamRulesCheck`. -/
-def streamRulesCheckC (fe : FEnv) (rec : Name) (lps : List Name) :
+def streamRulesCheckC (fe : FEnv) (rec : Name) (lps : List Name) (rP : Nat) :
     List RecRule → List Expr → CheckCM Unit
   | r :: rs, g :: gs => do
+    ruleBinds rec rP r
     unless r.rhs == g do
       ruleAgreeC mode fe rec r.ctor lps r.rhs g
-    streamRulesCheckC fe rec lps rs gs
+    streamRulesCheckC fe rec lps rP rs gs
   | [], [] => pure ()
   | _, _ =>
     throw (.internal s!"the recursor {rec}: the generated rules are not one per stored rule")
@@ -167,7 +168,7 @@ def streamRecCompareC (fe : FEnv) (rc : RecShape) (g : ConstantVal × TargetMajo
     CheckCM Unit := do
   unless rc.cvR.type == g.1.type do
     recTyCheckC mode fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type
-  streamRulesCheckC mode fe g.1.name g.1.levelParams rc.rules g.2.2
+  streamRulesCheckC mode fe g.1.name g.1.levelParams rc.rP rc.rules g.2.2
 
 /-- The cached `streamRecCheck`. -/
 def streamRecCheckC (fe : FEnv) (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr) :
