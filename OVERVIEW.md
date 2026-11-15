@@ -781,6 +781,11 @@ presentation and matter for the proof:
   equality (`Expr.beq`) and the syntactic guard traversals included,
   follows the same discipline
   ([`withExclusive`'s account in `ConLeche/Kernel/Exclusive.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Exclusive.lean#L6-L42)).
+  The one substitution without a memo is the ι step's, into a rule's
+  right-hand side: that body is held by the per-declaration rule memo,
+  so every node of it reads as shared, while the bodies Lean generates
+  are (near-)trees below their binders. A body with sharing there is
+  walked once per path: slower, with the same result.
 
 ## 4. The proof idea
 

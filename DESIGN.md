@@ -114509,3 +114509,58 @@ run each; stdout minus `stats:` identical to master 1657d27f0's on every stream;
 | folded-constant-last | 0.073 | 0.066 | −8.72 % |
 | args-before-unfold | 0.050 | 0.048 | −3.87 % |
 | church-numerals, identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.4 % |
+
+## TASK #590 — the ι step substitutes the rule body without a memo (2026-11-15, agent/590-iota-treewalk)
+
+**Ruling** (maintainer, 2026-11-15): crafted files exploding is not a concern; as long as
+Lean does not produce a recursor with sharing worth keeping between subterms that are not
+closed, the ι step may explode on crafted input.  So the ι step's substitution into the rule
+body always uses a memo-free walk: no flag, no guard, no pointer reads.
+
+**Why it pays.**  The rule body comes from the per-declaration rule memo (`ruleBodyAtM`), which
+holds it, so `instantiateRevXP`'s exclusivity read reports every node of it as shared and the
+memo walk inserts every node.  Task #589's probe measured the memo-free walk at this site
+(behind a flag) at −3.6 % on `grind_field_cancel_inv`.
+
+**Census** (`_tmp/590/census.py`, over the export records; the rule body is the rhs under its
+`rP + nfields` λs; tree = visits of nodes with loose bound variables by a memo-free walk,
+DAG = distinct (node, depth) pairs the memo walk visits):
+
+| export | rules | tree = DAG | ratio < 1.5 | < 2 | < 3 | max tree | Σ tree / Σ DAG |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| init-full | 842 | 748 | 75 | 19 | 0 | 93 | 6 670 / 6 039 |
+| mathlib-full | 9 647 | 8 662 | 775 | 207 | 3 | 648 | 110 284 / 97 673 |
+
+Maximum ratio 2.56 (`Mathlib.Tactic.ITauto.Proof.rec`, `orElim'`: 138 / 54); the others at
+or above 2: `Lean.Expr.rec` `letE` 98 / 42, `Std.Tactic.BVDecide.BoolExpr.rec` `ite` 58 / 26.
+Worst by extra nodes: the `Lean.Meta.Grind.Arith.Cutsat` proof recursors (`UnsatProof.cooper`
+646 / 327, `CooperSplitPred.mk` 648 / 329, then seven at 431–435 / 218–222, ratio ≈ 1.97),
+`CooperSplit.mk` 433 / 325.  The extra visits are the recursive fields' induction hypotheses,
+which share the prefix `T.rec params motives minors`.  Distinct (node, depth) pairs and
+distinct nodes agree except in a few `below` recursors (at most 104 pairs on 87 nodes).  The proviso holds.
+
+**Change.**  `Expr.instantiateRevNoMemo` (`ConLeche/Cached/ExprOpsC.lean`): the specification
+`instantiateRevP` walked by `instantiateRevNoMemoXP`, without memo, exclusivity read or
+`(term, memo)` pair (task #589's `instantiateRevTXP`, a separate function: a flag parameter on
+the memo walk cost +3 % on beta-ladder); a re-entry (a substituted value with loose bound
+variables) is the memo walk's.  `iotaRecI` calls it; `instantiateRevNoMemo_spec` /
+`_eq` (`Verify/Cached/OpsC.lean`) give it `instantiateRev`'s equation, and `iotaReduct_eq`
+(`DiscC3`) rewrites with it.  Every other walk keeps its memo.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except init-full at `--jobs=8`, one
+run each; stdout minus `stats:` identical to master ed8fc008f's on every stream; data in
+`_tmp/590/meas/`):
+
+| stream | master | lane | |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 1.887 | 1.805 | −4.35 % |
+| grind-ring-5 | 8.938 | 8.714 | −2.50 % |
+| init-full | 270.941 | 269.237 | −0.63 % |
+| init-prelude | 1.131 | 1.130 | −0.13 % |
+| shared-subterm | 0.133 | 0.123 | −7.55 % |
+| folded-constant-first / -last | 0.066 | 0.063 | −4.89 % |
+| discarded-argument | 0.066 | 0.063 | −4.40 % |
+| args-before-unfold | 0.048 | 0.047 | −3.37 % |
+| discarded-argument-match | 0.197 | 0.192 | −2.33 % |
+| beta-ladder | 4.936 | 4.926 | −0.20 % |
+| app-lam, church-numerals, identical-nesting, irrelevance-before-evaluation, let-ladder, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.3 % |
