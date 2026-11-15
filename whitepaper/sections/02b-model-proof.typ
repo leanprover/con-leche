@@ -630,7 +630,7 @@ take from typing. The two kinds are:
 
 #real[
   The checks are the checker's
-  #src("ConLeche/Kernel/Core.lean", 1466, 1472)[innermost lambda level],
+  #src("ConLeche/Kernel/Core.lean", 1451, 1457)[innermost lambda level],
   #src("ConLeche/Kernel/Core.lean", 515, 520)[its $eta$] and
   #src("ConLeche/Kernel/Core.lean", 899, 913)[the case of ι]. On real
   input neither kind ever fails: they never change a verdict on a
