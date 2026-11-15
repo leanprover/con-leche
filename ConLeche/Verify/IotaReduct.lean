@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Verify.InstSpine
-import ConLeche.Verify.Subst
-import ConLeche.Verify.InstList
+public import ConLeche.Kernel.CoreDefs
+import ConLeche.Verify.InstSpine
+public import ConLeche.Verify.Subst
 
 public section
 

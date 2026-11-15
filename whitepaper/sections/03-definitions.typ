@@ -51,8 +51,8 @@ of constants
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
 levels it is used at, and two constants of the same name
 #src("whitepaper/Fragment/Rules.lean", 563, 566)[are compared] through the level oracle
-(in con-leche: #src("ConLeche/Rules/Rel.lean", 597, 603)[inference]
-and #src("ConLeche/Rules/Rel.lean", 369, 374)[equality]).
+(in con-leche: #src("ConLeche/Rules/Rel.lean", 599, 605)[inference]
+and #src("ConLeche/Rules/Rel.lean", 371, 376)[equality]).
 
 #rules(
   rule(name: "const",
@@ -163,7 +163,7 @@ gains three cases, one per rule.
   $|arrow(ell)| = |arrow(p)|$ levels: \
   Law 2 says the instantiated
   value is well-denoted and denotes $M(c, phi(arrow(ell)))$, which is
-  #src("ConLeche/Model/Rules/RedSound.lean", 211, 212)[what the constant denotes].
+  #src("ConLeche/Model/Rules/RedSound.lean", 252, 253)[what the constant denotes].
   The redex's semantic invariant is not used.
   @thm:install-def shows the law holds when a definition is added.
 

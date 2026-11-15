@@ -6,8 +6,8 @@ import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Denote.Inst
 import ConLeche.Verify.Denote.Closed
 import ConLeche.Semantics.LitStep
-import ConLeche.Verify.IotaReduct
-import ConLeche.Verify.InstList
+public import ConLeche.Verify.IotaReduct
+public import ConLeche.Verify.InstList
 
 public section
 

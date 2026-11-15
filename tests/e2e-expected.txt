@@ -3202,6 +3202,12 @@
 # the β-redex `(fun T : Type => T) Nat'`: definitionally the generated
 # one, installed as stored.  Official (syntactic) 1; target: 0.
 0 stored_rule_dom_redex.ndjson
+# stored_rule_lams_short (`scripts/mk_rule_binds_fixture.py`, task #585): `Nat'.rec`'s
+# rule for `zero` written with two manifest λs, `fun motive zero => (fun x succ => x) zero`
+# — definitionally the generated rule, accepted before task #585 (0).  The ι step peels
+# the rule prefix's and the fields' λs, so the stored rule's check counts them
+# (`ruleBinds`): rejected.  Official (syntactic) 1; target 1.
+1 stored_rule_lams_short.ndjson
 0 stored_type_dom_redex.ndjson
 # stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
 # (official 1).

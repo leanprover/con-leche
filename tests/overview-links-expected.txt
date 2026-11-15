@@ -278,9 +278,9 @@
     36      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
 
-== ConLeche/Semantics/DeclWF.lean#L318-L319
-   318  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
-   319      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
+== ConLeche/Semantics/DeclWF.lean#L339-L340
+   339  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
+   340      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L695-L698
    695  theorem knotI_congr (hfe : fe₁.find? = fe₂.find?) (htb : fe₁.findTable? = fe₂.findTable?) :
@@ -316,13 +316,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1878-L1883
-  1878        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1879        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1880        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1881        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1882        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  1883    | fuel + 1 =>
+== ConLeche/Kernel/Core.lean#L1877-L1882
+  1877        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1878        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1879        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1880        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1881        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+  1882    | fuel + 1 =>
 
 == ConLeche/Model/Fold.lean#L421-L428
    421  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -365,23 +365,23 @@
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1158
-  1158  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1157
+  1157  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1447
-  1447  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1446
+  1446  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1342
-  1342  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1341
+  1341  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1469
-  1469  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+== ConLeche/Kernel/Core.lean#L1468
+  1468  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
 
 == ConLeche/Verify/Cached/BridgeC.lean#L284
    284  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
-== ConLeche/Kernel/Core.lean#L1923
-  1923  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1922
+  1922  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -808,31 +808,31 @@
    106  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
    107    /-- Every `pure e` exit: the value clauses of `whnfCoreBody`
 
-== ConLeche/Rules/Rel.lean#L327-L350
-   327  checker only ever compares terms that are well-formed *together* — a
-   328  fact the rules never state, because well-formedness (scoping, the
-   329  readability of the terms, the grading of the reading) is semantic
-   330  and may not enter this inductive.  Every rule respects one syntactic
-   331  discipline instead: **the subject of each `DefEq` premise is either a
-   332  subterm of the conclusion or is produced by an existence-form `Red` /
-   333  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   334  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
-   335  hand.  `trans` is the unique rule that would break it: its middle
-   336  term comes from nowhere, and with it two rules that are each sound
-   337  alone meet — `fvar` compares free variables by index only (their
-   338  types are not compared, as the checker does not), while
-   339  `proofFast` *reads* a head's stored data to decide "definitely a
-   340  proof" — and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for
-   341  every `i`, `i'`, which no model satisfies.  The recursive-structure rules
-   342  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
-   343  proof-engineering convenience but what keeps the relation sound; the
-   344  one chaining that is sound, "reduce, then continue", is `redL`, and
-   345  its right-hand and δ variants are derived in `Derived.lean`. -/
-   346  inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
-   347    /-- The syntactic fast paths (`defeqBody`, `quickDefEq`),
-   348    the literal leaf (`:1582`), a same-index `fvar` pair is `fvar`
-   349    below. -/
-   350    | refl {d : Nat} {a : Expr} : DefEq env d a a
+== ConLeche/Rules/Rel.lean#L329-L352
+   329  checker only ever compares terms that are well-formed *together* — a
+   330  fact the rules never state, because well-formedness (scoping, the
+   331  readability of the terms, the grading of the reading) is semantic
+   332  and may not enter this inductive.  Every rule respects one syntactic
+   333  discipline instead: **the subject of each `DefEq` premise is either a
+   334  subterm of the conclusion or is produced by an existence-form `Red` /
+   335  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   336  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+   337  hand.  `trans` is the unique rule that would break it: its middle
+   338  term comes from nowhere, and with it two rules that are each sound
+   339  alone meet — `fvar` compares free variables by index only (their
+   340  types are not compared, as the checker does not), while
+   341  `proofFast` *reads* a head's stored data to decide "definitely a
+   342  proof" — and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for
+   343  every `i`, `i'`, which no model satisfies.  The recursive-structure rules
+   344  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+   345  proof-engineering convenience but what keeps the relation sound; the
+   346  one chaining that is sound, "reduce, then continue", is `redL`, and
+   347  its right-hand and δ variants are derived in `Derived.lean`. -/
+   348  inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
+   349    /-- The syntactic fast paths (`defeqBody`, `quickDefEq`),
+   350    the literal leaf (`:1582`), a same-index `fvar` pair is `fvar`
+   351    below. -/
+   352    | refl {d : Nat} {a : Expr} : DefEq env d a a
 
 == ConLeche/Verify/Rules/Bridge.lean#L29-L32
     29  theorem bridgeAt (env : Env) :
@@ -918,8 +918,8 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L552
    552  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
-== ConLeche/Kernel/Inductives/StreamRecs.lean#L183
-   183  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
+== ConLeche/Kernel/Inductives/StreamRecs.lean#L187
+   187  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
 
 == ConLeche/Verify/Cached/BlockPushes.lean#L273
    273  theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
@@ -1310,9 +1310,9 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Core.lean#L1208-L1209
-  1208    match env.find? entry.structName with
-  1209    | some (.indInfo cvT caps) => do
+== ConLeche/Kernel/Core.lean#L1207-L1208
+  1207    match env.find? entry.structName with
+  1208    | some (.indInfo cvT caps) => do
 
 >>> README.md
 

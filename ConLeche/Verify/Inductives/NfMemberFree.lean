@@ -7,7 +7,7 @@ import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Knot
 public import ConLeche.Kernel.Inductives.BlockTail
 
-import ConLeche.Verify.IotaReduct
+public import ConLeche.Verify.IotaReduct
 public section
 
 /-!
