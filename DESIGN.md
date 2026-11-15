@@ -114725,7 +114725,7 @@ init-full +944 M.  As a static per-record fact (task #573's pattern) it is level
 (above), so one bit per rule / definition would do.
 
 **Adversarial check** (`tests/e2e/dag_beta_tower.ndjson.gz`, generator
-`_tmp/589/scripts/mkadv.py`): two definitions `fun x => t26`, `t0 = Nat.add x x`,
+`scripts/mk_dag_beta_tower.py`): two definitions `fun x => t26`, `t0 = Nat.add x x`,
 `t(k+1) = Nat.add tk tk` — 28 DAG nodes, 2^27 tree nodes, all under the binder — and
 `dagF 0 = dagF2 0 := rfl`, which δ-unfolds and β-reduces both.  The value's flag is false
 (both entries), the memo walk runs: master 43.08 M, prototype 43.29 M, both accept.  The
@@ -114819,3 +114819,148 @@ run each; stdout minus `stats:` identical to master ed8fc008f's on every stream;
 | app-lam, church-numerals, identical-nesting, irrelevance-before-evaluation, let-ladder, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.3 % |
 
 **Reverted** (2026-11-15, maintainer).  The census covers init-full and mathlib-full only.  A recursor's rule body can contain constructor field types: the binder type of a reflexive field's induction hypothesis (`fun (a : A) => T.rec … (f a)`, `A` the field's domain) and the index arguments of an induction hypothesis (taken from the field's type).  A field type built from a dependent, instance-laden telescope, such as the FLT export's JZero structure (task #214: a 4 464-node DAG that is 38.8 M nodes as a tree, from `Rat` reached 666 617 times through the coercion chain), would then put a large shared DAG with loose bound variables into the body, and the memo-free walk would expand it at every ι step.  In JZero that DAG sat only in the leading λs' binder types, which the ι step strips (task #585), so JZero itself would not have been affected.  But no measurement excludes the reflexive-field and index shapes on FLT or NS, whose exports were never censused.  The exact flag of task #589 (memo-free only on a loose-bvar tree) was considered and rejected: two code paths and a performance cliff are not worth −0.2 … −0.8 points.  The ι step keeps the memo walk.
+
+## TASK #584 — the β after ι: three prototypes (2026-11-14, probe/584-*)
+
+Question (after #572's "Probe C, the fire-site half" and #583): what does the β step that
+follows every ι step cost, and what does each way of folding it into the ι step give, against
+the official memo policy #572 established.  Prototype and compare only; nothing lands.
+
+**Today** (master 5d910c48b).  `iotaRecI` returns the reduct `rhs params motives minors fields`
+(`ruleRhsAtM`, the rule's right-hand side at the recursor's levels, memoised per declaration),
+the caller applies the extra arguments, and the loop treats it as its next step: a β key
+(head a lambda), looked up in the `whnfCore` memo, β-peeled by `whnfAppI`/`betaPeelI` from
+its own spine array, and pushed as a pending key into both memos (`whnfCoreC` and, the head
+being a lambda, `whnfCoreCheapC`).  Official is the same (`whnf_core`'s recursive call on the
+`reduce_recursor` reduct looks it up and stores it).  lean4 PR #10565 (by the maintainer,
+open) instantiates the rule directly instead: peel the `nparams+nmotives+nminors+nfields`
+lambdas, `instantiate_lparams`, `instantiate_rev` with the values, apply the extra arguments.
+
+**The probes** (each one commit on its branch, `Cached/CoreC.lean` and for the open body
+`Cached/StateC.lean`; the executable only — the proof modules are not in its closure and were
+not adapted, so no `sorry` was needed and `lake build` of the whole package would fail).  Shared
+helpers: `peelLamsC n e` (the body under `n` lambdas, `Option`) and `iotaVals args p margs q`
+(`args[0:p] ++ margs[q:]`, one array of capacity `p + nfields`: the two ranges come from
+different arrays).
+* **key** (`probe/584-key`): `iotaRecI` returns `(rhs, vals)`; the step builds the β key as
+  today and returns a new outcome `iotaKey key body vals rest start` (a probe-local
+  `WhnfStepI`, `WhnfStep` plus that arm).  The loop does what its next iteration on the key
+  did: pushes `e` as for `.cont`, looks the key up (a hit ends the chain, the cheap keys
+  dropped, as at any hit), and on a miss substitutes `instantiateRev body vals`, applies
+  `rest[start:]` and pushes the key into both pending lists.  Falls back to `.cont key` where
+  the direct β would differ from the loop's peel (fewer than `vals.size` manifest lambdas, or a
+  lambda left with arguments left): never taken on the fixture, grind-ring-5, init-prelude.
+* **eager** (`probe/584-eager`): PR #10565's shape; `iotaRecI` returns
+  `instantiateRev body vals` (fallback: today's redex when `peelLamsC` fails).  No key.
+* **open** (`probe/584-open`): as eager, but `ruleRhsAtM`'s memo stores the open body (the
+  level-instantiated right-hand side under its `rP + nfields` lambdas; a missing lambda is an
+  internal error in the probe); the ι step is the lookup and one `instantiateRev`.
+* **key+open** (`probe/584-key-open`, on top of key): the memo stores `(rhs, open body)`, so
+  the key probe neither peels nor allocates the peel's `some`.
+
+**Step counts** (scratch `dbg_trace` at the ι fire site in each probe, not in the measured
+binaries; theorem = stream − the stream without its last record, `cancelInv0`).  On
+`grind_field_cancel_inv`'s theorem: master and key `Mon.rec` 26 452, `Bool.rec` 20 550,
+`Ordering.rec` 10 334, `Poly.rec` 9 310 (official: 26 452 and 20 550); eager and open
+`Mon.rec` 26 516 (+64, #572's probe C again), the other three unchanged; outside the theorem
+all four builds take 75 `Bool.rec`, 407 `Nat.rec`, 2 `Eq.rec`.  init-full (`--jobs=8`): master
+1 758 528 ι steps, eager 1 758 538 (`Int.Internal.Linear.Poly.rec` +2, `Mon.rec` +8).  The key
+lookups (key probe, counted): fixture 6 694 hits of 68 559 (9.8 %), grind-ring-5 12 970 of
+179 905, init-full 194 288 of 1 758 528 (11 %); about half of init-full's lookups are in the
+cheap mode, which reads but never stores.  So eager loses ~10 % of the lookups as hits, and the
+loop recovers nearly all of them at the next key of the chain.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except init-full, one run each,
+under the RSS guard; stdout minus `stats:` identical to master's on every stream for every
+probe; data in `_tmp/584/logs/`):
+
+| stream | master | key | eager | open | key+open |
+|---|---:|---:|---:|---:|---:|
+| grind_field_cancel_inv | 2.071 | 2.049 (−1.08 %) | 1.898 (−8.36 %) | 1.881 (−9.18 %) | 2.047 (−1.18 %) |
+| init-full (`--jobs=8`) | 276.746 | 276.448 (−0.11 %) | 272.512 (−1.53 %) | 272.117 (−1.67 %) | 276.324 (−0.15 %) |
+| init-prelude | 1.143 | 1.142 (−0.06 %) | 1.138 (−0.41 %) | 1.138 (−0.45 %) | 1.143 (−0.04 %) |
+| grind-ring-5 | 9.422 | 9.355 (−0.71 %) | 8.991 (−4.57 %) | 8.951 (−4.99 %) | 9.347 (−0.79 %) |
+| app-lam | 22.084 | 22.082 (−0.01 %) | 22.081 (−0.02 %) | 22.083 (−0.00 %) | 22.082 (−0.01 %) |
+| beta-ladder | 4.927 | 4.926 (−0.03 %) | 4.936 (+0.18 %) | 4.936 (+0.18 %) | 4.926 (−0.03 %) |
+| let-ladder | 2.558 | 2.558 (+0.00 %) | 2.558 (+0.00 %) | 2.558 (−0.00 %) | 2.558 (+0.00 %) |
+| shared-subterm | 0.139 | 0.139 (+0.05 %) | 0.134 (−3.42 %) | 0.133 (−4.42 %) | 0.138 (−0.21 %) |
+| discarded-argument-match | 0.202 | 0.202 (−0.25 %) | 0.197 (−2.39 %) | 0.197 (−2.70 %) | 0.201 (−0.44 %) |
+| discarded-argument | 0.067 | 0.067 (+0.11 %) | 0.066 (−0.69 %) | 0.066 (−1.31 %) | 0.067 (−0.05 %) |
+| folded-constant-first | 0.073 | 0.072 (−1.16 %) | 0.067 (−8.21 %) | 0.066 (−8.81 %) | 0.072 (−1.22 %) |
+| folded-constant-last | 0.073 | 0.072 (−1.16 %) | 0.067 (−8.21 %) | 0.066 (−8.84 %) | 0.072 (−1.24 %) |
+| args-before-unfold | 0.050 | 0.050 (−0.78 %) | 0.048 (−3.51 %) | 0.048 (−3.98 %) | 0.050 (−0.95 %) |
+| church-numerals | 0.196 | 0.196 (+0.14 %) | 0.196 (−0.02 %) | 0.196 (−0.02 %) | 0.196 (+0.16 %) |
+| repeated-subproblem | 0.022 | 0.022 (−0.10 %) | 0.022 (−0.37 %) | 0.022 (−0.42 %) | 0.022 (−0.10 %) |
+| identical-nesting | 0.020 | 0.020 (+0.00 %) | 0.020 (−0.01 %) | 0.020 (−0.00 %) | 0.020 (+0.01 %) |
+| irrelevance-before-evaluation | 0.022 | 0.022 (+0.30 %) | 0.022 (−0.01 %) | 0.022 (−0.01 %) | 0.022 (−0.01 %) |
+| shift-cascade | 0.050 | 0.051 (+0.00 %) | 0.050 (−0.01 %) | 0.050 (−0.00 %) | 0.050 (−0.00 %) |
+| unroll-versus-evaluate | 0.027 | 0.027 (+0.00 %) | 0.027 (−0.01 %) | 0.027 (−0.01 %) | 0.027 (+0.00 %) |
+
+**Where the cost was.**  The key probe saves only the loop round trip (the re-entry, the
+`getAppArgsArr` of the key, `whnfCoreI` on the lambda head, `betaPeelI`): −1.1 % on the
+fixture.  The key itself is the expensive part: key+open against open is 0.166 G on the
+fixture's 68.6 k ι steps, about 2 400 instructions per ι step — the key's `rP + nfields + extra`
+application nodes (allocated and hashed), the lookup, and at a full-mode miss TWO inserts (the
+key is safe, so it goes into `whnfCoreCheapC` as well) with the tables' growth.  Symbol-level
+profile of the fixture (`perf record -c 1000000`, 20 runs per binary, G per run, master → key →
+open): `whnfCoreLoopI` 0.070/0.068/0.051, the `Expr`-keyed hash maps' insert, `contains` and `expand`
+0.137/0.134/0.085, `Expr.app` 0.078/0.077/0.062, `lean_dec_ref_cold` + `lean_free_object`
+0.547/0.557/0.489, `betaPeelI` 0.015/0.006/0.006, `mkAppRange` 0.010/0.008/0.000.  In open the
+ι+β step's own work is the substitution (`instantiateRevXP` 0.163 G, unchanged: it is the β
+the loop did before), `iotaRecI` 0.041 G (it now holds the value array's fill) and
+`prepareMajorI`/`FBase.find?`; the rest is the run's general allocation and reference-count
+traffic.  open against eager is the per-step peel and its `some` (−0.9 % fixture, −0.4 %
+grind-ring-5, −0.15 % init-full).  `beta-ladder` +0.18 % in eager and open is not the ι step
+(it has none to speak of); not attributed, of the size of #583's allocator-mix effects.
+
+**Recommendation.**  open, with the open body in the per-declaration memo — if the
+maintainer rules that following PR #10565's memo behaviour (no β key for an ι reduct) is
+acceptable in place of v4.35.0's.  The reduction order is unchanged (the same ι, then the same
+β of the same redex, as official); what changes is only that the ι reduct's β redex is never a
+memo key, which costs +64 `Mon.rec` steps (+0.24 %) on the fixture and +10 of 1.76 M on
+init-full, and gives −9.2 % on the fixture, −5.0 % on grind-ring-5, −1.7 % on init-full.  If the
+official counts must stay exact, key+open is the variant (−1.2 % / −0.8 % / −0.15 %): the
+β-redex key itself, not the round trip, is what the official policy costs here.
+
+**What landing would cost in proofs** (`Verify/BetaSpine.lean`, `Verify/Cached/DiscC3/DiscC4`;
+the specification, the rules tier and the model unchanged in every variant).
+* *Common to all*: one β lemma — at a right-hand side with `n` manifest lambdas, the mirror's
+  step on `mkAppRange (mkAppN rhs vals) rest` is `.cont (mkAppRange (instantiateRev body vals)
+  rest)` (`betaPeelW` over a manifest lambda prefix: the induction `betaPeelC_spec` already does,
+  with `extract_rev_succ`), and `iotaRecC_spec` restated for the new result (for key:
+  `mkAppN rhs vals` is the spec's reduct, `iotaReduct_eq`).
+* *eager/open*: the ι arm of `whnfStuckC_spec`/`whnfAppC_spec` relates the cached `.cont r` to a
+  mirror step one β later, as #572 put it: since #572 the loop's triple states `whnfCore` of its
+  term directly, the loop case chains `Runs.whnfCore_of_cont` twice (ι, then the β lemma) — a
+  named two-step relation in the step triples (`StepsTo e r`: one mirror step, or an ι step
+  followed by its β), consumed by the loop's `.cont` case.  The pending keys need nothing (a key
+  fewer is still `PendOK`).  open adds the `ruleRhsAt` clause of `CSOK` (an entry is the peeled
+  level-instantiated right-hand side).  The `peelLamsC = none` path should not stay as dead
+  code: either a total peel (peel what is there, apply the leftover values — `betaPeel`'s own
+  stop case, so the lemma covers it) or the install invariant below.
+* *key*: the loop gets a third outcome and a third induction case (push `e`, the hit arm by
+  the existing `CSOK` hit lemma, the miss arm by `PendOK.push`/`pushCheap` on the key with
+  `whnfCoreStepW_cheap` for its β step and the β lemma for the continuation): more than eager,
+  all in `DiscC4`.
+
+**The open body at installation instead** (written down, not built).  The generator already
+has it: `classGenRule` (`Kernel/Inductives/GenRec.lean`) builds `closeLams (pre ++ fvs) 0 body`,
+so the install could store the abstracted `body` beside `rhs`.  `RecRule` is a structure with
+named fields (unlike #573's positional `ctorInfo`, ~140 files), so a field `body` breaks only
+its construction sites: `sumRules`/`generatedRules` (install), the pinned basis rules
+(`Kernel/Basis.lean`, `Semantics/BasisRules.lean`), `Kernel/Canon.lean` (`canonExpr` on `body`
+too, with its commutation with the peel), the three parse sites (`Frontend/ExportC`,
+`Frontend/Olean/Emit`, `Frontend/Scan/Naive`, a placeholder as for `fire`) and about ten proof
+files that build rules (`Verify/Inductives/StreamRecsInv`, `DirectGen`, `BlockWF`,
+`Model/Inductives/GenRec*`, `BlockRec*`).  The invariant would be an `EnvWF` field `RuleWF`
+(`peelLams (rP + nfields) rl.rhs = some rl.body`), a property of the record alone like
+`CtorWF`, so no freshness side condition; established at the block install, the basis
+blocks and the pins, and used once, in the cached ι step (with `instLevelParams` commuting
+with the peel).  The model keeps reading `rhs`.  **Runtime gain beyond the memo: none to
+measure.**  The memo already does the peel once per (recursor, constructor, levels) per
+declaration, and the level instantiation stays per declaration in either form; what install
+storage would save is that one peel per memo miss.  The per-declaration memo captures the
+gain; only the dead fallback is an argument for the invariant, and a total peel removes it
+without one.
+
+**Outcome** (2026-11-15): the maintainer chose the peel, without the key and with the rule's closed right-hand side kept (task #585, landed).  The prototypes' branches are deleted; this record was copied to master so the comparison can be found.
