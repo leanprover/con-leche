@@ -3445,3 +3445,37 @@
 # check takes minutes, which the 10 s timeout in tests/arena.sh turns into a
 # failure (exit 124).
 0 strict_succ_counter.ndjson
+# --- task #592, the constructor shortcut (`defeqBody`): a closed, fully
+# applied constructor application `C bs` of a family never in `Prop`,
+# without an η law and not `Nat` decides a comparison by the other side's
+# whnf (head `C`: continue on it; another constructor: `false`).  Every
+# fixture states official's verdict, which is also the target verdict.
+# ctor_sc_prop.ndjson: two constructors of a `Prop` family, and of a family
+# in `Sort u` at `u := 0`, equal by proof irrelevance: the shortcut must
+# skip them (it would answer `false`).
+0 ctor_sc_prop.ndjson
+# ctor_sc_struct_eta.ndjson / ctor_sc_unit_like.ndjson: a structure's and a
+# unit-like type's constructor application against a stuck opaque constant,
+# equal by η.
+0 ctor_sc_struct_eta.ndjson
+0 ctor_sc_unit_like.ndjson
+# ctor_sc_nat.ndjson: `Nat` constructor applications against literals.
+0 ctor_sc_nat.ndjson
+# ctor_sc_partial_eta.ndjson: `List.cons 1` (under-applied, no target)
+# against its η-expansion, both orders.
+0 ctor_sc_partial_eta.ndjson
+# ctor_sc_same_ctor.ndjson / ctor_sc_same_ctor_bad.ndjson: the other side
+# reduces to the same constructor; the comparison continues on its normal
+# form (`List.map (· + 1) [1, 2, 3]` against `[2, 3, 4]`, and against
+# `[2, 3, 5]`).
+0 ctor_sc_same_ctor.ndjson
+1 ctor_sc_same_ctor_bad.ndjson
+# ctor_sc_diff_ctor_bad.ndjson: `f 3` reduces to `some 2`, against `none`.
+1 ctor_sc_diff_ctor_bad.ndjson
+# ctor_sc_decide.ndjson / ctor_sc_decide_bad.ndjson: `decide` reduces to
+# `true` and `false` (official's eq-true clause covers `Bool.true` only).
+0 ctor_sc_decide.ndjson
+1 ctor_sc_decide_bad.ndjson
+# ctor_sc_eager.ndjson: the shortcut in the eager tower (`eagerReduce`),
+# where a side with a free variable is head-normalised.
+0 ctor_sc_eager.ndjson

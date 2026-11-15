@@ -115083,3 +115083,193 @@ ones):
 
 The fixture's count before (624 834) matches the profile's 622 k; the 206 k removed are three
 per ι step.  Nothing regresses beyond noise (`shift-cascade` +0.03 %).
+
+## TASK #592 — the constructor shortcut (2026-11-15, agent/592-ctor-defeq)
+
+**What.**  The official kernel's eq-true clause (`is_def_eq_core`, `type_checker.cpp:1093-1101`
+at v4.35.0: the right side the constant `Bool.true`, the left side fvar-free or the eager flag
+set, the left side `whnf`'d, `true` iff the reduct is `Bool.true`) is generalised to every
+closed, fully applied constructor application of a family that is never a proposition, has no
+η law and is not `Nat`.  A deliberate optimisation beyond upstream (maintainer ruling
+2026-11-15).  It replaces the eq-true clause: `Bool.true` is an instance.  `boolTrueShortcut`,
+`boolTrueShortcutI`, `Expr.isBoolTrue`, the rule `DefEq.boolTrue` and their proofs are gone.
+
+**The rule** (`defeqBody`, `Kernel/Core.lean`; `defeqBodyI`, `Cached/CoreC.lean`).  After the
+syntactic fast path:
+1. if `ctorTargetFor env eager a b = some C` — `b` has no fvar, its head is the stored
+   constructor `C`, applied to exactly `numParams + numFields` arguments, `C`'s family has
+   `IndCaps.neverZero`, not `IndCaps.eta`, and is not `Nat`; and `eager || !a.hasFvar`
+   (official's guard of the eq-true clause) — then `w ← whnf a`, and by `ctorHeadAgainst env
+   C w`: head `C` → `defeqLazy w b`; head another stored constructor → `false`; anything else
+   → `defeqLazy a b`;
+2. otherwise the same with the sides swapped (`ctorTargetFor env eager b a`, `whnf b`,
+   `defeqLazy a w`);
+3. otherwise `defeqLazy a b`.
+`defeqLazy` is the former body past its fast path and the eq-true clause, unchanged: the
+same-constructor branch continues there, not in `defeq`, which would fire the shortcut again
+on the same pair.  When the right side is a target and the left side's normal form is stuck,
+the left side is not tried: a target's own normal form is itself, so the left side could only
+be a target if the right side's normal form had a constructor head.
+
+**Why the `false` is exact.**  Soundness needs only the `C` branch (a reduct is
+definitionally equal to its source: `DefEq.redL`/`redR` from the `whnf` bridge, then the
+`defeqLazy` bridge).  The `false` is a completeness matter: it must be the verdict the lazy
+path (and official) reaches.  The two head normal forms are `C bs` and `D ys` with `C ≠ D`
+constructors.  The rules of conversion that can equate terms whose head normal forms differ
+in their head constant are: proof irrelevance — it needs the type of `C bs` to be a
+proposition, and `neverZero` says the family's sort is never `Prop` at any level
+instantiation (a family declared in `Sort u` used at `u := 0` has `neverZero = false` and is
+skipped: fixture `ctor_sc_prop`'s `t2`); structure η and unit-like η — they need a family
+with one constructor, and `C`'s has no η law (and a family with one constructor never meets
+another of its own); λ-η — it needs a function, and `C bs` is fully applied, so its type is
+the family applied, not a Π-type; the `Nat` literal and offset forms — they are `Nat`'s, and
+`Nat` is excluded.  `D` cannot be a constructor of an η family that equates `D ys` with
+`C bs` either: η for `D`'s family compares the types first, and `C bs`'s type is `C`'s
+family, another inductive type.  So official's lazy path, which reaches the same two normal
+forms one unfolding at a time, ends at `is_def_eq_app` with different head constants and the
+same failed fallbacks.
+
+Which conditions the `false` needs: only "never a proposition".  The others keep the shortcut
+to the pairs where it pays: an η family has one constructor, so it never answers `false`,
+and its stuck pairs (the η pairs) fall through after a wasted `whnf`; a partial application
+`C as` is a function whose η-expansion `fun x => C as x` head-normalises to a λ-expression,
+which falls through as well (the count probe, `probe/ctor-defeq`, found exactly this pair on
+`init-full`: `List.cons x` against `fun p => List.cons x p`); a `Nat` side meets literals,
+whose head is no constant, so it falls through or is decided by the literal machinery.  The
+closedness of `C bs` is not needed for the `false` either; it is the shape the probe
+measured (19 % of the comparisons on `init-full` have such a right side, 8 % such a left
+side, 99.8 % of them reach the same constructor).
+
+**Phase 1: the variant, by measurement** (`instructions:u`, `--verified`, `--jobs=1`, one
+run per stream and binary; Δ against master `d7ee38d80`; scratch probe builds of the cached
+core alone, `defeqBodyI_congr` sorried, not kept):
+* (a) the rule above, the shortcut a monadic step returning `Option Bool` before the lazy
+  comparison, which re-tested `a == b` (the spike's shape plus the full-application condition);
+* (b) (a), but no `whnf` when the other side's head is already a constructor (the lazy path
+  is cheap there);
+* (c) (a), but only when the other side's head is a constant that δ-unfolds;
+* (a′), (c′): (a), (c) without the second `a == b`;
+* lane: (a′) with the shortcut's dispatch inlined into `defeqBody` (pure `match`es on the
+  target, no `Option` returned through the monad on the comparisons with no target, about
+  three quarters of them on `init-full`).
+
+| stream | master | (a) | (b) | (c) | (a′) | (c′) |
+|---|---:|---:|---:|---:|---:|---:|
+| `init-full` | 262.499 G | -2.94 % | -2.86 % | -1.81 % | -3.00 % | -1.81 % |
+| `mathlib-prefix` | 366.452 G | -2.24 % | -2.15 % | -1.31 % | -2.29 % | -1.33 % |
+| `grind-ring-5` | 8.797 G | -0.88 % | -0.82 % | -0.73 % | -0.88 % | -0.76 % |
+| `init-prelude` | 1.133 G | +0.48 % | +0.54 % | +0.49 % | +0.44 % | +0.45 % |
+| `app-lam` | 22.085 G | +0.00 % | +0.01 % | +0.00 % | +0.01 % | +0.01 % |
+| `args-before-unfold` | 0.051 G | +11.74 % | +12.33 % | +2.35 % | +11.55 % | +2.17 % |
+| `beta-ladder` | 4.939 G | +0.11 % | +0.00 % | +0.11 % | +0.11 % | +0.01 % |
+| `church-numerals` | 0.198 G | +3.49 % | +3.54 % | +3.51 % | +2.79 % | +2.79 % |
+| `discarded-argument` | 0.068 G | +1.79 % | +1.45 % | +1.05 % | +1.70 % | +0.96 % |
+| `discarded-argument-match` | 0.198 G | +0.76 % | +0.52 % | +0.53 % | +0.72 % | +0.47 % |
+| `folded-constant-first` | 0.068 G | +0.00 % | +0.01 % | +0.00 % | +0.01 % | +0.00 % |
+| `folded-constant-last` | 0.068 G | -0.00 % | +0.02 % | +0.01 % | +0.00 % | -0.00 % |
+| `fueled-chain` | 0.264 G | +0.47 % | +0.53 % | +0.51 % | +0.44 % | +0.46 % |
+| `identical-nesting` | 0.024 G | -0.01 % | -0.01 % | -0.01 % | -0.01 % | +0.01 % |
+| `irrelevance-before-evaluation` | 0.025 G | +0.04 % | +0.05 % | +0.04 % | +0.03 % | +0.04 % |
+| `let-ladder` | 2.561 G | +0.00 % | +0.00 % | +0.00 % | +0.00 % | +0.00 % |
+| `magma-list-deep-n21` | 10.065 G | +0.12 % | +0.06 % | +0.07 % | +0.03 % | +0.02 % |
+| `magma-list-deep-n36` | 134.306 G | -0.04 % | -0.02 % | -0.02 % | -0.02 % | -0.06 % |
+| `magma-list-pair-n21` | 113.658 G | -0.01 % | +0.00 % | +0.01 % | -0.04 % | +0.07 % |
+| `magma-list-pair-n7` | 9.836 G | +0.00 % | +0.12 % | +0.03 % | +0.02 % | +0.02 % |
+| `refute-cheap-first` | 0.026 G | -0.11 % | -0.04 % | +0.05 % | -0.13 % | +0.04 % |
+| `refute-cheap-last` | 0.094 G | +2.04 % | +2.09 % | +1.50 % | +1.92 % | +1.38 % |
+| `repeated-subproblem` | 0.025 G | -0.07 % | +0.03 % | +0.04 % | -0.07 % | +0.02 % |
+| `shared-subterm` | 0.131 G | +0.95 % | +1.45 % | +0.89 % | +0.88 % | +0.81 % |
+| `shift-cascade` | 0.054 G | +0.03 % | +0.00 % | +0.02 % | +0.01 % | +0.02 % |
+| `unroll-versus-evaluate` | 0.030 G | +0.03 % | +0.05 % | +0.06 % | +0.04 % | +0.04 % |
+
+(b) is not better than (a): the head lookup it adds costs about what the skipped `whnf` (of
+a term already in normal form) costs.  (c) keeps about 60 % of the gain on the big streams:
+it loses every pair whose other side is a recursor application, a projection or a β/ζ redex
+rather than a δ-unfoldable constant, to save 9 points on `args-before-unfold`.  (a′) is
+chosen, and landed in the inlined form.  The second
+`a == b` explains 0.7 of `church-numerals`' 3.5 %; the rest, on a stream where the shortcut
+never fires (no constructor application in it), is the cost of returning `Option Bool`
+through `StateT CState (Except _)` on every comparison, which the inlined dispatch removes
+(`church-numerals` −0.09 % on the lane build, `fueled-chain` +0.11 %).
+
+**The regression that remains, `args-before-unfold` (+10.8 %, +5.5 M instructions on the
+final build).**  The
+stream compares `count (num 1000)` with `count (N.add (num 999) (num 1))`; the same-head
+argument comparison reaches `num 1000 =?= N.add (num 999) (num 1)` and then 1000 nested
+`num k =?= N.rec … (num (k-1))`.  Each level has a target on the left, and the shortcut's
+`whnf` of the right side is one ι step — the step the lazy path's cheap `whnfCore` takes
+anyway — so the reduction work is the same, and the shortcut adds per level the `whnf`
+entry's memo insert, the full `whnfCore`'s memo entry for the redex and then the lazy
+path's cheap `whnfCore` of the normal form (another memo, another entry): about 5.5 k
+instructions per level, ×1000 (a per-symbol profile shows the `whnf` memo's inserts and the
+gates' `FEnv.find?` lookups, no extra reduction).  Variant (c) avoids it (a recursor head is
+not δ-unfoldable) at the price above.  About half of the stream's 50 M instructions are
+start-up (`identical-nesting`, nearly empty, takes 24 M), so on the check proper the
+regression is about a fifth.  The other small regressions (`discarded-argument` +1.4 %,
+`refute-cheap-last` +1.5 %, `discarded-argument-match` +0.6 %, `shared-subterm` +0.6 %,
+`init-prelude` +0.15 %) are streams of the same shape (unary `N` numerals against `N.rec`
+and `N.add` chains); `discarded-argument`'s 400 comparisons with a target all reach the same
+constructor (count probe), so its cost is the same per-fire overhead.  The others were not
+attributed one by one.
+
+**Proofs.**  `Kernel/CoreDefs`: `ctorTarget`, `ctorTargetFor`, `ctorHeadAgainst` (pure);
+`Cached/CoreC`: `ctorTargetC` (the spine counted with `iotaNumArgs`), `ctorTargetForC`,
+`ctorHeadAgainstC`, `defeqLazyI`, the knot one function smaller.  `Verify/Deep`:
+`ctorTarget{,For}_shiftFrom`, `ctorHeadAgainst_shiftFrom`, `defeqLazy_shift`, `defeq_step`
+over the new body.  `Verify/EnvExt`: `ctorTarget{,For}_ext`, `ctorHeadAgainst_ext`
+(`EnvExt/Reads`: the family is the stored constructor type's head, resolved, as
+`etaCtorPartial_ext` reads it), `defeqLazy_rel`, `defeqBody_rel`.  `Verify/Fueled`,
+`Verify/PairM`: `defeqLazy_atF`, `defeqLazy_{fst,snd}_proj`.  `Verify/Knot`:
+`defeqLazyFueled` + fold.  `Verify/Rules`: `defeqLazy_inv` (the former inversion minus two
+exits), `defeqBody_inv` (four exits: `a = b`, the two shortcut sides as `whnf` + `defeqLazy`,
+the lazy comparison), `defeqLazy_bridge`, `defeq_bridge_succ` by `DefEq.redL`/`redR`.
+`Verify/Cached/KnotCongr`: the congruences of the new pieces.  `Verify/Cached/DiscC5`: the
+blocks between the arms named on both sides (`ctorRightTP/I` → `ctorRightP/I`, `ctorLeftTP/I`
+→ `ctorLeftP/I`), `rfl` restatements `defeqBody_eq`/`defeqBodyI_eq`/`defeqLazy_eq`/
+`defeqLazyI_eq`, the gates' cached twins as `@[conleche_grind =]` equations
+(`ctorTargetForC_eq`, `ctorHeadAgainstC_eq`), one `sym … => vcgen … <;> finish` per walk, no
+raised limit.  No `sorry`, no axiom.
+
+**Fixtures** (`tests/e2e/src/ctor_sc_*.lean`; the accepted ones checked by v4.29.1's kernel
+at export, the rejected ones built under `debug.skipKernelTC`): `ctor_sc_prop` (a `Prop`
+family, and a `Sort u` family at `u := 0`, equal by proof irrelevance; rejected by a build
+without the `neverZero` condition), `ctor_sc_struct_eta`, `ctor_sc_unit_like` (against
+stuck opaque constants, both orders), `ctor_sc_nat`, `ctor_sc_partial_eta` (both orders),
+`ctor_sc_same_ctor` / `_bad`, `ctor_sc_diff_ctor_bad`, `ctor_sc_decide` / `_bad`,
+`ctor_sc_eager`.  Every verdict is official's and master's.
+
+**Final measurement** (the lane's final tree against master `d7ee38d80`, as above; every
+stream's stdout and exit code identical):
+
+| stream | master | lane | Δ |
+|---|---:|---:|---:|
+| `init-full` | 262.656 G | 253.897 G | -3.33 % |
+| `mathlib-prefix` | 366.430 G | 357.081 G | -2.55 % |
+| `grind-ring-5` | 8.799 G | 8.701 G | -1.12 % |
+| `init-prelude` | 1.133 G | 1.134 G | +0.15 % |
+| `app-lam` | 22.088 G | 22.085 G | -0.01 % |
+| `args-before-unfold` | 0.051 G | 0.056 G | +10.78 % |
+| `beta-ladder` | 4.939 G | 4.939 G | +0.00 % |
+| `church-numerals` | 0.198 G | 0.198 G | +0.17 % |
+| `discarded-argument` | 0.068 G | 0.069 G | +1.41 % |
+| `discarded-argument-match` | 0.198 G | 0.199 G | +0.59 % |
+| `folded-constant-first` | 0.068 G | 0.068 G | -0.01 % |
+| `folded-constant-last` | 0.068 G | 0.068 G | -0.02 % |
+| `fueled-chain` | 0.264 G | 0.264 G | +0.09 % |
+| `identical-nesting` | 0.024 G | 0.024 G | -0.01 % |
+| `irrelevance-before-evaluation` | 0.025 G | 0.025 G | +0.03 % |
+| `let-ladder` | 2.561 G | 2.561 G | +0.00 % |
+| `magma-list-deep-n21` | 10.063 G | 10.069 G | +0.06 % |
+| `magma-list-deep-n36` | 134.288 G | 134.299 G | +0.01 % |
+| `magma-list-pair-n21` | 113.705 G | 113.648 G | -0.05 % |
+| `magma-list-pair-n7` | 9.838 G | 9.835 G | -0.03 % |
+| `refute-cheap-first` | 0.026 G | 0.026 G | -0.15 % |
+| `refute-cheap-last` | 0.094 G | 0.095 G | +1.52 % |
+| `repeated-subproblem` | 0.025 G | 0.025 G | -0.09 % |
+| `shared-subterm` | 0.131 G | 0.132 G | +0.58 % |
+| `shift-cascade` | 0.054 G | 0.054 G | +0.00 % |
+| `unroll-versus-evaluate` | 0.030 G | 0.030 G | +0.01 % |
+
+**Gates.**  `lake build` and `lake test` warning-free; `tests/arena.sh` green (e2e 609/609);
+the link gates re-pointed (`OVERVIEW.md`, the whitepaper's two citations that moved); the
+plain-reach allowlist loses `Expr.isBoolTrue`.

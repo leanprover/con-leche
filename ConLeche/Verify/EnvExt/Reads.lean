@@ -256,6 +256,46 @@ theorem etaCtorPartial_ext {e : Expr} (he : Res env₁ e) :
     have hT := res_head (res_piResult hty) hft
     rw [hx.find_of_isSome hT, hx.table _ hT]
 
+/-- `ctorTarget` reads the head constructor and the family its stored
+type ends in, both resolved. -/
+theorem ctorTarget_ext {e : Expr} (he : Res env₁ e) :
+    ctorTarget env₂ e = ctorTarget env₁ e := by
+  unfold ctorTarget
+  split
+  · rfl
+  cases hfn : e.getAppFn <;> try rfl
+  rename_i c us
+  dsimp only
+  have hc := res_head he hfn
+  rw [hx.find_of_isSome hc]
+  cases hfc : env₁.find? c with
+  | none => rfl
+  | some ci =>
+    cases ci <;> try rfl
+    rename_i cvc cnP cnF T
+    dsimp only
+    have hty : Res env₁ cvc.type :=
+      (hx.facts.wf.consts _ (Env.find?_mem hfc)).2.2.1
+    split
+    case isFalse => rfl
+    obtain ⟨_, hft⟩ := hx.facts.wf.ctorHead hfc
+    have hT := res_head (res_piResult hty) hft
+    rw [hx.find_of_isSome hT]
+
+/-- `ctorTargetFor` reads what `ctorTarget` reads. -/
+theorem ctorTargetFor_ext {eager : Bool} {o e : Expr} (he : Res env₁ e) :
+    ctorTargetFor env₂ eager o e = ctorTargetFor env₁ eager o e := by
+  unfold ctorTargetFor
+  rw [ctorTarget_ext hx he]
+
+/-- `ctorHeadAgainst` reads the head constant, resolved. -/
+theorem ctorHeadAgainst_ext {c : Name} {w : Expr} (hw : Res env₁ w) :
+    ctorHeadAgainst env₂ c w = ctorHeadAgainst env₁ c w := by
+  unfold ctorHeadAgainst
+  cases hfn : w.getAppFn <;> try rfl
+  dsimp only
+  rw [hx.find_of_isSome (res_head hw hfn)]
+
 omit hx in
 /-- A peel of a resolved telescope resolves. -/
 theorem res_peelPis : ∀ {n : Nat} {e r : Expr}, Res env₁ e → Expr.peelPis n e = some r →

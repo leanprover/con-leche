@@ -2164,34 +2164,31 @@ private theorem inferIOSlot_step (henv : EnvWF env)
   rw [← inferTypeIO_on, ← inferTypeIO_on]
   exact ih.inferIO hpd' hw'
 
-private theorem isBoolTrue_shiftFrom {p : Nat} {e : Expr} :
-    (shiftFrom p e).isBoolTrue = e.isBoolTrue := by
-  cases e <;> first
-    | rfl
-    | (simp only [shiftFrom]; split <;> rfl)
-
-/-- The eq-true shortcut (the audit's E2) is shift-invariant: one `whnf`
-and a head test that ignores the shift. -/
-private theorem boolTrueShortcut_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
-    (hwa : WScoped d a) :
-    boolTrueShortcut (pureFns mode eager env fuel) (d + 1) (shiftFrom p a) =
-      boolTrueShortcut (pureFns mode eager env fuel) d a := by
-  unfold boolTrueShortcut
-  refine bind_congr (shiftFrom p) (ih.whnf hpd hwa) ?_
-  intro w _
-  rw [isBoolTrue_shiftFrom]
-
-/-- `boolTrueShortcut_shift` under its guard. -/
-private theorem boolTrueShortcutIf_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
-    (hwa : WScoped d a) (g : Bool) :
-    (if g then boolTrueShortcut (pureFns mode eager env fuel) (d + 1) (shiftFrom p a)
-        else pure false) =
-      (if g then boolTrueShortcut (pureFns mode eager env fuel) d a else pure false) := by
-  cases g
+/-- The constructor shortcut's target is read off a closed term, which
+the shift fixes. -/
+private theorem ctorTarget_shiftFrom {p : Nat} {e : Expr} :
+    ctorTarget env (shiftFrom p e) = ctorTarget env e := by
+  unfold ctorTarget
+  rw [hasFvar_shiftFrom]
+  cases h : e.hasFvar
+  · rw [shiftFrom_eq_self_of_not_hasFvar h]
   · rfl
-  · exact boolTrueShortcut_shift henv ih hpd hwa
+
+/-- The constructor shortcut's gate ignores the shift. -/
+private theorem ctorTargetFor_shiftFrom {p : Nat} {eager : Bool} {o e : Expr} :
+    ctorTargetFor env eager (shiftFrom p o) (shiftFrom p e) = ctorTargetFor env eager o e := by
+  unfold ctorTargetFor
+  rw [hasFvar_shiftFrom, ctorTarget_shiftFrom]
+
+/-- A head normal form's head against a constructor ignores the shift
+(the head is read only when it is a constant). -/
+private theorem ctorHeadAgainst_shiftFrom {p : Nat} {c : Name} {w : Expr} :
+    ctorHeadAgainst env c (shiftFrom p w) = ctorHeadAgainst env c w := by
+  unfold ctorHeadAgainst
+  rw [getAppFn_shiftFrom]
+  generalize w.getAppFn = f
+  cases f <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
 
 /-- A lazy-delta step's outcome under a map of its pair. -/
 private def DeltaStep.mapE (σ : Expr → Expr) : DeltaStep → DeltaStep
@@ -2886,19 +2883,14 @@ private theorem defeqStuck_shift (henv : EnvWF env)
     intro bb _
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
 
-private theorem defeq_step (henv : EnvWF env)
-    (ih : ShiftClaims mode eager env fuel) : DefEqShift mode eager env (fuel + 1) := by
-  intro p d hpd a b hwa hwb
-  rw [isDefEqCore_succ, isDefEqCore_succ]
-  simp only [defeqBody]
-  rw [shiftFrom_beq]
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  -- the eq-true shortcut (E2): its guard reads the shifted sides' head
-  -- and fvar range, both shift-invariant
-  rw [isBoolTrue_shiftFrom, hasFvar_shiftFrom]
-  refine bind_congr_eq (boolTrueShortcutIf_shift henv ih hpd hwa _) ?_
-  rintro rbt -
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+/-- The lazy comparison commutes with the shift. -/
+private theorem defeqLazy_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    defeqLazy mode eager (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
+        (shiftFrom p b) =
+      defeqLazy mode eager (pureFns mode eager env fuel) env d a b := by
+  unfold defeqLazy
   refine bind_congr_eq (quickDefEq_shift henv ih hpd hwa hwb) ?_
   intro o₀ _
   cases o₀ with
@@ -2941,6 +2933,36 @@ private theorem defeq_step (henv : EnvWF env)
   exact ite_congr' (fun _ => defeqStuck_shift henv ih hpd hwa₁ hwb₁)
     (fun _ => ih.defeq hpd (whnfCore_WScoped henv fuel ha₂ hwa₁)
       (whnfCore_WScoped henv fuel hb₂ hwb₁))
+
+private theorem defeq_step (henv : EnvWF env)
+    (ih : ShiftClaims mode eager env fuel) : DefEqShift mode eager env (fuel + 1) := by
+  intro p d hpd a b hwa hwb
+  rw [isDefEqCore_succ, isDefEqCore_succ]
+  simp only [defeqBody]
+  rw [shiftFrom_beq]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  -- the constructor shortcut: its guards read the sides' fvar ranges and
+  -- closed constructor applications, both shift-invariant
+  rw [ctorTargetFor_shiftFrom, ctorTargetFor_shiftFrom]
+  split
+  · refine bind_congr (shiftFrom p) (ih.whnf hpd hwa) ?_
+    intro w hw
+    have hww : WScoped d w := whnf_WScoped henv fuel hw hwa
+    rw [ctorHeadAgainst_shiftFrom]
+    split
+    · exact defeqLazy_shift henv ih hpd hww hwb
+    · rfl
+    · exact defeqLazy_shift henv ih hpd hwa hwb
+  · split
+    · refine bind_congr (shiftFrom p) (ih.whnf hpd hwb) ?_
+      intro w hw
+      have hww : WScoped d w := whnf_WScoped henv fuel hw hwb
+      rw [ctorHeadAgainst_shiftFrom]
+      split
+      · exact defeqLazy_shift henv ih hpd hwa hww
+      · rfl
+      · exact defeqLazy_shift henv ih hpd hwa hwb
+    · exact defeqLazy_shift henv ih hpd hwa hwb
 
 end Helpers
 

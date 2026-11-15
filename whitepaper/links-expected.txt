@@ -2250,14 +2250,14 @@
    545  "reduce, then continue": `redL`.
    546  -/
 
-== ConLeche/Kernel/Core.lean#L1466-L1472
-  1466  /-- The innermost level of `defeqBinders`: the opened bodies, and for
-  1467  two λ-telescopes at the verified mode their FULL-grade types. -/
-  1468  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
-  1469    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1470    if lam && mode.verifiedChecks then
-  1471      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
-  1472          (← r.infer (depth + 1) b₂) do return false
+== ConLeche/Kernel/Core.lean#L1451-L1457
+  1451  /-- The innermost level of `defeqBinders`: the opened bodies, and for
+  1452  two λ-telescopes at the verified mode their FULL-grade types. -/
+  1453  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1454    unless ← r.defeq (depth + 1) b₁ b₂ do return false
+  1455    if lam && mode.verifiedChecks then
+  1456      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
+  1457          (← r.infer (depth + 1) b₂) do return false
 
 == ConLeche/Kernel/Core.lean#L515-L520
    515        -- Task #342 S0: the λ/η tax (T2)
@@ -5684,18 +5684,18 @@
    454      rules.map fun rl => { rl with fire := fire }
    455    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L964-L974
-   964      (rP : Nat) : List Level × List Expr :=
-   965    match rl.fire with
-   966    | .nested lvls pins =>
-   967      (lvls.map (Level.subst lps us),
-   968       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
-   969         (p.instantiateLevelParams lps us))
-   970    | .plain =>
-   971      (cvjLps.map fun p => Level.subst lps us (.param p),
-   972       args.take cnP)
-   973    | .levels lvls =>
-   974      (lvls.map (Level.subst lps us), args.take cnP)
+== ConLeche/Kernel/CoreDefs.lean#L997-L1007
+   997      (rP : Nat) : List Level × List Expr :=
+   998    match rl.fire with
+   999    | .nested lvls pins =>
+  1000      (lvls.map (Level.subst lps us),
+  1001       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+  1002         (p.instantiateLevelParams lps us))
+  1003    | .plain =>
+  1004      (cvjLps.map fun p => Level.subst lps us (.param p),
+  1005       args.take cnP)
+  1006    | .levels lvls =>
+  1007      (lvls.map (Level.subst lps us), args.take cnP)
 
 == ConLeche/Rules/Rel.lean#L220-L231
    220        IotaCaseS env isK induct (recFireComparands rl cnP cv.levelParams us cvj.levelParams
