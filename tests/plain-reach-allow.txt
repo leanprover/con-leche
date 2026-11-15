@@ -274,7 +274,7 @@ ConLeche.levelHasParam
 ConLeche.levelsHash
 ConLeche.levelsHaveParam
 
-# ConLeche.Kernel.ExprOps — O(spine) readers (getAppFn, mkAppN, piResult, stripPis, peelPis) and the field-read guards (bvarB, fvarB, looseBVarsBounded, hasFvar)
+# ConLeche.Kernel.ExprOps — O(spine) readers (getAppFn, mkAppN, piResult, stripPis, peelPis, lamBody: the ι step's peel, once per rule and declaration) and the field-read guards (bvarB, fvarB, looseBVarsBounded, hasFvar)
 ConLeche.Expr.bvarBoundGo
 ConLeche.Expr.bvarBoundMemo
 ConLeche.Expr.fvarRangeGo
@@ -282,6 +282,7 @@ ConLeche.Expr.fvarRangeMemo
 ConLeche.Expr.getAppFn
 ConLeche.Expr.hasFvarFast
 ConLeche.Expr.isForallE
+ConLeche.Expr.lamBody
 ConLeche.Expr.binderPair?
 ConLeche.Expr.looseBVarsBoundedFast
 ConLeche.Expr.mkAppN
@@ -510,6 +511,7 @@ ConLeche.nestWalkStack  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.blockNestedBit  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.instInhabitedTargetMajor.default  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.recKExpected  # ConLeche.Kernel.Inductives.RecCheck
+ConLeche.ruleBinds  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetCtorsOf  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetHoles  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetRecPins  # ConLeche.Kernel.Inductives.RecCheck

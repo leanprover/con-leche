@@ -190,7 +190,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   /-- **ι** (`iotaRec`, `Kernel/Core.lean`): a stored recursor
   applied to exactly its telescope, whose prepared major (the `Red`
   premise: `prepareMajor`'s whnf / literal / rescue chain) is a
-  constructor application with a firing rule.  The recursor
+  constructor application with a firing rule; the reduct is the rule's
+  right-hand side's body under its `rP + nfields` λs (lean4 PR #10565's
+  shape, no β-redex built), the leading arguments and the fields
+  substituted.  The recursor
   telescope's syntactic arity over the redex's own spine, and (case 3
   only) the level and parameter comparisons with the rule's comparands,
   the constructor's full-grade telescope certificate and the index
@@ -236,8 +239,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
         DefEqList env d (residual.getAppArgs.drop cnP)
           ((e.getAppArgs.take mI).drop rP)) →
       Red env d e
-        (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
-          (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP))
+        (rl.iotaReduct cv.levelParams us rP (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP))
   /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
   official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
   parameters-only constructor application is fabricated from the

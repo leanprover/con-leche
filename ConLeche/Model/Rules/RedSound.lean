@@ -6,6 +6,8 @@ import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Denote.Inst
 import ConLeche.Verify.Denote.Closed
 import ConLeche.Semantics.LitStep
+public import ConLeche.Verify.IotaReduct
+public import ConLeche.Verify.InstList
 
 public section
 
@@ -188,6 +190,45 @@ theorem Red.beta_sound {d : Nat} {ty body a : Expr} :
   refine ⟨hfr, hsub, ba.inst aa, hred, fun ρ _ _ hg hne => ?_⟩
   obtain ⟨h1, h2⟩ := betaV hg hne
   exact ⟨h2, h1⟩
+
+/-- A reduction of the head is one of the whole spine. -/
+theorem Red.appSpine_sound {d : Nat} {f f' : Expr} (hf : RedSem m φ d f f') :
+    ∀ (as : List Expr), RedSem m φ d (Expr.mkAppN f as) (Expr.mkAppN f' as) := by
+  intro as
+  induction as generalizing f f' with
+  | nil => exact hf
+  | cons a as ih => exact ih (Red.appFn_sound hf)
+
+/-- **The β steps of a λ-telescope applied to as many values** (task #585): the
+application reduces to the telescope's body with the values substituted at once, in
+reverse (`instantiateList`, the ι reduct's shape).  One `Red.beta_sound` per value. -/
+theorem Red.betaSpine_sound {d : Nat} :
+    ∀ (vals : List Expr) {f b : Expr} {bs : List Expr},
+      f.stripLams vals.length = some (bs, b) →
+      RedSem m φ d (Expr.mkAppN f vals) (b.instantiateList vals.reverse)
+  | [], f, b, bs, h => by
+    simp only [List.length_nil, Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    rw [List.reverse_nil, Expr.instantiateList_nil]
+    exact Red.refl_sound
+  | v :: vs, f, b, bs, h => by
+    match f, h with
+    | .lam ty body, h =>
+      simp only [List.length_cons, Expr.stripLams] at h
+      cases hs : body.stripLams vs.length with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        obtain ⟨bs', hbs'⟩ := Expr.stripLams_instantiate1 v 0 (bs := p.1) (b := p.2) (by rw [hs])
+        rw [Nat.zero_add] at hbs'
+        have hstep := Red.appSpine_sound (m := m) (φ := φ) (d := d)
+          (Red.beta_sound (ty := ty) (body := body) (a := v)) vs
+        refine Red.trans_sound hstep ?_
+        rw [List.reverse_cons, Expr.instantiateList_append_one, Nat.zero_add,
+          List.length_reverse]
+        exact Red.betaSpine_sound vs hbs'
 
 /-! ## ζ, δ and the literal expansions: no claim read -/
 

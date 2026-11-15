@@ -20,10 +20,10 @@ The pure wrappers are `CEff.pure` at the commutation spec (`OpsC.lean`)
 of the underlying `Expr` operation.  The persistent memos — the
 bulk-instantiation cache (`instListM`), the level memo (`isEquivLM`) and
 the lazy stored-constant caches (`constTyAtM`/`constValAtM`/
-`ruleRhsAtM`) — are proved by `vcgen` and `grind` from hit and insert
+`ruleBodyAtM`) — are proved by `vcgen` and `grind` from hit and insert
 lemmas against the matching `CSOK` clause; a lazy cache's spec at a
 stored entry (`…_spec_of_find`) is read at the walks' named lookups
-(`constTyOf`, `constValAt?`, `ruleRhsOf`).  The memo keys are lawful
+(`constTyOf`, `constValAt?`, `ruleBodyOf`).  The memo keys are lawful
 (`LawfulBEq`), so a colliding key is the inserted one
 (`HashMap.insert_backed`, `SimC.lean`).
 -/
@@ -453,70 +453,72 @@ theorem constValAtM_spec (hs : CSOK mode eager env s₀) (nI n : Name) (us : Lis
   obtain ⟨hs', hrel⟩ := triple_iff_run.mp (constValAtM_spec_of_find hs hf) r s' hr
   exact ⟨hs', by rw [constValAt?, hf, hrel]⟩
 
-theorem CSOK.ruleRhs_hit {s : CState} {c j : Name} {us : List Level}
+theorem CSOK.ruleBody_hit {s : CState} {c j : Name} {us : List Level}
     {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule} {rl : RecRule}
     (hfind : env.find? c = some (.recInfo cv mI rP isK rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) (hs : CSOK mode eager env s)
-    (hne : s.ruleRhsAt[(c, j, us)]? ≠ none) :
-    s.ruleRhsAt[(c, j, us)]? = some (rl.rhs.instantiateLevelParams cv.levelParams us) := by
+    (hne : s.ruleBodyAt[(c, j, us)]? ≠ none) :
+    s.ruleBodyAt[(c, j, us)]? = some ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams us) := by
   obtain ⟨i, hl⟩ := Option.ne_none_iff_exists'.mp hne
-  obtain ⟨cv', mI', rP', isK', rules', rl', hfind', hrl', hrel⟩ := hs.ruleRhs c j us i hl
+  obtain ⟨cv', mI', rP', isK', rules', rl', hfind', hrl', hrel⟩ := hs.ruleBody c j us i hl
   rw [hfind] at hfind'; cases hfind'; rw [hrl] at hrl'; cases hrl'; rw [hl, hrel.erase]
 
-theorem CSOK.ruleRhs_insert {s : CState} {c j : Name} {us : List Level}
+theorem CSOK.ruleBody_insert {s : CState} {c j : Name} {us : List Level}
     {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule} {rl : RecRule}
     (hfind : env.find? c = some (.recInfo cv mI rP isK rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) (hs : CSOK mode eager env s) :
-    CSOK mode eager env { s with ruleRhsAt := (s.ruleRhsAt.insert (c, j, us)
-      (rl.rhs.instantiateLevelParams cv.levelParams us)) } :=
+    CSOK mode eager env { s with ruleBodyAt := (s.ruleBodyAt.insert (c, j, us)
+      ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams us)) } :=
   { hs with
-    ruleRhs := fun c' j' us' => HashMap.insert_backed
+    ruleBody := fun c' j' us' => HashMap.insert_backed
       (P := fun k i => ∃ cv mI rP isK rules rl, env.find? k.1 = some (.recInfo cv mI rP isK rules) ∧
         rules.find? (fun r' => r'.ctor == k.2.1) = some rl ∧
-        RelC i (rl.rhs.instantiateLevelParams cv.levelParams k.2.2))
-      (i := (c, j, us)) (fun k v => hs.ruleRhs k.1 k.2.1 k.2.2 v)
+        RelC i ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams k.2.2))
+      (i := (c, j, us)) (fun k v => hs.ruleBody k.1 k.2.1 k.2.2 v)
       ⟨cv, mI, rP, isK, rules, rl, hfind, hrl, RelC.refl _⟩ (c', j', us') }
 
-/-- `ruleRhsAtM` under the index of `env`. -/
-theorem ruleRhsAtM_spec_of_find (hs : CSOK mode eager env s₀) {cI jI c j : Name}
+/-- `ruleBodyAtM` under the index of `env`. -/
+theorem ruleBodyAtM_spec_of_find (hs : CSOK mode eager env s₀) {cI jI c j : Name}
     {us : List Level} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule} {rl : RecRule}
     (hfind : env.find? c = some (.recInfo cv mI rP isK rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) :
-    ⦃fun s => s = s₀⦄ ruleRhsAtM (mkFEnv env) cI jI c j us
-    ⦃fun i s' => CSOK mode eager env s' ∧ i = rl.rhs.instantiateLevelParams cv.levelParams us; ⊤⦄
+    ⦃fun s => s = s₀⦄ ruleBodyAtM (mkFEnv env) cI jI c j us
+    ⦃fun i s' => CSOK mode eager env s' ∧
+      i = (rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams us; ⊤⦄
         := by
   sym only [conleche_grind,
-      CSOK.ruleRhs_hit (mode := mode) (eager := eager) hfind hrl, CSOK.ruleRhs_insert hfind hrl] =>
-    vcgen [ruleRhsAtM, instLevelParamsM] <;> finish
+      CSOK.ruleBody_hit (mode := mode) (eager := eager) hfind hrl, CSOK.ruleBody_insert hfind hrl] =>
+    vcgen [ruleBodyAtM, instLevelParamsM] <;> finish
 
 /-- The rule a recursor stores for constructor `cj` (the lookup's `fun`
 named, so that two lookups at equal names are congruent). -/
 @[expose] def findRule (rules : List RecRule) (cj : Name) : Option RecRule :=
   rules.find? (fun r' => r'.ctor == cj)
 
-/-- A recursor's rule right-hand side for constructor `j` at levels `us`. -/
-@[expose] def ruleRhsOf (env : Env) (c j : Name) (us : List Level) : Option Expr :=
+/-- A recursor's rule for constructor `j`, read for its ι step: the right-hand side's body
+under its `rP + nfields` λs, at levels `us`. -/
+@[expose] def ruleBodyOf (env : Env) (c j : Name) (us : List Level) : Option Expr :=
   match env.find? c with
-  | some (.recInfo cv _ _ _ rules) =>
+  | some (.recInfo cv _ rP _ rules) =>
     match findRule rules j with
-    | some rl => some (rl.rhs.instantiateLevelParams cv.levelParams us)
+    | some rl => some ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams us)
     | none => none
   | _ => none
 
-/-- `ruleRhsAtM` under the index of `env`, where the recursor stores a
+/-- `ruleBodyAtM` under the index of `env`, where the recursor stores a
 rule for the constructor. -/
-theorem ruleRhsAtM_spec (hs : CSOK mode eager env s₀) (cI jI c j : Name)
-    (us : List Level) (hfind : (ruleRhsOf env c j us).isSome = true) :
-    ⦃fun s => s = s₀⦄ ruleRhsAtM (mkFEnv env) cI jI c j us
-    ⦃fun t s' => CSOK mode eager env s' ∧ some t = ruleRhsOf env c j us; ⊤⦄ := by
+theorem ruleBodyAtM_spec (hs : CSOK mode eager env s₀) (cI jI c j : Name)
+    (us : List Level) (hfind : (ruleBodyOf env c j us).isSome = true) :
+    ⦃fun s => s = s₀⦄ ruleBodyAtM (mkFEnv env) cI jI c j us
+    ⦃fun t s' => CSOK mode eager env s' ∧ some t = ruleBodyOf env c j us; ⊤⦄ := by
   refine triple_iff_run.mpr fun t s' hr => ?_
-  unfold ruleRhsOf at hfind ⊢
+  unfold ruleBodyOf at hfind ⊢
   split at hfind
   · rename_i cv mI rP isK rules hc
     split at hfind
     · rename_i rl hrl
-      obtain ⟨hs', h⟩ := triple_iff_run.mp (ruleRhsAtM_spec_of_find hs hc hrl) t s' hr
+      obtain ⟨hs', h⟩ := triple_iff_run.mp (ruleBodyAtM_spec_of_find hs hc hrl) t s' hr
       exact ⟨hs', congrArg some h⟩
     · exact nomatch hfind
   · exact nomatch hfind

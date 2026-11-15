@@ -270,7 +270,7 @@ the persistent bulk-instantiation memo (task #145). -/
 structure CState where
   constTyAt : Std.HashMap (Name × List Level) Expr := {}
   constValAt : Std.HashMap (Name × List Level) Expr := {}
-  ruleRhsAt : Std.HashMap (Name × Name × List Level) Expr := {}
+  ruleBodyAt : Std.HashMap (Name × Name × List Level) Expr := {}
   whnfCoreC : Std.HashMap Expr Expr := {}
   /-- The cheap-projection head normalization's memo (`whnfCore` at
   `cheap_proj`, `whnfCoreBody`): a separate map, since the two modes'
@@ -475,33 +475,35 @@ def constValAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
       pure i
     | _ => throw (.internal "constValAtM: not a stored definition")
 
-/-- The level-instantiated right-hand side of the rule for constructor
-`j` of the stored recursor `c`. -/
-def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
+/-- The rule for constructor `j` of the stored recursor `c`, read for its
+ι step: its right-hand side's body under its `rulePrefix + nfields` λs
+(`lamBody`; the install checks it has them, `RuleWF`), at the levels
+`us`. -/
+def ruleBodyAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
     CheckCM Expr := do
-  let hit? ← modifyGet fun s => (s.ruleRhsAt[(c, j, us)]?, s)
+  let hit? ← modifyGet fun s => (s.ruleBodyAt[(c, j, us)]?, s)
   match hit? with
   | some i => pure i
   | none =>
     match fe.find? c with
-    | some (.recInfo cv _ _ _ rules) =>
+    | some (.recInfo cv _ rP _ rules) =>
       match rules.find? (fun r' => r'.ctor == j) with
       | some rl =>
-        let i ← instLevelParamsM cv.levelParams us rl.rhs
+        let i ← instLevelParamsM cv.levelParams us (rl.rhs.lamBody (rP + rl.nfields))
         modify fun s =>
-          let mp := s.ruleRhsAt
-          let s := { s with ruleRhsAt := ∅ }
-          { s with ruleRhsAt := mp.insert (c, j, us) i }
+          let mp := s.ruleBodyAt
+          let s := { s with ruleBodyAt := ∅ }
+          { s with ruleBodyAt := mp.insert (c, j, us) i }
         pure i
-      | none => throw (.internal "ruleRhsAtM: no rule for constructor")
-    | _ => throw (.internal "ruleRhsAtM: not a stored recursor")
+      | none => throw (.internal "ruleBodyAtM: no rule for constructor")
+    | _ => throw (.internal "ruleBodyAtM: not a stored recursor")
 
 /-- Drop the environment-dependent caches (an environment transition).
 The environment-independent components — the level-operation memos —
 survive. -/
 def CState.flushed (s : CState) : CState :=
   { s with
-      constTyAt := {}, constValAt := {}, ruleRhsAt := {},
+      constTyAt := {}, constValAt := {}, ruleBodyAt := {},
       whnfCoreC := {}, whnfCoreCheapC := {}, whnfC := {}, inferC := {}, inferIOC := {},
       defeqC := {}, instC := {}, eagerMemos := {} }
 

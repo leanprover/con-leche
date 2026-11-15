@@ -6,6 +6,8 @@ import ConLeche.Model.Rules.EtaSoundKit
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Semantics.DefEqList
+import ConLeche.Verify.IotaReduct
+import ConLeche.Model.Rules.RedSound
 
 public section
 
@@ -64,8 +66,10 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
   {φ : Name → Nat}
 set_option linter.unusedVariables false in
-/-- **The ι row** (task #342 L10, S5c): the stored recursor's fired
-contract (`RecRuleLaw`) and its ι facts (`RecRuleExtra`), at the
+/-- **The ι row at the rule's application** (task #342 L10, S5c): the
+redex reduces to the stored right-hand side applied to the leading
+arguments and the constructor's fields — what the stored recursor's fired
+contract (`RecRuleLaw`) and its ι facts (`RecRuleExtra`) state, at the
 recursor's telescope arity check over the redex's own spine,
 the major prepared by a reduction, and — at case 3 only, decided at
 the comparand levels — the level and parameter comparisons, the
@@ -85,7 +89,7 @@ value is the major's — by the major's reduction where the major is not
 the point, by the slot law (P) where it is — its spine fits (the
 full-grade certificate), where it is the point the comparisons the
 step ran give the index pin ((U)), and the law fires. -/
-theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
+theorem Red.iota_app_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
     {us : List Level} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
     {major : Expr} {cj : Name} {usj : List Level} {cvj : ConstantVal}
     {cnP cnF : Nat} {cT : Name} {rl : RecRule} {residual : Expr}
@@ -634,6 +638,62 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
     refine interp_mkAppN_congrK _ _ rfl ?_
     simp only [List.map_append, List.map_cons, List.map_nil, heqA]
   exact ⟨htrans hoX0 hoY, hsubj.trans heqLaw⟩
+
+/-- **The ι row** (task #585): the ι step's reduct is the rule's body under its
+`rP + nfields` λs with the values substituted (`RecRule.iotaReduct`, lean4 PR #10565's
+shape): the rule's application (`Red.iota_app_sound`) followed by its β steps
+(`Red.betaSpine_sound`), the λs there by the record's `RuleWF`. -/
+theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
+    {us : List Level} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
+    {major : Expr} {cj : Name} {usj : List Level} {cvj : ConstantVal}
+    {cnP cnF : Nat} {cT : Name} {rl : RecRule} {residual : Expr}
+    (hhead : e.getAppFn = .const c us)
+    (hrec : env.find? c = some (.recInfo cv mI rP isK rules))
+    (hlen : e.getAppArgs.length = mI + 1)
+    (hus : us.length = cv.levelParams.length)
+    (hmajor : RedSem m φ d (e.getAppArgs.getD mI (.bvar 0)) major)
+    (hmhead : major.getAppFn = .const cj usj)
+    (hctor : env.find? cj = some (.ctorInfo cvj cnP cnF cT))
+    (hrule : rules.find? (fun r' => r'.ctor == cj) = some rl)
+    (hmlen : major.getAppArgs.length = cnP + rl.nfields)
+    {c3 : Bool}
+    (hcase : IotaCaseSem m φ isK cvj
+      (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams e.getAppArgs rP).1 c3)
+    (hlv : c3 = true →
+      Level.isEquivList usj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
+          e.getAppArgs rP).1 = some true)
+    (hparams : c3 = true →
+      DefEqListSem m φ d (major.getAppArgs.take cnP)
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
+          e.getAppArgs rP).2)
+    (hcertR : TeleAritySem m φ d (cv.type.instantiateLevelParams cv.levelParams us)
+      e.getAppArgs)
+    (hcertC : c3 = true →
+      CertsFSem m φ d (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        major.getAppArgs)
+    (hres : c3 = true → mI ≠ rP →
+      ConLeche.piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
+        major.getAppArgs = some residual)
+    (hidx : c3 = true → mI ≠ rP →
+      DefEqListSem m φ d (residual.getAppArgs.drop cnP)
+        ((e.getAppArgs.take mI).drop rP)) :
+    RedSem m φ d e
+      (rl.iotaReduct cv.levelParams us rP (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP)) := by
+  obtain ⟨hrPle, hbinds⟩ := m.wf.rules _ (ConLeche.Env.find?_mem hrec) cv mI rP isK rules rfl
+    rl (List.mem_of_find?_eq_some hrule)
+  obtain ⟨⟨bs, b⟩, hs⟩ := Option.isSome_iff_exists.mp hbinds
+  have hvl := ConLeche.iotaVals_length (args := e.getAppArgs) (margs := major.getAppArgs)
+    (rP := rP) (cnP := cnP) (nf := rl.nfields) (by rw [hlen]; omega) hmlen
+  have hsI : (rl.rhs.instantiateLevelParams cv.levelParams us).stripLams
+      (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP).length
+      = some (bs.map (·.instantiateLevelParams cv.levelParams us),
+          b.instantiateLevelParams cv.levelParams us) := by
+    rw [hvl, ConLeche.stripLams_instantiateLevelParams, hs]; rfl
+  refine Red.trans_sound (Red.iota_app_sound hin hhead hrec hlen hus hmajor hmhead hctor hrule
+    hmlen hcase hlv hparams hcertR hcertC hres hidx) ?_
+  rw [RecRule.iotaReduct, ConLeche.Expr.lamBody_of_stripLams hs]
+  exact Red.betaSpine_sound _ hsI
 
 set_option linter.unusedVariables false in
 /-- **The K rescue** (task #342 L18): the major is a proof — its io

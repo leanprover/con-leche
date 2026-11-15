@@ -11,6 +11,7 @@ import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.InstSpine
+import ConLeche.Verify.IotaReduct
 public section
 
 /-!
@@ -1284,16 +1285,12 @@ theorem iotaRec_WScoped (henv : EnvWF env)
     iotaRec_inv h
   have hargs : ∀ x, x ∈ e.getAppArgs → WScoped d x :=
     fun x hx => hw.getAppArgs x hx
-  have hrhs : WScoped d
-      (r.rhs.instantiateLevelParams cv.levelParams us) := by
+  have hrf : r.rhs.hasFvar = false := by
     obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
-    obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl r
-      (List.mem_of_find?_eq_some hrule)
-    exact WScoped.of_not_hasFvar
-      (by rw [hasFvar_instantiateLevelParams]; exact hrf)
+    exact (hrules cv mI rP isK rules rfl r (List.mem_of_find?_eq_some hrule)).1
   have hmajw : WScoped d major := prepareMajorFueled_WScoped henv hprep
     (hargs _ (getD_mem (by omega)))
-  refine Expr.WScoped.mkAppN hrhs ?_
+  refine RecRule.iotaReduct_WScoped hrf ?_
   intro x hx
   rcases List.mem_append.mp hx with hx | hx
   · exact hargs _ (List.mem_of_mem_take hx)
@@ -1624,24 +1621,23 @@ private theorem iotaRec_shift (henv : EnvWF env)
           · rw [ite_eq_right hμ, ite_eq_right hμ]
         intro b₄ _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-        have hrhs : (rl.rhs.instantiateLevelParams cv.levelParams
+        have hrhs : ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams
             us).hasFvar = false := by
           obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
           obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl rl
             (List.mem_of_find?_eq_some hrule)
           rw [hasFvar_instantiateLevelParams]
-          exact hrf
-        have hout : Expr.mkAppN
-            (rl.rhs.instantiateLevelParams cv.levelParams us)
+          exact Expr.hasFvar_lamBody _ hrf
+        have hout : rl.iotaReduct cv.levelParams us rP
             ((List.map (shiftFrom p) e.getAppArgs).take rP ++
               (List.map (shiftFrom p) major.getAppArgs).drop cnP) =
-            shiftFrom p (Expr.mkAppN
-              (rl.rhs.instantiateLevelParams cv.levelParams us)
+            shiftFrom p (rl.iotaReduct cv.levelParams us rP
               (e.getAppArgs.take rP ++
                 major.getAppArgs.drop cnP)) := by
-          rw [shiftFrom_mkAppN,
-            shiftFrom_eq_self_of_not_hasFvar hrhs, List.map_append,
+          rw [RecRule.iotaReduct_eq_instSpine, RecRule.iotaReduct_eq_instSpine,
+            shiftFrom_instSpine, shiftFrom_eq_self_of_not_hasFvar hrhs, List.map_append,
             List.map_take, List.map_drop]
+          simp only [List.length_append, List.length_take, List.length_drop, List.length_map]
         rw [hout]
         rfl
 

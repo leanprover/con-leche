@@ -25,7 +25,9 @@ generated recursor at the same position:
   compared with the generated one BINDER BY BINDER up to the major —
   both opened at their own locals, each domain `isDefEq` to the generated
   one at its depth (`recDomsAt`) — and then the residues (`recTyCheck`);
-* **each rule**, unless its right-hand side is the generated one:
+* **each rule**: a function of the recursor's rule prefix and the
+  constructor's fields, syntactically (`ruleBinds`: what the ι step
+  peels), and, unless its right-hand side is the generated one:
   closed, at the record's level parameters, resolving, inferred, its
   type `isDefEq` to the generated rule's, and `isDefEq` to the generated
   right-hand side (`ruleAgree`).
@@ -149,14 +151,16 @@ def streamRulesShape (rec : Name) : List RecRule → List (ConstantVal × Nat) �
     throw (.invalid s!"the recursor {rec} carries {rs.length} more or fewer rules than the \
       generated one ({cs.length} unmatched)")
 
-/-- The record's rules' checks, each against the generated right-hand side
-at its position (a rule equal to the generated one needs none). -/
+/-- The record's rules' checks: each binds its arguments (`ruleBinds`) and agrees with the
+generated right-hand side at its position (a rule equal to the generated one needs no
+comparison). -/
 def streamRulesCheck (ops : CheckerOps m) (fe : FEnv) (rec : Name)
-    (lps : List Name) : List RecRule → List Expr → m Unit
+    (lps : List Name) (rP : Nat) : List RecRule → List Expr → m Unit
   | r :: rs, g :: gs => do
+    ruleBinds rec rP r
     unless r.rhs == g do
       ruleAgree ops fe rec r.ctor lps r.rhs g
-    streamRulesCheck ops fe rec lps rs gs
+    streamRulesCheck ops fe rec lps rP rs gs
   | [], [] => pure ()
   | _, _ => throw (.internal s!"the recursor {rec}: the generated rules are not one per stored rule")
 
@@ -165,7 +169,7 @@ def streamRecCompare (ops : CheckerOps m) (fe : FEnv) (rc : RecShape)
     (g : ConstantVal × TargetMajor × List Expr) : m Unit := do
   unless rc.cvR.type == g.1.type do
     recTyCheck ops fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type
-  streamRulesCheck ops fe g.1.name g.1.levelParams rc.rules g.2.2
+  streamRulesCheck ops fe g.1.name g.1.levelParams rc.rP rc.rules g.2.2
 
 /-- **One recursor, the stream's against the generated one** (see the module
 docstring): the stream's record `rc` against the generated recursor

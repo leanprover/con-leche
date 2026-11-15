@@ -887,9 +887,10 @@ a K rule, and a rule whose constructor's family is never `Prop` there
 other rule (case 3) compares the constructor's levels and
 parameters with the rule's comparands, certifies the constructor
 telescope at the full grade (`iotaCertsFull`) and compares the indices
-(`iotaIndexOk`).  The result is the rule's rhs applied to the non-index prefix and the
-constructor's fields; over-application is handled by the outer app
-recursion. -/
+(`iotaIndexOk`).  The result is the rule's right-hand side's body under its
+`rP + nfields` λs (`lamBody`; the install checks that it has them, `RuleWF`), at the
+recursor's levels, with the non-index prefix and the constructor's fields substituted
+(`RecRule.iotaReduct`: lean4 PR #10565's peel, so no β-redex is built).  Over-application is handled by the outer app recursion. -/
 def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e.getAppFn with
@@ -962,9 +963,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                       else pure false
                     else pure true)
                   else pure true) then
-                  pure (some (Expr.mkAppN
-                    (rl.rhs.instantiateLevelParams cv.levelParams us)
-                    (args.take rP ++ margs.drop cnP)))
+                  pure (some (rl.iotaReduct cv.levelParams us rP (args.take rP ++ margs.drop cnP)))
                 else pure none
               else pure none
             | none => pure none

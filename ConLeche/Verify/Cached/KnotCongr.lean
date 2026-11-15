@@ -106,10 +106,10 @@ theorem constValAtM_congr (hfe : fe₁.find? = fe₂.find?) :
     constValAtM fe₁ = constValAtM fe₂ := by
   funext nI n us; unfold constValAtM; simp only [hfe]
 
-/-- `ruleRhsAtM` reads `fe` only through `find?`. -/
-theorem ruleRhsAtM_congr (hfe : fe₁.find? = fe₂.find?) :
-    ruleRhsAtM fe₁ = ruleRhsAtM fe₂ := by
-  funext cI jI c j us; unfold ruleRhsAtM; simp only [hfe]
+/-- `ruleBodyAtM` reads `fe` only through `find?`. -/
+theorem ruleBodyAtM_congr (hfe : fe₁.find? = fe₂.find?) :
+    ruleBodyAtM fe₁ = ruleBodyAtM fe₂ := by
+  funext cI jI c j us; unfold ruleBodyAtM; simp only [hfe]
 
 /-- The walk's plain descent reads `fe` only through `find?`. -/
 theorem constsResolveFP_congr (hfe : fe₁.find? = fe₂.find?) : ∀ e : Expr,
@@ -408,7 +408,7 @@ theorem iotaRecI_congr (hfe : fe₁.find? = fe₂.find?)
   funext depth hd args k; rw [iotaRecI.eq_def, iotaRecI.eq_def]
   simp only [hfe, prepareMajorI_congr hfe htb h, defEqListI_congr hfe h,
     constTyAtM_congr hfe, iotaCertsFullI_congr hfe h, iotaCase3I_congr hfe h,
-    iotaIndexOkI_congr hfe h, ruleRhsAtM_congr hfe]
+    iotaIndexOkI_congr hfe h, ruleBodyAtM_congr hfe]
 
 /-- `reduceProjCoreI` reads `fe` only through `find?` and `findTable?`. -/
 theorem reduceProjCoreI_congr (hfe : fe₁.find? = fe₂.find?)

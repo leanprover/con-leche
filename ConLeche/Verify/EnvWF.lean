@@ -207,6 +207,37 @@ theorem CtorWF.of_head {cv : ConstantVal} {nP nF : Nat} {T : Name} {us : List Le
   subst h1 h4
   exact ⟨us, h⟩
 
+/-- **What a stored recursor's rules bind** (task #585): at a recursor with rules, the rule
+prefix is a prefix of the major's telescope (`rulePrefix ≤ majorIdx`), and each rule's
+right-hand side has `rulePrefix + nfields` manifest λs, the ones the ι step peels (`lamBody`,
+lean4 PR #10565's shape) — so the reduct substitutes every bound variable of the peeled body.  A property of
+the record alone, as `CtorWF` is; the install establishes it syntactically (the parse sums the
+counts, `ruleBinds` counts a stored rule's λs, the generated rules are built over the prefix and
+the fields, the pins are evaluated). -/
+@[expose] def RuleWF (c : ConstantInfo) : Prop :=
+  ∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules → ∀ r ∈ rules,
+    rP ≤ mI ∧ (r.rhs.stripLams (rP + r.nfields)).isSome = true
+
+/-- A constant that is no recursor has no rules to keep. -/
+theorem RuleWF.of_not_rec {c : ConstantInfo}
+    (h : ∀ cv mI rP isK rules, c ≠ .recInfo cv mI rP isK rules) : RuleWF c :=
+  fun cv mI rP isK rules heq => absurd heq (h cv mI rP isK rules)
+
+/-- A recursor's rules bind its rule prefix and their fields (`RuleWF`), as a test (true at any
+other kind of constant). -/
+@[expose] def recRulesBindB : ConstantInfo → Bool
+  | .recInfo _ mI rP _ rules => rules.all fun r =>
+    decide (rP ≤ mI) && (r.rhs.stripLams (rP + r.nfields)).isSome
+  | _ => true
+
+/-- **The test, read**: the record's `RuleWF`. -/
+theorem ruleWF_of_recRulesBindB {c : ConstantInfo} (h : recRulesBindB c = true) : RuleWF c := by
+  intro cv mI rP isK rules heq r hr
+  subst heq
+  have hg := (List.all_eq_true.mp h) r hr
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at hg
+  exact hg
+
 /-- Every stored constant and every stored table is syntactically
 well-formed, every stored family's sort fact holds, and every stored constructor's family
 name is its type's. -/
@@ -219,6 +250,8 @@ structure EnvWF (env : Env) : Prop where
   inds : ∀ c ∈ env.consts, IndWF c
   /-- a stored constructor's family name -/
   ctors : ∀ c ∈ env.consts, CtorWF c
+  /-- a stored recursor's rules' binders -/
+  rules : ∀ c ∈ env.consts, RuleWF c
 
 /-- The table of a stored structure, off `EnvWF`. -/
 theorem EnvWF.table {env : Env} (henv : EnvWF env) {T : Name} {tbl : ProjTable}
@@ -486,13 +519,15 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env} (hs : litShapeOk c = true)
     (henv : EnvWF env)
     (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c)
     (hi : IndWF c := by exact IndWF.of_not_ind (fun _ _ heq => nomatch heq))
-    (hk : CtorWF c := by exact CtorWF.of_not_ctor (fun _ _ _ _ heq => nomatch heq)) :
+    (hk : CtorWF c := by exact CtorWF.of_not_ctor (fun _ _ _ _ heq => nomatch heq))
+    (hr : RuleWF c := by exact RuleWF.of_not_rec (fun _ _ _ _ _ heq => nomatch heq)) :
     EnvWF ⟨c :: env.consts, env.tables⟩ := by
   refine ⟨fun c' hc' => ?_,
     fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hs) (henv.shapes c'),
     fun t ht => (henv.tables t ht).cons,
     fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hi) (henv.inds c'),
-    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hk) (henv.ctors c')⟩
+    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hk) (henv.ctors c'),
+    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hr) (henv.rules c')⟩
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
   · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv.consts c' hmem
@@ -568,7 +603,8 @@ theorem EnvWF.pushTable {env : Env} {t : ProjTable} (henv : EnvWF env)
   ⟨fun c hc => (henv.consts c hc).of_find (Env.find?_pushTable env t), henv.shapes, fun t' ht' => by
     rcases List.mem_cons.mp ht' with rfl | hmem
     · exact ht.of_find (Env.find?_pushTable env _)
-    · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t), henv.inds, henv.ctors⟩
+    · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t), henv.inds, henv.ctors,
+    henv.rules⟩
 
 /-- **Tables pushed onto a well-formed environment, each well formed there, keep it well
 formed**: a table install changes no lookup. -/
@@ -576,7 +612,7 @@ theorem EnvWF.pushTables {env : Env} (henv : EnvWF env) {Q : List ProjTable}
     (hQ : ∀ t ∈ Q, TableWF env t) : EnvWF ⟨env.consts, Q ++ env.tables⟩ := by
   have hf : Env.find? ⟨env.consts, Q ++ env.tables⟩ = env.find? := rfl
   refine ⟨fun c hc => (henv.consts c hc).of_find hf, henv.shapes, fun t ht => ?_, henv.inds,
-    henv.ctors⟩
+    henv.ctors, henv.rules⟩
   rcases List.mem_append.mp ht with ht | ht
   · exact (hQ t ht).of_find hf
   · exact (henv.tables t ht).of_find hf

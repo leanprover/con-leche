@@ -490,6 +490,10 @@ theorem envWF_consBlockRecsR
         ∀ lvls pins, rl.fire = .nested lvls pins →
           NestedRead (·.constsResolve env) r.1.levelParams r.1.type (q.majorIdxAt j)
             (q.rulePrefixAt j) pins.length lvls pins)
+    (hbinds : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ rl ∈ (R j r).2,
+        q.rulePrefixAt j ≤ q.majorIdxAt j ∧
+        (rl.rhs.stripLams (q.rulePrefixAt j + rl.nfields)).isSome = true)
     (hlit : ∀ r ∈ rs, LitShapeAt r.1) :
     EnvWF (consBlockRecsR R q 0 rs env) := by
   have hdomEnv : ∀ n, (env.find? n).isSome = true →
@@ -501,7 +505,7 @@ theorem envWF_consBlockRecsR
     find?_consBlockRecsR_of_bare (fun _ hn => hn)
   refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
     (henv.tables t (by rw [consBlockRecsR_tables] at ht; exact ht)), fun c hc => ?_,
-    fun c hc => ?_⟩
+    fun c hc => ?_, fun c hc => ?_⟩
   rotate_left
   · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
     · exact henv.shapes c hc'
@@ -512,6 +516,13 @@ theorem envWF_consBlockRecsR
   · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
     · exact henv.ctors c hc'
     · exact CtorWF.of_not_ctor fun _ _ _ _ heq => ConstantInfo.noConfusion heq
+  · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
+    · exact henv.rules c hc'
+    · intro cv mI rP isK rules heq rl hrl
+      injection heq with e1 e2 e3 e4 e5
+      subst e2 e3 e5
+      rw [Nat.zero_add] at hrl ⊢
+      exact hbinds j r hr rl hrl
   rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
   · exact ConstWF.mono hdomEnv (henv.consts c hc')
   · rw [Nat.zero_add]
@@ -544,12 +555,20 @@ theorem envWF_consBlockRecs {q : BlockShape}
         rhs.allLevelParamsDefined r.1.levelParams = true ∧
         rhs.constsResolve (consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
         rhs.looseBVarsBounded 0 = true)
+    (hbinds : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      rs[j]? = some r → ∀ (i : Nat) (rhs : Expr) (ctor : ConstantVal × Nat),
+        r.2.1[i]? = some rhs → r.2.2.2[i]? = some ctor →
+        q.rulePrefixAt j ≤ q.majorIdxAt j ∧
+        (rhs.stripLams (q.rulePrefixAt j + ctor.2)).isSome = true)
     (hlit : ∀ r ∈ rs, LitShapeAt r.1) :
     EnvWF (consBlockRecs q 0 rs env) := by
   rw [consBlockRecs_eq_R]
-  refine envWF_consBlockRecsR henv hall (fun j r _ rl hrl => ?_) hlit
-  obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
-  exact ⟨hmem, fun lvls pins hf => absurd hf (hfire lvls pins)⟩
+  refine envWF_consBlockRecsR henv hall (fun j r _ rl hrl => ?_) (fun j r hr rl hrl => ?_) hlit
+  · obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
+    exact ⟨hmem, fun lvls pins hf => absurd hf (hfire lvls pins)⟩
+  · obtain ⟨i, rhs, ctor, hrhs, hctor, h3, h4⟩ := sumRules_getElem hrl
+    rw [h3, h4]
+    exact hbinds j r hr i rhs ctor hrhs hctor
 
 /-! ## The literal guards across the recursors' cons
 

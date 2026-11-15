@@ -114399,3 +114399,89 @@ allocator seeing a different object mix (no list cells, no small arrays).  `app-
 through `instListRevM` (the whole array), whose walk now carries the range end `n` as one more
 argument: its `instantiateRevXP` share is 4.257 G on master and 4.346 G now (+2 % of that walk,
 +0.4 % of the run).
+
+## TASK #585 — the ι step peels the rule's λs and substitutes (2026-11-14, agent/585-open-rule)
+
+The follow-up of #584 (its record is on `probe/584-key`): the ι step in lean4 PR #10565's shape
+everywhere — the specification (`iotaRec`), the rules tier (`Red.iota`), the model's ι soundness
+and the cached core.  The reduct of a fired rule is its right-hand side's body under its
+`rulePrefix + nfields` manifest λs (`Expr.lamBody`), at the recursor's levels, with the
+recursor's leading arguments and the constructor's fields substituted at once in reverse
+(`RecRule.iotaReduct`, `instantiate_rev`'s order).  No β-redex is built, so the ι reduct's
+redex is never a whnf-memo key (#584's "open" probe, measured there).
+
+**The ruling (maintainer, 2026-11-14).**  First briefed as "`RecRule` stores the open body in
+place of `rhs`"; that version stopped at the parse: dropping the stated λs' binder types
+changes verdicts (`ind_rule_binder_bad` 1 → 0).  The options put to the maintainer, and why
+they were rejected:
+* (a) drop the binder types, compare open bodies up to definitional equality at the generated
+  locals — accepts inputs official rejects (a rule whose binder domain is wrong), and the
+  stored-rule law transport would need the fired values to satisfy the generated rule's
+  context, a new model fact;
+* (b) keep the stated closed right-hand side beside the open body for the check — a second
+  representation;
+* (c) compare open bodies syntactically — flips six accepted `_redex` corner fixtures to 1 and
+  reverses #386/#431's "up to definitional equality".
+Ruled (d): `RecRule` keeps its closed `rhs` exactly as today (binder types stored, `ruleAgree`,
+`pinCopyOk` and `storedRhs_sem` as strict as before, no verdict changes there); only the ι
+semantics change, to the peel.  The peel is total by an install-time syntactic check, not a
+runtime fallback.
+
+**The invariant.**  `RuleWF` (`Verify/EnvWF.lean`, the new `EnvWF.rules` field, a property of
+the record alone like `CtorWF`): at a recursor with rules, `rulePrefix ≤ majorIdx`, and every
+rule's `rhs.stripLams (rulePrefix + nfields)` is `some`.  Established
+* for a stored (stream or `.olean`) recursor by the stored rules' check: `ruleBinds`
+  (`Kernel/Inductives/RecCheck.lean`, run by `streamRulesCheck` on every stored rule before the
+  comparison with the generated one) rejects (exit 1) a rule with fewer λs; the prefix bound
+  from the generated stage's record check (`classRecTyOk`: `mI = rP + nIdx`);
+* for a generated recursor by `classRuleCheck`'s existing `stripLams` at
+  `nP + slots + nF` (`genStageRuleBinds`, `Verify/Inductives/GenRecRun.lean`; `RecStage.binds`);
+* for the pinned basis (`Nat`, `Eq`, `Quot.lift`/`Quot.ind`) by evaluation
+  (`recRulesBindB`, `decide`), carried across a renaming by `ruleWF_atLps`; rule-less
+  recursors (`Empty`, `False`, the bare chain) vacuously.
+Its one reader is the ι step: the reduct's closedness (`InferLeaves`), and the model's
+`Red.iota_sound`.
+
+**The model.**  `RecRuleLaw` is unchanged: it states the ι equation at the rule's
+application, as before.  `Red.iota_sound` is the old proof at the application
+(`Red.iota_app_sound`) followed by the application's β steps (`Red.betaSpine_sound`, one
+`Red.beta_sound` per value through `Red.appSpine_sound`), the λs there by `RuleWF`.  The
+syntactic kit is `Verify/IotaReduct.lean` (`lamBody_of_stripLams`, the reduct as the values'
+`instSpine`, its scoping, closedness, leaves).
+
+**The cached core.**  The per-declaration memo `ruleBodyAt` (was `ruleRhsAt`) holds the peeled,
+level-instantiated body (`ruleBodyAtM`: `lamBody` then `instLevelParamsM`); the ι step is the
+lookup and one `Expr.instantiateRev` over `iotaVals args rP margs cnP`, one array of exactly the
+two source ranges (`pushRange`).  The step triples needed no two-step relation: the
+specification takes the same single step (`iotaReduct_eq`, `wscoped_iotaReduct`).
+
+**Fixture.**  `stored_rule_lams_short` (`scripts/mk_rule_binds_fixture.py`): `Nat'.rec`'s zero
+rule written `fun motive zero => (fun x succ => x) zero` — definitionally the generated rule,
+accepted before (0), rejected by the λ count now (1); official (syntactic) 1.
+
+**ι counts** (scratch `dbgTrace` at the fire site, not in the measured binary;
+`grind_field_cancel_inv`, theorem = stream − the stream without its last record):
+`Mon.rec` 26 516 (master and official v4.35.0: 26 452; #584's accepted +64), `Bool.rec`
+20 550, `Ordering.rec` 10 334, `Poly.rec` 9 310, as on master; outside the theorem 407
+`Nat.rec`, 75 `Bool.rec`, 2 `Eq.rec`, as on master.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except init-full at `--jobs=8`, one
+run each; stdout minus `stats:` identical to master 1657d27f0's on every stream; data in
+`_tmp/585/logs/`):
+
+| stream | master | lane | |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.071 | 1.886 | −8.93 % |
+| grind-ring-5 | 9.422 | 8.937 | −5.15 % |
+| init-full | 276.715 | 270.939 | −2.09 % |
+| init-prelude | 1.143 | 1.131 | −1.05 % |
+| app-lam | 22.081 | 22.083 | +0.01 % |
+| beta-ladder | 4.940 | 4.926 | −0.29 % |
+| let-ladder | 2.558 | 2.558 | +0.00 % |
+| shared-subterm | 0.139 | 0.133 | −4.15 % |
+| discarded-argument-match | 0.202 | 0.197 | −2.63 % |
+| discarded-argument | 0.067 | 0.066 | −1.18 % |
+| folded-constant-first | 0.073 | 0.066 | −8.67 % |
+| folded-constant-last | 0.073 | 0.066 | −8.72 % |
+| args-before-unfold | 0.050 | 0.048 | −3.87 % |
+| church-numerals, identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.4 % |

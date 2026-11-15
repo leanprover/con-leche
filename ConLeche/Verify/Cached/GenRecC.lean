@@ -813,13 +813,21 @@ theorem ruleAgreeS_spec (henv : EnvWF env)
   sym only [conleche_grind, ruleAgree.eq_1, → wscoped_zero_of_hasFvar_false] =>
     vcgen [ruleAgree, inferS_specF henv, defeqS_specF henv] <;> finish
 
+/-- A rule's λ count (no operation), simulated. -/
+theorem ruleBindsS_spec {rec : Name} {rP : Nat} {r : RecRule} {s₀ : CState}
+    (hs : CSOK mode false env s₀) :
+    ⦃fun st => st = s₀⦄ ruleBinds (m := CheckCM) rec rP r
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (ruleBinds (m := FueledM) rec rP r) v; ⊤⦄ := by
+  sym only [conleche_grind, ruleBinds.eq_1] =>
+    vcgen [ruleBinds] <;> finish
+
 theorem streamRulesCheckS_spec (henv : EnvWF env)
-    {rec : Name} {lps : List Name} :
+    {rec : Name} {lps : List Name} {rP : Nat} :
     ∀ (rs : List RecRule) (gs : List Expr) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun st => st = s₀⦄
-        streamRulesCheck (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rec lps rs gs
+        streamRulesCheck (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rec lps rP rs gs
       ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (streamRulesCheck (fueledOpsM .verified) (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
+        Runs (streamRulesCheck (fueledOpsM .verified) (mkFEnv env) rec lps rP rs gs) v; ⊤⦄ := by
   intro rs
   induction rs with
   | nil =>
@@ -837,7 +845,8 @@ theorem streamRulesCheckS_spec (henv : EnvWF env)
     | cons g gs =>
       intro _ hs
       sym only [conleche_grind, streamRulesCheck] =>
-        vcgen [streamRulesCheck.eq_def, ruleAgreeS_spec henv, ih gs] <;> finish
+        vcgen [streamRulesCheck.eq_def, ruleBindsS_spec (mode := .verified) (env := env),
+          ruleAgreeS_spec henv, ih gs] <;> finish
 
 /-- The stored recursors' comparison, simulated. -/
 theorem streamRecCompareS_spec (henv : EnvWF env)
@@ -1165,9 +1174,14 @@ theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockSha
     (h : genRecCheck (fueledOps mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
-    EnvWF (consBlockRecsT p 0 out env₂) :=
-  envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1 (genRecCheck_outFacts h hpl hMs₀).2
+    EnvWF (consBlockRecsT p 0 out env₂) := by
+  obtain ⟨R⟩ := genRecCheck_run h
+  refine envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1
+    (genRecCheck_outFacts h hpl hMs₀).2 (fun i t ht j rhs ctor hrhs hctor => ?_)
     (genRecCheck_outShape rfl h)
+  have hr : (tgtRs out)[i]? = some (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
+    simp [tgtRs, List.getElem?_map, ht]
+  exact genStageRuleBinds R hr hctor hrhs
 
 /-- The stream's recursor constants, checked at the constructors'
 environment: each type closed, at its level parameters, resolving. -/
@@ -1299,7 +1313,8 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     show LitShapeAt ({ g.1 with type := rc.cvR.type } : ConstantVal)
     rw [e]
     exact hrcS
-  refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_) hshS
+  refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_)
+    (fun i t ht j rhs ctor hrhs hctor => ?_) hshS
   · obtain ⟨i, hti⟩ := List.getElem?_of_mem ht
     obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? hti
     have hgcv := hcv i rc g hrc hg
@@ -1315,7 +1330,7 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     obtain ⟨gk, hgk⟩ : ∃ gk, g.2.2[k]? = some gk := by
       have := (List.getElem?_eq_some_iff.mp hk).1
       exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    rcases hallR k r gk hk hgk with heq | hag
+    rcases (hallR k r gk hk hgk).2 with heq | hag
     · obtain ⟨r1, r2, r3, r4⟩ := grhs gk (List.mem_of_getElem? hgk)
       rw [heq]
       exact ⟨r1, r2, hresG _ r3, r4⟩
@@ -1340,6 +1355,27 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     · simp only; rw [hlps]; rw [hlps] at n3; exact n3
     · simp only; rw [hmI]; exact e1
     · rw [hmI, hrP]; exact e3
+  · obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? ht
+    simp only at hrhs hctor
+    rw [List.getElem?_map] at hrhs
+    obtain ⟨r, hr, rfl⟩ : ∃ r, rc.rules[j]? = some r ∧ r.rhs = rhs := by
+      cases h0 : rc.rules[j]? with
+      | none => rw [h0] at hrhs; exact nomatch hrhs
+      | some r => rw [h0] at hrhs; exact ⟨r, rfl, Option.some.inj hrhs⟩
+    obtain ⟨hshape, -, hcmp⟩ := streamRecCheck_inv (hallS i rc g hrc hg)
+    obtain ⟨-, hrules⟩ := streamRecCompare_inv hcmp
+    obtain ⟨hlenR, hallR⟩ := streamRulesCheck_inv hrules
+    have hnf := streamRulesShape_inv hshape j r ctor hr hctor
+    obtain ⟨gk, hgk⟩ : ∃ gk, g.2.2[j]? = some gk := by
+      have := (List.getElem?_eq_some_iff.mp hr).1
+      exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    have htg : (tgtRs out)[i]? = some (g.1, g.2.2, g.2.1.nIdx, g.2.1.ctors) := by
+      simp [tgtRs, List.getElem?_map, hg]
+    have hrP : p.rulePrefixAt i = rc.rP := by
+      simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+    refine ⟨(genStageRuleBinds R htg hctor hgk).1, ?_⟩
+    rw [hrP, ← hnf]
+    exact (hallR j r gk hr hgk).1
 
 /-- **The install after the pass, at k members, at the cached driver**,
 is reproduced by the pure fueled `checkBlockTail`. -/

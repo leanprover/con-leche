@@ -7,6 +7,7 @@ import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Knot
 public import ConLeche.Kernel.Inductives.BlockTail
 
+public import ConLeche.Verify.IotaReduct
 public section
 
 /-!
@@ -136,6 +137,17 @@ theorem Expr.occDeep_instantiateLevelParams {names : List Name} (ks : List Name)
     simp only [Expr.instantiateLevelParams, Expr.occDeep, iht, ihv, ihb]
   | proj s j e ih => simp only [Expr.instantiateLevelParams, Expr.occDeep, ih]
   | _ => rfl
+
+theorem Expr.occDeep_lamBody {names : List Name} :
+    ∀ (k : Nat) {e : Expr}, e.occDeep names = false → (e.lamBody k).occDeep names = false
+  | 0, e, h => by cases e <;> exact h
+  | k + 1, e, h => by
+    match e with
+    | .lam ty body =>
+      simp only [Expr.occDeep, Bool.or_eq_false_iff] at h
+      exact Expr.occDeep_lamBody k h.2
+    | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .forallE _ _ | .letE _ _ _
+    | .lit _ | .proj _ _ _ => exact h
 
 theorem Expr.occDeep_mkAppN {names : List Name} :
     ∀ {xs : List Expr} {f : Expr}, f.occDeep names = false →
@@ -594,9 +606,11 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
               (fun hs hx => majorToCtor_occDeep hN (fun hw hx' => ihLoop hw hx')
                 (fun hi hx' => ihI hi hx') hfc hc hs hx)
               (Expr.occDeep_getAppArgs happ _ (getD_mem (by omega)))
-          refine ihCore hwe'' (Expr.occDeep_mkAppN ?_ ?_)
+          rw [RecRule.iotaReduct_eq_instSpine] at hwe''
+          refine ihCore hwe'' (Expr.occDeep_instSpine _ ?_ ?_)
           · rw [Expr.occDeep_instantiateLevelParams]
-            exact hN.2.2.1 _ _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule)
+            exact Expr.occDeep_lamBody _
+              (hN.2.2.1 _ _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule))
           · intro x hx
             rcases List.mem_append.mp hx with hx | hx
             · exact Expr.occDeep_getAppArgs happ _ (List.mem_of_mem_take hx)

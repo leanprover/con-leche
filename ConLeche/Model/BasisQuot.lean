@@ -2631,7 +2631,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
       have hfE : (⟨quotLiftA :: env.consts, env.tables⟩ : Env).find? eqName = some ciE :=
         hcons (by decide) hfE0
       refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
-        (fun _ _ _ heq => nomatch heq), ?_⟩
+        (fun _ _ _ heq => nomatch heq), ?_⟩ (hr := ruleWF_of_recRulesBindB (by decide))
       · show Expr.constsResolve _ quotLiftA.toConstantVal.type = true
         rw [show quotLiftA.toConstantVal.type
             = Expr.forallE (.sort (.param uN))
@@ -2679,7 +2679,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
       have hfM : (⟨quotIndA :: env.consts, env.tables⟩ : Env).find? quotMkName = some (quotMkA.atLps [x]) :=
         hcons (by decide) hM
       refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
-        (fun _ _ _ heq => nomatch heq), ?_⟩
+        (fun _ _ _ heq => nomatch heq), ?_⟩ (hr := ruleWF_of_recRulesBindB (by decide))
       · show Expr.constsResolve _ quotIndA.toConstantVal.type = true
         rw [show quotIndA.toConstantVal.type
             = Expr.forallE (.sort (.param uN))

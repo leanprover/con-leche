@@ -145,6 +145,12 @@ structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
     ∃ rc, p.recs[c]? = some rc ∧
       RuleOutOk mode F (consBlockRecsBare p 0 (rs.map fun r => (r.1, r.2.2.1)) env)
         rc.cvR rhs
+  /-- (c') every stored rule is a function of the recursor's rule prefix and its
+  constructor's fields, the prefix the major's (the ι step's peel, `RuleWF`) -/
+  binds : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (i : Nat)
+    (rhs : Expr) (ctor : ConstantVal × Nat), rs[c]? = some r → r.2.1[i]? = some rhs →
+    r.2.2.2[i]? = some ctor →
+    p.rulePrefixAt c ≤ p.majorIdxAt c ∧ (rhs.stripLams (p.rulePrefixAt c + ctor.2)).isSome = true
 
 /-- The stage's facts, as a proposition. -/
 @[expose] def RecStageG (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
@@ -296,6 +302,10 @@ theorem recStage_bareCons_envWF (h : RecStageG mode F env p rs) {r} (hr : r ∈ 
         injection heq with _ _ _ _ e4
         subst e4
         exact nomatch hr'))
+    (hr := fun _ _ _ _ _ heq _ hr' => by
+      injection heq with _ _ _ _ e4
+      subst e4
+      exact nomatch hr')
 
 /-- **The recursors consed with their rules, at the recursor stage**: at any rules function whose
 stored rules have the stage's shape, with the `.nested` firings' pins read off the recursor types. -/
@@ -308,10 +318,14 @@ theorem recStage_envWF_consR (henv : EnvWF env) (h : RecStageG mode F env p rs)
         NestedRead (·.constsResolve env) r.1.levelParams r.1.type (p.majorIdxAt j)
           (p.rulePrefixAt j) pins.length lvls pins) :
     EnvWF (consBlockRecsR R p 0 rs env) := by
-  refine envWF_consBlockRecsR henv (recStage_facts h) (fun j r hr rl hrl => ?_)
-    (fun r hr => litShapeAt_of_reservedRec (recStage_reserved h r hr))
-  obtain ⟨i, ctor, rhs, -, hrhs', rfl⟩ := hshape j r hr rl hrl
-  exact ⟨List.mem_of_getElem? hrhs', fun lvls pins hf => hnest j r hr lvls pins hf⟩
+  obtain ⟨R⟩ := h
+  refine envWF_consBlockRecsR henv (recStage_facts ⟨R⟩) (fun j r hr rl hrl => ?_)
+    (fun j r hr rl hrl => ?_)
+    (fun r hr => litShapeAt_of_reservedRec (recStage_reserved ⟨R⟩ r hr))
+  · obtain ⟨i, ctor, rhs, -, hrhs', rfl⟩ := hshape j r hr rl hrl
+    exact ⟨List.mem_of_getElem? hrhs', fun lvls pins hf => hnest j r hr lvls pins hf⟩
+  · obtain ⟨i, ctor, rhs, hctor, hrhs', rfl⟩ := hshape j r hr rl hrl
+    exact R.binds j r i rhs ctor hr hrhs' hctor
 
 /-- **The stored recursors are fresh** at the constructors' environment, from the per-recursor
 check (`ConstChecked`). -/

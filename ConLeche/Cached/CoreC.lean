@@ -162,6 +162,20 @@ def mkAppRange (f : Expr) (args : Array Expr) (i j : Nat) : Expr :=
   if h : i < j ∧ i < args.size then mkAppRange (.app f args[i]) args (i + 1) j else f
 termination_by j - i
 
+/-- `acc` with the arguments `args[i:j]` pushed, the range read in place. -/
+def pushRange (acc : Array Expr) (args : Array Expr) (i j : Nat) : Array Expr :=
+  if h : i < j ∧ i < args.size then pushRange (acc.push args[i]) args (i + 1) j else acc
+termination_by j - i
+
+/-- **The values an ι reduct substitutes for the rule's binders**: the
+recursor's leading arguments `args[0:p]`, then the constructor's fields
+`margs[q:]`, in one array of exactly that capacity (`instantiateRev`'s
+order: the last field is substituted for `bvar 0`). -/
+@[inline] def iotaVals (args : Array Expr) (p : Nat) (margs : Array Expr) (q : Nat) :
+    Array Expr :=
+  pushRange (pushRange (Array.emptyWithCapacity (p + (margs.size - q))) args 0 p)
+    margs q margs.size
+
 /-- The arity pre-check of the ι step: `iotaRecI` returns `none`
 unless the head is a stored recursor applied to exactly `majorIdx + 1`
 arguments with the recursor's own number of levels
@@ -1028,9 +1042,11 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Ex
                         else pure false
                       else pure false
                     else pure true) then do
-                  let rhs ← ruleRhsAtM fe c cj cn cjn us
-                  pure (some (mkAppRange (mkAppRange rhs args 0 (min rP k))
-                    margs cnP margs.size))
+                  -- lean4 PR #10565's ι step: the rule's body under its
+                  -- binders (the per-declaration memo), one substitution
+                  -- from the spine, no β-redex
+                  let body ← ruleBodyAtM fe c cj cn cjn us
+                  pure (some (Expr.instantiateRev body (iotaVals args (min rP k) margs cnP)))
                 else pure none
               else pure none
             | none => pure none
