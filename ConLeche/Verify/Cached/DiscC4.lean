@@ -47,45 +47,6 @@ section Walks
 
 variable {env : Env} {f : Nat}
 
-/-- Where the arity pre-check fails, the ι step has nothing to do: its
-own guard returns `none` on exactly the same three grounds (the head is
-not a constant, it is not a stored recursor, or the spine has the wrong
-number of arguments or of levels). -/
-private theorem iotaRecI_of_arityOk_false {mi : CheckMode} {fe : FEnv} {lv : Nat}
-    {d : Nat} {e : Expr} (h : iotaArityOk fe e = false) :
-    iotaRecI mi fe eager lv d e.getAppFn (getAppArgsArr e) (iotaNumArgs e 0) = pure none := by
-  unfold iotaArityOk at h
-  rw [iotaRecI.eq_def]
-  cases hg : Expr.getAppFn e with
-  | const c us =>
-    rw [hg] at h
-    dsimp only at h
-    simp only [pure_bind]
-    cases hf : fe.find? c with
-    | none => rfl
-    | some ci =>
-      rw [hf] at h
-      cases ci with
-      | recInfo cv mI rP isK rules =>
-        dsimp only at h ⊢
-        rw [ite_eq_right]
-        rintro ⟨hlen, -, hlvl, -⟩
-        rw [hlen, hlvl] at h
-        simp at h
-      | _ => rfl
-  | _ => rfl
-
-/-- The pre-check in the spine loop changes no verdict. -/
-private theorem iotaArityOk_guard {mi : CheckMode} {fe : FEnv} {lv : Nat}
-    {d : Nat} {e : Expr} :
-    (if iotaArityOk fe e then
-        iotaRecI mi fe eager lv d e.getAppFn (getAppArgsArr e) (iotaNumArgs e 0)
-      else pure none)
-      = iotaRecI mi fe eager lv d e.getAppFn (getAppArgsArr e) (iotaNumArgs e 0) := by
-  by_cases h : iotaArityOk fe e = true
-  · rw [ite_eq_left h]
-  · rw [ite_eq_right h, iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
-
 /-! ### The stuck spine
 
 `whnfStuckI` answers a spine whose head is its own head normal form (`isStuckHeadC`) with
@@ -109,9 +70,59 @@ private theorem ne_lam_of_getAppFn {v h : Expr} (hv : v.getAppFn = h)
   subst hv
   exact nomatch hh
 
-private theorem iotaTargetF_pos {fe : FEnv} {h : Expr} {k : Nat}
-    (hk : iotaTargetF fe h = some k) : 0 < k := by
-  unfold iotaTargetF at hk
+/-- The ι target of a spine head: the spine length `mI + 1` at which the ι step can
+fire, where the head is a stored recursor at its own number of levels. -/
+def iotaTarget (env : Env) (h : Expr) : Option Nat :=
+  match h with
+  | .const c us =>
+    match env.find? c with
+    | some (.recInfo cv mI _ _ _) =>
+      if us.length = cv.levelParams.length then some (mI + 1) else none
+    | _ => none
+  | _ => none
+
+/-! The ι target's arms, one equation each. -/
+
+theorem iotaTarget_rec {h : Expr} {c : Name} {us : List Level} {cv : ConstantVal} {mI rP : Nat}
+    {isK : Bool} {rules : List RecRule} (h0 : h = .const c us)
+    (h1 : env.find? c = some (.recInfo cv mI rP isK rules)) (h2 : us.length = cv.levelParams.length) :
+    iotaTarget env h = some (mI + 1) := by
+  subst h0; simp only [iotaTarget, h1, h2, ↓reduceIte]
+grind_pattern [conleche_grind] iotaTarget_rec =>
+    iotaTarget env h, Expr.const c us, ConstantInfo.recInfo cv mI rP isK rules where
+  guard h = .const c us
+  guard env.find? c = some (.recInfo cv mI rP isK rules)
+
+theorem iotaTarget_lvl {h : Expr} {c : Name} {us : List Level} {cv : ConstantVal} {mI rP : Nat}
+    {isK : Bool} {rules : List RecRule} (h0 : h = .const c us)
+    (h1 : env.find? c = some (.recInfo cv mI rP isK rules)) (h2 : ¬ us.length = cv.levelParams.length) :
+    iotaTarget env h = none := by
+  subst h0; simp only [iotaTarget, h1, h2, ↓reduceIte]
+grind_pattern [conleche_grind] iotaTarget_lvl =>
+    iotaTarget env h, Expr.const c us, ConstantInfo.recInfo cv mI rP isK rules where
+  guard h = .const c us
+  guard env.find? c = some (.recInfo cv mI rP isK rules)
+
+theorem iotaTarget_notrec {h : Expr} {c : Name} {us : List Level} (h0 : h = .const c us)
+    (h1 : ∀ cv mI rP isK rules, env.find? c = some (.recInfo cv mI rP isK rules) → False) :
+    iotaTarget env h = none := by
+  subst h0
+  cases hf : env.find? c with
+  | none => simp only [iotaTarget, hf]
+  | some ci =>
+    cases ci <;> first | exact (h1 _ _ _ _ _ hf).elim | simp only [iotaTarget, hf]
+grind_pattern [conleche_grind] iotaTarget_notrec => iotaTarget env h, Expr.const c us where
+  guard h = .const c us
+
+theorem iotaTarget_notconst {h : Expr} (h0 : ∀ c us, h = .const c us → False) :
+    iotaTarget env h = none := by
+  cases h with
+  | const c us => exact (h0 c us rfl).elim
+  | _ => rfl
+
+private theorem iotaTarget_pos {h : Expr} {k : Nat}
+    (hk : iotaTarget env h = some k) : 0 < k := by
+  unfold iotaTarget at hk
   split at hk
   · split at hk
     · split at hk
@@ -122,7 +133,7 @@ private theorem iotaTargetF_pos {fe : FEnv} {h : Expr} {k : Nat}
 
 /-- Away from its target the ι step answers `none`. -/
 private theorem iotaRec_none_of_target {d : Nat} {x h : Expr} (hx : x.getAppFn = h)
-    (ht : iotaTargetF (mkFEnv env) h ≠ some x.getAppArgs.length) :
+    (ht : iotaTarget env h ≠ some x.getAppArgs.length) :
     iotaRec .verified (fueledFns .verified eager env) env d x = pure none := by
   rw [iotaRec_eq]
   split
@@ -133,7 +144,7 @@ private theorem iotaRec_none_of_target {d : Nat} {x h : Expr} (hx : x.getAppFn =
       rintro ⟨hlen, hlvl, -⟩
       apply ht
       rw [← hx, hfn]
-      simp [iotaTargetF, mkFEnv_find?, hfc, hlvl, hlen]
+      simp [iotaTarget, hfc, hlvl, hlen]
     · rfl
   · rfl
 
@@ -151,7 +162,7 @@ private theorem iotaRec_none_of_target {d : Nat} {x h : Expr} (hx : x.getAppFn =
 /-- Away from the ι target the spine loop only rebuilds the spine. -/
 private theorem whnfAppW_noIota {d : Nat} {h : Expr} (hh : isStuckHeadC h = true) :
     ∀ (args : List Expr) (v : Expr), v.getAppFn = h →
-      (∀ k, iotaTargetF (mkFEnv env) h = some k →
+      (∀ k, iotaTarget env h = some k →
         k ≤ v.getAppArgs.length ∨ v.getAppArgs.length + args.length < k) →
       whnfAppW .verified (fueledFns .verified eager env) env d v args =
         pure (.done (Expr.mkAppN v args))
@@ -174,7 +185,7 @@ private theorem whnfAppW_noIota {d : Nat} {h : Expr} (hh : isStuckHeadC h = true
 
 /-- Up to the ι target the spine loop tries ι there once, and then only rebuilds. -/
 private theorem whnfAppW_iota {d : Nat} {h : Expr} (hh : isStuckHeadC h = true) {k : Nat}
-    (htk : iotaTargetF (mkFEnv env) h = some k) :
+    (htk : iotaTarget env h = some k) :
     ∀ (args : List Expr) (v : Expr), v.getAppFn = h →
       v.getAppArgs.length < k → k ≤ v.getAppArgs.length + args.length →
       whnfAppW .verified (fueledFns .verified eager env) env d v args =
@@ -214,7 +225,7 @@ private theorem whnfAppW_iota {d : Nat} {h : Expr} (hh : isStuckHeadC h = true) 
 prefix, and otherwise the spine itself. -/
 theorem whnfAppW_stuck {d : Nat} {h : Expr} (hh : isStuckHeadC h = true) (L : List Expr) :
     whnfAppW .verified (fueledFns .verified eager env) env d h L =
-      match iotaTargetF (mkFEnv env) h with
+      match iotaTarget env h with
       | some k =>
         if k ≤ L.length then
           iotaRec .verified (fueledFns .verified eager env) env d (Expr.mkAppN h (L.take k)) >>=
@@ -223,14 +234,14 @@ theorem whnfAppW_stuck {d : Nat} {h : Expr} (hh : isStuckHeadC h = true) (L : Li
       | none => pure (.done (Expr.mkAppN h L)) := by
   have h0 := isStuckHeadC_getAppArgs hh
   have hfn := isStuckHeadC_getAppFn hh
-  cases htk : iotaTargetF (mkFEnv env) h with
+  cases htk : iotaTarget env h with
   | none =>
     refine whnfAppW_noIota hh L h hfn ?_
     intro k hk; rw [htk] at hk; cases hk
   | some k =>
     dsimp only
     by_cases hkn : k ≤ L.length
-    · rw [ite_eq_left hkn, whnfAppW_iota hh htk L h hfn (by rw [h0]; exact iotaTargetF_pos htk)
+    · rw [ite_eq_left hkn, whnfAppW_iota hh htk L h hfn (by rw [h0]; exact iotaTarget_pos htk)
         (by rw [h0]; simpa using hkn), h0]
       simp only [List.length_nil, Nat.sub_zero]
       congr 1
@@ -302,8 +313,7 @@ Each walk below is `sym only [conleche_grind, …] => vcgen […] <;> finish`
 head on `.lam`, and the equation compiler states their `a :: rest` step
 as one equation per arm, the fall-through one conditional, which `vcgen`
 skips; the unconditional `eq_def` unfolds them instead (`whnfAppI`'s by
-`rw` before `sym`, so that `iotaArityOk_guard` can discharge the ι arity
-guard: `vcgen` splits an `ite` before it tries an equation about it).
+`rw` before `sym`).
 `vcgen` splits the `match`
 and hands each arm its fall-through hypothesis; the pure mirrors'
 own equation lemmas (`betaPeelW.eq_*`, `whnfAppW.eq_*`, the fall-through
@@ -366,10 +376,10 @@ theorem whnfAppC_spec (ih : SSimC .verified eager env f)
       vcgen [whnfAppI.eq_def] <;> finish
   | succ n ihr =>
     intro args i _ _ hn _ _ _
-    rw [whnfAppI.eq_def]; simp only [iotaArityOk_guard]
+    rw [whnfAppI.eq_def]
     sym only [conleche_grind, whnfAppW.eq_2, whnfAppW.eq_3,
         toList_drop_of_lt (A := args) (i := i) (by omega),
-        getAppFn_getAppFn', iotaNumArgs_eq_length, List.take_length,
+        getAppFn_getAppFn', iotaNumArgs_eq_length, List.take_length, iotaRec_notconst,
         Expr.mkAppN_getApp, extract_rev_single (A := args) (i := i) (by omega)] =>
       vcgen [iotaRecC_spec ih henv,
         betaPeelC_spec (mode := .verified) f n (args := args) (j := i) (i := i + 1) (by omega)
@@ -398,7 +408,7 @@ theorem whnfStuckC_spec (ih : SSimC .verified eager env f)
   have hwa : AllWS d i.getAppArgs := allWS_getAppArgs hw
   sym only [conleche_grind, Runs.whnfCore_stuckHead (eager := eager) (env := env) (c := c)
       (d := d) hh, whnfAppW_stuck (eager := eager) (env := env) (d := d) hh,
-      iotaNumArgs_eq_length, Expr.mkAppN_getApp] =>
+      iotaNumArgs_eq_length, Expr.mkAppN_getApp, iotaTarget_notconst] =>
     vcgen [whnfStuckI.eq_def, iotaRecC_spec ih henv] <;> finish
 
 /-- One head-normalization step simulates its pure mirror. -/

@@ -14,7 +14,7 @@ persistent bulk-instantiation memo, with the linear-update discipline
 them is written in.
 
 The environment-index guards
-below (`isCtorAppC`, `headHintC`, `unfoldableHeadC`,
+below (`headHintC`, `unfoldableHeadC`,
 `sameConstHeadsC`, `rawNatLitC?`, `etaCtorShapeC`) are what the core
 calls directly.
 
@@ -41,15 +41,6 @@ namespace ConLeche.Cached
 open ConLeche
 
 /-! ## The environment-index guards -/
-
-/-- `isCtorApp` through the index. -/
-def isCtorAppC (fe : FEnv) (e : Expr) : Bool :=
-  match Expr.getAppFn e with
-  | .const cn _ .. =>
-    match fe.find? cn with
-    | some (.ctorInfo _ _ _ _) => true
-    | _ => false
-  | _ => false
 
 /-- `headHint` through the index. -/
 def headHintC (fe : FEnv) (e : Expr) : ReducibilityHint :=
