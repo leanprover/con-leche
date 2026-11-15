@@ -114964,3 +114964,83 @@ gain; only the dead fallback is an argument for the invariant, and a total peel 
 without one.
 
 **Outcome** (2026-11-15): the maintainer chose the peel, without the key and with the rule's closed right-hand side kept (task #585, landed).  The prototypes' branches are deleted; this record was copied to master so the comparison can be found.
+
+
+## TASK #591 — the ι step looks each record up once (2026-11-15, agent/591-iota-lookups)
+
+**What.**  A plain refactor of the cached ι step (`Cached/CoreC.lean`): each record it needs
+is found by name once and handed down, instead of being re-found by every function on the
+path.  Reduction order, step counts and every verdict are unchanged (stdout identical on all
+streams below); no new cache, no memo table, no record field.
+
+**The lookups per ι step before** (a callgrind profile of the fixture
+`grind_field_cancel_inv` showed ~622 k `FEnv.find?` for ~68 k ι steps).  On the stuck-head
+path (`whnfStuckI`), non-K recursor:
+1. `iotaTargetF`: the recursor;
+2. `iotaRecI`: the recursor again;
+3. `majorToCtorI`'s `isCtorAppC` on the raw major (const-headed majors only);
+4. `prepareMajorI`'s `isCtorAppC` on the same term (no rescue for a multi-rule recursor);
+5. after the whnf, `majorToCtorI`'s `isCtorAppC` on the reduct;
+6. `iotaRecI`'s `find?` of the major's constructor (found in 5 already);
+7. `iotaNoCert`'s family (`ctorFamily`).
+Seven where the major needs a whnf, six where it is a constructor application already
+(3, 4, 6 on the same name).  On the spine-loop path (`whnfAppI`) `iotaArityOk` and
+`iotaRecI` each found the recursor.  A single-rule recursor with a stuck major adds the rule's
+constructor and family in each rescue attempt (unchanged).
+
+**After.**
+* The caller finds the recursor once (`whnfStuckI`, `whnfAppI`: a `match` on `fe.find?` that
+  also checks the level count and the spine length) and passes its record (`cv mI rP isK
+  rules`) to `iotaRecI`, which no longer takes the head expression or `k`.  `iotaTargetF`,
+  `iotaArityOk` go.
+* The major is classified once: `ctorViewC fe e : MajorView` (`.ctor e cj usj cvj nP nF
+  induct`, or `.stuck e`) replaces `isCtorAppC`.  `majorToCtorI` returns the view: the
+  major's own one when it is a constructor application, `.stuck major` with no lookup where
+  no rescue fires, `ctorViewC fe fab` where one does.  `prepareMajorI` returns the view (the K
+  side is just `majorToCtorI`: the spec's literal conversion of a constructor application is
+  the identity), and `iotaRecI` matches `.ctor` and reads `cj usj cvj cnP induct` from it.
+* Per step now: the recursor (1), the raw major (1, const-headed only), the whnf'd major (1),
+  the family (1) — four where seven were, three where six were.  Remaining: the family
+  lookup of `iotaNoCert` (keeping it out would need the family's facts on the constructor
+  record, a record change: not done), a rescue's classification of its fabricated spine, the
+  rescue's own `rl.ctor`/family reads, and the δ steps' `unfoldDefinitionI` (not ι).
+
+**Proofs.**  `DiscC3`: `MajorView.OK env v` (a `.ctor` view's head and record are the stored
+ones; a `.stuck` view's term is no constructor application) with its arm equations,
+`ctorViewC_OK`/`ctorViewC_expr`/`MajorView.isCtor_of_OK`, `isCtorApp_of_isStrLit`,
+`litMajorToCtor_ctorApp`, `iotaRecK_stuck`; the rescue walks, `majorToCtorC_spec` and
+`prepareMajorC_spec` post `Runs … v.expr ∧ v.OK env ∧ WScoped d v.expr` (the rescue walks
+take `isCtorApp env major = false`); `iotaRecC_spec` takes the record's `find?` equation, the
+level count and `mI + 1 ≤ args.size` as hypotheses.  `DiscC4`: the arity guard lemmas go;
+the stuck arm's target is the proof-side `iotaTarget env h` with one guarded equation per
+arm.  `KnotCongr`: `ctorViewC_congr` replaces the three removed functions' congruences.
+All in the house style (one `sym … => vcgen … <;> finish` per walk).
+
+**Measured** (`instructions:u`, `--verified`, `--jobs=1`, init-full `--jobs=8`, one run
+each; lookups = `FEnv.find?` calls, counted by a scratch binary per side, not the measured
+ones):
+
+| stream | master | lane | Δ | lookups master | lane | Δ |
+|---|---|---|---|---|---|---|
+| `grind_field_cancel_inv` | 1.886 G | 1.831 G | -2.93 % | 624834 | 418749 | -33.0 % |
+| `app-lam` | 22.081 G | 22.081 G | -0.00 % | 12910 | 12883 | -0.2 % |
+| `args-before-unfold` | 0.048 G | 0.047 G | -1.93 % | 14349 | 11349 | -20.9 % |
+| `beta-ladder` | 4.936 G | 4.936 G | -0.01 % | 12655 | 12628 | -0.2 % |
+| `church-numerals` | 0.196 G | 0.195 G | -0.53 % | 245 | 245 | +0.0 % |
+| `discarded-argument-match` | 0.197 G | 0.195 G | -1.02 % | 57913 | 50468 | -12.9 % |
+| `discarded-argument` | 0.066 G | 0.065 G | -2.20 % | 24823 | 19417 | -21.8 % |
+| `folded-constant-first` | 0.066 G | 0.065 G | -2.53 % | 19462 | 13456 | -30.9 % |
+| `folded-constant-last` | 0.066 G | 0.065 G | -2.53 % | 19462 | 13456 | -30.9 % |
+| `grind-ring-5` | 8.937 G | 8.797 G | -1.56 % | 2165231 | 1639662 | -24.3 % |
+| `identical-nesting` | 0.020 G | 0.020 G | -0.01 % | 380 | 380 | +0.0 % |
+| `irrelevance-before-evaluation` | 0.022 G | 0.022 G | -0.00 % | 794 | 794 | +0.0 % |
+| `let-ladder` | 2.558 G | 2.558 G | -0.00 % | 4715 | 4688 | -0.6 % |
+| `repeated-subproblem` | 0.022 G | 0.022 G | -0.19 % | 707 | 584 | -17.4 % |
+| `shared-subterm` | 0.133 G | 0.128 G | -3.62 % | 50492 | 32492 | -35.6 % |
+| `shift-cascade` | 0.050 G | 0.050 G | +0.03 % | 1286 | 1286 | +0.0 % |
+| `unroll-versus-evaluate` | 0.027 G | 0.027 G | -0.02 % | 2381 | 2372 | -0.4 % |
+| `init-prelude` | 1.131 G | 1.129 G | -0.16 % | 129417 | 123112 | -4.9 % |
+| `init-full` | 270.890 G | 269.394 G | -0.55 % | 58391477 | 53171251 | -8.9 % |
+
+The fixture's count before (624 834) matches the profile's 622 k; the 206 k removed are three
+per ι step.  Nothing regresses beyond noise (`shift-cascade` +0.03 %).

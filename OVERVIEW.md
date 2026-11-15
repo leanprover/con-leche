@@ -530,7 +530,7 @@ Read from the outside in:
    ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L339-L340)).
    A job's check at a view is the fold's step because the cached core
    reads its environment through the lookups alone
-   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L695-L698)).
+   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L686-L689)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` (and inference at the infer-only grade) are defined by one mutual
@@ -1438,7 +1438,7 @@ instead of trusting the operation's name.
   when `a > 0` and the size of `a` plus `b / 8` plus 1 does; both also
   refuse a second argument that does not fit in 32 bits. A refusal
   rejects the declaration
-  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L236-L249)).
+  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L227-L240)).
   Within the maximum size every operation folds, whatever the exponent:
   the specification's reduct is the computation itself
   ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L593-L613)),

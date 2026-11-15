@@ -282,11 +282,11 @@
    339  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
    340      (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L695-L698
-   695  theorem knotI_congr (hfe : fe₁.find? = fe₂.find?) (htb : fe₁.findTable? = fe₂.findTable?) :
-   696      whnfCoreI mode fe₁ = whnfCoreI mode fe₂ ∧ whnfI mode fe₁ = whnfI mode fe₂ ∧
-   697        inferI mode fe₁ = inferI mode fe₂ ∧ defeqI mode fe₁ = defeqI mode fe₂ ∧
-   698        defeqEI mode fe₁ = defeqEI mode fe₂ ∧ ensureSortI mode fe₁ = ensureSortI mode fe₂ := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L686-L689
+   686  theorem knotI_congr (hfe : fe₁.find? = fe₂.find?) (htb : fe₁.findTable? = fe₂.findTable?) :
+   687      whnfCoreI mode fe₁ = whnfCoreI mode fe₂ ∧ whnfI mode fe₁ = whnfI mode fe₂ ∧
+   688        inferI mode fe₁ = inferI mode fe₂ ∧ defeqI mode fe₁ = defeqI mode fe₂ ∧
+   689        defeqEI mode fe₁ = defeqEI mode fe₂ ∧ ensureSortI mode fe₁ = ensureSortI mode fe₂ := by
 
 == ConLeche/Kernel/TypeChecker.lean#L29-L54
     29  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
@@ -1095,21 +1095,21 @@
 == ConLeche/Model/DivModCert.lean#L1978
   1978  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
-== ConLeche/Cached/StateC.lean#L236-L249
-   236  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
-   237  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
-   238  bytes, and `0 <<< b = 0`. -/
-   239  def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
-   240    match op with
-   241    | .pow =>
-   242      if b > natCountMax then some (natCountTooBig "Nat.pow")
-   243      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
-   244        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-   245          exceed the maximum numeral size; raise it with --max-nat-size")
-   246      else none
-   247    | .shiftLeft =>
-   248      if a = 0 then none
-   249      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
+== ConLeche/Cached/StateC.lean#L227-L240
+   227  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
+   228  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
+   229  bytes, and `0 <<< b = 0`. -/
+   230  def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
+   231    match op with
+   232    | .pow =>
+   233      if b > natCountMax then some (natCountTooBig "Nat.pow")
+   234      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
+   235        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
+   236          exceed the maximum numeral size; raise it with --max-nat-size")
+   237      else none
+   238    | .shiftLeft =>
+   239      if a = 0 then none
+   240      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
 
 == ConLeche/Kernel/CoreDefs.lean#L593-L613
    593  def natOpResult (c : Name) (a b : Nat) : Option Expr :=
