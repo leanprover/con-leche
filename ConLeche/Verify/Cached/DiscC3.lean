@@ -143,10 +143,10 @@ theorem pushRange_toList (acc A : Array Expr) (i j : Nat) :
 and the constructor's fields substituted. -/
 @[conleche_grind =] theorem iotaReduct_eq (rl : RecRule) (lps : List Name) (us : List Level)
     (A M : Array Expr) (rP k i : Nat) :
-    Expr.instantiateRev ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams lps us)
+    Expr.instantiateRevNoMemo ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams lps us)
         (iotaVals A (min rP k) M i) =
       rl.iotaReduct lps us rP ((A.toList.take k).take rP ++ M.toList.drop i) := by
-  rw [instantiateRev_spec, iotaVals, pushRange_toList, pushRange_toList, RecRule.iotaReduct,
+  rw [instantiateRevNoMemo_spec, iotaVals, pushRange_toList, pushRange_toList, RecRule.iotaReduct,
     show M.toList.take M.size = M.toList from List.take_of_length_le (by simp)]
   simp [List.take_take]
 
@@ -876,7 +876,7 @@ theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (h : Expr) (args : Arra
                       (iotaCertI mode fe eager lv depth cv mI rP isK us args k cj cjn usj cvj induct cnP rl
                         margs) then do
                     let body ← ruleBodyAtM fe c cj cn cjn us
-                    pure (some (Expr.instantiateRev body (iotaVals args (min rP k) margs cnP)))
+                    pure (some (Expr.instantiateRevNoMemo body (iotaVals args (min rP k) margs cnP)))
                   else pure none
                 else pure none
               | none => pure none
