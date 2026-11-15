@@ -75498,6 +75498,30 @@ Commits on `agent/irrel-311`: `c910f427` (the implementation behind
 the switch), `7e82150f` (the use-then-consume fix of §2b), `daf8d582`
 (the OVERVIEW anchors), and this record.
 
+### Addendum (2026-11-15, task #586): the verdict still holds
+
+Re-measured on master `1657d27f0` with a counting probe (branch
+`agent/586-relevance`, not landed; probe commit `d93a4c961`).  Two
+changes since this record make the shortcut worth even less:
+* Since #333, `defeqBodyI` tries `propIrrelI` on the unreduced pair,
+  right after `==` and `quickDefEqI`, so a proof pair in a spine no
+  longer pays two `whnfCore`s, only a `defeqC` memo miss and the
+  head-symbol readers.
+* Without the annotations (#337), `proofPW`/`isProofFast`/`notProofFast`
+  read the residual sort of the head constant's stored type.  This
+  makes the static mask exact: no position is "unknown" any more, and
+  the mask agreed with every probe's outcome.  The readers stay cheap,
+  0.16 % of `init-full` in total.
+
+On `init-full` the mask marks 12 728 of 2.24 M spine positions under
+a constant head.  Of these, 8 655 are not decided by `==`, and only
+146 reach an inference.  Skipping them measured −0.03 % `instructions:u`
+at `--jobs=1` (290.3 → 290.2 G), and 0.00 % on `grind-ring-5` and
+`grind_field_cancel_inv`.  The other perf streams have at most 2
+marked positions.  Verdicts were identical in every mode.  That is no
+more than the cost of carrying the table, so the shortcut is still
+not built.
+
 ## TASK #312 — WHERE sokonanoda's SPEED COMES FROM: the attribution (2026-09-19, `agent/attrib-312`, measurement)
 
 **The ask.**  Two NbE spikes (#307, #310) ported sokonanoda's
