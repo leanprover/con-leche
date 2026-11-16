@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Driver.ScheduleIO
+public import ConLeche.Driver.Schedule.Status
 public import ConLeche.Frontend.Olean.Files
 /- `#guard` evaluates at elaboration time: the definitions it runs come in by a `meta import`. -/
-meta import ConLeche.Driver.ScheduleIO
+meta import ConLeche.Driver.Schedule.Status
 meta import ConLeche.Frontend.Olean.Files
 
 public section
@@ -15,7 +15,8 @@ public section
 out), the windowed peak (`pushMinute`, `windowPeak`), the fixed queue and its head slot (`nextHead`, `nextFit`, `insertAt`, `victims`) and `parseLog` with `etaMs` on a log mixing the three verdict-line formats (`<verdict>
 <module>`, the five fields of the ms/rss/at format, the eleven of the statistics and threads
 format) and `killed` lines; the new verdicts (`stack`, `oom-kill`, `signal N (NAME)`, DESIGN #569)
-with `exitVerdict` and `parseLog`'s retry rule for `stack`.
+with `exitVerdict` and `parseLog`'s retry rule for `stack`; the seeded state of a resumed run
+(`Logged.seed`); the commands `--schedule-commands` prints (`commandLines`, `shellQuote`).
 -/
 
 namespace ConLecheTests.ScheduleTests
@@ -222,5 +223,44 @@ def memLog : String :=
 #guard (parseLog ConLeche.Frontend.Olean.parseModName memLog).killMulti.contains (nm "M")
 #guard !((parseLog ConLeche.Frontend.Olean.parseModName memLog).killMulti.contains (nm "N"))
 #guard (parseLog ConLeche.Frontend.Olean.parseModName memLog).killSize.get? (nm "P") = some 900000
+
+-- the seeded state: C and F were killed and still have to run, at their known sizes (at least
+-- the typical start value 500000), F at one thread; the order of the queue kept
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).seed
+  (["C", "X", "F", "Y"].map nm) 500000).again = ["C", "F"].map nm
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).seed
+  (["C", "X", "F", "Y"].map nm) 500000).pending = ["X", "Y"].map nm
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).seed
+  (["C", "X", "F", "Y"].map nm) 500000).sizes.get? (nm "F") = some 1000000
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).seed
+  (["C", "X", "F", "Y"].map nm) 2000000).sizes.get? (nm "F") = some 2000000
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).seed
+  (["C", "X", "F", "Y"].map nm) 500000).single.toList = [nm "F"]
+-- three peaks: fewer than `typMin`, the start value stays
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName mixedLog).seed [] 777).typ = 777
+
+-- the log's lines
+#guard killLine (nm "A.B") 5000 7 2 = "killed\t«A».«B»\t5000\t7\t2"
+#guard verdictLine "0" (nm "A") 10 "≥5" 20 { decls := some 3 } 1 "-"
+  = "0\t«A»\t10\t≥5\t20\t3\t-\t-\t-\t-\t1\t-"
+
+-- shell quoting: plain words as they are, everything else in single quotes, a quote as '\''
+#guard shellQuote "--search-path=/a/b:/c" = "--search-path=/a/b:/c"
+#guard shellQuote "" = "''"
+#guard shellQuote "«Mathlib».«Data»" = "'«Mathlib».«Data»'"
+#guard shellQuote "a b" = "'a b'"
+#guard shellQuote "it's" = "'it'\\''s'"
+#guard shellQuote "$HOME" = "'$HOME'"
+
+-- the commands: the graph check first, then a worker per module, in the order given
+#guard commandLines "/bin/con-leche" "/l:/i" (nm "R") [nm "B", nm "R"]
+    (workerArgs .verified 99 "/l:/i" none) =
+  ["/bin/con-leche --check-graph --search-path=/l:/i -- '«R»'",
+   "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«B»'",
+   "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«R»'"]
+-- `--jobs=N` only where given; the scheduler's own workers get their share
+#guard workerArgs .trusted 7 "d" (some 4) (nm "M") =
+  #["--olean", "--module", "--jobs=4", "--trusted", "--max-nat-size=7", "--search-path=d", "--",
+    "«M»"]
 
 end ConLecheTests.ScheduleTests
