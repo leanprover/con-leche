@@ -239,7 +239,7 @@ ConLeche.instDecidableEqReducibilityHint.decEq
 ConLeche.instInhabitedConstantVal.default
 ConLeche.instInhabitedDeclaration.default
 
-# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves; Expr's instance, which runs decEqPtr; the structural Expr.decEq only as ptrDecStruct's fallback, behind a pointer test that answers true at both its sites)
+# ConLeche.Kernel.Expr — the Expr/Level data structure: constructors and computed fields, the executed equality (beqMemo, its pointer and hash guards; Level.decEqPtr and Literal's pointer-first instance at the leaves, the literal hash below 2^64; Expr's instance, which runs decEqPtr; the structural Expr.decEq only as ptrDecStruct's fallback, behind a pointer test that answers true at both its sites)
 ConLeche.Expr.BeqSt.record
 ConLeche.Expr.BeqSt.recordEq
 ConLeche.Expr.EqPair.dflt
@@ -267,11 +267,13 @@ ConLeche.Level.succ
 ConLeche.instDecidableEqLevel
 ConLeche.Level.decEqPtr
 ConLeche.instDecidableEqLiteral
-ConLeche.instHashableLiteral.hash
 ConLeche.instInhabitedExpr.default
+ConLeche.Literal.hash
 ConLeche.levelHasParam
 ConLeche.levelsHash
 ConLeche.levelsHaveParam
+ConLeche.natHash
+ConLeche.natHashWordBound
 
 # ConLeche.Kernel.ExprOps — O(spine) readers (getAppFn, mkAppN, piResult, stripPis, peelPis, lamBody: the ι step's peel, once per rule and declaration) and the field-read guards (bvarB, fvarB, looseBVarsBounded, hasFvar)
 ConLeche.Expr.bvarBoundGo
@@ -344,6 +346,9 @@ ConLeche.Name.num
 ConLeche.Name.render
 ConLeche.Name.str
 ConLeche.instDecidableEqName
+
+# ConLeche.Kernel.NatHash — the vendored C hash of a literal at or above 2^64 (`@[extern]`, lean4#16146), once per literal node at construction
+ConLeche.natBigHash
 
 # ConLeche.Kernel.PropRead — propIrrelI's fast arms: head-only reads of spines and telescopes (they are that fast path)
 ConLeche.Expr.binderDom
