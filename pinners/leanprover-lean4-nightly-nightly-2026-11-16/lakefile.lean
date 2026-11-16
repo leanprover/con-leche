@@ -49,8 +49,7 @@ open System Lake DSL
 --
 -- THIS PINNER FORKS `ConLeche.Kernel.PtrDecEq`: its toolchain (lean4
 -- master past the wf-recursion changes of 2026-11-12, lean4#16408 and
--- #16409; no nightly carries them yet, hence a PR-release toolchain)
--- has the new `withPtrEqDecEq` calling convention.  The shared library
+-- #16409; nightly-2026-11-16) has the new `withPtrEqDecEq` calling convention.  The shared library
 -- below lists the cone explicitly, minus that module, and
 -- `PinnerFork` serves the fixed copy from this directory.
 --

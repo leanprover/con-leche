@@ -115469,3 +115469,18 @@ pr-release-16441).  `tests/plain-reach.sh` needed the allowlist entries `modular
 runs (its `lake` wrapper and binaries name a Nix store path that has been collected: "No such file
 or directory"), on master as on the lane; the battery ran with a private `ELAN_HOME` under
 `_tmp/598/` holding a fresh install of that toolchain and links to the others.
+
+## TASK #599 — the lean4-master pin variant renamed after nightly-2026-11-16 (2026-11-16, worktree-pinner-nightly)
+
+The pin variant for lean4 master after the wf-recursion changes (task #578) was generated on a
+PR-release toolchain, `leanprover/lean4-pr-releases:pr-release-16441`, because no nightly carried
+the changes then. nightly-2026-11-16 carries them, so the pinner and its dump are now named after
+it: `pinners/leanprover-lean4-nightly-nightly-2026-11-16/` and
+`pins/leanprover-lean4-nightly-nightly-2026-11-16.json`. The pinner still needs its
+`Kernel/PtrDecEq` fork. The nightly also ships lean4#16146 (`lean_nat_big_hash` in `lean.h`), so
+the pinner keeps task #598's arrangement: no vendored C, `Kernel/NatHash` an ordinary module.
+
+Regenerated on the nightly, the dump is byte-identical to the PR-release one except for its three
+label fields (`toolchain`, `leanVersion`, `preludeFile`). The generated prelude matches the
+committed v4.35.0 prelude below the meta line. The variant order in `#load_natop_pins` does not
+change. No checker code changed.

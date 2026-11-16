@@ -24,7 +24,7 @@ becomes our own declaration against that symbol,
 import `Lean`), and this module, `native/nat_hash.c`, `natHashWordBound`
 and the native section of `lakefile.lean` are deleted; the lakefile can
 go back to `lakefile.toml`.  The pinner whose toolchain already ships
-the PR (`pinners/leanprover-lean4-pr-releases-pr-release-16441/`) builds
+the PR (`pinners/leanprover-lean4-nightly-nightly-2026-11-16/`) builds
 this module without our C and links the runtime's function.
 
 Why C (the maintainer's one deliberate exception to "no C"):

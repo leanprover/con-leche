@@ -4,7 +4,7 @@ Committed **generated data**: one pin dump per DISTINCT set of
 pinned definitions (named after the toolchain that first needed it),
 and the built-in prelude of the repository's own toolchain:
 
-    pins/leanprover-lean4-pr-releases-pr-release-16441.json   lean4 master since its wf-recursion changes
+    pins/leanprover-lean4-nightly-nightly-2026-11-16.json     lean4 master since its wf-recursion changes
     pins/leanprover-lean4-nightly-nightly-2026-09-10.json     the dump matching the repository toolchain (v4.35.0)
     pins/leanprover-lean4-v4.34.0-rc2.json                    further dumps ("pin variants")
     pins/leanprover-lean4-v4.33.0.json
@@ -120,10 +120,9 @@ variant accepts v4.29.0 … v4.33.1 exports; v4.34.0-rc2 renamed the
 needs its own; the nightly variant covers lean4 master from the
 `Decidable` rewrite to the wf-recursion changes of 2026-11-12, and also
 v4.35.0, the repository toolchain, which therefore has no dump of its
-own; the pr-release-16441 variant covers lean4 master after those
+own; the nightly-2026-11-16 variant covers lean4 master after those
 changes — `Nat.bitwise` and with it `Nat.land`/`Nat.lor`/`Nat.xor`
-are respelled — and is named after a PR-release toolchain because no
-nightly carried the changes when it was needed).
+are respelled).
 
 **The prelude is one file**, the repository toolchain's — unlike the
 dumps it IS renamed and regenerated at a toolchain bump: the root

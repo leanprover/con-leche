@@ -13,7 +13,7 @@ the dump's toolchain.
     pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.lean
     pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.lean
     pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.lean
-    pinners/leanprover-lean4-pr-releases-pr-release-16441/ lean-toolchain, lakefile.lean, one fork
+    pinners/leanprover-lean4-nightly-nightly-2026-11-16/ lean-toolchain, lakefile.lean, one fork
 
 The directory name is the dump's basename without `.json` — the
 toolchain string with everything outside `[A-Za-z0-9._-]` turned into
@@ -82,7 +82,7 @@ task #275).  A fork is therefore a narrowing:
    path (say `ConLeche/PinGen/Certs.lean`), and say at its top why it
    is forked and how it differs.
 
-One fork exists: the pr-release-16441 pinner (lean4 master) forks
+One fork exists: the nightly-2026-11-16 pinner (lean4 master) forks
 `ConLeche/Kernel/PtrDecEq.lean`, the one definition behind the
 pointer-first equalities, because master changed `withPtrEqDecEq`'s
 calling convention and no longer compiles `withPtrEq` at a type

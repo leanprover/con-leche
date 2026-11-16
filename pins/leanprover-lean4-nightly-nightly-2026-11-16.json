@@ -2,9 +2,9 @@
 "format":"con-leche-natop-pins/4",
 "_README":"GENERATED FILE — do not edit.  The pinned Nat-operation defining expressions and their certificate proof blobs, as share tables (see ConLeche/PinGen/Dump.lean for the encoding).  Spliced into ConLeche/Kernel/NatOpPins.lean by #load_natop_pins.  The built-in prelude the pins' order-sensitive ground needs (task #191) is the sidecar file named by preludeFile, embedded by ConLeche/Frontend/Prelude.lean; orderResidual lists, per operation, the order-sensitive ground that stays the stream's (see ConLeche/PinGen/Prelude.lean).",
 "_regenerate":"lake exe natop-pins-export   — then commit the result; tests/pindump.sh (run from tests/arena.sh) diffs this file against a fresh regeneration and fails if it is stale.",
-"toolchain":"leanprover/lean4-pr-releases:pr-release-16441",
-"leanVersion":"4.37.0, commit c89e6daf4f49d66b51fd68a8971c600b0dd8d635",
-"preludeFile":"leanprover-lean4-pr-releases-pr-release-16441.prelude.ndjson",
+"toolchain":"leanprover/lean4-nightly:nightly-2026-11-16",
+"leanVersion":"4.37.0-nightly-2026-11-16",
+"preludeFile":"leanprover-lean4-nightly-nightly-2026-11-16.prelude.ndjson",
 "preludeMembers":["And","Bool"],
 "preludeNames":["Eq","Eq.refl","Eq.rec","Nat","Nat.zero","Nat.succ","Nat.rec","Empty","Empty.rec","False","False.rec","Quot","Quot.mk","Quot.lift","Quot.ind","Quot.sound","And","And.intro","And.rec","Bool","Bool.false","Bool.true","Bool.rec"],
 "orderResidual":[
