@@ -174,6 +174,14 @@ def helpText : String := String.intercalate "\n" [
   "                           retries it only when the value changed",
   "  --schedule-order=ORDER   shuffled (default; by a hash of the names) or graph:",
   "                           the order in which the modules start",
+  "  --schedule-commands      start nothing; print on stdout, one per line and",
+  "                           shell-quoted, the commands that check the closure:",
+  "                           the --check-graph run, then one --module run per",
+  "                           module in the start order (--jobs=N only if given);",
+  "                           the modular guarantee needs every one to exit 0 on",
+  "                           one unchanged snapshot of the files (deep checks may",
+  "                           need LEAN_STACK_SIZE_KB); -memory, -log and",
+  "                           -timeout are ignored",
   "                      Every line starts with the status [done (p%), wrkr, thds,",
   "                      RSS tot, RSS biggest, eta]: finished modules, the workers",
   "                      running, their threads, their resident sets now (total",
@@ -382,7 +390,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
               a.module || a.modular with
           | [m], true, false =>
             return ← runReq (.schedule a.searchPath m a.schedule.toList a.mode a.maxNatSize
-              a.progress jobs)
+              a.progress jobs a.jobs.isSome)
           | _, _, _ =>
             eprintln "con-leche: --schedule takes one module name, and none of --constant, \
               --module and --modular"

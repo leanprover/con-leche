@@ -122140,3 +122140,53 @@ about 90 GiB for one worker.  C20 (#561) is smaller only because its chunks have
 Data: kept in `_tmp/597`: the scripts (`bin/run.sh`, `scripts/curve.py`, `scripts/at.py`,
 `scripts/replay2.lean`, `scripts/names2.lean`), the probe sources (`probe/P*.lean`) and the run
 logs (`logs/`).  The fetched archive, the joined `.olean` tree and the worktree were removed.
+
+## TASK #596 — the scheduler in its own module subtree; `--schedule-commands` (2026-11-16, agent/596-schedule-tree)
+
+Maintainer's rulings: contain the scheduler in a module subtree, still one executable, split
+along clear lines with the pure parts pure; and a flag that prints the commands a user must run
+to check a closure, for slurm or anything else.
+
+* **The tree.**  `ConLeche/Driver/ScheduleIO.lean` (1 360 lines) is gone; the scheduler is
+  `ConLeche/Driver/Schedule/` under the glue `ConLeche/Driver/Schedule.lean` (the closure, the
+  workers' arguments, `declCount`, the `liftIO` call).  `Driver/`, not a new top-level
+  `ConLeche/Schedule/`: it is driver code (it imports the driver's `Graph` and `CheckerIO`, the
+  driver imports it through `Dispatch`), and `tests/layering.sh`'s driver tier covers the subtree
+  as it is.
+  - `Engine.lean`: the policy, pure, generic in the job's key `α` (`nextHead`, `nextFit`,
+    `insertAt`, `victims`, `shuffle` by a key function): the planning budget and its surprises,
+    the windowed peak, the typical peak, the threads, `aloneAct`, `resTerm`.  It imports nothing.
+  - `Worker.lean`: the worker's arguments (`workerArgs`, `modeTag`, `spell`), `shellQuote`,
+    `commandLines`, what it printed (`workerStats`, `reportedPeak`), its verdict (`exitVerdict`).
+  - `Log.lean`: `Logged`, `parseLog`, `readLog`, the seeding as a pure function (`Logged.seed`,
+    which `run` built inline before), and the three line formats (`verdictLine`, `killLine`,
+    `reserveLine`).
+  - `Status.lean`: the status part, the finish line (`finishText`, `finishPeak`), the heartbeat
+    (`waitText`, `overText`), the kill line (`killText`), the estimate, the statistics; `St`'s
+    statistics fields are the structure `Stats` it extends, which `statsLines` takes.
+  - `Proc.lean`: the `/proc` and cgroup reads (read only).
+  - `Run.lean` (the old file, `git mv`ed): the settings, the processes (`spawnW`, `Running`), the
+    loop, `summary`, `runAll`, `printCommands`.  The one file in the process fence.
+  Behaviour unchanged: the tick is the old one with the pure pieces called out; a `--schedule`
+  run on `NlM` (log, `--schedule-memory=40G`, `--progress=1000`, `--jobs=2`), on `NpAx` (a
+  failing module), a resumed run seeded with a `killed` line, and `Init.Data.Nat.Gcd` (54
+  modules at 300M) give the same stdout and stderr lines as before the move apart from times,
+  sizes and the timing-dependent thread shares, and the same log fields.
+* **`--schedule-commands`** (in the `--schedule…` family, so the parser and its proof keep
+  their one branch; `Opts.commands`): no process; on stdout `con-leche --check-graph
+  --search-path=DIRS -- ROOT`, then one `con-leche --olean --module --verified
+  --max-nat-size=N --search-path=DIRS -- M` per module, in the queue's order (shuffled, or the
+  graph's with `--schedule-order=graph`), shell-quoted, with `IO.appPath`; `--jobs=N` only where
+  the user gave `--jobs` (the request `.schedule` carries `jobsGiven`).  The maintainer's
+  correction: nothing on stderr; the conditions (every command exits 0, one unchanged snapshot,
+  `LEAN_STACK_SIZE_KB` for deep checks) are in the usage text and OVERVIEW.  `-memory`, `-log`
+  and `-timeout` are ignored.  The workers' arguments are one function (`workerArgs`) for the
+  scheduler and the commands.
+* **Tests.**  `ScheduleTests`: `Logged.seed`, `killLine`, `verdictLine`, `shellQuote`,
+  `commandLines`, `workerArgs`.  `tests/olean.sh`: the commands of `NlM` (six lines, nothing on
+  stderr, the graph check first, a worker's line's shape, no log file written) and `--jobs=3`
+  on the workers' lines.
+* **Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full (the process fence
+  now names `Schedule/Run.lean` alone; the olean gate 342/342); the README/OVERVIEW anchors to
+  `Cli.lean`'s `runArgs` and `Dispatch.lean`'s `runReq` repointed (moved, unchanged).
+||||||| fb04921eb

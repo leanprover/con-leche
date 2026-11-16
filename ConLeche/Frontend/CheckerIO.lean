@@ -68,16 +68,16 @@ binary that exits 0 is one of the model's outcomes, with that code, if
    starts worker processes of this binary, kills its own children, and
    appends to its log, a file no check reads; its exit code is that
    action's answer.  `tests/trust-surface.sh` confines processes, kills and
-   file writes to `ConLeche/Driver/ScheduleIO.lean`; and
+   file writes to `ConLeche/Driver/Schedule/Run.lean`; and
 3. Lean's compiler and runtime run the code as written.
 
 **Several processes.**  A statement about several runs of the binary (the import graph check,
 `--check-graph`, and the per-module checks of the modules it numbers) is about each run's
 outcomes on ONE snapshot: it assumes (1) to (3) of every run, with one snapshot for all of them,
 that is, the files the runs read do not change between the first run's start and the last run's
-end.  Nothing more is assumed of how the runs are started or scheduled (by hand, or by the
-scheduler `--schedule`): the statement is a composition of what each run's exit 0 says, and no
-run reads another's result.  The one-process mode (`--modular`) is one run, and needs no more
+end.  Nothing more is assumed of how the runs are started or scheduled (by hand, from the list
+`--schedule-commands` prints, or by the scheduler `--schedule`): the statement is a composition
+of what each run's exit 0 says, and no run reads another's result.  The one-process mode (`--modular`) is one run, and needs no more
 than (1) to (3).
 
 The argument is then plain: the generic code is the same at both

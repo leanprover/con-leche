@@ -975,6 +975,19 @@ case_ "--schedule-memory: 512M" 0 --olean --schedule --schedule-memory=512M --se
 case_grep "--schedule takes no --progress percentage" 3 "not a percentage" --olean --schedule \
   --progress=5% --search-path=$LIB -- Tiny
 case_ "--schedule takes no --modular" 3 --olean --schedule --modular --search-path=$LIB -- Tiny
+# (task #596: `--schedule-commands` starts nothing and prints the commands that check the
+# closure: the graph check, then one `--module` run per module, shell-quoted; NlM's closure is
+# five modules, so six lines; no `--jobs` unless given; nothing on stderr)
+case_ "--schedule-commands: the commands" 0 --olean --schedule-commands --schedule-log="$d/nolog" \
+  --search-path=$MSP -- NlM
+total=$((total+1))
+if [ "$(wc -l < "$TMPDIR/olean-case.out")" = 6 ] &&
+   head -1 "$TMPDIR/olean-case.out" | grep -qE "^/[^ ]*con-leche --check-graph --search-path=[^ ]+ -- '«NlM»'$" &&
+   sed -n 2p "$TMPDIR/olean-case.out" | grep -qE "^/[^ ]*con-leche --olean --module --verified --max-nat-size=[0-9]+ --search-path=[^ ]+ -- '«[A-Za-z.«»]+»'$" &&
+   [ ! -e "$d/nolog" ]; then ok=$((ok+1))
+else echo "OLEAN FAIL (--schedule-commands: six lines, the graph check first)"; fail=1; fi
+case_grep "--schedule-commands: --jobs where given" 0 "^/.* --module --jobs=3 " --olean \
+  --schedule-commands --jobs=3 --search-path=$MSP -- NlM
 rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"

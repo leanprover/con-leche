@@ -2,7 +2,7 @@
 """schedsim.py -- replay a `--schedule-log` offline under a scheduling policy (DESIGN #518, #540).
 
 The input is a scheduler log (`<verdict>\\t<module>\\t<ms>\\t<rss KiB>\\t<at>\\t<decls>\\t<parse>\\t
-<check>\\t<busy>\\t<slowest>\\t<threads>`, `ConLeche/Driver/ScheduleIO.lean`; older logs lack the
+<check>\\t<busy>\\t<slowest>\\t<threads>`, `ConLeche/Driver/Schedule/Log.lean`; older logs lack the
 last fields) of a real run, each module's wall time and peak, taken as its time and peak at one
 thread (a module the log ran at more threads is replayed as if one had taken that long).  `killed` lines and repeated modules are skipped (the last verdict
 counts).  Optional memory profiles (`--profiles DIR`, files `<module>.tsv` of `ms<TAB>VmRSS KiB`
@@ -10,7 +10,7 @@ lines sampled from a lone worker) give a module's memory shape over its run; a m
 ramps linearly to its peak (`--shape ramp`, the default) or follows the mean profiled shape
 (`--shape mean`).
 
-The policy replayed is the scheduler's of `ScheduleIO.run`, at a fixed tick (`--tick`, s):
+The policy replayed is the scheduler's of `Schedule.run` (`ConLeche/Driver/Schedule/Run.lean`, policy in `Engine.lean`), at a fixed tick (`--tick`, s):
 at most `--jobs` workers; `--budget` the hard limit, admission planning against a lower planning
 budget: the limit minus a margin, the margin the larger of `--margin-init` (0.10) x the limit and
 the `--margin-stat` (p99; `max`, `pNN`) of the last `--margin-window` (200; 0 all) nonzero
