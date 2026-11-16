@@ -181,8 +181,10 @@ structure Loaded where
 
 /-! ## A theorem's value: where it is stored -/
 
-/-- What separates the two parts of a reference. -/
-def refBase : Nat := 1 <<< 32
+/-- What separates the two parts of a reference.  `@[noinline]`: inlined,
+the literal `2^32` is a `lean_cstr_to_nat` decimal parse at every use
+(lean4#16007); as a constant it is parsed once. -/
+@[noinline] def refBase : Nat := 1 <<< 32
 
 /-- **A theorem's value, until its check reads it**: the value at location `g` of module `i`
 of the closure's order.  An expression, so that the records' and the check's types are
