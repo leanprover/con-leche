@@ -122380,3 +122380,53 @@ Regenerated on the nightly, the dump is byte-identical to the PR-release one exc
 label fields (`toolchain`, `leanVersion`, `preludeFile`). The generated prelude matches the
 committed v4.35.0 prelude below the meta line. The variant order in `#load_natop_pins` does not
 change. No checker code changed.
+
+## modular: master merged (6) (2026-11-16, agent/modular-merge-master-6)
+
+`master` at d88e04e9b merged into `modular` (a4a381628).  What master brought: #594 (the
+semantic invariant's application and lambda rules on values: `WellDenoted`'s application clause
+is now `AppliesTo`), #598 (`modular`'s literal hash, #547/#564, ported to master with its own
+record and citations, and the pr-release-16441 pinner as a `lakefile.lean` without the native
+section), #599 (that pinner renamed after nightly-2026-11-16).
+
+**The PR shows no literal hash and no `Nat.succ` fix.**  `native/nat_hash.c`,
+`Kernel/NatHash.lean`, `Kernel/Expr.lean`, `lakefile.lean`, `pinners/`, `pins/`, the
+`lit_hash_low_bits` fixture, the trust-surface pins and the CI files are master's, byte for byte
+(master cites DESIGN #598 where `modular` cited #547/#561/#564, and corrected the swapped
+`olean-compare`/pin-dump comments in `lakefile.lean`).  `tests/e2e-expected.txt` had the
+`lit_hash_low_bits` line twice (`modular`'s position and master's); master's stays.  The
+remaining `trust-surface.sh`, `plain-reach-allow.txt` and `pub-import-plan.py` differences are
+`modular`'s own (the process fence and the driver modules in the IO fence; the worker's reach
+entries and `sorryAxNameAt`/`reduceElemName`; the modular model's fallbacks).  #582's code,
+fixture and allowlist entry were already identical on both sides; its two records (one per
+branch) stay, as master's #598 record keeps `modular`'s #547/#561/#564 records on this branch.
+
+**Task numbers.**  #594 is used on both sides for different tasks: `modular`'s record "CFSG
+`KDenseP.Norton.C125374`: the `memory` verdict came from the worker's threads" (cited as #594 by
+#595 and #597 here) and master's semantic-invariant task.  Both records are kept as written; a
+renumbering of `modular`'s, as for #560–#564, is the maintainer's call.
+
+**Textual conflicts.**  The files above (master's), `tests/ConLecheTests.lean` (`modular`'s three
+imports and master's one), DESIGN.md (both sides' records, `modular`'s first), OVERVIEW.md (the
+module map: `modular`'s Driver row, master's Kernel row naming `NatHash.lean`; §-trust text
+identical on both sides), and the line anchors of OVERVIEW and the whitepaper (relocated by the
+cited text: `natOps_install`, `divMod_install`, `extendQuotLift`, `Expr`, `interp_consts`;
+expectations regenerated).
+
+**Adaptation.**  `wd_interp_mkAppN` (`Model/Rules/RedSoundKit.lean`, `modular`'s δ step at a
+proof's canonical leaf) carries the application clause's `AppliesTo` along the spine instead of
+#594's former membership witnesses.  Nothing else: the reader, worker, reach, scheduler and the
+modular model build unchanged on master's core.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard:
+layering, pindump (the root prelude and all four pinners reproduce their dumps byte for byte,
+none skipped; the v4.34.0-rc2 toolchain in the machine's elan home runs again, so no private
+`ELAN_HOME` was needed), trust surface (14 escapes in 7 allowlisted files; `lakefile.lean`,
+`native/nat_hash.c` pinned), the process and checker-IO fences, overview links (165), whitepaper
+links (531), fragment, quote gate (4), no-local-paths, challenge, shake (676/676 allowlisted, none
+demotable), plain-reach (638, all allowlisted), binary-link, olean gate 342/342, selfcheck
+(59 968 declarations, olean-compare 0 differences), axioms pinned (72 theorems), arena tutorial
+90/92, e2e 617/617, the trusted and `--jobs` sweeps without divergence.  The two blow-up
+fixtures: `strict_succ_counter` 15.5 G instructions, `lit_hash_low_bits` 1.9 G, both accepted
+within their 10 s timeouts.  The whitepaper builds (`nix develop ./whitepaper -c
+whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`, `implemented_by` or C.
