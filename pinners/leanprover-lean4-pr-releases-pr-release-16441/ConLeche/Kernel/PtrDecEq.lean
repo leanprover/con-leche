@@ -10,7 +10,7 @@ This pinner's toolchain (lean4 master, 2026-11) changed
 types the compiler can check, never polymorphically, so the shared
 `ptrDecEq` does not compile here.  This copy decides by `k ()` alone —
 the pure meaning of the shared one, without the pointer shortcut,
-which a one-shot dump generator does not need.  See this pinner's `lakefile.toml`
+which a one-shot dump generator does not need.  See this pinner's `lakefile.lean`
 for how the fork is wired in.
 -/
 
