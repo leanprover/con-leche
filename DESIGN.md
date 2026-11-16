@@ -115329,3 +115329,143 @@ found hard to present.  The fragment (`whitepaper/Fragment`) now states it on va
 **Gates.** `whitepaper/fragment-gate.sh` (warning-free, axioms pinned), `whitepaper/links-gate.sh`
 (re-pointed; every changed cited text checked), `whitepaper/build.sh`, `tests/overview-links.sh`,
 `tests/quote-gate.sh`.  No checker code changed.
+
+## TASK #598 — a `Nat` literal's hash reads all its bits: lean4#16146 vendored, on master (2026-11-16, agent/598-lit-hash-master)
+
+The port to master of `modular`'s tasks #547 (the hash, its fixture) and #564 (no literal parse
+in it), with the pr-release-16441 pinner of "modular: master merged (5)".  This record is
+self-contained; `modular`'s records (#561 the investigation, #547, #564, the fifth master merge)
+stay on that branch.
+
+**The bug.**  `Literal` derived `Hashable`, so `.natVal n` hashed as `hash n = UInt64.ofNat n`,
+`n mod 2^64`, and an `Expr.lit` node's packed hash read nothing else of the number.  Memo keys
+that differ only in literals agreeing in their low 64 bits shared one bucket, and a lookup among
+them walked the chain with structural comparisons (the `Expr.beq` walk, then `lean_nat_big_eq`,
+a GMP compare).  Lean's own `Literal.hash` was the same function; the weakness is lean4#15686
+("Kernel check slows down quadratically for `Nat` that are multiples of `2^64`"), fixed by
+lean4#16146 (merged 2026-11-12: `Lean.Literal.natHash`, `@[extern "lean_nat_hash"]`, in the
+`Lean` package; no stable release has it yet).
+
+**Where it showed: CFSG** (github.com/AxiomMath/CFSG at 69cb972f5, toolchain `v4.35.0-rc3`,
+`modular`'s `--olean --module` workers, one thread; `modular` #561).  Its certificate proofs
+compute by kernel reduction on `Nat` literals of 10⁵–10⁶ bits (C20's `CK k`: products of 781×781
+GF(3) matrices packed as two literals of 609 961 bits each), and the intermediates share their low
+bits, so the whnf memos' keys holding them collided.  The memory is inherent (Lean's kernel peaks
+as high or higher on the same declarations: 12.6 against 11.9 GiB on `ck318`); the time was the
+hash.  `perf stat`, one run each, G instructions / G cycles:
+
+| module / theorem | low-bits hash | hash of all words | Lean (`replayFromImports`, one thread) |
+|---|---|---|---|
+| `Fi24Seven.C20` `ck318`, net of its closure | 336.0 / 213–839 (memory-bound, load-dependent) | 82.4 / 32.4 | 57.8 / 22.9 |
+| `Co2Census.CCK4` (module) | over 1 800 s CPU (`timeout`) | 219.5 / 145 (213.3 G after #564's fix below) | 82.7 / 70.2 |
+| `K426.McLEnumA` (module) | over 1 800 s CPU (`timeout`) | 3 726 / 2 461 | 1 819 / 1 552 |
+
+Peaks unchanged (`ck318` 12.4 GiB both).  The remaining gaps to Lean are ground-reduction speed
+and the memo traffic on literals that the official kernel never caches (DESIGN #549), not the hash.
+
+**The fix.**  `natHash` (`ConLeche/Kernel/Expr.lean`) is lean4#16146's value: the number itself
+below `2^64`; above, its 64-bit words `w₀ … wₖ` (least significant first, `wₖ ≠ 0`) folded as
+`mixHash (… mixHash (mixHash w₀ w₁) …) wₖ`.  `Literal.hash` is `natHash` for numbers and
+`String.hash` (`lean_string_hash`, all the bytes; never weak) for strings; `Hashable Literal` is
+that, and `deriving Hashable` is gone.  Master's equality is untouched: #574's structural
+`Literal.decEq` (the specification) and #551's pointer-first `Literal.decEqPtr` (its `@[csimp]`
+twin).  Below `2^64` the hash is Lean (one comparison against `natHashWordBound`, `@[noinline]`
+so that the compiler's `lean_cstr_to_nat` parse of the literal `2^64` runs once, in its
+initializer, not at every `Expr.lit` construction: lean4#16007, `modular` #564, −2.8 % on CCK4;
+`Frontend/Olean/Lazy.lean`'s `refBase` got the same attribute); from `2^64` on, the vendored C.
+An `Expr` node computes the hash once, at construction (the computed field `Expr.data`).  The
+`.olean` reader never reads a stored hash, so ours may differ from Lean's; it equals
+lean4#16146's.
+
+**Why C: the maintainer's one deliberate exception to "no C".**  Lean has no word access to a big
+`Nat`: reading the words by `% 2^64` and `>>> 64` copies the number per word, quadratic.  So
+`native/nat_hash.c` is lean4#16146's `hash_digits`/`lean_nat_big_hash` under upstream's own symbol
+and signature (`uint64_t lean_nat_big_hash(b_lean_obj_arg)`, a big `Nat` only), declared as
+`@[extern "lean_nat_big_hash"] opaque natBigHash (n : @& Nat) : UInt64` in
+`ConLeche/Kernel/NatHash.lean`.  The toolchain ships no `gmp.h`, so the C restates the
+`mpz_object` layout (header, `int _mp_alloc`, `int _mp_size`, limb pointer: what the `.olean`
+compactor writes and `Region.mpzAt` reads) and asserts a 64-bit platform statically.
+* Build: `lakefile.lean` replaces `lakefile.toml` (a custom target needs code).  The C is
+  compiled by the toolchain's own compiler (`buildLeanO`, `-fPIC -O3`; no system `cc`), a static
+  library linked through `moreLinkObjs` of the library `ConLecheNative`, declared last (Lake
+  gives a module to the last library whose roots cover it) and `precompileModules`, so that the
+  interpreter (the test library's `#guard`s) finds the function.  CI's cache keys hash
+  `lakefile.lean` and `native/**`.
+* The pinners build `Expr.lean`, so the v4.33.0, v4.34.0-rc2 and nightly pinners are
+  `lakefile.lean`s with the same native section (`tests/pindump.sh` asks for that file).
+* Trust surface: `ConLeche/Kernel/NatHash.lean` allowlisted for `extern`; `lakefile.lean` and
+  `native/nat_hash.c` pinned by SHA-256.  OVERVIEW's trust paragraph states the one new
+  assumption: the C is a function (deterministic, no effects).
+* Proofs: `natBigHash` is opaque, so equal literals have equal hashes whatever the C computes,
+  which is all `LawfulHashable Expr` and the memo proofs use.  No proof changed, no new axiom
+  (`tests/ConLecheTests/Axioms.lean` unchanged).
+
+**The link-time reminder, and the plan at the bump.**  The v4.35.0 runtime does not export
+`lean_nat_big_hash`; a toolchain that ships lean4#16146 does, and then linking our C fails on the
+duplicate definition.  That already happens on the pr-release-16441 pinner (lean4 master): its
+`lakefile.lean` has no native section and builds `ConLeche.Kernel.NatHash` as an ordinary module,
+so the runtime's function is the one linked; its dump is byte-identical.  `import Lean` is ruled
+out (con-leche keeps its own `Expr`), so `Lean.Literal.natHash` is not used.  At the first stable
+bump that contains lean4#16146 the plan is: `natHash` becomes our own declaration against the
+runtime's symbol, `@[extern "lean_nat_hash"] opaque natHash (n : @& Nat) : UInt64` (that
+runtime's `lean.h` defines `lean_nat_hash` inline: `lean_unbox` for a scalar,
+`lean_nat_big_hash` otherwise); `native/nat_hash.c`, `Kernel/NatHash.lean`, `natHashWordBound`,
+the lakefiles' native sections, the trust-surface entries and the C pin go, and the lakefile can
+return to `lakefile.toml`.  The plan is written at the declarations (`Kernel/NatHash.lean`'s
+header, `natHash`'s docstring), in the C file's header and in the lakefile's native section.
+
+**OVERVIEW.**  §2 says a literal's hash reads all its bits; the trust paragraph (§9) states the C;
+§11 gets the `native/` row and `NatHash.lean` in the `Kernel/` row.  §14 (#593: every deliberate
+departure from the current release gets a line) gets one under "The verdict is the same, the
+route differs": the released kernel hashes the low 64 bits (lean4#15686), the checker does what
+lean4 master does (lean4#16146).  The vendored C as such is a trust matter, not a departure.
+
+**Tests.**  `tests/ConLecheTests/LitHashTests.lean`: lean4#16146's own checks on our hash (4 000
+different hashes for `65536 ^ i`; the number itself at `12345`, `2^63`, `2^64 - 1`;
+`2^64 ≠ 2^65`), the word fold on two and three words, the fixture's literals, strings.  The e2e
+fixture `lit_hash_low_bits` (source in `tests/e2e/src/`, raw `lean4export` stream): `run 10000
+(2^64)`, each step matching its accumulator `a + 1` against a literal, so the kernel continues
+with the literal `k * 2^64 - 1`; every memo key holding one differs from the others in it alone.
+`tests/arena.sh` runs it under a 10 s timeout, so a hash of the low bits fails the battery (exit
+124).  On `modular`: 3.01 G instructions (0.4 s) with the new hash, 1 182.8 G (223 s) with the old
+one, quadratic (34 s at 5 000 steps); `leanchecker` v4.35.0 takes 308 s at 20 000 steps.
+
+**On master** (this lane).  `lit_hash_low_bits`, one run each, `--jobs=8`, `perf stat -e
+instructions:u`, under the guard: master d5d45d58b 348.8 G instructions, 34 s on its one theorem
+(over the battery's 10 s timeout); the lane 1.91 G, accepted well within it (182× fewer
+instructions).  The arena perf streams and init-full, `--jobs=8`, one run each, G instructions,
+master d5d45d58b against the lane, verdicts identical:
+
+| stream | master | lane | change |
+|---|---|---|---|
+| init-prelude | 1.2165 | 1.2163 | −0.01 % |
+| grind-ring-5 | 8.9632 | 8.9657 | +0.03 % |
+| app-lam | 22.018 | 22.078 | +0.27 % |
+| let-ladder | 2.5864 | 2.5868 | +0.02 % |
+| beta-ladder | 5.0073 | 5.0113 | +0.08 % |
+| init-full | 260.810 | 260.831 | +0.01 % |
+
+No stream moves by more than 0.3 %; the CFSG numbers above are `modular`'s (master has no
+`--module` run of CFSG), and the kernel code they measure is the same here.
+
+**Adaptations against `modular`.**  Master's `Literal` block (#551/#574) kept, only the derived
+`Hashable` replaced; code comments cite this record (#598) for `modular`'s #543/#561/#547; the
+plan at the bump written at the declarations, the C header and the lakefile; the lakefile's
+olean-compare and pin-dump comments, swapped on `modular`, stand at their targets;
+`scripts/executed-decls.lean` names `lakefile.lean`; whitepaper and OVERVIEW anchors moved by the
+inserted lines (text unchanged).
+
+**Gates** (on the lane, the documents commit included).  `lake build` and `lake test`
+warning-free; `tests/arena.sh` in full under the guard: layering, trust surface (12 escapes in 7
+allowlisted files; `lakefile.lean` and `native/nat_hash.c` pinned), overview links (164),
+whitepaper links (468), fragment gate, quote gate, no-local-paths, challenge, shake (666/666
+allowlisted, no demotable public import), binary-link, olean gate 122/122, self-check 54 932
+declarations, axioms pinned (33 theorems), arena tutorial 90/92, e2e 610/610 (the new fixture
+within its 10 s), the trusted and `--jobs` sweeps without divergence; pindump with all four
+pinners reproducing their dumps byte for byte (v4.33.0, v4.34.0-rc2, nightly-2026-09-10,
+pr-release-16441).  `tests/plain-reach.sh` needed the allowlist entries `modular` has
+(`Literal.hash`, `natHash`, `natHashWordBound`, `natBigHash`; `instHashableLiteral.hash` gone):
+629 reached, all allowlisted.  The v4.34.0-rc2 toolchain in the machine's elan home no longer
+runs (its `lake` wrapper and binaries name a Nix store path that has been collected: "No such file
+or directory"), on master as on the lane; the battery ran with a private `ELAN_HOME` under
+`_tmp/598/` holding a fresh install of that toolchain and links to the others.
