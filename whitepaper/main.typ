@@ -16,7 +16,7 @@
     phrases underlined like
     #src("ConLeche/MainTheorem.lean", 102, 105)[this one] link to it on
     `master`, at the definition or theorem being described; phrases
-    underlined like #src("whitepaper/Fragment/Sound.lean", 2322, 2326)[this one]
+    underlined like #src("whitepaper/Fragment/Sound.lean", 2293, 2297)[this one]
     link to the paper's own Lean fragment. In the web version, hovering
     over such a phrase shows the cited lines.],
 )

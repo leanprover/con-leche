@@ -30,15 +30,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Syntax helpers -/
 
-/-! ## A graph's domain is rigid -/
-
-theorem mem_dom_of_mem_piSet_two {A A' f x : V} {B B' : V → V} (hf : f ∈ˢ piSet A B)
-    (hf' : f ∈ˢ piSet A' B') (hx : x ∈ˢ A') : x ∈ˢ A := by
-  obtain ⟨y, hy, -⟩ := (mem_piSet.mp hf').2 x hx
-  obtain ⟨x', hx', y', -, hp⟩ := mem_sigmaPairs.mp ((mem_piSet.mp hf).1 _ hy)
-  rw [(kpair_inj hp).1]
-  exact hx'
-
 theorem WellDenoted_mkAppN_head {ρ : Nat → V} :
     ∀ (as : List Term) {g : Term},
       WellDenoted V ρ (Term.mkAppN g as) → WellDenoted V ρ g
@@ -57,9 +48,8 @@ theorem interp_mkAppN_pt {ρ : Nat → V} {f : Term} (hf : interp V ρ f = pt) :
 
 /-- **A graded application spine that is not the point, of a value of a
 Π-tower, fits the tower**: the head is not the point, so it is a graph
-(`mem_piSet_of_mem_piV`); each application node's package puts its
-argument in a domain the head inhabits as a graph, and a graph's domain
-is rigid. -/
+(`mem_piSet_of_mem_piV`); each application node's clause puts its
+argument in the domain of the graph the head is (`AppliesTo.mem`). -/
 theorem spineFit_of_wellDenoted_mkAppN_pi {R : Term} :
     ∀ {pds : List Term} {h : Term} {args : List Term}
       {τ σ : Nat → V},
@@ -75,7 +65,7 @@ theorem spineFit_of_wellDenoted_mkAppN_pi {R : Term} :
     simp only [List.map_cons, SpineFit]
     rw [Term.mkAppN_cons] at hwd hne
     have hwdA := WellDenoted_mkAppN_head args hwd
-    obtain ⟨-, -, v, A, Bf, hf, ha, -⟩ := cast (WellDenoted_app V τ h a) hwdA
+    have hap := (cast (WellDenoted_app V τ h a) hwdA).2.2
     have hhne : interp V τ h ≠ pt := fun h0 =>
       hne (interp_mkAppN_pt (by rw [interp_app, h0, app_pt]) args)
     have hmem' : interp V τ h ∈ˢ piSet (interp V σ d)
@@ -83,12 +73,7 @@ theorem spineFit_of_wellDenoted_mkAppN_pi {R : Term} :
       have := hmem
       simp only [mkPisAV, interp_pi] at this
       exact mem_piSet_of_mem_piV this hhne
-    have hv : v ≠ 0 := by
-      intro hv0
-      rw [hv0, piR_zero] at hf
-      exact SetTheory.ne_pt_of_mem_piSet hmem' (eq_pt_of_mem_truthVal hf)
-    rw [piR_pos hv] at hf
-    have hx : interp V τ a ∈ˢ interp V σ d := mem_dom_of_mem_piSet_two hmem' hf ha
+    have hx : interp V τ a ∈ˢ interp V σ d := hap.mem hmem'
     refine ⟨hx, ?_⟩
     refine spineFit_of_wellDenoted_mkAppN_pi (R := R) (h := .app h a) hne hwd ?_
       (by simpa using hlen)
@@ -262,8 +247,8 @@ theorem targetAbs_read
     obtain ⟨hav, haw⟩ := ha vals τ hvl hτ
     refine ⟨by simp [hfv, hav], fun hw => ?_⟩
     rw [WellDenoted_app] at hw ⊢
-    obtain ⟨w1, w2, v, A, Bf, h3, h4, h5⟩ := hw
-    exact ⟨hfw w1, haw w2, v, A, Bf, hfv ▸ h3, hav ▸ h4, h5⟩
+    obtain ⟨w1, w2, h3⟩ := hw
+    exact ⟨hfw w1, haw w2, by rw [hfv, hav] at h3; exact h3⟩
   | .proj sn i e, d, as2, as1, h2, h1 => by
     have ihe := targetAbs_read hnames e d as2 as1 h2 h1
     simp only [ConLeche.targetAbs, Expr.instantiateList, denote]
@@ -321,11 +306,8 @@ theorem targetAbs_read
       | (rw [interp_pi, interp_pi, hAv]; exact piV_congr fun x _ => (hbx x).1)
     · first
       | (rw [WellDenoted_lam] at hw ⊢
-         obtain ⟨w1, wt, w2, Bf, w3, wBt⟩ := hw
-         refine ⟨hAw w1, hAv ▸ wt, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx)), Bf, fun x hx => ?_,
-           fun x hx => wBt x (hAv ▸ hx)⟩
-         rw [← (hbx x).1]
-         exact w3 x (hAv ▸ hx))
+         obtain ⟨w1, wt, w2⟩ := hw
+         exact ⟨hAw w1, hAv ▸ wt, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx))⟩)
       | (rw [WellDenoted_pi] at hw ⊢
          obtain ⟨w1, wt, w2, w3⟩ := hw
          refine ⟨hAw w1, hAv ▸ wt, fun x hx => (hbx x).2 (w2 x (hAv ▸ hx)), fun x hx => ?_⟩

@@ -451,10 +451,7 @@ theorem Infer.lam_soundFull {d : Nat}
   refine ⟨?_, ?_, ?_⟩
   · -- the λ's own grading
     rw [WellDenoted_lam]
-    exact ⟨hokty.1, hokty.2, fun x hx => (hrow x hx).1,
-      fun x => interp V (cons x ρ) btA,
-      fun x hx => (hrow x hx).2.2,
-      fun x hx => (hrow x hx).2.1.2⟩
+    exact ⟨hokty.1, hokty.2, fun x hx => (hrow x hx).1⟩
   · -- the copied ∀-type's grading
     refine ⟨?_, IsTy_piV⟩
     rw [WellDenoted_pi]
@@ -556,8 +553,7 @@ theorem Infer.lam_soundIO {d : Nat} {ty body bt : Expr}
   rw [lamV_eq_graph (lamV_ne_pt_of hx₀ hx₀')]
   refine Or.inr (Or.inr ?_)
   rw [IOHered_forallE]
-  obtain ⟨-, -, -, Bl, hBl, -⟩ := cast (WellDenoted_lam V ρ tyA ba) hgr
-  refine ⟨tyA, htyA, hokty, ⟨Bl, graph_mem_piSet hBl⟩,
+  refine ⟨tyA, htyA, hokty, ⟨_, rfl⟩,
     ⟨x₀, hx₀, by rw [app_graph hx₀]; exact hx₀'⟩, fun x hx => ?_⟩
   rw [app_graph hx, hround]
   exact hrow x hx
@@ -708,8 +704,9 @@ theorem Infer.letE_sound {g : Grade} {d : Nat} {ty v body tv t : Expr}
 /-- **The io grade's application, uncertified** (Lean's `infer_only`;
 the fragment's `InferIO.app_sound`).  The claim is the hereditary
 `IORel`.  Where the head is the point, so is the application.  Where it
-is not, the subject's own app slot is in the graph regime, and a graph
-determines its domain (`slotTransfer`): if the head is a member of its
+is not, the subject's own application clause reads the argument off the
+head's graph (`AppliesTo`), and a graph determines its domain
+(`graph_dom_unique`): if the head is a member of its
 type ("not pt" source (1): that type is a type, so its reduct to the ∀
 is an equation), the argument lies in the ∀'s domain and the
 application in its body; if the head's claim is hereditary ("not pt"
@@ -767,7 +764,7 @@ theorem Infer.app_soundIO {d : Nat}
   intro ρ hρ hL hge
   have hokf : WellDenoted V ρ fa := hge.app_fn
   have hoka : WellDenoted V ρ aa := hge.app_arg
-  obtain ⟨v, A, B, hfslot, haslot, -⟩ := (cast (WellDenoted_app V ρ fa aa) hge).2.2
+  have hap := hge.app_clause
   rw [interp_app]
   by_cases hfp : interp V ρ fa = pt
   · rw [hfp, app_pt]; exact IORelN.pt
@@ -782,10 +779,7 @@ theorem Infer.app_soundIO {d : Nat}
       have h2 := hrowfM
       rw [hredfρ, interp_pi] at h2
       exact h2
-    have hgr : interp V ρ fa ∈ˢ piR 1 (interp V ρ Aa) fun x => interp V (cons x ρ) Ba := by
-      rw [piR_pos Nat.one_ne_zero]; exact mem_piSet_of_mem_piV hf' hfp
-    have ha2 : interp V ρ aa ∈ˢ interp V ρ Aa :=
-      Rules.slotTransfer Nat.one_ne_zero hgr hfslot haslot
+    have ha2 : interp V ρ aa ∈ˢ interp V ρ Aa := hap.mem (mem_piSet_of_mem_piV hf' hfp)
     refine IORelN.of_mem hcross
       ((WellDenotedTy_inst0 hoka).mpr ⟨hokpa.pi_body _ ha2, hokpa.pi_fib _ ha2⟩) ?_
     rw [interp_inst0]
@@ -807,11 +801,9 @@ theorem Infer.app_soundIO {d : Nat}
     injection heq with hty hbody
     subst hty hbody
     rw [IOHered_forallE] at h
-    obtain ⟨tya, htya, -, ⟨B', hB'⟩, -, hall⟩ := h
-    have hgr : interp V ρ fa ∈ˢ piR 1 (interp V ρ tya) B' := by
-      rw [piR_pos Nat.one_ne_zero]; exact hB'
-    have ha2 : interp V ρ aa ∈ˢ interp V ρ tya :=
-      Rules.slotTransfer Nat.one_ne_zero hgr hfslot haslot
+    obtain ⟨tya, htya, -, ⟨F, hF⟩, -, hall⟩ := h
+    have ha2 : interp V ρ aa ∈ˢ interp V ρ tya := by
+      rw [hF] at hap; exact (appliesTo_graph.mp hap).2
     have hsub := IORel_substFvarAt hws.2 hb.2 haa (body.instantiate1 (.fvar d ty)) d ρ
       (SetTheory.app (interp V ρ fa) (interp V ρ aa)) (Nat.le_refl d)
       (ConLeche.Expr.fvarsBelow_instantiate1 0 hwfe.2.fvarsBelow)

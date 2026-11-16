@@ -11,7 +11,7 @@ public import Fragment.InstallDef
 Small bridges the installation of a recursor needs, in three groups:
 
 * **Contexts**: the invariant of an abstraction over a context from a
-  semantic bound on its body (`WellDenoted_mkLams_sem`), the invariant
+  well-denoted body (`WellDenoted_mkLams`), the invariant
   moved by the one lifting as the interpretation is
   (`WellDenoted_atCtx`), the
   abstraction over a lifted telescope (`Reader.lamCtx_liftCtx_atCtx`),
@@ -37,27 +37,18 @@ variable {V : Type u} [IndLib V]
 
 /-! ## Contexts -/
 
-/-- The invariant of an abstraction over a context, from a semantic
-bound: the domains are well-denoted types, the body is well-denoted
-and lies in `G` under fitting values, and `G` is a type there. -/
-theorem WellDenoted_mkLams_sem (M : Name → List Nat → V) (φ : Name → Nat) :
-    ∀ {Γ : List Expr} {b : Expr} {ρ : Nat → V} {G : (Nat → V) → V}, CtxWD M φ ρ Γ →
-      (∀ vs, FitsVals M φ ρ Γ vs →
-        WellDenoted M φ (consList vs ρ) b ∧ interp M φ (consList vs ρ) b ∈ˢ G (consList vs ρ)) →
-      (∀ vs, FitsVals M φ ρ Γ vs → IsTy (G (consList vs ρ))) →
+/-- The invariant of an abstraction over a context: the domains are
+well-denoted types and the body is well-denoted under fitting values. -/
+theorem WellDenoted_mkLams (M : Name → List Nat → V) (φ : Name → Nat) :
+    ∀ {Γ : List Expr} {b : Expr} {ρ : Nat → V}, CtxWD M φ ρ Γ →
+      (∀ vs, FitsVals M φ ρ Γ vs → WellDenoted M φ (consList vs ρ) b) →
       WellDenoted M φ ρ (Expr.mkLams Γ b)
-  | [], b, ρ, G, _, hb, _ => (hb [] trivial).1
-  | A :: Γ, b, ρ, G, hctx, hb, hG => by
+  | [], b, ρ, _, hb => hb [] trivial
+  | A :: Γ, b, ρ, hctx, hb => by
     rw [Expr.mkLams_cons]
-    refine WellDenoted_mkLams_sem M φ
-      (G := fun ρ' => piV (interp M φ ρ' A) fun x => G (cons x ρ')) hctx.1
-      (fun vs hvs => ⟨?_, ?_⟩) (fun _ _ => IsTy_piV)
-    · rw [WellDenoted_lam]
-      refine ⟨(hctx.2 vs hvs).1, (hctx.2 vs hvs).2, fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).1,
-        fun x => G (cons x (consList vs ρ)), fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2,
-        fun x hx => hG (x :: vs) ⟨hvs, hx⟩⟩
-    · rw [interp_lam]
-      exact lamV_mem (fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2) fun x hx => hG (x :: vs) ⟨hvs, hx⟩
+    refine WellDenoted_mkLams M φ hctx.1 fun vs hvs => ?_
+    rw [WellDenoted_lam]
+    exact ⟨(hctx.2 vs hvs).1, (hctx.2 vs hvs).2, fun x hx => hb (x :: vs) ⟨hvs, hx⟩⟩
 
 omit [IndLib V] in
 /-- The environment the one lifting shifts to (the environment

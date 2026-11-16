@@ -158,13 +158,10 @@ theorem ndMkTowerAV_facts {r : Nat} (hr : r ≠ 0) {Gty G : Nat → Term} {F g :
         ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
     have hBok : WellDenoted V ρ (.lam (Gty s) (ndTowerAV r Gty (s + 1) 1 n)) := by
       rw [WellDenoted_lam]
-      refine ⟨hGtyok s (by omega), IsTy_of_mem_univ hAu, fun x _ => ?_, fun _ => (univ r : V),
-        fun x _ => ?_, fun _ _ => IsTy_univ r⟩
-      · exact ndTowerAV_wellDenoted V n (s + 1) 1 (cons x ρ)
+      exact ⟨hGtyok s (by omega), IsTy_of_mem_univ hAu, fun x _ =>
+        ndTowerAV_wellDenoted V n (s + 1) 1 (cons x ρ)
           (by rw [shiftE_succ_cons, shiftE_zero_zero]) (fun m hm => hGty m (by omega))
-          (fun m hm => hGtyok m (by omega)) (fun m hm => hF m (by omega))
-      · rw [htail x]
-        exact ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
+          (fun m hm => hGtyok m (by omega)) (fun m hm => hF m (by omega))⟩
     have hav : interp V ρ (G s) = g s := hG s (by omega)
     have hamem : interp V ρ (G s) ∈ˢ interp V ρ (Gty s) := by rw [hav, hA]; exact hg s (by omega)
     obtain ⟨hbv, hbok⟩ := ndMkTowerAV_facts hr n (s + 1) (fun m hm => hGty m (by omega))
@@ -191,12 +188,12 @@ theorem ndMkTowerAV_facts {r : Nat} (hr : r ≠ 0) {Gty G : Nat → Term} {F g :
       have h3 := app_mem_piV h2 hamem
       intro l hl
       match l, hl with
-      | 0, _ => exact piV_slot hstep hAu (IsTy_univ r)
-      | 1, _ => exact piV_slot h1 hBmem IsTy_piV
-      | 2, _ => exact piV_slot h2 hamem (IsTy_of_mem_univ hAu)
-      | 3, _ => exact piV_slot h3 hbmem (by
+      | 0, _ => exact appliesTo_of_mem_piV hstep (IsTy_univ r) hAu
+      | 1, _ => exact appliesTo_of_mem_piV h1 IsTy_piV hBmem
+      | 2, _ => exact appliesTo_of_mem_piV h2 (IsTy_of_mem_univ hAu) hamem
+      | 3, _ => exact appliesTo_of_mem_piV h3 (by
           rw [hBapp]; exact IsTy_of_mem_univ
-            (ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)))
+            (ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega))) hbmem
     have hcl := mkAppN_wellDenoted_of_chain (f := (.const .psigmaMk [r, r] : Term))
       (args := [Gty s, .lam (Gty s) (ndTowerAV r Gty (s + 1) 1 n),
         G s, ndMkTowerAV r Gty G (s + 1) n]) (σ := ρ) trivial
@@ -510,12 +507,9 @@ theorem blockArmG_facts (hI : BlockIdxOk (V := V) k uf ρp Idss)
   · unfold blockArmG
     rw [WellDenoted_lam]
     refine ⟨hiok, by rw [hiv]; exact IsTy_of_mem_univ (idxTyAV_facts (hI m hm)).2.1,
-      fun t ht => ?_, fun _ => (univ w : V), fun t ht => ?_, fun _ _ => IsTy_univ w⟩
-    · rw [hiv] at ht
-      exact sumBodyAV_wellDenoted (hok Y hY m hm t ht)
-    · rw [hiv] at ht
-      rw [sumBodyAV_interp (hok Y hY m hm t ht)]
-      exact blockStepG_univ hok hY hm ht
+      fun t ht => ?_⟩
+    rw [hiv] at ht
+    exact sumBodyAV_wellDenoted (hok Y hY m hm t ht)
 
 /-- **The block's operator**: its value and its grading. -/
 theorem blockFunG_facts (hI : BlockIdxOk (V := V) k uf ρp Idss)
@@ -563,13 +557,8 @@ theorem blockFunG_facts (hI : BlockIdxOk (V := V) k uf ρp Idss)
       fun m hm => blockArmG_mem hok hY₀ (by omega))
   · unfold blockFunG
     rw [WellDenoted_lam]
-    refine ⟨hfok, by rw [hfv]; exact IsTy_famsSpaceB hI, fun Y hY => ?_,
-      fun _ => famsSpaceB k w ρp uf Idss, fun Y hY => ?_, fun _ _ => IsTy_famsSpaceB hI⟩
-    · rw [hfv] at hY; exact (hbody Y hY).2
-    · rw [hfv] at hY
-      rw [(hbody Y hY).1]
-      exact ndMkTowerSet_mem (blockR_ne_zero k w uf) k 0
-        fun m hm => blockArmG_mem hok hY (by omega)
+    exact ⟨hfok, by rw [hfv]; exact IsTy_famsSpaceB hI, fun Y hY => by
+      rw [hfv] at hY; exact (hbody Y hY).2⟩
 
 end Operator
 
@@ -713,8 +702,8 @@ theorem blockBodyG_wellDenoted (hI : BlockIdxOk (V := V) k uf ρp Idss)
   · rw [WellDenoted_app]
     refine ⟨trivial, hiok, ?_⟩
     rw [hc, hiv]
-    exact piV_slot (lfpTupleV_mem V k (blockUs k w uf)) hIs (IsTy_tupleSortsSpace V k _)
-  · rw [hfv]; exact piV_slot hhead hF IsTy_piV
+    exact appliesTo_of_mem_piV (lfpTupleV_mem V k (blockUs k w uf)) (IsTy_tupleSortsSpace V k _) hIs
+  · rw [hfv]; exact appliesTo_of_mem_piV hhead IsTy_piV hF
 
 end Body
 
@@ -802,9 +791,9 @@ theorem blockLeafBodyG_facts {ρ : Nat → V} {m : Nat} (hm : m < k)
   · rw [interp_app, hpv, htv]
     exact famSpace_app_univ hfam htmem
   · rw [WellDenoted_app]
-    refine ⟨hpok, htok, w + 1, idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m),
-      fun _ => (univ w : V), ?_, ?_, fun h0 => absurd h0 (Nat.succ_ne_zero w),
-      fun _ => IsTy_of_mem_univ (idxTyAV_facts (hI m hm)).2.1⟩
+    refine ⟨hpok, htok, appliesTo_of_mem_piR (v := w + 1)
+      (A := idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m))
+      (B := fun _ => (univ w : V)) ?_ (IsTy_of_mem_univ (idxTyAV_facts (hI m hm)).2.1) ?_⟩
     · rw [hpv, ← lfpFamSpace_eq_pos V w htmem]
       exact famSpace_subset_lfpFamSpace V w _ _ hfam
     · rw [htv]; exact htmem
@@ -833,10 +822,7 @@ theorem blockTyG_wellDenoted {m : Nat} (hm : m < k) :
   | d :: pps, ρ, h => by
     show WellDenoted V ρ (.lam d (mkLamsAV pps _))
     rw [WellDenoted_lam]
-    exact ⟨h.1, h.2.1, fun a ha => blockTyG_wellDenoted hm (h.2.2 a ha),
-      ⟨fun a => interp V (cons a ρ) (mkPisAV pps (.sort w)),
-       fun a ha => blockTyG_mem hm (h.2.2 a ha),
-       fun a _ => IsTy_mkPisAV_sort pps w (cons a ρ)⟩⟩
+    exact ⟨h.1, h.2.1, fun a ha => blockTyG_wellDenoted hm (h.2.2 a ha)⟩
 
 /-- **The leaf's application fold**: along a fitting parameter-and-index
 spine the leaf computes member `m`'s carrier at the spine's tuple. -/
@@ -979,7 +965,7 @@ theorem WellDenoted_substAV (τ : Nat → Term) :
     have hτ' : ∀ x, ∀ j, WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) (τ j) := by
       intro x j; rw [shiftE_succ_cons]; exact hτ j
     rw [Term.substAV_lam, WellDenoted_lam, WellDenoted_lam, ihA k ρ hτ, interp_substAV]
-    simp only [ihb (k + 1) _ (hτ' _), interp_substAV, cons_substE]
+    simp only [ihb (k + 1) _ (hτ' _), cons_substE]
   | pi A B ihA ihB =>
     intro k ρ hτ
     have hτ' : ∀ x, ∀ j, WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) (τ j) := by
@@ -1327,12 +1313,8 @@ theorem mkLamsAV_one_wellDenoted {b : Term} :
   | T :: Ts, ρ, hT, hb => by
     show WellDenoted V ρ (.lam T (mkLamsAV Ts b))
     rw [WellDenoted_lam]
-    have hT' := fun x => exists_IsTy_mem (interp V (cons x ρ) (mkLamsAV Ts b))
-    refine ⟨hT.1, hT.2.1, fun x hx => mkLamsAV_one_wellDenoted (hT.2.2.2 x hx)
-      (fun vs hvs => hb (x :: vs) ⟨hx, hvs⟩),
-      fun x => Classical.choose (hT' x),
-      fun x _ => (Classical.choose_spec (hT' x)).2,
-      fun x _ => (Classical.choose_spec (hT' x)).1⟩
+    exact ⟨hT.1, hT.2.1, fun x hx => mkLamsAV_one_wellDenoted (hT.2.2.2 x hx)
+      (fun vs hvs => hb (x :: vs) ⟨hx, hvs⟩)⟩
 
 theorem FieldsOkB_zero_of {w : Nat} :
     ∀ {Ts : List Term} {ρ : Nat → V}, FieldsOkB w ρ Ts → FieldsOkB 0 ρ Ts
@@ -1383,9 +1365,8 @@ theorem holeTmAV_wellDenoted (hIall : BlockIdxOk (V := V) k uf ρp Idss) {m : Na
       rw [← lfpFamSpace_eq_pos V w (tupW_mem (u := uf m) hisR)]
       exact projS_mem_famsSpaceB hm hY
     rw [WellDenoted_app]
-    refine ⟨?_, ?_, w + 1, idxSet (uf m) ρp (Idss m), fun _ => (univ w : V), ?_, ?_,
-      fun h => absurd h (Nat.succ_ne_zero w),
-      fun _ => IsTy_of_mem_univ (idxTyAV_facts (hIall m hm)).2.1⟩
+    refine ⟨?_, ?_, appliesTo_of_mem_piR (v := w + 1) (A := idxSet (uf m) ρp (Idss m))
+      (B := fun _ => (univ w : V)) ?_ (IsTy_of_mem_univ (idxTyAV_facts (hIall m hm)).2.1) ?_⟩
     · have hFu : ∀ c, c < 0 + k → lfpFamSpace V w (idxSet (uf c) ρp (Idss c))
           ∈ˢ (univ (blockR k w uf) : V) := fun c hc =>
         famSpace_mem_blockR (by omega) (idxTyAV_facts (hIall c (by omega))).2.1

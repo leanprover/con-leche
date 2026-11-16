@@ -89,7 +89,7 @@ theorem sound_lam {ρ : Nat → V} {Aa ba Ba : Term}
         ∈ˢ interp V ρ (.pi Aa Ba) := by
   refine ⟨?_, ?_⟩
   · rw [WellDenoted_lam]
-    exact ⟨hokA, hAt, hokb, fun x => interp V (cons x ρ) Ba, hb, hBt⟩
+    exact ⟨hokA, hAt, hokb⟩
   · rw [interp_lam, interp_pi]
     exact lamV_mem hb hBt
 

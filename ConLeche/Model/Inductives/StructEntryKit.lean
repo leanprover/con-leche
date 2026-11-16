@@ -26,10 +26,9 @@ Semantic and syntactic pieces of a tower entry's install:
   instantiation sequence (`peelPis_of_piTeleAV`, the fit-free spine of
   `teleFitPA_of_tower`), and a `mkPisAV` tower is a `PiTeleAV`;
 * a graded application of a λ-tower that is not the point **fits** the tower
-  (`spineFit_of_wellDenoted_mkAppN_lam`): the application clause's package
-  pins each argument to the layer's domain (a graph's domain is
-  rigid, `graph_dom_of_mem_piSet`) — the converse of
-  `mkAppN_wellDenoted_of_lam`;
+  (`spineFit_of_wellDenoted_mkAppN_lam`): the application clause reads
+  each argument off the layer's graph (`appliesTo_graph`) — the converse
+  of `mkAppN_wellDenoted_of_lam`;
 * the projection spelling is graded at a tower member in the graph
   regime (`wellDenoted_projNV_tower`, the pair chain's Σ packages) and at
   the point in the squash regime (`wellDenoted_projNV_pt`);
@@ -106,9 +105,9 @@ theorem instSeq_pi_dom :
 
 /-- **A graded application of a λ-tower that is not the point fits the
 tower**: no partial application is the point (`app_pt`), so each layer
-is a graph (`lamV_eq_graph`), the application clause's package puts the
-argument in a domain that graph inhabits as a function, and a graph's
-domain is rigid (`mkAppN_wellDenoted_of_lam`'s converse). -/
+is a graph (`lamV_eq_graph`), and the application clause puts the
+argument in that graph's domain (`mkAppN_wellDenoted_of_lam`'s
+converse). -/
 theorem spineFit_of_wellDenoted_mkAppN_lam :
     ∀ {lds : List Term} {b f : Term} {args : List Term} {ρ σ : Nat → V},
       WellDenoted V ρ (Term.mkAppN f args) →
@@ -123,20 +122,14 @@ theorem spineFit_of_wellDenoted_mkAppN_lam :
     simp only [List.map_cons, SpineFit]
     rw [Term.mkAppN_cons] at hok hne
     have hokApp := Rules.mkAppN_head args hok
-    obtain ⟨-, -, v, A, B, hf, ha, -⟩ := cast (WellDenoted_app V ρ f a) hokApp
+    have hap := hokApp.app_clause
     have hfne : interp V ρ f ≠ pt := fun h0 =>
       hne (Rules.interp_mkAppN_of_pt (by rw [interp_app, h0, app_pt]) args)
     have hlne := hfne
-    rw [hval] at hf hlne
-    simp only [mkLamsAV, interp_lam] at hf hlne
-    rw [lamV_eq_graph hlne] at hf
-    -- the package's regime `v` is nonzero: a graph is not the point
-    have hv : v ≠ 0 := by
-      intro hv0
-      rw [hv0, piR_zero] at hf
-      exact graph_ne_pt (eq_pt_of_mem_truthVal hf)
-    rw [piR_pos hv] at hf
-    have hmem : interp V ρ a ∈ˢ interp V σ d := graph_dom_of_mem_piSet hf _ ha
+    rw [hval] at hap hlne
+    simp only [mkLamsAV, interp_lam] at hap hlne
+    rw [lamV_eq_graph hlne] at hap
+    have hmem : interp V ρ a ∈ˢ interp V σ d := (appliesTo_graph.mp hap).2
     refine ⟨hmem, ?_⟩
     refine spineFit_of_wellDenoted_mkAppN_lam (b := b) hok hne ?_ (by simpa using hlen)
     rw [interp_app, hval]
@@ -287,17 +280,8 @@ theorem WellDenoted_congr_below :
     intro k ρ ρ' hb hag
     rw [WellDenoted_lam, WellDenoted_lam, ihA k ρ ρ' hb.1 hag,
       interp_congr_below V A k ρ ρ' hb.1 hag]
-    constructor
-    · rintro ⟨h1, ht, h2, B, hB, hBt⟩
-      refine ⟨h1, ht, fun x hx => (ihb (k + 1) _ _ hb.2 (cons_agree_below hag x)).mp (h2 x hx),
-        B, fun x hx => ?_, hBt⟩
-      rw [← interp_congr_below V b (k + 1) _ _ hb.2 (cons_agree_below hag x)]
-      exact hB x hx
-    · rintro ⟨h1, ht, h2, B, hB, hBt⟩
-      refine ⟨h1, ht, fun x hx => (ihb (k + 1) _ _ hb.2 (cons_agree_below hag x)).mpr (h2 x hx),
-        B, fun x hx => ?_, hBt⟩
-      rw [interp_congr_below V b (k + 1) _ _ hb.2 (cons_agree_below hag x)]
-      exact hB x hx
+    exact and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl (ihb (k + 1) _ _ hb.2 (cons_agree_below hag x))))
   | pi A B ihA ihB =>
     intro k ρ ρ' hb hag
     rw [WellDenoted_pi, WellDenoted_pi, ihA k ρ ρ' hb.1 hag,

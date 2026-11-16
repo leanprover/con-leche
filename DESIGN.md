@@ -115293,3 +115293,39 @@ the merged change.  Each line points to the section that explains it; §14 adds 
 own.  It is
 appended rather than inserted so the section numbers cited elsewhere (§11, §12 in CLAUDE.md)
 stay.  A new departure gets a line there.
+
+## TASK #594 — the whitepaper's application rule, maximally simplified (2026-11-16, worktree-wd-app-dom)
+
+The semantic invariant's application clause read `∃ p A B, ⟦f⟧ ∈ piR p A B ∧ ⟦a⟧ ∈ A ∧
+(p → fibres truth values) ∧ (¬p → A a type)`: a typing rule in disguise, which the maintainer
+found hard to present.  The fragment (`whitepaper/Fragment`) now states it on values alone,
+`AppliesTo ⟦f⟧ ⟦a⟧` (`Lib.lean`): `⟦f⟧ = pt`, or `⟦f⟧ = graph(F, A)` with `A` a type and
+`⟦a⟧ ∈ A`.  The paper shows it as two rules, app-pt and app-graph.
+
+* The propositional branch was exactly `⟦f⟧ = pt`; nothing else was carried.
+* The type condition on the graph's domain stays: equality's application congruence
+  (`DefEq.app_sound`) needs the two arguments, in one domain, to be both the point or neither.
+  A bare `⟦a⟧ ∈ dom(⟦f⟧)` (the point's domain everything, a graph's its own) was tried first
+  and fails exactly there; nothing else in the invariant or `DefEqSem` supplies the type.
+* The `SetLib` law `piSet_dom_unique` became `graph_dom_unique` (`graph F A = graph F' A' →
+  A = A'`); the old law is a theorem by η.  The old form could not even be stated about a bare
+  graph, as the abstract theory builds no codomain for it (no singletons).
+* A typed application meets the clause (`appliesTo_of_mem_piR`/`_piV`): that is the step of the
+  inference rule's soundness, and it is the only direction the proof uses.  `SpineOk` (the
+  clause along a spine, on values) uses `AppliesTo` too.
+* Proofs got shorter: β reads the argument's membership straight off the lambda's graph
+  (no detour through the lambda's own function space and domain uniqueness); application
+  congruence, the ι spine fit and `InferIO.app_sound` likewise.  `piR_dom_unique` and
+  `NestIota.TeleFitV_mem` are gone; `spineOk_pt_of_mem` is `spineOk_pt` (no hypothesis).
+* The lambda clause loses its codomain premise ("some family of types bounds the body's
+  values"): the clause is now the domain a type and the body well-denoted at every value.
+  No proof needed the family.  Its two users only put the lambda's graph into some function
+  space to read off a domain, which `graph_dom_unique` now does directly; the io grade's
+  hereditary clause (`IOHered`) says "a graph over the domain" instead of "a member of some
+  function space over it".  The family is the inference rule's business: there the typing
+  supplies it and the introduction law puts the abstraction into its function space.
+* Con-leche's own `Semantics/WellDenoted.lean` follows on this branch (both clauses).
+
+**Gates.** `whitepaper/fragment-gate.sh` (warning-free, axioms pinned), `whitepaper/links-gate.sh`
+(re-pointed; every changed cited text checked), `whitepaper/build.sh`, `tests/overview-links.sh`,
+`tests/quote-gate.sh`.  No checker code changed.

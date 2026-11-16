@@ -82,9 +82,7 @@ theorem wellDenoted_mkAppN_of_fit {ρ : Nat → V} :
       have hokx : WellDenoted V ρ x := hoks x List.mem_cons_self
       have hstep : WellDenoted V ρ (.app f x) := by
         rw [WellDenoted_app]
-        exact ⟨hf, hokx, _, interp V σ A,
-          (fun y => interp V (cons y σ) B), hmem, hx, propN_eq_zero.mp,
-          fun _ => hpi.2.1⟩
+        exact ⟨hf, hokx, appliesTo_of_mem_piV hmem hpi.2.1 hx⟩
       have hmem' : interp V ρ (.app f x)
           ∈ˢ interp V (cons (interp V ρ x) σ) B := by
         rw [interp_app]

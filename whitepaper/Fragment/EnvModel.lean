@@ -103,18 +103,13 @@ theorem piBodyV_nil (ρ : Nat → V) (T : Expr) : piBodyV ρ T [] = some (T, ρ)
   cases T <;> rfl
 
 /-- **A well-formed application chain on values**: at each step the
-function is a member of some function space whose domain holds the argument
-(at a proposition, whose fibres are truth values; above it, whose
-domain is a type) — the
+argument is in the function's domain (`AppliesTo`: the function is the
+point, or a graph whose domain is a type holding the argument) — the
 invariant's application clause (`WellDenoted`, `app`) along a spine,
 on values. -/
 def SpineOk : V → List V → Prop
   | _, [] => True
-  | f, v :: vs =>
-    (∃ (p : Bool) (A : V) (B : V → V),
-      f ∈ˢ piR p A B ∧ v ∈ˢ A ∧ (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) ∧
-        (p = false → IsTy A)) ∧
-    SpineOk (app f v) vs
+  | f, v :: vs => AppliesTo f v ∧ SpineOk (app f v) vs
 
 /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
 `ConLeche/Model/Env/Laws.lean`), stated on **values**.  For the

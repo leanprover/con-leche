@@ -27,8 +27,8 @@ need two terms' proof-ness to agree at every value of a variable —
 λ-congruence and η — compare their bodies' types.  Whether a subject denotes the point is
 never decided by the checker: the definitional-equality claim is about
 two sides that do not, and the typed invariant makes the proof-ness of
-the two sides of every sub-comparison agree (a graph-regime slot's
-domain is a type, so its members are all the point or none of it,
+the two sides of every sub-comparison agree (an application's graph
+head has a type as domain, so its members are all the point or none of it,
 `DefEq.app_sound`).  Inferred types are types (`InferSem`), hence never
 the point, so the reductions of types that inference runs are sound
 outright.
@@ -98,36 +98,29 @@ theorem appFn_sound {Γ : List Expr} {f f' a : Expr} (h : RedSem m φ Γ f f') :
     RedSem m φ Γ (.app f a) (.app f' a) := by
   intro ρ hs hw hn
   rw [WellDenoted_app] at hw
-  obtain ⟨hf, ha, p, A, B, hslot, hmem, hB, hT⟩ := hw
+  obtain ⟨hf, ha, hap⟩ := hw
   obtain ⟨hf', he⟩ := h ρ hs hf (fn_ne_pt hn)
   refine ⟨?_, by simp [he]⟩
   rw [WellDenoted_app]
-  exact ⟨hf', ha, p, A, B, he ▸ hslot, hmem, hB, hT⟩
+  exact ⟨hf', ha, by rw [← he]; exact hap⟩
 
 /-- **β at every binder, with no premise** — `beta_of_ne_pt`.  The
 redex is not the point, so neither is its lambda; a lambda that is not the point
-is the graph of its body; and the graph's domain is the slot's: the
-argument is in it. -/
+is the graph of its body over its own domain; the application clause (`AppliesTo`)
+puts the argument in that domain. -/
 theorem beta_sound {Γ : List Expr} {A b a : Expr} :
     RedSem m φ Γ (.app (.lam A b) a) (b.inst a) := by
   intro ρ _ hw hn
   rw [WellDenoted_app] at hw
-  obtain ⟨hl, ha, p, A', B', hslot, hmem, -, -⟩ := hw
+  obtain ⟨hl, ha, hap⟩ := hw
   rw [WellDenoted_lam] at hl
-  obtain ⟨-, -, hbody, B, hfib, -⟩ := hl
+  obtain ⟨-, -, hbody⟩ := hl
   have hlam := fn_ne_pt hn
   have hval : interp m.M φ ρ (.lam A b) =
       graph (fun x => interp m.M φ (cons x ρ) b) (interp m.M φ ρ A) := by
     rw [interp_lam] at hlam ⊢; exact lamV_eq_graph hlam
-  have hp : p = false := by
-    cases p
-    · rfl
-    · exact absurd (eq_pt_of_mem_piR_true hslot) hlam
-  subst hp
-  have hown : interp m.M φ ρ (.lam A b) ∈ˢ piR false (interp m.M φ ρ A) B := by
-    rw [hval, piR_false]; exact graph_mem_piSet hfib
-  have haA : interp m.M φ ρ a ∈ˢ interp m.M φ ρ A := by
-    rw [piR_dom_unique hown hslot]; exact hmem
+  rw [hval] at hap
+  have haA : interp m.M φ ρ a ∈ˢ interp m.M φ ρ A := (appliesTo_graph.mp hap).2
   refine ⟨(WellDenoted_inst0 m.M φ ha).mpr (hbody _ haA), ?_⟩
   rw [interp_app, interp_lam, app_lamV haA, interp_inst0]
 
@@ -219,16 +212,15 @@ theorem lam_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ t₁ t₂ : Expr}
   rw [ht _ hs' hwt₁ hwt₂ hT₁.ne_pt hT₂.ne_pt] at hm₁
   exact hT₂.eq_of_ne_pt hm₁ hm₂ (hb _ hs' hw₁ hw₂)
 
-/-- An application that is not the point is in the graph regime, and
-its slot's domain is a type. -/
+/-- An application that is not the point has a graph as head, whose
+domain is a type holding the argument. -/
 theorem app_slot {f a : Expr} {ρ : Nat → V} (hw : WellDenoted m.M φ ρ (.app f a))
     (hn : interp m.M φ ρ (.app f a) ≠ pt) :
-    ∃ (A : V) (B : V → V), interp m.M φ ρ f ∈ˢ piSet A B ∧ interp m.M φ ρ a ∈ˢ A ∧ IsTy A := by
+    ∃ (F : V → V) (A : V), interp m.M φ ρ f = graph F A ∧ IsTy A ∧ interp m.M φ ρ a ∈ˢ A := by
   rw [WellDenoted_app] at hw
-  obtain ⟨-, -, p, A, B, hslot, hmem, -, hT⟩ := hw
-  cases p
-  · exact ⟨A, B, hslot, hmem, hT rfl⟩
-  · exact absurd (eq_pt_of_mem_piR_true hslot) (fn_ne_pt hn)
+  rcases hw.2.2 with h | h
+  · exact absurd h (fn_ne_pt hn)
+  · exact h
 
 /-- **Application congruence**: the two heads are equal graphs, so the
 two arguments lie in one domain, which is a type — both arguments are
@@ -237,14 +229,13 @@ theorem app_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr}
     (hf : DefEqSem m φ Γ f₁ f₂) (ha : DefEqSem m φ Γ a₁ a₂) :
     DefEqSem m φ Γ (.app f₁ a₁) (.app f₂ a₂) := by
   intro ρ hs h₁ h₂ hn₁ hn₂
-  obtain ⟨A₁, B₁, hs₁, hm₁, hT₁⟩ := app_slot h₁ hn₁
-  obtain ⟨A₂, B₂, hs₂, hm₂, -⟩ := app_slot h₂ hn₂
+  obtain ⟨F₁, A₁, he₁, hT₁, hm₁⟩ := app_slot h₁ hn₁
+  obtain ⟨F₂, A₂, he₂, -, hm₂⟩ := app_slot h₂ hn₂
   have h₁' := h₁
   have h₂' := h₂
   rw [WellDenoted_app] at h₁' h₂'
   have heF := hf ρ hs h₁'.1 h₂'.1 (fn_ne_pt hn₁) (fn_ne_pt hn₂)
-  rw [← heF] at hs₂
-  have hA : A₁ = A₂ := piSet_dom_unique hs₁ hs₂
+  have hA : A₁ = A₂ := graph_dom_unique (he₁.symm.trans (heF.trans he₂))
   rw [← hA] at hm₂
   have heA : interp m.M φ ρ a₁ = interp m.M φ ρ a₂ := by
     rcases hT₁ with hT | hT
@@ -321,8 +312,7 @@ theorem lam_sound {Γ : List Expr} {A b s bt : Expr} {u : Level}
     fun x hx => hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hwA, hTA, hx⟩)
   refine ⟨?_, ?_, by rw [interp_pi]; exact IsTy_piV, ?_⟩
   · rw [WellDenoted_lam]
-    exact ⟨hwA, hTA, fun x hx => (hbody x hx).1, fun x => interp m.M φ (cons x ρ) bt,
-      fun x hx => (hbody x hx).2.2.2, fun x hx => (hbody x hx).2.2.1⟩
+    exact ⟨hwA, hTA, fun x hx => (hbody x hx).1⟩
   · rw [WellDenoted_pi]
     exact ⟨hwA, hTA, fun x hx => (hbody x hx).2.1, fun x hx => (hbody x hx).2.2.1⟩
   · rw [interp_lam, interp_pi]
@@ -343,7 +333,7 @@ theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr}
   rw [hd ρ hs hwta hwA hTta.ne_pt hTA.ne_pt] at hmema
   refine ⟨?_, (WellDenoted_inst0 m.M φ hwa).mpr (hwB _ hmema), ?_, ?_⟩
   · rw [WellDenoted_app]
-    exact ⟨hwf, hwa, _, _, _, hmemf, hmema, fun hp => propB_eq_true.mp hp, fun _ => hTA⟩
+    exact ⟨hwf, hwa, appliesTo_of_mem_piR hmemf hTA hmema⟩
   · rw [interp_inst0]; exact hfib _ hmema
   · rw [interp_app, interp_inst0]
     exact app_mem_piV hmemf hmema
@@ -423,8 +413,7 @@ theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B t₁ : Expr}
     have happ : WellDenoted m.M φ (cons x ρ) (.app (b.liftN 1) (.bvar 0)) := by
       rw [WellDenoted_app]
       exact ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr (by rw [hsh]; exact hwb), trivial,
-        _, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B,
-        by rw [hlift]; exact hmemb, hx₂, fun hp => propB_eq_true.mp hp, fun _ => hwpi.2.1⟩
+        by rw [interp_bvar, cons_zero, hlift]; exact appliesTo_of_mem_piR hmemb hwpi.2.1 hx₂⟩
     obtain ⟨hwb₁, hwt₁, hT₁, hm₁⟩ := ht₁ _ hs'
     rw [htB _ hs' hwt₁ (hwpi.2.2.1 x hx₂) hT₁.ne_pt (hwpi.2.2.2 x hx₂).ne_pt] at hm₁
     have hm₂ : interp m.M φ (cons x ρ) (.app (b.liftN 1) (.bvar 0)) ∈ˢ
@@ -466,8 +455,8 @@ theorem lamProp_sound [LevelOracle] {Γ : List Expr} {A₁ b₁ A₂ b₂ s : Ex
       (eq_pt_of_mem_univ_zero hmemT hx).symm
     exact hFy
   have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx⟩) (h₁.2.2.1 x hx₁)
-    (h₂.2.2.1 x hx) (hone hn₁) (hone hn₂)
+  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx⟩) (h₁.2.2 x hx₁)
+    (h₂.2.2 x hx) (hone hn₁) (hone hn₂)
 
 /-- **η over a propositional domain, untyped** (task #345): the λ and
 `b` (the abstraction of its applications, `SetLib.lamV_eta`) are not
@@ -511,12 +500,10 @@ theorem etaProp_sound [LevelOracle] {Γ : List Expr} {A₁ b₁ b tb A₂ B s : 
   have happ : WellDenoted m.M φ (cons x ρ) (.app (b.liftN 1) (.bvar 0)) := by
     rw [WellDenoted_app]
     exact ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr (by rw [hsh]; exact hwb), trivial,
-      _, interp m.M φ ρ A₁, fun y => interp m.M φ (cons y ρ) B,
-      by rw [hlift]; exact hmemb, hx, fun hp => propB_eq_true.mp hp,
-      fun _ => heA ▸ hwpi.2.1⟩
+      by rw [interp_bvar, cons_zero, hlift]; exact appliesTo_of_mem_piR hmemb (heA ▸ hwpi.2.1) hx⟩
   have hnb : SetLib.app (interp m.M φ ρ b) x ≠ pt :=
     hone (F := fun y => SetLib.app (interp m.M φ ρ b) y) hx (by rw [hbeta]; exact hn₂)
-  rw [hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, hlam'.1, hlam'.2.1, hx⟩) (hlam'.2.2.1 x hx)
+  rw [hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, hlam'.1, hlam'.2.1, hx⟩) (hlam'.2.2 x hx)
     happ (hone hx hn₁) (by rw [interp_app, interp_bvar, cons_zero, hlift]; exact hnb),
     interp_app, interp_bvar, cons_zero, hlift]
 
@@ -546,8 +533,8 @@ theorem lamConst_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr}
   intro x _
   rw [hcst hc₁ x x₁, hcst hc₂ x x₁]
   have hx₁' : x₁ ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx₁
-  exact hb (cons x₁ ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx₁⟩) (h₁.2.2.1 x₁ hx₁')
-    (h₂.2.2.1 x₁ hx₁) hF₁ (by rw [hcst hc₂ x₁ x₂]; exact hF₂)
+  exact hb (cons x₁ ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx₁⟩) (h₁.2.2 x₁ hx₁')
+    (h₂.2.2 x₁ hx₁) hF₁ (by rw [hcst hc₂ x₁ x₂]; exact hF₂)
 
 /-- **Application congruence at the head's type** (task #345): the
 heads are equal graphs whose domain is the denotation of `S`, the
@@ -558,8 +545,8 @@ theorem appIn_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ tf S B : Expr}
     (ha : DefEqInSem m φ Γ S a₁ a₂) :
     DefEqSem m φ Γ (.app f₁ a₁) (.app f₂ a₂) := by
   intro ρ hs h₁ h₂ hn₁ hn₂
-  obtain ⟨A₁', B₁', hs₁, hm₁, -⟩ := app_slot h₁ hn₁
-  obtain ⟨A₂', B₂', hs₂, hm₂, -⟩ := app_slot h₂ hn₂
+  obtain ⟨F₁, A₁', he₁, -, hm₁⟩ := app_slot h₁ hn₁
+  obtain ⟨F₂, A₂', he₂, -, hm₂⟩ := app_slot h₂ hn₂
   have h₁' := h₁
   have h₂' := h₂
   rw [WellDenoted_app] at h₁' h₂'
@@ -568,9 +555,10 @@ theorem appIn_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ tf S B : Expr}
   obtain ⟨hwpi, hetf⟩ := hr ρ hs hwtf hTtf.ne_pt
   rw [hetf, interp_pi] at hmf
   have hfS := mem_piSet_of_mem_piV hmf (fn_ne_pt hn₁)
-  have hA₁ : A₁' = interp m.M φ ρ S := piSet_dom_unique hs₁ hfS
-  rw [← heF] at hs₂
-  have hA₂ : A₂' = interp m.M φ ρ S := piSet_dom_unique hs₂ hfS
+  have hA₁ : A₁' = interp m.M φ ρ S :=
+    graph_dom_unique (he₁.symm.trans (graph_app_eq hfS).symm)
+  have hA₂ : A₂' = interp m.M φ ρ S :=
+    graph_dom_unique (he₂.symm.trans (heF.symm.trans (graph_app_eq hfS).symm))
   rw [WellDenoted_pi] at hwpi
   have heA := ha ρ hs hwpi.1 hwpi.2.1 h₁'.2.1 h₂'.2.1 (hA₁ ▸ hm₁) (hA₂ ▸ hm₂)
   simp only [interp_app]
@@ -606,16 +594,13 @@ theorem symm_sound {Γ : List Expr} {T a b : Expr} (h : DefEqInSem m φ Γ T a b
 /-- A λ that is not the point, in a function space, is the graph of its
 body over the function space's domain. -/
 theorem lam_in_piV {ρ : Nat → V} {A b : Expr} {D : V} {E : V → V}
-    (hw : WellDenoted m.M φ ρ (.lam A b)) (hm : interp m.M φ ρ (.lam A b) ∈ˢ piV D E)
+    (hm : interp m.M φ ρ (.lam A b) ∈ˢ piV D E)
     (hn : interp m.M φ ρ (.lam A b) ≠ pt) :
     interp m.M φ ρ A = D ∧ interp m.M φ ρ (.lam A b) ∈ˢ piSet D E := by
   have hS := mem_piSet_of_mem_piV hm hn
   refine ⟨?_, hS⟩
-  rw [WellDenoted_lam] at hw
-  obtain ⟨-, -, -, B, hfib, -⟩ := hw
   rw [interp_lam] at hn hS
-  rw [lamV_eq_graph hn] at hS
-  exact piSet_dom_unique (graph_mem_piSet hfib) hS
+  exact graph_dom_unique ((lamV_eq_graph hn).symm.trans (graph_app_eq hS).symm)
 
 /-- **λ-congruence at a `∀`**: no inference, no domain comparison.  Both
 λs lie in one type, so both are the point or neither is; two that are
@@ -629,8 +614,8 @@ theorem lam_sound {Γ : List Expr} {T D E A₁ b₁ A₂ b₂ : Expr}
   obtain ⟨hwpi, heT⟩ := hr ρ hs hwT hT.ne_pt
   rw [heT, interp_pi] at hm₁ hm₂
   rw [WellDenoted_pi] at hwpi
-  obtain ⟨hD₁, hS₁⟩ := lam_in_piV h₁ hm₁ hn₁
-  obtain ⟨hD₂, hS₂⟩ := lam_in_piV h₂ hm₂ hn₂
+  obtain ⟨hD₁, hS₁⟩ := lam_in_piV hm₁ hn₁
+  obtain ⟨hD₂, hS₂⟩ := lam_in_piV hm₂ hn₂
   have h₁' := h₁
   have h₂' := h₂
   rw [WellDenoted_lam] at h₁' h₂'
@@ -646,7 +631,7 @@ theorem lam_sound {Γ : List Expr} {T D E A₁ b₁ A₂ b₂ : Expr}
   have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [hD₁]; exact hx
   have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [hD₂]; exact hx
   refine hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂'.1, h₂'.2.1, hx₂⟩) (hwpi.2.2.1 x hx)
-    (hwpi.2.2.2 x hx) (h₁'.2.2.1 x hx₁) (h₂'.2.2.1 x hx₂) ?_ ?_
+    (hwpi.2.2.2 x hx) (h₁'.2.2 x hx₁) (h₂'.2.2 x hx₂) ?_ ?_
   · rw [hval (by rw [interp_lam]; exact hn₁) x hx₁]; exact app_mem_piSet hS₁ hx
   · rw [hval (by rw [interp_lam]; exact hn₂) x hx₂]; exact app_mem_piSet hS₂ hx
 
@@ -661,7 +646,7 @@ theorem eta_sound {Γ : List Expr} {T D E A₁ b₁ b : Expr}
   obtain ⟨hwpi, heT⟩ := hr ρ hs hwT hT.ne_pt
   rw [heT, interp_pi] at hm₁ hmb
   rw [WellDenoted_pi] at hwpi
-  obtain ⟨hD₁, hS₁⟩ := lam_in_piV h₁ hm₁ hn₁
+  obtain ⟨hD₁, hS₁⟩ := lam_in_piV hm₁ hn₁
   have h₁' := h₁
   rw [WellDenoted_lam] at h₁'
   have hsh : ∀ x, shiftE 1 0 (cons x ρ) = ρ := by
@@ -677,10 +662,9 @@ theorem eta_sound {Γ : List Expr} {T D E A₁ b₁ b : Expr}
   have happ : WellDenoted m.M φ (cons x ρ) (.app (b.liftN 1) (.bvar 0)) := by
     rw [WellDenoted_app]
     exact ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr (by rw [hsh]; exact hwb), trivial,
-      _, interp m.M φ ρ D, fun y => interp m.M φ (cons y ρ) E,
-      by rw [hlift]; exact hmb, hx, fun hp => propB_eq_true.mp hp, fun _ => hwpi.2.1⟩
+      by rw [interp_bvar, cons_zero, hlift]; exact appliesTo_of_mem_piR hmb hwpi.2.1 hx⟩
   have h := hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₁'.1, h₁'.2.1, hx₁⟩) (hwpi.2.2.1 x hx)
-    (hwpi.2.2.2 x hx) (h₁'.2.2.1 x hx₁) happ ?_ ?_
+    (hwpi.2.2.2 x hx) (h₁'.2.2 x hx₁) happ ?_ ?_
   · rw [h, interp_app, interp_bvar, cons_zero, hlift]
   · rw [interp_lam, lamV_eq_graph hn₁', hD₁] at hS₁
     rw [← app_graph (F := fun x => interp m.M φ (cons x ρ) b₁) hx]
@@ -735,8 +719,8 @@ theorem outer_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr}
   apply lamV_congr
   intro x hx
   have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, h₂.2.1, hx⟩) (h₁.2.2.1 x hx₁)
-    (h₂.2.2.1 x hx)
+  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, h₂.2.1, hx⟩) (h₁.2.2 x hx₁)
+    (h₂.2.2 x hx)
 
 end DefEqLams
 
@@ -821,10 +805,10 @@ theorem Expr.hasPis_of_succ : ∀ (e : Expr) (n : Nat), e.hasPis (n + 1) = true 
 /-- **A spine that is not the point fits its head's telescope, with no
 certificate** (the argument of the paper's ι rule, iterated).  At each step
 the application is not the point, so neither is its head
-(`app_pt`); the invariant's slot then puts the head in a function space
-(`piR false`), and the head's membership in its type — a function space, not
-the point — makes it a graph of that type's domain, so the slot's
-domain is the binder's (`piR_dom_unique`) and the argument lies in it.
+(`app_pt`); the invariant's application clause (`AppliesTo`) then puts
+the argument in the domain of the head's graph, and the head's membership
+in its type — a function space, not the point — makes that the type's
+domain (`AppliesTo.mem`), the binder's.
 This is why `Red.iota` carries no certificate on the recursor's
 telescope: the reduction claims nothing of a redex that is the point. -/
 theorem teleFit_of_ne_pt {ρ : Nat → V} :
@@ -841,16 +825,10 @@ theorem teleFit_of_ne_pt {ρ : Nat → V} :
       intro h; apply hn; rw [interp_mkAppN_appList, h, appList_pt_sound]
     have hw1' := hw1
     rw [WellDenoted_app] at hw1'
-    obtain ⟨-, hwx, p, A', B', hslot, hxA, -, -⟩ := hw1'
+    obtain ⟨-, hwx, hap⟩ := hw1'
     have hF := fn_ne_pt hn1
-    have hp : p = false := by
-      cases p
-      · rfl
-      · exact absurd (eq_pt_of_mem_piR_true hslot) hF
-    subst hp
     rw [interp_pi] at hf
-    have hA : A' = interp m.M φ ρ A := piR_dom_unique hslot (mem_piSet_of_mem_piV hf hF)
-    rw [hA] at hxA
+    have hxA := hap.mem (mem_piSet_of_mem_piV hf hF)
     rw [WellDenoted_pi] at hT
     refine ⟨hxA, ?_⟩
     refine teleFit_of_ne_pt ((WellDenoted_inst0 m.M φ hwx).mpr (hT.2.2.1 _ hxA)) ?_
@@ -904,17 +882,10 @@ theorem major_eq {Γ : List Expr} {ρ : Nat → V} {T f maj maj' : Expr} {xs : L
   rw [WellDenoted_pi] at hwB
   rw [interp_pi] at hmemB
   rw [WellDenoted_app] at hw
-  obtain ⟨-, hwmaj, p, A', B', hslot, hmaj, -, -⟩ := hw
+  obtain ⟨-, hwmaj, hap⟩ := hw
   have hF := fn_ne_pt hn
-  rw [interp_mkAppN_appList] at hslot hF
-  have hp : p = false := by
-    cases p
-    · rfl
-    · exact absurd (eq_pt_of_mem_piR_true hslot) hF
-  subst hp
-  have hA : A' = interp m.M φ ρ' A :=
-    piR_dom_unique hslot (mem_piSet_of_mem_piV hmemB hF)
-  rw [hA] at hmaj
+  rw [interp_mkAppN_appList] at hap hF
+  have hmaj := hap.mem (mem_piSet_of_mem_piV hmemB hF)
   by_cases hmp : interp m.M φ ρ maj = pt
   · rcases hwB.2.1 with hT0 | hTs
     · rw [hmp, eq_pt_of_mem_univ_zero hT0 hv]

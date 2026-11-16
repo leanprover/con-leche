@@ -506,12 +506,8 @@ theorem WellDenoted_closedAt {k : Nat} {e : Expr} (he : e.closedAt k = true) {ρ
   | lam A b ihA ihb =>
     simp only [Expr.closedAt_lam, Bool.and_eq_true] at he
     rw [WellDenoted_lam, WellDenoted_lam, ihA he.1 h, interp_closedAt he.1 h]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · exact ihb he.2 (cons_congr_lt h x)
-    · rw [interp_closedAt he.2 (cons_congr_lt h x)]
+    exact and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl (ihb he.2 (cons_congr_lt h x))))
   | pi A B ihA ihB =>
     simp only [Expr.closedAt_pi, Bool.and_eq_true] at he
     rw [WellDenoted_pi, WellDenoted_pi, ihA he.1 h, interp_closedAt he.1 h]
@@ -569,12 +565,8 @@ theorem WellDenoted_usesVar {e : Expr} {ρ ρ' : Nat → V}
   | lam A b ihA ihb =>
     simp only [Expr.usesVar_lam, Bool.or_eq_true, or_imp, forall_and] at h
     rw [WellDenoted_lam, WellDenoted_lam, ihA h.1, interp_usesVar h.1]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · exact ihb (cons_congr_succ h.2 x)
-    · rw [interp_usesVar (cons_congr_succ h.2 x)]
+    exact and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl (ihb (cons_congr_succ h.2 x))))
   | pi A B ihA ihB =>
     simp only [Expr.usesVar_pi, Bool.or_eq_true, or_imp, forall_and] at h
     rw [WellDenoted_pi, WellDenoted_pi, ihA h.1, interp_usesVar h.1]
@@ -633,12 +625,8 @@ theorem WellDenoted_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = 
   | lam A b ihA ihb =>
     simp only [Expr.consts_lam, List.mem_append, or_imp, forall_and] at h
     rw [WellDenoted_lam, WellDenoted_lam, ihA h.1, interp_consts h.1]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · exact ihb h.2
-    · rw [interp_consts h.2]
+    exact and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl (ihb h.2)))
   | pi A B ihA ihB =>
     simp only [Expr.consts_pi, List.mem_append, or_imp, forall_and] at h
     rw [WellDenoted_pi, WellDenoted_pi, ihA h.1, interp_consts h.1]
@@ -701,12 +689,8 @@ theorem WellDenoted_lparams {ps : List Name} {e : Expr} (he : e.lparamsIn ps = t
   | lam A b ihA ihb =>
     simp only [Expr.lparamsIn_lam, Bool.and_eq_true] at he
     rw [WellDenoted_lam, WellDenoted_lam, ihA he.1, interp_lparams he.1 h]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · exact ihb he.2
-    · rw [interp_lparams he.2 h]
+    exact and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl (ihb he.2)))
   | pi A B ihA ihB =>
     simp only [Expr.lparamsIn_pi, Bool.and_eq_true] at he
     rw [WellDenoted_pi, WellDenoted_pi, ihA he.1, interp_lparams he.1 h]

@@ -85,14 +85,14 @@ theorem appFn_syntax {d : Nat} {f f' a : Expr}
     · exact Or.inl (hsubf l hl)
     · exact Or.inr hl
 
-/-- The app slot rides an equal-valued, graded head. -/
+/-- The application clause rides an equal-valued, graded head. -/
 theorem wellDenoted_app_fn_congr {ρ : Nat → V} {fa fa' aa : Term}
     (heq : interp V ρ fa = interp V ρ fa') (hgf' : WellDenoted V ρ fa')
     (hg : WellDenoted V ρ (.app fa aa)) : WellDenoted V ρ (.app fa' aa) := by
   have hx1 := hg
   rw [WellDenoted_app] at hx1 ⊢
-  obtain ⟨-, hoka1, v', A, B, h1, h2, h3⟩ := hx1
-  exact ⟨hgf', hoka1, v', A, B, heq ▸ h1, h2, h3⟩
+  obtain ⟨-, hoka1, h1⟩ := hx1
+  exact ⟨hgf', hoka1, by rw [← heq]; exact h1⟩
 
 /-- Head reduction under an application: the argument rides along.
 "Not pt" source (2): the application is not the point, so its head is
@@ -304,26 +304,25 @@ The argument's claim is conditional: it equates the argument with its
 literal only where the argument is not the point.  The argument lies in
 `Nat`: the redex is not the point, so neither is the head ("not pt"
 source (2), `app_pt`), and the head's graph fixes its domain to `Nat`
-(`piR_dom_unique` against `NatHeads`' `Nat.succ` or `NatOpHead`).  The
+(`AppliesTo.mem` against `NatHeads`' `Nat.succ` or `NatOpHead`).  The
 literal lies in `Nat` too, and `Nat` is a type, so the two are equal even
 where the argument is the point (`IsTy.eq_of_ne_pt`). -/
 
 /-- **The argument of an application that is not the point lies in its
 head's domain**: the head is not the point (`app_pt`), so it is read at a
-positive kind (`eq_pt_of_mem_piR_zero`), where its graph fixes its domain
-(`piR_dom_unique`). -/
+positive kind (`eq_pt_of_mem_piR_zero`), where its application clause
+reads the argument off the graph (`AppliesTo.mem`). -/
 theorem arg_mem_of_head {σ : Nat → V} {f a : Term} {b : Nat} {N : V}
     {Y : V → V} (hg : WellDenoted V σ (.app f a))
     (hne : interp V σ (.app f a) ≠ pt) (hf : interp V σ f ∈ˢ piR b N Y) :
     interp V σ a ∈ˢ N := by
   have hw := hg
   rw [WellDenoted_app] at hw
-  obtain ⟨-, -, v, A, B, hfv, ha, -, -⟩ := hw
+  obtain ⟨-, -, hap⟩ := hw
   have hfne : interp V σ f ≠ pt := fun h => hne (by rw [interp_app, h, app_pt])
-  have hv : v ≠ 0 := fun h => hfne (eq_pt_of_mem_piR_zero (h ▸ hfv))
   have hb : b ≠ 0 := fun h => hfne (eq_pt_of_mem_piR_zero (h ▸ hf))
-  rw [piR_dom_unique hv hb hfv hf] at ha
-  exact ha
+  rw [piR_pos hb] at hf
+  exact hap.mem hf
 
 /-- **A literal reading** (`rawNatLit?`'s two shapes) is graded and lies in
 the `Nat` leaf, at every valuation (`NatHeads`). -/

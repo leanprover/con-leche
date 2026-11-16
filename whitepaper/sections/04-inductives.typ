@@ -327,7 +327,7 @@ recursor itself, and the official kernel infers no rule either.
 The model of a block has three parts: the set the type former
 denotes at each choice of indices, the sets the constructors denote,
 and the set the recursor denotes. With the recursor, the contract of @sec:env gains its
-#src("whitepaper/Fragment/EnvModel.lean", 318, 325)[third law]:
+#src("whitepaper/Fragment/EnvModel.lean", 313, 320)[third law]:
 every rule of every stored recursor satisfies its $iota$ law
 (@def:iota-law), which this subsection proves. @sec:iota-cases adds
 three more laws, facts about the model that let most $iota$ steps go
@@ -769,13 +769,13 @@ there they belong to the certification tax (@sec:tax).
 Nothing checks the recursor's own arguments against its type, and
 nothing needs to. The reduction claim is asked only of a redex that
 is not the point, and such a redex
-#src("whitepaper/Fragment/Sound.lean", 821, 835)[fits the recursor's telescope] as it stands.
+#src("whitepaper/Fragment/Sound.lean", 805, 819)[fits the recursor's telescope] as it stands.
 Call the arguments of an application its _spine_. Each prefix of the
 redex's spine is not the point either ($pt dot.op a = pt$), hence a
-graph. The condition the semantic invariant's application rule puts on
-the next argument names a function space holding that graph, the
-prefix's membership in its own type names another, and by domain
-uniqueness the two have one domain, which holds the argument.
+graph. The semantic invariant's app-graph rule puts the next argument
+in that graph's domain. The prefix's membership in its own type puts
+the graph in a function space, and as a graph determines its domain,
+that is the function space's domain, which therefore holds the argument.
 
 #real[
   In the checker's rule every premise on the constructor application
@@ -790,7 +790,7 @@ uniqueness the two have one domain, which holds the argument.
 
 By @thm:sound each comparison becomes an equality of sets wherever
 neither side is the point. So the
-#src("whitepaper/Fragment/EnvModel.lean", 119, 186)[$iota$ law] is stated on values, with the fits
+#src("whitepaper/Fragment/EnvModel.lean", 114, 181)[$iota$ law] is stated on values, with the fits
 and these conditional equalities as premises:
 
 #definition(name: [the $iota$ law of a rule])[
@@ -820,7 +820,7 @@ and these conditional equalities as premises:
 The second conjunct makes the reduct well-denoted, as the first claim
 of @thm:sound demands; the first is the equation. The $iota$ case of
 @thm:sound is then
-#src("whitepaper/Fragment/Sound.lean", 1057, 1067)[a translation]. The comparisons become
+#src("whitepaper/Fragment/Sound.lean", 1028, 1038)[a translation]. The comparisons become
 conditional equalities; the redex's own fit is as above; the
 constructor's fit comes from its certificate or from the arguments of
 @sec:iota-cases; the reduced major's value replaces the argument's;
@@ -828,7 +828,7 @@ and #src("ConLeche/Model/Rules/IotaSound.lean", 88)[the law] gives the rest.
 
 #theorem(name: [the $iota$ law holds])[
   Every rule of the recursor of an accepted block
-  #src("whitepaper/Fragment/InstallIota.lean", 822, 828)[satisfies its $iota$ law] in the model of @sec:ind-model.
+  #src("whitepaper/Fragment/InstallIota.lean", 807, 813)[satisfies its $iota$ law] in the model of @sec:ind-model.
   (Via #src("whitepaper/Fragment/IndRec.lean", 280, 290)[the equation on the semantic recursor]\; in con-leche,
   #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 872, 878)[the graph's equation], lifted to the law of @def:iota-law.)
 ] <thm:iota>
@@ -904,7 +904,7 @@ for it, each proved when the block is installed.
 at least $1$ at every valuation (one oracle test on the levels at
 the use), then
 #src("whitepaper/Fragment/Rules.lean", 394, 445)[the step needs no certificate]. The model's
-#src("whitepaper/Fragment/EnvModel.lean", 278, 296)[_fibre law_] says that a stored family's
+#src("whitepaper/Fragment/EnvModel.lean", 273, 291)[_fibre law_] says that a stored family's
 fibres are truth values where its stored sort evaluates to zero and
 strict sets where it does not; the installation
 #src("whitepaper/Fragment/InstallInd.lean", 150, 163)[proves it] from the construction of
@@ -913,7 +913,7 @@ domain, a strict fibre. So the major is not the point, its own
 reduction claim applies, and the constructor application it reduces
 to is not the point and lies in the same fibre. Hence it fits the
 constructor's telescope by the argument of @sec:iota
-(#src("whitepaper/Fragment/Sound.lean", 1309, 1323)[the case's proof]). This covers every
+(#src("whitepaper/Fragment/Sound.lean", 1280, 1294)[the case's proof]). This covers every
 redex on `Nat`, `List`, `Bool` and the like.
 
 *A family that may be a proposition.* This is the certified case.
@@ -924,20 +924,20 @@ compared with the recursor's, and every parameter and field of the
 constructor application is inferred by full inference and compared
 with the constructor's domain]. At a valuation where the family is a
 proposition the constructor's value is the point
-(#src("whitepaper/Fragment/Sound.lean", 1003, 1012)[a constructor of a family in `Prop`]),
+(#src("whitepaper/Fragment/Sound.lean", 974, 983)[a constructor of a family in `Prop`]),
 and an application whose head is the point constrains none of its
 arguments. So a field can lie outside its domain in a well-denoted
 major. The reduct applies the minor premise to that field, and is
 then not well-denoted although the redex is
-(#src("whitepaper/Fragment/EtaIota.lean", 681, 692)[a witness], in which the
+(#src("whitepaper/Fragment/EtaIota.lean", 671, 682)[a witness], in which the
 minor is a graph over ${pt}$ and the field is not the point). This is
 the second kind of check of the certification tax (@sec:tax). Other checkers
 skip it for the reason they skip the first: in a well-typed major the
 fields are well-typed. The major premise itself needs no check. By the
 model's
-#src("whitepaper/Fragment/EnvModel.lean", 250, 276)[_major-premise law_], wherever the recursor's
+#src("whitepaper/Fragment/EnvModel.lean", 245, 271)[_major-premise law_], wherever the recursor's
 domain holds the point as the major, the redex or the constructor is
-the point (#src("whitepaper/Fragment/InstallIota.lean", 1046, 1056)[its proof]: a fibre holding the point is a
+the point (#src("whitepaper/Fragment/InstallIota.lean", 1031, 1041)[its proof]: a fibre holding the point is a
 truth value, so the family is a proposition there). In that case the
 reduced constructor application is the point, as the major is.
 
@@ -951,11 +951,11 @@ not reduced. What remains is Lean's type check: the major's inferred
 type reduces to the family at some arguments, and the constructor
 fabricated at their parameters has a type definitionally equal to it.
 That check decides whether the step is taken; no claim consumes it.
-The model's #src("whitepaper/Fragment/EnvModel.lean", 188, 214)[_K law_] says that at _any_
+The model's #src("whitepaper/Fragment/EnvModel.lean", 183, 209)[_K law_] says that at _any_
 values fitting the recursor's whole telescope, the major's included,
 an application that is not the point equals the right-hand side at
 the values before the indices. The installation
-#src("whitepaper/Fragment/InstallIota.lean", 981, 1002)[proves it] by inversion of the least fixed
+#src("whitepaper/Fragment/InstallIota.lean", 966, 987)[proves it] by inversion of the least fixed
 point. The major's value lies in the fibre at the recursor's
 parameters and indices, a member of a fibre is a constructor value
 reaching those indices, and with one constructor and no fields that

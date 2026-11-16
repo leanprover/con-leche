@@ -29,7 +29,7 @@ The steps, all at the value reading:
 * **a type former's application lands in its peeled sort**
   (`typeFormer_mem_univ`): the application is a type, so not the point;
   every prefix of its spine is then a graph ("not pt" source (2)), whose
-  domain is the binder's (`slotTransfer`); a wrapper on the way is a
+  domain is the binder's (`AppliesTo.mem`); a wrapper on the way is a
   δ-unfolding and β-steps, identities of the value
   (`redSem_unwrapIdDefs`);
 * **a ∀ whose residual's sort is zero is a truth value**
@@ -286,7 +286,7 @@ theorem forallE_inst_facts {d : Nat} {Δa : List Term} {A B x : Expr}
 
 /-- **A type former's application lands in its peeled sort**: the
 application is not the point, so every prefix of its spine is a graph
-("not pt" source (2)) whose domain is the binder's (`slotTransfer`), and
+("not pt" source (2)) whose domain is the binder's (`AppliesTo.mem`), and
 an identity wrapper on the way is a reduction (`redSem_unwrapIdDefs`). -/
 theorem typeFormer_mem_univ (hin : RulesInputs V m φ) {d : Nat}
     {Δa : List Term} {ρ : Nat → V} (hρ : Sat V Δa ρ) :
@@ -337,13 +337,11 @@ theorem typeFormer_mem_univ (hin : RulesInputs V m φ) {d : Nat}
       have hgS' : WellDenoted V ρ (Term.mkAppN (.app Ha xa) vs') := hgS
       have hne' : interp V ρ (Term.mkAppN (.app Ha xa) vs') ≠ pt := hne
       have happ : WellDenoted V ρ (.app Ha xa) := mkAppN_head vs' hgS'
-      obtain ⟨v', A', B', hslot, hx, -⟩ := (cast (WellDenoted_app V ρ Ha xa) happ).2.2
+      have hap := happ.app_clause
       have hHne : interp V ρ Ha ≠ pt := by
         intro h0
         exact hne' (interp_mkAppN_of_pt (by rw [interp_app, h0, app_pt]) vs')
-      have hgr : interp V ρ Ha ∈ˢ piR 1 (interp V ρ Aa) fun y => interp V (cons y ρ) Ba := by
-        rw [piR_pos Nat.one_ne_zero]; exact mem_piSet_of_mem_piV hmem' hHne
-      have hxA : interp V ρ xa ∈ˢ interp V ρ Aa := slotTransfer Nat.one_ne_zero hgr hslot hx
+      have hxA : interp V ρ xa ∈ˢ interp V ρ Aa := hap.mem (mem_piSet_of_mem_piV hmem' hHne)
       have hokx : WellDenoted V ρ xa := happ.app_arg
       obtain ⟨hfx, hCx⟩ := hargs x List.mem_cons_self
       obtain ⟨hfB, hCB, hdB, hLB⟩ := forallE_inst_facts (ρ := ρ) hfTy' hCTy' hBa hfx hCx hxa

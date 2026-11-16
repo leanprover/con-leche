@@ -102,19 +102,6 @@ fields with the stuck side's projections, and nothing at the rules tier
 places both spines in one telescope of types (the DESIGN record of task
 #342 L11): the η constructor's telescope coherence does (L11b). -/
 
-/-- The slot of a graded application whose head is not the point: the
-graph regime, and a domain that is a type. -/
-theorem appSlot_of_ne_pt {ρ : Nat → V} {f x : Term}
-    (hw : WellDenoted V ρ (.app f x)) (hn : interp V ρ f ≠ pt) :
-    ∃ (v : Nat) (A : V) (B : V → V), v ≠ 0 ∧
-      interp V ρ f ∈ˢ piR v A B ∧ interp V ρ x ∈ˢ A ∧ IsTy A := by
-  have h := hw
-  rw [WellDenoted_app] at h
-  obtain ⟨-, -, v, A, B, hf, hx, -, hT⟩ := h
-  have hv : v ≠ 0 := by
-    rintro rfl; exact hn (eq_pt_of_mem_piR_zero hf)
-  exact ⟨v, A, B, hv, hf, hx, hT hv⟩
-
 theorem DefEq.refl_sound {d : Nat} {a : Expr} : DefEqSem m φ d a a :=
   DefEq.refl_soundU.cond
 
@@ -158,7 +145,7 @@ theorem DefEq.natZero_sound {d : Nat} :
 type ("not pt" source (3)).  The literal's membership is
 `natLit_factsAV`; the other argument's comes from its slot, whose head
 is the successor, a member of a graph-regime Π-type and so never the
-point, so its domain is `Nat` (`piR_dom_unique`). -/
+point, so its domain is `Nat` (`AppliesTo.mem`). -/
 theorem DefEq.natSucc_sound (hin : RulesInputs V m φ) {d : Nat} {k : Nat} {x : Expr}
     (h : DefEqSem m φ d (.lit (.natVal k)) x) :
     DefEqSem m φ d (.lit (.natVal (k + 1))) (.app (.const natSuccName []) x) := by
@@ -173,12 +160,8 @@ theorem DefEq.natSucc_sound (hin : RulesInputs V m φ) {d : Nat} {k : Nat} {x : 
     hz hs hT k).2
   have hw := hwb
   rw [WellDenoted_app] at hw
-  obtain ⟨-, -, v, A, B, hfm, hxm, -, -⟩ := hw
-  have hv : v ≠ 0 := by
-    rintro rfl
-    exact (mem_piR_pos Nat.one_ne_zero hs).2.2.2 (eq_pt_of_mem_piR_zero hfm)
-  have hA := piR_dom_unique Nat.one_ne_zero hv hs hfm
-  rw [← hA] at hxm
+  obtain ⟨-, -, hap⟩ := hw
+  have hxm := hap.mem (by rw [piR_pos Nat.one_ne_zero] at hs; exact hs)
   have hwk : WellDenoted V ρ (natLitT (m.acval natZeroName (Level.substFn φ [] []))
       (m.acval natSuccName (Level.substFn φ [] [])) k) := by
     simp only [natLitT] at hwa
@@ -222,9 +205,9 @@ theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
 
 /-- Application congruence.  The heads of two applications that are not
 the point are not the point ("not pt" source (2)), so they are equal;
-their slots are in the graph regime, so the two domains are the one
-domain of the equal heads (`piR_dom_unique`), a type: the arguments are
-both the point or neither is ("not pt" source (3)). -/
+their application clauses make each a graph over a type holding its
+argument, and a graph determines its domain (`graph_dom_unique`): the
+arguments are both the point or neither is ("not pt" source (3)). -/
 theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
     (hf : DefEqSem m φ d f₁ f₂) (ha : DefEqSem m φ d a₁ a₂) :
     DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
@@ -237,10 +220,10 @@ theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
     intro h; apply hnb; rw [interp_app, h, app_pt]
   have heF := hf hfa.app_fn hfb.app_fn hCa.app_fn hCb.app_fn hf₁ hf₂ ρ hρ
     hLa.app_fn hLb.app_fn hwa.app_fn hwb.app_fn hn₁ hn₂
-  obtain ⟨v₁, A₁, B₁, hv₁, hs₁, hm₁, hT₁⟩ := appSlot_of_ne_pt hwa hn₁
-  obtain ⟨v₂, A₂, B₂, hv₂, hs₂, hm₂, -⟩ := appSlot_of_ne_pt hwb hn₂
-  rw [← heF] at hs₂
-  have hA : A₁ = A₂ := piR_dom_unique hv₁ hv₂ hs₁ hs₂
+  obtain ⟨F₁, A₁, hg₁, hT₁, hm₁⟩ := hwa.app_clause.resolve_left hn₁
+  obtain ⟨F₂, A₂, hg₂, -, hm₂⟩ := hwb.app_clause.resolve_left hn₂
+  rw [← heF] at hg₂
+  have hA : A₁ = A₂ := graph_dom_unique (hg₁.symm.trans hg₂)
   rw [← hA] at hm₂
   exact deqStep_appCong heF (hT₁.eq_of_ne_pt hm₁ hm₂ fun h₁ h₂ =>
     ha hfa.app_arg hfb.app_arg hCa.app_arg hCb.app_arg hx₁ hx₂ ρ hρ
@@ -471,8 +454,8 @@ theorem DefEq.eta_core {d : Nat}
     have hok0 : WellDenoted V (cons x ρ) ba.lift :=
       (WellDenoted_liftN V 1 ba 0 (cons x ρ)).mpr (by rw [shiftE_zero]; exact hokB)
     rw [WellDenoted_app]
-    refine ⟨hok0, by simp, _, interp V ρ ta₂, (fun y => interp V (cons y ρ) ba₂),
-      ?_, ?_, propN_eq_zero.mp, fun _ => hokTa₂.2⟩
+    refine ⟨hok0, by simp,
+      appliesTo_of_mem_piV (B := fun y => interp V (cons y ρ) ba₂) ?_ hokTa₂.2 ?_⟩
     · rw [hlift]; exact hmem
     · show x ∈ˢ _
       rw [hdom]; exact hx
