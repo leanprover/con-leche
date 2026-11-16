@@ -56,6 +56,19 @@ theorem graph_congr {F F' : V → V} {A : V} (h : ∀ x, x ∈ˢ A → F x = F' 
     graph F A = graph F' A :=
   image_congr fun x hx => by rw [h x hx]
 
+/-- **A graph determines its domain**: the first components of its pairs
+are exactly the domain's members. -/
+theorem graph_dom_unique {F F' : V → V} {A A' : V}
+    (h : graph F A = graph F' A') : A = A' := by
+  have key : ∀ {F F' : V → V} {A A' : V}, graph F A = graph F' A' →
+      ∀ x, x ∈ˢ A → x ∈ˢ A' := by
+    intro F F' A A' h x hx
+    have hp : kpair x (F x) ∈ˢ graph F' A' := h ▸ mem_graph.mpr ⟨x, hx, rfl⟩
+    obtain ⟨x', hx', hq⟩ := mem_graph.mp hp
+    obtain ⟨rfl, -⟩ := kpair_inj hq
+    exact hx'
+  exact ext fun x => ⟨key h x, key h.symm x⟩
+
 open Classical in
 /-- Tagged set-theoretic application: the union of the values paired
 with `a` in `f` — except at the proof point, which applies to `pt`
@@ -188,16 +201,6 @@ theorem eq_graph_app_of_mem_piSet {A f : V} {B : V → V}
     obtain ⟨y', hy', huniq⟩ := htot x hx
     refine ⟨x, hx, ?_⟩
     rw [app_eq_of_unique (ne_pt_of_mem_piSet hf) hy' huniq, huniq y hp]
-
-/-- Members of `piSet A' B` that are graphs over `A` pin the domain:
-every `x ∈ A'` lies in `A`. -/
-theorem graph_dom_of_mem_piSet {A A' : V} {B F : V → V}
-    (hf : graph F A ∈ˢ piSet A' B) : ∀ x, x ∈ˢ A' → x ∈ˢ A := by
-  intro x hx
-  obtain ⟨y, hy, -⟩ := (mem_piSet.mp hf).2 x hx
-  obtain ⟨x', hx', hp⟩ := mem_graph.mp hy
-  obtain ⟨rfl, rfl⟩ := kpair_inj hp
-  exact hx'
 
 /-! ### Off-domain and junk behavior of `app`
 

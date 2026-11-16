@@ -79,16 +79,15 @@ theorem DmUnV.app {natS codS f x : V} (h : DmUnV natS codS f)
   obtain ⟨b₁, hm, hB1, -⟩ := h
   exact app_mem_piR hm hx hB1
 
-/-- The `WellDenoted` witness a binary head's first application needs. -/
+/-- A binary head's first application is graded. -/
 theorem DmBinV.ok1 {natS codS f x : V} (h : DmBinV natS codS f)
     (hx : x ∈ˢ natS) {ρ : Nat → V} {fa xa : Term}
     (hfa : WellDenoted V ρ fa) (hxa : WellDenoted V ρ xa)
     (hf : interp V ρ fa = f) (hxv : interp V ρ xa = x) :
     WellDenoted V ρ (.app fa xa) := by
-  obtain ⟨b₁, b₂, hm, hB1, -, hN⟩ := h
+  obtain ⟨b₁, b₂, hm, -, -, hN⟩ := h
   rw [WellDenoted_app]
-  exact ⟨hfa, hxa, b₁, natS, fun _ => piR b₂ natS (fun _ => codS),
-    by rw [hf]; exact hm, by rw [hxv]; exact hx, hB1, fun _ => hN⟩
+  exact ⟨hfa, hxa, by rw [hf, hxv]; exact appliesTo_of_mem_piR hm hN hx⟩
 
 /-- …and its second. -/
 theorem DmBinV.wellDenoted {natS codS f x y : V} (h : DmBinV natS codS f)
@@ -100,25 +99,23 @@ theorem DmBinV.wellDenoted {natS codS f x y : V} (h : DmBinV natS codS f)
     (hyv : interp V ρ ya = y) :
     WellDenoted V ρ (.app (.app fa xa) ya) := by
   have hok1 := DmBinV.ok1 h hx hfa hxa hf hxv
-  obtain ⟨b₁, b₂, hm, hB1, hB2, hN⟩ := h
+  obtain ⟨b₁, b₂, hm, hB1, -, hN⟩ := h
   rw [WellDenoted_app]
-  refine ⟨hok1, hya, b₂, natS, fun _ => codS, ?_,
-    by rw [hyv]; exact hy, hB2, fun _ => hN⟩
-  rw [interp_app, hf, hxv]
+  refine ⟨hok1, hya, ?_⟩
+  rw [interp_app, hf, hxv, hyv]
   have hinner : SetTheory.app f x ∈ˢ piR b₂ natS (fun _ => codS) :=
     app_mem_piR hm hx hB1
-  exact hinner
+  exact appliesTo_of_mem_piR hinner hN hy
 
-/-- The unary head's `WellDenoted` witness. -/
+/-- A unary head's application is graded. -/
 theorem DmUnV.ok1 {natS codS f x : V} (h : DmUnV natS codS f)
     (hx : x ∈ˢ natS) {ρ : Nat → V} {fa xa : Term}
     (hfa : WellDenoted V ρ fa) (hxa : WellDenoted V ρ xa)
     (hf : interp V ρ fa = f) (hxv : interp V ρ xa = x) :
     WellDenoted V ρ (.app fa xa) := by
-  obtain ⟨b₁, hm, hB1, hN⟩ := h
+  obtain ⟨b₁, hm, -, hN⟩ := h
   rw [WellDenoted_app]
-  exact ⟨hfa, hxa, b₁, natS, fun _ => codS, by rw [hf]; exact hm,
-    by rw [hxv]; exact hx, hB1, fun _ => hN⟩
+  exact ⟨hfa, hxa, by rw [hf, hxv]; exact appliesTo_of_mem_piR hm hN hx⟩
 
 /-! ## The head packages, from the environment invariant
 

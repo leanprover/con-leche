@@ -297,7 +297,7 @@ The block carrier's constant binds two pair towers — the index-set
 tuple `Is` and the family tuple — and reads the members' index sets off
 `Is` with `projNV`.  Both towers are non-dependent (`ndTowerAV`), so
 their readings and gradings need only that each component reads to the
-carrier's own at the tower's depth and is itself graded; the tower's app slots are supplied by the `[r, r]`
+carrier's own at the tower's depth and is itself graded; the tower's application clauses are supplied by the `[r, r]`
 instance of the pinned pair former's function-space membership, exactly as the
 dependent tower kit's are. -/
 
@@ -388,19 +388,14 @@ theorem ndTowerAV_wellDenoted {r : Nat} {F : Nat → V} {G : Nat → Term} {ρ :
     refine ⟨?_, ?_, ?_⟩
     · rw [WellDenoted_app]
       exact ⟨trivial, hCok,
-        ⟨r + 1, univ r,
-          fun A => piR (r + 1) (psigmaFibreSpace V r A) fun _ => (univ r : V),
-          hbv ▸ psigmaV_rr_mem V r, hA, fun h0 => absurd h0 hvac,
-          fun _ => IsTy_univ r⟩⟩
+        appliesTo_of_mem_piR (hbv ▸ psigmaV_rr_mem V r) (IsTy_univ r) hA⟩
     · rw [WellDenoted_lam]
       exact ⟨hCok, IsTy_of_mem_univ hA,
         fun x _ => ndTowerAV_wellDenoted n (s + 1) (d + 1) (cons x σ)
           (by rw [shiftE_succ_cons]; exact hσ) (fun m hm => hG m (by omega))
-          (fun m hm => hok m (by omega)) (fun m hm => hF m (by omega)),
-        ⟨fun _ => (univ r : V), hfib, fun _ _ => IsTy_univ r⟩⟩
-    · refine ⟨r + 1, psigmaFibreSpace V r (interp V σ ((G s).liftN d 0)),
-        fun _ => (univ r : V), ?_, ?_, fun h0 => absurd h0 hvac,
-        fun _ => IsTy_piV⟩
+          (fun m hm => hok m (by omega)) (fun m hm => hF m (by omega))⟩
+    · refine appliesTo_of_mem_piR (v := r + 1) (A := psigmaFibreSpace V r
+        (interp V σ ((G s).liftN d 0))) (B := fun _ => (univ r : V)) ?_ IsTy_piV ?_
       · show SetTheory.app (interp V σ (.const .psigma [r, r]))
           (interp V σ ((G s).liftN d 0)) ∈ˢ _
         rw [hbv]

@@ -408,16 +408,15 @@ theorem mkLamsAV_fold_graded :
   | d :: lds, b, ρ, a :: as, hok, hsp => by
     have hok' := hok
     simp only [mkLamsAV, WellDenoted_lam] at hok'
-    obtain ⟨-, -, hrest, -⟩ := hok'
+    obtain ⟨-, -, hrest⟩ := hok'
     rw [consList_cons, List.foldl_cons]
     simp only [mkLamsAV, interp_lam]
     rw [app_lamV hsp.1]
     exact mkLamsAV_fold_graded (hrest a hsp.1) hsp.2
 
 /-- **A graded λ-tower applied along a fitting spine is graded**: each
-step's Π-package is the layer's own (`lamV_mem` over the grading's
-fibre family), or — once a layer has collapsed the value to the
-point — the trivial one. -/
+step's application clause is the layer's own (`appliesTo_lamV`), or —
+once a layer has collapsed the value to the point — the point's. -/
 theorem mkAppN_wellDenoted_of_lam :
     ∀ {lds : List Term} {b f : Term} {args : List Term} {ρ σ : Nat → V},
       WellDenoted V ρ f → (∀ a ∈ args, WellDenoted V ρ a) →
@@ -432,21 +431,18 @@ theorem mkAppN_wellDenoted_of_lam :
     simp only [List.map_cons, SpineFit] at hsp
     have hok' := hok
     simp only [mkLamsAV, WellDenoted_lam] at hok'
-    obtain ⟨-, hAty, hrest, B, hB, hBty⟩ := hok'
+    obtain ⟨-, hAty, hrest⟩ := hok'
     have ha := hargs a List.mem_cons_self
     rw [Term.mkAppN_cons]
-    -- the application's package
+    -- the application's clause
     have hokApp : WellDenoted V ρ (.app f a) := by
       rw [WellDenoted_app]
       rcases hval with hpt | heq
-      · exact ⟨hf, ha, 0, interp V σ d, fun _ => unitSet,
-          by rw [hpt, piR_zero]; exact pt_mem_truthVal fun x _ => ⟨pt, pt_mem_unitSet⟩,
-          hsp.1, fun _ _ _ => mem_univZero.mpr (Subset.refl _), fun h => absurd rfl h⟩
-      · refine ⟨hf, ha, propN (interp V σ d) B, interp V σ d, B, ?_, hsp.1,
-          propN_eq_zero.mp, fun _ => hAty⟩
+      · exact ⟨hf, ha, by rw [hpt]; exact appliesTo_pt _⟩
+      · refine ⟨hf, ha, ?_⟩
         rw [heq]
         simp only [mkLamsAV, interp_lam]
-        exact lamV_mem hB hBty
+        exact appliesTo_lamV hAty hsp.1
     refine mkAppN_wellDenoted_of_lam hokApp (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha'))
       (hrest _ hsp.1) ?_ hsp.2
     -- the continuation's value

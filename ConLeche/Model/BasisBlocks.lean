@@ -624,23 +624,21 @@ theorem natStepTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) (M z : V)
   refine ⟨trivial, IsTy_omega, fun n hn => ?_, fun _ _ => IsTy_piV⟩
   have hn' : n ∈ˢ (omega : V) := by
     simpa [interp_const, bval] using hn
-  refine ⟨⟨trivial, trivial, ψ uN + 1, omega, fun _ => univ (ψ uN),
-      by simpa [interp_bvar, cons] using hM',
-      by simpa [interp_bvar, cons] using hn',
-      fun h => absurd h (Nat.succ_ne_zero _), fun _ => IsTy_omega⟩,
+  refine ⟨⟨trivial, trivial,
+      appliesTo_of_mem_piR (v := ψ uN + 1) (A := omega) (B := fun _ => univ (ψ uN))
+        (by simpa [interp_bvar, cons] using hM') IsTy_omega
+        (by simpa [interp_bvar, cons] using hn')⟩,
     by rw [hdom n]; exact IsTy_of_mem_univ (hMn n hn'),
-    fun ih _ => ⟨trivial, ⟨trivial, trivial, 1, omega,
-      fun _ => omega, natSuccV_mem V,
-      by simpa [interp_bvar, cons] using hn',
-      fun h => absurd h Nat.one_ne_zero, fun _ => IsTy_omega⟩,
-      ψ uN + 1, omega, fun _ => univ (ψ uN),
-      by simpa [interp_bvar, cons] using hM',
-      by rw [interp_app, interp_const, interp_bvar]
-         show app (natSuccV V) _ ∈ˢ _
-         rw [show cons ih (cons n (cons z (cons M ρ))) 1 = n from rfl,
-           natSuccV_app V hn']
-         exact natsucc_mem hn',
-      fun h => absurd h (Nat.succ_ne_zero _), fun _ => IsTy_omega⟩,
+    fun ih _ => ⟨trivial, ⟨trivial, trivial,
+      appliesTo_of_mem_piR (v := 1) (A := omega) (B := fun _ => omega)
+        (natSuccV_mem V) IsTy_omega (by simpa [interp_bvar, cons] using hn')⟩,
+      appliesTo_of_mem_piR (v := ψ uN + 1) (A := omega) (B := fun _ => univ (ψ uN))
+        (by simpa [interp_bvar, cons] using hM') IsTy_omega
+        (by rw [interp_app, interp_const, interp_bvar]
+            show app (natSuccV V) _ ∈ˢ _
+            rw [show cons ih (cons n (cons z (cons M ρ))) 1 = n from rfl,
+              natSuccV_app V hn']
+            exact natsucc_mem hn')⟩,
     fun ih _ => by
       rw [hcod n ih, natSuccV_app V hn']
       exact IsTy_of_mem_univ (hMn _ (natsucc_mem hn'))⟩
@@ -672,7 +670,7 @@ theorem natSuccRa_interp (ψ : Name → Nat) (ρ : Nat → V) :
     natStepTy_interp, ConLeche.Term.lv, List.getD_cons_zero]
 
 /-- **The recursive spine is graded**, once and for all: four
-`bconst_app_data` steps at `Nat.rec`'s own `typeAV` binders, with the
+`bconst_appliesTo` steps at `Nat.rec`'s own `typeAV` binders, with the
 four domains identified with `SetModel/Value.lean`'s spaces.  Used at
 the `succ` rule, where the RHS mentions the recursor. -/
 theorem natRecSpine_wellDenoted {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : Term}
@@ -715,17 +713,17 @@ theorem natRecSpine_wellDenoted {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : Term}
     refine ⟨?_, h3, ?_⟩
     · rw [WellDenoted_app]
       refine ⟨⟨trivial, h1, ?_⟩, h2, ?_⟩
-      · exact bconst_app_data V .natRec [u] ρ rfl (by rw [hlv, d1]; exact m1)
+      · exact bconst_appliesTo V .natRec [u] ρ rfl (by rw [hlv, d1]; exact m1)
           (by rw [hlv, d1]; exact IsTy_piR _ _ _)
-      · refine bconst_app_data2 V .natRec [u] ρ rfl
+      · refine bconst_appliesTo_2 V .natRec [u] ρ rfl
           (by rw [hlv, d1]; exact m1) ?_
           (by rw [d2]; exact IsTy_of_mem_univ (natMotive_apply V m1 natzero_mem))
         rw [d2]; exact m2
-    · refine bconst_app_data3 V .natRec [u] ρ rfl
+    · refine bconst_appliesTo_3 V .natRec [u] ρ rfl
         (by rw [hlv, d1]; exact m1) (by rw [d2]; exact m2) ?_
         (by rw [d3]; exact IsTy_piV)
       rw [d3]; exact m3
-  · refine bconst_app_data4 V .natRec [u] ρ rfl
+  · refine bconst_appliesTo_4 V .natRec [u] ρ rfl
       (by rw [hlv, d1]; exact m1) (by rw [d2]; exact m2)
       (by rw [d3]; exact m3) ?_ (by rw [d4]; exact IsTy_omega)
     rw [d4]; exact m4
@@ -740,39 +738,21 @@ theorem natZeroRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
   have hMz : ∀ M : V, M ∈ˢ natMotiveSpace V (ψ uN) → IsTy (app M natzero) :=
     fun M hM => IsTy_of_mem_univ (natMotive_apply V hM (natzero_mem (V := V)))
   -- the innermost λ, at a motive and a minor
-  have hin : ∀ M z : V, M ∈ˢ natMotiveSpace V (ψ uN) → z ∈ˢ app M natzero →
-      WellDenoted V (cons z (cons M ρ)) (.lam (natStepTy) (.bvar 1)) ∧
-        interp V (cons z (cons M ρ)) (.lam (natStepTy) (.bvar 1)) ∈ˢ
-          piV (natStepSpace V M)
-            fun _ => app M natzero := by
-    intro M z hM hz
-    refine ⟨?_, ?_⟩
-    · rw [WellDenoted_lam, natStepTy_interp]
-      exact ⟨natStepTy_wellDenoted ψ ρ M z hM, IsTy_piV, fun _ _ => trivial,
-        fun _ => app M natzero,
-        fun _ _ => by simpa [interp_bvar, cons] using hz,
-        fun _ _ => hMz M hM⟩
-    · rw [interp_lam, natStepTy_interp]
-      exact lamV_mem (fun _ _ => by simpa [interp_bvar, cons] using hz)
-        fun _ _ => hMz M hM
-  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piR _ _ _, fun M hM => ?_, ?_⟩
-  · have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := by
-      rw [← piV_univ_eq_pos (Nat.succ_ne_zero _) (natzero_mem (V := V)) _ fun _ _ => ⟨_, rfl⟩]
-      exact hM
-    rw [WellDenoted_lam, hzty]
-    refine ⟨⟨trivial, trivial, ψ uN + 1, omega, fun _ => univ (ψ uN),
-        by simpa [interp_bvar, cons] using hM',
-        by simpa [interp_const, bval]
-          using (natzero_mem : (natzero : V) ∈ˢ omega),
-        fun h => absurd h (Nat.succ_ne_zero _), fun _ => IsTy_omega⟩,
-      hMz M hM, fun z hz => (hin M z hM hz).1, ?_⟩
-    exact ⟨_, fun z hz => (hin M z hM hz).2, fun _ _ => IsTy_piV⟩
-  · refine ⟨fun M => piV (app M natzero) fun _ =>
-        piV (natStepSpace V M)
-          fun _ => app M natzero,
-      fun M hM => ?_, fun _ _ => IsTy_piV⟩
-    rw [interp_lam, hzty]
-    exact lamV_mem (fun z hz => (hin M z hM hz).2) fun _ _ => IsTy_piV
+  have hin : ∀ M z : V, M ∈ˢ natMotiveSpace V (ψ uN) →
+      WellDenoted V (cons z (cons M ρ)) (.lam (natStepTy) (.bvar 1)) := by
+    intro M z hM
+    rw [WellDenoted_lam, natStepTy_interp]
+    exact ⟨natStepTy_wellDenoted ψ ρ M z hM, IsTy_piV, fun _ _ => trivial⟩
+  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piR _ _ _, fun M hM => ?_⟩
+  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := by
+    rw [← piV_univ_eq_pos (Nat.succ_ne_zero _) (natzero_mem (V := V)) _ fun _ _ => ⟨_, rfl⟩]
+    exact hM
+  rw [WellDenoted_lam, hzty]
+  exact ⟨⟨trivial, trivial,
+      appliesTo_of_mem_piR (v := ψ uN + 1) (A := omega) (B := fun _ => univ (ψ uN))
+        (by simpa [interp_bvar, cons] using hM') IsTy_omega
+        (by simpa [interp_const, bval] using (natzero_mem : (natzero : V) ∈ˢ omega))⟩,
+    hMz M hM, fun z _ => hin M z hM⟩
 
 set_option maxHeartbeats 1000000 in
 /-- The `succ` rule's RHS tower is graded — the extra layer over the
@@ -792,12 +772,7 @@ theorem natSuccRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
       WellDenoted V (cons n (cons s (cons z (cons M ρ))))
           (.app (.app (.bvar 1) (.bvar 0))
             (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
-              (.bvar 2)) (.bvar 1)) (.bvar 0))) ∧
-        interp V (cons n (cons s (cons z (cons M ρ))))
-            (.app (.app (.bvar 1) (.bvar 0))
-              (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
-                (.bvar 2)) (.bvar 1)) (.bvar 0)))
-          ∈ˢ app M (natsucc n) := by
+              (.bvar 2)) (.bvar 1)) (.bvar 0))) := by
     intro M z s hM hz hs n hn
     have hsn : app s n ∈ˢ piV (app M n) (fun _ => app M (natsucc n)) :=
       app_mem_piV (B := fun k => piV (app M k) fun _ => app M (natsucc k)) hs hn
@@ -814,31 +789,19 @@ theorem natSuccRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
     have eapp : interp V (cons n (cons s (cons z (cons M ρ))))
         (Term.app (.bvar 1) (.bvar 0)) = app s n := by
       simp [interp_app, interp_bvar, cons]
-    have hs'' : s ∈ˢ piR (propN omega fun k => piV (app M k) fun _ => app M (natsucc k))
-        omega (fun k => piV (app M k) fun _ => app M (natsucc k)) := hs
-    have hsn'' : app s n ∈ˢ piR (propN (app M n) fun _ => app M (natsucc n))
-        (app M n) (fun _ => app M (natsucc n)) := hsn
-    refine ⟨?_, ?_⟩
-    · rw [WellDenoted_app]
-      refine ⟨⟨trivial, trivial, _, omega,
-          fun k => piV (app M k) (fun _ => app M (natsucc k)),
-          by simpa [interp_bvar, cons] using hs'',
-          by simpa [interp_bvar, cons] using hn,
-          propN_eq_zero.mp, fun _ => IsTy_omega⟩,
-        ?_, ?_⟩
-      · refine natRecSpine_wellDenoted (u := ψ uN) _ trivial trivial trivial
-          trivial ?_ ?_ ?_ ?_
-        · simpa [interp_bvar, cons] using hM
-        · simpa [interp_bvar, cons] using hz
-        · simpa [interp_bvar, cons] using hs
-        · simpa [interp_bvar, cons] using hn
-      · exact ⟨_, app M n, fun _ => app M (natsucc n),
-          by rw [eapp]; exact hsn'',
-          by rw [espine]; exact hrec,
-          propN_eq_zero.mp,
-          fun _ => hMty M hM n hn⟩
-    · rw [interp_app, eapp, espine]
-      exact app_mem_piV hsn hrec
+    have hap : AppliesTo s n :=
+      appliesTo_of_mem_piV (A := omega)
+        (B := fun k => piV (app M k) fun _ => app M (natsucc k)) hs IsTy_omega hn
+    rw [WellDenoted_app]
+    refine ⟨⟨trivial, trivial, by simpa [interp_bvar, cons] using hap⟩, ?_, ?_⟩
+    · refine natRecSpine_wellDenoted (u := ψ uN) _ trivial trivial trivial
+        trivial ?_ ?_ ?_ ?_
+      · simpa [interp_bvar, cons] using hM
+      · simpa [interp_bvar, cons] using hz
+      · simpa [interp_bvar, cons] using hs
+      · simpa [interp_bvar, cons] using hn
+    · rw [eapp, espine]
+      exact appliesTo_of_mem_piV hsn (hMty M hM n hn) hrec
   -- the fourth λ, at a motive, a minor and a step
   have hlam4 : ∀ M z s : V, M ∈ˢ natMotiveSpace V (ψ uN) → z ∈ˢ app M natzero →
       s ∈ˢ (natStepSpace V M) →
@@ -846,66 +809,33 @@ theorem natSuccRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
           (.lam (.const .nat [])
             (.app (.app (.bvar 1) (.bvar 0))
               (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
-                (.bvar 2)) (.bvar 1)) (.bvar 0)))) ∧
-        interp V (cons s (cons z (cons M ρ)))
-            (.lam (.const .nat [])
-              (.app (.app (.bvar 1) (.bvar 0))
-                (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
-                  (.bvar 2)) (.bvar 1)) (.bvar 0))))
-          ∈ˢ piV omega fun n => app M (natsucc n) := by
+                (.bvar 2)) (.bvar 1)) (.bvar 0)))) := by
     intro M z s hM hz hs
-    refine ⟨?_, ?_⟩
-    · rw [WellDenoted_lam]
-      simp only [interp_const, bval]
-      exact ⟨trivial, IsTy_omega, fun n hn => (body M z s hM hz hs n hn).1,
-        fun n => app M (natsucc n),
-        fun n hn => (body M z s hM hz hs n hn).2,
-        fun n hn => hMty M hM _ (natsucc_mem hn)⟩
-    · rw [interp_lam]
-      simp only [interp_const, bval]
-      exact lamV_mem (fun n hn => (body M z s hM hz hs n hn).2)
-        fun n hn => hMty M hM _ (natsucc_mem hn)
+    rw [WellDenoted_lam]
+    simp only [interp_const, bval]
+    exact ⟨trivial, IsTy_omega, fun n hn => body M z s hM hz hs n hn⟩
   -- the third λ, at a motive and a minor
   have hlam3 : ∀ M z : V, M ∈ˢ natMotiveSpace V (ψ uN) → z ∈ˢ app M natzero →
       WellDenoted V (cons z (cons M ρ))
           (.lam (natStepTy) (.lam (.const .nat [])
             (.app (.app (.bvar 1) (.bvar 0))
               (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
-                (.bvar 2)) (.bvar 1)) (.bvar 0))))) ∧
-        interp V (cons z (cons M ρ))
-            (.lam (natStepTy) (.lam (.const .nat [])
-              (.app (.app (.bvar 1) (.bvar 0))
-                (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
-                  (.bvar 2)) (.bvar 1)) (.bvar 0)))))
-          ∈ˢ piV (natStepSpace V M)
-              fun _ => piV omega fun n => app M (natsucc n) := by
+                (.bvar 2)) (.bvar 1)) (.bvar 0))))) := by
     intro M z hM hz
-    refine ⟨?_, ?_⟩
-    · rw [WellDenoted_lam, natStepTy_interp]
-      exact ⟨natStepTy_wellDenoted ψ ρ M z hM, IsTy_piV,
-        fun s hs => (hlam4 M z s hM hz hs).1, _,
-        fun s hs => (hlam4 M z s hM hz hs).2, fun _ _ => IsTy_piV⟩
-    · rw [interp_lam, natStepTy_interp]
-      exact lamV_mem (fun s hs => (hlam4 M z s hM hz hs).2) fun _ _ => IsTy_piV
+    rw [WellDenoted_lam, natStepTy_interp]
+    exact ⟨natStepTy_wellDenoted ψ ρ M z hM, IsTy_piV,
+      fun s hs => hlam4 M z s hM hz hs⟩
   rw [natSuccRa, WellDenoted_lam, natMotiveTy_interp]
-  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piR _ _ _, fun M hM => ?_, ?_⟩
-  · have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := by
-      rw [← piV_univ_eq_pos (Nat.succ_ne_zero _) (natzero_mem (V := V)) _ fun _ _ => ⟨_, rfl⟩]
-      exact hM
-    rw [WellDenoted_lam, hzty]
-    refine ⟨⟨trivial, trivial, ψ uN + 1, omega, fun _ => univ (ψ uN),
-        by simpa [interp_bvar, cons] using hM',
-        by simpa [interp_const, bval]
-          using (natzero_mem : (natzero : V) ∈ˢ omega),
-        fun h => absurd h (Nat.succ_ne_zero _), fun _ => IsTy_omega⟩,
-      hMty M hM _ natzero_mem, fun z hz => (hlam3 M z hM hz).1, ?_⟩
-    exact ⟨_, fun z hz => (hlam3 M z hM hz).2, fun _ _ => IsTy_piV⟩
-  · refine ⟨fun M => piV (app M natzero) fun _ =>
-        piV (natStepSpace V M)
-          fun _ => piV omega fun n => app M (natsucc n),
-      fun M hM => ?_, fun _ _ => IsTy_piV⟩
-    rw [interp_lam, hzty]
-    exact lamV_mem (fun z hz => (hlam3 M z hM hz).2) fun _ _ => IsTy_piV
+  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piR _ _ _, fun M hM => ?_⟩
+  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := by
+    rw [← piV_univ_eq_pos (Nat.succ_ne_zero _) (natzero_mem (V := V)) _ fun _ _ => ⟨_, rfl⟩]
+    exact hM
+  rw [WellDenoted_lam, hzty]
+  exact ⟨⟨trivial, trivial,
+      appliesTo_of_mem_piR (v := ψ uN + 1) (A := omega) (B := fun _ => univ (ψ uN))
+        (by simpa [interp_bvar, cons] using hM') IsTy_omega
+        (by simpa [interp_const, bval] using (natzero_mem : (natzero : V) ∈ˢ omega))⟩,
+    hMty M hM _ natzero_mem, fun z hz => hlam3 M z hM hz⟩
 
 /-! ### The two rows
 
@@ -999,12 +929,12 @@ theorem natZeroRa_transport (ψ : Name → Nat) (ρ : Nat → V)
   have hMz : IsTy (app (interp V ρ M) natzero) :=
     IsTy_of_mem_univ (natMotive_apply V hM (natzero_mem (V := V)))
   rw [WellDenoted_app]
-  refine ⟨?_, oks, slot_of_mem_piV V h2 hs IsTy_piV⟩
+  refine ⟨?_, oks, appliesTo_of_mem_piV h2 IsTy_piV hs⟩
   rw [WellDenoted_app]
-  refine ⟨?_, okz, slot_of_mem_piV V h1 hz hMz⟩
+  refine ⟨?_, okz, appliesTo_of_mem_piV h1 hMz hz⟩
   rw [WellDenoted_app]
   exact ⟨natZeroRa_wellDenoted ψ ρ, okM,
-    slot_of_mem_piV V (natZeroRa_mem ψ ρ) hM (IsTy_piR _ _ _)⟩
+    appliesTo_of_mem_piV (natZeroRa_mem ψ ρ) (IsTy_piR _ _ _) hM⟩
 
 /-- The `succ` rule's transport: four steps. -/
 theorem natSuccRa_transport (ψ : Name → Nat) (ρ : Nat → V)
@@ -1020,15 +950,15 @@ theorem natSuccRa_transport (ψ : Name → Nat) (ρ : Nat → V)
   have h2 := app_mem_piV h1 hz
   have h3 := app_mem_piV h2 hs
   rw [WellDenoted_app]
-  refine ⟨?_, okn, slot_of_mem_piV V h3 hn IsTy_omega⟩
+  refine ⟨?_, okn, appliesTo_of_mem_piV h3 IsTy_omega hn⟩
   rw [WellDenoted_app]
-  refine ⟨?_, oks, slot_of_mem_piV V h2 hs IsTy_piV⟩
+  refine ⟨?_, oks, appliesTo_of_mem_piV h2 IsTy_piV hs⟩
   rw [WellDenoted_app]
-  refine ⟨?_, okz, slot_of_mem_piV V h1 hz
-    (IsTy_of_mem_univ (natMotive_apply V hM (natzero_mem (V := V))))⟩
+  refine ⟨?_, okz, appliesTo_of_mem_piV h1
+    (IsTy_of_mem_univ (natMotive_apply V hM (natzero_mem (V := V)))) hz⟩
   rw [WellDenoted_app]
   exact ⟨natSuccRa_wellDenoted ψ ρ, okM,
-    slot_of_mem_piV V (natSuccRa_mem ψ ρ) hM (IsTy_piR _ _ _)⟩
+    appliesTo_of_mem_piV (natSuccRa_mem ψ ρ) (IsTy_piR _ _ _) hM⟩
 
 /-- Both rows share this: the recursor's instantiated type reading,
 folded back into the two named domains. -/

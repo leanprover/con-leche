@@ -1571,10 +1571,10 @@
     34  /-- **What `Sort n` means**: the universe of types `tyU n`. -/
     35  noncomputable def univ : Nat → V := tyU
 
-== ConLeche/SetTheory/Derive/TypeU.lean#L214-L216
-   214  open Classical in
-   215  /-- **The universe of types at level `n`**: the truth values at `0`,
-   216  above the members of the axiomatic level `tg n` that are types. -/
+== ConLeche/SetTheory/Derive/TypeU.lean#L195-L197
+   195  open Classical in
+   196  /-- **The universe of types at level `n`**: the truth values at `0`,
+   197  above the members of the axiomatic level `tg n` that are types. -/
 
 == ConLeche/SetTheory/Derive/TypeU.lean#L57-L58
     57  /-- A **strict** set: not the point, and the point is not a member. -/
@@ -6028,10 +6028,10 @@
    146  theorem mem_truthVal {p : Prop} {z : V} : z ∈ˢ truthVal p ↔ z = pt ∧ p := by
    147    unfold truthVal; rw [mem_sep, mem_one]
 
-== ConLeche/Model/Rules/DefEqSound.lean#L282-L284
-   282  theorem DefEq.proofIrrel_sound {d : Nat} {a ta b : Expr}
-   283      (hta : InferSemIO m φ d a ta) (hpt : PropPt m φ d ta) :
-   284      DefEqSem m φ d a b := by
+== ConLeche/Model/Rules/DefEqSound.lean#L265-L267
+   265  theorem DefEq.proofIrrel_sound {d : Nat} {a ta b : Expr}
+   266      (hta : InferSemIO m φ d a ta) (hpt : PropPt m φ d ta) :
+   267      DefEqSem m φ d a b := by
 
 == whitepaper/Fragment/Lib.lean#L172-L173
    172  theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
@@ -6123,10 +6123,10 @@
    459        {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable} :
    460        Infer env .io d b tb → Red env d tb wtb →
 
-== ConLeche/Model/Rules/DefEqSound.lean#L571-L573
-   571  theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
-   572      {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
-   573      {cnP cnF : Nat} {cT T : Name} {us' : List Level} {cvT : ConstantVal}
+== ConLeche/Model/Rules/DefEqSound.lean#L554-L556
+   554  theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
+   555      {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+   556      {cnP cnF : Nat} {cT T : Name} {us' : List Level} {cvT : ConstantVal}
 
 == ConLeche/Rules/Rel.lean#L272-L281
    272    /-- **The structure-η rescue** (`majorToCtor`'s η branch,
@@ -6153,9 +6153,9 @@
     76        nparams := p.nP
     77        nIdx := nIdx
 
-== ConLeche/Model/Inductives/FixKit.lean#L677-L678
-   677    (`sumMkAV_fold`: the application folds to the tagged tuple);
-   678  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
+== ConLeche/Model/Inductives/FixKit.lean#L673-L674
+   673    (`sumMkAV_fold`: the application folds to the tagged tuple);
+   674  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
 
 == ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
     10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
@@ -6165,11 +6165,11 @@
 == ConLeche/Rules/Rel.lean#L485
    485        UnitLike env d wta →
 
-== ConLeche/Model/Rules/UnitSound.lean#L488
-   488  theorem DefEq.unitLike_sound {d : Nat} {a ta wta b tb wtb : Expr}
+== ConLeche/Model/Rules/UnitSound.lean#L487
+   487  theorem DefEq.unitLike_sound {d : Nat} {a ta wta b tb wtb : Expr}
 
-== ConLeche/Model/Inductives/FixKit.lean#L1335
-  1335    · -- the table's η law, at every field count
+== ConLeche/Model/Inductives/FixKit.lean#L1331
+  1331    · -- the table's η law, at every field count
 
 >>> whitepaper/sections/07-left-out.typ
 
@@ -6217,13 +6217,13 @@
     11  every member with ONE constructor and no index, nothing at any other
     12  member — with `stageFixTable` at each table (abstract in the former's
 
-== ConLeche/Model/Inductives/FixKit.lean#L671-L676
-   671  
-   672  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
-   673    `i + 1` into the body's residual — the graph regime by the tower's
-   674    projection membership below the tag, the squash regime by the point;
-   675  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
-   676    projection of a graded constructor application is the selected field
+== ConLeche/Model/Inductives/FixKit.lean#L667-L672
+   667  
+   668  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
+   669    `i + 1` into the body's residual — the graph regime by the tower's
+   670    projection membership below the tag, the squash regime by the point;
+   671  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
+   672    projection of a graded constructor application is the selected field
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L8-L12
      8  
@@ -6272,12 +6272,12 @@
     20  definitionally equal to the stream's stored types and value, and whose
     21  certificates check enables the operation's fast path.  The hand-pinned certificate *statements* the proofs are checked against
 
-== ConLeche/Model/NatEqs.lean#L1078-L1082
-  1078  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
-  1079      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
-  1080      (hprev : NatOps mp.base2 φ)
-  1081      {c : Name} {lps : List Name} {type' value' : Expr}
-  1082      {hint : ReducibilityHint}
+== ConLeche/Model/NatEqs.lean#L1071-L1075
+  1071  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+  1072      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
+  1073      (hprev : NatOps mp.base2 φ)
+  1074      {c : Name} {lps : List Name} {type' value' : Expr}
+  1075      {hint : ReducibilityHint}
 
 == ConLeche/Kernel/Basis/Quot.lean#L8-L14
      8  # The pinned `Quot` basis block
@@ -6293,14 +6293,14 @@
     66  noncomputable def quotSet (u : Nat) (A R : V) : V :=
     67    if u = 0 then image (fun _ => pt) A else image (fun a => kpair empty (qclass A R a)) A
 
-== ConLeche/Model/BasisQuot.lean#L2504-L2510
-  2504  theorem extendQuotLift (mp : EnvModelM V env)
-  2505      (hQ : env.find? quotName = some (quotA.atLps [q]))
-  2506      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
-  2507      (hE : EqStored env)
-  2508      (hfresh : env.find? quotLiftA.name = none)
-  2509      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
-  2510      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
+== ConLeche/Model/BasisQuot.lean#L2488-L2494
+  2488  theorem extendQuotLift (mp : EnvModelM V env)
+  2489      (hQ : env.find? quotName = some (quotA.atLps [q]))
+  2490      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
+  2491      (hE : EqStored env)
+  2492      (hfresh : env.find? quotLiftA.name = none)
+  2493      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
+  2494      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
 
 == ConLeche/Kernel/Basis/False.lean#L37-L39
     37  /-- `False : Prop`. -/

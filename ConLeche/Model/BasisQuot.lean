@@ -394,8 +394,8 @@ noncomputable def quotIndMinorSpace (V : Type w) [SetTheory V]
 
 `Quot A r` and `Quot.mk A r a` occur at four different de Bruijn
 depths across the block, so both are stated against an arbitrary
-environment through its slot values.  The `∃ w S F` witnesses are
-`bconst_app_data2`/`_data3` — nothing is chosen. -/
+environment through its slot values.  The `AppliesTo` facts are
+`bconst_appliesTo`/`_2`/`_3`. -/
 
 /-- The relation binder's domain is graded, unconditionally. -/
 theorem quotRelTy_wellDenoted (ρ : Nat → V) (hA : IsTy (ρ 0)) :
@@ -421,10 +421,10 @@ theorem quotApp_data {u i j : Nat} {ρ : Nat → V} {Aset R : V}
     refine ⟨?_, trivial, ?_⟩
     · rw [WellDenoted_app]
       refine ⟨trivial, trivial, ?_⟩
-      have h := bconst_app_data V .quot [u] ρ (A := .sort u) rfl hA' (IsTy_univ u)
+      have h := bconst_appliesTo V .quot [u] ρ (A := .sort u) rfl hA' (IsTy_univ u)
       rw [← hAi] at h
       exact h
-    · have h := bconst_app_data2 V .quot [u] ρ
+    · have h := bconst_appliesTo_2 V .quot [u] ρ
         (A := .sort u) (A2 := relAV (.bvar 0)) rfl hA' hR'
         (by rw [relAV_interp]; exact IsTy_relSpace _)
       rw [← hAi, ← hRj] at h
@@ -459,15 +459,15 @@ theorem quotMkApp_data {u i j k : Nat} {ρ : Nat → V} {Aset R a : V}
       refine ⟨?_, trivial, ?_⟩
       · rw [WellDenoted_app]
         refine ⟨trivial, trivial, ?_⟩
-        have h := bconst_app_data V .quotMk [u] ρ (A := .sort u) rfl hA' (IsTy_univ u)
+        have h := bconst_appliesTo V .quotMk [u] ρ (A := .sort u) rfl hA' (IsTy_univ u)
         rw [← hAi] at h
         exact h
-      · have h := bconst_app_data2 V .quotMk [u] ρ
+      · have h := bconst_appliesTo_2 V .quotMk [u] ρ
           (A := .sort u) (A2 := relAV (.bvar 0)) rfl hA' hR'
           (by rw [relAV_interp]; exact IsTy_relSpace _)
         rw [← hAi, ← hRj] at h
         simpa [interp_const, bval, ConLeche.Term.lv] using h
-    · have h := bconst_app_data3 V .quotMk [u] ρ
+    · have h := bconst_appliesTo_3 V .quotMk [u] ρ
         (A := .sort u) (A2 := relAV (.bvar 0)) (A3 := .bvar 1)
         rfl hA' hR' ha' (by simpa [interp_bvar, cons] using IsTy_of_mem_univ hA)
       rw [← hAi, ← hRj, ← hak] at h
@@ -560,23 +560,12 @@ theorem quotIndA_reading_eq (ψ : Name → Nat) :
 /-! ### The truth-value kit
 
 Everything `Quot.ind` builds — its tower, its rule's right-hand side,
-and every application of either — is the canonical proof, and a fibre
-only has to be an inhabited truth value.  These lemmas are that
+and every application of either — is the canonical proof, and the
+canonical proof applies to anything.  These lemmas are that
 observation, stated once; `Quot.sound` reads them too. -/
 
-/-- The inhabited truth value a proof tower's grading picks for its
-fibre: `True`, as a `piR 0`. -/
-noncomputable def unitPropR (V : Type w) [SetTheory V] : V :=
-  piR 0 (unitSet : V) fun _ => unitSet
-
-theorem unitPropR_mem_univZero : unitPropR V ∈ˢ (univZero : V) :=
-  piR_zero_mem_univZero
-
-theorem pt_mem_unitPropR : (pt : V) ∈ˢ unitPropR V :=
-  pt_mem_piR_zero fun _ _ => ⟨pt, pt_mem_unitSet⟩
-
-/-- **A `λ` whose body is the canonical proof is graded** — the fibre is
-`unitPropR`, a type; and it is the canonical proof itself. -/
+/-- **A `λ` whose body is the canonical proof is graded**, and it is the
+canonical proof itself. -/
 theorem WellDenoted_lam_zero_pt {ρ : Nat → V} {Aa b : Term}
     (hA : WellDenotedTy V ρ Aa)
     (hb : ∀ x, x ∈ˢ interp V ρ Aa → WellDenoted V (cons x ρ) b)
@@ -584,22 +573,17 @@ theorem WellDenoted_lam_zero_pt {ρ : Nat → V} {Aa b : Term}
     WellDenoted V ρ (.lam Aa b) ∧ interp V ρ (.lam Aa b) = pt := by
   refine ⟨?_, by rw [interp_lam]; exact lamV_eq_pt hpt⟩
   rw [WellDenoted_lam]
-  exact ⟨hA.1, hA.2, fun x hx => hb x hx, fun _ => unitPropR V,
-    fun x hx => by rw [hpt x hx]; exact pt_mem_unitPropR,
-    fun _ _ => Or.inl unitPropR_mem_univZero⟩
+  exact ⟨hA.1, hA.2, fun x hx => hb x hx⟩
 
 /-- **The canonical proof applied to anything is graded, and is again
-the canonical proof.**  The `∃ w S F` witness is `w = 0`, the
-argument's own domain, and the constant `unitPropR` fibre. -/
-theorem WellDenoted_app_pt {ρ : Nat → V} {f a : Term} {S : V}
+the canonical proof.** -/
+theorem WellDenoted_app_pt {ρ : Nat → V} {f a : Term}
     (hf : WellDenoted V ρ f) (hfi : interp V ρ f = pt)
-    (ha : WellDenoted V ρ a) (hmem : interp V ρ a ∈ˢ S) :
+    (ha : WellDenoted V ρ a) :
     WellDenoted V ρ (.app f a) ∧ interp V ρ (.app f a) = pt := by
   refine ⟨?_, by rw [interp_app, hfi, app_pt]⟩
   rw [WellDenoted_app]
-  exact ⟨hf, ha, 0, S, fun _ => unitPropR V,
-    by rw [hfi]; exact pt_mem_piR_zero fun _ _ => ⟨pt, pt_mem_unitPropR⟩,
-    hmem, fun _ _ _ => unitPropR_mem_univZero, fun h => absurd rfl h⟩
+  exact ⟨hf, ha, by rw [hfi]; exact appliesTo_pt _⟩
 
 /-! ### The two domains, graded -/
 
@@ -637,7 +621,7 @@ theorem quotIndMinorTy_wellDenoted {u : Nat} {Aset R M : V} (ρ : Nat → V)
     · rw [WellDenoted_app]
       refine ⟨trivial, hok, ?_⟩
       rw [hMb, hint]
-      exact slot_of_mem_piV V hM hcl (IsTy_of_mem_univ (quotSet_mem_univ hA))
+      exact appliesTo_of_mem_piV hM (IsTy_of_mem_univ (quotSet_mem_univ hA)) hcl
     · rw [interp_app, hMb, hint, ← univ_zero]
       exact hMc
   exact ⟨⟨trivial, by rw [hdom]; exact IsTy_of_mem_univ hA,
@@ -684,10 +668,10 @@ theorem quotIndRa_inner (u : Nat) (ρ : Nat → V) {Aset R : V}
               (.app (.bvar 1) (.bvar 0)) ∧
             interp V (cons a (cons mk (cons M (cons R (cons Aset ρ)))))
               (.app (.bvar 1) (.bvar 0)) = pt := fun a ha =>
-        WellDenoted_app_pt (S := Aset) trivial (by
+        WellDenoted_app_pt trivial (by
           rw [interp_bvar]
           show cons a (cons mk (cons M (cons R (cons Aset ρ)))) 1 = pt
-          exact hmkpt) trivial (by rw [interp_bvar]; exact ha)
+          exact hmkpt) trivial
       exact WellDenoted_lam_zero_pt
         ⟨trivial, by rw [hdom]; exact IsTy_of_mem_univ hAset⟩
         (fun a ha => (hbody a (by rwa [hdom] at ha)).1)
@@ -1115,11 +1099,11 @@ theorem quotIndLaw {m : EnvModel V env}
       List.take, List.drop, List.cons_append, List.nil_append,
       Term.mkAppN_cons, Term.mkAppN_nil]
     have h1 := WellDenoted_app_pt (quotIndRa_wellDenoted (ψ uN) ρ)
-      (quotIndRa_interp (ψ uN) ρ) (hxsA x1 (by simp)) f1
-    have h2 := WellDenoted_app_pt h1.1 h1.2 (hxsA x2 (by simp)) f2
-    have h3 := WellDenoted_app_pt h2.1 h2.2 (hxsA x3 (by simp)) f3
-    have h4 := WellDenoted_app_pt h3.1 h3.2 (hxsA x4 (by simp)) f4
-    exact (WellDenoted_app_pt h4.1 h4.2 (hysA y3 (by simp)) g3).1
+      (quotIndRa_interp (ψ uN) ρ) (hxsA x1 (by simp))
+    have h2 := WellDenoted_app_pt h1.1 h1.2 (hxsA x2 (by simp))
+    have h3 := WellDenoted_app_pt h2.1 h2.2 (hxsA x3 (by simp))
+    have h4 := WellDenoted_app_pt h3.1 h3.2 (hxsA x4 (by simp))
+    exact (WellDenoted_app_pt h4.1 h4.2 (hysA y3 (by simp))).1
 
 /-- **`Quot.ind`, installed at the P tier.** -/
 theorem extendQuotInd (mp : EnvModelM V env)
@@ -1218,9 +1202,9 @@ theorem relApp_data {i j k : Nat} {ρ : Nat → V} {Aset R a b : V}
     · rw [WellDenoted_app]
       refine ⟨trivial, trivial, ?_⟩
       rw [hRi, haj]
-      exact slot_of_mem_piV V hR ha hAty
+      exact appliesTo_of_mem_piV hR hAty ha
     · rw [interp_app, hRi, haj, hbk]
-      exact slot_of_mem_piV V hRa hb hAty
+      exact appliesTo_of_mem_piV hRa hAty hb
   · rw [interp_app, interp_app, hRi, haj, hbk]
 
 /-! ## `Quot.sound`
@@ -1563,7 +1547,7 @@ theorem WellDenoted_app_fibre {ρ : Nat → V} {f a : Term} {S : V}
     (hfm : interp V ρ f ∈ˢ piV S F) (ham : interp V ρ a ∈ˢ S) (hS : IsTy S) :
     WellDenoted V ρ (.app f a) ∧
       interp V ρ (.app f a) ∈ˢ F (interp V ρ a) :=
-  ⟨by rw [WellDenoted_app]; exact ⟨hf, ha, slot_of_mem_piV V hfm ham hS⟩,
+  ⟨by rw [WellDenoted_app]; exact ⟨hf, ha, appliesTo_of_mem_piV hfm hS ham⟩,
     by rw [interp_app]; exact app_mem_piV hfm ham⟩
 
 /-- A `.pi`, graded from its parts. -/
@@ -1580,8 +1564,8 @@ theorem IsTy_interp_pi {ρ : Nat → V} {Aa B : Term} :
   rw [interp_pi]; exact IsTy_piV
 
 /-- **A `λ`, graded and placed at once** — the combined step every
-basis tower's walk takes: the fibre named once serves both
-`WellDenoted`'s existential and `lamV_mem`'s hypothesis. -/
+basis tower's walk takes: the body's grading and its placement in the
+function space (`lamV_mem`). -/
 theorem WellDenoted_lam_piV {ρ : Nat → V} {Aa bd : Term}
     {F : V → V} (hA : WellDenoted V ρ Aa) (hAt : IsTy (interp V ρ Aa))
     (hb : ∀ x, x ∈ˢ interp V ρ Aa → WellDenoted V (cons x ρ) bd ∧
@@ -1589,7 +1573,7 @@ theorem WellDenoted_lam_piV {ρ : Nat → V} {Aa bd : Term}
     (hFt : ∀ x, x ∈ˢ interp V ρ Aa → IsTy (F x)) :
     WellDenoted V ρ (.lam Aa bd) ∧
       interp V ρ (.lam Aa bd) ∈ˢ piV (interp V ρ Aa) F := by
-  refine ⟨⟨hA, hAt, fun x hx => (hb x hx).1, F, fun x hx => (hb x hx).2, hFt⟩, ?_⟩
+  refine ⟨⟨hA, hAt, fun x hx => (hb x hx).1⟩, ?_⟩
   rw [interp_lam]
   exact lamV_mem (fun x hx => (hb x hx).2) hFt
 

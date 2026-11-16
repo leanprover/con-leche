@@ -101,26 +101,10 @@ theorem WellDenoted.mkAppN_inv {ρ : Nat → V} :
       · exact hfa.2.1
       · exact hall a' ha'⟩
 
-/-- Equal graphs have equal domains. -/
-theorem graph_eq_dom {F G : V → V} {A D : V} (h : graph F A = graph G D) : A = D := by
-  apply SetTheory.ext
-  intro x
-  constructor
-  · intro hx
-    have : kpair x (F x) ∈ˢ graph G D := h ▸ mem_graph.mpr ⟨x, hx, rfl⟩
-    obtain ⟨x', hx', hp⟩ := mem_graph.mp this
-    obtain ⟨rfl, -⟩ := kpair_inj hp
-    exact hx'
-  · intro hx
-    have : kpair x (G x) ∈ˢ graph F A := h.symm ▸ mem_graph.mpr ⟨x, hx, rfl⟩
-    obtain ⟨x', hx', hp⟩ := mem_graph.mp this
-    obtain ⟨rfl, -⟩ := kpair_inj hp
-    exact hx'
-
 /-- **A spine graded against a λ-tower fits its domains**, where the
 applied spine is not the point: then no partial application is the
-point (`app_pt`), so each λ is a graph (`lamV_eq_graph`), and a graph
-determines its domain, the slot's. -/
+point (`app_pt`), so each λ is a graph (`lamV_eq_graph`), and the
+application clause reads the argument off the graph. -/
 theorem spineFit_of_wellDenoted_lams {b : Term} :
     ∀ {args : List Term} {ds : List Term} {σ ρ : Nat → V} {f : Term},
       args.length ≤ ds.length →
@@ -134,7 +118,7 @@ theorem spineFit_of_wellDenoted_lams {b : Term} :
     rw [Term.mkAppN_cons] at hok hne
     have hokfa : WellDenoted V ρ (.app f a) := (WellDenoted.mkAppN_inv hok).1
     rw [WellDenoted_app] at hokfa
-    obtain ⟨-, -, v, A, B, hfm, ham, -⟩ := hokfa
+    obtain ⟨-, -, hap⟩ := hokfa
     have hf' : interp V ρ f
         = lamV (interp V σ d) fun x => interp V (cons x σ) (mkLamsAV ds b) := by
       rw [hf]; rfl
@@ -148,13 +132,9 @@ theorem spineFit_of_wellDenoted_lams {b : Term} :
         | nil => intro g hg; exact hg
         | cons x xs ih => intro g hg; exact ih (.app g x) (by rw [interp_app, hg, app_pt])
       exact hpt args _ (by rw [interp_app, h0, app_pt])
-    rw [hf'] at hfm hfne
-    have hv : v ≠ 0 := by
-      rintro rfl; exact hfne (eq_pt_of_mem_piR_zero hfm)
-    have hg := (mem_piR_pos hv hfm).1
-    rw [lamV_eq_graph hfne] at hg
-    have hA : A = interp V σ d := graph_eq_dom hg
-    rw [hA] at ham
+    rw [hf'] at hap hfne
+    rw [lamV_eq_graph hfne] at hap
+    have ham : interp V ρ a ∈ˢ interp V σ d := (appliesTo_graph.mp hap).2
     have happ : interp V ρ (.app f a) = interp V (cons (interp V ρ a) σ) (mkLamsAV ds b) := by
       rw [interp_app, hf', app_lamV ham]
     have ih := spineFit_of_wellDenoted_lams (args := args) (ds := ds) (σ := cons (interp V ρ a) σ)

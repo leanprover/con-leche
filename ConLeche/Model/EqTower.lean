@@ -73,17 +73,7 @@ theorem eqValT_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
     WellDenoted V ρ (eqValT ψ) := by
   refine ⟨trivial, IsTy_univ _, fun A hA => ⟨trivial, IsTy_of_mem_univ hA,
     fun a _ => ⟨trivial, IsTy_of_mem_univ hA,
-    fun b _ => ⟨trivial, trivial⟩, ?_⟩, ?_⟩, ?_⟩
-  · exact ⟨fun _ => univZero, fun _ _ => eqv_mem_univZero _ _,
-      fun _ _ => IsTy_univZero⟩
-  · exact ⟨fun _ => piV A (fun _ => univZero),
-      fun _ _ => lamV_mem (fun _ _ => eqv_mem_univZero _ _) (fun _ _ => IsTy_univZero),
-      fun _ _ => IsTy_piV⟩
-  · exact ⟨fun x => piV x (fun _ => piV x (fun _ => univZero)),
-      fun _ _ => lamV_mem (fun _ _ =>
-        lamV_mem (fun _ _ => eqv_mem_univZero _ _) (fun _ _ => IsTy_univZero))
-        (fun _ _ => IsTy_piV),
-      fun _ _ => IsTy_piV⟩
+    fun b _ => ⟨trivial, trivial⟩⟩⟩⟩
 
 /-! ## `Eq.refl`'s tower, interpreted: the point -/
 
@@ -109,12 +99,7 @@ theorem eqReflValT_mem (ψ : Name → Nat) (ρ : Nat → V) :
 theorem eqReflValT_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
     WellDenoted V ρ (eqReflValT ψ) := by
   refine ⟨trivial, IsTy_univ _, fun A hA => ⟨trivial, IsTy_of_mem_univ hA,
-    fun _a _ => trivial, ?_⟩, ?_⟩
-  · exact ⟨fun x => eqv x x, fun x _ => pt_mem_eqv_self x,
-      fun x _ => IsTy_eqv x x⟩
-  · exact ⟨fun x => piV x (fun y => eqv y y),
-      fun _ _ => lamV_mem (fun y _ => pt_mem_eqv_self y) (fun y _ => IsTy_eqv y y),
-      fun _ _ => IsTy_piV⟩
+    fun _a _ => trivial⟩⟩
 
 /-! ## `EqLaw`, discharged from the tower
 
@@ -152,13 +137,8 @@ theorem eqValT_app₃_okP (ψ : Name → Nat) (ρ : Nat → V)
       ∈ˢ piV (interp V ρ Aa) (fun _ => univZero) :=
     app_mem_piV h1 ha
   have hAty : IsTy (interp V ρ Aa) := IsTy_of_mem_univ hA
-  -- the application slot, read off a `piV` membership (`propN`)
-  have slot : ∀ {f a A : V} {B : V → V}, f ∈ˢ piV A B → a ∈ˢ A → IsTy A →
-      ∃ (v : Nat) (A' : V) (B' : V → V), f ∈ˢ piR v A' B' ∧ a ∈ˢ A' ∧
-        (v = 0 → ∀ x, x ∈ˢ A' → B' x ∈ˢ (univZero : V)) ∧ (v ≠ 0 → IsTy A') :=
-    fun {_ _ A B} hf ha hT => ⟨propN A B, A, B, hf, ha, propN_eq_zero.mp, fun _ => hT⟩
-  refine ⟨⟨⟨⟨eqValT_wellDenoted ψ ρ, hAa, slot hmem hA (IsTy_univ _)⟩,
-      hla, slot h1 ha hAty⟩, hra, slot h2 hb hAty⟩, ?_⟩
+  refine ⟨⟨⟨⟨eqValT_wellDenoted ψ ρ, hAa, appliesTo_of_mem_piV hmem (IsTy_univ _) hA⟩,
+      hla, appliesTo_of_mem_piV h1 hAty ha⟩, hra, appliesTo_of_mem_piV h2 hAty hb⟩, ?_⟩
   rw [interp_app, interp_app, interp_app,
     eqValT_app₃ ψ ρ _ _ _ hA ha hb]
   exact eqv_mem_univZero _ _

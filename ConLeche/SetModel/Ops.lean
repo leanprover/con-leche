@@ -19,8 +19,8 @@ the values, and are what the interpretation and `Denotes` use.
   (`piR_zero_mem_univZero`).
 * **`v ≠ 0` — the graph regime.**  `piR v A B` is `piSet A B`, the set
   of total single-valued function graphs over `A`; `lamR v A F` is the
-  literal graph.  A member is a graph, never `pt` (`mem_piR_pos`), and
-  determines its own domain (`piR_dom_unique`).
+  literal graph.  A member is a graph, never `pt`, and determines its
+  own domain (`graph_dom_unique`).
 
 `piV A B` is the truth-value regime exactly when every fibre over `A`
 is a truth value; `lamV A F` exactly when every body value over `A` is
@@ -163,46 +163,11 @@ theorem lamR_eta {v : Nat} {A f : V} {B : V → V} (hf : f ∈ˢ piR v A B) :
     rw [lamR_pos hv']
     exact eq_graph_app_of_mem_piSet hf
 
-/-! ## The graph regime: inversion and junk-freeness
+/-! ## The graph regime
 
 The numeral has already decided the regime, so membership in a
 positive-regime function space is *by definition* graph-hood: no consumer
 dispatches on "graph or proof point". -/
-
-/-- **The prized inversion.**  A member of a graph-regime function space is a
-graph whose domain is exactly the function space's domain, whose applications
-land pointwise in the fibres, which is never the proof point, and which
-applies to the canonical junk `∅` off the domain.  Every clause is by
-definition of `piSet`; nothing about `B` is used. -/
-theorem mem_piR_pos {v : Nat} {A f : V} {B : V → V} (hv : v ≠ 0)
-    (hf : f ∈ˢ piR v A B) :
-    graph (fun x => app f x) A = f ∧
-    (∀ x, x ∈ˢ A → app f x ∈ˢ B x) ∧
-    (∀ a, ¬ a ∈ˢ A → app f a = empty) ∧
-    f ≠ pt := by
-  rw [piR_pos hv] at hf
-  exact ⟨eq_graph_app_of_mem_piSet hf, fun x hx => app_mem_of_mem_piSet hf hx,
-    fun a ha => app_off_dom_of_mem_piSet hf ha, ne_pt_of_mem_piSet hf⟩
-
-/-- **Domain uniqueness, unconditional.**  A graph determines its own
-domain, so membership in two graph-regime function spaces identifies their
-domains — with no `≠ pt` side condition. -/
-theorem piR_dom_unique {v v' : Nat} {A A' f : V} {B B' : V → V}
-    (hv : v ≠ 0) (hv' : v' ≠ 0)
-    (h1 : f ∈ˢ piR v A B) (h2 : f ∈ˢ piR v' A' B') : A = A' := by
-  rw [piR_pos hv] at h1
-  rw [piR_pos hv'] at h2
-  obtain ⟨hsub, htot⟩ := mem_piSet.mp h1
-  obtain ⟨hsub', htot'⟩ := mem_piSet.mp h2
-  refine ext fun x => ⟨fun hx => ?_, fun hx => ?_⟩
-  · obtain ⟨y, hy, -⟩ := htot x hx
-    obtain ⟨x2, hx2, y2, -, hp⟩ := mem_sigmaPairs.mp (hsub' _ hy)
-    obtain ⟨rfl, rfl⟩ := kpair_inj hp
-    exact hx2
-  · obtain ⟨y, hy, -⟩ := htot' x hx
-    obtain ⟨x2, hx2, y2, -, hp⟩ := mem_sigmaPairs.mp (hsub _ hy)
-    obtain ⟨rfl, rfl⟩ := kpair_inj hp
-    exact hx2
 
 /-! ## The truth-value regime -/
 
@@ -224,6 +189,50 @@ theorem Fib_piR (v : Nat) (A : V) (B : V → V) : Fib (decide (v = 0)) (piR v A 
 /-- A function space is a type. -/
 theorem IsTy_piR (v : Nat) (A : V) (B : V → V) : IsTy (piR v A B) :=
   IsTy_of_Fib (Fib_piR v A B)
+
+/-! ## What a value may be applied to
+
+The semantic invariant's application clause, on values: the point may be
+applied to anything (`app_pt`), a graph whose domain is a type to the
+members of its domain, and any other set to nothing.  It is well-defined,
+as a graph determines its domain (`graph_dom_unique`). -/
+
+/-- **`f` applies to `a`**: `f` is the point, or a graph whose domain is a
+type holding `a`. -/
+def AppliesTo (f a : V) : Prop :=
+  f = pt ∨ ∃ (F : V → V) (A : V), f = graph F A ∧ IsTy A ∧ a ∈ˢ A
+
+theorem appliesTo_pt (a : V) : AppliesTo (pt : V) a := Or.inl rfl
+
+theorem appliesTo_graph {F : V → V} {A a : V} :
+    AppliesTo (graph F A) a ↔ IsTy A ∧ a ∈ˢ A := by
+  refine ⟨fun h => ?_, fun h => Or.inr ⟨F, A, rfl, h⟩⟩
+  rcases h with h | ⟨F', A', he, h⟩
+  · exact absurd h graph_ne_pt
+  · exact graph_dom_unique he ▸ h
+
+/-- A member of a graph-regime function space whose domain is a type
+applies to the members of the domain. -/
+theorem appliesTo_of_mem_piSet {A f a : V} {B : V → V} (hf : f ∈ˢ piSet A B)
+    (hA : IsTy A) (ha : a ∈ˢ A) : AppliesTo f a := by
+  rw [← eq_graph_app_of_mem_piSet hf]; exact appliesTo_graph.mpr ⟨hA, ha⟩
+
+/-- The same at either regime: a member of a propositional function space
+is the point. -/
+theorem appliesTo_of_mem_piR {v : Nat} {A f a : V} {B : V → V} (hf : f ∈ˢ piR v A B)
+    (hA : IsTy A) (ha : a ∈ˢ A) : AppliesTo f a := by
+  by_cases hv : v = 0
+  · subst hv; rw [eq_pt_of_mem_piR_zero hf]; exact appliesTo_pt a
+  · rw [piR_pos hv] at hf; exact appliesTo_of_mem_piSet hf hA ha
+
+/-- A member of a function space that applies to `a`: the space's domain
+is a type holding `a`. -/
+theorem AppliesTo.dom {A f a : V} {B : V → V} (h : AppliesTo f a) (hf : f ∈ˢ piSet A B) :
+    IsTy A ∧ a ∈ˢ A := by
+  rw [← eq_graph_app_of_mem_piSet hf] at h; exact appliesTo_graph.mp h
+
+theorem AppliesTo.mem {A f a : V} {B : V → V} (h : AppliesTo f a) (hf : f ∈ˢ piSet A B) :
+    a ∈ˢ A := (h.dom hf).2
 
 /-! ## The value-read regimes (task #342, L14a)
 
@@ -299,6 +308,13 @@ theorem lamV_eq_pt {A : V} {F : V → V} (h : ∀ x, x ∈ˢ A → F x = pt) : l
 theorem lamV_eq_graph {A : V} {F : V → V} (h : lamV A F ≠ pt) : lamV A F = graph F A :=
   lamR_eq_graph_of_ne_pt h
 
+/-- An abstraction over a type applies to the members of its domain. -/
+theorem appliesTo_lamV {A a : V} {F : V → V} (hA : IsTy A) (ha : a ∈ˢ A) :
+    AppliesTo (lamV A F) a := by
+  by_cases h : lamV A F = pt
+  · rw [h]; exact appliesTo_pt a
+  · rw [lamV_eq_graph h]; exact appliesTo_graph.mpr ⟨hA, ha⟩
+
 /-- An abstraction with a body value that is not the point is a graph,
 never the point. -/
 theorem lamV_ne_pt_of {A : V} {F : V → V} {x : V} (hx : x ∈ˢ A) (h : F x ≠ pt) :
@@ -331,13 +347,11 @@ theorem app_mem_piV {A f a : V} {B : V → V} (hf : f ∈ˢ piV A B) (ha : a ∈
     exact app_mem_piR hf ha fun _ => propN_eq_zero.mp hb
   · exact app_mem_piR_pos hb hf ha
 
-/-- **The application slot** a member of a function space supplies at
-an argument of its domain, the domain a type: the numeral is `propN`'s,
-with its fibre fact. -/
-theorem piV_slot {A f a : V} {B : V → V} (hf : f ∈ˢ piV A B) (ha : a ∈ˢ A) (hA : IsTy A) :
-    ∃ (v : Nat) (A' : V) (B' : V → V), f ∈ˢ piR v A' B' ∧ a ∈ˢ A' ∧
-      (v = 0 → ∀ x, x ∈ˢ A' → B' x ∈ˢ (univZero : V)) ∧ (v ≠ 0 → IsTy A') :=
-  ⟨propN A B, A, B, hf, ha, propN_eq_zero.mp, fun _ => hA⟩
+/-- **A typed application meets the application clause**: a member of a
+function space applies to an argument of its domain, the domain a type. -/
+theorem appliesTo_of_mem_piV {A f a : V} {B : V → V} (hf : f ∈ˢ piV A B)
+    (hA : IsTy A) (ha : a ∈ˢ A) : AppliesTo f a :=
+  appliesTo_of_mem_piR hf hA ha
 
 /-- **Introduction**: body values in fibres that are types abstract into
 the function space.  Where every fibre is a truth value every body value
