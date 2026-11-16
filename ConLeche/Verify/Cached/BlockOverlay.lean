@@ -43,22 +43,22 @@ private def bnd (idx : Std.HashMap Name ConstantInfo) (base : FBase) (n : Name) 
 
 private theorem find?_of_ovl_nil {fe : FEnv} (h : fe.ovl = []) (n : Name) :
     fe.find? n = bnd fe.idx fe.base n := by
-  obtain ⟨env, idx, base, ovl, tbls⟩ := fe
+  obtain ⟨env, idx, base, ovl, tbls, _, _, _, _⟩ := fe
   subst h
-  exact FEnv.lookup_eq _ n
+  exact lookupIn_eq idx base n
 
 private theorem find?_overlay_bnd {fe : FEnv} (h : fe.ovl = []) (new : List ConstantInfo)
     (n : Name) :
     (fe.overlay new).find? n = (new.find? (·.name == n)).or (bnd fe.idx fe.base n) := by
-  obtain ⟨env, idx, base, ovl, tbls⟩ := fe
+  obtain ⟨env, idx, base, ovl, tbls, _, _, _, _⟩ := fe
   subst h
   cases new with
-  | nil => exact FEnv.lookup_eq _ n
+  | nil => exact lookupIn_eq idx base n
   | cons ci rest =>
     show (match (ci :: rest ++ []).find? (·.name == n) with
         | some ci => some ci
-        | none => FEnv.lookup ⟨_, idx, base, ci :: rest ++ [], tbls⟩ n) = _
-    rw [FEnv.lookup_eq, List.append_nil]
+        | none => lookupIn idx base n) = _
+    rw [lookupIn_eq, List.append_nil]
     cases (ci :: rest).find? (·.name == n) <;> rfl
 
 private theorem bnd_insert (idx : Std.HashMap Name ConstantInfo) (base : FBase)
@@ -182,9 +182,9 @@ theorem streamRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf Check
     {ops : CheckerOps m} {fe₁ fe₂ : FEnv}
     (hfe : fe₁.find? = fe₂.find?) (henv : fe₁.env = fe₂.env) :
     streamRecsCheck ops fe₁ = streamRecsCheck ops fe₂ := by
-  have hrules : ∀ rec lps rs gs, streamRulesCheck ops fe₁ rec lps rs gs
-      = streamRulesCheck ops fe₂ rec lps rs gs := by
-    intro rec lps rs
+  have hrules : ∀ rec lps rP rs gs, streamRulesCheck ops fe₁ rec lps rP rs gs
+      = streamRulesCheck ops fe₂ rec lps rP rs gs := by
+    intro rec lps rP rs
     induction rs with
     | nil => intro gs; cases gs <;> rfl
     | cons r rs ih =>

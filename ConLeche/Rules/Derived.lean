@@ -82,20 +82,6 @@ theorem DefEq.redBoth {d : Nat} {a a' b b' : Expr}
     DefEq env d a b :=
   .redL ha (.redR hb h)
 
-/-- **The `Bool.true` shortcut** (`boolTrueShortcut`, `Core.lean:1415-1424`,
-at `defeqBody`'s entry): the left side reduces to the
-constant `Bool.true` — `refl` after the reduction. -/
-theorem DefEq.boolTrue {d : Nat} {a w : Expr}
-    (h : Red env d a w) (hw : w.isBoolTrue = true) :
-    DefEq env d a (.const boolTrueName []) := by
-  have : w = .const boolTrueName [] := by
-    match w, hw with
-    | .const c [], hw =>
-      simp only [Expr.isBoolTrue, beq_iff_eq] at hw
-      rw [hw]
-  subst this
-  exact .ofRed h
-
 /-- `Nat.zero` against the packed zero (`Core.lean:1589-1591`). -/
 theorem DefEq.natZeroR {d : Nat} :
     DefEq env d (.const natZeroName []) (.lit (.natVal 0)) :=

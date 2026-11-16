@@ -1502,17 +1502,29 @@ theorem inferBodyIO_snd_proj (d : Nat) (e : Expr) :
   unfold inferBodyIO
   snd_tac4
 
+theorem defeqLazy_fst_proj (d : Nat) (a b : Expr) :
+    (defeqLazy mode eager (pairFns r₁ r₂ h) env d a b).val.1 =
+      defeqLazy mode eager r₁ env d a b := by
+  unfold defeqLazy
+  fst_tac4
+
+theorem defeqLazy_snd_proj (d : Nat) (a b : Expr) :
+    (defeqLazy mode eager (pairFns r₁ r₂ h) env d a b).val.2 =
+      defeqLazy mode eager r₂ env d a b := by
+  unfold defeqLazy
+  snd_tac4
+
 theorem defeqBody_fst_proj (d : Nat) (a b : Expr) :
     (defeqBody mode eager (pairFns r₁ r₂ h) env d a b).val.1 =
       defeqBody mode eager r₁ env d a b := by
   unfold defeqBody
-  fst_tac4
+  fst_tac4k defeqLazy_fst_proj
 
 theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
     (defeqBody mode eager (pairFns r₁ r₂ h) env d a b).val.2 =
       defeqBody mode eager r₂ env d a b := by
   unfold defeqBody
-  snd_tac4
+  snd_tac4k defeqLazy_snd_proj
 
 end Commute
 

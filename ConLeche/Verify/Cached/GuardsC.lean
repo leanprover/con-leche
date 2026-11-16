@@ -765,28 +765,6 @@ theorem rawNatLitC?_spec (e : Expr) :
     | cons u us => rfl
   | _ => rfl
 
-open Expr in
-/-- The constructor-application guard agrees with the spec's
-`isCtorApp` on the erasure.  Unlike the two above it reads the
-*spine head*. -/
-theorem isCtorAppC_spec {env : Env} {e : Expr} :
-    isCtorAppC (mkFEnv env) e = isCtorApp env e := by
-  show (match Expr.getAppFn e with
-      | .const cn _ =>
-        match (mkFEnv env).find? cn with
-        | some (.ctorInfo _ _ _ _) => true
-        | _ => false
-      | _ => false) = _
-  rw [isCtorApp]
-  cases Expr.getAppFn e with
-  | const cn us =>
-    show (match (mkFEnv env).find? cn with
-        | some (.ctorInfo _ _ _ _) => true
-        | _ => false) = _
-    rw [mkFEnv_find?]
-    rfl
-  | _ => rfl
-
 /-- The eta constructor-shape gate agrees with the spec's `etaCtorShape`
 (`Expr = Expr`; only the environment lookup differs). -/
 theorem etaCtorShapeC_spec' {env : Env} {e : Expr} {ex : Expr}
@@ -804,8 +782,8 @@ theorem etaCtorShapeC_spec' {env : Env} {e : Expr} {ex : Expr}
 
 open Expr in
 /-- The reducibility-hint readout agrees with the spec's `headHint` on
-the erasure — like `isCtorAppC_spec` it reads the *spine head*, so the
-node invariant is needed. -/
+the erasure — it reads the *spine head*, so the node invariant is
+needed. -/
 theorem headHintC_spec {env : Env} {e : Expr} :
     headHintC (mkFEnv env) e = headHint env e := by
   show (match Expr.getAppFn e with

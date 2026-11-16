@@ -161,7 +161,6 @@ ConLeche.whnfLoopFuel
 
 # ConLeche.Kernel.CoreDefs — O(1)/O(spine) readers, Nat-op tables and guards over environment lookups
 ConLeche.Expr.ioNeutral
-ConLeche.Expr.isBoolTrue
 ConLeche.Expr.isNatSuccApp
 ConLeche.andRescueSlotsOf
 ConLeche.boolFalseName
@@ -277,7 +276,7 @@ ConLeche.levelsHaveParam
 ConLeche.natHash
 ConLeche.natHashWordBound
 
-# ConLeche.Kernel.ExprOps — O(spine) readers (getAppFn, mkAppN, piResult, stripPis, peelPis) and the field-read guards (bvarB, fvarB, looseBVarsBounded, hasFvar)
+# ConLeche.Kernel.ExprOps — O(spine) readers (getAppFn, mkAppN, piResult, stripPis, peelPis, lamBody: the ι step's peel, once per rule and declaration) and the field-read guards (bvarB, fvarB, looseBVarsBounded, hasFvar)
 ConLeche.Expr.bvarBoundGo
 ConLeche.Expr.bvarBoundMemo
 ConLeche.Expr.fvarRangeGo
@@ -285,26 +284,31 @@ ConLeche.Expr.fvarRangeMemo
 ConLeche.Expr.getAppFn
 ConLeche.Expr.hasFvarFast
 ConLeche.Expr.isForallE
+ConLeche.Expr.lamBody
 ConLeche.Expr.binderPair?
 ConLeche.Expr.looseBVarsBoundedFast
 ConLeche.Expr.mkAppN
 ConLeche.Expr.piResult
 ConLeche.Expr.stripPis
 
-# ConLeche.Kernel.FEnv — the index: hash-map lookups and pushes
+# ConLeche.Kernel.FEnv — the index: hash-map lookups and pushes, and its literal flags (set where the index is built, kept by pushes)
 ConLeche.FBase.find?
 ConLeche.FBase.findTable?
 ConLeche.FEnv.andRescueSlotsF
 ConLeche.FEnv.find?
 ConLeche.FEnv.findProj?
 ConLeche.FEnv.findTable?
+ConLeche.FEnv.ofParts
 ConLeche.FEnv.overlay
 ConLeche.FEnv.push
 ConLeche.FEnv.rawTable?
-ConLeche.natLitStoredF
+ConLeche.fromLe
+ConLeche.litFrom
+ConLeche.litName
+ConLeche.natLitNames
 ConLeche.natLitSupportedF
 ConLeche.natOpGuardF
-ConLeche.strLitStoredF
+ConLeche.strLitNames
 
 # ConLeche.Kernel.Level — the level algorithms (levels are small trees; the cached tier memoises them by level, the official kernel runs the same walks)
 ConLeche.Expr.instantiateLevelParams
@@ -516,6 +520,7 @@ ConLeche.nestWalkStack  # ConLeche.Kernel.Inductives.Positivity
 ConLeche.blockNestedBit  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.instInhabitedTargetMajor.default  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.recKExpected  # ConLeche.Kernel.Inductives.RecCheck
+ConLeche.ruleBinds  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetCtorsOf  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetHoles  # ConLeche.Kernel.Inductives.RecCheck
 ConLeche.targetRecPins  # ConLeche.Kernel.Inductives.RecCheck

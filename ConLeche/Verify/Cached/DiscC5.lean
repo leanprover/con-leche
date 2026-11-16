@@ -9,8 +9,8 @@ public section
 
 The simulation walks for the definitional-equality pieces
 (`quickDefEqI`, `defeqOffsetI`, `tryUnfoldProjAppI`, `lazyDeltaStepI`,
-the two lazy-delta loops, `defeqProjPairI`, `defeqStuckI`) and
-`defeqBodyI` (`ConLeche/Cached/CoreC.lean`).
+the two lazy-delta loops, `defeqProjPairI`, `defeqStuckI`), `defeqLazyI`
+and `defeqBodyI` (`ConLeche/Cached/CoreC.lean`).
 
 Every walk is a `Std.WP` triple proved by `vcgen` and `grind`
 (`ConLeche/Verify/Cached/Grind.lean`).  The two-sided dispatches
@@ -20,8 +20,10 @@ side's own per-arm equation lemmas, the fall-through one conditional:
 fall-through premises from the arm's hypotheses.
 
 The walks with continuations past a `match` (the binder telescope's step,
-the lazy-delta loop, `defeqBody`) have them named on both sides
-(`bindersStepI`/`bindersStepP`, `ldr…I`/`ldr…P`, `body…I`/`body…P`), each
+the lazy-delta loop, `defeqLazy`, the constructor shortcut of `defeqBody`)
+have them named on both sides
+(`bindersStepI`/`bindersStepP`, `ldr…I`/`ldr…P`, `body…I`/`body…P`,
+`ctor…I`/`ctor…P`), each
 block its own triple: a `fun` holding a `match` reaches `grind` as a
 lambda it compares by splitting, and the do-notation's matchers are
 shared between such lambdas.  The loops' induction hypotheses are named
@@ -114,6 +116,42 @@ grind_pattern [conleche_grind] wscoped_natPred? => Expr.WScoped d e, e.natPred?
 
 @[conleche_grind =] theorem sameConstHeadsC_eq (a b : Expr) :
     sameConstHeadsC a b = sameConstHeads a b := sameConstHeadsC_spec
+
+/-- The constructor shortcut's target reads the same store on both sides
+(the spine's length counted, not listed). -/
+theorem ctorTargetC_eq (env : Env) (e : Expr) :
+    ctorTargetC (mkFEnv env) e = ctorTarget env e := by
+  unfold ctorTargetC ctorTarget
+  rw [iotaNumArgs_eq_length]
+  cases e.hasFvar
+  · simp only [Bool.false_eq_true, ↓reduceIte]
+    generalize Expr.getAppFn e = h
+    cases h <;> try rfl
+    rename_i c us
+    simp only [mkFEnv_find?]
+    generalize env.find? c = ci
+    rcases ci with _ | ci <;> rfl
+  · rfl
+
+/-- The constructor shortcut's gate reads the same store on both sides. -/
+@[conleche_grind =] theorem ctorTargetForC_eq (env : Env) (eager : Bool) (o e : Expr) :
+    ctorTargetForC (mkFEnv env) eager o e = ctorTargetFor env eager o e := by
+  unfold ctorTargetForC ctorTargetFor
+  rw [ctorTargetC_eq]
+
+/-- A normal form's head against a constructor reads the same store on
+both sides. -/
+@[conleche_grind =] theorem ctorHeadAgainstC_eq (env : Env) (c : Name) (w : Expr) :
+    ctorHeadAgainstC (mkFEnv env) c w = ctorHeadAgainst env c w := by
+  unfold ctorHeadAgainstC ctorHeadAgainst
+  generalize Expr.getAppFn w = h
+  cases h <;> try rfl
+  rename_i d us
+  dsimp only
+  split <;> try rfl
+  simp only [mkFEnv_find?]
+  generalize env.find? d = ci
+  rcases ci with _ | ci <;> rfl
 
 end Vocabulary
 
@@ -609,7 +647,7 @@ theorem defeqStuckC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : N
     ⦃fun s => s = s₀⦄ defeqStuckI mode (mkFEnv env) eager f d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs (defeqStuck mode (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
-  sym only [conleche_grind, defeqStuck, strLitStoredF_eq, strLitToConstructor_WScoped] =>
+  sym only [conleche_grind, defeqStuck, mkFEnv_strLit, strLitToConstructor_WScoped] =>
     vcgen [defeqStuckI.eq_def, ih.defeq_spec, stuckIrrelC_spec ih henv, etaCertC_spec ih, defEqListC_spec ih,
       isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;> finish
@@ -655,13 +693,41 @@ would reach `grind` as a lambda it compares by splitting). -/
   | some v => pure v
   | none => bodyPIP r env depth mode eager a b
 
-/-- `defeqBody` with its continuations named. -/
+/-- `defeqLazy` with its continuations named. -/
+theorem defeqLazy_eq (mode : CheckMode) (a b : Expr) :
+    defeqLazy mode eager r env depth a b =
+      (quickDefEq mode r depth a b >>= bodyQ1P r env depth mode eager a b : m Bool) := by
+  rw [defeqLazy.eq_1]; rfl
+
+/-- The constructor shortcut past the right side's normal form `w`. -/
+@[expose] def ctorRightP (mode : CheckMode) (eager : Bool) (c : Name) (a b w : Expr) : m Bool :=
+  match ctorHeadAgainst env c w with
+  | some true => defeqLazy mode eager r env depth w b
+  | some false => pure false
+  | none => defeqLazy mode eager r env depth a b
+
+/-- The constructor shortcut past the left side's normal form `w`. -/
+@[expose] def ctorLeftP (mode : CheckMode) (eager : Bool) (c : Name) (a b w : Expr) : m Bool :=
+  match ctorHeadAgainst env c w with
+  | some true => defeqLazy mode eager r env depth a w
+  | some false => pure false
+  | none => defeqLazy mode eager r env depth a b
+
+/-- The left side's target. -/
+@[expose] def ctorLeftTP (mode : CheckMode) (eager : Bool) (a b : Expr) : Option Name → m Bool
+  | some c => r.whnf depth b >>= ctorLeftP r env depth mode eager c a b
+  | none => defeqLazy mode eager r env depth a b
+
+/-- The right side's target. -/
+@[expose] def ctorRightTP (mode : CheckMode) (eager : Bool) (a b : Expr) : Option Name → m Bool
+  | some c => r.whnf depth a >>= ctorRightP r env depth mode eager c a b
+  | none => ctorLeftTP r env depth mode eager a b (ctorTargetFor env eager b a)
+
+/-- `defeqBody` with its blocks named. -/
 theorem defeqBody_eq (mode : CheckMode) (a b : Expr) :
     defeqBody mode eager r env depth a b =
-      (if a == b then pure true else do
-        if ← (if b.isBoolTrue && (eager || !a.hasFvar) then
-            boolTrueShortcut r depth a else pure false) then pure true else
-        quickDefEq mode r depth a b >>= bodyQ1P r env depth mode eager a b : m Bool) := by
+      (if a == b then pure true else
+        ctorRightTP r env depth mode eager a b (ctorTargetFor env eager a b) : m Bool) := by
   rw [defeqBody.eq_1]; rfl
 
 end PureBody
@@ -707,15 +773,46 @@ block its own triple. -/
   | some v => pure v
   | none => bodyPII mode fe eager lv depth a b
 
-/-- `defeqBodyI` with its continuations named. -/
+/-- `defeqLazyI` with its continuations named. -/
+theorem defeqLazyI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (a b : Expr) :
+    defeqLazyI mode fe eager lv depth a b =
+      (quickDefEqI mode fe eager lv depth a b >>= bodyQ1I mode fe eager lv depth a b :
+        CheckCM Bool) := by
+  rw [defeqLazyI.eq_def]; rfl
+
+/-- The constructor shortcut past the right side's normal form (cached). -/
+@[expose] def ctorRightI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
+    (c : Name) (a b w : Expr) : CheckCM Bool :=
+  match ctorHeadAgainstC fe c w with
+  | some true => defeqLazyI mode fe eager lv depth w b
+  | some false => pure false
+  | none => defeqLazyI mode fe eager lv depth a b
+
+/-- The constructor shortcut past the left side's normal form (cached). -/
+@[expose] def ctorLeftI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
+    (c : Name) (a b w : Expr) : CheckCM Bool :=
+  match ctorHeadAgainstC fe c w with
+  | some true => defeqLazyI mode fe eager lv depth a w
+  | some false => pure false
+  | none => defeqLazyI mode fe eager lv depth a b
+
+/-- The left side's target (cached). -/
+@[expose] def ctorLeftTI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
+    (a b : Expr) : Option Name → CheckCM Bool
+  | some c => whnfI mode fe eager lv depth b >>= ctorLeftI mode fe eager lv depth c a b
+  | none => defeqLazyI mode fe eager lv depth a b
+
+/-- The right side's target (cached). -/
+@[expose] def ctorRightTI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat)
+    (a b : Expr) : Option Name → CheckCM Bool
+  | some c => whnfI mode fe eager lv depth a >>= ctorRightI mode fe eager lv depth c a b
+  | none => ctorLeftTI mode fe eager lv depth a b (ctorTargetForC fe eager b a)
+
+/-- `defeqBodyI` with its blocks named. -/
 theorem defeqBodyI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (a b : Expr) :
     defeqBodyI mode fe eager lv depth a b =
-      (if a == b then pure true else do
-        let bt ← pure (Expr.isBoolTrue b)
-        let af ← pure (Expr.hasFvar a)
-        if ← (if bt && (eager || !af) then boolTrueShortcutI mode fe eager lv depth a
-            else pure false) then pure true else
-        quickDefEqI mode fe eager lv depth a b >>= bodyQ1I mode fe eager lv depth a b : CheckCM Bool) := by
+      (if a == b then pure true else
+        ctorRightTI mode fe eager lv depth a b (ctorTargetForC fe eager a b) : CheckCM Bool) := by
   rw [defeqBodyI.eq_def]; rfl
 
 theorem bodyTailC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
@@ -762,6 +859,51 @@ theorem bodyQ1C_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} 
   sym only [conleche_grind, bodyQ1P] =>
     vcgen [bodyQ1I, bodyPIC_spec ih henv] <;> finish
 
+/-- The lazy comparison simulates its specification. -/
+theorem defeqLazyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {s₀ : CState} {d : Nat}
+    {a b : Expr} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ defeqLazyI mode (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK mode eager env s' ∧ Runs (defeqLazy mode eager (fueledFns mode eager env)
+        env d a b) v; ⊤⦄ := by
+  sym only [conleche_grind, defeqLazy_eq] =>
+    vcgen [defeqLazyI_eq, quickDefEqC_spec ih, bodyQ1C_spec ih henv] <;> finish
+
+theorem ctorRightC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {c : Name}
+    {a b w : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+    (hwb : Expr.WScoped d b) (hww : Expr.WScoped d w) :
+    ⦃fun s => s = s₀⦄ ctorRightI mode (mkFEnv env) eager f d c a b w
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (ctorRightP (fueledFns mode eager env) env d mode eager c a b w) v; ⊤⦄ := by
+  sym only [conleche_grind, ctorRightP] =>
+    vcgen [ctorRightI, defeqLazyC_spec ih henv] <;> finish
+
+theorem ctorLeftC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {c : Name}
+    {a b w : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+    (hwb : Expr.WScoped d b) (hww : Expr.WScoped d w) :
+    ⦃fun s => s = s₀⦄ ctorLeftI mode (mkFEnv env) eager f d c a b w
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (ctorLeftP (fueledFns mode eager env) env d mode eager c a b w) v; ⊤⦄ := by
+  sym only [conleche_grind, ctorLeftP] =>
+    vcgen [ctorLeftI, defeqLazyC_spec ih henv] <;> finish
+
+theorem ctorLeftTC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+    (hwb : Expr.WScoped d b) (o : Option Name) :
+    ⦃fun s => s = s₀⦄ ctorLeftTI mode (mkFEnv env) eager f d a b o
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (ctorLeftTP (fueledFns mode eager env) env d mode eager a b o) v; ⊤⦄ := by
+  sym only [conleche_grind, ctorLeftTP] =>
+    vcgen [ctorLeftTI, ih.whnf_spec, ctorLeftC_spec ih henv, defeqLazyC_spec ih henv] <;> finish
+
+theorem ctorRightTC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+    (hwb : Expr.WScoped d b) (o : Option Name) :
+    ⦃fun s => s = s₀⦄ ctorRightTI mode (mkFEnv env) eager f d a b o
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (ctorRightTP (fueledFns mode eager env) env d mode eager a b o) v; ⊤⦄ := by
+  sym only [conleche_grind, ctorRightTP] =>
+    vcgen [ctorRightTI, ih.whnf_spec, ctorRightC_spec ih henv, ctorLeftTC_spec ih henv] <;> finish
+
 /-- The definitional-equality body simulates its specification. -/
 theorem defeqBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {s₀ : CState} {d : Nat}
     {a b : Expr} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
@@ -769,8 +911,7 @@ theorem defeqBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {s₀ :
     ⦃fun v s' => CSOK mode eager env s' ∧ Runs (defeqBody mode eager (fueledFns mode eager env) env
         d a b) v; ⊤⦄ := by
   sym only [conleche_grind, defeqBody_eq] =>
-    vcgen [defeqBodyI_eq, boolTrueShortcutC_spec ih, quickDefEqC_spec ih,
-      bodyQ1C_spec ih henv] <;> finish
+    vcgen [defeqBodyI_eq, ctorRightTC_spec ih henv] <;> finish
 
 end Walks
 

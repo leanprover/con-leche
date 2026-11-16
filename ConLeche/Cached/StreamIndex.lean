@@ -14,7 +14,7 @@ constants of the stream, and every table with its record's position.  It is neve
 The name's FIRST entry wins.  A record whose name an earlier record took sees that entry at its own
 view, so its check fails with "duplicate declaration", in fold order.
 
-A record's **job** is its check at the view of its position (`StreamIndex.view`): the index with
+A record's **job** is its check at the view of its position (`FrozenIndex.view`): the index with
 everything from that record on hidden.  The jobs read the frozen index and their own record, so they
 run independently of one another; that all of them passing is an accept of the fold is
 `checkDecls_of_jobs` (`ConLeche/Verify/Cached/StreamIndex.lean`).  A check is over exactly the
@@ -65,17 +65,38 @@ def StreamIndex.add (I : StreamIndex) (pd : Declaration) : StreamIndex :=
 def buildIndex (ds : Array Declaration) : StreamIndex :=
   ds.foldl StreamIndex.add {}
 
+/-- **The frozen index of a stream**: the index, and for each literal flag the first counter from
+which a record's view has it (`litFrom`), computed once (`StreamIndex.freeze`), so that a view sets
+its flags by a comparison instead of ten lookups (task #579). -/
+structure FrozenIndex where
+  I : StreamIndex
+  natFrom : Option Nat
+  strFrom : Option Nat
+  natFrom_eq : natFrom = litFrom I.base.idx natLitNames
+  strFrom_eq : strFrom = litFrom I.base.idx strLitNames
+
+/-- Freeze a stream's index: its literal flags' thresholds. -/
+def StreamIndex.freeze (I : StreamIndex) : FrozenIndex :=
+  ⟨I, litFrom I.base.idx natLitNames, litFrom I.base.idx strLitNames, rfl, rfl⟩
+
 /-- **The view of record `k`**: no constants or tables of its own, the index visible below the
 record's first counter and its position. -/
-def StreamIndex.view (I : StreamIndex) (k : Nat) : FEnv :=
-  let c := I.firsts.getD k I.next
-  ⟨⟨[], []⟩, {}, { I.base with below := c, belowRec := k }, [], {}⟩
+def FrozenIndex.view (F : FrozenIndex) (k : Nat) : FEnv :=
+  let c := F.I.firsts.getD k F.I.next
+  ⟨⟨[], []⟩, ∅, { F.I.base with below := c, belowRec := k }, [], ∅,
+    fromLe F.natFrom c, fromLe F.strFrom c,
+    by
+      rw [F.natFrom_eq, findIn_empty, natLitStoredBy_all]
+      exact FBase.fromLe_litFrom { F.I.base with below := c, belowRec := k } natLitNames,
+    by
+      rw [F.strFrom_eq, findIn_empty, strLitStoredBy_all]
+      exact FBase.fromLe_litFrom { F.I.base with below := c, belowRec := k } strLitNames⟩
 
 /-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view. -/
-def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (I : StreamIndex) (k : Nat)
-    (pd : Declaration) : Except CheckError Unit :=
+def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (F : FrozenIndex)
+    (k : Nat) (pd : Declaration) : Except CheckError Unit :=
   if andPinOk pd then
-    match checkDeclStepC mode pins (I.view k) pd { maxNatSize := maxNatSize } with
+    match checkDeclStepC mode pins (F.view k) pd { maxNatSize := maxNatSize } with
     | .ok _ => .ok ()
     | .error e => .error e
   else .error (.invalid "`And` must be the standard `And`")

@@ -14,8 +14,8 @@ is its generic counterpart with every environment lookup
 (`Env.find?`, `Expr.constsResolve` and the compound
 guards built from them) routed through the index; under `mkFEnv` the
 two are equal (`ConLeche/Verify/CheckerF.lean`), and environment-
-extending mirrors return the pushed index (`FEnv.push`, definitionally
-`mkFEnv` of the cons-extended environment).
+extending mirrors return the pushed index (`FEnv.push`, `mkFEnv` of
+the cons-extended environment).
 
 **Representation-free.**  Everything here is `Expr`-typed and
 monad-polymorphic over `CheckerOps m`: no core, no state, no
@@ -208,8 +208,8 @@ clause; the only difference is that every environment lookup
 guards built from them) goes through the `FEnv` index.  Under
 `mkFEnv` each mirror *is* its generic counterpart
 (`ConLeche/Verify/CheckerF.lean`); environment-extending mirrors return
-the pushed index (`FEnv.push`, definitionally `mkFEnv` of the
-cons-extended environment). -/
+the pushed index (`FEnv.push`, `mkFEnv` of the cons-extended
+environment). -/
 
 section Mirrors
 
@@ -238,7 +238,7 @@ def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
   unless cv.type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless cv.type.constsResolveF fe do
-    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (fe.strLit) s!"type of {cv.name}" cv.type)
   let stype ← ops.inferType fe.env 0 cv.type
   let _u ← ops.ensureSort fe.env 0 stype
 

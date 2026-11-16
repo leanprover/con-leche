@@ -606,7 +606,8 @@ theorem pushDelta_mkFEnv (L : List ConstantInfo) (Q : List ProjTable) (env : Env
     | nil => intro env; rfl
     | cons ci L ih =>
       intro env
-      show FEnv.pushAll L (mkFEnv ⟨ci :: env.consts, env.tables⟩) = _
+      rw [FEnv.pushAll, show (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts, env.tables⟩ from
+        FEnv.ext_parts rfl rfl rfl rfl rfl]
       refine (ih _).trans ?_
       simp
   have hQ : ∀ (Q : List ProjTable) (env : Env),

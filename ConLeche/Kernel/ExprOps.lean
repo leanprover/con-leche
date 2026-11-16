@@ -859,6 +859,14 @@ def mkAppN (f : Expr) : List Expr → Expr
   | [] => f
   | a :: as => mkAppN (.app f a) as
 
+/-- The body under `k` leading lambdas (where there are fewer, under all
+of them).  The ι step reads a stored rule's right-hand side through it:
+the install checks that the rule has its `k` (`RuleWF`), so the peel is
+`stripLams`'s body there (`lamBody_of_stripLams`). -/
+def lamBody : Nat → Expr → Expr
+  | k + 1, .lam _ b => lamBody k b
+  | _, e => e
+
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/
 def stripLams : Nat → Expr → Option (List Expr × Expr)

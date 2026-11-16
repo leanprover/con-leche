@@ -145,7 +145,8 @@ theorem find_of_mem {c : ConstantInfo} (hc : c ∈ C.consts) : C.find? c.name = 
 
 /-- **The context is well formed.** -/
 theorem wf : EnvWF C := by
-  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_, fun c hc => ?_, fun c hc => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩
   · have hf := S.find_of_mem hc
     obtain ⟨ci', hf', hr, hwf'⟩ := S.srcWF hf
     have hsc := S.scopeR hf
@@ -185,6 +186,10 @@ theorem wf : EnvWF C := by
     subst he
     exact (S.m _).base2.wf.ctors _
       (Env.find?_mem (S.src_eq (S.find_of_mem hc) fun _ h => nomatch h)) cv nP nF T rfl
+  · intro cv mI rP isK rules he
+    subst he
+    exact (S.m _).base2.wf.rules _
+      (Env.find?_mem (S.src_eq (S.find_of_mem hc) fun _ h => nomatch h)) cv mI rP isK rules rfl
 
 /-- **The basis pins hold in the context.** -/
 theorem basis_pinned : BasisPinnedTT C aC := by

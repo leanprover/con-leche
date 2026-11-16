@@ -421,13 +421,9 @@ theorem defeqStuck_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
     | lam t body => exact hlam' (res_lam.mp hb).1 (res_lam.mp hb).2 ha
     | _ => exact hst ha hb
 
-theorem defeqBody_rel (eager : Bool) {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
-    Rel TT (defeqBody mode eager r₂ env₂ d a b) (defeqBody mode eager r₁ env₁ d a b) := by
-  unfold defeqBody
-  refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
-  refine Rel.bind (Q := TT) (Rel.ite (fun _ => ?_) fun _ => Rel.ok trivial) fun v _ => ?_
-  · exact Rel.bind (K.whnf d ha) fun _ _ => Rel.ok trivial
-  refine Rel.iteB v (fun _ => Rel.ok trivial) fun _ => ?_
+theorem defeqLazy_rel (eager : Bool) {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
+    Rel TT (defeqLazy mode eager r₂ env₂ d a b) (defeqLazy mode eager r₁ env₁ d a b) := by
+  unfold defeqLazy
   refine Rel.bind (quickDefEq_rel K d mode ha hb) fun o _ => ?_
   cases o with
   | some v => exact Rel.ok trivial
@@ -453,6 +449,27 @@ theorem defeqBody_rel (eager : Bool) {a b : Expr} (ha : Res env₁ a) (hb : Res 
         refine Rel.bind (K.whnfCore false d ha₁) fun a₂ ha₂ =>
           Rel.bind (K.whnfCore false d hb₁) fun b₂ hb₂ => ?_
         exact Rel.ite (fun _ => defeqStuck_rel K d mode hx ha₁ hb₁) fun _ => K.defeq d ha₂ hb₂
+
+theorem defeqBody_rel (eager : Bool) {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
+    Rel TT (defeqBody mode eager r₂ env₂ d a b) (defeqBody mode eager r₁ env₁ d a b) := by
+  unfold defeqBody
+  refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
+  rw [ctorTargetFor_ext hx hb, ctorTargetFor_ext hx ha]
+  split
+  · refine Rel.bind (K.whnf d ha) fun w hw => ?_
+    rw [ctorHeadAgainst_ext hx hw]
+    split
+    · exact defeqLazy_rel K d mode hx eager hw hb
+    · exact Rel.ok trivial
+    · exact defeqLazy_rel K d mode hx eager ha hb
+  · split
+    · refine Rel.bind (K.whnf d hb) fun w hw => ?_
+      rw [ctorHeadAgainst_ext hx hw]
+      split
+      · exact defeqLazy_rel K d mode hx eager ha hw
+      · exact Rel.ok trivial
+      · exact defeqLazy_rel K d mode hx eager ha hb
+    · exact defeqLazy_rel K d mode hx eager ha hb
 
 end Bodies
 

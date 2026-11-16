@@ -22,8 +22,8 @@ Each theorem's proof is the site's `Verify` inversion lemma
 (`iotaCertsFull_step_inv`, `defEqList_step_inv`, `proofIrrel_inv`,
 `propIrrel_inv`, `structEtaCertWith_inv`, `structEtaCert_inv`,
 `structUnitCert_inv`, `etaCert_inv`,
-`defeqSpine_inv`; `stuckIrrel` and `boolTrueShortcut` have none yet
-and are inverted by hand) followed by the one rule.
+`defeqSpine_inv`; `stuckIrrel` has none yet
+and is inverted by hand) followed by the one rule.
 -/
 
 namespace ConLeche.Rules
@@ -272,19 +272,5 @@ theorem defeqSpine_bridge (hd : DefEqBridge μ eager env fuel)
   have hr := (defEqList_bridge hd hl).reverse
   rw [List.reverse_reverse, List.reverse_reverse] at hr
   exact .constSpine ha hb hus hr
-
-/-- `boolTrueShortcut` ⇒ `DefEq.boolTrue`. -/
-theorem boolTrueShortcut_bridge (hw : WhnfBridge μ eager env fuel)
-    {d : Nat} {a : Expr}
-    (h : boolTrueShortcutFueled μ eager env fuel d a = .ok true) :
-    DefEq env d a (.const boolTrueName []) := by
-  dsimp only [boolTrueShortcutFueled] at h
-  simp only [boolTrueShortcut, Bind.bind, Except.bind, whnf_def] at h
-  cases hwh : whnf μ eager env fuel d a with
-  | error err => rw [hwh] at h; exact nomatch h
-  | ok w =>
-  rw [hwh] at h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact .boolTrue (hw hwh) h
 
 end ConLeche.Rules

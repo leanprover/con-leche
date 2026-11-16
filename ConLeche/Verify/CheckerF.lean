@@ -135,7 +135,7 @@ theorem checkConstantValF_eq (ops : CheckerOps m) (env : Env)
     (cv : ConstantVal) {a b c : Bool} :
     checkConstantValF ops (mkFEnv env) cv a b c = checkConstantVal ops env cv a b c := by
   simp only [checkConstantValF, checkConstantVal, mkFEnv_find?,
-    constsResolveF_eq, strLitStoredF_eq] <;> rfl
+    constsResolveF_eq, mkFEnv_strLit] <;> rfl
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)
@@ -202,6 +202,7 @@ it.  The monadic `_push` equations that consume it are stated at the
 executing monad, in `ConLeche/Verify/Cached/BridgeCSDecl.lean`. -/
 
 theorem push_mkFEnv (env : Env) (ci : ConstantInfo) :
-    (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts, env.tables⟩ := rfl
+    (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts, env.tables⟩ :=
+  FEnv.ext_parts rfl rfl rfl rfl rfl
 
 end ConLeche

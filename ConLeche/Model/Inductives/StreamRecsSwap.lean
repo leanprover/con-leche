@@ -358,7 +358,7 @@ theorem storedSwap_sem {envC : Env}
         (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
       ConLeche.streamRulesCheck (ConLeche.fueledOps .verified F)
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
-        rc.rules g.2.2 = .ok () := by
+        rc.rP rc.rules g.2.2 = .ok () := by
     intro j rc g hQ
     obtain ⟨hrc, -, hck⟩ := hQ
     obtain ⟨-, -, hcmp⟩ := ConLeche.streamRecCheck_inv hck
@@ -443,7 +443,7 @@ theorem storedSwap_sem {envC : Env}
           cases h0 : rc.rules[i]? with
           | none => rw [h0] at hiS; exact nomatch hiS
           | some r0 => rw [h0] at hiS; exact ⟨r0, rfl, Option.some.inj hiS⟩
-        rcases (ConLeche.streamRulesCheck_inv hrules).2 i r0 rG.rhs hr0 hiG with heq | hag
+        rcases ((ConLeche.streamRulesCheck_inv hrules).2 i r0 rG.rhs hr0 hiG).2 with heq | hag
         · rw [← hr0e, heq]
           obtain ⟨Ra, hRa, hw, -⟩ := h.2.1 us hus
           obtain rfl := Option.some.inj (hRa.symm.trans hRaG)

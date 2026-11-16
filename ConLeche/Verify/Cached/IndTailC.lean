@@ -94,12 +94,12 @@ theorem streamRulesShapeC_eq (rec : Name) :
   | [], _ :: _ => rfl
   | _ :: _, [] => rfl
 
-theorem streamRulesCheckC_eq (fe : FEnv) (rec : Name) (lps : List Name) :
-    ∀ rs gs, streamRulesCheckC mode fe rec lps rs gs =
-      streamRulesCheck (sharedOpsC mode fe) fe rec lps rs gs
+theorem streamRulesCheckC_eq (fe : FEnv) (rec : Name) (lps : List Name) (rP : Nat) :
+    ∀ rs gs, streamRulesCheckC mode fe rec lps rP rs gs =
+      streamRulesCheck (sharedOpsC mode fe) fe rec lps rP rs gs
   | r :: rs, g :: gs => by
     simp only [streamRulesCheckC, streamRulesCheck, ruleAgreeC_eq,
-      streamRulesCheckC_eq fe rec lps rs gs]
+      streamRulesCheckC_eq fe rec lps rP rs gs]
   | [], [] => rfl
   | [], _ :: _ => rfl
   | _ :: _, [] => rfl

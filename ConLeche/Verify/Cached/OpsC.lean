@@ -459,27 +459,17 @@ theorem instSpineChainC_spec : ∀ (args : List Expr) (t : Nat) (e : Expr),
         = Expr.instSpineChainC as (t - 1) (Expr.instantiate1C e a t) from rfl, h4, h2]
     rfl
 
-theorem instSpineC_spec {args : List Expr} {t : Nat} {e : Expr} :
-    (Expr.instSpineC args t e) = Expr.instSpine args t e := by
-  rw [Expr.instSpineC]
-  split
-  · rename_i hlen
-    have hxlen : args.length = t + 1 := by simpa using hlen
-    have h2 := instantiateListC_spec (e := e) (vs := args.reverse) (d := 0)
-    rw [h2, Expr.instSpine_eq_instantiateList _ t _ hxlen]
-  · exact instSpineChainC_spec args t e
-
 /-! ## Bulk instantiation on a reversed accumulator
 
 The reversed walk is the forward walk on the reversed array — proved
 pointwise, so every `instantiateList` fact transfers. -/
 
 /-- The reversed plain descent is the forward one on the reversed
-array, so every `instantiateList` fact transfers unchanged. -/
-theorem instantiateRevP_eq {vs : Array Expr} :
+prefix `vs[:n]`, so every `instantiateList` fact transfers unchanged. -/
+theorem instantiateRevP_eq {vs : Array Expr} {n : Nat} (hn : n ≤ vs.size) :
     ∀ (k : Nat) (e : Expr) (d : Nat),
-      Expr.instantiateRevP vs e k d
-        = Expr.instantiateListP vs.reverse e k d := by
+      Expr.instantiateRevP vs n e k d
+        = Expr.instantiateListP (vs.extract 0 n).reverse e k d := by
   intro k
   induction k using Nat.strongRecOn with
   | _ k ihk =>
@@ -500,14 +490,16 @@ theorem instantiateRevP_eq {vs : Array Expr} :
     rw [ite_eq_right hid, ite_eq_right hid]
     by_cases hidk : i - d < k
     · rw [dite_eq_left hidk, dite_eq_left hidk]
-      have hsz : vs.reverse.size = vs.size := by simp
-      by_cases hidv : i - d < vs.size
-      · rw [dite_eq_left hidv, dite_eq_left (hsz ▸ hidv)]
-        have hget : vs.reverse[i - d]'(hsz ▸ hidv)
-            = vs[vs.size - 1 - (i - d)]'(by omega) := by
-          simp [Array.getElem_reverse]
+      have hsz : (vs.extract 0 n).reverse.size = n := by simp; omega
+      by_cases hidv : i - d < n ∧ n ≤ vs.size
+      · have hidv' : i - d < (vs.extract 0 n).reverse.size := by rw [hsz]; exact hidv.1
+        rw [dite_eq_left hidv, dite_eq_left hidv']
+        have hget : (vs.extract 0 n).reverse[i - d]'hidv'
+            = vs[n - 1 - (i - d)]'(by omega) := by
+          simp [Array.getElem_reverse, Array.getElem_extract]
+          congr 1; omega
         rw [ihk (i - d) hidk, hget]
-      · rw [dite_eq_right hidv, dite_eq_right (fun h => hidv (hsz ▸ h))]
+      · rw [dite_eq_right hidv, dite_eq_right (fun h => hidv ⟨by rw [hsz] at h; exact h, hn⟩)]
     · rw [dite_eq_right hidk, dite_eq_right hidk]
   | fvar idx ty _ =>
     intro d
@@ -577,37 +569,48 @@ theorem instantiateRevP_eq {vs : Array Expr} :
     dsimp only
     rw [ih d]
 
-theorem instantiateRev_spec {e : Expr} {vs : Array Expr} {d : Nat}
-    :
-      (Expr.instantiateRev e vs d)
-        = (Expr.instantiateList e (vs.toList.reverse) d) := by
-  have hws : vs.reverse.toList = vs.toList.reverse := by
-    simp
-  rw [instantiateRev]
+/-- **The range instantiation computes `Expr.instantiateList`** on the
+range's elements, innermost (the range's last) first. -/
+theorem instantiateRevRange_spec {e : Expr} {vs : Array Expr} {s n d : Nat} :
+    (Expr.instantiateRevRange e vs s n d)
+      = (Expr.instantiateList e (vs.extract s n).toList.reverse d) := by
+  rw [Expr.instantiateRevRange]
+  have hext : vs.extract s n = vs.extract s (min n vs.size) := by
+    apply Array.toList_inj.mp
+    simp [List.take_eq_take_iff]; omega
+  rw [hext]
+  have hm' : min n vs.size ≤ vs.size := Nat.min_le_right ..
+  dsimp only
   split
   · rename_i h0
-    have hnil : vs.toList.reverse = [] := by
-      have he : vs.toList = [] := by
-        apply List.eq_nil_of_length_eq_zero
-        simpa using h0
-      simp [he]
+    have hnil : (vs.extract s (min n vs.size)).toList.reverse = [] := by
+      simp; omega
     rw [hnil]
     exact (Expr.instantiateList_nil _ _).symm
   · split
     · rename_i hcut
       exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
-    · have htail : ∀ x : Expr,
-          x = (Expr.instantiateList e (vs.reverse.toList.take vs.size) d) →
-          x = (Expr.instantiateList e vs.toList.reverse d) := by
-        intro x hx
-        rw [hx, hws]
-        congr 1
-        rw [show vs.size = (vs.toList.reverse).length from by simp,
-          List.take_length]
-      rw [Expr.resTerm_eq]
-      exact htail _ ((instantiateRevP_eq vs.size e d).trans
-        (instantiateListP_spec (vs := vs.reverse) vs.size e (d := d)
-          (by simp)))
+    · rename_i h0 _
+      have hl : ((vs.extract 0 (min n vs.size)).reverse.toList.take (min n vs.size - s))
+          = (vs.extract s (min n vs.size)).toList.reverse := by
+        simp [List.take_reverse, List.drop_take, Nat.min_eq_left hm']
+        congr 2 <;> omega
+      rw [Expr.resTerm_eq, instantiateRevP_eq hm',
+        instantiateListP_spec (min n vs.size - s) e (by simp), hl]
+
+theorem instantiateRev_spec {e : Expr} {vs : Array Expr} {d : Nat} :
+    (Expr.instantiateRev e vs d)
+      = (Expr.instantiateList e (vs.toList.reverse) d) := by
+  rw [Expr.instantiateRev, instantiateRevRange_spec, Array.extract_size]
+
+theorem instSpineC_spec {args : List Expr} {t : Nat} {e : Expr} :
+    (Expr.instSpineC args t e) = Expr.instSpine args t e := by
+  rw [Expr.instSpineC]
+  split
+  · rename_i hlen
+    have hxlen : args.length = t + 1 := by simpa using hlen
+    rw [instantiateRev_spec, List.toList_toArray, Expr.instSpine_eq_instantiateList _ t _ hxlen]
+  · exact instSpineChainC_spec args t e
 
 /-! ## Abstraction
 
@@ -920,7 +923,8 @@ theorem _root_.ConLeche.ProjEntry.typeAtI_eq (entry : ProjEntry) (us : List Leve
     (targs : List Expr) (pe : Expr) :
     entry.typeAtI us targs pe = entry.typeAt us targs pe := by
   unfold ProjEntry.typeAtI ProjEntry.typeAt
-  rw [instantiateListC_spec, instLevelParams_spec]
+  rw [instantiateRev_spec, instLevelParams_spec]
+  simp
 
 /-! ## The scope walk
 

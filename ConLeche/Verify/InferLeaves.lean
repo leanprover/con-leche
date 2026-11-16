@@ -5,6 +5,7 @@ import ConLeche.Verify.Leaves
 import ConLeche.Verify.Subst
 import ConLeche.Verify.Abstract
 
+import ConLeche.Verify.IotaReduct
 public section
 
 /-!
@@ -445,13 +446,10 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
                   exact hP l' (by simpa using this))
               (fun l' hl' => hl')
           have hl2 := ihCore hwe'' l hl
-          rcases fvarLeaves_mkAppN hl2 with hrl | ⟨x, hx, hlx⟩
-          · obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
-            obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl r
-              (List.mem_of_find?_eq_some hrule)
-            rw [fvarLeaves_eq_nil_of_not_hasFvar
-              (by rw [hasFvar_instantiateLevelParams]; exact hrf)] at hrl
-            cases hrl
+          have hrf : r.rhs.hasFvar = false := by
+            obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
+            exact (hrules cv mI rP isK rules rfl r (List.mem_of_find?_eq_some hrule)).1
+          obtain ⟨x, hx, hlx⟩ := RecRule.fvarLeaves_iotaReduct hrf hl2
           · rcases List.mem_append.mp hx with hx | hx
             · have hll := fvarLeaves_getAppArgs (List.mem_of_mem_take hx)
                 l hlx
@@ -594,12 +592,12 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
                 · exact hbM)
               (looseBVarsBounded_getAppArgs hbapp _ (getD_mem (by omega)))
           refine ihCore hwe'' ?_
-          refine looseBVarsBounded_mkAppN ?_ ?_
+          obtain ⟨hrPle, -⟩ := henv.rules _ (Env.find?_mem hfc) cv mI rP isK rules rfl r
+            (List.mem_of_find?_eq_some hrule)
+          refine RecRule.iotaReduct_closed ?_
+            (iotaVals_length (by rw [hlen]; omega) hml) ?_
           · obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
-            obtain ⟨-, -, -, hrb, -⟩ := hrules cv mI rP isK rules rfl r
-              (List.mem_of_find?_eq_some hrule)
-            rw [looseBVarsBounded_instantiateLevelParams]
-            exact hrb
+            exact (hrules cv mI rP isK rules rfl r (List.mem_of_find?_eq_some hrule)).2.2.2.1
           · intro x hx
             rcases List.mem_append.mp hx with hx | hx
             · exact looseBVarsBounded_getAppArgs hbapp _

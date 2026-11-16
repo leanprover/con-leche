@@ -58,7 +58,7 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false)
   unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe cv.type do
-    throw (unresolvedConstsErrorLC (strLitStoredF fe) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorLC (fe.strLit) s!"type of {cv.name}" cv.type)
   let jsty ← inferI mode fe false checkFuel false 0 cv.type
   let _u ← opSIxC mode fe 0 jsty
 

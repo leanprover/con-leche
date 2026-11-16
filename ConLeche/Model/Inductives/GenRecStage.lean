@@ -430,7 +430,8 @@ theorem recStage_of_gen
     pins := ConLeche.targetRecPins_inv R.pins,
     fam := ⟨R.hk, ?_, ?_, ?_⟩,
     lenT := hlenR, len := hlenT, stored := ?_, tyGen := ?_,
-    rulesLenAt := ?_, ruleOut := ?_ }⟩
+    rulesLenAt := ?_, ruleOut := ?_,
+    binds := fun _ _ _ _ _ hr hrhs hctor => genRuleBinds R hr hctor hrhs }⟩
   · -- the counting half
     cases hL : p.large
     · right

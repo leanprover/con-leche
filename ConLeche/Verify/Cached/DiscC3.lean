@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.DiscC2
 
+import ConLeche.Verify.IotaReduct
 public section
 
 /-!
@@ -22,7 +23,7 @@ cached match's own arm hypotheses (`iotaRec_rec`, `iotaRecK_ctor`,
 the arms are named functions (`iotaRecK`, `iotaCertGate`, `iotaCertP`,
 `iotaRecFire`, `mtcBodyP`; the cached blocks `iotaCertI`, `mtcBodyI`), so
 that no `fun` holding a `match` reaches grind.  The environment reads
-are named (`ctorVal?`; the caches' `findRule`, `constTyOf`, `ruleRhsOf`
+are named (`ctorVal?`; the caches' `findRule`, `constTyOf`, `ruleBodyOf`
 in `SimCEff.lean`), with one guarded equation each at the arm that reads
 them.
 -/
@@ -49,9 +50,75 @@ theorem wscoped_piResidual {d : Nat} {t : Expr} {ys : List Expr} (ht : Expr.WSco
   | some r => exact piResidual_WScoped h ht hys
 grind_pattern [conleche_grind] wscoped_piResidual => Expr.WScoped d t, piResidual t ys
 
-@[conleche_grind =] theorem isCtorAppC_eq (env : Env) (e : Expr) :
-    isCtorAppC (mkFEnv env) e = isCtorApp env e :=
-  isCtorAppC_spec
+/-! The classified major (`MajorView`): what a view claims of its term, and the
+classification's readers. -/
+
+/-- What a `MajorView` claims of its term: a `.ctor` view's term is headed by the
+named constructor, stored with that record; a `.stuck` one's by no stored
+constructor. -/
+def MajorView.OK (env : Env) : MajorView → Prop
+  | .ctor e cj usj cvj nP nF induct =>
+    e.getAppFn = .const cj usj ∧ env.find? cj = some (.ctorInfo cvj nP nF induct)
+  | .stuck e => isCtorApp env e = false
+
+@[conleche_grind =] theorem MajorView.OK_ctor (e : Expr) (cj : Name) (usj : List Level)
+    (cvj : ConstantVal) (nP nF : Nat) (induct : Name) :
+    (MajorView.ctor e cj usj cvj nP nF induct).OK env =
+      (e.getAppFn = .const cj usj ∧ env.find? cj = some (.ctorInfo cvj nP nF induct)) := by rfl
+
+@[conleche_grind =] theorem MajorView.OK_stuck (e : Expr) :
+    (MajorView.stuck e).OK env = (isCtorApp env e = false) := by rfl
+
+@[conleche_grind =] theorem MajorView.expr_ctor (e : Expr) (cj : Name) (usj : List Level)
+    (cvj : ConstantVal) (nP nF : Nat) (induct : Name) :
+    (MajorView.ctor e cj usj cvj nP nF induct).expr = e := rfl
+
+@[conleche_grind =] theorem MajorView.expr_stuck (e : Expr) : (MajorView.stuck e).expr = e := rfl
+
+@[conleche_grind =] theorem MajorView.isCtor_ctor (e : Expr) (cj : Name) (usj : List Level)
+    (cvj : ConstantVal) (nP nF : Nat) (induct : Name) :
+    (MajorView.ctor e cj usj cvj nP nF induct).isCtor = true := rfl
+
+@[conleche_grind =] theorem MajorView.isCtor_stuck (e : Expr) :
+    (MajorView.stuck e).isCtor = false := rfl
+
+/-- A view's flag is the spec's constructor-application test of its term. -/
+theorem MajorView.isCtor_of_OK {v : MajorView} (h : v.OK env) :
+    v.isCtor = isCtorApp env v.expr := by
+  cases v with
+  | ctor e cj usj cvj nP nF induct =>
+    obtain ⟨h1, h2⟩ := h
+    simp only [MajorView.isCtor, MajorView.expr, isCtorApp, h1, h2]
+  | stuck e => exact h.symm
+grind_pattern [conleche_grind] MajorView.isCtor_of_OK => v.OK env, v.isCtor
+
+@[conleche_grind =] theorem ctorViewC_expr (fe : FEnv) (e : Expr) : (ctorViewC fe e).expr = e := by
+  unfold ctorViewC
+  split
+  · split <;> rfl
+  · rfl
+
+/-- The classification is the spec's constructor-application test, with what it found. -/
+theorem ctorViewC_OK (e : Expr) : (ctorViewC (mkFEnv env) e).OK env := by
+  unfold ctorViewC
+  cases hfn : e.getAppFn with
+  | const cj usj =>
+    simp only [mkFEnv_find?]
+    cases hf : env.find? cj with
+    | none => show isCtorApp env e = false; simp [isCtorApp, hfn, hf]
+    | some ci =>
+      cases ci <;> first
+        | exact ⟨hfn, hf⟩
+        | (show isCtorApp env e = false; simp [isCtorApp, hfn, hf])
+  | _ => show isCtorApp env e = false; simp [isCtorApp, hfn]
+grind_pattern [conleche_grind] ctorViewC_OK => ctorViewC (mkFEnv env) e
+
+/-- A `String` literal is no constructor application. -/
+theorem isCtorApp_of_isStrLit {e : Expr} (h : e.isStrLit = true) : isCtorApp env e = false := by
+  cases e with
+  | lit _ => rfl
+  | _ => simp [Expr.isStrLit] at h
+grind_pattern [conleche_grind] isCtorApp_of_isStrLit => isCtorApp env e, e.isStrLit
 
 end Vocabulary
 
@@ -123,17 +190,29 @@ theorem mkAppRange_eq (f : Expr) (A : Array Expr) (i j : Nat) :
       apply List.drop_eq_nil_of_le; simp; omega
     rw [this]; rfl
 
-/-- **The ι reduct, from ranges**: the right-hand side applied to the redex's leading arguments
-and the constructor's fields. -/
-@[conleche_grind =] theorem iotaReduct_eq (r : Expr) (A M : Array Expr) (rP k i : Nat) :
-    mkAppRange (mkAppRange r A 0 (min rP k)) M i M.size =
-      Expr.mkAppN r ((A.toList.take k).take rP ++ M.toList.drop i) := by
-  have happ : ∀ (as bs : List Expr) (f : Expr),
-      Expr.mkAppN f (as ++ bs) = Expr.mkAppN (Expr.mkAppN f as) bs := by
-    intro as; induction as with
-    | nil => intro _ _; rfl
-    | cons a as ih => intro bs f; exact ih bs (.app f a)
-  rw [mkAppRange_eq, mkAppRange_eq, happ,
+/-- A range pushed is the range's list appended. -/
+theorem pushRange_toList (acc A : Array Expr) (i j : Nat) :
+    (pushRange acc A i j).toList = acc.toList ++ (A.toList.take j).drop i := by
+  induction acc, i using pushRange.induct A j with
+  | case1 acc i h ih =>
+    rw [pushRange, dite_eq_left h, ih]
+    have hi : i < (A.toList.take j).length := by simp; omega
+    rw [show List.drop i (List.take j A.toList) = _ :: _ from List.drop_eq_getElem_cons hi]
+    simp
+  | case2 acc i h =>
+    rw [pushRange, dite_eq_right h]
+    have : (A.toList.take j).drop i = [] := by
+      apply List.drop_eq_nil_of_le; simp; omega
+    rw [this, List.append_nil]
+
+/-- **The ι reduct, from ranges**: the rule's peeled body with the redex's leading arguments
+and the constructor's fields substituted. -/
+@[conleche_grind =] theorem iotaReduct_eq (rl : RecRule) (lps : List Name) (us : List Level)
+    (A M : Array Expr) (rP k i : Nat) :
+    Expr.instantiateRev ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams lps us)
+        (iotaVals A (min rP k) M i) =
+      rl.iotaReduct lps us rP ((A.toList.take k).take rP ++ M.toList.drop i) := by
+  rw [instantiateRev_spec, iotaVals, pushRange_toList, pushRange_toList, RecRule.iotaReduct,
     show M.toList.take M.size = M.toList from List.take_of_length_le (by simp)]
   simp [List.take_take]
 
@@ -156,6 +235,9 @@ theorem length_take_of_le {A : Array Expr} {k : Nat} (h : k ≤ A.size) :
   simp; omega
 
 theorem getAppArgs_const' (c : Name) (us : List Level) : (Expr.const c us).getAppArgs = [] := rfl
+
+theorem getAppFn_const' (c : Name) (us : List Level) :
+    (Expr.const c us).getAppFn = .const c us := rfl
 
 /-- A spine head is never an application. -/
 theorem getAppFn_ne_app : ∀ (e f a : Expr), e.getAppFn ≠ .app f a := by
@@ -211,7 +293,7 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
 
 /-- The cached K rescue. -/
 @[expose] def mtcKI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (rl : RecRule)
-    (cvj : ConstantVal) (cnP : Nat) (T : Name) : CheckCM Expr := do
+    (cvj : ConstantVal) (cnP : Nat) (T : Name) : CheckCM MajorView := do
   let tmaj₀ ← inferI mode fe eager lv true depth major
   let tmaj ← whnfI mode fe eager lv depth tmaj₀
   match Expr.getAppFn tmaj with
@@ -228,17 +310,17 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
           let tfab ← inferI mode fe eager lv true depth fab
           if ← defeqI mode fe eager lv depth tmaj tfab then
             if ← certAtI mode (proofIrrelI mode fe eager lv depth fab major) then
-              pure fab
-            else pure major
-          else pure major
-        else pure major
-      else pure major
-    else pure major
-  | _ => pure major
+              pure (ctorViewC fe fab)
+            else pure (.stuck major)
+          else pure (.stuck major)
+        else pure (.stuck major)
+      else pure (.stuck major)
+    else pure (.stuck major)
+  | _ => pure (.stuck major)
 
 /-- The cached η rescue. -/
 @[expose] def mtcEtaI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (T : Name)
-    (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable) : CheckCM Expr := do
+    (cvT : ConstantVal) (caps : IndCaps) (tbl : ProjTable) : CheckCM MajorView := do
   let tmaj₀ ← inferI mode fe eager lv true depth major
   let tmaj ← whnfI mode fe eager lv depth tmaj₀
   match Expr.getAppFn tmaj with
@@ -256,15 +338,15 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
         if ← pure (Expr.wscopedBC depth fab &&
             Expr.looseBVarsBounded 0 fab &&
             Expr.leafGuard fab major) then
-          pure fab
-        else pure major
-      else pure major
-    else pure major
-  | _ => pure major
+          pure (ctorViewC fe fab)
+        else pure (.stuck major)
+      else pure (.stuck major)
+    else pure (.stuck major)
+  | _ => pure (.stuck major)
 
 /-- The cached `And` rescue. -/
 @[expose] def mtcAndI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (rl : RecRule)
-    (cvj : ConstantVal) (cnP : Nat) (T : Name) : CheckCM Expr := do
+    (cvj : ConstantVal) (cnP : Nat) (T : Name) : CheckCM MajorView := do
   let tmaj₀ ← inferI mode fe eager lv true depth major
   let tmaj ← whnfI mode fe eager lv depth tmaj₀
   match Expr.getAppFn tmaj with
@@ -284,39 +366,40 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
         let tfab ← inferI mode fe eager lv true depth fab
         if ← defeqI mode fe eager lv depth tmaj tfab then
           if ← certAtI mode (proofIrrelI mode fe eager lv depth fab major) then
-            pure fab
-          else pure major
-        else pure major
-      else pure major
-    else pure major
-  | _ => pure major
+            pure (ctorViewC fe fab)
+          else pure (.stuck major)
+        else pure (.stuck major)
+      else pure (.stuck major)
+    else pure (.stuck major)
+  | _ => pure (.stuck major)
 
 /-- The cached rescue past its syntactic gates. -/
 @[expose] def mtcBodyI (mode : CheckMode) (fe : FEnv) (eager : Bool) (lv : Nat) (depth : Nat) (major : Expr) (isK : Bool) (rl : RecRule)
     (cvj : ConstantVal) (cnP : Nat) (T : Name) (cvT : ConstantVal) (caps : IndCaps) :
-    CheckCM Expr :=
+    CheckCM MajorView :=
   if isK = true then mtcKI mode fe eager lv depth major rl cvj cnP T
   else match etaRescueTable? (fe.findTable? T) rl.ctor cvj cvT caps with
   | some tbl => mtcEtaI mode fe eager lv depth major T cvT caps tbl
   | none =>
     if T = andName then mtcAndI mode fe eager lv depth major rl cvj cnP T
-    else pure major
+    else pure (.stuck major)
 
 /-- `majorToCtorI` with its blocks named. -/
 theorem majorToCtorI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (recName : Name) (isK : Bool)
     (rules : List RecRule) (major : Expr) :
     majorToCtorI mode fe eager lv depth recName isK rules major =
     (do
-      if ← pure (isCtorAppC fe major) then pure major else
+      let v ← pure (ctorViewC fe major)
+      if v.isCtor then pure v else
       match rules with
       | [rl] =>
         match fe.find? rl.ctor with
         | some (.ctorInfo cvj cnP _cnF T) =>
           match fe.find? T with
           | some (.indInfo cvT caps) => mtcBodyI mode fe eager lv depth major isK rl cvj cnP T cvT caps
-          | _ => pure major
-        | _ => pure major
-      | _ => pure major) := by
+          | _ => pure (.stuck major)
+        | _ => pure (.stuck major)
+      | _ => pure (.stuck major)) := by
   rw [majorToCtorI.eq_def]; rfl
 
 section PureMtc
@@ -481,19 +564,30 @@ grind_pattern [conleche_grind] mtc_notInd =>
   guard rules = [rl]
   guard env.find? rl.ctor = some (.ctorInfo cvj cnP cnF T)
 
+omit [MonadExceptOf CheckError m] in
+/-- The literal conversion leaves a constructor application as it is. -/
+theorem litMajorToCtor_ctorApp {e : Expr} (h : isCtorApp env e = true) :
+    litMajorToCtor r env d e = pure e := by
+  cases e with
+  | lit l => exact nomatch h
+  | _ => rfl
+grind_pattern [conleche_grind] litMajorToCtor_ctorApp => litMajorToCtor r env d e where
+  guard isCtorApp env e = true
+
 end PureMtc
 
 /-! ### The rescue's walks -/
 
 theorem mtcKC_spec (ih : SSimC .verified eager env f) {d : Nat}
     {major : Expr} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {s₀ : CState}
-    (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major) :
+    (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major)
+    (hst : isCtorApp env major = false) :
     ⦃fun s => s = s₀⦄ mtcKI .verified (mkFEnv env) eager f d major rl cvj cnP T
     ⦃fun v s' => CSOK .verified eager env s' ∧
       Runs ((fueledFns .verified eager env).inferIO d major >>= fun tm => (fueledFns .verified eager
           env).whnf d tm >>=
-        mtcKCont .verified (fueledFns .verified eager env) d major rl cvj cnP T) v ∧
-      Expr.WScoped d v; ⊤⦄ := by
+        mtcKCont .verified (fueledFns .verified eager env) d major rl cvj cnP T) v.expr ∧
+      v.OK env ∧ Expr.WScoped d v.expr; ⊤⦄ := by
   sym only [conleche_grind, mtcKCont, proofIrrelGate_of, CheckMode.verifiedChecks] =>
     vcgen [mtcKI, certAtI, mkAppNM, ih.inferIO_spec, ih.whnf_spec,
       ih.defeq_spec, proofIrrelC_spec ih] <;> finish
@@ -544,27 +638,29 @@ theorem EnvWF.indTy_closed (henv : EnvWF env) {T : Name} {cvT : ConstantVal} {ca
 theorem mtcEtaC_spec (ih : SSimC mode eager env f) {d : Nat} {major : Expr} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable} {s₀ : CState}
     (hs : CSOK mode eager env s₀)
-    (hw : Expr.WScoped d major) (hcl : cvT.type.hasFvar = false) :
+    (hw : Expr.WScoped d major) (hcl : cvT.type.hasFvar = false)
+    (hst : isCtorApp env major = false) :
     ⦃fun s => s = s₀⦄ mtcEtaI mode (mkFEnv env) eager f d major T cvT caps tbl
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs ((fueledFns mode eager env).inferIO d major >>= fun tm => (fueledFns mode eager
           env).whnf d tm >>=
-        mtcEtaCont (fueledFns mode eager env) d major T cvT caps tbl) v ∧
-      Expr.WScoped d v; ⊤⦄ := by
+        mtcEtaCont (fueledFns mode eager env) d major T cvT caps tbl) v.expr ∧
+      v.OK env ∧ Expr.WScoped d v.expr; ⊤⦄ := by
   sym only [conleche_grind, mtcEtaCont, etaFabArgsE] =>
     vcgen [mtcEtaI, mkAppNM, ih.inferIO_spec, ih.whnf_spec, familyNeverZeroC_spec ih hcl,
       projNodesC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
 theorem mtcAndC_spec (ih : SSimC .verified eager env f) {d : Nat}
     {major : Expr} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {s₀ : CState}
-    (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major) :
+    (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major)
+    (hst : isCtorApp env major = false) :
     ⦃fun s => s = s₀⦄ mtcAndI .verified (mkFEnv env) eager f d major rl
         cvj cnP T
     ⦃fun v s' => CSOK .verified eager env s' ∧
       Runs ((fueledFns .verified eager env).inferIO d major >>= fun tm => (fueledFns .verified eager
           env).whnf d tm >>=
-        mtcAndCont .verified (fueledFns .verified eager env) env d major rl cvj cnP T) v ∧
-      Expr.WScoped d v; ⊤⦄ := by
+        mtcAndCont .verified (fueledFns .verified eager env) env d major rl cvj cnP T) v.expr ∧
+      v.OK env ∧ Expr.WScoped d v.expr; ⊤⦄ := by
   sym only [conleche_grind, mtcAndCont, proofIrrelGate_of, CheckMode.verifiedChecks] =>
     vcgen [mtcAndI, certAtI, mkAppNM, ih.inferIO_spec, ih.whnf_spec,
       ih.defeq_spec, proofIrrelC_spec ih, projNodesC_spec (mode := .verified) (eager := eager) (env :=
@@ -574,15 +670,15 @@ theorem mtcAndC_spec (ih : SSimC .verified eager env f) {d : Nat}
 theorem mtcBodyC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat}
     {major : Expr} {isK : Bool} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {cvT : ConstantVal}
     {caps : IndCaps} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major)
-    (hfT : env.find? T = some (.indInfo cvT caps)) :
+    (hfT : env.find? T = some (.indInfo cvT caps)) (hst : isCtorApp env major = false) :
     ⦃fun s => s = s₀⦄
       mtcBodyI .verified (mkFEnv env) eager f d major isK rl cvj cnP T cvT caps
     ⦃fun v s' => CSOK .verified eager env s' ∧
-      Runs (mtcBodyP .verified (fueledFns .verified eager env) env d major isK rl cvj cnP T cvT caps) v ∧
-      Expr.WScoped d v; ⊤⦄ := by
+      Runs (mtcBodyP .verified (fueledFns .verified eager env) env d major isK rl cvj cnP T cvT caps) v.expr ∧
+      v.OK env ∧ Expr.WScoped d v.expr; ⊤⦄ := by
   sym only [conleche_grind, mtcBodyP] =>
-    vcgen [mtcBodyI, mtcKC_spec ih hs hw, mtcEtaC_spec ih hs hw (EnvWF.indTy_closed henv hfT),
-      mtcAndC_spec ih hs hw] <;> finish
+    vcgen [mtcBodyI, mtcKC_spec ih hs hw hst, mtcEtaC_spec ih hs hw (EnvWF.indTy_closed henv hfT) hst,
+      mtcAndC_spec ih hs hw hst] <;> finish
 
 /-- `majorToCtorI` simulates its fueled original. -/
 theorem majorToCtorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
@@ -591,8 +687,8 @@ theorem majorToCtorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     ⦃fun s => s = s₀⦄
       majorToCtorI .verified (mkFEnv env) eager f d recName isK rules i
     ⦃fun m s' => CSOK .verified eager env s' ∧
-      Runs (majorToCtor .verified (fueledFns .verified eager env) env d recName isK rules i) m ∧
-      Expr.WScoped d m; ⊤⦄ := by
+      Runs (majorToCtor .verified (fueledFns .verified eager env) env d recName isK rules i) m.expr ∧
+      m.OK env ∧ Expr.WScoped d m.expr; ⊤⦄ := by
   sym only [conleche_grind, mtc_notSingle] =>
     vcgen [majorToCtorI_eq, mtcBodyC_spec ih henv hs hw] <;> finish
 
@@ -605,8 +701,8 @@ theorem prepareMajorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     ⦃fun s => s = s₀⦄
       prepareMajorI .verified (mkFEnv env) eager f d recName isK rules i
     ⦃fun m s' => CSOK .verified eager env s' ∧
-      Runs (prepareMajor .verified (fueledFns .verified eager env) env d recName isK rules i) m ∧
-      Expr.WScoped d m; ⊤⦄ := by
+      Runs (prepareMajor .verified (fueledFns .verified eager env) env d recName isK rules i) m.expr ∧
+      m.OK env ∧ Expr.WScoped d m.expr; ⊤⦄ := by
   sym only [conleche_grind, prepareMajor] =>
     vcgen [prepareMajorI.eq_def, majorToCtorC_spec (eager := eager) (env := env) ih henv,
       litMajorToCtorC_spec (eager := eager) (env := env) ih, ih.whnf_spec] <;> finish
@@ -711,6 +807,13 @@ theorem EnvWF.rules_ok (henv : EnvWF env) {c : Name} {cv : ConstantVal} {mI rP :
   | nested lvls pins => exact fun pin hpin => ((g5 lvls pins hf).2.2.1 pin hpin).1
   | levels _ => trivial
 
+/-- The ι reduct of a free-variable-free rule at well-scoped values is well scoped. -/
+theorem wscoped_iotaReduct {d : Nat} {rl : RecRule} {lps : List Name} {us : List Level}
+    {rP : Nat} {vals : List Expr} (hf : rl.rhs.hasFvar = false) (hv : AllWS d vals) :
+    Expr.WScoped d (rl.iotaReduct lps us rP vals) :=
+  RecRule.iotaReduct_WScoped hf hv
+grind_pattern [conleche_grind] wscoped_iotaReduct => Expr.WScoped d (rl.iotaReduct lps us rP vals)
+
 /-- The constructor record stored under `n`. -/
 @[expose] def ctorVal? (env : Env) (n : Name) : Option ConstantVal :=
   match env.find? n with
@@ -730,13 +833,14 @@ theorem ctorVal?_of {n : Name} {cv : ConstantVal} {nP nF : Nat} {T : Name}
 grind_pattern [conleche_grind] ctorVal?_of => ctorVal? env n, ConstantInfo.ctorInfo cv nP nF T where
   guard env.find? n = some (.ctorInfo cv nP nF T)
 
-theorem ruleRhsOf_some {c j : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
+theorem ruleBodyOf_some {c j : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
     {rl : RecRule} (h2 : env.find? c = some (.recInfo cv mI rP isK rules))
     (h3 : findRule rules j = some rl) (us : List Level) :
-    ruleRhsOf env c j us = some (rl.rhs.instantiateLevelParams cv.levelParams us) := by
-  simp only [ruleRhsOf, h2, h3]
-grind_pattern [conleche_grind] ruleRhsOf_some =>
-    ruleRhsOf env c j us, ConstantInfo.recInfo cv mI rP isK rules, some rl where
+    ruleBodyOf env c j us =
+      some ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams us) := by
+  simp only [ruleBodyOf, h2, h3]
+grind_pattern [conleche_grind] ruleBodyOf_some =>
+    ruleBodyOf env c j us, ConstantInfo.recInfo cv mI rP isK rules, some rl where
   guard env.find? c = some (.recInfo cv mI rP isK rules)
   guard findRule rules j = some rl
 
@@ -809,9 +913,7 @@ major's `margs`, read as lists past the case decision. -/
     (args : List Expr) (rP cnP : Nat) (rl : RecRule) (margs : List Expr) (ok : Bool) :
     m (Option Expr) :=
   if ok then
-    pure (some (Expr.mkAppN
-      (rl.rhs.instantiateLevelParams cv.levelParams us)
-      (args.take rP ++ margs.drop cnP)))
+    pure (some (rl.iotaReduct cv.levelParams us rP (args.take rP ++ margs.drop cnP)))
   else pure none
 
 /-- The pure ι step past the major's preparation. -/
@@ -834,39 +936,26 @@ major's `margs`, read as lists past the case decision. -/
   | _ => pure none
 
 /-- `iotaRecI` with its certificate block named. -/
-theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (h : Expr) (args : Array Expr) (k : Nat) :
-    iotaRecI mode fe eager lv depth h args k =
-    (match h with
-    | .const c us => do
-      let cn ← pure c
-      match fe.find? cn with
-      | some (.recInfo cv mI rP isK rules) => do
-        if k = mI + 1 ∧ k ≤ args.size ∧ us.length = cv.levelParams.length ∧
-            (Expr.peelPis (mI + 1) cv.type).isSome = true then do
-          let major ← prepareMajorI mode fe eager lv depth cn isK rules (spineArg args mI)
-          match Expr.getAppFn major with
-          | .const cj usj => do
-            let cjn ← pure cj
-            match fe.find? cjn with
-            | some (.ctorInfo cvj cnP _ induct) =>
-              match findRule rules cjn with
-              | some rl => do
-                let margs ← pure (getAppArgsArr major)
-                if margs.size = cnP + rl.nfields then do
-                  if ← certAtI mode
-                      (iotaCertI mode fe eager lv depth cv mI rP isK us args k cj cjn usj cvj induct cnP rl
-                        margs) then do
-                    let rhs ← ruleRhsAtM fe c cj cn cjn us
-                    pure (some (mkAppRange (mkAppRange rhs args 0 (min rP k))
-                      margs cnP margs.size))
-                  else pure none
-                else pure none
-              | none => pure none
-            | _ => pure none
-          | _ => pure none
-        else pure none
-      | _ => pure none
-    | _ => pure none) := by
+theorem iotaRecI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (c : Name) (us : List Level)
+    (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rules : List RecRule) (args : Array Expr) :
+    iotaRecI mode fe eager lv depth c us cv mI rP isK rules args =
+    (if (Expr.peelPis (mI + 1) cv.type).isSome = true then do
+      match ← prepareMajorI mode fe eager lv depth c isK rules (spineArg args mI) with
+      | .ctor major cj usj cvj cnP _ induct =>
+        match findRule rules cj with
+        | some rl => do
+          let margs ← pure (getAppArgsArr major)
+          if margs.size = cnP + rl.nfields then do
+            if ← certAtI mode
+                (iotaCertI mode fe eager lv depth cv mI rP isK us args (mI + 1) cj cj usj cvj induct
+                  cnP rl margs) then do
+              let body ← ruleBodyAtM fe c cj c cj us
+              pure (some (Expr.instantiateRev body (iotaVals args (min rP (mI + 1)) margs cnP)))
+            else pure none
+          else pure none
+        | none => pure none
+      | .stuck _ => pure none
+    else pure none) := by
   rw [iotaRecI.eq_def]; rfl
 
 /-- `iotaRec` with its continuation past the major named. -/
@@ -966,6 +1055,22 @@ grind_pattern [conleche_grind] iotaRecK_norule =>
   guard env.find? cj = some (.ctorInfo cvj nP nF induct)
   guard findRule rules cj = none
 
+theorem iotaRecK_stuck {args : List Expr} {us : List Level} {cv : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule} {major : Expr} (h : isCtorApp env major = false) :
+    iotaRecK (mode := mode) r env d args us cv mI rP isK rules major = pure none := by
+  rw [iotaRecK]
+  unfold isCtorApp at h
+  split
+  · next cj usj hfn =>
+    simp only [hfn] at h
+    split
+    · next cvj nP nF T hf => simp only [hf] at h; exact nomatch h
+    · rfl
+  · rfl
+grind_pattern [conleche_grind] iotaRecK_stuck =>
+    iotaRecK (mode := mode) r env d args us cv mI rP isK rules major where
+  guard isCtorApp env major = false
+
 theorem iotaCertGate_of (r : CoreFns m) (env : Env)
     (depth : Nat) (cv : ConstantVal) (mI rP : Nat) (us : List Level) (args : List Expr)
     (usj : List Level) (cvj : ConstantVal) (induct : Name) (cnP : Nat) (isK : Bool) (rl : RecRule)
@@ -978,8 +1083,7 @@ omit [MonadExceptOf CheckError m] in
 @[conleche_grind =] theorem iotaRecFire_true (cv : ConstantVal) (us : List Level)
     (args : List Expr) (rP cnP : Nat) (rl : RecRule) (margs : List Expr) :
     (iotaRecFire cv us args rP cnP rl margs true : m (Option Expr)) =
-      pure (some (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
-        (args.take rP ++ margs.drop cnP))) := rfl
+      pure (some (rl.iotaReduct cv.levelParams us rP (args.take rP ++ margs.drop cnP))) := rfl
 
 omit [MonadExceptOf CheckError m] in
 @[conleche_grind =] theorem iotaRecFire_false (cv : ConstantVal) (us : List Level)
@@ -1065,23 +1169,25 @@ theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat
       defEqListC_spec ih, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
       iotaCertsFullC_spec ih, iotaIndexOkC_spec ih] <;> finish
 
-/-- The ι step simulates its fueled original. -/
+/-- The ι step simulates its fueled original, at a stored recursor (its record found by
+the caller) at its own number of levels. -/
 theorem iotaRecC_spec (ih : SSimC .verified eager env f)
-    (henv : EnvWF env) {d : Nat} {h : Expr} {args : Array Expr} {k : Nat} {s₀ : CState}
-    (hs : CSOK .verified eager env s₀) (hh : h.getAppFn = h) (hk : k ≤ args.size)
+    (henv : EnvWF env) {d : Nat} {c : Name} {us : List Level} {cv : ConstantVal} {mI rP : Nat}
+    {isK : Bool} {rules : List RecRule} {args : Array Expr} {s₀ : CState}
+    (hs : CSOK .verified eager env s₀) (hfc : env.find? c = some (.recInfo cv mI rP isK rules))
+    (hlvl : us.length = cv.levelParams.length) (hk : mI + 1 ≤ args.size)
     (hw : AllWS d args.toList) :
-    ⦃fun s => s = s₀⦄ iotaRecI .verified (mkFEnv env) eager f d h args k
+    ⦃fun s => s = s₀⦄ iotaRecI .verified (mkFEnv env) eager f d c us cv mI rP isK rules args
     ⦃fun o s' => CSOK .verified eager env s' ∧
       Runs (iotaRec .verified (fueledFns .verified eager env) env d
-        (Expr.mkAppN h (args.toList.take k))) o ∧
+        (Expr.mkAppN (.const c us) (args.toList.take (mI + 1)))) o ∧
       OptWS d o; ⊤⦄ := by
-  sym only [conleche_grind, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN,
-      getAppArgs_const', List.nil_append, length_take_of_le hk,
-      iotaRec_notconst, iotaRecK_notconst, Option.isSome_some,
+  sym only [conleche_grind, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, getAppFn_const',
+      getAppArgs_const', List.nil_append, length_take_of_le hk, Option.isSome_some,
       iotaCertGate_of, CheckMode.verifiedChecks, → EnvWF.rules_ok henv] =>
     vcgen [iotaRecI_eq, certAtI, prepareMajorC_spec ih henv,
       iotaCertC_spec ih henv (mode := .verified) (eager := eager) (env := env),
-      ruleRhsAtM_spec (mode := .verified) (eager := eager) (env := env)] <;> finish
+      ruleBodyAtM_spec (mode := .verified) (eager := eager) (env := env)] <;> finish
 
 end Walks
 

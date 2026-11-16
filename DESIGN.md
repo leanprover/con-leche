@@ -75498,6 +75498,30 @@ Commits on `agent/irrel-311`: `c910f427` (the implementation behind
 the switch), `7e82150f` (the use-then-consume fix of §2b), `daf8d582`
 (the OVERVIEW anchors), and this record.
 
+### Addendum (2026-11-15, task #586): the verdict still holds
+
+Re-measured on master `1657d27f0` with a counting probe (branch
+`agent/586-relevance`, not landed; probe commit `d93a4c961`).  Two
+changes since this record make the shortcut worth even less:
+* Since #333, `defeqBodyI` tries `propIrrelI` on the unreduced pair,
+  right after `==` and `quickDefEqI`, so a proof pair in a spine no
+  longer pays two `whnfCore`s, only a `defeqC` memo miss and the
+  head-symbol readers.
+* Without the annotations (#337), `proofPW`/`isProofFast`/`notProofFast`
+  read the residual sort of the head constant's stored type.  This
+  makes the static mask exact: no position is "unknown" any more, and
+  the mask agreed with every probe's outcome.  The readers stay cheap,
+  0.16 % of `init-full` in total.
+
+On `init-full` the mask marks 12 728 of 2.24 M spine positions under
+a constant head.  Of these, 8 655 are not decided by `==`, and only
+146 reach an inference.  Skipping them measured −0.03 % `instructions:u`
+at `--jobs=1` (290.3 → 290.2 G), and 0.00 % on `grind-ring-5` and
+`grind_field_cancel_inv`.  The other perf streams have at most 2
+marked positions.  Verdicts were identical in every mode.  That is no
+more than the cost of carrying the table, so the shortcut is still
+not built.
+
 ## TASK #312 — WHERE sokonanoda's SPEED COMES FROM: the attribution (2026-09-19, `agent/attrib-312`, measurement)
 
 **The ask.**  Two NbE spikes (#307, #310) ported sokonanoda's
@@ -120708,3 +120732,1209 @@ development that builds deep unary towers itself.  This task removes the tower t
 built where official builds none; the cycle stays, noted only.
 
 Data: `_tmp/582` (worktrees, the fetched Seed closure, logs) removed at the end of the lane.
+
+## TASK #578 — the lean4-master pin variant after the wf-recursion changes; variants newest first (2026-11-13, agent/578-master-pins)
+
+lean4 master's wf-recursion changes (lean4#16408, `WellFoundedRelation.rel` termination goals, and
+#16409, balanced `PSum` packing; landed 2026-11-12) respell `Nat.bitwise`, and with it `Nat.land`,
+`Nat.lor` and `Nat.xor`: on master's `Init` every committed variant fails its ground guard ("pin or
+certificate ground constants absent") and the stream declines at `Nat.lor`.  lean4's release CI
+runs the bundled con-leche on `Init` (`pkg/con-leche`, `check-paranoid`), so its nightlies failed
+from 2026-11-11 on and no nightly carries the changes.
+
+**The new variant.**  `pins/leanprover-lean4-pr-releases-pr-release-16441.json`, from the pinner of
+the same name: lean4 PR #16441's release toolchain, built on master after both changes (its
+`leanexport` reports `c89e6daf`, which contains them).  Its prelude equals the committed v4.35.0
+one below the meta line, so the prelude is untouched.  Master's full `Init` (370 MB export) is
+accepted, 60940 declarations; v4.35.0's full `Init` still accepts (57919), and `tests/pindump.sh`
+passes with the new pinner reproducing its dump byte-for-byte.  Once a nightly carries the changes
+the pinner may be renamed after it (the dump is the same).
+
+**The fork.**  master changed `withPtrEqDecEq`'s calling convention (the pointer test and its
+equation come first) and refuses `withPtrEq` at a type variable, so the generator cone
+(`Kernel/Name`, `Kernel/Expr`) did not compile there.  The four pointer-first equalities now go
+through one `@[inline]` definition, `ConLeche.ptrDecEq` (`Kernel/PtrDecEq.lean`, the old call on
+the repository toolchain, compiled code unchanged), and the master pinner forks that file alone,
+deciding by `k ()` (the pure meaning; a one-shot generator needs no pointer shortcut).  The
+`@[csimp]` substitutions are `Subsingleton.elim` and do not see the change.
+
+**Order** (maintainer's ruling): `#load_natop_pins` lists the variants newest toolchain first,
+oldest last — pr-release-16441, nightly-2026-09-10, v4.34.0-rc2, v4.33.0 — instead of "the
+repository toolchain's first, the rest as added".  Not measured (ruled: a swift fix); a
+non-matching variant is mostly told apart by its ground guard or type pins before a certificate
+is inferred.
+
+**Follow-ups.**  lean4's `src/CMakeLists.txt` pins con-leche at `b46cb0e6` (v4.33.0 toolchain;
+lean4's build installs con-leche's own `lean-toolchain` through elan, so master's toolchain never
+compiles it) — bump it to this commit.  con-ron embeds con-leche's `natOpPinSets` and fails
+`pkg/con-ron` the same way; it needs its vendored con-leche bumped and its pins regenerated.
+
+## TASK #579 — the literal flags as fields of the index (2026-11-13, agent/579-litflags)
+
+The cached core asked `natLitStoredF fe` / `strLitStoredF fe` at every literal it met (the
+`Nat`-literal expansion, `Nat.succ` against a literal, the string-literal expansions in `whnf`,
+`defeq` and projection): 3 and 10 `fe.find?` lookups each time.  Ruling: compute the two flags
+once and read them in `O(1)`, as fields of the declaration's own index, never stale.
+
+**The fields.**  `FEnv` carries `natLit strLit : Bool` with their meaning as proof fields:
+`natLit_eq : natLit = natLitStoredBy (findIn idx base ovl)` (and `strLit_eq`), where `findIn` is
+`FEnv.find?` over the components (overlay, index, frozen layer) and `natLitStoredBy` /
+`strLitStoredBy` are `natLitStored` / `strLitStored` read through a lookup function.  An `FEnv`
+whose flags disagree with its lookups cannot be built, so no construction site has an invariant
+to thread and no push can leave a flag stale — including a block that declares `Nat`, `String`,
+`List` or `Char` itself (the prelude, the pinned `Nat` basis block): each push of one of those
+names recomputes the flags at the pushed lookups.  `natLitStoredF`/`strLitStoredF` are gone; the
+core, the error paths (`IndPass`, `ParsedC`) and `DeclCheck`'s mirror read `fe.natLit`/`fe.strLit`.
+
+**Where they are set.**
+* `FEnv.ofParts` (used by `mkFEnv` and `FEnv.overlay`): ten lookups.
+* `FEnv.push`: recomputed only while string literals are not yet expandable and only when the
+  pushed name is one of the ten (`litName`); otherwise kept (`push_flags`: a name the flags do not
+  read changes no lookup they read, `findIn_insert_ne`; once `strLit` holds, both flags hold and a
+  push only adds answers, `findIn_insert_isSome`).  After the string-support constants are in, a
+  push tests one `Bool`.
+* `FEnv.pushTable`: kept (no lookup changes).
+* **A record's view** (`FrozenIndex.view`): the stream's index is frozen once
+  (`StreamIndex.freeze`) with, for each flag, the first counter from which a view holds all of its
+  names (`litFrom`, one past the largest of their entries' counters; proof field `natFrom_eq`).
+  The view sets its flags by one comparison (`fromLe`, `FBase.fromLe_litFrom`).  Computing them by
+  lookups in every view cost ten frozen-layer lookups per record: +0.5 % on `init-prelude`
+  (1777 records) and +0.04 % on `init-full` in the first version.  The thresholds are part of the
+  frozen index, computed with it, not a cache between declarations' checks.
+
+**Proofs.**  The meaning lives in the structure, so the simulation needed no new invariant:
+`mkFEnv_natLit`/`mkFEnv_strLit` (`Verify/EnvBound.lean`: the fields of `mkFEnv env` are
+`natLitStored env`/`strLitStored env`) replace `natLitStoredF_eq`/`strLitStoredF_eq` in the
+`sym`/`vcgen` lists of `DiscC1`/`DiscC4`/`DiscC5`, and `FEnv.natLit_congr`/`strLit_congr` (equal
+`find?`, equal flags) replace the `KnotCongr` congruences.  `push_mkFEnv` is no longer
+definitional; it is `FEnv.ext_parts` (two indices with the same components are equal, the flags
+being their lookups').  `view_eq` restates the view through `ext_parts`.  No new axiom; the
+capstones' axioms are unchanged (`tests/ConLecheTests/Axioms.lean`).
+
+**Numbers** (`instructions:u`, G, `--verified --jobs=1`, one run each; stdout identical on every
+stream; master 6810492c1; data in `_tmp/579/logs/`):
+
+| stream | master | #579 | Δ |
+|---|---:|---:|---:|
+| magma-list-deep-n21 / -n36 | 11.037 / 147.023 | 10.970 / 146.130 | −0.60 / −0.61 % |
+| grind-ring-5 | 9.683 | 9.653 | −0.32 % |
+| init-full | 275.536 | 275.374 | −0.06 % |
+| grind_field_cancel_inv | 2.139 | 2.139 | −0.01 % |
+| init-prelude | 1.145 | 1.146 | +0.06 % |
+| magma-list-pair-n7 / -n21 | 10.446 / 119.644 | 10.455 / 119.715 | +0.09 / +0.06 % |
+| app-lam, beta-ladder, let-ladder | | | −0.01 … +0.00 % |
+| the small perf streams (0.02–0.26 G) | | | +0.03 … +0.28 % (at most 70 k instructions each) |
+
+The literal-heavy streams gain; the small streams' rise is a constant of about 50 k
+instructions (the basis pushes before `String` is in, and code layout), which a symbol-level
+profile of `magma-list-pair-n7` does not place in any function of this change.
+
+**Also in the lane.**  `FEnv.find?` is `findIn` over the components (inlined, so the compiled
+lookup is the one before); `FEnv.lookup` is `lookupIn`.  The pub-import gate's per-file fallback
+gained `BlockOverlay → CheckerC` (measured).  `OVERVIEW.md`'s link to `Name.render` was stale on
+master since task #578 and is repointed with this lane's moved citations.
+
+## TASK #582 — a `Nat.succ` major goes to whnf before the ι step (2026-11-14, agent/582-major-succ-master)
+
+The fix found by investigation #580 on the `modular` branch, landed there as #582 and here as the
+same three commits (cherry-picked; master's `prepareMajor`/`prepareMajorI` and the proofs about
+them are the same as `modular`'s, so nothing needed adapting).  This record summarizes both
+records; it does not rely on `modular`'s other records.
+
+**The bug** (#580).  The CFSG module `Certificates.Kernel.Sporadic.Fi24Br.Seed` ran for days in
+con-leche (killed after up to 42 h); the official kernel checks it in 175 s.  Its two expensive
+theorems are `runF … = true` by `Lean.reflBoolTrue`: 617 792 steps of `Nat`/`Bool` ground
+reduction, each going on with CFSG's strictness combinator
+
+```lean
+def strictB (y : Nat) (k : Nat → Bool) : Bool :=
+  Nat.rec (motive := fun _ => Bool) (k (nat_lit 0)) (fun n _ => k (Nat.succ n)) y
+```
+
+applied to `Nat.succ i`.  `prepareMajor` (`Kernel/Core.lean`) and `prepareMajorI`
+(`Cached/CoreC.lean`), in the non-K case, returned a major that is already a constructor
+application unchanged (task #342 R2).  So the field of `Nat.succ i` was `i` itself, the next index
+was `Nat.succ i`, and after k steps the index was a unary tower of k `Nat.succ` over the
+statement's `0`.  Each use of the index stayed O(1) through the whnf memo, until the tower's 32-bit
+hash ran into a cycle: the hash word of `.app f a` depends on `a` only through `a`'s hash, so along
+a tower it is an iterated map on 2³² values (for `Nat.succ` over `OfNat.ofNat Nat 0 _`: tail
+7 207, period 93 220).  From then on, memo keys holding towers whose depths differ by a multiple of
+the period share a bucket, and each probe compares them by a structural walk as deep as the
+tower (`Expr.beqGoX`, 99.4 % of a profile of the stuck worker).  The cost per step grows with k,
+and one theorem took on the order of 100 h.
+
+**The official order** (v4.35.0 `inductive.h`, `inductive_reduce_rec`; `type_checker.cpp`,
+`whnf_core`, `reduce_nat`).  Official runs `major = whnf(major)` unconditionally (after the K
+rescue).  On a constructor application `whnf_core` does nothing, `unfold_definition` does
+nothing, and `reduce_nat` fires only on `Nat.succ` with one argument (the level-free constant)
+and on the binary `Nat` operations, which are not constructors.  So `Nat.succ x` is the only
+constructor application whose whnf is not itself: official folds it to the literal `i + 1`, and
+its counter's index is `Nat.succ` over a literal, never a tower.
+
+**The change.**  In both functions the constructor shortcut now excludes `Nat.succ`:
+
+```lean
+if isCtorApp env majorE && !majorE.isNatSuccApp then pure majorE
+```
+
+with `Expr.isNatSuccApp` (`Kernel/CoreDefs.lean`) `.app (.const c []) _ => c == natSuccName`.  A
+`Nat.succ x` major goes through whnf, the literal conversion and the rescue like a stuck one.
+Both orders now agree on every constructor application, the ruled deviations aside (the rescue on
+the raw major first, #342 R2; no whnf after a failed K rescue, #334, and a K major is never
+`Nat.succ`).  If `x` does not reduce to a literal, whnf leaves `Nat.succ x` as it is, in both
+kernels, and the `succ` rule fires on it unchanged.
+
+**Proofs** (no sorry, no new axiom).  `prepareMajorFueled_ind` (`Verify/InferLemmas.lean`): its two
+`by_cases` split on the new condition.  `prepareTail_rel` (`Verify/EnvExt/Whnf.lean`): the new
+guard in the statement.  `prepareMajor_shift` (`Verify/Deep.lean`): the tail's statement, with the
+new `isNatSuccApp_shiftFrom`.  The cached simulation (`Verify/Cached/DiscC3.lean`) is unchanged.
+`tests/plain-reach-allow.txt` lists `Expr.isNatSuccApp` (a match on two constructors).  The new
+docstring lines moved the OVERVIEW and whitepaper anchors into `Core.lean` (+5) and `CoreDefs.lean`
+(+10); the cited text is unchanged.
+
+**Fixture** `strict_succ_counter` (`tests/e2e/src/`): `count n n 0 = true` at `n = 200 000`, a
+`Nat.rec` whose step tests `Nat.blt i len` and goes on with `strictB (Nat.succ i) ih`, past the
+cycle's tail plus one period.  On master (`perf stat -e instructions:u`, one run each, under the
+guard and `timeout`): fixed 17.95 G, master d7d2b7c00 2 341.4 G (several minutes; it still
+accepts).  `tests/arena.sh` runs it under a 10 s timeout, so the old order fails the gate.  The
+official kernel (`leanchecker` v4.35.0, measured on `modular`) takes 21.8 G, 1.5 G of it the
+empty-module baseline.
+
+**Measurements** on master (`perf stat -e instructions:u`, one run each, under the guard and
+`timeout`; base = master d7d2b7c00):
+
+| stream | base | fixed | Δ |
+|---|---|---|---|
+| init-prelude (`--jobs=8`) | 1.2298 G | 1.2311 G | +0.10 % |
+| grind-ring-5 | 9.911 G | 9.921 G | +0.10 % |
+| app-lam | 22.007 G | 22.002 G | −0.02 % |
+| let-ladder | 2.5862 G | 2.5831 G | −0.12 % |
+| beta-ladder | 4.9876 G | 4.9865 G | −0.02 % |
+| init-full (`--jobs=1`) | 275.52 G | 275.56 G | +0.01 % |
+
+No stream moves by more than 0.12 %.  CFSG `Fi24Br.Seed` was measured on `modular` (with
+`--olean --module`, the modular checking that master does not have): days before, 743.5 G
+and a 121 s check after (7.2 GiB), all 10 declarations accepted, 1.13× the official kernel's
+658.5 G.
+
+**Not addressed: the hash cycle itself.**  A development that builds deep unary `Nat.succ` towers
+on its own would meet the same cycle, in the official kernel too (same kind of 32-bit hash).
+Mixing the depth into the hash word would break it but changes the hash of every term; not
+proposed.  This task removes the tower the checker built where official builds none.
+
+Data: `_tmp/582m` (worktrees, binaries, logs) removed at the end of the lane.
+
+
+## TASK #583 — the β peel substitutes from the spine array (2026-11-14, agent/583-peel-range)
+
+**Why.**  `betaPeelI` collected the peeled arguments into a reversed `List` (`args[i] :: acc`)
+and `instantiateListC` turned that list straight back into an array (`(v :: vs').toArray`).  On
+lean4's `grind_field_kernel_cancel` (`tests/e2e/grind_field_cancel_inv.ndjson`, 120 k peels per
+theorem) `lean_list_to_array`, `List.lengthTR` and building and freeing the list were about 3 %
+of the run.  Ruling: no list-array conversion.
+
+**The change.**  The peeled arguments are the spine range `args[s:i]`; the peel loop carries the
+start `s` instead of a list, and substitutes from the spine in place, as official's `whnf_core`
+does (`instantiate(binding_body(f), m, args.data() + (num_args - m))`): bound variable `j` below
+`i - s` is `args[i - 1 - j]`.
+* `Expr.instantiateRevRange e vs s n d` (`Cached/ExprOpsC.lean`) is the entry: the reversed walk
+  `instantiateRevXP` (and its reference `instantiateRevP`, `leafRevP`, `enterRevP`, `reentRevP`)
+  takes the range end `n` in place of `vs.size`, with `n ≤ vs.size` as an erased argument, so the
+  leaf's array read has no extra runtime check.  The entry clamps `n` to the array once, which
+  makes the equation hypothesis-free.  `instantiateRev` (the whole array) is the range
+  `0 … vs.size`.  No near-duplicate walk; the per-walk memo policy (`withExcl`, `memo.shared`) is
+  unchanged.
+* `betaPeelI eager lv depth t s args i`: `args` is `@&` (the generated C passes the spine, `t` and
+  `s` borrowed; the loop's only increment is `i`'s for `mkAppRange`).  `whnfAppI` starts it with
+  `s = i`.
+* Three callers that built a reversed list only for the conversion now pass an array to
+  `instantiateRev`: `unitLikeShapeF` (`(getAppArgsC w).toArray`), `ProjEntry.typeAtI`
+  (`targs.toArray.push pe`) and `instSpineC` (`args.toArray`).  `instantiateListC` keeps the
+  callers whose algorithm accumulates a list (`instListM`'s memo key, `piResidualAcc`,
+  `openPisRawGoC`/`openPisAtFvarsGoC`, `projGuardRowsC`).
+
+**Proofs.**  `instantiateRevP_eq` is restated for the prefix `vs[:n]` (`n ≤ vs.size`: the
+reversed descent is the forward one on `(vs.extract 0 n).reverse`); the new
+`instantiateRevRange_spec` is `instantiateList e (vs.extract s n).toList.reverse d`, and
+`instantiateRev_spec` follows from it.  `betaPeelC_spec` (`Verify/Cached/DiscC4.lean`) states the
+loop at a range start `j ≤ i`, the mirror `betaPeelW` (still list-based: it is the specification)
+at the accumulator `(args.extract j i).toList.reverse`; its two arms are the same one-line
+`sym`/`vcgen`/`finish` with `instantiateRevRange_spec` for `instantiateListC_spec` and the new
+`extract_rev_succ` (one more peeled argument) in the `sym` list.  `whnfAppC_spec` adds
+`extract_rev_single`.  `typeAtI_eq`, `instSpineC_spec`, `unitLikeShapeF_mkFEnv` and
+`betaPeelI_congr` needed only the new lemma names.  No new axiom.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except `init-full` at `--jobs=8`, one
+run each, stdout identical on every stream; master d7d2b7c00):
+
+| stream | master | #583 | Δ |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.137 | 2.072 | −3.04 % |
+| init-full | 282.171 | 276.582 | −1.98 % |
+| init-prelude | 1.146 | 1.143 | −0.22 % |
+| grind-ring-5 | 9.651 | 9.418 | −2.42 % |
+| shared-subterm | 0.146 | 0.140 | −3.63 % |
+| folded-constant-first / -last | 0.077 / 0.077 | 0.074 / 0.074 | −3.08 / −3.08 % |
+| discarded-argument-match | 0.209 | 0.204 | −2.65 % |
+| discarded-argument | 0.070 | 0.069 | −2.05 % |
+| args-before-unfold | 0.053 | 0.052 | −1.82 % |
+| repeated-subproblem | 0.023 | 0.023 | −0.16 % |
+| let-ladder, identical-nesting, irrelevance-before-evaluation | | | +0.01 … +0.07 % |
+| unroll-versus-evaluate, church-numerals, shift-cascade | | | +0.17 … +0.29 % |
+| app-lam | 22.010 | 22.082 | +0.33 % |
+| beta-ladder | 4.905 | 4.928 | +0.47 % |
+
+The two rises are not the peel.  `beta-ladder`'s walks (`instantiateListXP` and
+`instantiateRevXP` on master, `instantiateRevXP` alone now) cost 0.659 + 0.755 G on master and
+1.401 G now; the rise is in `lean_dec_ref_cold`, `mi_free_block_mt` and the page reclaim, i.e. the
+allocator seeing a different object mix (no list cells, no small arrays).  `app-lam` substitutes
+through `instListRevM` (the whole array), whose walk now carries the range end `n` as one more
+argument: its `instantiateRevXP` share is 4.257 G on master and 4.346 G now (+2 % of that walk,
++0.4 % of the run).
+
+## TASK #585 — the ι step peels the rule's λs and substitutes (2026-11-14, agent/585-open-rule)
+
+The follow-up of #584 (its record is on `probe/584-key`): the ι step in lean4 PR #10565's shape
+everywhere — the specification (`iotaRec`), the rules tier (`Red.iota`), the model's ι soundness
+and the cached core.  The reduct of a fired rule is its right-hand side's body under its
+`rulePrefix + nfields` manifest λs (`Expr.lamBody`), at the recursor's levels, with the
+recursor's leading arguments and the constructor's fields substituted at once in reverse
+(`RecRule.iotaReduct`, `instantiate_rev`'s order).  No β-redex is built, so the ι reduct's
+redex is never a whnf-memo key (#584's "open" probe, measured there).
+
+**The ruling (maintainer, 2026-11-14).**  First briefed as "`RecRule` stores the open body in
+place of `rhs`"; that version stopped at the parse: dropping the stated λs' binder types
+changes verdicts (`ind_rule_binder_bad` 1 → 0).  The options put to the maintainer, and why
+they were rejected:
+* (a) drop the binder types, compare open bodies up to definitional equality at the generated
+  locals — accepts inputs official rejects (a rule whose binder domain is wrong), and the
+  stored-rule law transport would need the fired values to satisfy the generated rule's
+  context, a new model fact;
+* (b) keep the stated closed right-hand side beside the open body for the check — a second
+  representation;
+* (c) compare open bodies syntactically — flips six accepted `_redex` corner fixtures to 1 and
+  reverses #386/#431's "up to definitional equality".
+Ruled (d): `RecRule` keeps its closed `rhs` exactly as today (binder types stored, `ruleAgree`,
+`pinCopyOk` and `storedRhs_sem` as strict as before, no verdict changes there); only the ι
+semantics change, to the peel.  The peel is total by an install-time syntactic check, not a
+runtime fallback.
+
+**The invariant.**  `RuleWF` (`Verify/EnvWF.lean`, the new `EnvWF.rules` field, a property of
+the record alone like `CtorWF`): at a recursor with rules, `rulePrefix ≤ majorIdx`, and every
+rule's `rhs.stripLams (rulePrefix + nfields)` is `some`.  Established
+* for a stored (stream or `.olean`) recursor by the stored rules' check: `ruleBinds`
+  (`Kernel/Inductives/RecCheck.lean`, run by `streamRulesCheck` on every stored rule before the
+  comparison with the generated one) rejects (exit 1) a rule with fewer λs; the prefix bound
+  from the generated stage's record check (`classRecTyOk`: `mI = rP + nIdx`);
+* for a generated recursor by `classRuleCheck`'s existing `stripLams` at
+  `nP + slots + nF` (`genStageRuleBinds`, `Verify/Inductives/GenRecRun.lean`; `RecStage.binds`);
+* for the pinned basis (`Nat`, `Eq`, `Quot.lift`/`Quot.ind`) by evaluation
+  (`recRulesBindB`, `decide`), carried across a renaming by `ruleWF_atLps`; rule-less
+  recursors (`Empty`, `False`, the bare chain) vacuously.
+Its one reader is the ι step: the reduct's closedness (`InferLeaves`), and the model's
+`Red.iota_sound`.
+
+**The model.**  `RecRuleLaw` is unchanged: it states the ι equation at the rule's
+application, as before.  `Red.iota_sound` is the old proof at the application
+(`Red.iota_app_sound`) followed by the application's β steps (`Red.betaSpine_sound`, one
+`Red.beta_sound` per value through `Red.appSpine_sound`), the λs there by `RuleWF`.  The
+syntactic kit is `Verify/IotaReduct.lean` (`lamBody_of_stripLams`, the reduct as the values'
+`instSpine`, its scoping, closedness, leaves).
+
+**The cached core.**  The per-declaration memo `ruleBodyAt` (was `ruleRhsAt`) holds the peeled,
+level-instantiated body (`ruleBodyAtM`: `lamBody` then `instLevelParamsM`); the ι step is the
+lookup and one `Expr.instantiateRev` over `iotaVals args rP margs cnP`, one array of exactly the
+two source ranges (`pushRange`).  The step triples needed no two-step relation: the
+specification takes the same single step (`iotaReduct_eq`, `wscoped_iotaReduct`).
+
+**Fixture.**  `stored_rule_lams_short` (`scripts/mk_rule_binds_fixture.py`): `Nat'.rec`'s zero
+rule written `fun motive zero => (fun x succ => x) zero` — definitionally the generated rule,
+accepted before (0), rejected by the λ count now (1); official (syntactic) 1.
+
+**ι counts** (scratch `dbgTrace` at the fire site, not in the measured binary;
+`grind_field_cancel_inv`, theorem = stream − the stream without its last record):
+`Mon.rec` 26 516 (master and official v4.35.0: 26 452; #584's accepted +64), `Bool.rec`
+20 550, `Ordering.rec` 10 334, `Poly.rec` 9 310, as on master; outside the theorem 407
+`Nat.rec`, 75 `Bool.rec`, 2 `Eq.rec`, as on master.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except init-full at `--jobs=8`, one
+run each; stdout minus `stats:` identical to master 1657d27f0's on every stream; data in
+`_tmp/585/logs/`):
+
+| stream | master | lane | |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 2.071 | 1.886 | −8.93 % |
+| grind-ring-5 | 9.422 | 8.937 | −5.15 % |
+| init-full | 276.715 | 270.939 | −2.09 % |
+| init-prelude | 1.143 | 1.131 | −1.05 % |
+| app-lam | 22.081 | 22.083 | +0.01 % |
+| beta-ladder | 4.940 | 4.926 | −0.29 % |
+| let-ladder | 2.558 | 2.558 | +0.00 % |
+| shared-subterm | 0.139 | 0.133 | −4.15 % |
+| discarded-argument-match | 0.202 | 0.197 | −2.63 % |
+| discarded-argument | 0.067 | 0.066 | −1.18 % |
+| folded-constant-first | 0.073 | 0.066 | −8.67 % |
+| folded-constant-last | 0.073 | 0.066 | −8.72 % |
+| args-before-unfold | 0.050 | 0.048 | −3.87 % |
+| church-numerals, identical-nesting, irrelevance-before-evaluation, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.4 % |
+
+## TASK #588 — the minor's β fused into the ι step: a prototype (2026-11-15, probe/588-fuse-minor)
+
+The question (after #585 and #586's counting probe): when the substituted minor of a fired ι
+step is a manifest λ with at least as many λs as the rule body `minor f₁…fₙ ih₁…ihₖ` has
+arguments, take the minor's β inside the ι step — never build the minor redex, never make it a
+whnf-memo key — substitute the fields, the IHs (lazily: only those whose variable occurs) and
+as many extra spine arguments as the minor has further λs, and apply the rest.  Prototype
+only: the executable builds, the proofs of the changed functions are not repaired.
+
+**Answer: no.**  The minor redex is exactly the key official `whnf_core` stores at the β step
+that follows every ι step, and its hits are the hits #572 brought in.  Dropping it gives back
+the pre-#572 ι counts on the fixture (`Mon.rec` 30 739, `Bool.rec` 32 785) and quadruples two
+arena perf streams; the IH laziness is worth at most 0.2 % and cannot coexist with the key
+(the key's hash needs the IHs).  The variant that keeps the key and only saves the loop round
+trip is −0.1…−0.2 %, below what it would cost in proofs.
+
+**The variants** (`ConLeche/Cached/CoreC.lean`, switch `fuseMode`; `iotaRecI` now takes the
+spine range `xs[xi:]` after the redex and returns the full term, `WhnfStep.contK` for mode 4):
+* `mode0` — today's reduct on the new plumbing (`Option (Option Expr × Expr)` out of
+  `iotaRecI`), the plumbing's own cost;
+* `all` (mode 1) — the fusion, every rule-body argument substituted (the ablation that builds
+  all IHs): split (a);
+* `lazy` (mode 2) — the fusion, an IH built only where its variable occurs, the occurrences
+  found by a second walk of the minor's body (`occGo`, memoised on `(node, depth)`);
+* `lazyT` (mode 3) — the same with a memo-free walk (`occGoT`, a lower bound on that walk);
+* `keyed2` (mode 4) — the minor redex is built as today and handed to the loop as one more
+  step: it is looked up, pushed as a pending key (a β key, cheap-safe), and on a miss its β
+  is taken right there (`keyedBetaC`), without the step dispatch (spine array, `whnfCoreI` on
+  the λ head, `whnfAppI`, `betaPeelI`).  A first version took the β inside the ι step, before
+  the lookup: it wastes the β on every hit (fixture 1.997 G, +5.9 %).
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1`, init-full `--jobs=8`, one run
+each; stdout minus `stats:` identical to master on every stream and variant; data in
+`_tmp/588/logs/`):
+
+| stream | master | mode0 | all | lazyT | lazy | keyed2 |
+|---|---:|---:|---:|---:|---:|---:|
+| grind_field_cancel_inv | 1.886 | +0.48 % | +10.43 % | +19.04 % | +45.75 % | −0.21 % |
+| grind-ring-5 | 8.936 | +0.35 % | +2.13 % | +5.87 % | +23.20 % | −0.17 % |
+| init-full | 270.875 | +0.15 % | −0.88 % | −0.58 % | +0.65 % | −0.10 % |
+| init-prelude | 1.131 | +0.04 % | −0.21 % | −0.19 % | −0.05 % | −0.03 % |
+| shared-subterm | 0.133 | +0.55 % | +293.29 % | +291.62 % | +295.73 % | −0.87 % |
+| discarded-argument | 0.066 | +0.38 % | +156.03 % | +157.68 % | +160.23 % | −0.53 % |
+| discarded-argument-match | 0.197 | +0.22 % | +0.28 % | +1.50 % | +6.77 % | −0.33 % |
+| folded-constant-first | 0.066 | +0.42 % | −8.59 % | −6.74 % | −3.65 % | −1.14 % |
+| folded-constant-last | 0.066 | +0.41 % | −8.60 % | −6.73 % | −3.64 % | −1.12 % |
+| args-before-unfold | 0.048 | +0.30 % | −3.71 % | −2.55 % | −0.95 % | −0.74 % |
+| beta-ladder | 4.940 | −0.28 % | −0.29 % | −0.06 % | −0.26 % | −0.26 % |
+| app-lam, church-numerals, identical-nesting, irrelevance-before-evaluation, let-ladder, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | within ±0.4 % | | | | |
+
+**The drift** (scratch `dbgTrace` counters at the ι fire site, the `whnfAppI` β arm, a
+`whnfCore` memo hit and a successful δ unfold, in separate scratch binaries; whole streams,
+`--jobs=1`; `F` = fused βs):
+
+| | master | fused (`all`, `lazy`) | keyed |
+|---|---:|---:|---:|
+| fixture `Mon.rec` | 26 516 | 30 739 | 26 516 |
+| fixture `Bool.rec` (theorem + 75 outside) | 20 625 | 32 785 | 20 625 |
+| fixture `Ordering.rec` / `Poly.rec` | 10 334 / 9 310 | 10 334 / 9 310 | same |
+| fixture ι total / β / F / memo hits / δ | 68 623 / 58 004 / 0 / 17 523 / 36 154 | 85 006 / 27 073 / 41 523 / 11 090 / 36 154 | 68 623 / 26 999 / 37 438 / 17 523 / 36 154 |
+| grind-ring-5 ι / memo hits | 180 179 / 56 060 | 200 215 / 48 231 (`Mon.rec` 22 029 → 33 819, `Bool.rec` 49 099 → 57 109) | 180 179 / 56 060 |
+| init-full ι / δ / memo hits | 1 758 538 / 7 206 826 / 2 259 185 | 1 758 688 / 7 206 826 / 2 213 717 | 1 758 538 / 7 206 826 / 2 259 185 |
+| shared-subterm ι / memo hits | 6 000 / 1 995 | 6 000 / 0 | 6 000 / 1 995 |
+| discarded-argument ι / memo hits | 1 802 / 595 | 1 802 / 0 | 1 802 / 595 |
+
+The fixture's fused counts are #572's "before" counts exactly: the fusion undoes the official
+memo policy at the one place it pays.  On shared-subterm and discarded-argument the ι count is
+unchanged but every minor-redex hit is lost, and with it the whole chain each hit answered
+(×4 and ×2.6 instructions).  δ is unchanged everywhere.  `keyed2` reproduces master's counts
+by construction (the key is looked up and stored as the loop's β step would).
+
+**The split.**
+* (a) dropping the key and the loop round trip (`all` against master): −0.88 % on init-full,
+  −8.6 % on the folded-constant streams, but +10.4 % on the fixture, +2.1 % on grind-ring-5
+  and ×3.9 / ×2.6 on shared-subterm / discarded-argument — the lost memo hits.  The round
+  trip alone, with the key kept (`keyed2` against `mode0`, the same plumbing): −0.7 % on the
+  fixture, −0.5 % on grind-ring-5, −0.25 % on init-full; against master −0.1…−0.2 %, as the
+  plumbing (`mode0`) eats most of it.
+* (b) not building unused IHs (`lazy`/`lazyT` against `all`): negative as built — the
+  occurrence walk is a second walk of the minor's body, and the cutoff cannot prune it (the
+  fields' variables sit above the IHs', so every node mentioning a field is visited); the
+  memoised walk costs +32 % on the fixture, the memo-free one +8 %.  The bound on what (b) can
+  give: the unused IHs are 448 k nodes on grind-ring-5 and 4.1 M on init-full (#586's
+  counts), some 0.2 % and 0.06 % at a few tens of instructions per built node.  Getting near
+  that needs the lazy slots inside the substitution walk itself (no second walk), and (b)
+  requires (a): with the key kept, the IHs are part of the key and are built anyway.
+
+**What landing would cost in proofs** (not done).
+* *The fusion (a, b).*  The specification's ι (`iotaRec`, `RecRule.iotaReduct`) would end at
+  the minor's body: `iotaReduct` the peeled rule body when the minor is not a manifest λ with
+  enough λs, else the minor's body under its λs substituted with the rule body's arguments
+  and the extra spine arguments.  Total by the case split itself (no runtime fallback, no new
+  invariant).  The model takes it cheaply: `Red.iota_sound` already ends in
+  `Red.betaSpine_sound` steps (#585); it gets more of them (the minor's λs and the extras).
+  The syntactic kit needs a composition law — the minor's body substituted with substituted
+  arguments is the substitution of the rule body followed by the β — in `IotaReduct.lean`,
+  and the lazy IHs a lemma that an unbuilt value at a variable that does not occur changes
+  nothing.  The step triples stay one step against one step.  But the spec's ι would no longer
+  be official's, and the counts this lane measured contradict #572's ruling (official's memo
+  policy) — not a candidate.
+* *The keyed variant.*  The specification unchanged.  `WhnfStep.contK` (or a loop arm on the
+  ι step) gets one more induction case in the `whnfCoreLoopI` triple (`PendOK.push` of the
+  key, the hit lemma, and `keyedBetaC k` identified with the β step on `k` through
+  `betaPeelC_spec` / `BetaSpine`), plus the congruence lemmas (`KnotCongr`) and the plumbing
+  through `iotaRecI`'s two callers.  Some hundred lines for −0.1…−0.2 % — not worth it.
+
+**Recommendation.**  Drop the fusion.  The minor redex stays a β step of the loop with its
+memo key, as official.  If the ι step is to get cheaper, the place is not the β after it.
+
+**Outcome** (2026-11-15): not pursued.  The prototype stays on `probe/588-fuse-minor`; this record was copied to master so the negative result can be found.
+
+## TASK #589 — memo-free substitution on loose-bvar trees: a prototype (2026-11-15, probe/589-tree-walks)
+
+**Question** (maintainer): where a substituted term has definitely no sharing (the rule
+rhs, where else?), are memo-free `Expr` walks worth having?  A probe before #583/#585 that
+switched the memo off in `instantiateListXP` measured −14 % on grind_field_cancel_inv, but
+a memo-free walk is exponential on a DAG, and "no sharing" is not given (the export
+hash-conses; a stated rule rhs is accepted up to defeq and may be any DAG).  PROTOTYPE:
+the branch is not for landing (pointer reads by `unsafe` escapes with a `false` model,
+`ConLeche/Cached/LooseTree.lean`; probe switches `probeSites`, `probeMode`, `probeRun`,
+`probeStats`, an env-gated install-cost probe in `Driver/CheckPool.lean`).  Data and
+scripts: `_tmp/589/`.
+
+**The criterion.**  A term is a *loose-bvar tree* if no compound node with `bvarB > 0` is
+reachable twice from its root by pointer, descending only through nodes with `bvarB > 0`
+(a substitution walk at cursor `d` cuts every node with `bvarB ≤ d`, so it never reaches
+the others); with `chain`, the root's `λ`/`∀` chain is followed unconditionally, because
+the β peel and the spine walk substitute into any suffix of it.  On a tree every walk
+visits each compound node once, so the memo cannot hit.  The flag is a DFS with a visited
+set (an array up to 16 entries, then a hash set).  Level instantiation preserves it:
+`instLevelParams` maps each input node to one output node (fresh, or the input itself
+below its cutoff) and keeps `bvarB`, so an output node reached twice has an input node
+reached twice.  Checked empirically: the flag of the stored term and of its
+level-instantiated entry agreed on every entry of gfci, grind-ring-5 and init-prelude.
+
+**The walk.**  `instantiateRevTXP` (`ExprOpsC.lean`): same specification
+`instantiateRevP` as `instantiateRevXP`, no memo, no exclusivity read, no `(term, memo)`
+pair, the result the bare subtype; a re-entry (a value with loose bound variables) goes
+to the memo walk.  `instantiateRevRangeT tree` picks it when `tree`.  A first attempt
+that gave the existing walk a `tree : Bool` parameter instead cost +3 % on beta-ladder
+with the flag always false (codegen of the walk), so the memo-free walk must be a
+separate function.
+
+**Call-site census** (callgrind, master 9e3c81972, `--jobs=1`; calls / inclusive Ir;
+inclusive figures are outside recursion cycles here — the walks call no checker code):
+
+| site (walk) | walked term's provenance | gfci | init-prelude |
+|---|---|---:|---:|
+| `betaPeelI` → `instantiateRevRange` | the body of any β head: δ-unfolded values (`constValAtM`), minor premises, user λs, substitution results | 58 004 / 552 M (29 %) | 13 225 / 67 M |
+| `iotaRecI` → `instantiateRev` | the stored rule body (`ruleBodyAtM`) | 68 623 / 162 M (8.6 %) | 1 730 / 3.1 M |
+| `inferSpineI`/`IOI` → `instListRevM` | the head's type (a stored type, `constTyAtM`, when the head is a constant): domains, residual | 17 115 / 9.2 M | 79 596 / 35.7 M |
+| `inferLams*`/`inferPis*` → `instantiateRevRange`, `abstractRangeC` | the declaration's own binder telescopes | ~4 600 / 16 M | ~38 000 / 75 M |
+| `defeqBindersI`/`defeqDomainI` → `instantiateRevRange` | both sides' binder bodies | 2 395 / 2.6 M | 12 189 / 12 M |
+| `constTyAtM`/`constValAtM`/`ruleBodyAtM` → `instLevelParams` | stored records | 2 398 / 5.5 M | 16 524 / 78 M (6.9 %) |
+| `checkDivModPinLoopC` → `substConstAllC` | the Nat-op pin proofs | 3 / 6.3 M | 18 / 34.7 M (3.1 %) |
+| `instantiate1C` (ζ, io binders, inductive install), `instantiateListC` (`openPis*`), `replaceFVarsC`, `instantiateLiftC`, `liftLooseBVarsC`, `unitLikeShapeF`, `pinArgsI` | mixed | < 5 M each | < 3 M each |
+
+(`allLevelParamsDefinedC`, a Bool walk over the declaration's own type and value, is
+another 37 M on init-prelude.)  The shared memo insert (`HashMap.insert`, CSE'd across all
+walks) is 4.1 % of gfci and 3.3 % of init-prelude.  `instLevelParams` is not a candidate:
+its walk memoises leaves (`const`/`sort` nodes, a `Level.subst` each), and those are
+hash-consed everywhere, so a level-param tree would almost never hold.
+
+**Flag rates** (stats build; entries = per-declaration memo entries, walks = calls that
+substitute anything):
+
+| site | gfci entries | gfci walks | grind-ring-5 entries | grind-ring-5 walks | init-prelude entries | init-prelude walks |
+|---|---:|---:|---:|---:|---:|---:|
+| ι rule body | 138/140 | 68 492/68 623 | 2 856/2 934 | 179 974/180 179 | 829/850 | 1 918/1 945 |
+| δ value (β walks whose head is a registered value) | 411/459 | 18 385/57 346 | 14 229/16 085 | 119 710/277 982 | 2 139/2 692 | 4 780/11 801 |
+| constant type (spine walks) | 1 763/1 799 | 6 618/7 293 | 32 434/33 749 | 175 603/188 244 | 12 575/12 982 | 28 662/33 175 |
+
+A true flag's walk visits ~5 nodes on average (gfci 9 943 nodes over 2 312 true flags).
+The β walks whose head is not a stored value (68 % of gfci's, 57 % of grind-ring-5's) are
+out of reach: of those heads, computed directly, 86 % (gfci) are NOT trees — hash-consed
+export terms repeat loose-bvar subterms (instance arguments and the like) — and that is
+where the old −14 % lived (making every `instantiateRev` walk memo-free: gfci −14.5 %,
+grind-ring-5 +164 %, app-lam killed at 613 G).
+
+**Numbers** (`instructions:u`, `--verified`, `--jobs=1` except init-full at `--jobs=8`, one
+run each (init-full repeated: master 270.911/270.939 G, ι + δ 268.983/268.955 G); stdout
+identical to master on every stream):
+
+| stream | master | ι only | ι + δ | ι + δ + types | flags only (computed, ignored) |
+|---|---:|---:|---:|---:|---:|
+| grind_field_cancel_inv | 1.886 G | −3.6 % | −4.4 % | −4.4 % | +0.5 % |
+| grind-ring-5 | 8.937 G | −2.0 % | −3.3 % | −2.6 % | +2.8 % |
+| init-full | 270.911 G | −0.4 % | −0.7 % | | |
+| init-prelude | 1.131 G | +0.2 % | +1.9 % | +4.5 % | +5.9 % |
+| shared-subterm | 0.133 G | −4.3 % | −5.1 % | −4.8 % | +0.0 % |
+| identical-nesting | 0.020 G | +0.0 % | +0.3 % | +0.4 % | +0.3 % |
+| repeated-subproblem | 0.022 G | −0.2 % | −0.2 % | +0.2 % | +0.4 % |
+| discarded-argument-match | 0.197 G | −2.0 % | −7.0 % | | |
+| discarded-argument | 0.066 G | −4.0 % | −5.2 % | | |
+| folded-constant-first / -last | 0.066 G | −4.3 % | −6.2 % | | |
+| args-before-unfold | 0.048 G | −3.0 % | −2.9 % | | |
+| app-lam, beta-ladder, church-numerals, irrelevance-before-evaluation, let-ladder, shift-cascade, unroll-versus-evaluate | | within ±0.2 % | within ±0.2 % | | |
+
+Each site alone (the "types" column's build, short set): ι alone −3.2 % gfci, δ alone
+−0.5 %, types alone **+0.8 %** gfci, +1.1 % grind-ring-5, +2.7 % init-prelude — the type
+site loses: its walks are domains of a few nodes, and the flag of every instantiated
+constant type costs more than the memo it saves.
+
+**Flag cost: per declaration or at install.**  Lazily per declaration (this probe) the
+flag is recomputed for every memo entry of every declaration.  Computing it once per
+stored record instead (a run-wide cache keyed by the stored term's address, the install
+emulation) changed nothing measurable for ι + δ (init-prelude 1.1547 vs 1.1537 G): the
+ι + δ init-prelude regression is the δ site's registry and its lookup at every β head,
+not the flag.  The install cost itself (every rule body and definition value, once,
+serial, before the workers): init-prelude +17.6 M (+1.5 %), gfci +1.9 M, grind-ring-5
++14.5 M (+0.17 %), init-full +237 M (+0.09 % at `--jobs=1`); with constant types too,
+init-full +944 M.  As a static per-record fact (task #573's pattern) it is level-free
+(above), so one bit per rule / definition would do.
+
+**Adversarial check** (`tests/e2e/dag_beta_tower.ndjson.gz`, generator
+`scripts/mk_dag_beta_tower.py`): two definitions `fun x => t26`, `t0 = Nat.add x x`,
+`t(k+1) = Nat.add tk tk` — 28 DAG nodes, 2^27 tree nodes, all under the binder — and
+`dagF 0 = dagF2 0 := rfl`, which δ-unfolds and β-reduces both.  The value's flag is false
+(both entries), the memo walk runs: master 43.08 M, prototype 43.29 M, both accept.  The
+control with every `instantiateRev` walk memo-free: 511 G instructions, 16 GiB peak RSS.
+Pinned in `tests/e2e-expected.txt` (accept).
+
+**What landing would take in proofs.**  The memo-free walk carries its own subtype proofs
+(the memo walk's arm proofs, unchanged), and `instantiateRevRangeT_eq :
+instantiateRevRangeT tree e vs s n d = instantiateRevRange e vs s n d`
+(`Verify/Cached/OpsC.lean`, ten lines) uses only the two walks' subtypes: **the flag's
+meaning is never used** — confirmed.  Everything above the walk only threads a `Bool`:
+the three `KnotCongr` congruence lemmas of the threaded functions take one more `funext`
+argument (done); the executable's closure builds.  Outside it, `SimCEff`'s three
+per-declaration memo specs (`constTyAtM_spec`, `constValAtM_spec_of_find`, and the rule
+twin) fail in `finish`: the probe's registry is a new `CState` field updated beside the
+memo, and `CSOK` needs a frame lemma for it (it constrains nothing there).  `DiscC1/3/4`
+and `BetaSpine` (not reached past `SimCEff`) consume `instantiateRevRange_spec`-style
+equations, which `instantiateRevRangeT_spec`/`instantiateRevT_spec` provide.  The probe's
+pointer registry (an address-keyed map of the flagged values, looked up at each β head and
+spine) would need `withPtrAddr`, its obligation discharged by the spec equality; the ι site
+needs no pointer at all: the flag can sit beside the `ruleBodyAt` entry (or be a static
+bit on the rule), and the ι step passes it straight to `instantiateRevT`.
+
+**Recommendation.**  Not worth a campaign; at most the ι site.  The exact criterion
+reaches only the stored-record walks, and those are a minority of the substitution cost:
+ι + δ give −4.4 % gfci, −3.3 % grind-ring-5, −0.7 % init-full and −3…−7 % on the small
+arena perf streams, but +1.9 % init-prelude, at the price of a pointer registry in the
+core; the type site loses everywhere.  ι alone gives −3.6 % gfci, −2.0 % grind-ring-5,
+−0.4 % init-full, +0.2 % init-prelude, with no registry and the smallest proof (a second
+walk with its subtype, the ten-line equality, a flag in the `ruleBodyAt` entry). The
+large old win came from β walks over hash-consed user terms that are not trees; a
+memo-free walk there needs a different, non-exact criterion (a node budget), which the
+no-arbitrary-cut-offs ruling excludes.  Note that the #588 lane (fused minor β) reshapes
+exactly those β walks.
+
+**Outcome** (2026-11-15): the maintainer ruled that blow-ups on crafted input are acceptable as long as Lean-produced recursors have no sharing worth keeping between non-closed subterms.  So the ι site took a memo-free walk with no flag (task #590), and the δ and type sites kept their memo; #590 was then reverted (see its record).  The prototype stays on `probe/589-tree-walks`; this record and its fixture `dag_beta_tower` were copied to master.
+
+## TASK #590 — the ι step substitutes the rule body without a memo (2026-11-15, agent/590-iota-treewalk)
+
+**Ruling** (maintainer, 2026-11-15): crafted files exploding is not a concern; as long as
+Lean does not produce a recursor with sharing worth keeping between subterms that are not
+closed, the ι step may explode on crafted input.  So the ι step's substitution into the rule
+body always uses a memo-free walk: no flag, no guard, no pointer reads.
+
+**Why it pays.**  The rule body comes from the per-declaration rule memo (`ruleBodyAtM`), which
+holds it, so `instantiateRevXP`'s exclusivity read reports every node of it as shared and the
+memo walk inserts every node.  Task #589's probe measured the memo-free walk at this site
+(behind a flag) at −3.6 % on `grind_field_cancel_inv`.
+
+**Census** (`_tmp/590/census.py`, over the export records; the rule body is the rhs under its
+`rP + nfields` λs; tree = visits of nodes with loose bound variables by a memo-free walk,
+DAG = distinct (node, depth) pairs the memo walk visits):
+
+| export | rules | tree = DAG | ratio < 1.5 | < 2 | < 3 | max tree | Σ tree / Σ DAG |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| init-full | 842 | 748 | 75 | 19 | 0 | 93 | 6 670 / 6 039 |
+| mathlib-full | 9 647 | 8 662 | 775 | 207 | 3 | 648 | 110 284 / 97 673 |
+
+Maximum ratio 2.56 (`Mathlib.Tactic.ITauto.Proof.rec`, `orElim'`: 138 / 54); the others at
+or above 2: `Lean.Expr.rec` `letE` 98 / 42, `Std.Tactic.BVDecide.BoolExpr.rec` `ite` 58 / 26.
+Worst by extra nodes: the `Lean.Meta.Grind.Arith.Cutsat` proof recursors (`UnsatProof.cooper`
+646 / 327, `CooperSplitPred.mk` 648 / 329, then seven at 431–435 / 218–222, ratio ≈ 1.97),
+`CooperSplit.mk` 433 / 325.  The extra visits are the recursive fields' induction hypotheses,
+which share the prefix `T.rec params motives minors`.  Distinct (node, depth) pairs and
+distinct nodes agree except in a few `below` recursors (at most 104 pairs on 87 nodes).  The proviso holds.
+
+**Change.**  `Expr.instantiateRevNoMemo` (`ConLeche/Cached/ExprOpsC.lean`): the specification
+`instantiateRevP` walked by `instantiateRevNoMemoXP`, without memo, exclusivity read or
+`(term, memo)` pair (task #589's `instantiateRevTXP`, a separate function: a flag parameter on
+the memo walk cost +3 % on beta-ladder); a re-entry (a substituted value with loose bound
+variables) is the memo walk's.  `iotaRecI` calls it; `instantiateRevNoMemo_spec` /
+`_eq` (`Verify/Cached/OpsC.lean`) give it `instantiateRev`'s equation, and `iotaReduct_eq`
+(`DiscC3`) rewrites with it.  Every other walk keeps its memo.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except init-full at `--jobs=8`, one
+run each; stdout minus `stats:` identical to master ed8fc008f's on every stream; data in
+`_tmp/590/meas/`):
+
+| stream | master | lane | |
+|---|---:|---:|---:|
+| grind_field_cancel_inv | 1.887 | 1.805 | −4.35 % |
+| grind-ring-5 | 8.938 | 8.714 | −2.50 % |
+| init-full | 270.941 | 269.237 | −0.63 % |
+| init-prelude | 1.131 | 1.130 | −0.13 % |
+| shared-subterm | 0.133 | 0.123 | −7.55 % |
+| folded-constant-first / -last | 0.066 | 0.063 | −4.89 % |
+| discarded-argument | 0.066 | 0.063 | −4.40 % |
+| args-before-unfold | 0.048 | 0.047 | −3.37 % |
+| discarded-argument-match | 0.197 | 0.192 | −2.33 % |
+| beta-ladder | 4.936 | 4.926 | −0.20 % |
+| app-lam, church-numerals, identical-nesting, irrelevance-before-evaluation, let-ladder, repeated-subproblem, shift-cascade, unroll-versus-evaluate | | | within ±0.3 % |
+
+**Reverted** (2026-11-15, maintainer).  The census covers init-full and mathlib-full only.  A recursor's rule body can contain constructor field types: the binder type of a reflexive field's induction hypothesis (`fun (a : A) => T.rec … (f a)`, `A` the field's domain) and the index arguments of an induction hypothesis (taken from the field's type).  A field type built from a dependent, instance-laden telescope, such as the FLT export's JZero structure (task #214: a 4 464-node DAG that is 38.8 M nodes as a tree, from `Rat` reached 666 617 times through the coercion chain), would then put a large shared DAG with loose bound variables into the body, and the memo-free walk would expand it at every ι step.  In JZero that DAG sat only in the leading λs' binder types, which the ι step strips (task #585), so JZero itself would not have been affected.  But no measurement excludes the reflexive-field and index shapes on FLT or NS, whose exports were never censused.  The exact flag of task #589 (memo-free only on a loose-bvar tree) was considered and rejected: two code paths and a performance cliff are not worth −0.2 … −0.8 points.  The ι step keeps the memo walk.
+
+## TASK #584 — the β after ι: three prototypes (2026-11-14, probe/584-*)
+
+Question (after #572's "Probe C, the fire-site half" and #583): what does the β step that
+follows every ι step cost, and what does each way of folding it into the ι step give, against
+the official memo policy #572 established.  Prototype and compare only; nothing lands.
+
+**Today** (master 5d910c48b).  `iotaRecI` returns the reduct `rhs params motives minors fields`
+(`ruleRhsAtM`, the rule's right-hand side at the recursor's levels, memoised per declaration),
+the caller applies the extra arguments, and the loop treats it as its next step: a β key
+(head a lambda), looked up in the `whnfCore` memo, β-peeled by `whnfAppI`/`betaPeelI` from
+its own spine array, and pushed as a pending key into both memos (`whnfCoreC` and, the head
+being a lambda, `whnfCoreCheapC`).  Official is the same (`whnf_core`'s recursive call on the
+`reduce_recursor` reduct looks it up and stores it).  lean4 PR #10565 (by the maintainer,
+open) instantiates the rule directly instead: peel the `nparams+nmotives+nminors+nfields`
+lambdas, `instantiate_lparams`, `instantiate_rev` with the values, apply the extra arguments.
+
+**The probes** (each one commit on its branch, `Cached/CoreC.lean` and for the open body
+`Cached/StateC.lean`; the executable only — the proof modules are not in its closure and were
+not adapted, so no `sorry` was needed and `lake build` of the whole package would fail).  Shared
+helpers: `peelLamsC n e` (the body under `n` lambdas, `Option`) and `iotaVals args p margs q`
+(`args[0:p] ++ margs[q:]`, one array of capacity `p + nfields`: the two ranges come from
+different arrays).
+* **key** (`probe/584-key`): `iotaRecI` returns `(rhs, vals)`; the step builds the β key as
+  today and returns a new outcome `iotaKey key body vals rest start` (a probe-local
+  `WhnfStepI`, `WhnfStep` plus that arm).  The loop does what its next iteration on the key
+  did: pushes `e` as for `.cont`, looks the key up (a hit ends the chain, the cheap keys
+  dropped, as at any hit), and on a miss substitutes `instantiateRev body vals`, applies
+  `rest[start:]` and pushes the key into both pending lists.  Falls back to `.cont key` where
+  the direct β would differ from the loop's peel (fewer than `vals.size` manifest lambdas, or a
+  lambda left with arguments left): never taken on the fixture, grind-ring-5, init-prelude.
+* **eager** (`probe/584-eager`): PR #10565's shape; `iotaRecI` returns
+  `instantiateRev body vals` (fallback: today's redex when `peelLamsC` fails).  No key.
+* **open** (`probe/584-open`): as eager, but `ruleRhsAtM`'s memo stores the open body (the
+  level-instantiated right-hand side under its `rP + nfields` lambdas; a missing lambda is an
+  internal error in the probe); the ι step is the lookup and one `instantiateRev`.
+* **key+open** (`probe/584-key-open`, on top of key): the memo stores `(rhs, open body)`, so
+  the key probe neither peels nor allocates the peel's `some`.
+
+**Step counts** (scratch `dbg_trace` at the ι fire site in each probe, not in the measured
+binaries; theorem = stream − the stream without its last record, `cancelInv0`).  On
+`grind_field_cancel_inv`'s theorem: master and key `Mon.rec` 26 452, `Bool.rec` 20 550,
+`Ordering.rec` 10 334, `Poly.rec` 9 310 (official: 26 452 and 20 550); eager and open
+`Mon.rec` 26 516 (+64, #572's probe C again), the other three unchanged; outside the theorem
+all four builds take 75 `Bool.rec`, 407 `Nat.rec`, 2 `Eq.rec`.  init-full (`--jobs=8`): master
+1 758 528 ι steps, eager 1 758 538 (`Int.Internal.Linear.Poly.rec` +2, `Mon.rec` +8).  The key
+lookups (key probe, counted): fixture 6 694 hits of 68 559 (9.8 %), grind-ring-5 12 970 of
+179 905, init-full 194 288 of 1 758 528 (11 %); about half of init-full's lookups are in the
+cheap mode, which reads but never stores.  So eager loses ~10 % of the lookups as hits, and the
+loop recovers nearly all of them at the next key of the chain.
+
+**Numbers** (`instructions:u`, G, `--verified`, `--jobs=1` except init-full, one run each,
+under the RSS guard; stdout minus `stats:` identical to master's on every stream for every
+probe; data in `_tmp/584/logs/`):
+
+| stream | master | key | eager | open | key+open |
+|---|---:|---:|---:|---:|---:|
+| grind_field_cancel_inv | 2.071 | 2.049 (−1.08 %) | 1.898 (−8.36 %) | 1.881 (−9.18 %) | 2.047 (−1.18 %) |
+| init-full (`--jobs=8`) | 276.746 | 276.448 (−0.11 %) | 272.512 (−1.53 %) | 272.117 (−1.67 %) | 276.324 (−0.15 %) |
+| init-prelude | 1.143 | 1.142 (−0.06 %) | 1.138 (−0.41 %) | 1.138 (−0.45 %) | 1.143 (−0.04 %) |
+| grind-ring-5 | 9.422 | 9.355 (−0.71 %) | 8.991 (−4.57 %) | 8.951 (−4.99 %) | 9.347 (−0.79 %) |
+| app-lam | 22.084 | 22.082 (−0.01 %) | 22.081 (−0.02 %) | 22.083 (−0.00 %) | 22.082 (−0.01 %) |
+| beta-ladder | 4.927 | 4.926 (−0.03 %) | 4.936 (+0.18 %) | 4.936 (+0.18 %) | 4.926 (−0.03 %) |
+| let-ladder | 2.558 | 2.558 (+0.00 %) | 2.558 (+0.00 %) | 2.558 (−0.00 %) | 2.558 (+0.00 %) |
+| shared-subterm | 0.139 | 0.139 (+0.05 %) | 0.134 (−3.42 %) | 0.133 (−4.42 %) | 0.138 (−0.21 %) |
+| discarded-argument-match | 0.202 | 0.202 (−0.25 %) | 0.197 (−2.39 %) | 0.197 (−2.70 %) | 0.201 (−0.44 %) |
+| discarded-argument | 0.067 | 0.067 (+0.11 %) | 0.066 (−0.69 %) | 0.066 (−1.31 %) | 0.067 (−0.05 %) |
+| folded-constant-first | 0.073 | 0.072 (−1.16 %) | 0.067 (−8.21 %) | 0.066 (−8.81 %) | 0.072 (−1.22 %) |
+| folded-constant-last | 0.073 | 0.072 (−1.16 %) | 0.067 (−8.21 %) | 0.066 (−8.84 %) | 0.072 (−1.24 %) |
+| args-before-unfold | 0.050 | 0.050 (−0.78 %) | 0.048 (−3.51 %) | 0.048 (−3.98 %) | 0.050 (−0.95 %) |
+| church-numerals | 0.196 | 0.196 (+0.14 %) | 0.196 (−0.02 %) | 0.196 (−0.02 %) | 0.196 (+0.16 %) |
+| repeated-subproblem | 0.022 | 0.022 (−0.10 %) | 0.022 (−0.37 %) | 0.022 (−0.42 %) | 0.022 (−0.10 %) |
+| identical-nesting | 0.020 | 0.020 (+0.00 %) | 0.020 (−0.01 %) | 0.020 (−0.00 %) | 0.020 (+0.01 %) |
+| irrelevance-before-evaluation | 0.022 | 0.022 (+0.30 %) | 0.022 (−0.01 %) | 0.022 (−0.01 %) | 0.022 (−0.01 %) |
+| shift-cascade | 0.050 | 0.051 (+0.00 %) | 0.050 (−0.01 %) | 0.050 (−0.00 %) | 0.050 (−0.00 %) |
+| unroll-versus-evaluate | 0.027 | 0.027 (+0.00 %) | 0.027 (−0.01 %) | 0.027 (−0.01 %) | 0.027 (+0.00 %) |
+
+**Where the cost was.**  The key probe saves only the loop round trip (the re-entry, the
+`getAppArgsArr` of the key, `whnfCoreI` on the lambda head, `betaPeelI`): −1.1 % on the
+fixture.  The key itself is the expensive part: key+open against open is 0.166 G on the
+fixture's 68.6 k ι steps, about 2 400 instructions per ι step — the key's `rP + nfields + extra`
+application nodes (allocated and hashed), the lookup, and at a full-mode miss TWO inserts (the
+key is safe, so it goes into `whnfCoreCheapC` as well) with the tables' growth.  Symbol-level
+profile of the fixture (`perf record -c 1000000`, 20 runs per binary, G per run, master → key →
+open): `whnfCoreLoopI` 0.070/0.068/0.051, the `Expr`-keyed hash maps' insert, `contains` and `expand`
+0.137/0.134/0.085, `Expr.app` 0.078/0.077/0.062, `lean_dec_ref_cold` + `lean_free_object`
+0.547/0.557/0.489, `betaPeelI` 0.015/0.006/0.006, `mkAppRange` 0.010/0.008/0.000.  In open the
+ι+β step's own work is the substitution (`instantiateRevXP` 0.163 G, unchanged: it is the β
+the loop did before), `iotaRecI` 0.041 G (it now holds the value array's fill) and
+`prepareMajorI`/`FBase.find?`; the rest is the run's general allocation and reference-count
+traffic.  open against eager is the per-step peel and its `some` (−0.9 % fixture, −0.4 %
+grind-ring-5, −0.15 % init-full).  `beta-ladder` +0.18 % in eager and open is not the ι step
+(it has none to speak of); not attributed, of the size of #583's allocator-mix effects.
+
+**Recommendation.**  open, with the open body in the per-declaration memo — if the
+maintainer rules that following PR #10565's memo behaviour (no β key for an ι reduct) is
+acceptable in place of v4.35.0's.  The reduction order is unchanged (the same ι, then the same
+β of the same redex, as official); what changes is only that the ι reduct's β redex is never a
+memo key, which costs +64 `Mon.rec` steps (+0.24 %) on the fixture and +10 of 1.76 M on
+init-full, and gives −9.2 % on the fixture, −5.0 % on grind-ring-5, −1.7 % on init-full.  If the
+official counts must stay exact, key+open is the variant (−1.2 % / −0.8 % / −0.15 %): the
+β-redex key itself, not the round trip, is what the official policy costs here.
+
+**What landing would cost in proofs** (`Verify/BetaSpine.lean`, `Verify/Cached/DiscC3/DiscC4`;
+the specification, the rules tier and the model unchanged in every variant).
+* *Common to all*: one β lemma — at a right-hand side with `n` manifest lambdas, the mirror's
+  step on `mkAppRange (mkAppN rhs vals) rest` is `.cont (mkAppRange (instantiateRev body vals)
+  rest)` (`betaPeelW` over a manifest lambda prefix: the induction `betaPeelC_spec` already does,
+  with `extract_rev_succ`), and `iotaRecC_spec` restated for the new result (for key:
+  `mkAppN rhs vals` is the spec's reduct, `iotaReduct_eq`).
+* *eager/open*: the ι arm of `whnfStuckC_spec`/`whnfAppC_spec` relates the cached `.cont r` to a
+  mirror step one β later, as #572 put it: since #572 the loop's triple states `whnfCore` of its
+  term directly, the loop case chains `Runs.whnfCore_of_cont` twice (ι, then the β lemma) — a
+  named two-step relation in the step triples (`StepsTo e r`: one mirror step, or an ι step
+  followed by its β), consumed by the loop's `.cont` case.  The pending keys need nothing (a key
+  fewer is still `PendOK`).  open adds the `ruleRhsAt` clause of `CSOK` (an entry is the peeled
+  level-instantiated right-hand side).  The `peelLamsC = none` path should not stay as dead
+  code: either a total peel (peel what is there, apply the leftover values — `betaPeel`'s own
+  stop case, so the lemma covers it) or the install invariant below.
+* *key*: the loop gets a third outcome and a third induction case (push `e`, the hit arm by
+  the existing `CSOK` hit lemma, the miss arm by `PendOK.push`/`pushCheap` on the key with
+  `whnfCoreStepW_cheap` for its β step and the β lemma for the continuation): more than eager,
+  all in `DiscC4`.
+
+**The open body at installation instead** (written down, not built).  The generator already
+has it: `classGenRule` (`Kernel/Inductives/GenRec.lean`) builds `closeLams (pre ++ fvs) 0 body`,
+so the install could store the abstracted `body` beside `rhs`.  `RecRule` is a structure with
+named fields (unlike #573's positional `ctorInfo`, ~140 files), so a field `body` breaks only
+its construction sites: `sumRules`/`generatedRules` (install), the pinned basis rules
+(`Kernel/Basis.lean`, `Semantics/BasisRules.lean`), `Kernel/Canon.lean` (`canonExpr` on `body`
+too, with its commutation with the peel), the three parse sites (`Frontend/ExportC`,
+`Frontend/Olean/Emit`, `Frontend/Scan/Naive`, a placeholder as for `fire`) and about ten proof
+files that build rules (`Verify/Inductives/StreamRecsInv`, `DirectGen`, `BlockWF`,
+`Model/Inductives/GenRec*`, `BlockRec*`).  The invariant would be an `EnvWF` field `RuleWF`
+(`peelLams (rP + nfields) rl.rhs = some rl.body`), a property of the record alone like
+`CtorWF`, so no freshness side condition; established at the block install, the basis
+blocks and the pins, and used once, in the cached ι step (with `instLevelParams` commuting
+with the peel).  The model keeps reading `rhs`.  **Runtime gain beyond the memo: none to
+measure.**  The memo already does the peel once per (recursor, constructor, levels) per
+declaration, and the level instantiation stays per declaration in either form; what install
+storage would save is that one peel per memo miss.  The per-declaration memo captures the
+gain; only the dead fallback is an argument for the invariant, and a total peel removes it
+without one.
+
+**Outcome** (2026-11-15): the maintainer chose the peel, without the key and with the rule's closed right-hand side kept (task #585, landed).  The prototypes' branches are deleted; this record was copied to master so the comparison can be found.
+
+## TASK #587 — erasing proof arguments from stored values: measured, not pursued (2026-11-15, agent/587-proof-erasure)
+
+**The question** (the maintainer): since proofs are never reduced, could a
+definition's stored value carry an untyped marker in place of each proof
+argument?  The marker would take its type from the function's domain where
+one is needed, and substitution would no longer copy proofs.
+
+**The probe** (branch `agent/587-proof-erasure`, commit `baa6a3dcb`;
+unproved, two `sorry`s, not for landing).  It counts the nodes every
+substitution walk allocates.  After each definition is checked, it replaces
+the proof arguments in the stored value with a marker.  Variant 1 erases
+values only; variant 2 also erases stored types.  Then it checks the stream
+a second time against the erased values.
+
+**Numbers** (`instructions:u`, all inside the probe binary):
+* Proof nodes are about **0.4 %** of what substitution allocates on
+  `init-full` (608 796 of 140.8 M), `grind-ring-5` and
+  `grind_field_cancel_inv`, and 2.4 % on `init-prelude`.  A static census
+  of `Init` had 5.4 % of data-definition value nodes inside proofs, so the
+  proof-carrying bodies are substituted rarely.  The synthetic perf streams
+  have no proof arguments.
+* The second check is 0.6 % (variant 1) to 1.7 % (variant 2) cheaper on
+  `init-full`, 0.6–0.7 % on `grind-ring-5`, about 1.7 % on `init-prelude`.
+  That is the ceiling.  The probe's erasure pass re-infers arguments after
+  the check and costs +6.5 % (variant 1) or +68 % (variant 2) of a run.  An
+  erasure built into the value check would cost less, but the ceiling stays.
+* A marker carrying its type (`@trustMe P`) is worse still: in `Init` the
+  proofs' types are 3.2 times the size of the proofs.
+
+**Why the expected type does not suffice.**  It works for proof irrelevance
+inside a spine and for the K rule: the probe builds the K constructor from
+the recursor's major domain.  It does not work where the proof itself is
+needed.  The marker reached three such places: the major premise of a
+non-K recursor (`Acc.rec` in `WellFounded.fixF_eq`), a projection out of a
+proof, and a proof applied as a function (`fun h => h x`).  9 `Init`
+theorems no longer check with variant 1, and 28 with variant 2.  At erasure
+time it is not known whether a proof will reach one of these places.
+
+**Decision**: not pursued.
+
+## TASK #591 — the ι step looks each record up once (2026-11-15, agent/591-iota-lookups)
+
+**What.**  A plain refactor of the cached ι step (`Cached/CoreC.lean`): each record it needs
+is found by name once and handed down, instead of being re-found by every function on the
+path.  Reduction order, step counts and every verdict are unchanged (stdout identical on all
+streams below); no new cache, no memo table, no record field.
+
+**The lookups per ι step before** (a callgrind profile of the fixture
+`grind_field_cancel_inv` showed ~622 k `FEnv.find?` for ~68 k ι steps).  On the stuck-head
+path (`whnfStuckI`), non-K recursor:
+1. `iotaTargetF`: the recursor;
+2. `iotaRecI`: the recursor again;
+3. `majorToCtorI`'s `isCtorAppC` on the raw major (const-headed majors only);
+4. `prepareMajorI`'s `isCtorAppC` on the same term (no rescue for a multi-rule recursor);
+5. after the whnf, `majorToCtorI`'s `isCtorAppC` on the reduct;
+6. `iotaRecI`'s `find?` of the major's constructor (found in 5 already);
+7. `iotaNoCert`'s family (`ctorFamily`).
+Seven where the major needs a whnf, six where it is a constructor application already
+(3, 4, 6 on the same name).  On the spine-loop path (`whnfAppI`) `iotaArityOk` and
+`iotaRecI` each found the recursor.  A single-rule recursor with a stuck major adds the rule's
+constructor and family in each rescue attempt (unchanged).
+
+**After.**
+* The caller finds the recursor once (`whnfStuckI`, `whnfAppI`: a `match` on `fe.find?` that
+  also checks the level count and the spine length) and passes its record (`cv mI rP isK
+  rules`) to `iotaRecI`, which no longer takes the head expression or `k`.  `iotaTargetF`,
+  `iotaArityOk` go.
+* The major is classified once: `ctorViewC fe e : MajorView` (`.ctor e cj usj cvj nP nF
+  induct`, or `.stuck e`) replaces `isCtorAppC`.  `majorToCtorI` returns the view: the
+  major's own one when it is a constructor application, `.stuck major` with no lookup where
+  no rescue fires, `ctorViewC fe fab` where one does.  `prepareMajorI` returns the view (the K
+  side is just `majorToCtorI`: the spec's literal conversion of a constructor application is
+  the identity), and `iotaRecI` matches `.ctor` and reads `cj usj cvj cnP induct` from it.
+* Per step now: the recursor (1), the raw major (1, const-headed only), the whnf'd major (1),
+  the family (1) — four where seven were, three where six were.  Remaining: the family
+  lookup of `iotaNoCert` (keeping it out would need the family's facts on the constructor
+  record, a record change: not done), a rescue's classification of its fabricated spine, the
+  rescue's own `rl.ctor`/family reads, and the δ steps' `unfoldDefinitionI` (not ι).
+
+**Proofs.**  `DiscC3`: `MajorView.OK env v` (a `.ctor` view's head and record are the stored
+ones; a `.stuck` view's term is no constructor application) with its arm equations,
+`ctorViewC_OK`/`ctorViewC_expr`/`MajorView.isCtor_of_OK`, `isCtorApp_of_isStrLit`,
+`litMajorToCtor_ctorApp`, `iotaRecK_stuck`; the rescue walks, `majorToCtorC_spec` and
+`prepareMajorC_spec` post `Runs … v.expr ∧ v.OK env ∧ WScoped d v.expr` (the rescue walks
+take `isCtorApp env major = false`); `iotaRecC_spec` takes the record's `find?` equation, the
+level count and `mI + 1 ≤ args.size` as hypotheses.  `DiscC4`: the arity guard lemmas go;
+the stuck arm's target is the proof-side `iotaTarget env h` with one guarded equation per
+arm.  `KnotCongr`: `ctorViewC_congr` replaces the three removed functions' congruences.
+All in the house style (one `sym … => vcgen … <;> finish` per walk).
+
+**Measured** (`instructions:u`, `--verified`, `--jobs=1`, init-full `--jobs=8`, one run
+each; lookups = `FEnv.find?` calls, counted by a scratch binary per side, not the measured
+ones):
+
+| stream | master | lane | Δ | lookups master | lane | Δ |
+|---|---|---|---|---|---|---|
+| `grind_field_cancel_inv` | 1.886 G | 1.831 G | -2.93 % | 624834 | 418749 | -33.0 % |
+| `app-lam` | 22.081 G | 22.081 G | -0.00 % | 12910 | 12883 | -0.2 % |
+| `args-before-unfold` | 0.048 G | 0.047 G | -1.93 % | 14349 | 11349 | -20.9 % |
+| `beta-ladder` | 4.936 G | 4.936 G | -0.01 % | 12655 | 12628 | -0.2 % |
+| `church-numerals` | 0.196 G | 0.195 G | -0.53 % | 245 | 245 | +0.0 % |
+| `discarded-argument-match` | 0.197 G | 0.195 G | -1.02 % | 57913 | 50468 | -12.9 % |
+| `discarded-argument` | 0.066 G | 0.065 G | -2.20 % | 24823 | 19417 | -21.8 % |
+| `folded-constant-first` | 0.066 G | 0.065 G | -2.53 % | 19462 | 13456 | -30.9 % |
+| `folded-constant-last` | 0.066 G | 0.065 G | -2.53 % | 19462 | 13456 | -30.9 % |
+| `grind-ring-5` | 8.937 G | 8.797 G | -1.56 % | 2165231 | 1639662 | -24.3 % |
+| `identical-nesting` | 0.020 G | 0.020 G | -0.01 % | 380 | 380 | +0.0 % |
+| `irrelevance-before-evaluation` | 0.022 G | 0.022 G | -0.00 % | 794 | 794 | +0.0 % |
+| `let-ladder` | 2.558 G | 2.558 G | -0.00 % | 4715 | 4688 | -0.6 % |
+| `repeated-subproblem` | 0.022 G | 0.022 G | -0.19 % | 707 | 584 | -17.4 % |
+| `shared-subterm` | 0.133 G | 0.128 G | -3.62 % | 50492 | 32492 | -35.6 % |
+| `shift-cascade` | 0.050 G | 0.050 G | +0.03 % | 1286 | 1286 | +0.0 % |
+| `unroll-versus-evaluate` | 0.027 G | 0.027 G | -0.02 % | 2381 | 2372 | -0.4 % |
+| `init-prelude` | 1.131 G | 1.129 G | -0.16 % | 129417 | 123112 | -4.9 % |
+| `init-full` | 270.890 G | 269.394 G | -0.55 % | 58391477 | 53171251 | -8.9 % |
+
+The fixture's count before (624 834) matches the profile's 622 k; the 206 k removed are three
+per ι step.  Nothing regresses beyond noise (`shift-cascade` +0.03 %).
+
+## TASK #592 — the constructor shortcut (2026-11-15, agent/592-ctor-defeq)
+
+**What.**  The official kernel's eq-true clause (`is_def_eq_core`, `type_checker.cpp:1093-1101`
+at v4.35.0: the right side the constant `Bool.true`, the left side fvar-free or the eager flag
+set, the left side `whnf`'d, `true` iff the reduct is `Bool.true`) is generalised to every
+closed, fully applied constructor application of a family that is never a proposition, has no
+η law and is not `Nat`.  A deliberate optimisation beyond upstream (maintainer ruling
+2026-11-15).  It replaces the eq-true clause: `Bool.true` is an instance.  `boolTrueShortcut`,
+`boolTrueShortcutI`, `Expr.isBoolTrue`, the rule `DefEq.boolTrue` and their proofs are gone.
+
+**The rule** (`defeqBody`, `Kernel/Core.lean`; `defeqBodyI`, `Cached/CoreC.lean`).  After the
+syntactic fast path:
+1. if `ctorTargetFor env eager a b = some C` — `b` has no fvar, its head is the stored
+   constructor `C`, applied to exactly `numParams + numFields` arguments, `C`'s family has
+   `IndCaps.neverZero`, not `IndCaps.eta`, and is not `Nat`; and `eager || !a.hasFvar`
+   (official's guard of the eq-true clause) — then `w ← whnf a`, and by `ctorHeadAgainst env
+   C w`: head `C` → `defeqLazy w b`; head another stored constructor → `false`; anything else
+   → `defeqLazy a b`;
+2. otherwise the same with the sides swapped (`ctorTargetFor env eager b a`, `whnf b`,
+   `defeqLazy a w`);
+3. otherwise `defeqLazy a b`.
+`defeqLazy` is the former body past its fast path and the eq-true clause, unchanged: the
+same-constructor branch continues there, not in `defeq`, which would fire the shortcut again
+on the same pair.  When the right side is a target and the left side's normal form is stuck,
+the left side is not tried: a target's own normal form is itself, so the left side could only
+be a target if the right side's normal form had a constructor head.
+
+**Why the `false` is exact.**  Soundness needs only the `C` branch (a reduct is
+definitionally equal to its source: `DefEq.redL`/`redR` from the `whnf` bridge, then the
+`defeqLazy` bridge).  The `false` is a completeness matter: it must be the verdict the lazy
+path (and official) reaches.  The two head normal forms are `C bs` and `D ys` with `C ≠ D`
+constructors.  The rules of conversion that can equate terms whose head normal forms differ
+in their head constant are: proof irrelevance — it needs the type of `C bs` to be a
+proposition, and `neverZero` says the family's sort is never `Prop` at any level
+instantiation (a family declared in `Sort u` used at `u := 0` has `neverZero = false` and is
+skipped: fixture `ctor_sc_prop`'s `t2`); structure η and unit-like η — they need a family
+with one constructor, and `C`'s has no η law (and a family with one constructor never meets
+another of its own); λ-η — it needs a function, and `C bs` is fully applied, so its type is
+the family applied, not a Π-type; the `Nat` literal and offset forms — they are `Nat`'s, and
+`Nat` is excluded.  `D` cannot be a constructor of an η family that equates `D ys` with
+`C bs` either: η for `D`'s family compares the types first, and `C bs`'s type is `C`'s
+family, another inductive type.  So official's lazy path, which reaches the same two normal
+forms one unfolding at a time, ends at `is_def_eq_app` with different head constants and the
+same failed fallbacks.
+
+Which conditions the `false` needs: only "never a proposition".  The others keep the shortcut
+to the pairs where it pays: an η family has one constructor, so it never answers `false`,
+and its stuck pairs (the η pairs) fall through after a wasted `whnf`; a partial application
+`C as` is a function whose η-expansion `fun x => C as x` head-normalises to a λ-expression,
+which falls through as well (the count probe, `probe/ctor-defeq`, found exactly this pair on
+`init-full`: `List.cons x` against `fun p => List.cons x p`); a `Nat` side meets literals,
+whose head is no constant, so it falls through or is decided by the literal machinery.  The
+closedness of `C bs` is not needed for the `false` either; it is the shape the probe
+measured (19 % of the comparisons on `init-full` have such a right side, 8 % such a left
+side, 99.8 % of them reach the same constructor).
+
+**Phase 1: the variant, by measurement** (`instructions:u`, `--verified`, `--jobs=1`, one
+run per stream and binary; Δ against master `d7ee38d80`; scratch probe builds of the cached
+core alone, `defeqBodyI_congr` sorried, not kept):
+* (a) the rule above, the shortcut a monadic step returning `Option Bool` before the lazy
+  comparison, which re-tested `a == b` (the spike's shape plus the full-application condition);
+* (b) (a), but no `whnf` when the other side's head is already a constructor (the lazy path
+  is cheap there);
+* (c) (a), but only when the other side's head is a constant that δ-unfolds;
+* (a′), (c′): (a), (c) without the second `a == b`;
+* lane: (a′) with the shortcut's dispatch inlined into `defeqBody` (pure `match`es on the
+  target, no `Option` returned through the monad on the comparisons with no target, about
+  three quarters of them on `init-full`).
+
+| stream | master | (a) | (b) | (c) | (a′) | (c′) |
+|---|---:|---:|---:|---:|---:|---:|
+| `init-full` | 262.499 G | -2.94 % | -2.86 % | -1.81 % | -3.00 % | -1.81 % |
+| `mathlib-prefix` | 366.452 G | -2.24 % | -2.15 % | -1.31 % | -2.29 % | -1.33 % |
+| `grind-ring-5` | 8.797 G | -0.88 % | -0.82 % | -0.73 % | -0.88 % | -0.76 % |
+| `init-prelude` | 1.133 G | +0.48 % | +0.54 % | +0.49 % | +0.44 % | +0.45 % |
+| `app-lam` | 22.085 G | +0.00 % | +0.01 % | +0.00 % | +0.01 % | +0.01 % |
+| `args-before-unfold` | 0.051 G | +11.74 % | +12.33 % | +2.35 % | +11.55 % | +2.17 % |
+| `beta-ladder` | 4.939 G | +0.11 % | +0.00 % | +0.11 % | +0.11 % | +0.01 % |
+| `church-numerals` | 0.198 G | +3.49 % | +3.54 % | +3.51 % | +2.79 % | +2.79 % |
+| `discarded-argument` | 0.068 G | +1.79 % | +1.45 % | +1.05 % | +1.70 % | +0.96 % |
+| `discarded-argument-match` | 0.198 G | +0.76 % | +0.52 % | +0.53 % | +0.72 % | +0.47 % |
+| `folded-constant-first` | 0.068 G | +0.00 % | +0.01 % | +0.00 % | +0.01 % | +0.00 % |
+| `folded-constant-last` | 0.068 G | -0.00 % | +0.02 % | +0.01 % | +0.00 % | -0.00 % |
+| `fueled-chain` | 0.264 G | +0.47 % | +0.53 % | +0.51 % | +0.44 % | +0.46 % |
+| `identical-nesting` | 0.024 G | -0.01 % | -0.01 % | -0.01 % | -0.01 % | +0.01 % |
+| `irrelevance-before-evaluation` | 0.025 G | +0.04 % | +0.05 % | +0.04 % | +0.03 % | +0.04 % |
+| `let-ladder` | 2.561 G | +0.00 % | +0.00 % | +0.00 % | +0.00 % | +0.00 % |
+| `magma-list-deep-n21` | 10.065 G | +0.12 % | +0.06 % | +0.07 % | +0.03 % | +0.02 % |
+| `magma-list-deep-n36` | 134.306 G | -0.04 % | -0.02 % | -0.02 % | -0.02 % | -0.06 % |
+| `magma-list-pair-n21` | 113.658 G | -0.01 % | +0.00 % | +0.01 % | -0.04 % | +0.07 % |
+| `magma-list-pair-n7` | 9.836 G | +0.00 % | +0.12 % | +0.03 % | +0.02 % | +0.02 % |
+| `refute-cheap-first` | 0.026 G | -0.11 % | -0.04 % | +0.05 % | -0.13 % | +0.04 % |
+| `refute-cheap-last` | 0.094 G | +2.04 % | +2.09 % | +1.50 % | +1.92 % | +1.38 % |
+| `repeated-subproblem` | 0.025 G | -0.07 % | +0.03 % | +0.04 % | -0.07 % | +0.02 % |
+| `shared-subterm` | 0.131 G | +0.95 % | +1.45 % | +0.89 % | +0.88 % | +0.81 % |
+| `shift-cascade` | 0.054 G | +0.03 % | +0.00 % | +0.02 % | +0.01 % | +0.02 % |
+| `unroll-versus-evaluate` | 0.030 G | +0.03 % | +0.05 % | +0.06 % | +0.04 % | +0.04 % |
+
+(b) is not better than (a): the head lookup it adds costs about what the skipped `whnf` (of
+a term already in normal form) costs.  (c) keeps about 60 % of the gain on the big streams:
+it loses every pair whose other side is a recursor application, a projection or a β/ζ redex
+rather than a δ-unfoldable constant, to save 9 points on `args-before-unfold`.  (a′) is
+chosen, and landed in the inlined form.  The second
+`a == b` explains 0.7 of `church-numerals`' 3.5 %; the rest, on a stream where the shortcut
+never fires (no constructor application in it), is the cost of returning `Option Bool`
+through `StateT CState (Except _)` on every comparison, which the inlined dispatch removes
+(`church-numerals` −0.09 % on the lane build, `fueled-chain` +0.11 %).
+
+**The regression that remains, `args-before-unfold` (+10.8 %, +5.5 M instructions on the
+final build).**  The
+stream compares `count (num 1000)` with `count (N.add (num 999) (num 1))`; the same-head
+argument comparison reaches `num 1000 =?= N.add (num 999) (num 1)` and then 1000 nested
+`num k =?= N.rec … (num (k-1))`.  Each level has a target on the left, and the shortcut's
+`whnf` of the right side is one ι step — the step the lazy path's cheap `whnfCore` takes
+anyway — so the reduction work is the same, and the shortcut adds per level the `whnf`
+entry's memo insert, the full `whnfCore`'s memo entry for the redex and then the lazy
+path's cheap `whnfCore` of the normal form (another memo, another entry): about 5.5 k
+instructions per level, ×1000 (a per-symbol profile shows the `whnf` memo's inserts and the
+gates' `FEnv.find?` lookups, no extra reduction).  Variant (c) avoids it (a recursor head is
+not δ-unfoldable) at the price above.  About half of the stream's 50 M instructions are
+start-up (`identical-nesting`, nearly empty, takes 24 M), so on the check proper the
+regression is about a fifth.  The other small regressions (`discarded-argument` +1.4 %,
+`refute-cheap-last` +1.5 %, `discarded-argument-match` +0.6 %, `shared-subterm` +0.6 %,
+`init-prelude` +0.15 %) are streams of the same shape (unary `N` numerals against `N.rec`
+and `N.add` chains); `discarded-argument`'s 400 comparisons with a target all reach the same
+constructor (count probe), so its cost is the same per-fire overhead.  The others were not
+attributed one by one.
+
+**Proofs.**  `Kernel/CoreDefs`: `ctorTarget`, `ctorTargetFor`, `ctorHeadAgainst` (pure);
+`Cached/CoreC`: `ctorTargetC` (the spine counted with `iotaNumArgs`), `ctorTargetForC`,
+`ctorHeadAgainstC`, `defeqLazyI`, the knot one function smaller.  `Verify/Deep`:
+`ctorTarget{,For}_shiftFrom`, `ctorHeadAgainst_shiftFrom`, `defeqLazy_shift`, `defeq_step`
+over the new body.  `Verify/EnvExt`: `ctorTarget{,For}_ext`, `ctorHeadAgainst_ext`
+(`EnvExt/Reads`: the family is the stored constructor type's head, resolved, as
+`etaCtorPartial_ext` reads it), `defeqLazy_rel`, `defeqBody_rel`.  `Verify/Fueled`,
+`Verify/PairM`: `defeqLazy_atF`, `defeqLazy_{fst,snd}_proj`.  `Verify/Knot`:
+`defeqLazyFueled` + fold.  `Verify/Rules`: `defeqLazy_inv` (the former inversion minus two
+exits), `defeqBody_inv` (four exits: `a = b`, the two shortcut sides as `whnf` + `defeqLazy`,
+the lazy comparison), `defeqLazy_bridge`, `defeq_bridge_succ` by `DefEq.redL`/`redR`.
+`Verify/Cached/KnotCongr`: the congruences of the new pieces.  `Verify/Cached/DiscC5`: the
+blocks between the arms named on both sides (`ctorRightTP/I` → `ctorRightP/I`, `ctorLeftTP/I`
+→ `ctorLeftP/I`), `rfl` restatements `defeqBody_eq`/`defeqBodyI_eq`/`defeqLazy_eq`/
+`defeqLazyI_eq`, the gates' cached twins as `@[conleche_grind =]` equations
+(`ctorTargetForC_eq`, `ctorHeadAgainstC_eq`), one `sym … => vcgen … <;> finish` per walk, no
+raised limit.  No `sorry`, no axiom.
+
+**Fixtures** (`tests/e2e/src/ctor_sc_*.lean`; the accepted ones checked by v4.29.1's kernel
+at export, the rejected ones built under `debug.skipKernelTC`): `ctor_sc_prop` (a `Prop`
+family, and a `Sort u` family at `u := 0`, equal by proof irrelevance; rejected by a build
+without the `neverZero` condition), `ctor_sc_struct_eta`, `ctor_sc_unit_like` (against
+stuck opaque constants, both orders), `ctor_sc_nat`, `ctor_sc_partial_eta` (both orders),
+`ctor_sc_same_ctor` / `_bad`, `ctor_sc_diff_ctor_bad`, `ctor_sc_decide` / `_bad`,
+`ctor_sc_eager`.  Every verdict is official's and master's.
+
+**Final measurement** (the lane's final tree against master `d7ee38d80`, as above; every
+stream's stdout and exit code identical):
+
+| stream | master | lane | Δ |
+|---|---:|---:|---:|
+| `init-full` | 262.656 G | 253.897 G | -3.33 % |
+| `mathlib-prefix` | 366.430 G | 357.081 G | -2.55 % |
+| `grind-ring-5` | 8.799 G | 8.701 G | -1.12 % |
+| `init-prelude` | 1.133 G | 1.134 G | +0.15 % |
+| `app-lam` | 22.088 G | 22.085 G | -0.01 % |
+| `args-before-unfold` | 0.051 G | 0.056 G | +10.78 % |
+| `beta-ladder` | 4.939 G | 4.939 G | +0.00 % |
+| `church-numerals` | 0.198 G | 0.198 G | +0.17 % |
+| `discarded-argument` | 0.068 G | 0.069 G | +1.41 % |
+| `discarded-argument-match` | 0.198 G | 0.199 G | +0.59 % |
+| `folded-constant-first` | 0.068 G | 0.068 G | -0.01 % |
+| `folded-constant-last` | 0.068 G | 0.068 G | -0.02 % |
+| `fueled-chain` | 0.264 G | 0.264 G | +0.09 % |
+| `identical-nesting` | 0.024 G | 0.024 G | -0.01 % |
+| `irrelevance-before-evaluation` | 0.025 G | 0.025 G | +0.03 % |
+| `let-ladder` | 2.561 G | 2.561 G | +0.00 % |
+| `magma-list-deep-n21` | 10.063 G | 10.069 G | +0.06 % |
+| `magma-list-deep-n36` | 134.288 G | 134.299 G | +0.01 % |
+| `magma-list-pair-n21` | 113.705 G | 113.648 G | -0.05 % |
+| `magma-list-pair-n7` | 9.838 G | 9.835 G | -0.03 % |
+| `refute-cheap-first` | 0.026 G | 0.026 G | -0.15 % |
+| `refute-cheap-last` | 0.094 G | 0.095 G | +1.52 % |
+| `repeated-subproblem` | 0.025 G | 0.025 G | -0.09 % |
+| `shared-subterm` | 0.131 G | 0.132 G | +0.58 % |
+| `shift-cascade` | 0.054 G | 0.054 G | +0.00 % |
+| `unroll-versus-evaluate` | 0.030 G | 0.030 G | +0.01 % |
+
+**Gates.**  `lake build` and `lake test` warning-free; `tests/arena.sh` green (e2e 609/609);
+the link gates re-pointed (`OVERVIEW.md`, the whitepaper's two citations that moved); the
+plain-reach allowlist loses `Expr.isBoolTrue`.
+
+## TASK #593 — OVERVIEW §14: an index of the departures from the official kernel (2026-11-15, agent/593-departures)
+
+OVERVIEW described each deliberate departure from the official kernel where its mechanism is,
+and §9 listed only the four that accept more.  §14 now indexes all of them in groups: what
+accepts more, what rejects or declines more, what reaches the same verdict by another route (the
+constructor shortcut of task #592, the certified `Nat` fast path, nested blocks without an
+auxiliary block, the stream's recursors installed after comparison) and the checks only the proof
+needs, with a fifth group first: what the checker already has of the official kernel's logic
+renovation (lean4#14977) — proofs compared before reduction (lean4#15103), opaque theorems, the
+recursor-major rescue order (lean4#15371), the wider unit-like η and the partial-constructor η
+(lean4#15372/#15373), semantic level comparison, large elimination of sort-polymorphic
+single-constructor blocks — and one line on what it does not follow yet (`Acc` large elimination
+lean4#13851, `Quot` in `Type` lean4#15023, lean4#15374, explicit feature flags).  The merged
+renovation PRs are on lean4 master and in no release (checked against v4.36.0-rc2,
+2026-11-15).  §3 cited the closed lean4#15351 for the rescue order; it now cites lean4#15371,
+the merged change.  Each line points to the section that explains it; §14 adds no facts of its
+own.  It is
+appended rather than inserted so the section numbers cited elsewhere (§11, §12 in CLAUDE.md)
+stay.  A new departure gets a line there.
+
+## modular: master merged (5) (2026-11-16, agent/modular-merge-master-5)
+
+`master` at 600d3b583 merged into `modular` (b9b1471e3).  What master brought: #578 (the
+lean4-master pin variant, a pinner with a fork), #579 (the literal flags as fields of the index:
+`StreamIndex.freeze`, `FrozenIndex`), #582 (the `Nat.succ` major, `modular`'s own fix
+cherry-picked), #583 (the β peel from the spine array), #585 (the ι step peels the rule's λs;
+`RuleWF`, the new `EnvWF.rules`; `ruleBinds` on stored rules), #591 (the ι step's lookups,
+`MajorView`), #592 (the constructor shortcut replaces the `Bool.true` one), #593 (OVERVIEW §14,
+the departures index), and the records #584, #586–#590 (prototypes, measured, #590 reverted).
+Task numbers: no number is used on both sides for different tasks.  #582 has two records, one
+per branch (`agent/582-major-succ` here, `agent/582-major-succ-master` on master), both kept.
+
+**Textual conflicts.**
+* #582 on both sides: one copy of each piece stays (`isNatSuccApp_shiftFrom`, the fixture
+  `strict_succ_counter` and its `e2e-expected` line, the `Expr.isNatSuccApp` allowlist entry).
+  `Cached/CoreC.lean`'s `prepareMajorI` takes master's form (`vE.isCtor && !vE.expr.isNatSuccApp`,
+  #591's `MajorView`); `tests/plain-reach-allow.txt` loses `Expr.isBoolTrue` (#592).
+* `Verify/Cached/StreamIndex.lean`: `modular`'s `jobs_run_from` (from a start position) at #579's
+  frozen index.
+* `pinners/README.md`, `scripts/pub-import-plan.py`: `modular`'s `lakefile.lean` pinners (#547)
+  with master's new pinner and its forked sources.
+* `tests/shake-allowlist.txt`: master's two `RedSound` lines; the `Model/Env/Laws.lean` line stays
+  removed, as on `modular` (shake no longer proposes it).
+* DESIGN.md (both sides' records, `modular`'s first), and the documents' line anchors (relocated
+  by the cited text, expectations regenerated).  Two anchors were stale on master and are re-cited:
+  `natOpGuard` (`Kernel/CoreDefs.lean`) and `Red.iota_sound` (`Model/Rules/IotaSound.lean`).
+
+**Adaptations.**
+* **The index is frozen** (#579) where `modular` builds it: `Jobs.plain` (`Driver/CheckPool.lean`,
+  the one-process mode) and `checkDecls_of_jobs_from`'s hypothesis.
+* **The context's records keep `RuleWF`** (#585).  A recursor read from another module's `.olean`
+  never passes `ruleBinds`, so the context validation checks the invariant itself: `ruleOk`
+  (`Driver/Reach.lean`) adds `rP ≤ mI` and `rhs.stripLams (rP + nfields)` (the stored rules'
+  check, `ruleBinds`, as a test); `constOk_ruleWF` and the sixth field of `ctx_envWF`
+  (`Verify/Driver/Reach.lean`) read it.  `envWF_prefix` (`Verify/Driver/PropPart.lean`) and the
+  modular model's `CtxSrc.wf` (`Model/Modular/RestrictBase.lean`, the source's own `EnvWF.rules`)
+  carry the new field.  `ModularTests` pins the clause (a rule with too few λs is refused).  On
+  Lean's output the clause always holds.
+* **The new pinner** (`pinners/leanprover-lean4-pr-releases-pr-release-16441/`) is a
+  `lakefile.lean` (`tests/pindump.sh` asks for one) with its explicit cone plus
+  `ConLeche.Kernel.NatHash`, and **without** the native section of the other pinners: its toolchain
+  ships lean4#16146, whose runtime defines `lean_nat_big_hash`, and the vendored C then fails the
+  link on the duplicate symbol (the reminder #547 built in, met for the first time).  It
+  reproduces its dump byte for byte.
+* **OVERVIEW §14** gets three lines under "It rejects or declines more" for `modular`'s
+  departures: the reserved compiler-trust names and `sorryAx` (#501 cont. 6), name capture in
+  modular checking (#465/#501), and the files as untrusted input (the three parts agree, the
+  context's syntactic clauses with the constructor family and the rule binders, no records that
+  read each other).  §2's `recordOk` sentence names the rule clause.
+* Nothing else: #583/#585/#591/#592 change the core under the knot's entry points, whose
+  proofs `modular`'s drivers use unchanged; `RecRule` keeps its closed `rhs` (#585's ruling), so
+  the reader, `recordReads`, the groups and the model's `RuleAg` read the same fields.  The literal
+  hash (#547/#564), the vendored C and #565's memo linearity are unchanged.
+
+**Measurements** (`perf stat -e instructions:u`, one run each, under the guard; streams
+`--jobs=8`, Coxeter `--olean --module --jobs=8`):
+
+| run | master 600d3b583 | modular b9b1471e3 | merged | vs modular | vs master |
+|---|---|---|---|---|---|
+| init-prelude | 1.2163 G | 1.2167 G | 1.2168 G | +0.01 % | +0.03 % |
+| grind-ring-5 | 8.9646 G | 9.9216 G | 8.9645 G | −9.65 % | −0.00 % |
+| Coxeter worker | — | 6.2176 G | 6.1258 G | −1.48 % | |
+
+Every run accepts the same count (1777, 2185, 159).  `strict_succ_counter` 15.6 G (3.1 s CPU),
+`lit_hash_low_bits` 1.9 G (0.6 s), both within their 10 s timeouts.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard:
+layering, trust surface, overview links (165), whitepaper links (530), fragment, quote gate,
+no-local-paths, challenge, plain-reach (638, all allowlisted), binary-link, olean gate 339/339 (the
+scheduler cases among them), selfcheck (59 887 declarations, olean-compare 0 differences), axioms
+pinned (72 theorems), arena tutorial 90/92, e2e 617/617, the trusted and `--jobs` sweeps without
+divergence; the first run failed pindump (the pinner above) and shake (the `Laws.lean` line), both
+fixed and re-run green (`tests/pindump.sh`: 3 pinners reproduced, the nightly one skipped as not
+installed; `tests/shake.sh`: 676/676 allowlisted, none demotable).  The whitepaper builds
+(`nix develop ./whitepaper -c whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`,
+`implemented_by` or C.

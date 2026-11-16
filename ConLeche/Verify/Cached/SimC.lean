@@ -246,11 +246,11 @@ structure CSOK (mode : CheckMode) (eager : Bool) (env : Env) (s : CState) : Prop
   constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ cv v h,
     env.find? n = some (.defnInfo cv v h) ∧
     RelC i (v.instantiateLevelParams cv.levelParams us)
-  ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i →
+  ruleBody : ∀ c j us i, s.ruleBodyAt[(c, j, us)]? = some i →
     ∃ cv mI rP isK rules rl,
     env.find? c = some (.recInfo cv mI rP isK rules) ∧
     rules.find? (fun r' => r'.ctor == j) = some rl ∧
-    RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)
+    RelC i ((rl.rhs.lamBody (rP + rl.nfields)).instantiateLevelParams cv.levelParams us)
   whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       whnfCore mode eager env F d k = .ok v
@@ -359,7 +359,7 @@ theorem CSOK.enterEager {s : CState} (hs : CSOK mode eager env s) :
   cases eager with
   | true => exact hs
   | false =>
-    exact ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.eager.whnfCoreC, hs.eager.whnfCoreCheapC,
+    exact ⟨hs.constTy, hs.constVal, hs.ruleBody, hs.eager.whnfCoreC, hs.eager.whnfCoreCheapC,
       hs.eager.whnfC, hs.eager.inferC, hs.eager.inferIOC, hs.eager.defeqC, hs.lsimp, hs.lnz,
       hs.eqv, hs.instC, ModeMemosOK.empty⟩
 
@@ -372,7 +372,7 @@ theorem CSOK.leaveEager {s₀ s₂ : CState} (hs₀ : CSOK mode eager env s₀)
   cases eager with
   | true => exact hs₂
   | false =>
-    exact ⟨hs₂.constTy, hs₂.constVal, hs₂.ruleRhs, hs₀.whnfCoreC, hs₀.whnfCoreCheapC,
+    exact ⟨hs₂.constTy, hs₂.constVal, hs₂.ruleBody, hs₀.whnfCoreC, hs₀.whnfCoreCheapC,
       hs₀.whnfC, hs₀.inferC, hs₀.inferIOC, hs₀.defeqC, hs₂.lsimp, hs₂.lnz, hs₂.eqv, hs₂.instC,
       hs₂.modeMemos⟩
 

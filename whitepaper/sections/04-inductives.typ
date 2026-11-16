@@ -135,7 +135,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   once they agree with the generated ones: the type binder by binder up
   to the major premise, each rule up to definitional equality, at the
   generated recursor's firing data
-  (#src("ConLeche/Kernel/Inductives/StreamRecs.lean", 183, 189)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/StreamRecs.lean", 187, 193)[the comparison]).
 ]
 
 Here is the recursor of the natural numbers.
@@ -217,7 +217,7 @@ propositional ones are all the same proof, and the others can be read
 off the indices. Otherwise the motive lands in $Prop$, $ell = 0$
 (_small elimination_). In the fragment the criterion is
 #src("whitepaper/Fragment/Decl.lean", 723, 730)[a condition per field]
-plus #src("whitepaper/Fragment/Decl.lean", 763)[the constructor count], required of a large
+plus #src("whitepaper/Fragment/Decl.lean", 776)[the constructor count], required of a large
 eliminator on a family whose sort _may_ be zero
 (#src("whitepaper/Fragment/Decl.lean", 719, 721)[never zero: $1 <= u$ at every valuation]).
 
@@ -302,7 +302,7 @@ generated type a well-denoted type.
 The block #src("whitepaper/Fragment/Decl.lean", 532, 573)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
 (#src("whitepaper/Fragment/Env.lean", 66, 82)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 132, 140)[as in con-leche]). Written
+#src("ConLeche/Kernel/Env.lean", 134, 142)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$, a definition (@sec:env);
@@ -743,8 +743,10 @@ and the major $t$ reduces to a constructor application
 $c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
 a rule with right-hand side $R_j$. The reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
-minors from $arrow(a)$ and to the fields $arrow(f)$
-(#src("ConLeche/Rules/Rel.lean", 190, 248)[as in con-leche]). Besides
+minors from $arrow(a)$ and to the fields $arrow(f)$; con-leche
+substitutes those values into $R_j$'s body under its leading lambdas at once,
+the application's β steps
+(#src("ConLeche/Rules/Rel.lean", 190, 242)[the rule there]). Besides
 finding $r$, $c_j$ and the rule in the environment, the fragment's
 rule has three _comparisons_ as premises:
 
@@ -822,7 +824,7 @@ of @thm:sound demands; the first is the equation. The $iota$ case of
 conditional equalities; the redex's own fit is as above; the
 constructor's fit comes from its certificate or from the arguments of
 @sec:iota-cases; the reduced major's value replaces the argument's;
-and #src("ConLeche/Model/Rules/IotaSound.lean", 88)[the law] gives the rest.
+and #src("ConLeche/Model/Rules/IotaSound.lean", 646)[the law] gives the rest.
 
 #theorem(name: [the $iota$ law holds])[
   Every rule of the recursor of an accepted block

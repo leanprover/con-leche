@@ -94,7 +94,8 @@ decreasing_by
 
 /-- Pure mirror of the cached peel loop `betaPeelI`: `t` is the raw
 lambda body after the binders consumed so far, `acc` their arguments
-(innermost first). -/
+(innermost first; the cached loop reads them in place, as a range of
+its spine array). -/
 def betaPeel (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) :
     Expr → List Expr → List Expr → m Expr
