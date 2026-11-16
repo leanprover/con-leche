@@ -121939,7 +121939,9 @@ installed; `tests/shake.sh`: 676/676 allowlisted, none demotable).  The whitepap
 (`nix develop ./whitepaper -c whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`,
 `implemented_by` or C.
 
-## TASK #594 — CFSG `KDenseP.Norton.C125374`: the `memory` verdict came from the worker's threads (2026-11-16, agent/594-norton-memory)
+## TASK #600 — CFSG `KDenseP.Norton.C125374`: the `memory` verdict came from the worker's threads (2026-11-16, agent/594-norton-memory)
+
+(numbered #594 on its lane branch and in its commit messages; renumbered because master has a task #594)
 
 Investigation; nothing changed but this record.  Question (maintainer): the CFSG module
 `CFSG.Certificates.Kernel.KDenseP.Norton.C125374` got the scheduler's verdict `memory` (over
@@ -122039,7 +122041,7 @@ were removed at the end of the lane.  Kept in `_tmp/594`: the scripts (`bin/run.
 
 ## TASK #595 — a worker alone over the memory limit with several threads runs again with one thread (2026-11-16, agent/595-memory-threads)
 
-The fix proposed in #594.  `ConLeche/Driver/ScheduleIO.lean`, plain IO, outside every theorem.
+The fix proposed in #600.  `ConLeche/Driver/ScheduleIO.lean`, plain IO, outside every theorem.
 
 * **Live.**  `aloneAct threads` (pure): a worker alone over the limit gets the verdict `memory` only
   with one thread (`.memory`); with more it is killed, logged as `killed\t<module>\t<ms>\t<rss>\t<threads>`
@@ -122089,9 +122091,9 @@ nodes, only equations of 11–39 products.  C06's chunks have 0 to 86 node produ
 Every product's intermediates are big literals, and the whnf memos of both kernels keep them
 until the end of the declaration (#561).
 
-**Method.**  As #594: CFSG 69cb972f5, toolchain `v4.35.0-rc3`.  C06 has the same imports as C20,
+**Method.**  As #600: CFSG 69cb972f5, toolchain `v4.35.0-rc3`.  C06 has the same imports as C20,
 so `_tmp/543/olean` had the closure; only C06's own archive was fetched (`fetch.py`).  con-leche
-is `modular` fb04921eb.  The official kernel is #594's `replay2.lean` (the module's non-theorems,
+is `modular` fb04921eb.  The official kernel is #600's `replay2.lean` (the module's non-theorems,
 here none, and the named theorems).  Every run was under the guard (30 GB) and `timeout`, one at a
 time.  `perf stat -I 100 -e instructions:u` gave the instructions every 100 ms, and a sampler read
 the process tree's `RssAnon` every 100 ms.  The two were joined by time.
@@ -122405,6 +122407,9 @@ branch) stay, as master's #598 record keeps `modular`'s #547/#561/#564 records o
 `KDenseP.Norton.C125374`: the `memory` verdict came from the worker's threads" (cited as #594 by
 #595 and #597 here) and master's semantic-invariant task.  Both records are kept as written; a
 renumbering of `modular`'s, as for #560–#564, is the maintainer's call.
+
+Resolved: `modular`'s task is now #600 (see its record; #595 and #597 cite it as #600).  This
+paragraph keeps its original wording, which names the clash.
 
 **Textual conflicts.**  The files above (master's), `tests/ConLecheTests.lean` (`modular`'s three
 imports and master's one), DESIGN.md (both sides' records, `modular`'s first), OVERVIEW.md (the
