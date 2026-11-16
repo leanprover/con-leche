@@ -121861,3 +121861,80 @@ the merged change.  Each line points to the section that explains it; §14 adds 
 own.  It is
 appended rather than inserted so the section numbers cited elsewhere (§11, §12 in CLAUDE.md)
 stay.  A new departure gets a line there.
+
+## modular: master merged (5) (2026-11-16, agent/modular-merge-master-5)
+
+`master` at 600d3b583 merged into `modular` (b9b1471e3).  What master brought: #578 (the
+lean4-master pin variant, a pinner with a fork), #579 (the literal flags as fields of the index:
+`StreamIndex.freeze`, `FrozenIndex`), #582 (the `Nat.succ` major, `modular`'s own fix
+cherry-picked), #583 (the β peel from the spine array), #585 (the ι step peels the rule's λs;
+`RuleWF`, the new `EnvWF.rules`; `ruleBinds` on stored rules), #591 (the ι step's lookups,
+`MajorView`), #592 (the constructor shortcut replaces the `Bool.true` one), #593 (OVERVIEW §14,
+the departures index), and the records #584, #586–#590 (prototypes, measured, #590 reverted).
+Task numbers: no number is used on both sides for different tasks.  #582 has two records, one
+per branch (`agent/582-major-succ` here, `agent/582-major-succ-master` on master), both kept.
+
+**Textual conflicts.**
+* #582 on both sides: one copy of each piece stays (`isNatSuccApp_shiftFrom`, the fixture
+  `strict_succ_counter` and its `e2e-expected` line, the `Expr.isNatSuccApp` allowlist entry).
+  `Cached/CoreC.lean`'s `prepareMajorI` takes master's form (`vE.isCtor && !vE.expr.isNatSuccApp`,
+  #591's `MajorView`); `tests/plain-reach-allow.txt` loses `Expr.isBoolTrue` (#592).
+* `Verify/Cached/StreamIndex.lean`: `modular`'s `jobs_run_from` (from a start position) at #579's
+  frozen index.
+* `pinners/README.md`, `scripts/pub-import-plan.py`: `modular`'s `lakefile.lean` pinners (#547)
+  with master's new pinner and its forked sources.
+* `tests/shake-allowlist.txt`: master's two `RedSound` lines; the `Model/Env/Laws.lean` line stays
+  removed, as on `modular` (shake no longer proposes it).
+* DESIGN.md (both sides' records, `modular`'s first), and the documents' line anchors (relocated
+  by the cited text, expectations regenerated).  Two anchors were stale on master and are re-cited:
+  `natOpGuard` (`Kernel/CoreDefs.lean`) and `Red.iota_sound` (`Model/Rules/IotaSound.lean`).
+
+**Adaptations.**
+* **The index is frozen** (#579) where `modular` builds it: `Jobs.plain` (`Driver/CheckPool.lean`,
+  the one-process mode) and `checkDecls_of_jobs_from`'s hypothesis.
+* **The context's records keep `RuleWF`** (#585).  A recursor read from another module's `.olean`
+  never passes `ruleBinds`, so the context validation checks the invariant itself: `ruleOk`
+  (`Driver/Reach.lean`) adds `rP ≤ mI` and `rhs.stripLams (rP + nfields)` (the stored rules'
+  check, `ruleBinds`, as a test); `constOk_ruleWF` and the sixth field of `ctx_envWF`
+  (`Verify/Driver/Reach.lean`) read it.  `envWF_prefix` (`Verify/Driver/PropPart.lean`) and the
+  modular model's `CtxSrc.wf` (`Model/Modular/RestrictBase.lean`, the source's own `EnvWF.rules`)
+  carry the new field.  `ModularTests` pins the clause (a rule with too few λs is refused).  On
+  Lean's output the clause always holds.
+* **The new pinner** (`pinners/leanprover-lean4-pr-releases-pr-release-16441/`) is a
+  `lakefile.lean` (`tests/pindump.sh` asks for one) with its explicit cone plus
+  `ConLeche.Kernel.NatHash`, and **without** the native section of the other pinners: its toolchain
+  ships lean4#16146, whose runtime defines `lean_nat_big_hash`, and the vendored C then fails the
+  link on the duplicate symbol (the reminder #547 built in, met for the first time).  It
+  reproduces its dump byte for byte.
+* **OVERVIEW §14** gets three lines under "It rejects or declines more" for `modular`'s
+  departures: the reserved compiler-trust names and `sorryAx` (#501 cont. 6), name capture in
+  modular checking (#465/#501), and the files as untrusted input (the three parts agree, the
+  context's syntactic clauses with the constructor family and the rule binders, no records that
+  read each other).  §2's `recordOk` sentence names the rule clause.
+* Nothing else: #583/#585/#591/#592 change the core under the knot's entry points, whose
+  proofs `modular`'s drivers use unchanged; `RecRule` keeps its closed `rhs` (#585's ruling), so
+  the reader, `recordReads`, the groups and the model's `RuleAg` read the same fields.  The literal
+  hash (#547/#564), the vendored C and #565's memo linearity are unchanged.
+
+**Measurements** (`perf stat -e instructions:u`, one run each, under the guard; streams
+`--jobs=8`, Coxeter `--olean --module --jobs=8`):
+
+| run | master 600d3b583 | modular b9b1471e3 | merged | vs modular | vs master |
+|---|---|---|---|---|---|
+| init-prelude | 1.2163 G | 1.2167 G | 1.2168 G | +0.01 % | +0.03 % |
+| grind-ring-5 | 8.9646 G | 9.9216 G | 8.9645 G | −9.65 % | −0.00 % |
+| Coxeter worker | — | 6.2176 G | 6.1258 G | −1.48 % | |
+
+Every run accepts the same count (1777, 2185, 159).  `strict_succ_counter` 15.6 G (3.1 s CPU),
+`lit_hash_low_bits` 1.9 G (0.6 s), both within their 10 s timeouts.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the guard:
+layering, trust surface, overview links (165), whitepaper links (530), fragment, quote gate,
+no-local-paths, challenge, plain-reach (638, all allowlisted), binary-link, olean gate 339/339 (the
+scheduler cases among them), selfcheck (59 887 declarations, olean-compare 0 differences), axioms
+pinned (72 theorems), arena tutorial 90/92, e2e 617/617, the trusted and `--jobs` sweeps without
+divergence; the first run failed pindump (the pinner above) and shake (the `Laws.lean` line), both
+fixed and re-run green (`tests/pindump.sh`: 3 pinners reproduced, the nightly one skipped as not
+installed; `tests/shake.sh`: 676/676 allowlisted, none demotable).  The whitepaper builds
+(`nix develop ./whitepaper -c whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`,
+`implemented_by` or C.

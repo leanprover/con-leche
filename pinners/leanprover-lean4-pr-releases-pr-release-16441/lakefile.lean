@@ -23,7 +23,7 @@ open System Lake DSL
 --     ConLeche.PinGen.Certs                  the certificate theorems
 --     ConLeche.Kernel.{PtrDecEq,Name,PropWhen,Exclusive,Expr}
 --                                            the checker's Expr datatypes
---     ConLeche.Kernel.NatHash                the literal hash (its C below)
+--     ConLeche.Kernel.NatHash                the literal hash (no C here, below)
 --
 -- — and the last two lines are the reason the generator is not
 -- free-standing: a dump is an encoding of `ConLeche.Expr`, so the
@@ -51,9 +51,17 @@ open System Lake DSL
 -- master past the wf-recursion changes of 2026-11-12, lean4#16408 and
 -- #16409; no nightly carries them yet, hence a PR-release toolchain)
 -- has the new `withPtrEqDecEq` calling convention.  The shared library
--- below lists the cone explicitly, minus that module and minus
--- `ConLeche.Kernel.NatHash` (the native library's root), and
+-- below lists the cone explicitly, minus that module, and
 -- `PinnerFork` serves the fixed copy from this directory.
+--
+-- NO NATIVE SECTION, unlike the other pinners.  `ConLeche.Kernel.Expr`
+-- hashes a big `Nat` literal with `natBigHash`, the extern
+-- `lean_nat_big_hash`, which the other toolchains get from the C of
+-- lean4#16146 vendored as `native/nat_hash.c` (task #547).  This
+-- toolchain ships lean4#16146: its runtime defines the symbol, and
+-- linking the vendored C as well fails on the duplicate.  So
+-- `ConLeche.Kernel.NatHash` is an ordinary module of the shared library
+-- here, and the runtime's definition is the one linked.
 
 package pinner
 
@@ -61,7 +69,7 @@ lean_lib ConLecheShared where
   srcDir := "../.."
   roots := #[`ConLeche.PinGen, `ConLeche.PinGen.Dump, `ConLeche.PinGen.Prelude,
     `ConLeche.PinGen.Certs, `ConLeche.Kernel.Name, `ConLeche.Kernel.PropWhen,
-    `ConLeche.Kernel.Expr, `ConLeche.Kernel.Exclusive]
+    `ConLeche.Kernel.Expr, `ConLeche.Kernel.Exclusive, `ConLeche.Kernel.NatHash]
 
 lean_lib PinnerFork where
   srcDir := "."
@@ -71,25 +79,3 @@ lean_lib PinnerFork where
 lean_exe «natop-pins-export» where
   srcDir := "../.."
   root := `PinDump
-
--- THE LITERAL HASH'S C (task #547).  `ConLeche.Kernel.Expr` hashes a big
--- `Nat` literal with `natBigHash`, the C of lean4#16146 vendored as
--- `native/nat_hash.c` (see the root `lakefile.lean`), so the executable
--- links it: compiled by the toolchain's own C compiler, linked as a static
--- library through the module's own library, declared last so that it owns
--- the module.  This is why a pinner is a `lakefile.lean`: a custom target
--- needs code.  Once the toolchains have lean4#16146, the section goes with
--- the root's.
-target nat_hash.o pkg : FilePath := do
-  let oFile := pkg.buildDir / "native" / "nat_hash.o"
-  let srcJob ← inputTextFile <| pkg.dir / ".." / ".." / "native" / "nat_hash.c"
-  buildLeanO oFile srcJob #[] #["-fPIC", "-O3"]
-
-target libconleche_native pkg : FilePath := do
-  let o ← fetch <| pkg.target ``nat_hash.o
-  buildStaticLib (pkg.staticLibDir / nameToStaticLib "conleche_native") #[o]
-
-lean_lib ConLecheNative where
-  srcDir := "../.."
-  roots := #[`ConLeche.Kernel.NatHash]
-  moreLinkObjs := #[libconleche_native]

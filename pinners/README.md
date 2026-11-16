@@ -87,7 +87,9 @@ One fork exists: the pr-release-16441 pinner (lean4 master) forks
 pointer-first equalities, because master changed `withPtrEqDecEq`'s
 calling convention and no longer compiles `withPtrEq` at a type
 variable; its copy decides by the pure meaning, without the pointer
-shortcut.  v4.34.0-rc2 and the nightly build the shared sources with
+shortcut.  Its toolchain ships lean4#16146, whose runtime defines
+`lean_nat_big_hash`, so that pinner links no vendored C and builds
+`ConLeche/Kernel/NatHash.lean` as an ordinary module.  v4.34.0-rc2 and the nightly build the shared sources with
 deprecation warnings only, and produce byte-identical dumps.  (Since task #328 `ConLeche/PinGen/Certs.lean` silences the
 deprecation linter — it keeps the `if_pos`/`dif_pos` spellings every
 toolchain has and the blobs cite — so the repository toolchain,
