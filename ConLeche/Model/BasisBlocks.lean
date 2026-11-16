@@ -1437,7 +1437,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
         :: env.consts, env.tables⟩ : Env).find? natSuccName = some natSuccA := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hS3
     refine EnvWF.cons (by decide) hwf3 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), ?_⟩
+      (fun _ _ _ heq => nomatch heq), ?_⟩ (hr := ruleWF_of_recRulesBindB (by decide))
     · show Expr.constsResolve _ natRecA.toConstantVal.type = true
       rw [show natRecA.toConstantVal.type
           = Expr.forallE

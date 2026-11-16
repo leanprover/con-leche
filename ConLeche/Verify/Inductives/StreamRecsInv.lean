@@ -149,19 +149,55 @@ section Inv
 
 variable {ops : CheckerOps CheckM} {fe : FEnv}
 
-theorem streamRulesCheck_inv {rec : Name} {lps : List Name} :
+/-- **`streamRulesShape`, inverted**: each rule's field count is its constructor's. -/
+theorem streamRulesShape_inv {rec : Name} :
+    ∀ {rs : List RecRule} {cs : List (ConstantVal × Nat)},
+      streamRulesShape (m := CheckM) rec rs cs = .ok () →
+      ∀ (j : Nat) (r : RecRule) (c : ConstantVal × Nat), rs[j]? = some r → cs[j]? = some c →
+        r.nfields = c.2
+  | [], _, _, j, r, c, hr, _ => by simp at hr
+  | _ :: _, [], _, j, r, c, _, hc => by simp at hc
+  | r0 :: rs, c0 :: cs, h, j, r, c, hr, hc => by
+    unfold streamRulesShape at h
+    by_cases hb : (r0.ctor == c0.1.name && r0.nfields == c0.2) = true
+    · have h' : streamRulesShape (m := CheckM) rec rs cs = .ok () := by
+        simpa [hb, pure, Except.pure, bind, Except.bind] using h
+      cases j with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hr hc
+        subst hr hc
+        simp only [Bool.and_eq_true, beq_iff_eq] at hb
+        exact hb.2
+      | succ j => exact streamRulesShape_inv h' j r c (by simpa using hr) (by simpa using hc)
+    · simp [hb, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+
+/-- **`ruleBinds`, inverted**: the rule has its λs. -/
+theorem ruleBinds_inv {rec : Name} {rP : Nat} {r : RecRule}
+    (h : ruleBinds (m := CheckM) rec rP r = .ok ()) :
+    (r.rhs.stripLams (rP + r.nfields)).isSome = true := by
+  unfold ruleBinds at h
+  by_cases hs : (r.rhs.stripLams (rP + r.nfields)).isSome = true
+  · exact hs
+  · simp [hs, throw, throwThe, MonadExceptOf.throw] at h
+
+theorem streamRulesCheck_inv {rec : Name} {lps : List Name} {rP : Nat} :
     ∀ {rs : List RecRule} {gs : List Expr},
-      streamRulesCheck ops fe rec lps rs gs = .ok () →
+      streamRulesCheck ops fe rec lps rP rs gs = .ok () →
       rs.length = gs.length ∧ ∀ (i : Nat) (r : RecRule) (gi : Expr),
         rs[i]? = some r → gs[i]? = some gi →
-        r.rhs = gi ∨ ruleAgree ops fe rec r.ctor lps r.rhs gi = .ok ()
+        (r.rhs.stripLams (rP + r.nfields)).isSome = true ∧
+        (r.rhs = gi ∨ ruleAgree ops fe rec r.ctor lps r.rhs gi = .ok ())
   | [], [], _ => ⟨rfl, fun i r gi h => by simp at h⟩
   | [], _ :: _, h => by simp [streamRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
   | _ :: _, [], h => by simp [streamRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
   | r :: rs, g :: gs, h => by
     unfold streamRulesCheck at h
-    have key : (r.rhs = g ∨ ruleAgree ops fe rec r.ctor lps r.rhs g = .ok ()) ∧
-        streamRulesCheck ops fe rec lps rs gs = .ok () := by
+    obtain ⟨u0, hb, h⟩ := exceptBind_ok h
+    have hbinds := ruleBinds_inv (by cases u0; exact hb)
+    have key : ((r.rhs.stripLams (rP + r.nfields)).isSome = true ∧
+        (r.rhs = g ∨ ruleAgree ops fe rec r.ctor lps r.rhs g = .ok ())) ∧
+        streamRulesCheck ops fe rec lps rP rs gs = .ok () := by
+      refine (fun (k : _ ∧ _) => ⟨⟨hbinds, k.1⟩, k.2⟩) ?_
       by_cases he : (r.rhs == g) = true
       · simp only [he, ↓reduceIte] at h
         exact ⟨Or.inl (beq_iff_eq.mp he), by simpa [pure, Except.pure, bind, Except.bind] using h⟩
@@ -182,7 +218,7 @@ theorem streamRecCompare_inv {rc : RecShape} {g : ConstantVal × TargetMajor × 
     (h : streamRecCompare ops fe rc g = .ok ()) :
     (rc.cvR.type = g.1.type ∨
       recTyCheck ops fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
-    streamRulesCheck ops fe g.1.name g.1.levelParams rc.rules g.2.2 = .ok () := by
+    streamRulesCheck ops fe g.1.name g.1.levelParams rc.rP rc.rules g.2.2 = .ok () := by
   unfold streamRecCompare at h
   by_cases he : (rc.cvR.type == g.1.type) = true
   · simp only [he, ↓reduceIte] at h

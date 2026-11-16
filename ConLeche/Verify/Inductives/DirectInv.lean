@@ -579,6 +579,21 @@ theorem envWF_consSumCtors {nP : Nat} {T : Name} :
       obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hall c' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5, h6⟩
 
+/-- A rule of `sumRules` is a constructor's with the right-hand side at its position. -/
+theorem sumRules_getElem :
+    ∀ {ctorList : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
+      r ∈ sumRules ctorList rhss →
+      ∃ (i : Nat) (rhs : Expr) (ctor : ConstantVal × Nat), rhss[i]? = some rhs ∧
+        ctorList[i]? = some ctor ∧ r.rhs = rhs ∧ r.nfields = ctor.2
+  | [], _, r, h => by simp [sumRules] at h
+  | _ :: _, [], r, h => by simp [sumRules] at h
+  | c :: cs, rhs :: rhss, r, h => by
+    simp only [sumRules, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨0, rhs, c, rfl, rfl, rfl, rfl⟩
+    · obtain ⟨i, rhs', ctor, h1, h2, h3, h4⟩ := sumRules_getElem h
+      exact ⟨i + 1, rhs', ctor, by simpa using h1, by simpa using h2, h3, h4⟩
+
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/
 theorem sumRules_mem :

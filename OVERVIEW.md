@@ -149,7 +149,7 @@ covered exactly as a run without it, and so is a run on the pool.
 
 Every name and raw string these messages print comes from the input,
 so it is printed through one rendering
-([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L235)).
+([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L236)).
 A name component that is an identifier prints bare, as in Lean
 (`Nat.add_comm`, `α₁.ℕ`); any other is wrapped in `«…»` (`x.«3»`,
 `«a.b»`), with `\` doubled and with `»` and every control, format and
@@ -502,7 +502,7 @@ Read from the outside in:
    records, nothing generated
    ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L84-L96)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L697-L698)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L698-L699)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone
@@ -510,7 +510,7 @@ Read from the outside in:
    a name's first entry with its counter, a table with its record's
    position. A record's *job* is its check at the index's view of its
    position
-   ([function `recordJob` in `ConLeche/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StreamIndex.lean#L75-L76)):
+   ([function `recordJob` in `ConLeche/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StreamIndex.lean#L96-L97)):
    an empty index over that frozen layer, whose lookups hide everything
    from the record on. A name declared twice keeps its first entry, so the
    later record's job finds it and fails with `duplicate declaration`, at
@@ -521,7 +521,7 @@ Read from the outside in:
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
-   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L520-L522)).
+   ([theorem `checkDecls_of_jobs` in `ConLeche/Verify/Cached/StreamIndex.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L525-L527)).
    A later job may read an earlier constant before that constant's job has
    run: a declaration may read a pinned operation, and fire its literal
    fast path, before the operation's certificates have been checked. The
@@ -576,17 +576,17 @@ Read from the outside in:
    (`EnvWF`: stored constants closed, their level parameters declared,
    the constants they mention stored) without the model, so that fact
    about what the fold accepts needs no set theory
-   ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L318-L319)).
+   ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L339-L340)).
    A job's check at a view is the fold's step because the cached core
    reads its environment through the lookups alone
-   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L705-L708)).
+   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L706-L709)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` (and inference at the infer-only grade) are defined by one mutual
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L54));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1878-L1883)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1899-L1904)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L565-L572)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
@@ -724,8 +724,9 @@ the kernel infers the type to be a proposition over the part of the context belo
 name two loaded modules hold must agree so, which merges every pair Lean's import merges. The context's records are sorted in
 read order (`readOrder`: each after the records storing what it reads; records that read each
 other are a reject, which Lean's output never has) and validated as untrusted input (`recordOk`:
-every constant's and table's syntactic clauses, and a constructor's stored family is the one its
-type concludes in).
+every constant's and table's syntactic clauses, a constructor's stored family is the one its
+type concludes in, and a recursor rule binds the rule prefix and the constructor's fields by the
+λs the ι step peels).
 At every accepting outcome of `reach` in the IO model, every context record is `RecordScoped` in
 the prefix of the context ending with it, so every name it reads is a context record's, and the
 context is `EnvWF` (`reach_ok`, `ConLeche/Verify/Driver/Reach.lean`); a copy read is the full parse's constant at
@@ -874,19 +875,28 @@ reduced by `whnfCore` itself rather than by `whnf`),
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1158)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1157)),
 `inferType` computes a type, and `isDefEq` decides conversion in the
 order of the official `is_def_eq_core` (cheap head normalization, the
 easy cases, the lazy-delta loop — which compares two applications of
 the same definition argument by argument before unfolding them, last
 argument first as the official `is_def_eq_args` does
-([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1447)) —, the
+([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1431)) —, the
 projection-against-projection comparison by scrutinees, the full head
-normalization and a restart, then the stuck comparisons) with one
-deliberate exception: the easy cases and proof irrelevance are tried on
+normalization and a restart, then the stuck comparisons) with two
+deliberate exceptions. The easy cases and proof irrelevance are tried on
 the unreduced pair, before any head normalization, so two proofs are
 compared by their types and never reduced (the official kernel reduces
-them first, and loops on a proof that has no normal form). The checker
+them first, and loops on a proof that has no normal form). And when one
+side is a closed constructor application, applied to all its parameters
+and fields, of a type that is never a proposition, has no η law and is
+not `Nat`, the other side is head-normalized at once: if its head is the
+same constructor, the comparison goes on with that normal form, and if
+it is another constructor, the answer is `false`, which no rule of
+conversion could change for such a type. The official kernel does this
+for the constant `Bool.true` alone; elsewhere it unfolds one definition
+at a time
+([function `defeqBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1866-L1884)). The checker
 reduces a proof only where a recursor's value depends on it: the major
 premise of a recursor over an inductive proposition, which is
 head-normalized to a constructor unless the K rule (which reads only
@@ -894,7 +904,7 @@ the major's type) applies — and if the K rule's rescue *fails*, the
 major is left exactly as it is, never head-normalized, so a K-like
 recursor never reduces a proof. A structure major is likewise rescued
 from its type before it is reduced, in the order the official kernel
-adopts with its logic renovation (lean4#15351): the constructor of the
+adopts with its logic renovation (lean4#15371): the constructor of the
 major's projections is built from the major as found, and only if no
 rescue applies is the major head-normalized, so a major with no normal
 form does not stop the recursor. This too deviates from the official
@@ -921,10 +931,10 @@ presentation and matter for the proof:
   domains and `let` values checked) and at the official kernel's
   infer-only grade on the terms reduction and definitional equality
   build on their way
-  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1342)).
+  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1341)).
   Beyond the official kernel, the verified mode compares the opened
   bodies' full-grade types at the innermost level of a λ/λ comparison
-  ([function `defeqBindersInner` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1469))
+  ([function `defeqBindersInner` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1453))
   and at η; the proof consumes them. Two cheap guards are the proof's
   too and never change a verdict on well-typed input: η, unit-likeness
   at a Π-type and the η-expansion of a partially applied constructor
@@ -954,7 +964,7 @@ presentation and matter for the proof:
   runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
   a recursion of about a million levels or more aborts with a stack
   overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1923)).
+  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1944)).
   Reduction *chains* are not bounded by it: the
   `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
   and the lazy-delta loop each iterate in constant native stack, a
@@ -1090,7 +1100,7 @@ none can be added: the relation is the checker's verdict on terms
 that are well-formed together, which no rule states, and every
 premise's subject is a subterm of the conclusion or the product of a
 reduction or an inference
-([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L327-L350)).
+([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L329-L352)).
 The proof then has three parts. The *bridge*: an accepting run of any
 kernel entry point, at any fuel, yields a derivation — one induction
 on fuel, over both values of the eager flag at once,
@@ -1252,7 +1262,7 @@ The installer first reads the block's shape
 its parameter count as the stream declares it, checked against the
 type formers' telescopes and against every constructor record before
 anything else runs
-([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L416-L423)),
+([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L418-L425)),
 and each member's index count off what is left of its type former's
 telescope, as the official kernel reads them. Any number of parameters,
 indices, constructors and fields is supported; fields may be recursive,
@@ -1309,11 +1319,13 @@ once it agrees with the generated one: as many rules, for the same
 constructors in the same order with the same field counts; the stream's
 type, opened up to its major premise, has the generated type's binders,
 each domain definitionally equal to the generated one's, and a residue
-definitionally equal to it; each right-hand side is closed, type-checks
+definitionally equal to it; each right-hand side is written as a function
+of the recursor's leading arguments and the constructor's fields (it
+begins with that many lambdas), is closed, type-checks
 at a type definitionally equal to the generated rule's, and is
 definitionally equal to the generated rule. The comparisons run at the
 environment holding the generated recursors
-([function `streamRecsCheck` in `ConLeche/Kernel/Inductives/StreamRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StreamRecs.lean#L183)).
+([function `streamRecsCheck` in `ConLeche/Kernel/Inductives/StreamRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StreamRecs.lean#L187)).
 What is installed is the record, and the checks make it the generated
 recursor with the record's type and right-hand sides: its major premise's
 position, its K flag and each rule's firing mode are the generator's
@@ -1375,7 +1387,7 @@ own check read: a run does not see an extension of the environment. On a term wh
 constants and literals resolve at the smaller environment, the fuelled knot at the
 two environments is one run, at every entry point and every fuel, and what it returns
 resolves at the smaller one
-([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L463-L465)).
+([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L480-L482)).
 All the knot reads past the term is what a stored constant's record names, and a
 declaration boundary has it stored
 ([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L29-L30)).
@@ -1614,7 +1626,7 @@ instead of trusting the operation's name.
   ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1053)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L485))
+  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L479))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. The binary embeds *pinned* copies of
   several supported toolchains' own definitions of each operation,
@@ -1651,10 +1663,10 @@ instead of trusting the operation's name.
   when `a > 0` and the size of `a` plus `b / 8` plus 1 does; both also
   refuse a second argument that does not fit in 32 bits. A refusal
   rejects the declaration
-  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L236-L249)).
+  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L227-L240)).
   Within the maximum size every operation folds, whatever the exponent:
   the specification's reduct is the computation itself
-  ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L595-L615)),
+  ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L589-L609)),
   and the bound is the cached core's alone, since a refusal only
   throws.
 * **`Bool`.** `Nat.beq` and `Nat.ble` return `Bool.true` or
@@ -1662,8 +1674,8 @@ instead of trusting the operation's name.
   guarded by `Nat.ble`, so these operations install only once `Bool`
   and its two constructors are stored, with no universe parameters,
   the constructors at the type `Bool` itself, and with `Bool : Type`
-  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L617-L644),
-  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L663-L670)).
+  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L611-L638),
+  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L669-L676)).
   That is the only reason the checker knows the name. `Bool` is not
   pinned: it is the stream's own block, installed like any other, and
   nothing depends on what it denotes — the fast path's result is the
@@ -1832,6 +1844,7 @@ declare it.)
   official kernel generates only the small one, this checker takes the
   subsingleton case under a per-field criterion; and the
   `And` rescue of §3. All four are covered by the soundness proof.
+  §14 lists every deliberate departure from the official kernel.
 
 ## 10. Naming conventions
 
@@ -1842,7 +1855,7 @@ listed here carries meaning**.
 |---|---|
 | `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
 | `I` | the variant that also handles an inductive family's index arguments (`checkStructFieldSortsI`) |
-| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitStoredF`) |
+| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitSupportedF`) |
 | `D` | the direct parse and the functions over its output (`parseExportD`) |
 | `AV` | a `Term` spelled by the semantic and model tiers (`sumTyAV`, `mkPisAV`) |
 | `WF` | well-formedness (`EnvWF`, `BlockWF`) |
@@ -1965,7 +1978,13 @@ types.
 | `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the levels and the parameter arguments of the recursor's major domain, read off its stored type and closed over the rule prefix (no lookup: the trailing arguments are the record's index variables) |
 
 A rule stores what Lean's `RecursorRule` stores (constructor, field count,
-right-hand side) and the firing mode above. A recursor's K flag is its
+right-hand side) and the firing mode above. The ι step reads the
+right-hand side under its leading lambdas, one per argument of the recursor's
+rule prefix and per field of the constructor, and substitutes those
+arguments there at once, as Lean's kernel does since lean4 PR #10565: no
+β-redex is built, so none becomes a memo key. Every stored rule has
+those lambdas: the stored rules are checked for them, the generated ones are
+built so. A recursor's K flag is its
 record's (`RecursorVal.k`), which the block's check compares with the
 generated recursor's. The constructor's parameter count and the structure-η
 rescue's condition are read off the stored constructor, the family's
@@ -1982,12 +2001,103 @@ projection's type from the constructor's type when it meets one
 (`infer_proj`). What `infer_proj` requires of a `Prop` structure, that the
 field and every earlier field a later one uses are propositions, is checked
 at the use here too
-([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1208-L1209)),
+([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1207-L1208)),
 from the stored constructor type at the environment of the use; nothing
 about it is stored.
 
-**Not counted.** The `FEnv` lookup indexes are a performance device over
-the same data. The pinned basis blocks and the Nat-op pins are expected
+**Not counted.** The `FEnv` lookup indexes, with the two literal flags
+they carry (whether `Nat` and string literals can be expanded), are a
+performance device over the same data. The pinned basis blocks and the Nat-op pins are expected
 shapes, compared against the input, so they are code. Some things are
 stored with less than Lean keeps: a theorem without its value, an opaque
 constant as an axiom.
+
+## 14. Where the checker departs from the official kernel
+
+The checker follows the official kernel's algorithm and order (§3,
+§5). This section lists the deliberate departures from the current
+release; each is described where its mechanism is.
+
+**Ahead of the kernel logic renovation.** The official kernel's logic
+renovation (lean4#14977) aims for a decidable definitional equality,
+proofs that never have to be reduced, and complete level comparison.
+Some of its changes are on lean4 master but in no release yet; others
+are still planned. The checker already has these:
+* Two proofs are compared by their types before either is reduced, so
+  a proof without a normal form does not stop a comparison on which
+  the released kernel loops (§3; lean4#15103, on master).
+* A theorem's value is never unfolded, so no proof is reduced to
+  decide a conversion (§3).
+* A recursor's major premise is rescued from its type before it is
+  reduced, and a K-like major whose rescue fails is not reduced at all
+  (§3; the order of lean4#15371, on master, which also covers more
+  structures than the checker does).
+* The wider unit-like η (a Π-type into a unit-like type, a structure of
+  propositions and unit-like fields) and the η of a partially applied
+  constructor (§3, §13; lean4#15372 and lean4#15373, on master).
+* Universe levels are compared semantically (§9; the planned complete
+  level comparison).
+* A single-constructor block whose result sort can be zero gets the
+  large eliminator under a per-field criterion, where the released
+  kernel generates only the small one (§9; the planned large
+  elimination of sort-polymorphic structures).
+
+Not yet followed: `Acc` and the other recursive predicates keep their
+large eliminator (lean4#13851), `Quot` of a proposition stays a
+proposition (lean4#15023), partial recursor applications are not
+η-expanded (lean4#15374), and the inductive types' features are read
+off their declarations rather than from explicit flags.
+
+**It accepts more**, beyond the renovation. The soundness proof covers
+each of these.
+* Proof irrelevance falls through (§9).
+* A major premise of `And.rec` is rescued from its type, since a
+  theorem's value, being opaque, cannot be reduced to `And.intro` (§3).
+
+**It rejects or declines more.**
+* An axiom other than the standard ones declines, with the exceptions
+  §8 names, and so does a proof by `native_decide` or `bv_decide` (§8).
+* The well-founded `Nat` operations are accelerated only for a
+  definition that matches a pin; a stream matching none of them
+  declines (§6). The official kernel accelerates by name.
+* The names the checker gives a meaning (the pinned basis types and
+  `And`, the names a literal's meaning reads, `Bool`) must have the
+  expected shape (§5).
+* A block without recursor records is invalid input; the official
+  kernel generates the recursors itself (§5).
+* Any declaration at `Lean.reduceBool` or `Lean.reduceNat` other than
+  the opaque constant, and any at `sorryAx` other than the axiom, is
+  rejected (§8). Lean refuses these only through the declarations of
+  its own `Init`.
+* In modular checking (`--olean --module`), a module whose context
+  gives a name it reads another meaning than the module it reads it
+  from (name capture) is rejected (§2). Lean accepts such a module,
+  and can then prove `False`.
+* In modular checking, the files are untrusted input: a module's
+  three parts must agree with each other, the context's records must
+  pass their syntactic clauses (a constructor's family is the one its
+  type concludes in; a recursor rule is written as a function of the
+  rule prefix and the constructor's fields), and context records that
+  read each other are rejected (§2). Lean's own output always passes
+  these; the official kernel trusts the imported files.
+* Where the opaque theorems and the rescue order of the renovation
+  leave a conversion incomplete, the checker rejects what the released
+  kernel accepts by reducing a proof (§3).
+
+**The verdict is the same, the route differs.**
+* When one side of a comparison is a closed, fully applied constructor
+  application of a type that is never a proposition, has no η law and
+  is not `Nat`, the other side is head-normalized at once. The official
+  kernel does this only for `Bool.true` (§3).
+* The structural `Nat` operations' fast path is certified at install
+  rather than trusted by name (§6).
+* A nested block is checked through its containers at their concrete
+  instantiations, with no auxiliary mutual block (§5).
+* The stream's recursors are installed once they agree with the
+  generated ones; the official kernel installs its own (§5).
+
+**Checks that only the proof needs.**
+* In verified mode: the full-grade types of the opened bodies at a
+  λ/λ comparison and at η, and proof irrelevance between the K and
+  `And` rescues' constructor applications and the major (§3).
+* Three checks in the inductive installer (§5).

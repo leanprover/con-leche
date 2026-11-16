@@ -271,11 +271,14 @@ theorem envWF_consBlockRecsBare {q : BlockShape} {cvRas : List (ConstantVal × N
     (hlit : ∀ c ∈ cvRas, LitShapeAt c.1) :
     EnvWF (consBlockRecsBare q 0 cvRas env) := by
   rw [consBlockRecsBare_eq_consBlockRecs q]
-  refine envWF_consBlockRecs henv ?_ ?_
+  refine envWF_consBlockRecs henv ?_ ?_ ?_
   · intro r hr
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
     obtain ⟨h1, h2, h3, h4⟩ := hall c hc
     exact ⟨h1, h2, h3, h4, fun _ h => nomatch h⟩
+  · intro j r hr i rhs ctor hrhs
+    obtain ⟨c, -, rfl⟩ := List.mem_map.mp (List.mem_of_getElem? hr)
+    exact nomatch hrhs
   · intro r hr
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
     exact hlit c hc

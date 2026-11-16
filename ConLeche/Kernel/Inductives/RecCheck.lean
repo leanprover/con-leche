@@ -496,4 +496,16 @@ def blockRecInfosTF
         (recKExpected p M) (generatedRules (p.rulePrefixAt m) M rhss)
       :: blockRecInfosTF p (m + 1) rest
 
+/-- **A rule binds its arguments**: the right-hand side has at least
+`rP + nfields` manifest λs, one per argument of the recursor's rule prefix
+and per field of the constructor — what the ι step peels (`lamBody`,
+lean4 PR #10565's shape; `RuleWF`).  A syntactic count, read before any
+comparison. -/
+def ruleBinds (rec : Name) (rP : Nat) (r : RecRule) : m Unit := do
+  unless (r.rhs.stripLams (rP + r.nfields)).isSome do
+    throw (.invalid s!"the recursor {rec}'s rule for {r.ctor} is not written as a \
+      function of the recursor's {rP} leading arguments and the constructor's {r.nfields} \
+      fields")
+
+
 end ConLeche

@@ -271,7 +271,8 @@ include hord in
 syntactic clauses are the context's. -/
 theorem envWF_prefix (hwf : EnvWF (streamEnv ctx)) : EnvWF (streamEnv (ctx.take r)) := by
   refine ⟨fun c hc => ?_, fun c hc => hwf.shapes c (mem_prefix_consts hc), fun t ht => ?_,
-    fun c hc => hwf.inds c (mem_prefix_consts hc), fun c hc => hwf.ctors c (mem_prefix_consts hc)⟩
+    fun c hc => hwf.inds c (mem_prefix_consts hc), fun c hc => hwf.ctors c (mem_prefix_consts hc),
+    fun c hc => hwf.rules c (mem_prefix_consts hc)⟩
   · obtain ⟨k, hk, hkr, hck⟩ := prefix_record hc
     obtain ⟨e1, e2, e3, -, -⟩ := (hord k hk).1 c hck
     obtain ⟨h1, h2, -, h4, h5, h6⟩ := hwf.consts c (mem_prefix_consts hc)

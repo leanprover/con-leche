@@ -193,9 +193,10 @@ def nestedOk (lps : List Name) (ty : Expr) (mI rP : Nat) (lvls : List Level)
       | _ => false
     | _ => false
 
-/-- A recursor rule's clauses: its right-hand side, and its datum if nested. -/
+/-- A recursor rule's clauses: its right-hand side, what it binds (`RuleWF`: the rule prefix
+within the major's telescope, a λ per prefix argument and field), and its datum if nested. -/
 def ruleOk (lps : List Name) (ty : Expr) (mI rP : Nat) (r : RecRule) : Bool :=
-  exprOk lps 0 r.rhs &&
+  exprOk lps 0 r.rhs && decide (rP ≤ mI) && (r.rhs.stripLams (rP + r.nfields)).isSome &&
     match r.fire with
     | .nested lvls pins => nestedOk lps ty mI rP lvls pins
     | _ => true
@@ -207,8 +208,9 @@ def ctorHeadOk (cv : ConstantVal) (induct : Name) : Bool :=
   | .const T _ => T == induct
   | _ => false
 
-/-- **A constant's syntactic clauses** (`ConstWF`'s, the names' resolution aside, and
-`CtorWF`'s): its type; a definition's value; a recursor's rules; a constructor's family. -/
+/-- **A constant's syntactic clauses** (`ConstWF`'s, the names' resolution aside, `CtorWF`'s
+and `RuleWF`'s): its type; a definition's value; a recursor's rules; a constructor's
+family. -/
 def constOk : ConstantInfo → Bool
   | .defnInfo cv v _ => exprOk cv.levelParams 0 cv.type && exprOk cv.levelParams 0 v
   | .recInfo cv mI rP _ rules =>

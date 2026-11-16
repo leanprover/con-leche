@@ -911,4 +911,158 @@ theorem genRecCheck_out_fresh {env : Env} {p : BlockShape} {nestedBit : Bool}
   show env.find? cvG.name = none
   exact hfr
 
+section Run
+
+variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+  {nb : Bool} {pos : NestState} {block : List ConstantInfo}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+
+/-- **The generated stage at one stored `(recursor, constructor)` pair**, at a stage run:
+the `j`-th recursor's record `rc`, class `c` and generated type run; the
+class's `i`-th constructor `x` as the generator read it (declared fields
+`ctor.2`); the generated rule `gen` and its run, whose output (`gen`
+itself) is the stored rule. -/
+theorem genStageRuleAt {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
+    {Ms₀ : List TargetMajor} (R : GenStageRun mode F fe p nb params tbl rd Ms₀ block out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {ctor : ConstantVal × Nat}
+    (hctor : r.2.2.2[i]? = some ctor) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (rc : RecShape) (c : Nat) (x : ClassCtor) (gen : Expr),
+      p.recs[j]? = some rc ∧ rd.recCls[j]? = some c ∧ R.cvGs[j]? = some r.1 ∧
+      out[j]? = some (r.1, R.g.cls.getD c default, r.2.1) ∧
+      r.2.2.2 = (R.g.cls.getD c default).ctors ∧
+      c < R.Ms.length ∧
+      (R.g.ctors.getD c [])[i]? = some x ∧
+      Nonempty (ClassCtorRun mode F fe.env p (p.formers.map (·.type)) rd R.Ms c ctor x) ∧
+      Nonempty (ClassRecTyRun mode F fe R.g p.k rc c r.1) ∧
+      x.nF = ctor.2 ∧ x.cv = ctor.1 ∧
+      classGenRule R.g (classRecOf rd.recCls R.cvGs)
+        (r.1.levelParams.map .param) c x = some gen ∧
+      Nonempty (ClassRuleRun mode F fe (classFeR p R.Ms R.cvGs rd.recCls fe)
+        r.1
+        (R.g.nP + R.g.slots.length + x.nF) gen rhs) := by
+  obtain ⟨t, ho, rfl⟩ : ∃ t, out[j]? = some t ∧ r = (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
+    simp only [tgtRs, List.getElem?_map] at hr
+    cases ho : out[j]? with
+    | none => rw [ho] at hr; exact nomatch hr
+    | some t => rw [ho] at hr; exact ⟨t, rfl, (Option.some.inj hr).symm⟩
+  have hjo : j < out.length := (List.getElem?_eq_some_iff.mp ho).1
+  obtain ⟨hlenO, hallO⟩ := classRecsRulesOk_run R.hrules
+  obtain ⟨hlenG, hallG⟩ := classRecTysOk_run R.hcvGs
+  have hjr : j < p.recs.length := by
+    have := Nat.min_le_left R.cvGs.length rd.recCls.length
+    omega
+  obtain ⟨c, cvG, hc, hcvG, ⟨TR⟩⟩ := hallG j p.recs[j] (List.getElem?_eq_getElem hjr)
+  obtain ⟨rhss, ho', hrules⟩ := hallO j cvG c hcvG hc
+  rw [ho] at ho'
+  obtain rfl := Option.some.inj ho'
+  simp only at hctor hrhs ⊢
+  -- the class is one of the checked classes
+  have hcM : c < R.Ms.length := by
+    refine Nat.lt_of_not_le fun hge => ?_
+    have hd : R.g.cls.getD c default = default := by
+      show R.Ms.getD c default = default
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
+    rw [show (genRecGen p params R.Ms R.formerTysC rd R.ctors R.pre).cls.getD c default
+      = R.g.cls.getD c default from rfl, hd] at hctor
+    exact nomatch hctor
+  obtain ⟨hlenC, hallC⟩ := classesCtors_run R.hctors
+  obtain ⟨xs, hxs, hcs⟩ := hallC c R.Ms[c] (List.getElem?_eq_getElem hcM)
+  rw [Nat.zero_add] at hcs
+  obtain ⟨hlenX, hallX⟩ := classCtorsOf_run hcs
+  have hMc : R.g.cls.getD c default = R.Ms[c] := by
+    show R.Ms.getD c default = _
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hcM]; rfl
+  have hctor' : R.Ms[c].ctors[i]? = some ctor := by
+    rw [← hMc]; exact hctor
+  obtain ⟨x, hx, ⟨CR⟩⟩ := hallX i ctor hctor'
+  have hgx : R.g.ctors.getD c [] = xs := by
+    show R.ctors.getD c [] = xs
+    rw [List.getD_eq_getElem?_getD, hxs]; rfl
+  obtain ⟨-, hallR⟩ := classRulesOk_run hrules
+  obtain ⟨gen, rhs', hrhs', hgen, ⟨RR⟩⟩ := hallR i x (by
+    rw [show (genRecGen p params R.Ms R.formerTysC rd R.ctors R.pre).ctors.getD c []
+      = R.g.ctors.getD c [] from rfl, hgx]; exact hx)
+  obtain rfl : rhs = rhs' := Option.some.inj (hrhs.symm.trans hrhs')
+  have hxe := CR.hx
+  refine ⟨p.recs[j], c, x, gen, List.getElem?_eq_getElem hjr, hc, hcvG, ho, rfl, hcM,
+    by rw [hgx]; exact hx, ⟨CR⟩, ⟨TR⟩, by rw [hxe], by rw [hxe], hgen, ⟨RR⟩⟩
+
+/-- `genRuleBinds` at a stage run. -/
+theorem genStageRuleBinds {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
+    {Ms₀ : List TargetMajor} (R : GenStageRun mode F fe p nb params tbl rd Ms₀ block out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {ctor : ConstantVal × Nat}
+    (hctor : r.2.2.2[i]? = some ctor) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    p.rulePrefixAt j ≤ p.majorIdxAt j ∧
+      (rhs.stripLams (p.rulePrefixAt j + ctor.2)).isSome = true := by
+  obtain ⟨rc, c, x, gen, hrc, -, -, -, -, -, -, -, ⟨T⟩, hxn, -, -, ⟨Q⟩⟩ :=
+    genStageRuleAt R hr hctor hrhs
+  have hP : p.rulePrefixAt j = rc.rP := by
+    simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  have hM : p.majorIdxAt j = rc.mI := by
+    simp only [BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  refine ⟨by rw [hP, hM, T.hmI]; omega, ?_⟩
+  rw [hP, T.hrP, ← hxn, Q.hstrip]
+  rfl
+
+/-- **A run's stage**: the stage's records, at the pass's context, table and classes. -/
+@[expose] def GenRecRun.toStage (R : GenRecRun mode F fe₁ env₁ fe p nb pos block out) :
+    GenStageRun mode F fe p nb R.ctx.params R.st.ctorNfs.toList R.rd R.Ms₀ block out where
+  cvRis := R.cvRis
+  Ms := R.Ms
+  ctors := R.ctors
+  formerTysC := R.formerTysC
+  pre := R.pre
+  cvGs := R.cvGs
+  pins := R.pins
+  hcvRis := R.hcvRis
+  hk := R.hk
+  helim := R.helim
+  hMs := R.hMs
+  hctors := R.hctors
+  hminors := R.hminors
+  hformer := R.hformer
+  hpre := R.hpre
+  hcvGs := R.hcvGs
+  hrules := R.hrules
+
+/-- **The generated stage at one stored `(recursor, constructor)` pair**:
+the `j`-th recursor's record `rc`, class `c` and generated type run; the
+class's `i`-th constructor `x` as the generator read it (declared fields
+`ctor.2`); the generated rule `gen` and its run, whose output (`gen`
+itself) is the stored rule. -/
+theorem genRuleAt (R : GenRecRun mode F fe₁ env₁ fe p nb pos block out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {ctor : ConstantVal × Nat}
+    (hctor : r.2.2.2[i]? = some ctor) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (rc : RecShape) (c : Nat) (x : ClassCtor) (gen : Expr),
+      p.recs[j]? = some rc ∧ R.rd.recCls[j]? = some c ∧ R.cvGs[j]? = some r.1 ∧
+      out[j]? = some (r.1, R.g.cls.getD c default, r.2.1) ∧
+      r.2.2.2 = (R.g.cls.getD c default).ctors ∧
+      c < R.Ms.length ∧
+      (R.g.ctors.getD c [])[i]? = some x ∧
+      Nonempty (ClassCtorRun mode F fe.env p (p.formers.map (·.type)) R.rd R.Ms c ctor x) ∧
+      Nonempty (ClassRecTyRun mode F fe R.g p.k rc c r.1) ∧
+      x.nF = ctor.2 ∧ x.cv = ctor.1 ∧
+      classGenRule R.g (classRecOf R.rd.recCls R.cvGs)
+        (r.1.levelParams.map .param) c x = some gen ∧
+      Nonempty (ClassRuleRun mode F fe (classFeR p R.Ms R.cvGs R.rd.recCls fe)
+        r.1
+        (R.g.nP + R.g.slots.length + x.nF) gen rhs) :=
+  genStageRuleAt R.toStage hr hctor hrhs
+
+/-- **A generated rule binds the rule prefix and its constructor's fields** (the ι step's peel,
+`RuleWF`): the record's prefix is the generator's, a prefix of the major's telescope, and the
+rule's check stripped that many λs (`classRuleCheck`). -/
+theorem genRuleBinds (R : GenRecRun mode F fe₁ env₁ fe p nb pos block out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {ctor : ConstantVal × Nat}
+    (hctor : r.2.2.2[i]? = some ctor) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    p.rulePrefixAt j ≤ p.majorIdxAt j ∧
+      (rhs.stripLams (p.rulePrefixAt j + ctor.2)).isSome = true :=
+  genStageRuleBinds R.toStage hr hctor hrhs
+
+end Run
+
 end ConLeche

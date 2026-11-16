@@ -18,7 +18,7 @@ rules:
 | piece | rule |
 |---|---|
 | `a == b` | `DefEq.refl` |
-| the `Bool.true` shortcut | `boolTrueShortcut_bridge` |
+| the constructor shortcut | `DefEq.redL` / `DefEq.redR` + the `defeqLazy` bridge |
 | the cheap `whnfCore` of both sides | `DefEq.redBoth` |
 | `quickDefEq` (`QuickExit`) | `refl` / `sort` / `forallE` / `lams` |
 | `propIrrel` | `propIrrel_bridge` |
@@ -550,17 +550,14 @@ theorem defeqStuck_bridge (hw : WhnfBridge .verified eager env fuel) (hd :
   | etaL he => exact etaCert_bridge hw hd hi hio he
   | etaR he => exact (etaCert_bridge hw hd hi hio he).symm
 
-/-- **`isDefEqCore` at `fuel + 1`**: the body, piece by piece. -/
-theorem defeq_bridge_succ (hwc : WhnfCoreBridge .verified eager env fuel)
+/-- **The lazy comparison**, piece by piece. -/
+theorem defeqLazy_bridge (hwc : WhnfCoreBridge .verified eager env fuel)
     (hw : WhnfBridge .verified eager env fuel)
-    (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel) (hio : InferIOBridge .verified
-        eager env fuel) :
-    DefEqBridge .verified eager env (fuel + 1) := by
-  intro d a b h
-  rw [isDefEqCore_succ] at h
-  rcases defeqBody_inv h with rfl | ⟨rfl, hsc⟩ | hq₀ | hpi | ⟨a', b', hwa, hwb, hrest⟩
-  · exact .refl
-  · exact boolTrueShortcut_bridge hw hsc
+    (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel)
+    (hio : InferIOBridge .verified eager env fuel) {d : Nat} {a b : Expr}
+    (h : defeqLazyFueled .verified eager env fuel d a b = .ok true) :
+    DefEq env d a b := by
+  rcases defeqLazy_inv h with hq₀ | hpi | ⟨a', b', hwa, hwb, hrest⟩
   · exact quickDefEq_bridge hd hi hq₀
   · exact propIrrel_bridge hw hio hpi
   refine DefEq.redBoth (hwc hwa) (hwc hwb) ?_
@@ -573,5 +570,21 @@ theorem defeq_bridge_succ (hwc : WhnfCoreBridge .verified eager env fuel)
     exact .redBoth ha hb (defeqStuck_bridge hw hd hi hio hst)
   · obtain ⟨ha, hb⟩ := lazyDeltaReduction_bridge hwc hw hd hi _ hl
     exact .redBoth ha hb (.redBoth (hwc hwa₂) (hwc hwb₂) (hd hre))
+
+/-- **`isDefEqCore` at `fuel + 1`**: the syntactic fast path, the
+constructor shortcut (a side's head normal form is its reduct) and the
+lazy comparison. -/
+theorem defeq_bridge_succ (hwc : WhnfCoreBridge .verified eager env fuel)
+    (hw : WhnfBridge .verified eager env fuel)
+    (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel) (hio : InferIOBridge .verified
+        eager env fuel) :
+    DefEqBridge .verified eager env (fuel + 1) := by
+  intro d a b h
+  rw [isDefEqCore_succ] at h
+  rcases defeqBody_inv h with rfl | ⟨w, hwh, hl⟩ | ⟨w, hwh, hl⟩ | hl
+  · exact .refl
+  · exact .redL (hw hwh) (defeqLazy_bridge hwc hw hd hi hio hl)
+  · exact .redR (hw hwh) (defeqLazy_bridge hwc hw hd hi hio hl)
+  · exact defeqLazy_bridge hwc hw hd hi hio hl
 
 end ConLeche.Rules

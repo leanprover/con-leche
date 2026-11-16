@@ -740,7 +740,7 @@ theorem constOk_wf {env : Env} {c : ConstantInfo} (h : constOk c = true)
     have hrule := h.2 r hrm
     unfold ruleOk at hrule
     simp only [Bool.and_eq_true] at hrule
-    obtain ⟨a', b', c'⟩ := exprOk_iff.1 hrule.1
+    obtain ⟨a', b', c'⟩ := exprOk_iff.1 hrule.1.1.1
     obtain ⟨hres, -, hpins⟩ := hr3 _ _ _ _ _ rfl r hrm
     refine ⟨a', b', hres, c', fun lvls pins hf => ?_⟩
     have hn := hrule.2
@@ -772,6 +772,19 @@ theorem constOk_ctorWF {c : ConstantInfo} (h : constOk c = true) : CtorWF c := b
       exact CtorWF.of_head hT
     · exact nomatch h2
   | _ => exact CtorWF.of_not_ctor fun _ _ _ _ h => nomatch h
+
+/-- **A validated recursor's rules bind its rule prefix and their fields** (`RuleWF`). -/
+theorem constOk_ruleWF {c : ConstantInfo} (h : constOk c = true) : RuleWF c := by
+  cases c with
+  | recInfo cv mI rP isK rules =>
+    intro cv' mI' rP' isK' rules' e r hr
+    cases e
+    simp only [constOk, Bool.and_eq_true, List.all_eq_true] at h
+    have hrule := h.2 r hr
+    unfold ruleOk at hrule
+    simp only [Bool.and_eq_true, decide_eq_true_eq] at hrule
+    exact ⟨hrule.1.1.2, hrule.1.2⟩
+  | _ => exact RuleWF.of_not_rec fun _ _ _ _ _ h => nomatch h
 
 theorem blockRecs_not_ind {p : BlockShape} :
     ∀ {rs : List RecShape} {cv : ConstantVal} {caps : IndCaps},
@@ -857,7 +870,8 @@ theorem ctx_envWF {ds : List Declaration} (hok : ∀ d ∈ ds, recordOk d = true
     have h := hok d hd
     simp only [recordOk, Bool.and_eq_true, List.all_eq_true] at h
     exact ⟨h.1, h.2⟩
-  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_, fun c hc => ?_, fun c hc => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => ?_, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩
   · rcases (mem_streamEnv_consts ds _).1 hc with ⟨d, hd, hcd⟩ | h
     · exact constOk_wf ((hd' d hd).1 c hcd).1 ((hsc d hd).1 c hcd)
     · simp [Env.empty] at h
@@ -873,6 +887,9 @@ theorem ctx_envWF {ds : List Declaration} (hok : ∀ d ∈ ds, recordOk d = true
     · simp [Env.empty] at h
   · rcases (mem_streamEnv_consts ds _).1 hc with ⟨d, hd, hcd⟩ | h
     · exact constOk_ctorWF ((hd' d hd).1 c hcd).1
+    · simp [Env.empty] at h
+  · rcases (mem_streamEnv_consts ds _).1 hc with ⟨d, hd, hcd⟩ | h
+    · exact constOk_ruleWF ((hd' d hd).1 c hcd).1
     · simp [Env.empty] at h
 
 /-- The validation's pass is `recordOk` of every record. -/

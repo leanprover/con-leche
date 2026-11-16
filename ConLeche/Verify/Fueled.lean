@@ -758,11 +758,17 @@ theorem inferBodyIO_atF (d : Nat) (e : Expr) (F : Nat) :
   -- field `ensureSort` reads) untouched, so the plain lemma closes them
   all_goals exact ensureSort_atF _ _ _
 
+theorem defeqLazy_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (defeqLazy mode eager (fueledFns mode eager env) env d a b).val F =
+      defeqLazy mode eager (pureFns mode eager env F) env d a b := by
+  unfold defeqLazy
+  atF_tac4
+
 theorem defeqBody_atF (d : Nat) (a b : Expr) (F : Nat) :
     (defeqBody mode eager (fueledFns mode eager env) env d a b).val F =
       defeqBody mode eager (pureFns mode eager env F) env d a b := by
   unfold defeqBody
-  atF_tac4
+  atF_tac4k defeqLazy_atF
 
 end AtF
 

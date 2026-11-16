@@ -887,9 +887,10 @@ a K rule, and a rule whose constructor's family is never `Prop` there
 other rule (case 3) compares the constructor's levels and
 parameters with the rule's comparands, certifies the constructor
 telescope at the full grade (`iotaCertsFull`) and compares the indices
-(`iotaIndexOk`).  The result is the rule's rhs applied to the non-index prefix and the
-constructor's fields; over-application is handled by the outer app
-recursion. -/
+(`iotaIndexOk`).  The result is the rule's right-hand side's body under its
+`rP + nfields` λs (`lamBody`; the install checks that it has them, `RuleWF`), at the
+recursor's levels, with the non-index prefix and the constructor's fields substituted
+(`RecRule.iotaReduct`: lean4 PR #10565's peel, so no β-redex is built).  Over-application is handled by the outer app recursion. -/
 def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e.getAppFn with
@@ -962,9 +963,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                       else pure false
                     else pure true)
                   else pure true) then
-                  pure (some (Expr.mkAppN
-                    (rl.rhs.instantiateLevelParams cv.levelParams us)
-                    (args.take rP ++ margs.drop cnP)))
+                  pure (some (rl.iotaReduct cv.levelParams us rP (args.take rP ++ margs.drop cnP)))
                 else pure none
               else pure none
             | none => pure none
@@ -1413,21 +1412,6 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .bvar _ =>
       throw (.notImplemented "inferType beyond the supported fragment")
 
-/-- **The eq-true shortcut** (the divergence audit's E2): official
-`is_def_eq_core`'s second clause (`type_checker.cpp:1093-1101`) — when
-the right side is the constant `Bool.true` and the left side has no
-free variables (or the eager flag is set, task #353), the left side is
-fully head-normalised (`whnf`, the
-cached loop) and the verdict is `true` iff the reduct is `Bool.true`; on
-failure the comparison continues.  Only the reduction is here; the
-guard is `defeqBody`'s.
-Verdict-neutral against lazy delta (a `whnf` reduct is what the
-unfolding loop reaches, one step at a time), one memoised `whnf`
-instead of one loop iteration per unfolding. -/
-def boolTrueShortcut (r : CoreFns m) (depth : Nat) (a : Expr) : m Bool := do
-  let w ← r.whnf depth a
-  pure w.isBoolTrue
-
 /-- Levels-and-spine congruence for two applications of the same
 stored constant — the lazy delta *same-head short-circuit* (the
 official kernel's `try_eq_const_app`): before unfolding both sides of
@@ -1802,19 +1786,14 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   -- equate them; `false` is always sound.
   | e₁, e₂ => stuckIrrel r env depth e₁ e₂
 
-/-- **The definitional-equality body** (the official kernel's
-`is_def_eq_core`, clause for clause except one deliberate reordering):
-the syntactic fast path; the `Bool.true` shortcut (E2,
-`boolTrueShortcut`: right side `Bool.true`, left side fvar-free or the
-eager flag set — official's `(!has_fvar(t) || m_eager_reduce) &&
-is_constant(s, Bool.true)`, the flag being `eager`, task #353);
-`quickDefEq` and proof
-irrelevance (`is_def_eq_proof_irrel`) on the UNREDUCED sides; the cheap
-head normalization of both sides (`whnfCore` with `cheap_proj`);
-`quickDefEq` again; the lazy-delta loop (`lazyDeltaReduction`); the
-proj/proj check (`defeqProjPair`); the FULL `whnfCore` of both sides
-and, if either changed, a restart; and the stuck comparison
-(`defeqStuck`).
+/-- **The lazy comparison**: the official kernel's `is_def_eq_core` past
+its syntactic fast path and its eq-true clause, clause for clause except
+one deliberate reordering: `quickDefEq` and proof irrelevance
+(`is_def_eq_proof_irrel`) on the UNREDUCED sides; the cheap head
+normalization of both sides (`whnfCore` with `cheap_proj`); `quickDefEq`
+again; the lazy-delta loop (`lazyDeltaReduction`); the proj/proj check
+(`defeqProjPair`); the FULL `whnfCore` of both sides and, if either
+changed, a restart; and the stuck comparison (`defeqStuck`).
 
 **The deviation (task #333).**  The official kernel runs proof
 irrelevance after the cheap `whnfCore`; here it runs before it, so two
@@ -1829,38 +1808,80 @@ leaves unchanged: on those pairs either order gives the same verdict.
 
 The restarts — after a literal acceleration in the loop and after the
 full `whnfCore` — are `defeq` calls, as official's are `is_def_eq_core`
-calls, so every entry runs the prefix (proof irrelevance included)
-exactly once (the divergence audit's D3 holds by construction); the
-long chains — the unfoldings — are iterations of the lazy loops. -/
+calls, so every entry runs the body's prefix (proof irrelevance
+included) exactly once (the divergence audit's D3 holds by
+construction); the long chains — the unfoldings — are iterations of the
+lazy loops. -/
+def defeqLazy (eager : Bool) (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  match ← quickDefEq mode r depth a b with
+  | some v => pure v
+  | none =>
+  -- task #333: proof irrelevance on the UNREDUCED sides, before any
+  -- head normalization (a proof is never reduced to be compared)
+  if ← propIrrel r env depth a b then pure true else
+  let a' ← r.whnfCore true depth a
+  let b' ← r.whnfCore true depth b
+  match ← quickDefEq mode r depth a' b' with
+  | some v => pure v
+  | none =>
+  match ← lazyDeltaReduction mode eager r env depth defeqLoopFuel a' b' with
+  | .verdict v => pure v
+  | .unknown a₁ b₁ =>
+  if ← defeqProjPair mode r env depth a₁ b₁ then pure true else
+  -- the full `whnfCore` can only differ from the cheap one where the
+  -- cheap mode left a projection stuck, which is then the spine head
+  -- (`whnfCore` stops there); without one, the restart's test
+  -- would find both sides unchanged, so it is skipped (cost only)
+  if !a₁.headIsProj && !b₁.headIsProj then defeqStuck mode r env depth a₁ b₁ else
+  let a₂ ← r.whnfCore false depth a₁
+  let b₂ ← r.whnfCore false depth b₁
+  if a₂ == a₁ && b₂ == b₁ then defeqStuck mode r env depth a₁ b₁
+  else r.defeq depth a₂ b₂
+
+/-- **The definitional-equality body** (the official kernel's
+`is_def_eq_core`): the syntactic fast path, the constructor shortcut,
+then the lazy comparison (`defeqLazy`).
+
+**The constructor shortcut** generalises official `is_def_eq_core`'s
+eq-true clause (`type_checker.cpp:1093-1101`: the right side
+`Bool.true`, the left side fully head-normalised).  When one side is a
+closed, fully applied constructor application `C bs` of a family that
+is never a proposition, has no η law and is not `Nat` (`ctorTarget`),
+the other side is fully head-normalised (`whnf`, the cached loop) and its
+head read (`ctorHeadAgainst`): the head `C` continues with the lazy
+comparison of the normal form against `C bs`, another constructor is
+`false`, and any other head leaves the comparison to the lazy path on
+the original pair.  The right side is tried first.  The head-normalised
+side must be fvar-free or the eager flag set (`ctorTargetFor`).
+
+Soundness needs only the `C` branch: a reduct is definitionally equal
+to its source.  The `false` is the lazy path's verdict, because none of
+the rules that equate terms whose head normal forms have different
+constructor heads applies: proof irrelevance (the family is never a
+proposition), structure and unit-like η (it has no η law), λ-η (`C bs`
+is fully applied, so not a function) and the `Nat` literal and offset
+forms (it is not `Nat`).  One memoised `whnf` replaces the lazy loop's
+unfoldings, one step at a time. -/
 def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => do
     if a == b then pure true else
-    if ← (if b.isBoolTrue && (eager || !a.hasFvar) then
-        boolTrueShortcut r depth a else pure false) then pure true else
-    match ← quickDefEq mode r depth a b with
-    | some v => pure v
+    match ctorTargetFor env eager a b with
+    | some c =>
+      let w ← r.whnf depth a
+      match ctorHeadAgainst env c w with
+      | some true => defeqLazy mode eager r env depth w b
+      | some false => pure false
+      | none => defeqLazy mode eager r env depth a b
     | none =>
-    -- task #333: proof irrelevance on the UNREDUCED sides, before any
-    -- head normalization (a proof is never reduced to be compared)
-    if ← propIrrel r env depth a b then pure true else
-    let a' ← r.whnfCore true depth a
-    let b' ← r.whnfCore true depth b
-    match ← quickDefEq mode r depth a' b' with
-    | some v => pure v
-    | none =>
-    match ← lazyDeltaReduction mode eager r env depth defeqLoopFuel a' b' with
-    | .verdict v => pure v
-    | .unknown a₁ b₁ =>
-    if ← defeqProjPair mode r env depth a₁ b₁ then pure true else
-    -- the full `whnfCore` can only differ from the cheap one where the
-    -- cheap mode left a projection stuck, which is then the spine head
-    -- (`whnfCore` stops there); without one, the restart's test
-    -- would find both sides unchanged, so it is skipped (cost only)
-    if !a₁.headIsProj && !b₁.headIsProj then defeqStuck mode r env depth a₁ b₁ else
-    let a₂ ← r.whnfCore false depth a₁
-    let b₂ ← r.whnfCore false depth b₁
-    if a₂ == a₁ && b₂ == b₁ then defeqStuck mode r env depth a₁ b₁
-    else r.defeq depth a₂ b₂
+    match ctorTargetFor env eager b a with
+    | some c =>
+      let w ← r.whnf depth b
+      match ctorHeadAgainst env c w with
+      | some true => defeqLazy mode eager r env depth a w
+      | some false => pure false
+      | none => defeqLazy mode eager r env depth a b
+    | none => defeqLazy mode eager r env depth a b
 
 end Bodies
 

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.EnvExt.Rel
 import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.IotaReduct
 import ConLeche.Verify.Inductives.NestedRead
 
 /-!
@@ -481,9 +482,11 @@ theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
                     obtain ⟨-, -, hpins, -⟩ := ((hx.facts.wf.consts _ (Env.find?_mem hfc)).2.2.2.2.2
                       cv mI rP isK rules rfl rl hrm).2.2.2.2 lvls pins hfi
                     exact (hpins p hp).2.2.1) hargs
-                have hres : Res env₁ (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
+                have hres : Res env₁ (rl.iotaReduct cv.levelParams us rP
                     (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP)) := by
-                  refine res_mkAppN (res_inst _ _ (hx.facts.rhs hfc hrm)) fun a ha => ?_
+                  rw [RecRule.iotaReduct_eq_instSpine]
+                  refine res_instSpine _ (res_inst _ _
+                    (Expr.constsResolve_lamBody _ (hx.facts.rhs hfc hrm))) fun a ha => ?_
                   rcases List.mem_append.mp ha with ha | ha
                   · exact res_take hargs _ a ha
                   · exact res_drop hmargs _ a ha
