@@ -62,7 +62,7 @@ lean_exe «natop-pins-export» where
   srcDir := "../.."
   root := `PinDump
 
--- THE LITERAL HASH'S C (task #547).  `ConLeche.Kernel.Expr` hashes a big
+-- THE LITERAL HASH'S C (task #598).  `ConLeche.Kernel.Expr` hashes a big
 -- `Nat` literal with `natBigHash`, the C of lean4#16146 vendored as
 -- `native/nat_hash.c` (see the root `lakefile.lean`), so the executable
 -- links it: compiled by the toolchain's own C compiler, linked as a static

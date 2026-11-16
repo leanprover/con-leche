@@ -80,8 +80,8 @@ graded. -/
 on is read over the `Nat` leaf, a function on `Nat` of a function on `Nat`
 (its stored type is pinned at its check, `natOpTyPinned`), and the literal
 basis is stored.  `Red.natOp_sound` reads the domains off it: the redex is
-not the point, so neither is the head, whose graph fixes its domain
-(`piR_dom_unique`, task #342 L12). -/
+not the point, so neither is the head, whose application clause puts
+the argument in the graph's domain (`AppliesTo.mem`, task #342 L12). -/
 @[expose] def NatOpHead {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
     Prop :=
   ∀ {c : Name}, c ∈ natBinOpNames → (env.find? c).isSome = true →

@@ -108,8 +108,7 @@ theorem open_app {d : Nat} {Δa : List Term} {a dom : Expr} {aa doma : Term}
   · have hok0 : WellDenoted V (cons z ρ) aa.lift :=
       (WellDenoted_liftN V 1 aa 0 (cons z ρ)).mpr (by rw [shiftE_zero]; exact hok)
     rw [WellDenoted_app]
-    refine ⟨hok0, by simp, _, interp V ρ doma, B, ?_, hz, propN_eq_zero.mp,
-      fun _ => hokd.2⟩
+    refine ⟨hok0, by simp, appliesTo_of_mem_piV (B := B) ?_ hokd.2 hz⟩
     rw [interp_lift_cons]; exact hmem
 
 /-! ## The η-expansion (`DefEqExpand`) -/

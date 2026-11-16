@@ -12,12 +12,11 @@ it holds of the subterms and one condition on the term's own shape is
 met; the conditions **record what is a type** (`IsTy X := X ∈ univZero
 ∨ Strict X`, the sets whose members are all the point or none of them):
 
-* an application applies a member of some function space `piR v A B`
-  to a member of its domain `A`; at a proposition (`v = 0`) the fibres
-  are truth values, above it the domain is a type — so in the graph
-  regime the membership *pins* the domain (`piR_dom_unique`);
-* a λ's domain is a type, the body is well-denoted at every value of
-  the domain, and some family of types bounds it;
+* an application's function applies to its argument (`AppliesTo`): it
+  is the point, or a graph whose domain is a type holding the argument
+  — a graph determines its domain (`graph_dom_unique`);
+* a λ's domain is a type and the body is well-denoted at every value of
+  the domain;
 * a Π's domain is a type, the body is well-denoted at every value of
   the domain and denotes a type there;
 * a `let` has its value well-denoted, and its body well-denoted at the
@@ -26,8 +25,8 @@ met; the conditions **record what is a type** (`IsTy X := X ∈ univZero
 
 The binders' regimes are read off the values by `interp` (`piV`/`lamV`);
 the type clauses are what makes that reading coherent: an abstraction
-is a member of its function space (`lamV_mem`) because every fibre is a
-type.  The predicate transports along `inst` (`WellDenoted_inst0`); a
+is a member of its function space (`lamV_mem`) when its body values lie
+in types, which the typing rules supply.  The predicate transports along `inst` (`WellDenoted_inst0`); a
 β step at a redex that is not the point keeps the denotation and the
 invariant (`WellDenoted_beta`).
 
@@ -54,16 +53,9 @@ def WellDenoted : (Nat → V) → Term → Prop
     (∀ x, x ∈ˢ interp V ρ A → IsTy (interp V (cons x ρ) B))
   | ρ, .lam A b =>
     WellDenoted ρ A ∧ IsTy (interp V ρ A) ∧
-    (∀ x, x ∈ˢ interp V ρ A → WellDenoted (cons x ρ) b) ∧
-    ∃ B : V → V,
-      (∀ x, x ∈ˢ interp V ρ A → interp V (cons x ρ) b ∈ˢ B x) ∧
-      (∀ x, x ∈ˢ interp V ρ A → IsTy (B x))
+    (∀ x, x ∈ˢ interp V ρ A → WellDenoted (cons x ρ) b)
   | ρ, .app f a =>
-    WellDenoted ρ f ∧ WellDenoted ρ a ∧
-    ∃ (v : Nat) (A : V) (B : V → V),
-      interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
-      (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) ∧
-      (v ≠ 0 → IsTy A)
+    WellDenoted ρ f ∧ WellDenoted ρ a ∧ AppliesTo (interp V ρ f) (interp V ρ a)
   | ρ, .fst e =>
     WellDenoted ρ e ∧
     ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
@@ -99,18 +91,12 @@ theorem WellDenoted_pi (ρ : Nat → V) (A B : Term) :
 theorem WellDenoted_lam (ρ : Nat → V) (A b : Term) :
     WellDenoted V ρ (.lam A b) =
       (WellDenoted V ρ A ∧ IsTy (interp V ρ A) ∧
-        (∀ x, x ∈ˢ interp V ρ A → WellDenoted V (cons x ρ) b) ∧
-        ∃ B : V → V,
-          (∀ x, x ∈ˢ interp V ρ A → interp V (cons x ρ) b ∈ˢ B x) ∧
-          (∀ x, x ∈ˢ interp V ρ A → IsTy (B x))) := by
+        (∀ x, x ∈ˢ interp V ρ A → WellDenoted V (cons x ρ) b)) := by
   rw [WellDenoted]
 theorem WellDenoted_app (ρ : Nat → V) (f a : Term) :
     WellDenoted V ρ (.app f a) =
       (WellDenoted V ρ f ∧ WellDenoted V ρ a ∧
-        ∃ (v : Nat) (A : V) (B : V → V),
-          interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
-          (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) ∧
-          (v ≠ 0 → IsTy A)) := by
+        AppliesTo (interp V ρ f) (interp V ρ a)) := by
   rw [WellDenoted]
 theorem WellDenoted_fst (ρ : Nat → V) (e : Term) :
     WellDenoted V ρ (.fst e) =
@@ -155,12 +141,9 @@ theorem WellDenoted_liftN (n : Nat) :
   | lam A b ihA ihb =>
     intro k ρ
     rw [Term.liftN_lam, WellDenoted_lam, WellDenoted_lam, ihA, interp_liftN]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · rw [ihb, cons_shiftE]
-    · rw [interp_liftN, cons_shiftE]
+    refine and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl ?_))
+    rw [ihb, cons_shiftE]
   | pi A B ihA ihB =>
     intro k ρ
     rw [Term.liftN_pi, WellDenoted_pi, WellDenoted_pi, ihA, interp_liftN]
@@ -215,16 +198,11 @@ theorem WellDenoted_inst :
     intro a k ρ ha
     rw [Term.inst_lam, WellDenoted_lam, WellDenoted_lam, ihA a k ρ ha,
       interp_inst]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
-        rw [shiftE_succ_cons]; exact ha
-      rw [ihb a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
-    · have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
-        rw [shiftE_succ_cons]; exact ha
-      rw [interp_inst, shiftE_succ_cons, cons_instE]
+    refine and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl ?_))
+    have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
+      rw [shiftE_succ_cons]; exact ha
+    rw [ihb a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
   | pi A B ihA ihB =>
     intro a k ρ ha
     rw [Term.inst_pi, WellDenoted_pi, WellDenoted_pi, ihA a k ρ ha,
@@ -284,10 +262,10 @@ theorem WellDenoted_zeta {v b : Term} {ρ : Nat → V}
 
 At a redex that is not the point, from the subject's `WellDenoted`
 alone: the λ is not the point (`app_pt`), so it is a graph and the
-slot's function space is in the graph regime; the graph fixes its
-domain (`piR_dom_unique`), so the argument lies in the λ's domain, and
-β is `app_lamV`.  At the point there is nothing to show: the claims
-that read this are conditional on "not the point". -/
+application clause reads the argument off the graph: it lies in the
+λ's domain (`appliesTo_graph`), and β is `app_lamV`.  At the point there
+is nothing to show: the claims that read this are conditional on "not
+the point". -/
 
 /-- **The graded β step** at a redex that is not the point. -/
 theorem WellDenoted_beta {A b a : Term} {ρ : Nat → V}
@@ -297,36 +275,28 @@ theorem WellDenoted_beta {A b a : Term} {ρ : Nat → V}
     interp V ρ (.app (.lam A b) a) = interp V ρ (b.inst a) ∧
     WellDenoted V ρ (b.inst a) := by
   rw [WellDenoted_app] at h
-  obtain ⟨hlam, ha, v', A', B', hslot, hmem, -, -⟩ := h
+  obtain ⟨hlam, ha, hap⟩ := h
   have hlne : interp V ρ (.lam A b) ≠ pt := by
     intro h0; apply hne; rw [interp_app, h0, app_pt]
-  have hv' : v' ≠ 0 := by
-    intro h0; subst h0; exact hlne (eq_pt_of_mem_piR_zero hslot)
-  obtain ⟨-, -, hbody, B, hfib, -⟩ := (WellDenoted_lam V ρ A b).mp hlam
+  obtain ⟨-, -, hbody⟩ := (WellDenoted_lam V ρ A b).mp hlam
   have hgraph : interp V ρ (.lam A b) = graph (fun x => interp V (cons x ρ) b) (interp V ρ A) := by
     rw [interp_lam] at hlne ⊢; exact lamV_eq_graph hlne
-  have hown : interp V ρ (.lam A b) ∈ˢ piR 1 (interp V ρ A) B := by
-    rw [hgraph, piR_pos (by decide)]; exact graph_mem_piSet hfib
-  have hAA : interp V ρ A = A' := piR_dom_unique (by decide) hv' hown hslot
-  have haA : interp V ρ a ∈ˢ interp V ρ A := hAA ▸ hmem
+  have haA : interp V ρ a ∈ˢ interp V ρ A := by
+    rw [hgraph] at hap; exact (appliesTo_graph.mp hap).2
   refine ⟨haA, ?_, (WellDenoted_inst0 V ha).mpr (hbody _ haA)⟩
   rw [interp_app, interp_lam, app_lamV haA, interp_inst0]
 
 /-! ## The app slot's establishment -/
 
-/-- **The app slot**, from the function's membership in a Π-type's
-reading, the argument in its domain, and the domain a type. -/
+/-- **The application clause**, from the function's membership in a
+Π-type's reading, the argument in its domain, and the domain a type. -/
 theorem appSlot_of_pi {ρ : Nat → V} {f a Aa Ba : Term}
     (hf : interp V ρ f ∈ˢ interp V ρ (.pi Aa Ba))
     (ha : interp V ρ a ∈ˢ interp V ρ Aa)
     (hdom : IsTy (interp V ρ Aa)) :
-    ∃ (v' : Nat) (A : V) (B : V → V),
-      interp V ρ f ∈ˢ piR v' A B ∧ interp V ρ a ∈ˢ A ∧
-      (v' = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) ∧
-      (v' ≠ 0 → IsTy A) := by
+    AppliesTo (interp V ρ f) (interp V ρ a) := by
   rw [interp_pi] at hf
-  exact ⟨_, interp V ρ Aa, fun x => interp V (cons x ρ) Ba,
-    hf, ha, propN_eq_zero.mp, fun _ => hdom⟩
+  exact appliesTo_of_mem_piV hf hdom ha
 
 /-- The full app-clause establishment: the hereditary halves plus the
 slot, the shape the `app` claim discharges. -/

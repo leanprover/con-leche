@@ -1053,12 +1053,12 @@ propositionally proven equation is a set equality.
 
 **The invariant.** In place of a typing judgement there is a semantic
 predicate
-([predicate `WellDenoted` in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L50-L80)):
-hereditarily, every application applies a function to an argument of
-its domain, every binder's domain is a type, every λ has a bounded
-codomain, every projection hits a pair, and so on. Unlike syntactic typing it is preserved by β and
+([predicate `WellDenoted` in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L49-L72)):
+hereditarily, every application applies the point to anything, or a
+graph to a member of its domain, which is a type; every binder's
+domain is a type, every projection hits a pair, and so on. Unlike syntactic typing it is preserved by β and
 the other reduction steps
-([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L137-L313)).
+([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L123-L287)).
 An environment carries the invariant for every stored constant, plus
 closedness and the pins of the basis constants
 ([structure `EnvModel` in `ConLeche/Model/Env/EnvModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Env/EnvModel.lean#L35-L63)).
@@ -1643,7 +1643,7 @@ instead of trusting the operation's name.
   whatever kind of constant is stored there (the fast path fires by
   name), reads the operation's membership off its pinned type shape
   and proves the literal semantics from the certified recurrences
-  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1053)).
+  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1046)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
   [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L479))
@@ -1669,7 +1669,7 @@ instead of trusting the operation's name.
   arbitrary variant, because what it consumes is the certificates'
   verdict in the accepted environment and not where the matched
   variant came from:
-  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1971).
+  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1968).
   That is why the two statements of §1 quantify over the list: the pins
   buy accepted `Nat.div` streams, never consistency.
 * **The maximum `Nat` size.** As the official kernel does, the checker
@@ -1914,7 +1914,7 @@ and every such line carries its reason.
 |---|---|
 | `Main.lean` | The binary's entry point: the plumbing around `runArgs` at `IO`, followed by the exit. |
 | `ConLeche/Driver/` | The proof-carrying IO driver: the index build and the check phase's worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), a module's context for checking it on its own (`Reach.lean`), the check of one module against it (`Worker.lean`), the tables a run reads up front, each module located once (`Tables.lean`), the import graph check (`Graph.lean`), every module of a closure in one process (`Modular.lean`) and by one worker process each (`Schedule.lean`, the subtree `Schedule/`: the policy, the worker, the log, the status, `/proc` and the run), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
-| `ConLeche/Kernel/` | The specification, the pure checker the proofs are about: `Expr`/`Level`/`Name`, what a declaration adds (`Install.lean`), `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockShape.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. The binary runs the cached tier's twins in its place; of this tier it runs only the shared helpers the reach gate lists (§12). |
+| `ConLeche/Kernel/` | The specification, the pure checker the proofs are about: `Expr`/`Level`/`Name`, what a declaration adds (`Install.lean`), `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockShape.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins, and `natBigHash` (`NatHash.lean`), the hash of a big `Nat` literal, the one function in C (`native/nat_hash.c`). Imports no theory module. The binary runs the cached tier's twins in its place; of this tier it runs only the shared helpers the reach gate lists (§12). |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the cached twins of the whole inductive check (`Ind*.lean`: the formers and constructors, positivity, the classes, the recursor stage and the tail), each related to its specification in `Kernel/Inductives/` by an equation or a simulation triple (`Verify/Cached/Ind*C.lean`, `GenRecC.lean`), the declaration fold `checkDecls` and its accepting runs (`Decls.lean`), the index of a stream and a record's job (`StreamIndex.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file handle's reads (`CheckerIO.lean`); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean.lean`, the interface, over `Olean/`: the byte region `Region.lean`, the specification decoder `Spec.lean`, the fast one `Fast.lean`, the sparse one `Sparse.lean`, the imports off a file's start `Header.lean`, the reads of a part of a region `Reads.lean`, a module's views `View.lean` and their checks against each other `Module.lean`, the files through the IO class `Files.lean`, the closure `Closure.lean`, the merge `Merge.lean`, the emission `Emit.lean`, the records `Records.lean`, the header fixpoint `Levels.lean`, the loaded names and the clash rule `Index.lean`, and one group's record `Group.lean`). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
@@ -1931,6 +1931,7 @@ and every such line carries its reason.
 | `ConLeche/Modular.lean`, `ConLeche/Modular/` | Modular checking's statement half: a module's context as the records its imports present, the local checks per home (`InterfaceOk`) and per importer (`ImportOk`), copies agreeing (`Agree`: one record, or two proofs of one statement); and the theorem over an abstract interface of models (`Modular/Generic.lean`, the whitepaper fragment's), whose instance for con-leche's models is `ConLeche/Model/Modular/`. |
 | `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`). |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the main corollary lifted to the driver; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `native/` | `nat_hash.c`: the hash of a `Nat` literal of 2^64 and more, all its 64-bit words mixed; Lean's own function, vendored until the toolchain ships it. Compiled and linked by `lakefile.lean`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
@@ -2115,6 +2116,10 @@ each of these.
   instantiations, with no auxiliary mutual block (§5).
 * The stream's recursors are installed once they agree with the
   generated ones; the official kernel installs its own (§5).
+* A `Nat` literal's hash reads all its bits, as on lean4 master
+  (lean4#16146); the released kernel hashes its low 64 bits, so its
+  memo lookups among literals that agree there walk one bucket
+  (lean4#15686) (§2).
 
 **Checks that only the proof needs.**
 * In verified mode: the full-grade types of the opened bodies at a

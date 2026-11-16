@@ -29,7 +29,7 @@ the universe chain, which a minimal axiom system would construct, are
 assumed outright with their laws, because how they are built does not
 matter to the argument. The promise is literal: in the Lean fragment
 the structure is a class,
-#src("whitepaper/Fragment/Lib.lean", 56, 126)[#lean[SetLib]], and every theorem of the
+#src("whitepaper/Fragment/Lib.lean", 56, 125)[#lean[SetLib]], and every theorem of the
 fragment is proved against that class.
 
 #real[
@@ -56,11 +56,11 @@ point_, and
 #src("whitepaper/Fragment/Lib.lean", 73, 76)[its singleton ${pt}$]. The point will be the one proof of every true
 proposition. For a proposition $P$ of the ambient logic we write
 $tv(P)$ for the separation ${x in {pt} | P}$ and call it
-#src("whitepaper/Fragment/Lib.lean", 142, 144)[the _truth value_ of $P$]. Its only possible member is the
+#src("whitepaper/Fragment/Lib.lean", 141, 143)[the _truth value_ of $P$]. Its only possible member is the
 point, which it has exactly when $P$ holds, so $tv(P) = {pt}$ when
 $P$ is true and $tv(P) = emptyset$ when it is false. This is an
 abbreviation, not an axiom. The point itself obeys
-#src("whitepaper/Fragment/Lib.lean", 120, 126)[three laws]: it is not a
+#src("whitepaper/Fragment/Lib.lean", 119, 125)[three laws]: it is not a
 truth value (it has a member other than itself), it has at most one
 member, and no graph (below) is a member of it.
 
@@ -77,7 +77,7 @@ with $cal(U)_0$ the set of truth values, the subsets of ${pt}$. Each
 $cal(U)_n$ is a member of $cal(U)_(n+1)$. The chain is cumulative (a
 member of $cal(U)_m$ is a member of every later $cal(U)_n$), and every
 universe is
-#src("whitepaper/Fragment/Lib.lean", 118, 119)[closed under separation].
+#src("whitepaper/Fragment/Lib.lean", 117, 118)[closed under separation].
 
 *Graphs, function spaces, application.* For a function $F$ from sets
 to sets (a function of the meta-theory, not a set) and a set $A$, a
@@ -96,9 +96,8 @@ _application_]. Their laws:
   $graph(F, A) in Pi(A, B)$.
 - #src("whitepaper/Fragment/Lib.lean", 107, 108)[Elimination]: if $f in Pi(A, B)$ and $a in A$, then $f dot.op a in B(a)$.
 - #src("whitepaper/Fragment/Lib.lean", 109, 110)[η]: if $f in Pi(A, B)$, then $graph(x |-> f dot.op x, A) = f$.
-- #src("whitepaper/Fragment/Lib.lean", 111, 113)[Domain uniqueness]: if $f in Pi(A, B)$ and $f in Pi(A', B')$, then
-  $A = A'$.
-- #src("whitepaper/Fragment/Lib.lean", 114, 117)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
+- #src("whitepaper/Fragment/Lib.lean", 111, 112)[Domain uniqueness]: if $graph(F, A) = graph(F', A')$, then $A = A'$.
+- #src("whitepaper/Fragment/Lib.lean", 113, 116)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
   every $x in A$, then $Pi(A, B) in cal(U)_n$.
 
 This is all this section needs. When inductive types arrive, §4
@@ -111,17 +110,17 @@ not a function. The law makes application one operation that does the
 right thing on both kinds of value, so the interpretation of
 $f thick a$ need not know which kind it is applying. The second is
 that _a graph is never the point_: a function and a proof are never
-the same set. A value that is known to be in a function space, or
-merely known not to be the point, is therefore a graph, and by domain
-uniqueness a graph carries its own domain. This is what lets β fire
-with no premise at all.
+the same set. Together with domain uniqueness this makes "the domain
+of $f$" a meaningful phrase for every value $f$ that may be applied:
+everything if $f$ is the point, $A$ if $f$ is the graph
+$graph(F, A)$. This is what lets β fire with no premise at all.
 
 One law is deliberately restricted: closure of a universe under
 function spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for
 $cal(U)_0$. A proposition $forall x : A. thin P$ has no function space
 in the model. It has a truth value, and a truth value is in
 $cal(U)_0$ whatever $A$ is. This is
-#src("whitepaper/Fragment/Lib.lean", 275, 278)[the model's impredicativity].
+#src("whitepaper/Fragment/Lib.lean", 274, 277)[the model's impredicativity].
 
 == The interpretation <sec:interp>
 
@@ -149,7 +148,7 @@ $
 
 with $phi(u)$ the value of the level $u$ at the valuation, and $TyU_n$
 the sets a sort denotes, below. The two binder clauses
-#src("whitepaper/Fragment/Lib.lean", 469, 481)[choose between two readings by the values]:
+#src("whitepaper/Fragment/Lib.lean", 515, 527)[choose between two readings by the values]:
 
 $
   PiV(A, B) & = cases(
@@ -161,7 +160,7 @@ $
 $
 
 Here $Pi_0(A, B)$ is
-#src("whitepaper/Fragment/Lib.lean", 185, 191)[the _propositional function space_],
+#src("whitepaper/Fragment/Lib.lean", 190, 196)[the _propositional function space_],
 $tv(forall v in A. thin B(v) = {pt})$. When the fibres $B(v)$ are
 truth values it is their intersection $inter.big_(v in A) B(v)$ (the
 empty intersection being ${pt}$), which is ${pt}$ exactly when every
@@ -183,8 +182,8 @@ of $B$, and does not compute it.
 reading the sort of the body would choose. Over an _empty_ domain
 there are no values, and both clauses take their first case: a
 function space over an empty domain
-#src("whitepaper/Fragment/Lib.lean", 625, 631)[is ${pt}$], and an abstraction over one
-#src("whitepaper/Fragment/Lib.lean", 633, 635)[is the point], whatever
+#src("whitepaper/Fragment/Lib.lean", 676, 682)[is ${pt}$], and an abstraction over one
+#src("whitepaper/Fragment/Lib.lean", 684, 686)[is the point], whatever
 the sort of the body. So `False → Nat`, a type of sort `Type`, denotes
 ${pt}$, and its inhabitant `fun h => h.elim` denotes the point. A
 function space over an inhabited domain can do the same:
@@ -198,13 +197,13 @@ fact about the syntax, not about any value, and reading an empty
 value is.
 
 *What a sort denotes.* A set is a
-#src("whitepaper/Fragment/Lib.lean", 298, 302)[_type_] when it is a truth value or
+#src("whitepaper/Fragment/Lib.lean", 297, 301)[_type_] when it is a truth value or
 _strict_, that is, neither the point nor a set holding the point. The
 members of a type are
-#src("whitepaper/Fragment/Lib.lean", 359, 364)[all the point or none of it],
+#src("whitepaper/Fragment/Lib.lean", 358, 363)[all the point or none of it],
 and this is the one fact about types the soundness proof reads. A sort
 denotes
-#src("whitepaper/Fragment/Lib.lean", 304, 306)[the types of its universe]:
+#src("whitepaper/Fragment/Lib.lean", 303, 305)[the types of its universe]:
 $TyU_0 = cal(U)_0$, the truth values, and $TyU_n$ for $n >= 1$ the
 members of $cal(U)_n$ that are types. These are cumulative, and
 $TyU_(n+1)$ holds the truth values too. It must, since a function
@@ -215,7 +214,7 @@ The point is no type, so no sort holds it.
 #real[
   Con-leche's sorts denote the same sets:
   #src("ConLeche/SetTheory/Derive/Univ.lean", 34, 35)[a sort's universe]
-  is #src("ConLeche/SetTheory/Derive/TypeU.lean", 214, 216)[the universe of types],
+  is #src("ConLeche/SetTheory/Derive/TypeU.lean", 195, 197)[the universe of types],
   read off the same notions of a
   #src("ConLeche/SetTheory/Derive/TypeU.lean", 57, 58)[strict set] and a
   #src("ConLeche/SetTheory/Derive/TypeU.lean", 60, 61)[type].
@@ -236,7 +235,7 @@ see a variable it does not mention].
 == The semantic invariant <sec:inv>
 
 There is no typing judgement in the proof. In its place is a predicate
-on terms, the _semantic invariant_: a term is #src("whitepaper/Fragment/WellDenoted.lean", 55, 78)[_well-denoted_] when its
+on terms, the _semantic invariant_: a term is #src("whitepaper/Fragment/WellDenoted.lean", 58, 75)[_well-denoted_] when its
 applications and binders respect domains. It is stated under a
 valuation $phi$ and an environment $rho$, like the interpretation, by
 recursion on the term: it holds of a term when it holds of the
@@ -245,20 +244,21 @@ $rho models e$ for "$e$ is well-denoted under $rho$" ($phi$ is fixed
 throughout). Variables and sorts are always well-denoted, and
 
 #rules(
-  rule(name: "app",
+  rule(name: "app-pt",
     $rho models f$, $rho models a$,
-    $lden f rden_rho in P$,
-    $lden a rden_rho in A'$,
+    $lden f rden_rho = pt$,
     $rho models f thick a$),
-  rule(name: "let",
-    $rho models v$, $rho, x |-> lden v rden_rho models b$,
-    $rho models elet x : T := v; thin b$),
+  rule(name: "app-graph",
+    $rho models f$, $rho models a$,
+    $lden f rden_rho = graph(F, A)$,
+    $A "a type"$,
+    $lden a rden_rho in A$,
+    $rho models f thick a$),
 )
 #rules(
   rule(name: "lam",
     $rho models A$, $lden A rden_rho "a type"$,
-    $forall v in lden A rden_rho. thin rho, x |-> v models b \
-     forall v in lden A rden_rho. thin lden b rden_(rho, x |-> v) in B(v) "a type"$,
+    $forall v in lden A rden_rho. thin rho, x |-> v models b$,
     $rho models lambda x : A. thin b$),
   rule(name: "pi",
     $rho models A$, $lden A rden_rho "a type"$,
@@ -266,60 +266,76 @@ throughout). Variables and sorts are always well-denoted, and
      forall v in lden A rden_rho. thin lden B rden_(rho, x |-> v) "a type"$,
     $rho models forall x : A. thin B$),
 )
+#rules(
+  rule(name: "let",
+    $rho models v$, $rho, x |-> lden v rden_rho models b$,
+    $rho models elet x : T := v; thin b$),
+)
 
-In app, $P$ is either a function space $Pi(A', B')$ whose domain $A'$
-is a type, or a propositional function space $Pi_0(A', B')$ whose
-fibres are truth values. In lam, $B$ is some family of types bounding
-the body's values, its _codomain_. In words: an application applies a
-function, or a proof of a propositional $forall$, to a member of its
-domain; a binder's domain is a type; a lambda's values lie in a
-bounded family of types, and a $forall$'s fibres are types. The
-invariant records which sets are types, and that is what makes the
-choice between the two readings agree with membership. An abstraction
-is #src("whitepaper/Fragment/Lib.lean", 552, 558)[a member of the function space]
-of a family of types bounding its values: if every fibre is a truth
+In words: the point may be applied to anything, and a graph to the
+members of its domain, which is a type; a binder's domain is a type;
+and a $forall$'s fibres are types. Nothing is asked of a lambda's
+values beyond the body being well-denoted.
+
+The two app rules mention no function space and no type of $f$ or $a$:
+they ask of the values only what application needs to be meaningful.
+A typed application meets them. If $lden f rden_rho$ lies in
+$PiV(A, B)$, $A$ is a type and $lden a rden_rho in A$, then
+$lden f rden_rho$ is the point, or it is a member of the function
+space $Pi(A, B)$, by η the graph $graph(x |-> lden f rden_rho dot.op x, A)$,
+#src("whitepaper/Fragment/Lib.lean", 529, 532)[and app-graph applies].
+This is the step the inference rule for application takes
+(@sec:claims). That the domain is a type is not needed for
+application itself but for equality: two applications of one graph
+to arguments that are equal where neither is the point must be equal,
+and that needs the two arguments to be both the point or neither,
+which their common domain, a type, provides.
+
+The invariant records which sets are types; that is what lets the
+proof conclude that two values in one type are both the point or
+neither. Where a lambda is typed, its inference rule supplies a family
+of types holding the body's values, and then the choice between the
+two readings agrees with membership: an abstraction
+is #src("whitepaper/Fragment/Lib.lean", 603, 609)[a member of the function space]
+of a family of types holding its values. If every fibre is a truth
 value, every value is the point and so is the abstraction; if one
 fibre is not, it is strict, the body's value there is not the point,
 and the abstraction is the graph.
 
-The semantic invariant is #src("whitepaper/Fragment/WellDenoted.lean", 196, 199)[transported by substitution]: $b[x := a]$ is
+The semantic invariant is #src("whitepaper/Fragment/WellDenoted.lean", 182, 185)[transported by substitution]: $b[x := a]$ is
 well-denoted under $rho$ exactly when $b$ is well-denoted under
 $rho, x |-> lden a rden_rho$, provided $a$ itself is. The proof is by
 induction on the term, using the interpretation's substitution
 lemma; no typing derivation is involved.
 
 A context $Gamma$, the list of the types of the variables in scope,
-is #src("whitepaper/Fragment/WellDenoted.lean", 252, 259)[_satisfied_] by $rho$ when every entry is well-denoted under the
+is #src("whitepaper/Fragment/WellDenoted.lean", 234, 241)[_satisfied_] by $rho$ when every entry is well-denoted under the
 environment beyond it, denotes a type there, and has the variable's
 value as a member.
 This is the semantic reading of "$Gamma$ is a well-formed context", and
 it is the only thing the claims below assume about the context.
 
-The first non-routine step is β. Take a well-denoted redex
-$(lambda x : A. thin b) thick a$. From the application rule we know
-that the lambda's value lies in some $P$ whose domain $A'$ contains
-$lden a rden_rho$; from the lambda rule we know that the body is
-bounded over $lden A rden_rho$. For the β law we need
-$lden a rden_rho in lden A rden_rho$, the argument in _the lambda's own_
-domain, and the semantic invariant has given us $A'$, not $A$.
+The first step where the point matters is β. Take a well-denoted
+redex $(lambda x : A. thin b) thick a$. For the β law we need
+$lden a rden_rho in lden A rden_rho$, the argument in the lambda's
+domain. The app-graph rule provides it when the lambda's value is a
+graph; app-pt, when it is the point, provides nothing.
 
 #lemma(name: [β where the redex is not the point])[
   If $(lambda x : A. thin b) thick a$ is well-denoted under $rho$ and
   does not denote the point, then
   $lden (lambda x : A. thin b) thick a rden_rho = lden b[x := a] rden_rho$
-  and $b[x := a]$ #src("whitepaper/Fragment/Sound.lean", 107, 132)[is well-denoted under $rho$].
+  and $b[x := a]$ #src("whitepaper/Fragment/Sound.lean", 107, 125)[is well-denoted under $rho$].
 ] <lem:beta>
 
 #proof[
   The application is not the point, so neither is the lambda, since
   $pt dot.op a = pt$. An abstraction that is not the point is
   a graph, $graph(v |-> lden b rden_(rho, x |-> v), lden A rden_rho)$.
-  A graph is never the point, so the application's $P$ is a
-  function space $Pi(A', B')$, not a propositional function space. The
-  lambda's own rule puts the same graph into
-  $Pi(lden A rden_rho, B)$ by introduction, and domain
-  uniqueness gives $A' = lden A rden_rho$; so $lden a rden_rho in lden A rden_rho$,
-  and the β law computes the application to
+  A graph is never the point, so the application is well-denoted by
+  app-graph, and as a graph determines its domain,
+  $lden a rden_rho in lden A rden_rho$. The β law computes the
+  application to
   $lden b rden_(rho, x |-> lden a rden_rho)$, which is $lden b[x := a] rden_rho$ by
   the substitution lemma. The semantic invariant of the reduct is the
   substitution transport.
@@ -329,7 +345,7 @@ For a redex that does denote the point there is no such lemma. Its
 lambda may be the point, which carries no domain, and its argument
 may lie anywhere. Such a redex is well-denoted, and its reduct need
 not be:
-#src("whitepaper/Fragment/EtaIota.lean", 707, 724)[$(lambda x : A. thin g thick (k thick x)) thick a$],
+#src("whitepaper/Fragment/EtaIota.lean", 697, 714)[$(lambda x : A. thin g thick (k thick x)) thick a$],
 with a lambda that is the point and an argument $a$ outside the
 domain $A$ of the graph $k$, reduces to $g thick (k thick a)$, which
 is not well-denoted. So the reduction claim below says nothing about
@@ -362,7 +378,7 @@ $TyU_1$, which holds no point.
   + inference establishes the semantic invariant and a membership: if
     $Gamma tack e => T$, then $e$ and $T$ are well-denoted, $lden T
     rden_rho$ is a type, and $lden e rden_rho in lden T rden_rho$.
-  (The theorem is #src("whitepaper/Fragment/Sound.lean", 2322, 2326)[`soundness`], with
+  (The theorem is #src("whitepaper/Fragment/Sound.lean", 2293, 2297)[`soundness`], with
   #src("whitepaper/Fragment/Motive.lean", 51, 84)[the three claims stated].)
 ] <thm:sound>
 
@@ -404,7 +420,7 @@ claim there. Every rule falls into one of four cases.
   holds at every environment.
 
 #corollary[
-  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 2330, 2333)[at every valuation]
+  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 2301, 2304)[at every valuation]
   and every $rho$.
 ] <cor:closed>
 
@@ -421,25 +437,25 @@ value is the point is treated like a proof whatever the sort of its
 type, also when its value is the point
 #src("whitepaper/Fragment/Probe.lean", 65, 72)[only at some values of a variable].
 
-The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 2202, 2311)[one structural induction] over
+The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 2173, 2282)[one structural induction] over
 the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 77, 78)[as in con-leche]).
 Every rule is one case, and every case is a lemma about that rule
 alone, with the induction hypothesis for each premise as an assumption.
 The routine cases are listed at the end; the others follow.
 
 #proof[
-  *#src("whitepaper/Fragment/Sound.lean", 111, 132)[Rule beta]*, $(lambda x : A. thin b) thick a red b[x :=
+  *#src("whitepaper/Fragment/Sound.lean", 111, 125)[Rule beta]*, $(lambda x : A. thin b) thick a red b[x :=
   a]$: \
   This is @lem:beta. The rule has no premise, and the lemma needs
   none, because the claim is asked only where the redex is not the
   point.
 
-  *#src("whitepaper/Fragment/Sound.lean", 134, 142)[Rule zeta]*, $elet x : T := v; thin b red b[x := v]$: \
+  *#src("whitepaper/Fragment/Sound.lean", 127, 135)[Rule zeta]*, $elet x : T := v; thin b red b[x := v]$: \
   The two sides denote the same set at every environment, the point
   included, and the reduct's semantic invariant is the `let`'s,
   through the substitution transport.
 
-  *#src("whitepaper/Fragment/Sound.lean", 165, 171)[Rule red-l]*, $Gamma tack a equiv b$ from $Gamma tack a red a'$ and
+  *#src("whitepaper/Fragment/Sound.lean", 158, 164)[Rule red-l]*, $Gamma tack a equiv b$ from $Gamma tack a red a'$ and
   $Gamma tack a' equiv b$: \
   $a$ is not the point, so by the first claim $a'$ is well-denoted
   and $lden a rden_rho = lden a' rden_rho$. Now $a'$ and $b$ are both
@@ -449,12 +465,12 @@ The routine cases are listed at the end; the others follow.
   step _produces_ the semantic invariant of its result; see the
   discussion of transitivity below.
 
-  *#src("whitepaper/Fragment/Sound.lean", 173, 175)[Rule sort]*, $Sort u equiv Sort v$ when $u eq.dot v$: \
+  *#src("whitepaper/Fragment/Sound.lean", 166, 168)[Rule sort]*, $Sort u equiv Sort v$ when $u eq.dot v$: \
   The oracle is assumed correct: it answers yes only if the levels
   agree at every valuation (@sec:levels), so the two sorts denote the
   same set.
 
-  *#src("whitepaper/Fragment/Sound.lean", 181, 198)[Rule pi]*, $forall x : A_1. thin B_1 equiv forall x : A_2. thin B_2$ from
+  *#src("whitepaper/Fragment/Sound.lean", 174, 191)[Rule pi]*, $forall x : A_1. thin B_1 equiv forall x : A_2. thin B_2$ from
   $Gamma tack A_1 equiv A_2$ and $Gamma, x : A_2 tack B_1 equiv B_2$: \
   Both $forall$s are well-denoted, so their domains are types, never
   the point, and the second claim on the domains gives
@@ -465,7 +481,7 @@ The routine cases are listed at the end; the others follow.
   fibres; so the two $forall$s are equal. No comparison of the two
   sides' sorts is needed.
 
-  *#src("whitepaper/Fragment/Sound.lean", 200, 220)[Rule lam]*, $lambda x : A_1. thin b_1 eqlam lambda x : A_2. thin b_2$ from
+  *#src("whitepaper/Fragment/Sound.lean", 193, 213)[Rule lam]*, $lambda x : A_1. thin b_1 eqlam lambda x : A_2. thin b_2$ from
   the domains, the bodies, and the bodies' types $t_1 equiv t_2$: \
   The domains are equal as for $forall$. Fix $v$ in the domain. The
   third claim puts $lden b_1 rden$ in $lden t_1 rden$ and $lden b_2
@@ -481,16 +497,15 @@ The routine cases are listed at the end; the others follow.
   be the point at some $v$ and not at others, and the claim on the
   bodies says nothing at such a $v$.
 
-  *#src("whitepaper/Fragment/Sound.lean", 233, 254)[Rule app]*, $f_1 thick a_1 equiv f_2 thick a_2$: \
+  *#src("whitepaper/Fragment/Sound.lean", 225, 245)[Rule app]*, $f_1 thick a_1 equiv f_2 thick a_2$: \
   Neither application is the point, so neither head is, and the claim
-  on the heads makes them one graph. Each application's rule puts its
-  head in some $P$, with its argument in $P$'s domain. A graph is in
-  no propositional function space, so each $P$ is a function space,
-  and domain uniqueness puts both arguments in one domain, a type.
+  on the heads makes them one graph. So both applications are
+  well-denoted by app-graph, and as a graph determines its domain,
+  both arguments lie in that one graph's domain, a type.
   They are both the point, or neither is and the claim on the
   arguments makes them equal.
 
-  *#src("whitepaper/Fragment/Sound.lean", 391, 436)[Rule fun-eta]*, $lambda x : A_1. thin b_1 equiv b$ when
+  *#src("whitepaper/Fragment/Sound.lean", 381, 425)[Rule fun-eta]*, $lambda x : A_1. thin b_1 equiv b$ when
   $Gamma tack b => T red forall x : A_2. thin B$,
   $Gamma tack A_2 equiv A_1$, $Gamma, x : A_1 tack b_1 equiv b thick x$,
   and the body's type agrees with $B$: \
@@ -503,9 +518,9 @@ The routine cases are listed at the end; the others follow.
   the point or neither, and in the second case the claim on the bodies
   makes them equal. So the lambda denotes the abstraction of
   $v |-> lden b rden_rho dot.op v$, and a
-  #src("whitepaper/Fragment/Lib.lean", 574, 577)[member of a function space of types is the abstraction of its applications].
+  #src("whitepaper/Fragment/Lib.lean", 625, 628)[member of a function space of types is the abstraction of its applications].
 
-  *#src("whitepaper/Fragment/Sound.lean", 579, 589)[Rule proof-irrel]*, $a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
+  *#src("whitepaper/Fragment/Sound.lean", 567, 577)[Rule proof-irrel]*, $a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
   with $u eq.dot 0$, and likewise for $b$: \
   By the third claim twice and the first once, $lden a rden_rho in
   lden T_a rden_rho in TyU_0$, a truth value, whose only possible
@@ -514,7 +529,7 @@ The routine cases are listed at the end; the others follow.
   types $T_a$ and $T_b$ were never compared, and the semantic
   invariants of $a$ and $b$ were not used.
 
-  *#src("whitepaper/Fragment/Sound.lean", 292, 306)[Rule pi, inference]*, $Gamma tack forall x : A. thin B => Sort (imax(u,
+  *#src("whitepaper/Fragment/Sound.lean", 283, 297)[Rule pi, inference]*, $Gamma tack forall x : A. thin B => Sort (imax(u,
   v))$ when $Gamma tack A => S red Sort u$ and $Gamma, x : A tack B => T
   red Sort v$: \
   The third claim for $A$ and the first for $S$ put $lden A rden_rho$ in
@@ -522,7 +537,7 @@ The routine cases are listed at the end; the others follow.
   the environment $rho, x |-> v'$ satisfies $Gamma, x : A$; the same
   claims for $B$ put every fibre in $TyU_(phi(v))$. That is the
   $forall$ rule of the semantic invariant, and $PiV(A, B)$
-  #src("whitepaper/Fragment/Lib.lean", 595, 601)[lies in $TyU_(phi(imax(u, v)))$].
+  #src("whitepaper/Fragment/Lib.lean", 646, 652)[lies in $TyU_(phi(imax(u, v)))$].
   If $phi(v) = 0$, every fibre is a truth value, so is $PiV(A, B)$,
   and $phi(imax(u, v)) = 0$. Otherwise $PiV(A, B)$ is a truth value
   or a function space in $cal(U)_(max(phi(u), phi(v)))$ by
@@ -530,19 +545,19 @@ The routine cases are listed at the end; the others follow.
   be a function space when $phi(v) != 0$: over an empty domain it is
   ${pt}$, and $TyU$ admits it.
 
-  *#src("whitepaper/Fragment/Sound.lean", 308, 329)[Rule lam, inference]*, $Gamma tack lambda x : A. thin b => forall x : A
+  *#src("whitepaper/Fragment/Sound.lean", 299, 319)[Rule lam, inference]*, $Gamma tack lambda x : A. thin b => forall x : A
   . thin B$ when $Gamma tack A => S red Sort u$ and
   $Gamma, x : A tack b => B$: \
   The same argument one level down. The domain is a type, and for
   every $v'$ in it the third claim for $b$ gives $b$ and $B$
   well-denoted, $lden B rden$ a type and $lden b rden in lden B rden$.
-  So the family of the $lden B rden$ is a bounded codomain of types,
-  which is the lambda rule, and the $forall$ rule of the inferred
-  type is met too; and the introduction law for values puts the
-  abstraction into $PiV(A, B)$. Nothing about the sort of $B$ is
+  That is the lambda rule, and the $forall$ rule of the inferred type
+  is met too; and as the $lden B rden$ are types holding the body's
+  values, the introduction law for values puts the abstraction into
+  $PiV(A, B)$. Nothing about the sort of $B$ is
   needed, so the rule computes none.
 
-  *#src("whitepaper/Fragment/Sound.lean", 331, 349)[Rule app, inference]*, $Gamma tack f thick a => B[x := a]$ when
+  *#src("whitepaper/Fragment/Sound.lean", 321, 339)[Rule app, inference]*, $Gamma tack f thick a => B[x := a]$ when
   $Gamma tack f => T red forall x : A. thin B$,
   $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$: \
   By the third claim, $f$ and $T$ are well-denoted and $lden f rden_rho in lden T rden_rho$;
@@ -551,9 +566,10 @@ The routine cases are listed at the end; the others follow.
   third claim for $a$, $a$ and $T_a$ are well-denoted, $lden T_a rden$ is
   a type and $lden a rden_rho in lden T_a rden_rho$; $A$ is a type by
   the $forall$ rule, so the second claim gives $lden T_a rden_rho =
-  lden A rden_rho$ and $lden a rden_rho in lden A rden_rho$. Now $f thick a$ is well-denoted by the
-  application rule of @sec:inv, with the $forall$'s denotation as
-  $PiV(A, B)$; $B[x := a]$ is well-denoted by the
+  lden A rden_rho$ and $lden a rden_rho in lden A rden_rho$. Now $f thick a$ is well-denoted, by
+  an app rule of @sec:inv: $lden f rden_rho$ lies in
+  $PiV(A, B)$ with $A$ a type holding the argument, so it is the point
+  or a graph over $lden A rden_rho$; $B[x := a]$ is well-denoted by the
   substitution transport; and the elimination law puts
   $lden f rden_rho dot.op lden a rden_rho$ into the fibre at $lden a rden_rho$, which
   is $lden B[x := a] rden_rho$ by the substitution lemma.
@@ -565,14 +581,14 @@ The routine cases are listed at the end; the others follow.
   says that the reduction did not change the set, and that set _is_
   $PiV(A, B)$ by the interpretation's rule.
 
-  *#src("whitepaper/Fragment/Sound.lean", 351, 367)[Rule let, inference]*, $Gamma tack elet x : T := v; thin b => B$
+  *#src("whitepaper/Fragment/Sound.lean", 341, 357)[Rule let, inference]*, $Gamma tack elet x : T := v; thin b => B$
   when $Gamma tack b[x := v] => B$ and the checks on the value: \
   The claim for the substituted body is the claim for the `let`: the
   two denote the same set, and the `let`'s semantic invariant is the
   substituted body's, by the transport. The two checks on the value
   are not used. They would be if the body were inferred at a variable
   of type $T$ instead: then the value must
-  #src("whitepaper/Fragment/Sound.lean", 369, 385)[lie in the type] to extend a
+  #src("whitepaper/Fragment/Sound.lean", 359, 375)[lie in the type] to extend a
   satisfying environment, and the checks give that.
 
   *The rest*, by induction on the derivation.
@@ -582,9 +598,9 @@ The routine cases are listed at the end; the others follow.
     head reduces the head of an application that is not the point,
     which is not the point either, and keeps the application's rule,
     because the head's set did not change.
-  - #src("whitepaper/Fragment/Sound.lean", 158, 163)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
+  - #src("whitepaper/Fragment/Sound.lean", 151, 156)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
     sym swaps the two sides.
-  - #src("whitepaper/Fragment/Sound.lean", 262, 274)[Inference]: a variable's type is read off the satisfied context; a
+  - #src("whitepaper/Fragment/Sound.lean", 253, 265)[Inference]: a variable's type is read off the satisfied context; a
     sort's type is the next sort, which contains it.
 ]
 
@@ -642,7 +658,7 @@ take from typing. The two kinds are:
 says nothing where a body is the point, and whether a body is the
 point can vary with the variable. Without a common type of the two
 bodies the rule is unsound in the model. Take
-#src("whitepaper/Fragment/ValueReading.lean", 177, 184)[the two lambdas]
+#src("whitepaper/Fragment/ValueReading.lean", 175, 182)[the two lambdas]
 $
   lambda (x : sans("Prop")). thin (lambda (h : E thick x). thin h) thick n
   quad "and" quad
@@ -675,14 +691,14 @@ because the type comparison makes the claim at the innermost level
 _unconditional_: two bodies in one type are equal at every value of
 the variable, the point included. An unconditional equality of the
 bodies at every value is an equality of the abstractions, with no
-type at all, so #src("whitepaper/Fragment/Sound.lean", 722, 739)[the claim propagates outwards] through
+type at all, so #src("whitepaper/Fragment/Sound.lean", 706, 723)[the claim propagates outwards] through
 any number of levels. A δ step or a reduction between two levels ends
 the telescope, and the level below it is an innermost level again.
 
 *Full inference.* The bodies' types are inferred by full inference
 (@sec:infer), not by `infer_only` (@sec:io). With `infer_only` there
 is a typed definition at which
-#src("whitepaper/Fragment/IOWitness.lean", 444, 456)[every premise of lambda congruence holds]
+#src("whitepaper/Fragment/IOWitness.lean", 433, 445)[every premise of lambda congruence holds]
 while the two lambdas differ. Every premise is a derivation of the
 relations, so the rule itself is unsound, whatever claim `infer_only`
 makes.
@@ -691,7 +707,7 @@ makes.
 
 The official kernel infers the type of a term it has already checked
 by a cheaper mode, `infer_only`. The fragment has
-#src("whitepaper/Fragment/IOGrade.lean", 60, 95)[that mode]: the rules
+#src("whitepaper/Fragment/IOGrade.lean", 61, 96)[that mode]: the rules
 of @sec:infer without app's comparison of the argument's type with
 the domain, without the lambda's check of its domain, and without
 the check of a let-binding's value against its type.
@@ -701,22 +717,22 @@ $(lambda h : sans("False"). thin (h.sans("elim") : sans("Nat"))) thick 0$
 gets the type `Nat`, is well-denoted, and denotes the point (the
 lambda is an abstraction over an empty domain), which is no member
 of the set `Nat` denotes. What holds is
-#src("whitepaper/Fragment/IOGrade.lean", 148, 172)[a hereditary claim]:
+#src("whitepaper/Fragment/IOGrade.lean", 149, 173)[a hereditary claim]:
 the value is the point, or a member of the type, or, when the type is
 a $forall$, a graph over its domain whose applications satisfy the
 claim at the $forall$'s body. It is
-#src("whitepaper/Fragment/IOGrade.lean", 368, 369)[proved for every rule]
+#src("whitepaper/Fragment/IOGrade.lean", 362, 363)[proved for every rule]
 of `infer_only`.
 
 The claim serves two consumers. One is proof irrelevance with both
 types inferred by `infer_only`
-(#src("whitepaper/Fragment/IOGrade.lean", 425, 428)[the rule's case]):
+(#src("whitepaper/Fragment/IOGrade.lean", 419, 422)[the rule's case]):
 a value whose type has sort `Prop` is the point, the hereditary case
 included, because the body of a $forall$ of sort `Prop` has sort
 `Prop`. The other is $eta$ against a term whose head is a variable or
 a constant, whose claim is
-#src("whitepaper/Fragment/IOGrade.lean", 446, 449)[never the hereditary one]
-(#src("whitepaper/Fragment/IOGrade.lean", 479, 482)[the rule's case]).
+#src("whitepaper/Fragment/IOGrade.lean", 440, 443)[never the hereditary one]
+(#src("whitepaper/Fragment/IOGrade.lean", 467, 470)[the rule's case]).
 The bodies' types at lambda congruence and $eta$ are not among them, as
 @sec:tax showed, so the checker infers those by full inference and
 keeps the results of the two modes apart.

@@ -573,15 +573,13 @@ theorem recV_mem : (recV : V) ∈ˢ piSet dm (fun _ => dm) :=
 theorem app_recV_grOne : app (recV : V) grOne = graph (fun x => app grOne x) one :=
   app_graph grOne_mem
 
-/-- An application whose head is the point, with the argument in some
-set: well-denoted (the slot is free). -/
-theorem wd_pt_app {f a : Expr} {A : V} (hf : WellDenoted (witM (V := V)) φ ρ f)
-    (ha : WellDenoted witM φ ρ a) (hv : interp witM φ ρ f = pt)
-    (hA : interp witM φ ρ a ∈ˢ A) : WellDenoted witM φ ρ (.app f a) := by
+/-- An application whose head is the point: well-denoted (the point
+applies to anything). -/
+theorem wd_pt_app {f a : Expr} (hf : WellDenoted (witM (V := V)) φ ρ f)
+    (ha : WellDenoted witM φ ρ a) (hv : interp witM φ ρ f = pt) :
+    WellDenoted witM φ ρ (.app f a) := by
   rw [WellDenoted_app]
-  refine ⟨hf, ha, true, A, fun _ => one, ?_, hA, fun _ _ _ => one_mem_univ_zero,
-    fun h => Bool.noConfusion h⟩
-  rw [hv, piR_true]; exact pt_mem_truthVal fun _ _ => rfl
+  exact ⟨hf, ha, hv ▸ appliesTo_pt _⟩
 
 /-- An application of a member of a function space to a member of its
 domain: well-denoted. -/
@@ -589,23 +587,18 @@ theorem wd_graph_app {f a : Expr} {A : V} {B : V → V} (hf : WellDenoted (witM 
     (ha : WellDenoted witM φ ρ a) (hv : interp witM φ ρ f ∈ˢ piSet A B)
     (hA : interp witM φ ρ a ∈ˢ A) (hT : IsTy A) : WellDenoted witM φ ρ (.app f a) := by
   rw [WellDenoted_app]
-  exact ⟨hf, ha, false, A, B, by rw [piR_false]; exact hv, hA, fun h => Bool.noConfusion h,
-    fun _ => hT⟩
+  exact ⟨hf, ha, appliesTo_of_mem_piSet hv hT hA⟩
 
 /-- A graph applied outside its domain: not well-denoted. -/
 theorem not_wd_graph_app {f a : Expr} {A : V} {B : V → V}
     (hv : interp (witM (V := V)) φ ρ f ∈ˢ piSet A B) (hA : ¬ interp witM φ ρ a ∈ˢ A) :
     ¬ WellDenoted witM φ ρ (.app f a) := by
   rw [WellDenoted_app]
-  rintro ⟨-, -, p, A', B', hslot, hmem, -, -⟩
-  cases p
-  · rw [piR_false] at hslot
-    rw [← piSet_dom_unique hv hslot] at hmem
-    exact hA hmem
-  · exact ne_pt_of_mem_piSet hv (eq_pt_of_mem_piR_true hslot)
+  rintro ⟨-, -, hap⟩
+  exact hA (hap.mem hv)
 
 theorem wd_mkn : WellDenoted (witM (V := V)) φ ρ mkn :=
-  wd_pt_app φ ρ trivial trivial (v_mk φ ρ) (by rw [v_n]; exact one_mem_univ_zero)
+  wd_pt_app φ ρ trivial trivial (v_mk φ ρ)
 
 theorem v_mkn : interp (witM (V := V)) φ ρ mkn = pt := by
   simp only [mkn, interp_app, v_mk, app_pt]
@@ -634,14 +627,13 @@ theorem redex_at_pt {t : Expr} (hw : WellDenoted (witM (V := V)) φ ρ t)
     IsTy_one', ?_⟩
   rw [interp_app, v_recMinor, hv, app_graph pt_mem_one, app_grOne pt_mem_one]
 
-/-- `minor (p0 t)` for a well-denoted `t` denoting the point:
+/-- `minor (p0 t)` for a well-denoted `t`:
 well-denoted, and `True`. -/
-theorem eta_at_pt {t : Expr} (hw : WellDenoted (witM (V := V)) φ ρ t)
-    (hv : interp witM φ ρ t = pt) :
+theorem eta_at_pt {t : Expr} (hw : WellDenoted (witM (V := V)) φ ρ t) :
     WellDenoted witM φ ρ (.app (cst "minor") (.app (cst "p0") t)) ∧
       interp witM φ ρ (.app (cst "minor") (.app (cst "p0") t)) = one := by
   have hp : WellDenoted (witM (V := V)) φ ρ (.app (cst "p0") t) :=
-    wd_pt_app φ ρ trivial hw (v_p0 φ ρ) (by rw [hv]; exact pt_mem_one)
+    wd_pt_app φ ρ trivial hw (v_p0 φ ρ)
   have hpv : interp (witM (V := V)) φ ρ (.app (cst "p0") t) = pt := by
     rw [interp_app, v_p0, app_pt]
   refine ⟨wd_graph_app φ ρ trivial hp (by rw [v_minor]; exact grOne_mem)
@@ -652,14 +644,12 @@ theorem eta_at_pt {t : Expr} (hw : WellDenoted (witM (V := V)) φ ρ t)
 theorem wd_maj : WellDenoted (witM (V := V)) φ ρ maj := by
   have hlam : WellDenoted (witM (V := V)) φ ρ (.lam (cst "A") body) := by
     rw [WellDenoted_lam, v_A]
-    refine ⟨trivial, IsTy_one', fun y hy => ?_, fun _ => one, fun y _ => ?_, fun _ _ => IsTy_one'⟩
+    refine ⟨trivial, IsTy_one', fun y hy => ?_⟩
     · have hk : WellDenoted (witM (V := V)) φ (cons y ρ) (.app (cst "k") (.bvar 0)) :=
         wd_graph_app φ _ trivial trivial (by rw [v_k]; exact grOne_mem) (by simpa using hy)
           IsTy_one'
-      exact wd_pt_app φ _ trivial hk (v_g φ _) (A := univ 0)
-        (by rw [interp_app, v_k, interp_bvar, cons_zero, app_grOne hy]; exact one_mem_univ_zero)
-    · simp only [body, interp_app, v_g, app_pt]; exact pt_mem_one
-  refine wd_pt_app φ ρ hlam trivial ?_ (A := univ 0) (by rw [v_a]; exact one_mem_univ_zero)
+      exact wd_pt_app φ _ trivial hk (v_g φ _)
+  refine wd_pt_app φ ρ hlam trivial ?_
   rw [interp_lam]
   exact lamV_eq_pt fun _ _ => by simp only [body, interp_app, v_g, app_pt]
 
@@ -699,7 +689,7 @@ theorem plainIota_literal_witness (φ : Name → Nat) :
     exact not_wd_graph_app φ _ (by rw [v_minor]; exact grOne_mem)
       (by rw [v_n]; exact one_not_mem_one) hρ.1
   · intro ρ _ _ _
-    have he := eta_at_pt (V := V) φ ρ (wd_mkn φ ρ) (v_mkn φ ρ)
+    have he := eta_at_pt (V := V) φ ρ (wd_mkn φ ρ)
     have hv : interp (witM (V := V)) φ ρ redex1 = interp witM φ ρ eta1 := by
       rw [redex1, (hr ρ).2]; exact he.2.symm
     exact ⟨he.1, hv⟩
@@ -734,7 +724,7 @@ theorem etaIota_reduced_major_witness [LevelOracle] (φ : Name → Nat) (env : E
     rw [WellDenoted_app] at h2
     exact not_wd_maj' φ _ h2.2.1
   · intro ρ _ _ _
-    have he := eta_at_pt (V := V) φ ρ (wd_maj φ ρ) (v_maj φ ρ)
+    have he := eta_at_pt (V := V) φ ρ (wd_maj φ ρ)
     have hv : interp (witM (V := V)) φ ρ redex2 = interp witM φ ρ eta2 := by
       rw [redex2, (hr ρ).2]; exact he.2.symm
     exact ⟨he.1, hv⟩

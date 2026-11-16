@@ -33,7 +33,8 @@ an empty fibre), so a claim read off the type's value alone can be
 carried neither through an application nor to proof irrelevance.  It is proved for every rule of `InferIO`, with no
 certificate at any binder: at an application whose head is not the
 point the head is a graph, and a graph determines its domain
-(`SetLib.piSet_dom_unique`), which is therefore the slot's.
+(`SetLib.graph_dom_unique`), which is therefore the one the application
+clause (`AppliesTo`) puts the argument in.
 
 **The consumers.**
 * Proof irrelevance (`eq_pt_of_inferIO_prop`, `proofIrrelIO_sound`):
@@ -156,7 +157,7 @@ type. -/
 def IOHered : Expr → (Nat → V) → V → Prop
   | .pi A B, ρ, v =>
     WellDenoted M φ ρ A ∧ IsTy (interp M φ ρ A) ∧
-      (∃ B' : V → V, v ∈ˢ piSet (interp M φ ρ A) B') ∧
+      (∃ F : V → V, v = graph F (interp M φ ρ A)) ∧
       (∃ x, x ∈ˢ interp M φ ρ A ∧ app v x ≠ pt) ∧
       ∀ x, x ∈ˢ interp M φ ρ A →
         app v x = pt ∨ IOMem M φ B (cons x ρ) (app v x) ∨ IOHered B (cons x ρ) (app v x)
@@ -174,7 +175,7 @@ def IORel (T : Expr) (ρ : Nat → V) (v : V) : Prop :=
 theorem IOHered_pi {A B : Expr} {ρ : Nat → V} {v : V} :
     IOHered M φ (.pi A B) ρ v ↔
       WellDenoted M φ ρ A ∧ IsTy (interp M φ ρ A) ∧
-      (∃ B' : V → V, v ∈ˢ piSet (interp M φ ρ A) B') ∧
+      (∃ F : V → V, v = graph F (interp M φ ρ A)) ∧
       (∃ x, x ∈ˢ interp M φ ρ A ∧ app v x ≠ pt) ∧
       ∀ x, x ∈ˢ interp M φ ρ A → IORel M φ B (cons x ρ) (app v x) := Iff.rfl
 
@@ -267,8 +268,8 @@ theorem IOMem_of_inferSem {Γ : List Expr} {e T : Expr} (h : InferSem m φ Γ e 
   fun ρ hs _ => Or.inr (Or.inl (h ρ hs).2)
 
 /-- **The application, without a certificate.**  Where the head is
-not the point it is a graph (a member of the graph regime of its
-slot); a graph determines its domain, so the argument lies in the
+not the point it is a graph over a domain holding the argument
+(`AppliesTo`); a graph determines its domain, so the argument lies in the
 domain of the `∀` the head's type reduces to — in both the member and
 the hereditary case. -/
 theorem InferIO.app_sound {Γ : List Expr} {f a tf A B : Expr}
@@ -276,30 +277,23 @@ theorem InferIO.app_sound {Γ : List Expr} {f a tf A B : Expr}
     InferIOSem m φ Γ (.app f a) (B.inst a) := by
   intro ρ hs hw
   rw [WellDenoted_app] at hw
-  obtain ⟨hwf, hwa, p, As, Bs, hslot, hmem, -, -⟩ := hw
+  obtain ⟨hwf, hwa, hap⟩ := hw
   have hrel := IORel_red hr hs (hf ρ hs hwf)
   rw [interp_app]
   by_cases hfp : interp m.M φ ρ f = pt
   · rw [hfp, app_pt]; exact Or.inl rfl
-  have hp : p = false := by
-    cases p
-    · rfl
-    · exact absurd (eq_pt_of_mem_piR_true hslot) hfp
-  subst hp
-  rw [piR_false] at hslot
   refine IORel_inst0 m.M φ hwa ?_
   rcases hrel with h | ⟨hwpi, -, hmpi⟩ | h
   · exact absurd h hfp
   · rw [interp_pi] at hmpi
     have hgr := mem_piSet_of_mem_piV hmpi hfp
-    have hdom := piSet_dom_unique hgr hslot
-    have haA : interp m.M φ ρ a ∈ˢ interp m.M φ ρ A := hdom ▸ hmem
+    have haA : interp m.M φ ρ a ∈ˢ interp m.M φ ρ A := hap.mem hgr
     rw [WellDenoted_pi] at hwpi
     exact Or.inr (Or.inl ⟨hwpi.2.2.1 _ haA, hwpi.2.2.2 _ haA, app_mem_piSet hgr haA⟩)
   · rw [IOHered_pi] at h
-    obtain ⟨-, -, ⟨B', hB'⟩, -, hall⟩ := h
-    have hdom := piSet_dom_unique hB' hslot
-    exact hall _ (hdom ▸ hmem)
+    obtain ⟨-, -, ⟨F, hF⟩, -, hall⟩ := h
+    rw [hF] at hap
+    exact hall _ (appliesTo_graph.mp hap).2
 
 omit [LevelOracle] in
 /-- **λ**: where every body value is the point, so is the abstraction;
@@ -308,7 +302,7 @@ theorem InferIO.lam_sound {Γ : List Expr} {A b bt : Expr}
     (hb : InferIOSem m φ (A :: Γ) b bt) : InferIOSem m φ Γ (.lam A b) (.pi A bt) := by
   intro ρ hs hw
   rw [WellDenoted_lam] at hw
-  obtain ⟨hwA, hTA, hwb, Bl, hBl, -⟩ := hw
+  obtain ⟨hwA, hTA, hwb⟩ := hw
   rw [interp_lam]
   by_cases hall : ∀ x, x ∈ˢ interp m.M φ ρ A → interp m.M φ (cons x ρ) b = pt
   · exact Or.inl (lamV_eq_pt hall)
@@ -321,7 +315,7 @@ theorem InferIO.lam_sound {Γ : List Expr} {A b bt : Expr}
   obtain ⟨x₀, hx₀, hx₀'⟩ : ∃ x, x ∈ˢ interp m.M φ ρ A ∧ interp m.M φ (cons x ρ) b ≠ pt :=
     Classical.byContradiction fun hn => hall fun x hx =>
       Classical.byContradiction fun hx' => hn ⟨x, hx, hx'⟩
-  refine ⟨hwA, hTA, ⟨Bl, graph_mem_piSet hBl⟩, ⟨x₀, hx₀, by rw [app_graph hx₀]; exact hx₀'⟩,
+  refine ⟨hwA, hTA, ⟨_, rfl⟩, ⟨x₀, hx₀, by rw [app_graph hx₀]; exact hx₀'⟩,
     fun x hx => ?_⟩
   rw [app_graph hx]
   exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hwA, hTA, hx⟩) (hwb x hx)
@@ -454,22 +448,16 @@ theorem IORel_neutral : ∀ {Γ : List Expr} {e T : Expr},
     intro ρ hs hw
     have hw' := hw
     rw [WellDenoted_app] at hw'
-    obtain ⟨hwf, hwa, p, As, Bs, hslot, hmem, -, -⟩ := hw'
+    obtain ⟨hwf, hwa, hap⟩ := hw'
     rw [interp_app]
     rcases IORel_neutral hf hh ρ hs hwf with hfp | hm
     · rw [hfp, app_pt]; exact Or.inl rfl
     by_cases hfp : interp m.M φ ρ f = pt
     · rw [hfp, app_pt]; exact Or.inl rfl
-    have hp : p = false := by
-      cases p
-      · rfl
-      · exact absurd (eq_pt_of_mem_piR_true hslot) hfp
-    subst hp
-    rw [piR_false] at hslot
     obtain ⟨hwpi, -, hmpi⟩ := IOMem_red hr hs hm
     rw [interp_pi] at hmpi
     have hgr := mem_piSet_of_mem_piV hmpi hfp
-    have haA : interp m.M φ ρ a ∈ˢ interp m.M φ ρ A := piSet_dom_unique hgr hslot ▸ hmem
+    have haA : interp m.M φ ρ a ∈ˢ interp m.M φ ρ A := hap.mem hgr
     rw [WellDenoted_pi] at hwpi
     exact Or.inr (IOMem_inst0 m.M φ hwa
       ⟨hwpi.2.2.1 _ haA, hwpi.2.2.2 _ haA, app_mem_piSet hgr haA⟩)

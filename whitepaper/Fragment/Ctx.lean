@@ -406,8 +406,7 @@ theorem IsTy_interp_mkPis :
 /-- **An abstraction against its Π-type**: if the Π-type is
 well-denoted and the body lands in the Π-type's body under every fitting
 environment, the abstraction is well-denoted and a member of the
-function space (the invariant's λ clause, iterated, with the function
-space's fibres as the bounding family). -/
+function space (the invariant's λ clause, iterated). -/
 theorem mkLams_ok {Γ : List Expr} {b T : Expr} {ρ : Nat → V}
     (hT : WellDenoted M φ ρ (Expr.mkPis Γ T))
     (hb : ∀ vs, FitsVals M φ ρ Γ vs →
@@ -424,12 +423,8 @@ theorem mkLams_ok {Γ : List Expr} {b T : Expr} {ρ : Nat → V}
     rw [Expr.mkLams_cons]
     refine ih hT fun vs hvs => ⟨?_, ?_⟩
     · rw [WellDenoted_lam]
-      refine ⟨(hT'.1.2 vs hvs).1, (hT'.1.2 vs hvs).2, fun x hx => ?_,
-        fun x => interp M φ (cons x (consList vs ρ)) T, fun x hx => ?_, fun x hx => ?_⟩
-      · exact (hb (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).1
-      · exact (hb (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2
-      · exact (hT'.2 (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2
-          (List.cons_ne_nil A Γ)
+      exact ⟨(hT'.1.2 vs hvs).1, (hT'.1.2 vs hvs).2, fun x hx =>
+        (hb (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).1⟩
     · rw [interp_lam, interp_pi]
       exact lamV_mem (fun x hx => (hb (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2)
         fun x hx => (hT'.2 (x :: vs) ((FitsVals_cons M φ ρ A Γ x vs).symm ▸ ⟨hvs, hx⟩)).2

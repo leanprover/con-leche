@@ -1,5 +1,5 @@
 --#export t
-/- End-to-end fixture (task #547; lean4#15686, fixed upstream by lean4#16146):
+/- End-to-end fixture (task #598; lean4#15686, fixed upstream by lean4#16146):
    ten thousand `Nat` literals that agree in their low 64 bits.
 
    `run n (2^64)` steps `n` times; each step matches its accumulator `a + 1`

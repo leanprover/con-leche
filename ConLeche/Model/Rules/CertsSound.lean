@@ -47,8 +47,8 @@ theorem stripPis_isSome_of_peelPis :
 /-- **A graded application that is not the point fits its head's
 telescope** (`teleFitPA_of_graded_ne_pt` at the peel's residual): every
 prefix of the spine is not the point (`app_pt`), so it is a graph, and
-the argument's own application slot puts it in the telescope's domain
-(`slotTransfer`). -/
+the argument's own application clause puts it in the telescope's domain
+(`AppliesTo.mem`). -/
 theorem teleFitPA_of_peel_ne_pt {ρ : Nat → V} :
     ∀ (vs : List Term) {T f r : Term},
       Term.peelPis T vs = some r →
@@ -63,15 +63,13 @@ theorem teleFitPA_of_peel_ne_pt {ρ : Nat → V} :
     have hg' : WellDenoted V ρ (Term.mkAppN (.app f x) xs) := hg
     have hne' : interp V ρ (Term.mkAppN (.app f x) xs) ≠ pt := hne
     have happ : WellDenoted V ρ (.app f x) := mkAppN_head xs hg'
-    obtain ⟨v', A', B', hslot, hx, -⟩ := (cast (WellDenoted_app V ρ f x) happ).2.2
+    have hap := happ.app_clause
     have hmem' := hmem
     rw [interp_pi] at hmem'
     have hfne : interp V ρ f ≠ pt := by
       intro h0
       exact hne' (interp_mkAppN_of_pt (by rw [interp_app, h0, app_pt]) xs)
-    have hgr : interp V ρ f ∈ˢ piR 1 (interp V ρ A) fun y => interp V (cons y ρ) B := by
-      rw [piR_pos Nat.one_ne_zero]; exact mem_piSet_of_mem_piV hmem' hfne
-    have hxA : interp V ρ x ∈ˢ interp V ρ A := slotTransfer Nat.one_ne_zero hgr hslot hx
+    have hxA : interp V ρ x ∈ˢ interp V ρ A := hap.mem (mem_piSet_of_mem_piV hmem' hfne)
     have hokx : WellDenoted V ρ x := happ.app_arg
     have hBx : WellDenoted V ρ (B.inst x) :=
       (WellDenoted_inst0 _ hokx).mpr (hT.pi_body _ hxA)

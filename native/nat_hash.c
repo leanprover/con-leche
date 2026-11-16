@@ -5,7 +5,9 @@
  * runtime does not export `lean_nat_big_hash`; a toolchain that ships
  * lean4#16146 does, and then the link fails on the duplicate definition.  That
  * failure is the reminder: delete this file and `Kernel/NatHash.lean`, and
- * hash literals with the toolchain's `Literal.natHash`.
+ * declare `natHash` as `@[extern "lean_nat_hash"] opaque` against the
+ * runtime's own hash (`lean.h` of such a toolchain; the plan in
+ * `Kernel/NatHash.lean`).
  *
  * The value: a number `n` with 64-bit words `w0, ..., wk` (`wk != 0`, least
  * significant first) hashes to `w0` if `k = 0` and to

@@ -49,8 +49,8 @@ still matches adds nothing (maintainer's ruling, task #328:
 *"if the previous works with the new Init we should not add one"*) —
 Today the repository toolchain is v4.35.0 and its dump is the
 nightly-2026-09-10 one; lean4 master's wf-recursion changes
-(2026-11-12) needed the newest dump, generated on a PR-release
-toolchain because no nightly carried them yet (task #578).  "Matches"
+(2026-11-12) needed the newest dump, generated on
+nightly-2026-11-16 (task #578).  "Matches"
 is the install gate's own criterion — the stored values definitionally
 equal to a variant's pins, its certificates checking — so it is
 decided by the checker: `tests/pindump.sh` exports the pinned
@@ -75,7 +75,7 @@ set_option maxRecDepth 1000000
 set_option maxHeartbeats 1000000
 
 #load_natop_pins
-  include_str "../../pins/leanprover-lean4-pr-releases-pr-release-16441.json",
+  include_str "../../pins/leanprover-lean4-nightly-nightly-2026-11-16.json",
   include_str "../../pins/leanprover-lean4-nightly-nightly-2026-09-10.json",
   include_str "../../pins/leanprover-lean4-v4.34.0-rc2.json",
   include_str "../../pins/leanprover-lean4-v4.33.0.json"

@@ -164,17 +164,17 @@ lean_lib ConLecheTests where
 lean_exe «con-leche» where
   root := `Main
 
+-- The olean reader against lean4export, record for record
+-- (`tests/olean-compare.sh`).
+lean_exe «olean-compare» where
+  root := `OleanCompare
+
 -- The pin dump generator (task #176).  Lives in the certificate
 -- library's world — its root imports `ConLeche.PinGen.Certs`, so the
 -- proof bodies are visible to `importModules` at `OLeanLevel.private`
 -- and Lake builds that olean first.  Writes
 -- `pins/<toolchain>.json`; `tests/pindump.sh` checks
 -- the committed file against a fresh regeneration.
--- The olean reader against lean4export, record for record
--- (`tests/olean-compare.sh`).
-lean_exe «olean-compare» where
-  root := `OleanCompare
-
 lean_exe «natop-pins-export» where
   root := `PinDump
 
@@ -191,12 +191,16 @@ lean_lib WhitepaperFragment where
   srcDir := "whitepaper"
   roots := #[`Fragment]
 
--- THE ONE NATIVE FUNCTION (task #547): the hash of a big `Nat` literal,
+-- THE ONE NATIVE FUNCTION (task #598): the hash of a big `Nat` literal,
 -- `natBigHash` (`ConLeche/Kernel/NatHash.lean`), in C (`native/nat_hash.c`),
 -- VENDORED FROM lean4#16146 (fixes lean4#15686) under upstream's symbol
 -- `lean_nat_big_hash`.  Once a toolchain ships that PR, the link fails on
--- the duplicate symbol: delete the C file, the module and this section, and
--- go back to `lakefile.toml` if nothing else needs code here.  Lean has no
+-- the duplicate symbol.  The plan for the first stable toolchain with the
+-- PR: `natHash` becomes our own `@[extern "lean_nat_hash"] opaque`
+-- declaration against the runtime's symbol (its `lean.h` defines the whole
+-- hash), and the C file, the module and this section are deleted, going
+-- back to `lakefile.toml` if nothing else needs code here
+-- (`ConLeche/Kernel/NatHash.lean`, DESIGN #598).  Lean has no
 -- word access to a big `Nat`, and a hash that reads all its bits is one
 -- linear pass in C.  The C file is compiled here and linked into every
 -- executable that imports the module as the static library

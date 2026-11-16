@@ -49,15 +49,14 @@ open System Lake DSL
 --
 -- THIS PINNER FORKS `ConLeche.Kernel.PtrDecEq`: its toolchain (lean4
 -- master past the wf-recursion changes of 2026-11-12, lean4#16408 and
--- #16409; no nightly carries them yet, hence a PR-release toolchain)
--- has the new `withPtrEqDecEq` calling convention.  The shared library
+-- #16409; nightly-2026-11-16) has the new `withPtrEqDecEq` calling convention.  The shared library
 -- below lists the cone explicitly, minus that module, and
 -- `PinnerFork` serves the fixed copy from this directory.
 --
 -- NO NATIVE SECTION, unlike the other pinners.  `ConLeche.Kernel.Expr`
 -- hashes a big `Nat` literal with `natBigHash`, the extern
 -- `lean_nat_big_hash`, which the other toolchains get from the C of
--- lean4#16146 vendored as `native/nat_hash.c` (task #547).  This
+-- lean4#16146 vendored as `native/nat_hash.c` (task #598).  This
 -- toolchain ships lean4#16146: its runtime defines the symbol, and
 -- linking the vendored C as well fails on the duplicate.  So
 -- `ConLeche.Kernel.NatHash` is an ordinary module of the shared library

@@ -301,10 +301,10 @@ theorem numeralAV_wellDenoted : ∀ (i : Nat) (ρ : Nat → V), WellDenoted V ρ
   | i + 1, ρ => by
     show WellDenoted V ρ (.app (.const .natSucc []) (numeralAV i))
     rw [WellDenoted_app]
-    refine ⟨trivial, numeralAV_wellDenoted i ρ, 1, omega, fun _ => omega, natSuccV_mem V, ?_,
-      fun h => absurd h Nat.one_ne_zero, fun _ => IsTy_omega⟩
+    refine ⟨trivial, numeralAV_wellDenoted i ρ, ?_⟩
     rw [interp_numeralAV]
-    exact vnat_mem_omega i
+    exact appliesTo_of_mem_piR (v := 1) (B := fun _ => omega) (natSuccV_mem V) IsTy_omega
+      (vnat_mem_omega i)
 
 theorem numeralAV_below (i k : Nat) : Term.bvarsBelow k (numeralAV i) := by
   induction i with
@@ -314,8 +314,8 @@ theorem numeralAV_below (i k : Nat) : Term.bvarsBelow k (numeralAV i) := by
 /-! ## A proof-point-headed spine is graded -/
 
 /-- An application spine whose head reads to the point is graded from
-its arguments' gradings alone, and reads to the point: every slot is
-the trivial function space over the argument's singleton. -/
+its arguments' gradings alone, and reads to the point: the point
+applies to anything. -/
 theorem mkAppN_wellDenoted_of_pt_head :
     ∀ {args : List Term} {f : Term} {σ : Nat → V},
       WellDenoted V σ f → interp V σ f = pt → (∀ a ∈ args, WellDenoted V σ a) →
@@ -325,11 +325,9 @@ theorem mkAppN_wellDenoted_of_pt_head :
     rw [Term.mkAppN_cons]
     refine mkAppN_wellDenoted_of_pt_head ?_ ?_ fun a' ha' => hargs a' (.tail _ ha')
     · rw [WellDenoted_app]
-      refine ⟨hf, hargs a (.head _), 0, sing (interp V σ a), fun _ => unitSet, ?_,
-        mem_sing.mpr rfl, fun _ _ _ => by rw [← univ_zero]; exact unitSet_mem_univ 0,
-        fun h => absurd rfl h⟩
+      refine ⟨hf, hargs a (.head _), ?_⟩
       rw [hpt]
-      exact pt_mem_piR_zero fun _ _ => ⟨pt, pt_mem_unitSet⟩
+      exact appliesTo_pt _
     · rw [interp_app, hpt, app_pt]
 
 /-! ## `Nat.rec` spines -/
@@ -390,18 +388,16 @@ theorem natRecAV_wellDenoted {u : Nat} {M z s k : Term} {σ : Nat → V}
     · rw [WellDenoted_app]
       refine ⟨?_, hokz, ?_⟩
       · rw [WellDenoted_app]
-        exact ⟨trivial, hokM, by rw [hbv]; exact piV_slot h0 hM IsTy_piV⟩
-      · show ∃ v A B, SetTheory.app (interp V σ (.const .natRec [u])) (interp V σ M)
-          ∈ˢ piR v A B ∧ _
+        exact ⟨trivial, hokM, by rw [hbv]; exact appliesTo_of_mem_piV h0 IsTy_piV hM⟩
+      · show AppliesTo (SetTheory.app (interp V σ (.const .natRec [u])) (interp V σ M)) _
         rw [hbv]
-        exact piV_slot h1 hz (IsTy_of_mem_univ (natMotive_apply V hM natzero_mem))
-    · show ∃ v A B, SetTheory.app (SetTheory.app (interp V σ (.const .natRec [u]))
-        (interp V σ M)) (interp V σ z) ∈ˢ piR v A B ∧ _
-      rw [hbv]; exact piV_slot h2 hs IsTy_piV
-  · show ∃ v A B, SetTheory.app (SetTheory.app (SetTheory.app
-      (interp V σ (.const .natRec [u])) (interp V σ M)) (interp V σ z)) (interp V σ s)
-      ∈ˢ piR v A B ∧ _
-    rw [hbv]; exact piV_slot h3 hk IsTy_omega
+        exact appliesTo_of_mem_piV h1 (IsTy_of_mem_univ (natMotive_apply V hM natzero_mem)) hz
+    · show AppliesTo (SetTheory.app (SetTheory.app (interp V σ (.const .natRec [u]))
+        (interp V σ M)) (interp V σ z)) _
+      rw [hbv]; exact appliesTo_of_mem_piV h2 IsTy_piV hs
+  · show AppliesTo (SetTheory.app (SetTheory.app (SetTheory.app
+      (interp V σ (.const .natRec [u])) (interp V σ M)) (interp V σ z)) (interp V σ s)) _
+    rw [hbv]; exact appliesTo_of_mem_piV h3 IsTy_omega hk
 
 /-! ## The fibre selector -/
 
@@ -426,8 +422,7 @@ theorem natSortMotiveAV_app (w : Nat) (σ : Nat → V) {n : V} (hn : n ∈ˢ (om
 theorem natSortMotiveAV_wellDenoted (w : Nat) (σ : Nat → V) : WellDenoted V σ (natSortMotiveAV w) := by
   show WellDenoted V σ (.lam natAV (.sort w))
   rw [WellDenoted_lam]
-  exact ⟨trivial, IsTy_omega, fun _ _ => trivial, fun _ => univ (w + 1),
-    fun _ _ => univ_mem_univ w, fun _ _ => IsTy_univ _⟩
+  exact ⟨trivial, IsTy_omega, fun _ _ => trivial⟩
 
 /-- **The fibre selector**: the type spellings `Ts` are scoped `d`
 binders below; the `i`-th is selected at the numeral `i`, `Empty`
@@ -533,15 +528,9 @@ theorem caseAVAt_facts {w : Nat} :
       refine natRecAV_wellDenoted (natSortMotiveAV_wellDenoted w σ) ?_ ?_ hokk hM hz hs hk
       · rw [WellDenoted_liftN]; exact hokT T (.head _)
       · rw [WellDenoted_lam]
-        refine ⟨trivial, IsTy_omega, fun b hb => ?_,
-          fun _ => piR (w + 1) (univ w : V) fun _ => (univ w : V), ?_,
-          fun _ _ => IsTy_piR _ _ _⟩
-        · rw [WellDenoted_lam]
-          refine ⟨trivial, IsTy_univ w, fun a _ => (hinner a b hb).2.2,
-            fun _ => (univ w : V), fun a _ => (hinner a b hb).1, fun _ _ => IsTy_univ w⟩
-        · intro b hb
-          rw [hin b hb]
-          exact lamR_mem fun a _ => (hinner a b hb).1
+        refine ⟨trivial, IsTy_omega, fun b hb => ?_⟩
+        rw [WellDenoted_lam]
+        exact ⟨trivial, IsTy_univ w, fun a _ => (hinner a b hb).2.2⟩
 
 /-!
 ## The tagged sum carrier, spelled
@@ -769,16 +758,12 @@ theorem sumBodyAVPos_wellDenoted {w : Nat} (hw : w ≠ 0) {ρ : Nat → V} {Fss 
   rw [WellDenoted_app]
   refine ⟨?_, ?_, ?_⟩
   · rw [WellDenoted_app]
-    exact ⟨trivial, trivial, w + 1, univ w,
-      fun A => piR (w + 1) (psigmaFibreSpace V w A) fun _ => (univ w : V),
-      hbv ▸ psigmaV_rr_mem (V := V) w, hA, fun h => absurd h hvac,
-      fun _ => IsTy_univ w⟩
+    exact ⟨trivial, trivial,
+      appliesTo_of_mem_piR (hbv ▸ psigmaV_rr_mem (V := V) w) (IsTy_univ w) hA⟩
   · rw [WellDenoted_lam]
-    exact ⟨trivial, IsTy_omega, fun k hk => (case_fibre hok hk).2.2,
-      fun _ => (univ w : V), fun k hk => (case_fibre hok hk).2.1,
-      fun _ _ => IsTy_univ w⟩
-  · refine ⟨w + 1, psigmaFibreSpace V w omega, fun _ => (univ w : V), ?_, ?_,
-      fun h => absurd h hvac, fun _ => IsTy_piR _ _ _⟩
+    exact ⟨trivial, IsTy_omega, fun k hk => (case_fibre hok hk).2.2⟩
+  · refine appliesTo_of_mem_piR (v := w + 1) (A := psigmaFibreSpace V w omega)
+      (B := fun _ => (univ w : V)) ?_ (IsTy_piR _ _ _) ?_
     · show SetTheory.app (interp V ρ (.const .psigma [w, w])) omega ∈ˢ _
       rw [hbv]
       exact app_mem_piR_pos hvac (psigmaV_rr_mem (V := V) w) hA
@@ -834,10 +819,7 @@ theorem sumTyAV_wellDenoted {w : Nat} {Fss : List (List Term)} :
   | d :: pps, ρ, h => by
     show WellDenoted V ρ (.lam d (mkLamsAV pps (sumBodyAV w Fss)))
     rw [WellDenoted_lam]
-    exact ⟨h.1, h.2.1, fun a ha => sumTyAV_wellDenoted (h.2.2 a ha),
-      ⟨fun a => interp V (cons a ρ) (mkPisAV pps (.sort w)),
-       fun a ha => sumTyAV_mem (h.2.2 a ha),
-       fun a _ => IsTy_mkPisAV_sort pps w (cons a ρ)⟩⟩
+    exact ⟨h.1, h.2.1, fun a ha => sumTyAV_wellDenoted (h.2.2 a ha)⟩
 
 /-- **The leaf's application fold**: along a fitting parameter spine
 the leaf computes the instantiated carrier. -/
@@ -1321,9 +1303,7 @@ theorem sumFibreLam_facts {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE
     rw [← (case_fibre_at hsh hok hk).1]
     exact (case_fibre_at hsh hok hk).2.1
   · rw [WellDenoted_lam]
-    exact ⟨trivial, IsTy_omega, fun k hk => (case_fibre_at hsh hok hk).2.2,
-      fun _ => (univ w : V), fun k hk => (case_fibre_at hsh hok hk).2.1,
-      fun _ _ => IsTy_univ w⟩
+    exact ⟨trivial, IsTy_omega, fun k hk => (case_fibre_at hsh hok hk).2.2⟩
 
 /-- **The injection reads to `injW`**: the pair at a numeral tag with
 a fitting payload, the point at squash. -/
@@ -1391,20 +1371,18 @@ theorem sumInjAtAV_wellDenoted {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : s
       · rw [WellDenoted_app]
         refine ⟨?_, hBok, ?_⟩
         · rw [WellDenoted_app]
-          exact ⟨trivial, trivial, by rw [hbv]; exact piV_slot hm0 hA (IsTy_univ w)⟩
-        · show ∃ v A B, SetTheory.app (interp V σ (.const .psigmaMk [w, w])) omega
-            ∈ˢ piR v A B ∧ _
-          rw [hbv, hBv]; exact piV_slot hm1 hBm IsTy_piV
-      · show ∃ v A B, SetTheory.app (SetTheory.app (interp V σ (.const .psigmaMk [w, w])) omega)
-          (interp V σ (.lam natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0))))
-          ∈ˢ piR v A B ∧ _
-        rw [hbv, hBv, htag]; exact piV_slot hm2 (vnat_mem_omega i) IsTy_omega
-    · show ∃ v A B, SetTheory.app (SetTheory.app (SetTheory.app
+          exact ⟨trivial, trivial, by rw [hbv]; exact appliesTo_of_mem_piV hm0 (IsTy_univ w) hA⟩
+        · show AppliesTo (SetTheory.app (interp V σ (.const .psigmaMk [w, w])) omega) _
+          rw [hbv, hBv]; exact appliesTo_of_mem_piV hm1 IsTy_piV hBm
+      · show AppliesTo (SetTheory.app (SetTheory.app (interp V σ (.const .psigmaMk [w, w])) omega)
+          (interp V σ (.lam natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0))))) _
+        rw [hbv, hBv, htag]; exact appliesTo_of_mem_piV hm2 IsTy_omega (vnat_mem_omega i)
+    · show AppliesTo (SetTheory.app (SetTheory.app (SetTheory.app
         (interp V σ (.const .psigmaMk [w, w])) omega)
         (interp V σ (.lam natAV (caseAVAt w (Fss.map (towerBodyAV w)) (d + 1) (.bvar 0)))))
-        (interp V σ tag) ∈ˢ piR v A B ∧ _
+        (interp V σ tag)) _
       rw [hbv, hBv, htag]
-      exact piV_slot hm3 hpay' (IsTy_of_mem_univ (psigmaFibre_apply V hBm (vnat_mem_omega i)))
+      exact appliesTo_of_mem_piV hm3 (IsTy_of_mem_univ (psigmaFibre_apply V hBm (vnat_mem_omega i))) hpay'
 
 /-! ## The tupler with the proof-field terminator
 
@@ -1577,24 +1555,22 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : Term} :
       · rw [WellDenoted_app]
         refine ⟨?_, ?_, ?_⟩
         · rw [WellDenoted_app]
-          exact ⟨trivial, hokE, by rw [hbv]; exact piV_slot hm0 hA (IsTy_univ w)⟩
+          exact ⟨trivial, hokE, by rw [hbv]; exact appliesTo_of_mem_piV hm0 (IsTy_univ w) hA⟩
         · rw [WellDenoted_lam]
-          exact ⟨hokE, IsTy_of_mem_univ hA, fun _ _ => trivial, fun _ => (univ w : V),
-            fun _ _ => unitSetAt_mem_univ w, fun _ _ => IsTy_univ w⟩
-        · show ∃ v A B, SetTheory.app (interp V ρp (.const .psigmaMk [w, w])) (interp V ρp E)
-            ∈ˢ piR v A B ∧ _
-          rw [hbv, hlam]; exact piV_slot hm1 hBm IsTy_piV
-      · show ∃ v A B, SetTheory.app (SetTheory.app (interp V ρp (.const .psigmaMk [w, w]))
-          (interp V ρp E)) (interp V ρp (.lam E (.const .punit [w]))) ∈ˢ piR v A B ∧ _
-        rw [hbv, hlam, interp_prf]; exact piV_slot hm2 hpt' (IsTy_of_mem_univ hA)
-    · show ∃ v A B, SetTheory.app (SetTheory.app (SetTheory.app
+          exact ⟨hokE, IsTy_of_mem_univ hA, fun _ _ => trivial⟩
+        · show AppliesTo (SetTheory.app (interp V ρp (.const .psigmaMk [w, w])) (interp V ρp E)) _
+          rw [hbv, hlam]; exact appliesTo_of_mem_piV hm1 IsTy_piV hBm
+      · show AppliesTo (SetTheory.app (SetTheory.app (interp V ρp (.const .psigmaMk [w, w]))
+          (interp V ρp E)) (interp V ρp (.lam E (.const .punit [w])))) _
+        rw [hbv, hlam, interp_prf]; exact appliesTo_of_mem_piV hm2 (IsTy_of_mem_univ hA) hpt'
+    · show AppliesTo (SetTheory.app (SetTheory.app (SetTheory.app
         (interp V ρp (.const .psigmaMk [w, w]))
         (interp V ρp E)) (interp V ρp (.lam E (.const .punit [w]))))
-        (interp V ρp .prf) ∈ˢ piR v A B ∧ _
+        (interp V ρp .prf)) _
       rw [hbv, hlam, interp_prf]
-      exact piV_slot hm3 hb' (by
+      exact appliesTo_of_mem_piV hm3 (by
         rw [app_lamR_pos (Nat.succ_ne_zero w) hpt']
-        exact IsTy_of_mem_univ (unitSetAt_mem_univ w))
+        exact IsTy_of_mem_univ (unitSetAt_mem_univ w)) hb'
   | [], _, _ :: _, _, hsp, _ => hsp.elim
   | _ :: _, _, [], _, hsp, _ => hsp.elim
   | F :: Fs, ρp, b :: bs, hok, hsp, hpt => by
@@ -1669,9 +1645,9 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : Term} :
           refine ⟨trivial, ?_, ?_⟩
           · rw [WellDenoted_liftN, hshift]
             exact hok.1
-          · exact piV_slot hm0 (by rw [interp_liftN, hshift]; exact hAm) (IsTy_univ w)
+          · exact appliesTo_of_mem_piV hm0 (IsTy_univ w) (by rw [interp_liftN, hshift]; exact hAm)
         · rw [WellDenoted_lam]
-          refine ⟨?_, ?_, ?_, ?_⟩
+          refine ⟨?_, ?_, ?_⟩
           · rw [WellDenoted_liftN, hshift]
             exact hok.1
           · rw [hA]; exact hok.2.1
@@ -1679,27 +1655,23 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : Term} :
             rw [hA] at hx
             rw [WellDenoted_liftN, ← cons_shiftE, hshift]
             exact towerBodyAV_wellDenoted (hok.2.2.2 x hx)
-          · refine ⟨fun _ => (univ w : V), fun x hx => ?_, fun _ _ => IsTy_univ w⟩
-            rw [hA] at hx
-            rw [hBfun x, towerBodyAV_interp (fun _ => hb.2 x hx)]
-            exact towerSet_univ_teleOfFields (hb.2 x hx)
-        · show ∃ v A B, SetTheory.app (interp V (consList bs (cons b ρp))
+        · show AppliesTo (SetTheory.app (interp V (consList bs (cons b ρp))
                 (.const .psigmaMk [w, w]))
               (interp V (consList bs (cons b ρp))
-                (F.liftN (Fs.length + 1))) ∈ˢ piR v A B ∧ _
+                (F.liftN (Fs.length + 1)))) _
           rw [hA, hBv]
-          exact piV_slot hm1 hBm IsTy_piV
-      · show ∃ v A B, SetTheory.app (SetTheory.app
+          exact appliesTo_of_mem_piV hm1 IsTy_piV hBm
+      · show AppliesTo (SetTheory.app (SetTheory.app
               (interp V (consList bs (cons b ρp))
                 (.const .psigmaMk [w, w]))
               (interp V (consList bs (cons b ρp))
                 (F.liftN (Fs.length + 1))))
             (interp V (consList bs (cons b ρp))
               (.lam (F.liftN (Fs.length + 1))
-                ((towerBodyAV w (Fs ++ [E])).liftN (Fs.length + 1) 1))) ∈ˢ piR v A B ∧ _
+                ((towerBodyAV w (Fs ++ [E])).liftN (Fs.length + 1) 1)))) _
         rw [hA, hBv, interp_bvar, hval]
-        exact piV_slot hm2 hsp.1 hok.2.1
-    · show ∃ v A B, SetTheory.app (SetTheory.app (SetTheory.app
+        exact appliesTo_of_mem_piV hm2 hok.2.1 hsp.1
+    · show AppliesTo (SetTheory.app (SetTheory.app (SetTheory.app
           (interp V (consList bs (cons b ρp))
             (.const .psigmaMk [w, w]))
           (interp V (consList bs (cons b ρp))
@@ -1707,10 +1679,10 @@ theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : Term} :
           (interp V (consList bs (cons b ρp))
             (.lam (F.liftN (Fs.length + 1))
               ((towerBodyAV w (Fs ++ [E])).liftN (Fs.length + 1) 1))))
-        (interp V (consList bs (cons b ρp)) (.bvar Fs.length)) ∈ˢ piR v A B ∧ _
+        (interp V (consList bs (cons b ρp)) (.bvar Fs.length))) _
       rw [hA, hBv, interp_bvar, hval]
-      exact piV_slot hm3 hrm (by
-        rw [hfib]; exact IsTy_of_mem_univ (towerSet_univ_teleOfFields (hb.2 b hsp.1)))
+      exact appliesTo_of_mem_piV hm3 (by
+        rw [hfib]; exact IsTy_of_mem_univ (towerSet_univ_teleOfFields (hb.2 b hsp.1))) hrm
 
 /-- **The tupler is graded**, both regimes. -/
 theorem mkTowerGoU_wellDenoted {w : Nat} {E : Term} {Fs : List Term} {ρp : Nat → V}
@@ -1885,12 +1857,10 @@ theorem sumMkAV_zero {j : Nat} {ds : List Term} {Fs : List Term}
 
 /-! ## Application chains -/
 
-/-- The application chain `M i₀ … i_{k-1}` is graded: each prefix is a
-member of a function space the next index inhabits. -/
+/-- The application chain `M i₀ … i_{k-1}` is graded: each prefix
+applies to the next index. -/
 def AppChainOk (M : V) (is : List V) : Prop :=
-  ∀ l, l < is.length → ∃ (v : Nat) (A : V) (B : V → V),
-    (is.take l).foldl SetTheory.app M ∈ˢ piR v A B ∧ is.getD l pt ∈ˢ A ∧
-    (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) ∧ (v ≠ 0 → IsTy A)
+  ∀ l, l < is.length → AppliesTo ((is.take l).foldl SetTheory.app M) (is.getD l pt)
 
 /-- An application spine graded by the chain: its grading and its
 value as the fold. -/
@@ -1903,16 +1873,16 @@ theorem mkAppN_wellDenoted_of_chain :
           = (args.map (interp V σ)).foldl SetTheory.app (interp V σ f)
   | [], _, _, hf, _, _ => ⟨hf, rfl⟩
   | a :: args, f, σ, hf, hargs, hchain => by
-    obtain ⟨v, A, B, hm, ha, hz, hA⟩ := hchain 0 (by simp)
-    simp only [List.take_zero, List.foldl_nil, List.map_cons, List.getD_cons_zero] at hm ha
+    have hap := hchain 0 (by simp)
+    simp only [List.take_zero, List.foldl_nil, List.map_cons, List.getD_cons_zero] at hap
     have hoka : WellDenoted V σ (.app f a) := by
       rw [WellDenoted_app]
-      exact ⟨hf, hargs a List.mem_cons_self, v, A, B, hm, ha, hz, hA⟩
+      exact ⟨hf, hargs a List.mem_cons_self, hap⟩
     have hchain' : AppChainOk (interp V σ (.app f a)) (args.map (interp V σ)) := by
       intro l hl
-      obtain ⟨v', A', B', hm', ha', hz', hA'⟩ := hchain (l + 1) (by simpa using hl)
-      simp only [List.map_cons, List.take_succ_cons, List.foldl_cons, List.getD_cons_succ] at hm' ha'
-      exact ⟨v', A', B', hm', ha', hz', hA'⟩
+      have hap := hchain (l + 1) (by simpa using hl)
+      simp only [List.map_cons, List.take_succ_cons, List.foldl_cons, List.getD_cons_succ] at hap
+      exact hap
     have ih := mkAppN_wellDenoted_of_chain (args := args) (f := .app f a) hoka
       (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha')) hchain'
     rw [Term.mkAppN_cons]

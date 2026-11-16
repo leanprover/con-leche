@@ -118,7 +118,7 @@
 #       this gate.
 #
 #   ConLeche/Kernel/NatHash.lean       extern
-#       `natBigHash` (task #547) — THE ONE NATIVE FUNCTION the checker
+#       `natBigHash` (task #598) — THE ONE NATIVE FUNCTION the checker
 #       carries, the maintainer's one deliberate exception to "no C":
 #       the hash of a `Nat` literal of 2^64 and more, all its 64-bit
 #       words mixed with Lean's `mixHash` (`native/nat_hash.c`, a few
@@ -127,7 +127,7 @@
 #       PR fails the link on the duplicate symbol, and then the file, the
 #       module and this entry go.  Lean has no word access to a big
 #       `Nat`, and a hash of `n mod 2^64` alone put every literal sharing
-#       its low bits in one memo bucket (DESIGN #561).  To the proofs it
+#       its low bits in one memo bucket (DESIGN #598).  To the proofs it
 #       is an opaque function of the number: a hash, which no statement
 #       reads beyond "equal literals, equal hashes".
 #
@@ -534,9 +534,9 @@ for f, t in stale:
 # Pinned by content: path -> (sha256, reason).  See the header.
 import hashlib
 NATIVE = {
-    'lakefile.lean': ('c4d9d9d44f7de3ec1227726691f7af7f47c8b5af554833c39c29ea4f18d43678',
+    'lakefile.lean': ('c29722e0429fc5b4cc0342fa28ab243f7f64b6810289a2e5c181a016f2d022c9',
         'the build: the targets, and the C compile and link of native/'),
-    'native/nat_hash.c': ('4d71f8daa8bce1685a4f85a1371ad448d013944fb60e99e26c9b3d7181e02a53',
+    'native/nat_hash.c': ('4b51383deddefcd7d3945c4d3f65abcafd5a7b16c1643f66361364b626b7a020',
         'natBigHash, the hash of a big Nat literal (vendored from lean4#16146)'),
 }
 NATIVE_EXT = ('.c', '.h', '.cc', '.cpp', '.S', '.s')

@@ -337,7 +337,7 @@ as a container.
 *Amalgamation.* Choose each name's value from any member storing it,
 and use $pi$ if no member does. On names of $C$, compatibility makes
 this assignment agree with every such member. Interpretation
-#src("whitepaper/Fragment/Hygiene.lean", 593, 595)[depends only on mentioned constants],
+#src("whitepaper/Fragment/Hygiene.lean", 585, 587)[depends only on mentioned constants],
 so scope in the common part transfers the typing, unfolding and
 recursor laws. The block facts transfer for the same reason, with
 assembly supplying the generated entries in $C$. This
