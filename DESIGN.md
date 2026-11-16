@@ -122055,6 +122055,93 @@ The fix proposed in #594.  `ConLeche/Driver/ScheduleIO.lean`, plain IO, outside 
 * **Tests.**  `ScheduleTests`: `aloneAct`, and a log with `memory` lines at 5, 1, no and 3 threads.
 * The usage text does not say what `memory` means and is unchanged.
 
+## TASK #597 — CFSG `Fi24Seven.C06`: inherent memory, about 87 GiB for one theorem in either kernel (2026-11-16, agent/597-c06)
+
+Investigation; nothing changed but this record.  Question (maintainer): the CFSG module
+`Certificates.Kernel.Sporadic.Fi24Seven.C06` got the verdict `memory`: a `--olean --module`
+worker with one thread reached 45 GiB after 54 s.  Does the official kernel need as much?
+
+**Answer.**  Yes.  The memory is inherent.  Both kernels need about 1.0 GiB for each matrix product
+the proof computes, and the module's largest theorems, `ck97` and `ck98`, compute 86 products each.
+Extrapolated peak: about 87 GiB for one theorem, in con-leche and in the official kernel.  No
+memory limit below about 90 GiB lets this module pass, whichever kernel checks it.  The official
+kernel uses its memory faster: 0.19–0.23 GiB per G instructions, against con-leche's 0.14–0.17.
+
+**What the module computes.**  `#kc_slice_range CK ck 96 107`: 11 theorems `ckK : CK K = true`,
+the same `CK` as C20's (#561).  `CK k` is `chunkOK` (`Certificates/Data/Kernel/Spor/SlpMat.lean`)
+for chunk `k` of a straight-line program over 781×781 matrices over GF(3).  Each matrix is a pair of
+`Nat` literals of 609 961 bits; `MUL` is `mul3s`.  A chunk reads its input matrices (`runIns`),
+then computes each node's word as a product of matrices (`prodV`, a right fold, one `MUL` for each
+letter after the first), and then compares the outputs.  C20's chunks (`ck315`–`ck330`) have no
+nodes, only equations of 11–39 products.  C06's chunks have 0 to 86 node products (from
+`plan.json.gz`):
+
+| theorem | inputs | node products | equation products |
+|---|---|---|---|
+| ck96 | 15 | 78 | 0 |
+| ck97, ck98 | 14 | 86 | 0 |
+| ck99 / ck100 / ck101 / ck102 | 7 / 13 / 27 / 21 | 32 / 32 / 32 / 24 | 0 |
+| ck103 | 22 | 24 | 0 |
+| ck104 | 36 | 60 | 0 |
+| ck105 | 3 | 3 | 0 |
+| ck106 | 12 | 0 | 14 |
+
+Every product's intermediates are big literals, and the whnf memos of both kernels keep them
+until the end of the declaration (#561).
+
+**Method.**  As #594: CFSG 69cb972f5, toolchain `v4.35.0-rc3`.  C06 has the same imports as C20,
+so `_tmp/543/olean` had the closure; only C06's own archive was fetched (`fetch.py`).  con-leche
+is `modular` fb04921eb.  The official kernel is #594's `replay2.lean` (the module's non-theorems,
+here none, and the named theorems).  Every run was under the guard (30 GB) and `timeout`, one at a
+time.  `perf stat -I 100 -e instructions:u` gave the instructions every 100 ms, and a sampler read
+the process tree's `RssAnon` every 100 ms.  The two were joined by time.
+
+**Measurements** (RssAnon; "net" from the start of the theorem's check):
+
+| run | result | memory against work |
+|---|---|---|
+| con-leche, module, `--jobs=1` | `ck103` accepted after 22.5 s at 27.8 GiB; killed in the next theorem at 30 GB, 53 s after the start | ck103: 0.17 GiB per G instr, 1.33 GiB/s |
+| con-leche, `--constant=ck97` | killed at 30 GB, 27 s into ck97 | 27.9 GiB net over 200 G instr: 0.14 GiB/G, 1.14 GiB/s |
+| Lean, ck97 | killed at 30 GB after 22 s | 28.1 GiB net over 137 G instr: 0.20 GiB/G, 1.46 GiB/s |
+| Lean, ck103 | killed at 30.9 GB after 25 s (con-leche: done at 27.8 GiB) | 0.23 GiB/G, 1.35 GiB/s |
+| Lean, ck96 / ck99 | killed at 30 GB after 17 s each | 0.19 / 0.21 GiB/G |
+| Lean, ck105 / ck106 | accepted: 4.3 / 15.3 GiB, 19 / 72 G instr | |
+| Lean, no theorem | 0.6 GiB | |
+
+In both kernels the RSS rises in a straight line from the theorem's start until the guard stops
+it.  con-leche's run checked `ck103` first; the `.olean.private` part lists `ck103`, `ck97`, `ck98`, …,
+so the maintainer's 45 GiB were most likely reached in `ck97`.
+
+**Extrapolation.**  To find the full need without running to 87 GiB, I checked prefixes of
+`ck97`'s computation: a probe file (`P m`: ck97's inputs, then `prodV` over the first `m` letters
+of its node's word, `quickRfl`), compiled by rc3's `lean` and, from the `.olean` it wrote, checked by
+con-leche (`--olean --module`):
+
+| probe | Lean: peak, G instr | con-leche: peak, G instr of the check |
+|---|---|---|
+| m = 0 (inputs only) | 0.1 GiB, 2 | |
+| m = 10 (9 products) | 9.6 GiB, 49 | 9.8 GiB, 63 |
+| m = 20 (19 products) | 19.7 GiB, 102 | 19.9 GiB, 134 |
+
+Ten products more cost 10.05 GiB in Lean and 10.04 GiB in con-leche: 1.0 GiB per product in
+both kernels.  Lean needs 5.3 G instructions per product, con-leche 7.1 G.  The inputs cost almost
+nothing.  The two `ck97` runs agree: 28 GiB net after about 26–28 products' work in either kernel.
+For the full theorem (86 products) both kernels need about 0.7 + 86 × 1.0 ≈ 87 GiB.  This
+assumes that the later letters cost as much as the first 20 (they are matrices of the same
+size; `ck103`, whose letters are other nodes' values, costs a little more in both kernels).  The
+other big theorems: ck98 about 87 GiB, ck96 about 79 GiB, ck104 about 61 GiB.  With one thread the
+module's peak is its largest theorem's, plus allocator fragmentation (#561).
+
+**Verdict.**  Inherent.  The official kernel needs as much memory for C06 as con-leche, and it
+grows faster per instruction.  Nothing to fix in con-leche; the module needs a machine with
+about 90 GiB for one worker.  C20 (#561) is smaller only because its chunks have fewer products
+(at most 39).
+
+Data: kept in `_tmp/597`: the scripts (`bin/run.sh`, `scripts/curve.py`, `scripts/at.py`,
+`scripts/replay2.lean`, `scripts/names2.lean`), the probe sources (`probe/P*.lean`) and the run
+logs (`logs/`).  The fetched archive, the joined `.olean` tree and the worktree were removed.
+
+
 ## TASK #596 — the scheduler in its own module subtree; `--schedule-commands` (2026-11-16, agent/596-schedule-tree)
 
 Maintainer's rulings: contain the scheduler in a module subtree, still one executable, split
@@ -122103,3 +122190,4 @@ to check a closure, for slurm or anything else.
 * **Gates.**  `lake build`, `lake test` warning-free; `tests/arena.sh` in full (the process fence
   now names `Schedule/Run.lean` alone; the olean gate 342/342); the README/OVERVIEW anchors to
   `Cli.lean`'s `runArgs` and `Dispatch.lean`'s `runReq` repointed (moved, unchanged).
+||||||| fb04921eb
