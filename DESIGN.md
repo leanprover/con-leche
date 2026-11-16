@@ -121938,3 +121938,101 @@ fixed and re-run green (`tests/pindump.sh`: 3 pinners reproduced, the nightly on
 installed; `tests/shake.sh`: 676/676 allowlisted, none demotable).  The whitepaper builds
 (`nix develop ./whitepaper -c whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`,
 `implemented_by` or C.
+
+## TASK #594 — CFSG `KDenseP.Norton.C125374`: the `memory` verdict came from the worker's threads (2026-11-16, agent/594-norton-memory)
+
+Investigation; nothing changed but this record.  Question (maintainer): the CFSG module
+`CFSG.Certificates.Kernel.KDenseP.Norton.C125374` got the scheduler's verdict `memory` (over
+45 GiB, the worker alone).  Is that con-leche, or does the official kernel need as much?  Added
+by the coordinator: the sibling `KDenseP.NortonSLP.C125531`, `memory` at 47.6 GiB in an earlier
+run (around a273ed7ec), now accepts at 18.78 GiB; which change did that?
+
+**Answer.**  Neither module needs more memory in con-leche than in the official kernel.  With
+one thread, con-leche checks C125374 at a peak of 21.0 GiB and the official kernel replays it
+at 21.8 GiB (anonymous memory); C125531 takes 18.7 GiB against 19.5 GiB.  The `memory`
+verdicts came from the threads the scheduler gave the worker: the verdict lines' last field
+(the worker's threads, DESIGN #546) is 5 for C125374 and 13 for C125531.  Each thread checks one
+of the modules' 36–45 big theorems at a time, and each such theorem needs about 20 GiB in either
+kernel, so 5 threads pass 45 GiB.  No con-leche change fixed C125531: a273ed7ec, run with one
+thread, peaks at 18.8 GiB, as current `modular` does.  The retry accepted it because it ran with
+one thread.
+
+**Data.**  CFSG at 69cb972f5, toolchain `v4.35.0-rc3`.  The closure (16 666 modules, 8 570 of
+them Mathlib) was computed with #561's `closure.py`.  The 6 710 modules not already in
+`_tmp/543/olean` were fetched with `fetch.py` (10 GB of `.olean` files).  The two trees were
+joined by symlinks, because Lean's search path finds a package root in one directory only.
+con-leche is `modular` b9b1471e3 (`--olean --module --jobs=N --progress`).  The official kernel
+is #561's `replay1.lean` under rc3's `lean --run`.  For a single theorem I used a variant,
+`replay2.lean`, which replays all of the module's non-theorem constants and the named theorems.
+Every run was under the guard (30 GB) and `timeout`, with one process at a time and
+`perf stat -e instructions:u,cycles:u`.  "peak" is the guard's peak anonymous RSS.  Lean's VmHWM
+is about 13 GB higher than that, because it counts the mapped `.olean` files.
+
+**What the module computes.**  The module has 1 830 constants.  1 785 of them are data that
+`#kc_plan`/`#kc_select`/`#kc_repo` generate: a chunk table `CH`, predecessor and group tables,
+and 33 start states, each three `Nat` literals (`RX*`, `RW*`, about 64 KB each, so about 510 000
+bits).  The rest are the theorems `u0` … `u44 : u k = true := Lean.reflBoolTrue` (`#kc_each`).
+`u g` is `grpL` (`Certificates/Data/Kernel/KDenseP/Replay.lean`): for each chunk of group `g`
+(about 5), it either runs a word of Monster-group generators on a state and stores the forced
+result in a functional table (`upd`), or re-runs the chunk and compares its result with the
+stored state (`chunkOKN`, `stEqN`).  A state is a flag and three big literals.  A step
+(`stepN`, `rhoStepN`/`xiStepN`/`tauStepN` in `KDenseP/Letters.lean`) is bit-sliced arithmetic on
+them with `Nat.land`/`lor`/`xor`/`shiftLeft`/`shiftRight`/`add`.  As in C20 (#561), every
+intermediate is a big literal, and the whnf memos keep them for the duration of the theorem.
+C125531 (NortonSLP) has the same shape: 36 theorems `u k` over `grpL`, plus `weq`, `idx`, `ix`
+and `plan`.
+
+**Measurements.**
+
+| run | G instr | G cycles | time | peak |
+|---|---|---|---|---|
+| C125374, con-leche, `--jobs=1` | 2 422.8 | 1 314.1 | 371 s (check 364 s; slowest `u14` 19.0 s) | 21.0 GiB |
+| C125374, Lean, whole module | 2 205.4 | 1 062.0 | 311 s (replay 273 s) | 21.8 GiB |
+| C125374, Lean, data only (`replay2`, no theorem) | 8.0 | 12.1 | replay 0.9 s | 1.0 GiB |
+| C125374, Lean, data + `u14` | 85.9 | 51.9 | replay 15.7 s | 21.2 GiB |
+| C125374, con-leche, `--constant=…u14` (merged run) | | | check of `u14` 14.6 s | 28.3 GiB, of it 9.3 GiB the parsed closure before the check |
+| C125374, con-leche, `--jobs=5` | | | killed by the guard after 7 s | over 28.9 GiB |
+| C125531, con-leche, `--jobs=1` | 1 467.6 | 778.2 | 223 s | 18.7 GiB |
+| C125531, con-leche a273ed7ec, `--jobs=1` | 1 608.2 | 837.4 | 198 s | 18.8 GiB |
+| C125531, Lean, whole module | 1 180.6 | 625.4 | 202 s (replay 190 s) | 19.5 GiB |
+| C125531, con-leche, `--jobs=13` | | | killed by the guard after 6 s | over 31.9 GiB |
+
+All runs that finished accept every declaration.  The RSS curves (sampled every 100 ms) look
+the same in both kernels.  They rise to about 20 GiB within the first theorems (con-leche on
+C125374: 15 GiB 18 s after the start, 6.6 s of it the parse; Lean: 29.7 GiB VmRSS 43 s after
+the start, with the mapped files).  After that they stay flat until the end.  The freed memory
+of a finished theorem stays with the allocators and the next theorem reuses it, as #561 found.
+One theorem alone takes about 20 GiB in either kernel (`u14`: Lean 21.2 GiB with a 1.0 GiB
+baseline; con-leche about 19 GiB above its 9.3 GiB merged environment).  The time is close too:
+`u14` takes 15.7 s in Lean and 14.6 s in con-leche; the whole module needs 1.10× Lean's
+instructions and 1.24× its cycles (C125531: 1.24× and 1.24×).  I did not profile further,
+because with one thread the two kernels are at parity.
+
+**Diagnosis.**  The memory of one theorem is inherent: the official kernel needs as much.  The
+45 GiB come from the scheduler, which gives a worker `threadsFor`'s threads,
+`max 1 (min cap (decls ÷ 30))`.  These modules have about 1 800 declarations, so with free
+threads they get many.  But almost all of the declarations are cheap data, and the cost is in
+36–45 theorems of about 20 GiB each, which the threads check side by side, each with its own
+per-declaration memos (`threadCap`'s "a worker's threads share its context" is true of the environment,
+not of the memos).  The rule in `ScheduleIO.lean` that gives the verdict ("alone over the limit:
+running alone could not help") does not look at the threads.  A worker that is alone with
+5 or 13 threads gets the final `memory` verdict, although one thread would have fitted.  #546
+already runs a module that was *killed* with more than one thread again with one thread.  For a
+worker that is alone, the same rescue is missing.  None of the candidate changes (#547/#564,
+#565, #572, #582) is involved: the old binary needs the same memory with one thread.
+
+**Fix proposal (not implemented; the maintainer decides).**  In the scheduler's limit check,
+a worker that is alone over the limit with more than one thread is killed and queued again with
+one thread, through the path that already handles a killed multi-threaded worker (#546).  It
+gets the `memory` verdict only if it is over the limit with one thread.  Optionally, the thread
+rule could also count heavy theorems rather than declarations, but nothing tells the scheduler
+before the check which theorems are heavy, so the retry is the simple fix.  The maintainer's
+other `memory` verdicts should be read with the threads field in mind.  In
+`_tmp/cfsg-log/cfsg-check.log`, `Fi24Seven.C06`, `KDenseP.M13_16957` and `TwoHS.Mz` ran with
+one thread (likely inherent, as C20 in #561).  `NortonSLP.C125530` ran with 16 threads (likely
+the same as here).  This was not measured.
+
+Data: `_tmp/594/root` (the fetched closure, 10 GB, and the dependency sources) and the worktrees
+were removed at the end of the lane.  Kept in `_tmp/594`: the scripts (`bin/run.sh`,
+`scripts/replay2.lean`, the copied `closure.py`/`fetch.py`/`replay1.lean`) and the run logs
+(`logs/`).
