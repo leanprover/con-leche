@@ -122036,3 +122036,21 @@ Data: `_tmp/594/root` (the fetched closure, 10 GB, and the dependency sources) a
 were removed at the end of the lane.  Kept in `_tmp/594`: the scripts (`bin/run.sh`,
 `scripts/replay2.lean`, the copied `closure.py`/`fetch.py`/`replay1.lean`) and the run logs
 (`logs/`).
+
+## TASK #595 — a worker alone over the memory limit with several threads runs again with one thread (2026-11-16, agent/595-memory-threads)
+
+The fix proposed in #594.  `ConLeche/Driver/ScheduleIO.lean`, plain IO, outside every theorem.
+
+* **Live.**  `aloneAct threads` (pure): a worker alone over the limit gets the verdict `memory` only
+  with one thread (`.memory`); with more it is killed, logged as `killed\t<module>\t<ms>\t<rss>\t<threads>`
+  and queued again at its position, through #546's path (`single` gets the module, so it starts with
+  one thread; known size at least double and at least the typical peak).  Each thread holds the
+  memos of its own theorem, so one thread can need far less (CFSG's Norton modules: about 20 GiB
+  with one thread, 45 GiB with 5 to 16).  The thread rule `decls ÷ 30` is unchanged.
+* **Resume.**  In `parseLog` a logged `memory` verdict whose threads field (the eleventh) is above 1
+  is no verdict: the module is not done, and it is seeded like a killed multi-threaded module
+  (`killSize` its peak, `killMulti`), so it runs again with one thread.  A `memory` at one thread,
+  or in an old line without the field, stays done.  `scripts/schedsim.py`'s `read_log` reads it as a
+  kill.
+* **Tests.**  `ScheduleTests`: `aloneAct`, and a log with `memory` lines at 5, 1, no and 3 threads.
+* The usage text does not say what `memory` means and is unchanged.

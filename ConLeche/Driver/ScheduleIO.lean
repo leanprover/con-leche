@@ -71,7 +71,10 @@ it plain `IO`:
   head slot's left out (`victims`), are killed (by their own process, `Child.kill` of the child
   this scheduler started, never by a name) until the sets fit, and are unstarted again at their
   positions: not a verdict, not logged, their sizes updated.  A worker alone over the limit, the
-  head slot's or another's, is killed with the verdict `memory` (running alone could not help).
+  head slot's or another's, is killed with the verdict `memory` (running alone could not help)
+  where it runs one thread; with more threads it is killed and queued again at one thread, as a
+  `killed` line with its threads (`aloneAct`; DESIGN #595: its threads' memos add up, one thread
+  can need far less).
   Output: a short line per kill (the module named last), and one where the head slot starts a
   killed module that does not fit;
 * **a timeout per worker** (`timeout`, seconds, 0 for none): a worker running longer is killed,
@@ -92,7 +95,9 @@ it plain `IO`:
   old two-field logs work; a `killed` line is no verdict and is ignored), so a run interrupted
   anywhere resumes where it stopped.  The verdict `stack` is the one exception: a resumed run
   runs that module again where its logged stack size differs from the current `LEAN_STACK_SIZE_KB`
-  (a line without the field counts as different).  **A resumed run reads the log's state back into admission**
+  (a line without the field counts as different).  So is a `memory` verdict whose threads field
+  (the eleventh) is above 1: that module runs again at one thread (DESIGN #595); one at one thread,
+  or an old line without the field, stays done.  **A resumed run reads the log's state back into admission**
   (`parseLog`; DESIGN #546): the typical peak's window starts with the last 200 exact peaks of the
   verdict lines (`≥` fallbacks left out), so that the median holds from the first tick where the log
   gives 20 of them; a module with `killed` lines that still has to run keeps its position in the
@@ -359,6 +364,17 @@ def exitVerdict (c : Nat) (diag : String) (oom : Bool) : String :=
       | some n => s!"signal {s} ({n})"
       | none => s!"signal {s}"
 
+/-- What a worker alone over the memory limit gets (DESIGN #595): with one thread the verdict
+`memory`, with more it is killed and queued again at one thread (its threads each hold memos of
+their own, so one thread can need far less). -/
+inductive AloneAct where
+  | memory
+  | requeueSingle
+  deriving DecidableEq
+
+/-- `AloneAct` of a worker alone over the limit with `threads` threads. -/
+def aloneAct (threads : Nat) : AloneAct := if threads > 1 then .requeueSingle else .memory
+
 /-- The cgroup the scheduler's memory is limited by: from `/proc/self/cgroup` (`0::/path`) up
 through the ancestors to the first whose `memory.max` is not `max`; `none` where the files cannot
 be read or no ancestor has a limit. -/
@@ -573,7 +589,15 @@ def parseLog (parse : String → Option Name) (s : String) (stackKb : String := 
       | none => (lg, span, lastAt)
       | some x =>
         -- a `stack` verdict (the twelfth field: the stack size) holds for that size only
+        -- a `memory` verdict of a worker with more than one thread is no verdict either: the
+        -- module runs again at one thread (DESIGN #595), like a killed one
+        let multiMem := w == "memory" && (rest[8]?.bind String.toNat?).getD 1 > 1
         let lg := if w == "stack" && rest[9]? != some stackKb then lg
+          else if multiMem then
+            { lg with verdicts := lg.verdicts.erase x,
+                      killSize := lg.killSize.insert x
+                        (max ((rest[1]?.bind String.toNat?).getD 0) (lg.killSize.getD x 0)),
+                      killMulti := lg.killMulti.insert x }
           else { lg with verdicts := lg.verdicts.insert x w }
         let lg := match rest[1]?.bind String.toNat? with
           | some k => { lg with peaks := lg.peaks.push k }
@@ -1097,9 +1121,9 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       let rss := rss.getD []
       let cur := st.running.foldl (fun a r => a + (look rss r).1) 0
       if cur > o.memory then
-        if h : st.running.size = 1 then
-          -- alone over the limit: running alone could not help
-          let p := st.running[0]
+        if h : st.running.size = 1 ∧ (st.running[0]?.any (aloneAct ·.threads == .memory)) then
+          -- alone over the limit with one thread: running alone could not help
+          let p := st.running[0]'(by have := h.1; omega)
           p.child.kill
           let _ ← p.child.wait
           err.putStrLn s!"con-leche: schedule: memory: {gib cur} alone, over the limit of \
@@ -1110,8 +1134,11 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         else
           -- the youngest workers but the head slot's make room, until the sets sum to the limit
           -- at most; each is unstarted again at its own position; one line for the burst
-          let vs := victims (st.running.toList.map fun r => (r.m, r.start, (look rss r).1))
-            st.head cur o.memory
+          -- a worker alone with more than one thread is the victim: it is queued again at one
+          -- thread (DESIGN #595)
+          let vs := if st.running.size = 1 then st.running.toList.map (·.m) else
+            victims (st.running.toList.map fun r => (r.m, r.start, (look rss r).1))
+              st.head cur o.memory
           let mut killed : Array (Name × Nat × Nat) := #[]
           for v in vs do
             if let some i := st.running.findIdx? (·.m == v) then
@@ -1127,6 +1154,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                 -- the set at the kill is a lower bound, a restart must not die again
                 let sz := max (max kr st.typ) (2 * st.sizes.getD r.m 0)
                 st := { st with running := st.running.eraseIdx i,
+                                head := if st.head == some r.m then none else st.head,
                                 sizes := st.sizes.insert r.m sz,
                                 single := if r.threads > 1 then st.single.insert r.m
                                   else st.single,

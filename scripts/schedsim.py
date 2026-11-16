@@ -131,6 +131,12 @@ def read_log(path):
         if len(f) < 4:
             continue
         g = f + ["-"] * (11 - len(f))
+        if f[0] == "memory" and (num(g[10]) or 1) > 1:
+            # DESIGN #595: a `memory` verdict of a worker with several threads is no verdict: the
+            # module runs again at one thread, like a killed one
+            mods.pop(unspell(f[1]), None)
+            kills.append((unspell(f[1]), num(g[2])))
+            continue
         mods[unspell(f[1])] = dict(verdict=f[0], ms=num(g[2]), pk=num(g[3]), at=num(g[4]),
                                    decls=num(g[5]), parse=num(g[6]), check=num(g[7]),
                                    busy=num(g[8]), slowest=num(g[9]),

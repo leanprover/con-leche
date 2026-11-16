@@ -199,4 +199,28 @@ def G : Nat := 1048576
 #guard (parseLog ConLeche.Frontend.Olean.parseModName (mixedLog ++
   "reserve\t«Z»\t5000\t7\t9\tlearned\n")).peaks = #[400000, 400000, 400000]
 
+-- DESIGN #595: a worker alone over the limit is killed and queued again at one thread where it
+-- ran several; the verdict `memory` only for one thread
+#guard aloneAct 1 = .memory
+#guard aloneAct 0 = .memory
+#guard aloneAct 5 = .requeueSingle
+
+/-- `memory` verdicts: M at 5 threads, N at one, O in an old line, P at 3 (an earlier `0` line of
+P is dropped by the later one), and a `stack` line, which the rule does not touch. -/
+def memLog : String :=
+  "memory\t«M»\t10000\t≥900000\t10000\t16\t600\t0\t43\t10\t5\t-\n" ++
+  "memory\t«N»\t10000\t900000\t10000\t16\t600\t0\t43\t10\t1\t-\n" ++
+  "memory\t«O»\n" ++
+  "0\t«P»\t10000\t400000\t10000\t16\t600\t0\t43\t10\t1\t-\n" ++
+  "memory\t«P»\t20000\t900000\t20000\t16\t600\t0\t43\t10\t3\t-\n"
+
+#guard !((parseLog ConLeche.Frontend.Olean.parseModName memLog).verdicts.contains (nm "M"))
+#guard (parseLog ConLeche.Frontend.Olean.parseModName memLog).verdicts.get? (nm "N") = some "memory"
+#guard (parseLog ConLeche.Frontend.Olean.parseModName memLog).verdicts.get? (nm "O") = some "memory"
+#guard !((parseLog ConLeche.Frontend.Olean.parseModName memLog).verdicts.contains (nm "P"))
+-- the module runs again at one thread, at a known size
+#guard (parseLog ConLeche.Frontend.Olean.parseModName memLog).killMulti.contains (nm "M")
+#guard !((parseLog ConLeche.Frontend.Olean.parseModName memLog).killMulti.contains (nm "N"))
+#guard (parseLog ConLeche.Frontend.Olean.parseModName memLog).killSize.get? (nm "P") = some 900000
+
 end ConLecheTests.ScheduleTests
