@@ -202,9 +202,7 @@ theorem WellDenoted_gxn {ρ : Nat → V} {x : V} (hx : x ∈ˢ typeU 0) :
 
 theorem WellDenoted_lamG (ρ : Nat → V) : WellDenoted ioM φ ρ lamG := by
   rw [lamG, WellDenoted_lam]
-  refine ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_gxn φ hx, fVal, fun x hx => ?_,
-    fun x _ => IsTy_fVal x⟩
-  rw [interp_gxn φ hx]; exact dVal_mem x
+  exact ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_gxn φ hx⟩
 
 theorem interp_lamG (ρ : Nat → V) : interp ioM φ ρ lamG = lamV (typeU 0) dVal := by
   rw [lamG, interp_lam, interp_sort, Level.eval_zero]
@@ -212,9 +210,7 @@ theorem interp_lamG (ρ : Nat → V) : interp ioM φ ρ lamG = lamV (typeU 0) dV
 
 theorem WellDenoted_lamConst_io (ρ : Nat → V) : WellDenoted ioM φ ρ lamConst := by
   rw [lamConst, WellDenoted_lam]
-  refine ⟨trivial, IsTy_typeU 0, fun _ _ => trivial, fun _ => typeU 0, fun x _ => ?_,
-    fun _ _ => IsTy_typeU 0⟩
-  rw [interp_const, List.map_nil, ioM_n]; exact one_mem_typeU_zero
+  exact ⟨trivial, IsTy_typeU 0, fun _ _ => trivial⟩
 
 theorem interp_lamConst_io (ρ : Nat → V) :
     interp ioM φ ρ lamConst = lamV (typeU 0) (fun _ => one) := by
@@ -234,16 +230,9 @@ theorem interp_gType (ρ : Nat → V) :
 
 theorem WellDenoted_gValE (ρ : Nat → V) : WellDenoted ioM φ ρ gValE := by
   rw [gValE, WellDenoted_lam]
-  refine ⟨trivial, IsTy_typeU 0, fun x hx => ?_,
-    fun x => piV (interp ioM φ (cons x ρ) ex) (fun _ => typeU 0), fun x _ => ?_,
-    fun _ _ => IsTy_piV⟩
-  · rw [WellDenoted_lam]
-    refine ⟨WellDenoted_ex_io φ hx, IsTy_ex_io φ hx, fun _ _ => trivial, fun _ => typeU 0,
-      fun _ _ => ?_, fun _ _ => IsTy_typeU 0⟩
-    rw [interp_const, List.map_nil, ioM_n]; exact one_mem_typeU_zero
-  · rw [interp_lam]
-    refine lamV_mem (fun _ _ => ?_) fun _ _ => IsTy_typeU 0
-    rw [interp_const, List.map_nil, ioM_n]; exact one_mem_typeU_zero
+  refine ⟨trivial, IsTy_typeU 0, fun x hx => ?_⟩
+  rw [WellDenoted_lam]
+  exact ⟨WellDenoted_ex_io φ hx, IsTy_ex_io φ hx, fun _ _ => trivial⟩
 
 theorem interp_gValE (ρ : Nat → V) : interp ioM φ ρ gValE = lamV (typeU 0) gVal := by
   simp [gValE, ex, ioM_E, ioM_n]; rfl

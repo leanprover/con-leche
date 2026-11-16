@@ -157,7 +157,7 @@ type. -/
 def IOHered : Expr → (Nat → V) → V → Prop
   | .pi A B, ρ, v =>
     WellDenoted M φ ρ A ∧ IsTy (interp M φ ρ A) ∧
-      (∃ B' : V → V, v ∈ˢ piSet (interp M φ ρ A) B') ∧
+      (∃ F : V → V, v = graph F (interp M φ ρ A)) ∧
       (∃ x, x ∈ˢ interp M φ ρ A ∧ app v x ≠ pt) ∧
       ∀ x, x ∈ˢ interp M φ ρ A →
         app v x = pt ∨ IOMem M φ B (cons x ρ) (app v x) ∨ IOHered B (cons x ρ) (app v x)
@@ -175,7 +175,7 @@ def IORel (T : Expr) (ρ : Nat → V) (v : V) : Prop :=
 theorem IOHered_pi {A B : Expr} {ρ : Nat → V} {v : V} :
     IOHered M φ (.pi A B) ρ v ↔
       WellDenoted M φ ρ A ∧ IsTy (interp M φ ρ A) ∧
-      (∃ B' : V → V, v ∈ˢ piSet (interp M φ ρ A) B') ∧
+      (∃ F : V → V, v = graph F (interp M φ ρ A)) ∧
       (∃ x, x ∈ˢ interp M φ ρ A ∧ app v x ≠ pt) ∧
       ∀ x, x ∈ˢ interp M φ ρ A → IORel M φ B (cons x ρ) (app v x) := Iff.rfl
 
@@ -291,8 +291,9 @@ theorem InferIO.app_sound {Γ : List Expr} {f a tf A B : Expr}
     rw [WellDenoted_pi] at hwpi
     exact Or.inr (Or.inl ⟨hwpi.2.2.1 _ haA, hwpi.2.2.2 _ haA, app_mem_piSet hgr haA⟩)
   · rw [IOHered_pi] at h
-    obtain ⟨-, -, ⟨B', hB'⟩, -, hall⟩ := h
-    exact hall _ (hap.mem hB')
+    obtain ⟨-, -, ⟨F, hF⟩, -, hall⟩ := h
+    rw [hF] at hap
+    exact hall _ (appliesTo_graph.mp hap).2
 
 omit [LevelOracle] in
 /-- **λ**: where every body value is the point, so is the abstraction;
@@ -301,7 +302,7 @@ theorem InferIO.lam_sound {Γ : List Expr} {A b bt : Expr}
     (hb : InferIOSem m φ (A :: Γ) b bt) : InferIOSem m φ Γ (.lam A b) (.pi A bt) := by
   intro ρ hs hw
   rw [WellDenoted_lam] at hw
-  obtain ⟨hwA, hTA, hwb, Bl, hBl, -⟩ := hw
+  obtain ⟨hwA, hTA, hwb⟩ := hw
   rw [interp_lam]
   by_cases hall : ∀ x, x ∈ˢ interp m.M φ ρ A → interp m.M φ (cons x ρ) b = pt
   · exact Or.inl (lamV_eq_pt hall)
@@ -314,7 +315,7 @@ theorem InferIO.lam_sound {Γ : List Expr} {A b bt : Expr}
   obtain ⟨x₀, hx₀, hx₀'⟩ : ∃ x, x ∈ˢ interp m.M φ ρ A ∧ interp m.M φ (cons x ρ) b ≠ pt :=
     Classical.byContradiction fun hn => hall fun x hx =>
       Classical.byContradiction fun hx' => hn ⟨x, hx, hx'⟩
-  refine ⟨hwA, hTA, ⟨Bl, graph_mem_piSet hBl⟩, ⟨x₀, hx₀, by rw [app_graph hx₀]; exact hx₀'⟩,
+  refine ⟨hwA, hTA, ⟨_, rfl⟩, ⟨x₀, hx₀, by rw [app_graph hx₀]; exact hx₀'⟩,
     fun x hx => ?_⟩
   rw [app_graph hx]
   exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hwA, hTA, hx⟩) (hwb x hx)

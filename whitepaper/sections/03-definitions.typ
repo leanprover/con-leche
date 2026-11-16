@@ -93,9 +93,9 @@ let the model read a stored term without looking at anything
 that is added later, because the interpretation of a term depends only on
 the constants and the free variables it mentions and the level
 parameters it uses
-(#src("whitepaper/Fragment/Hygiene.lean", 593, 595)[constants],
+(#src("whitepaper/Fragment/Hygiene.lean", 585, 587)[constants],
 #src("whitepaper/Fragment/Hygiene.lean", 466, 468)[variables],
-#src("whitepaper/Fragment/Hygiene.lean", 656, 658)[parameters]).
+#src("whitepaper/Fragment/Hygiene.lean", 644, 646)[parameters]).
 
 *The interpretation, extended.* The interpretation of @sec:interp
 gains one parameter, an _assignment_ $M$ of a set to every constant
@@ -153,7 +153,7 @@ trivially]: any assignment, and laws with nothing to say.
 *Soundness, extended.* @thm:sound holds for the relations extended by
 the three rules above, with one more hypothesis: fix a model of the
 environment, a valuation $phi$, and let $rho$ satisfy $Gamma$; then
-the three claims #src("whitepaper/Fragment/Sound.lean", 2297, 2301)[hold as stated], and
+the three claims #src("whitepaper/Fragment/Sound.lean", 2293, 2297)[hold as stated], and
 @cor:closed holds under every model. The induction of @sec:claims
 gains three cases, one per rule.
 

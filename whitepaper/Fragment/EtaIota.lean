@@ -644,12 +644,11 @@ theorem eta_at_pt {t : Expr} (hw : WellDenoted (witM (V := V)) φ ρ t) :
 theorem wd_maj : WellDenoted (witM (V := V)) φ ρ maj := by
   have hlam : WellDenoted (witM (V := V)) φ ρ (.lam (cst "A") body) := by
     rw [WellDenoted_lam, v_A]
-    refine ⟨trivial, IsTy_one', fun y hy => ?_, fun _ => one, fun y _ => ?_, fun _ _ => IsTy_one'⟩
+    refine ⟨trivial, IsTy_one', fun y hy => ?_⟩
     · have hk : WellDenoted (witM (V := V)) φ (cons y ρ) (.app (cst "k") (.bvar 0)) :=
         wd_graph_app φ _ trivial trivial (by rw [v_k]; exact grOne_mem) (by simpa using hy)
           IsTy_one'
       exact wd_pt_app φ _ trivial hk (v_g φ _)
-    · simp only [body, interp_app, v_g, app_pt]; exact pt_mem_one
   refine wd_pt_app φ ρ hlam trivial ?_
   rw [interp_lam]
   exact lamV_eq_pt fun _ _ => by simp only [body, interp_app, v_g, app_pt]

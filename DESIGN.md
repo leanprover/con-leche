@@ -115317,8 +115317,14 @@ found hard to present.  The fragment (`whitepaper/Fragment`) now states it on va
   (no detour through the lambda's own function space and domain uniqueness); application
   congruence, the ι spine fit and `InferIO.app_sound` likewise.  `piR_dom_unique` and
   `NestIota.TeleFitV_mem` are gone; `spineOk_pt_of_mem` is `spineOk_pt` (no hypothesis).
-* Con-leche's own `Semantics/WellDenoted.lean` keeps the function-space form; moving it is a
-  separate task if wanted.
+* The lambda clause loses its codomain premise ("some family of types bounds the body's
+  values"): the clause is now the domain a type and the body well-denoted at every value.
+  No proof needed the family.  Its two users only put the lambda's graph into some function
+  space to read off a domain, which `graph_dom_unique` now does directly; the io grade's
+  hereditary clause (`IOHered`) says "a graph over the domain" instead of "a member of some
+  function space over it".  The family is the inference rule's business: there the typing
+  supplies it and the introduction law puts the abstraction into its function space.
+* Con-leche's own `Semantics/WellDenoted.lean` follows on this branch (both clauses).
 
 **Gates.** `whitepaper/fragment-gate.sh` (warning-free, axioms pinned), `whitepaper/links-gate.sh`
 (re-pointed; every changed cited text checked), `whitepaper/build.sh`, `tests/overview-links.sh`,

@@ -114,7 +114,7 @@ theorem beta_sound {Γ : List Expr} {A b a : Expr} :
   rw [WellDenoted_app] at hw
   obtain ⟨hl, ha, hap⟩ := hw
   rw [WellDenoted_lam] at hl
-  obtain ⟨-, -, hbody, -⟩ := hl
+  obtain ⟨-, -, hbody⟩ := hl
   have hlam := fn_ne_pt hn
   have hval : interp m.M φ ρ (.lam A b) =
       graph (fun x => interp m.M φ (cons x ρ) b) (interp m.M φ ρ A) := by
@@ -312,8 +312,7 @@ theorem lam_sound {Γ : List Expr} {A b s bt : Expr} {u : Level}
     fun x hx => hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hwA, hTA, hx⟩)
   refine ⟨?_, ?_, by rw [interp_pi]; exact IsTy_piV, ?_⟩
   · rw [WellDenoted_lam]
-    exact ⟨hwA, hTA, fun x hx => (hbody x hx).1, fun x => interp m.M φ (cons x ρ) bt,
-      fun x hx => (hbody x hx).2.2.2, fun x hx => (hbody x hx).2.2.1⟩
+    exact ⟨hwA, hTA, fun x hx => (hbody x hx).1⟩
   · rw [WellDenoted_pi]
     exact ⟨hwA, hTA, fun x hx => (hbody x hx).2.1, fun x hx => (hbody x hx).2.2.1⟩
   · rw [interp_lam, interp_pi]
@@ -456,8 +455,8 @@ theorem lamProp_sound [LevelOracle] {Γ : List Expr} {A₁ b₁ A₂ b₂ s : Ex
       (eq_pt_of_mem_univ_zero hmemT hx).symm
     exact hFy
   have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx⟩) (h₁.2.2.1 x hx₁)
-    (h₂.2.2.1 x hx) (hone hn₁) (hone hn₂)
+  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx⟩) (h₁.2.2 x hx₁)
+    (h₂.2.2 x hx) (hone hn₁) (hone hn₂)
 
 /-- **η over a propositional domain, untyped** (task #345): the λ and
 `b` (the abstraction of its applications, `SetLib.lamV_eta`) are not
@@ -504,7 +503,7 @@ theorem etaProp_sound [LevelOracle] {Γ : List Expr} {A₁ b₁ b tb A₂ B s : 
       by rw [interp_bvar, cons_zero, hlift]; exact appliesTo_of_mem_piR hmemb (heA ▸ hwpi.2.1) hx⟩
   have hnb : SetLib.app (interp m.M φ ρ b) x ≠ pt :=
     hone (F := fun y => SetLib.app (interp m.M φ ρ b) y) hx (by rw [hbeta]; exact hn₂)
-  rw [hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, hlam'.1, hlam'.2.1, hx⟩) (hlam'.2.2.1 x hx)
+  rw [hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hsat, hlam'.1, hlam'.2.1, hx⟩) (hlam'.2.2 x hx)
     happ (hone hx hn₁) (by rw [interp_app, interp_bvar, cons_zero, hlift]; exact hnb),
     interp_app, interp_bvar, cons_zero, hlift]
 
@@ -534,8 +533,8 @@ theorem lamConst_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr}
   intro x _
   rw [hcst hc₁ x x₁, hcst hc₂ x x₁]
   have hx₁' : x₁ ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx₁
-  exact hb (cons x₁ ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx₁⟩) (h₁.2.2.1 x₁ hx₁')
-    (h₂.2.2.1 x₁ hx₁) hF₁ (by rw [hcst hc₂ x₁ x₂]; exact hF₂)
+  exact hb (cons x₁ ρ) ((Sat_cons m.M φ).mpr ⟨hsat, h₂.1, h₂.2.1, hx₁⟩) (h₁.2.2 x₁ hx₁')
+    (h₂.2.2 x₁ hx₁) hF₁ (by rw [hcst hc₂ x₁ x₂]; exact hF₂)
 
 /-- **Application congruence at the head's type** (task #345): the
 heads are equal graphs whose domain is the denotation of `S`, the
@@ -595,16 +594,13 @@ theorem symm_sound {Γ : List Expr} {T a b : Expr} (h : DefEqInSem m φ Γ T a b
 /-- A λ that is not the point, in a function space, is the graph of its
 body over the function space's domain. -/
 theorem lam_in_piV {ρ : Nat → V} {A b : Expr} {D : V} {E : V → V}
-    (hw : WellDenoted m.M φ ρ (.lam A b)) (hm : interp m.M φ ρ (.lam A b) ∈ˢ piV D E)
+    (hm : interp m.M φ ρ (.lam A b) ∈ˢ piV D E)
     (hn : interp m.M φ ρ (.lam A b) ≠ pt) :
     interp m.M φ ρ A = D ∧ interp m.M φ ρ (.lam A b) ∈ˢ piSet D E := by
   have hS := mem_piSet_of_mem_piV hm hn
   refine ⟨?_, hS⟩
-  rw [WellDenoted_lam] at hw
-  obtain ⟨-, -, -, B, hfib, -⟩ := hw
   rw [interp_lam] at hn hS
-  rw [lamV_eq_graph hn] at hS
-  exact piSet_dom_unique (graph_mem_piSet hfib) hS
+  exact graph_dom_unique ((lamV_eq_graph hn).symm.trans (graph_app_eq hS).symm)
 
 /-- **λ-congruence at a `∀`**: no inference, no domain comparison.  Both
 λs lie in one type, so both are the point or neither is; two that are
@@ -618,8 +614,8 @@ theorem lam_sound {Γ : List Expr} {T D E A₁ b₁ A₂ b₂ : Expr}
   obtain ⟨hwpi, heT⟩ := hr ρ hs hwT hT.ne_pt
   rw [heT, interp_pi] at hm₁ hm₂
   rw [WellDenoted_pi] at hwpi
-  obtain ⟨hD₁, hS₁⟩ := lam_in_piV h₁ hm₁ hn₁
-  obtain ⟨hD₂, hS₂⟩ := lam_in_piV h₂ hm₂ hn₂
+  obtain ⟨hD₁, hS₁⟩ := lam_in_piV hm₁ hn₁
+  obtain ⟨hD₂, hS₂⟩ := lam_in_piV hm₂ hn₂
   have h₁' := h₁
   have h₂' := h₂
   rw [WellDenoted_lam] at h₁' h₂'
@@ -635,7 +631,7 @@ theorem lam_sound {Γ : List Expr} {T D E A₁ b₁ A₂ b₂ : Expr}
   have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [hD₁]; exact hx
   have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [hD₂]; exact hx
   refine hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂'.1, h₂'.2.1, hx₂⟩) (hwpi.2.2.1 x hx)
-    (hwpi.2.2.2 x hx) (h₁'.2.2.1 x hx₁) (h₂'.2.2.1 x hx₂) ?_ ?_
+    (hwpi.2.2.2 x hx) (h₁'.2.2 x hx₁) (h₂'.2.2 x hx₂) ?_ ?_
   · rw [hval (by rw [interp_lam]; exact hn₁) x hx₁]; exact app_mem_piSet hS₁ hx
   · rw [hval (by rw [interp_lam]; exact hn₂) x hx₂]; exact app_mem_piSet hS₂ hx
 
@@ -650,7 +646,7 @@ theorem eta_sound {Γ : List Expr} {T D E A₁ b₁ b : Expr}
   obtain ⟨hwpi, heT⟩ := hr ρ hs hwT hT.ne_pt
   rw [heT, interp_pi] at hm₁ hmb
   rw [WellDenoted_pi] at hwpi
-  obtain ⟨hD₁, hS₁⟩ := lam_in_piV h₁ hm₁ hn₁
+  obtain ⟨hD₁, hS₁⟩ := lam_in_piV hm₁ hn₁
   have h₁' := h₁
   rw [WellDenoted_lam] at h₁'
   have hsh : ∀ x, shiftE 1 0 (cons x ρ) = ρ := by
@@ -668,7 +664,7 @@ theorem eta_sound {Γ : List Expr} {T D E A₁ b₁ b : Expr}
     exact ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr (by rw [hsh]; exact hwb), trivial,
       by rw [interp_bvar, cons_zero, hlift]; exact appliesTo_of_mem_piR hmb hwpi.2.1 hx⟩
   have h := hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₁'.1, h₁'.2.1, hx₁⟩) (hwpi.2.2.1 x hx)
-    (hwpi.2.2.2 x hx) (h₁'.2.2.1 x hx₁) happ ?_ ?_
+    (hwpi.2.2.2 x hx) (h₁'.2.2 x hx₁) happ ?_ ?_
   · rw [h, interp_app, interp_bvar, cons_zero, hlift]
   · rw [interp_lam, lamV_eq_graph hn₁', hD₁] at hS₁
     rw [← app_graph (F := fun x => interp m.M φ (cons x ρ) b₁) hx]
@@ -723,8 +719,8 @@ theorem outer_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr}
   apply lamV_congr
   intro x hx
   have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, h₂.2.1, hx⟩) (h₁.2.2.1 x hx₁)
-    (h₂.2.2.1 x hx)
+  exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, h₂.2.1, hx⟩) (h₁.2.2 x hx₁)
+    (h₂.2.2 x hx)
 
 end DefEqLams
 

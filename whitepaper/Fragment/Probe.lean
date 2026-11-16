@@ -225,17 +225,7 @@ theorem interp_dType (ρ : Nat → V) : interp sortM φ ρ (.pi (.sort .zero) fx
 /-- `lamMixed` (`d`'s value) is well-denoted under `mixedM`. -/
 theorem WellDenoted_lamMixed (ρ : Nat → V) : WellDenoted mixedM φ ρ lamMixed := by
   rw [lamMixed, WellDenoted_lam]
-  refine ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_mixedBody φ ρ hx,
-    fun x => if x = one then typeU 0 else one, fun x hx => ?_, fun x _ => ?_⟩
-  · dsimp only
-    rw [interp_mixedBody φ ρ hx]
-    split
-    · exact one_mem_typeU_zero
-    · exact mem_one.mpr rfl
-  · dsimp only
-    split
-    · exact IsTy_typeU 0
-    · exact IsTy_one
+  exact ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_mixedBody φ ρ hx⟩
 
 theorem interp_lamMixed (ρ : Nat → V) : interp mixedM φ ρ lamMixed = lamV (typeU 0) dVal := by
   rw [lamMixed, interp_lam, interp_sort, Level.eval_zero]
@@ -425,14 +415,10 @@ theorem lam_congr_sorts_unsound [LevelOracle] (φ : Name → Nat) :
   · intro h
     have hw₁ : WellDenoted (sortM (V := V)) φ (fun _ => (pt : V)) lamD := by
       rw [lamD, WellDenoted_lam]
-      refine ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_dx φ hx, fVal, fun x hx => ?_,
-        fun x _ => IsTy_fVal x⟩
-      rw [interp_dx φ hx]; exact dVal_mem x
+      exact ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_dx φ hx⟩
     have hw₂ : WellDenoted (sortM (V := V)) φ (fun _ => (pt : V)) lamConst := by
       rw [lamConst, WellDenoted_lam]
-      refine ⟨trivial, IsTy_typeU 0, fun _ _ => trivial, fun _ => typeU 0, fun x _ => ?_,
-        fun _ _ => IsTy_typeU 0⟩
-      rw [interp_const, sortM_n]; exact one_mem_typeU_zero
+      exact ⟨trivial, IsTy_typeU 0, fun _ _ => trivial⟩
     have hv₁ : interp (sortM (V := V)) φ (fun _ => (pt : V)) lamD = lamV (typeU 0) dVal := by
       rw [lamD, interp_lam, interp_sort, Level.eval_zero]
       exact lamV_congr fun x hx => interp_dx φ hx

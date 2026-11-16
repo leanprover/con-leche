@@ -130,7 +130,7 @@ there. The step must expand the major as found, before any reduction
 of it, and also when it already is a constructor application. A major
 that denotes the point may reduce to a term that is not well-denoted,
 and the projections of that reduct break the reduction claim
-(#src("whitepaper/Fragment/EtaIota.lean", 698, 715)[the witness]).
+(#src("whitepaper/Fragment/EtaIota.lean", 697, 714)[the witness]).
 For a structure without fields the step is K's step
 (#src("whitepaper/Fragment/EtaIota.lean", 349, 356)[the reducts coincide]). The fragment
 has no projections, so this step is a theorem about the claims, and

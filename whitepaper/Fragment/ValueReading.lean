@@ -155,9 +155,7 @@ theorem WellDenoted_mixedBody {x : V} (hx : x ∈ˢ typeU 0) :
     WellDenoted mixedM φ (cons x ρ) mixedBody := by
   have hinner : WellDenoted mixedM φ (cons x ρ) (.lam (.app (.const eName []) (.bvar 0)) (.bvar 0)) := by
     rw [WellDenoted_lam]
-    exact ⟨WellDenoted_Ex φ ρ hx, IsTy_interp_Ex φ ρ hx, fun _ _ => trivial,
-      fun _ => interp mixedM φ (cons x ρ) (.app (.const eName []) (.bvar 0)),
-      fun h hh => hh, fun _ _ => IsTy_interp_Ex φ ρ hx⟩
+    exact ⟨WellDenoted_Ex φ ρ hx, IsTy_interp_Ex φ ρ hx, fun _ _ => trivial⟩
   rw [mixedBody, WellDenoted_app]
   refine ⟨hinner, trivial, appliesTo_of_mem_piV (A := typeU 0)
     (B := fun _ => if x = one then typeU 0 else one) ?_
@@ -185,22 +183,10 @@ theorem lam_congr_untyped_unsound [LevelOracle] (φ : Name → Nat) (ρ : Nat �
   refine ⟨.refl, .redL .beta .refl, fun h => ?_⟩
   have hw₁ : WellDenoted mixedM φ ρ lamMixed := by
     rw [lamMixed, WellDenoted_lam]
-    refine ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_mixedBody φ ρ hx,
-      fun x => if x = one then typeU 0 else one, fun x hx => ?_, fun x _ => ?_⟩
-    · dsimp only
-      rw [interp_mixedBody φ ρ hx]
-      split
-      · exact one_mem_typeU_zero
-      · exact mem_one.mpr rfl
-    · dsimp only
-      split
-      · exact IsTy_typeU 0
-      · exact IsTy_one
+    exact ⟨trivial, IsTy_typeU 0, fun x hx => WellDenoted_mixedBody φ ρ hx⟩
   have hw₂ : WellDenoted mixedM φ ρ lamConst := by
     rw [lamConst, WellDenoted_lam]
-    refine ⟨trivial, IsTy_typeU 0, fun _ _ => trivial, fun _ => typeU 0, fun x _ => ?_,
-      fun _ _ => IsTy_typeU 0⟩
-    rw [interp_const, mixedM_n]; exact one_mem_typeU_zero
+    exact ⟨trivial, IsTy_typeU 0, fun _ _ => trivial⟩
   have hn₁ : interp mixedM φ ρ lamMixed ≠ pt := by
     rw [lamMixed, interp_lam]
     refine lamV_ne_pt_of (x := one) one_mem_typeU_zero ?_
