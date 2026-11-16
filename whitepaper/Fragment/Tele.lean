@@ -331,11 +331,11 @@ theorem WellDenoted_mkAppN_of_spineOk (ρ : Nat → V) :
       SpineOk (interp M φ ρ f) (args.map (interp M φ ρ)) → WellDenoted M φ ρ (Expr.mkAppN f args)
   | _, [], hf, _, _ => hf
   | f, a :: args, hf, has, hok => by
-    obtain ⟨⟨p, A, B, hslot, hmem, hB, hT⟩, hrest⟩ := hok
+    obtain ⟨happ, hrest⟩ := hok
     rw [Expr.mkAppN_cons]
     refine WellDenoted_mkAppN_of_spineOk ρ ?_ (fun b hb => has b (List.mem_cons_of_mem a hb)) hrest
     rw [WellDenoted_app]
-    exact ⟨hf, has a List.mem_cons_self, p, A, B, hslot, hmem, hB, hT⟩
+    exact ⟨hf, has a List.mem_cons_self, happ⟩
 
 /-- Values fitting a well-denoted telescope the head inhabits form a
 well-formed application chain. -/
@@ -347,7 +347,7 @@ theorem spineOk_of_teleFitV :
     obtain ⟨hmem, hfit'⟩ := hfit
     rw [WellDenoted_pi] at hT
     rw [interp_pi] at hf
-    exact ⟨⟨_, _, _, hf, hmem, fun hp => propB_eq_true.mp hp, fun _ => hT.2.1⟩,
+    exact ⟨appliesTo_of_mem_piR hf hT.2.1 hmem,
       spineOk_of_teleFitV (hT.2.2.1 v hmem) (app_mem_piV hf hmem) hfit'⟩
   | _ :: _, .bvar _, _, _, _, _, h => h.elim
   | _ :: _, .sort _, _, _, _, _, h => h.elim

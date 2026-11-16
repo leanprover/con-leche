@@ -203,14 +203,14 @@ theorem interp_propToType (ρ : Nat → V) :
 
 theorem WellDenoted_fx {ρ : Nat → V} (hx : ρ 0 ∈ˢ typeU 0) : WellDenoted sortM φ ρ fx := by
   rw [fx, WellDenoted_app]
-  refine ⟨trivial, trivial, _, typeU 0, fun _ => typeU 1, ?_, hx,
-    fun hp => propB_eq_true.mp hp, fun _ => IsTy_typeU 0⟩
+  refine ⟨trivial, trivial, appliesTo_of_mem_piV (A := typeU 0) (B := fun _ => typeU 1) ?_
+    (IsTy_typeU 0) hx⟩
   rw [interp_const, sortM_F]; exact F_mem
 
 theorem WellDenoted_dx {ρ : Nat → V} (hx : ρ 0 ∈ˢ typeU 0) : WellDenoted sortM φ ρ dx := by
   rw [dx, WellDenoted_app]
-  refine ⟨trivial, trivial, _, typeU 0, fVal, ?_, hx,
-    fun hp => propB_eq_true.mp hp, fun _ => IsTy_typeU 0⟩
+  refine ⟨trivial, trivial, appliesTo_of_mem_piV (A := typeU 0) (B := fVal) ?_
+    (IsTy_typeU 0) hx⟩
   rw [interp_const, sortM_d]; exact d_mem
 
 theorem WellDenoted_dType (ρ : Nat → V) : WellDenoted sortM φ ρ (.pi (.sort .zero) fx) := by

@@ -56,12 +56,12 @@ tuple is #src("whitepaper/Fragment/IndLib.lean", 64)[$!= pt$].
 
 These two need no rule; they are built into the model, and §2 used
 the first already. A proposition denotes a
-#src("whitepaper/Fragment/Lib.lean", 142, 148)[truth value], a subset of
+#src("whitepaper/Fragment/Lib.lean", 141, 147)[truth value], a subset of
 ${pt}$, so any two proofs of any two propositions denote the same
 set. That is the proof-irrel case of @thm:sound, which
 #src("ConLeche/Model/Rules/DefEqSound.lean", 282, 284)[never compared the two propositions]. And two
 propositions that imply each other have
-#src("whitepaper/Fragment/Lib.lean", 173, 174)[the same truth value], by extensionality of sets. This is Lean's
+#src("whitepaper/Fragment/Lib.lean", 172, 173)[the same truth value], by extensionality of sets. This is Lean's
 axiom `propext`, which therefore
 #src("ConLeche/Model/AxiomMem.lean", 261, 268)[holds in the model].
 
@@ -130,7 +130,7 @@ there. The step must expand the major as found, before any reduction
 of it, and also when it already is a constructor application. A major
 that denotes the point may reduce to a term that is not well-denoted,
 and the projections of that reduct break the reduction claim
-(#src("whitepaper/Fragment/EtaIota.lean", 707, 724)[the witness]).
+(#src("whitepaper/Fragment/EtaIota.lean", 698, 715)[the witness]).
 For a structure without fields the step is K's step
 (#src("whitepaper/Fragment/EtaIota.lean", 349, 356)[the reducts coincide]). The fragment
 has no projections, so this step is a theorem about the claims, and

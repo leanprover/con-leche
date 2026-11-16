@@ -249,21 +249,11 @@ theorem appList_of_wd (M : Name → List Nat → V) (φ : Name → Nat) {ρ : Na
     have hne₀ : interp M φ ρ f ≠ pt := fun h => hne₁ (by rw [interp_app, h, app_pt])
     have hwa : WellDenoted M φ ρ (Expr.app f a) := (WellDenoted_mkAppN' M φ hw).1
     rw [WellDenoted_app] at hwa
-    obtain ⟨-, -, p, A', B, hslot, hmem, -⟩ := hwa
-    rw [hf, lamCtx_append, lamCtx_cons, lamCtx_nil] at hslot hne₀
-    -- the abstraction is a graph, and its domain is the slot's
-    have hg := lamV_eq_graph hne₀
-    rw [hg] at hslot
-    have hp : p = false := by
-      cases p
-      · rfl
-      · exact absurd (eq_pt_of_mem_piR_true hslot) graph_ne_pt
-    subst hp
-    have hown : graph (fun x => lamCtx M φ (cons x ρ₀) Γ' F) (interp M φ ρ₀ A)
-        ∈ˢ piR false (interp M φ ρ₀ A) fun x => sing (lamCtx M φ (cons x ρ₀) Γ' F) := by
-      rw [piR_false]; exact graph_mem_piSet fun _ _ => mem_sing.mpr rfl
-    have hAA := piR_dom_unique hown hslot
-    rw [← hAA] at hmem
+    obtain ⟨-, -, hap⟩ := hwa
+    rw [hf, lamCtx_append, lamCtx_cons, lamCtx_nil] at hap hne₀
+    -- the abstraction is a graph, and its domain holds the argument
+    rw [lamV_eq_graph hne₀] at hap
+    have hmem := (appliesTo_graph.mp hap).2
     -- the step
     have hstep : interp M φ ρ (Expr.app f a) = lamCtx M φ (cons (interp M φ ρ a) ρ₀) Γ' F := by
       rw [interp_app, hf, lamCtx_append, lamCtx_cons, lamCtx_nil, app_lamV hmem]
@@ -294,12 +284,10 @@ theorem lamCtx_mem_piCtx_if (M : Name → List Nat → V) (φ : Name → Nat) {c
   · exact hpt rfl vs hvs
 
 /-- An application chain extended by one argument: the chain so far,
-and the slot of the last argument at the chain's value. -/
+and the last argument applied to the chain's value (`AppliesTo`). -/
 theorem SpineOk_append_single {f : V} : ∀ {ws : List V} {v : V},
     SpineOk f (ws ++ [v]) ↔
-      SpineOk f ws ∧ ∃ (p : Bool) (A : V) (B : V → V),
-        appList f ws ∈ˢ piR p A B ∧ v ∈ˢ A ∧ (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) ∧
-          (p = false → IsTy A)
+      SpineOk f ws ∧ AppliesTo (appList f ws) v
   | [], v => by
     show (_ ∧ True) ↔ (True ∧ _)
     rw [and_true, true_and, appList_nil]
@@ -328,8 +316,8 @@ theorem spineOk_of_piCtx (M : Name → List Nat → V) (φ : Name → Nat) {ρ :
       rw [FitsVals_cons] at hfit
       rw [piCtx_cons] at hf
       rw [List.reverse_cons, SpineOk_append_single]
-      exact ⟨ih hf hfit.1 hdom.1, _, _, _, appList_mem_of_piCtx M φ hf hfit.1, hfit.2,
-        fun hp => propB_eq_true.mp hp, fun _ => hdom.2 vs hfit.1⟩
+      exact ⟨ih hf hfit.1 hdom.1,
+        appliesTo_of_mem_piR (appList_mem_of_piCtx M φ hf hfit.1) (hdom.2 vs hfit.1) hfit.2⟩
 
 /-! ## Reading a block -/
 

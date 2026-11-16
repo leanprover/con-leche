@@ -141,8 +141,8 @@ theorem interp_mixedBody {x : V} (hx : x ∈ˢ typeU 0) :
 theorem WellDenoted_Ex {x : V} (hx : x ∈ˢ typeU 0) :
     WellDenoted mixedM φ (cons x ρ) (.app (.const eName []) (.bvar 0)) := by
   rw [WellDenoted_app]
-  refine ⟨trivial, trivial, false, typeU 0, fun _ => typeU 1, ?_, hx, nofun,
-    fun _ => IsTy_typeU 0⟩
+  refine ⟨trivial, trivial, appliesTo_of_mem_piR (p := false) (B := fun _ => typeU 1) ?_
+    (IsTy_typeU 0) hx⟩
   rw [interp_const, mixedM_E, piR_false]
   refine graph_mem_piSet fun y _ => ?_
   split
@@ -159,9 +159,9 @@ theorem WellDenoted_mixedBody {x : V} (hx : x ∈ˢ typeU 0) :
       fun _ => interp mixedM φ (cons x ρ) (.app (.const eName []) (.bvar 0)),
       fun h hh => hh, fun _ _ => IsTy_interp_Ex φ ρ hx⟩
   rw [mixedBody, WellDenoted_app]
-  refine ⟨hinner, trivial, _, typeU 0, fun _ => if x = one then typeU 0 else one, ?_,
-    by rw [interp_const, mixedM_n]; exact one_mem_typeU_zero,
-    fun hp => propB_eq_true.mp hp, fun _ => IsTy_typeU 0⟩
+  refine ⟨hinner, trivial, appliesTo_of_mem_piV (A := typeU 0)
+    (B := fun _ => if x = one then typeU 0 else one) ?_
+    (IsTy_typeU 0) (by rw [interp_const, mixedM_n]; exact one_mem_typeU_zero)⟩
   show _ ∈ˢ piV _ _
   rw [interp_lam, interp_Ex φ ρ hx]
   by_cases h1 : x = one
