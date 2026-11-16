@@ -122141,7 +122141,6 @@ Data: kept in `_tmp/597`: the scripts (`bin/run.sh`, `scripts/curve.py`, `script
 `scripts/replay2.lean`, `scripts/names2.lean`), the probe sources (`probe/P*.lean`) and the run
 logs (`logs/`).  The fetched archive, the joined `.olean` tree and the worktree were removed.
 
-
 ## TASK #596 — the scheduler in its own module subtree; `--schedule-commands` (2026-11-16, agent/596-schedule-tree)
 
 Maintainer's rulings: contain the scheduler in a module subtree, still one executable, split
