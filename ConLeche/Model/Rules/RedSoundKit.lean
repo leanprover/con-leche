@@ -260,8 +260,8 @@ theorem appCongrV {σ : Nat → V} {f a f' a' : Term}
     (h : WellDenoted V σ (.app f a)) : WellDenoted V σ (.app f' a') := by
   have h1 := h
   rw [WellDenoted_app] at h1 ⊢
-  obtain ⟨-, -, v, A, B, h2, h3, h4⟩ := h1
-  exact ⟨hgf', hga', v, A, B, heqf ▸ h2, heqa ▸ h3, h4⟩
+  obtain ⟨-, -, h2⟩ := h1
+  exact ⟨hgf', hga', by rw [← heqf, ← heqa]; exact h2⟩
 
 /-! ## `projNV`'s grading under equal-valued subjects -/
 
@@ -371,17 +371,6 @@ theorem mkAppN_head {ρ : Nat → V} :
     have h' : WellDenoted V ρ (.app f a) := mkAppN_head as h
     exact (cast (WellDenoted_app V ρ f a) h').1
 
-/-- **The ι-slot transfer, one slot**: a graph member of two function
-spaces fixes their common domain; a member of a truth-value slot is the
-point, which no graph is. -/
-theorem slotTransfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
-    (hv : v ≠ 0) (hf : f ∈ˢ piR v A B)
-    (hslot : f ∈ˢ piR v' A' B') (ha : a ∈ˢ A') : a ∈ˢ A := by
-  by_cases hv' : v' = 0
-  · subst hv'
-    exact absurd (eq_pt_of_mem_piR_zero hslot) (mem_piR_pos hv hf).2.2.2
-  · rw [piR_dom_unique hv hv' hf hslot]; exact ha
-
 /-! ## The spine kit — `Verify/Denote/Lemmas.lean`, imported
 
 `DenoteSpine` and its list algebra (`length`, `getD_read`,
@@ -400,6 +389,11 @@ theorem _root_.ConLeche.Semantics.WellDenoted.app_fn {ρ : Nat → V} {f x : Ter
 theorem _root_.ConLeche.Semantics.WellDenoted.app_arg {ρ : Nat → V} {f x : Term}
     (h : WellDenoted V ρ (.app f x)) : WellDenoted V ρ x :=
   (cast (WellDenoted_app V ρ f x) h).2.1
+
+/-- The application clause of a graded application. -/
+theorem _root_.ConLeche.Semantics.WellDenoted.app_clause {ρ : Nat → V} {f x : Term}
+    (h : WellDenoted V ρ (.app f x)) : AppliesTo (interp V ρ f) (interp V ρ x) :=
+  (cast (WellDenoted_app V ρ f x) h).2.2
 
 theorem _root_.ConLeche.Semantics.WellDenoted.pi_dom {ρ : Nat → V} {A B : Term}
     (h : WellDenoted V ρ (.pi A B)) : WellDenotedTy V ρ A :=
@@ -423,7 +417,7 @@ theorem _root_.ConLeche.Semantics.WellDenoted.lam_dom {ρ : Nat → V} {A b : Te
 theorem _root_.ConLeche.Semantics.WellDenoted.lam_body {ρ : Nat → V} {A b : Term}
     (h : WellDenoted V ρ (.lam A b)) :
     ∀ x, x ∈ˢ interp V ρ A → WellDenoted V (cons x ρ) b := fun x hx =>
-  (cast (WellDenoted_lam V ρ A b) h).2.2.1 x hx
+  (cast (WellDenoted_lam V ρ A b) h).2.2 x hx
 
 /-- "Not pt" source (1): a graded type is not the point. -/
 theorem _root_.ConLeche.Model.WellDenotedTy.ne_pt {ρ : Nat → V} {e : Term}
@@ -708,8 +702,8 @@ theorem wd_interp_mkAppN {ρ : Nat → V} :
   | a :: vs, f, g, hw, hi => by
     refine wd_interp_mkAppN vs (f := .app f a) (g := .app g a) (fun h => ?_) ?_
     · rw [WellDenoted_app] at h ⊢
-      obtain ⟨hf, ha, v, A, B, hm, rest⟩ := h
-      exact ⟨hw hf, ha, v, A, B, hi ▸ hm, rest⟩
+      obtain ⟨hf, ha, happ⟩ := h
+      exact ⟨hw hf, ha, hi ▸ happ⟩
     · rw [interp_app, interp_app, hi]
 
 /-- The δ identity's core: the unfolded head, applied to the subject's
@@ -804,8 +798,8 @@ theorem interp_mkAppN_of_pt {ρ : Nat → V} {f : Term} (hf : interp V ρ f = pt
 /-- **A graded application that is not the point fits its head's
 ∀-telescope** ("not pt" source (2)): every prefix of the spine is not
 the point (`app_pt`), so a prefix's type is in the graph regime
-(`eq_pt_of_mem_piR_zero`), and the argument's own application slot
-puts it in the telescope's domain (`slotTransfer`). -/
+(`mem_piSet_of_mem_piV`), and the argument's own application clause
+puts it in the telescope's domain (`AppliesTo.mem`). -/
 theorem teleFitPA_of_graded_ne_pt {ρ : Nat → V} :
     ∀ (vs : List Term) {T f : Term},
       PiChain vs.length T → WellDenoted V ρ T → interp V ρ f ∈ˢ interp V ρ T →
@@ -818,15 +812,13 @@ theorem teleFitPA_of_graded_ne_pt {ρ : Nat → V} :
     have hg' : WellDenoted V ρ (Term.mkAppN (.app f x) xs) := hg
     have hne' : interp V ρ (Term.mkAppN (.app f x) xs) ≠ pt := hne
     have happ : WellDenoted V ρ (.app f x) := mkAppN_head xs hg'
-    obtain ⟨v', A', B', hslot, hx, -⟩ := (cast (WellDenoted_app V ρ f x) happ).2.2
+    have hap := happ.app_clause
     have hmem' := hmem
     rw [interp_pi] at hmem'
     have hfne : interp V ρ f ≠ pt := by
       intro h0
       exact hne' (interp_mkAppN_of_pt (by rw [interp_app, h0, app_pt]) xs)
-    have hgr : interp V ρ f ∈ˢ piR 1 (interp V ρ A) fun y => interp V (cons y ρ) B := by
-      rw [piR_pos Nat.one_ne_zero]; exact mem_piSet_of_mem_piV hmem' hfne
-    have hxA : interp V ρ x ∈ˢ interp V ρ A := slotTransfer Nat.one_ne_zero hgr hslot hx
+    have hxA : interp V ρ x ∈ˢ interp V ρ A := hap.mem (mem_piSet_of_mem_piV hmem' hfne)
     have hokx : WellDenoted V ρ x := happ.app_arg
     have hBx : WellDenoted V ρ (B.inst x) :=
       (WellDenoted_inst0 _ hokx).mpr (hT.pi_body _ hxA)

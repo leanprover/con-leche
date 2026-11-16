@@ -20,7 +20,7 @@ the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
-(#src("ConLeche/Model/Inductives/FixKit.lean", 671, 676)[its typing
+(#src("ConLeche/Model/Inductives/FixKit.lean", 667, 672)[its typing
 and ι laws]).]
 
 #left-out[Mutual inductive types][Several types declared together,
@@ -39,12 +39,12 @@ constructor form when reduction needs it
 binary `Nat` operations] on literals with machine arithmetic. The folding is sound only for
 the operations as the toolchain defines them, so the checker compares
 each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a pinned copy] and the model
-#src("ConLeche/Model/NatEqs.lean", 1053, 1057)[establishes the operations' recurrences] from that comparison.]
+#src("ConLeche/Model/NatEqs.lean", 1046, 1050)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
 axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2505, 2511)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2489, 2495)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker has hand-written
@@ -107,7 +107,7 @@ which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 *Free variables carry their types.* The paper uses named variables and a
 context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
-#src("ConLeche/Kernel/Expr.lean", 433, 435)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
+#src("ConLeche/Kernel/Expr.lean", 435, 437)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
 context, and two free variables are #src("ConLeche/Rules/Rel.lean", 370, 371)[compared by depth alone]. Stored types are closed
 terms, and `Denotes`, the relation the main theorem is stated over

@@ -190,14 +190,16 @@ allocates the shifted `Nat` for a big `n`: +18 % instructions on the
 big-literal walk of C20's ck318.) -/
 @[noinline] def natHashWordBound : Nat := 18446744073709551616
 
-/-- **The hash of a `Nat` literal** (task #547): lean4#16146's
+/-- **The hash of a `Nat` literal** (task #598): lean4#16146's
 `Literal.natHash`, the number itself below `2^64`, all its 64-bit words
 mixed above (fixes lean4#15686).  `Hashable Nat` is `n mod 2^64` alone,
 so literals that agree in their low 64 bits shared one hash (DESIGN
-#561).  Below `2^64` the hash is computed here (by the inline scalar
-comparison and conversion); above, by
-the vendored C `natBigHash` (`Kernel/NatHash.lean`; remove once the
-toolchain provides `Literal.natHash`).  An `Expr` node
+#598).  Below `2^64` the hash is computed here (by the inline scalar
+comparison and conversion); above, by the vendored C `natBigHash`
+(`Kernel/NatHash.lean`; at the bump to a toolchain that ships
+lean4#16146 this definition becomes
+`@[extern "lean_nat_hash"] opaque natHash (n : @& Nat) : UInt64`, the
+runtime's own hash, and the C and `natHashWordBound` go).  An `Expr` node
 computes it once, at construction (the computed field `Expr.data`).  The
 `.olean` reader never reads Lean's stored hashes
 (`Frontend/Olean/Region.lean`), so this hash is ours alone; it is

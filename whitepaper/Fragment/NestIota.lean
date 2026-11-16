@@ -47,7 +47,7 @@ induction with the class's minors read at the point
 regime-free translations between the container's own field fit and
 the translated constructor's (`FitsFields_classFields_of_KS`,
 `KS_FitsFields_of_classFields`); the nested law's application chain is
-the point's (`spineOk_pt_of_mem`).
+the point's (`spineOk_pt`).
 
 **What is left out.**  The plain law of a `T.rec_1` rule drops the
 RECURSOR's parameter count from the constructor's spine; when the
@@ -2143,13 +2143,7 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     refine ⟨?_, ?_, ?_⟩
     · -- the invariant
       simp only [ihValN]
-      refine WellDenoted_mkLams_sem _ _ ?_ ?_ ?_
-        (G := fun ρ₁ => appList (ρ₁ (tele.length + c.fields.length + S.oN N - 1))
-          ((es.map fun e => interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us) ρ₁
-            (Expr.atCtx c.fields.length k 0 (S.oN N) tele.length e)) ++
-            [interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us) ρ₁
-              (Expr.mkAppN (.bvar (tele.length + c.fields.length - 1 - k))
-                (Expr.varsAt 0 tele.length))]))
+      refine WellDenoted_mkLams _ _ ?_ ?_
       · have h := CtxWD_liftCtx_atCtx (S.M₃N m.M N) (Level.substVal φ S.recLparams us) ρ
           (ihs := []) (l := 0) (fs := fs) (os := minsK ++ mins ++ [m1, m']) (ps := ps) rfl hf hosl
           (Nat.le_of_lt hk) tele
@@ -2157,15 +2151,7 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
         rw [h, hkd]
         exact hwdT
       · intro ys hys
-        have h := hcall ys ((hfitT ys).mp hys)
-        refine ⟨h.1, ?_⟩
-        rw [h.2.1]
-        exact h.2.2.1
-      · intro ys hys
-        have h := hcall ys ((hfitT ys).mp hys)
-        rw [h.2.1]
-        exact IsTy_of_mem_typeU (hmot _ (hidx k _ hkf' hk ys ((hfitT ys).mp hys)) _
-          (S.reflBody_sub _ _ _ _ (appList_mem_of_piCtx m.M _ hget ((hfitT ys).mp hys))))
+        exact (hcall ys ((hfitT ys).mp hys)).1
     · -- the hypothesis' set
       dsimp only [IhTypedN, ihValN]
       rw [interp_mkLams, hl, hkd]
@@ -2435,31 +2421,11 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
 /-! ## The ι laws of `T.rec_1`'s rules -/
 
 omit [LevelOracle] hs m hok in
-/-- The point applied to values each lying in some set is a
-well-formed application chain (at a proposition the chain's slots are
-propositional function spaces, which the point inhabits). -/
-theorem spineOk_pt_of_mem : ∀ {vs : List V}, (∀ v ∈ vs, ∃ A : V, v ∈ˢ A) → SpineOk (pt : V) vs
-  | [], _ => trivial
-  | v :: vs, h => by
-    obtain ⟨A, hA⟩ := h v List.mem_cons_self
-    refine ⟨⟨true, A, fun _ => one, ?_, hA, fun _ _ _ => one_mem_univ_zero, fun h => nomatch h⟩, ?_⟩
-    · rw [piR_true]; exact pt_mem_truthVal fun _ _ => rfl
-    · rw [app_pt]; exact spineOk_pt_of_mem fun w hw => h w (List.mem_cons_of_mem v hw)
-
-omit [LevelOracle] hs m hok in
-/-- Every value of a telescope fit lies in the domain it meets. -/
-theorem TeleFitV_mem (M' : Name → List Nat → V) (φ' : Name → Nat) :
-    ∀ {ρ : Nat → V} {T : Expr} {vs : List V}, TeleFitV M' φ' ρ T vs → ∀ v ∈ vs, ∃ A : V, v ∈ˢ A
-  | _, _, [], _, _, h => by simp at h
-  | _, .pi A B, v :: vs, ⟨hv, hrest⟩, w, hw => by
-    rcases List.mem_cons.mp hw with rfl | hw
-    · exact ⟨_, hv⟩
-    · exact TeleFitV_mem M' φ' hrest w hw
-  | _, .bvar _, _ :: _, h, _, _ => h.elim
-  | _, .sort _, _ :: _, h, _, _ => h.elim
-  | _, .const _ _, _ :: _, h, _, _ => h.elim
-  | _, .app _ _, _ :: _, h, _, _ => h.elim
-  | _, .lam _ _, _ :: _, h, _, _ => h.elim
+/-- The point applied to any values is a well-formed application chain
+(the point applies to anything). -/
+theorem spineOk_pt : ∀ vs : List V, SpineOk (pt : V) vs
+  | [] => trivial
+  | v :: vs => ⟨appliesTo_pt v, by rw [app_pt]; exact spineOk_pt vs⟩
 
 omit [LevelOracle] hs m hok in
 /-- No value walks into an application of a constant (a telescope ends

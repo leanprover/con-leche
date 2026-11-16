@@ -15,11 +15,11 @@ invariant **records what is a type** — a truth value or a strict set
 (`IsTy`, `Lib.lean`), the sets whose members are all the point or none
 of them:
 
-* an application applies a member of some function space `piR p A B`
-  to a member of its domain `A`; at a proposition (`p`) the fibres are
-  truth values, above it the domain is a type;
-* a λ's domain is a type, the body is well-denoted at every value of
-  the domain, and some family of types bounds it;
+* an application's argument is in the function's domain, `a ∈ dom(f)`
+  (`AppliesTo`): the function is the point, or a graph whose domain is
+  a type holding the argument;
+* a λ's domain is a type and the body is well-denoted at every value
+  of the domain;
 * a Π's domain is a type, the body is well-denoted at every value of
   the domain and denotes a type there;
 * a `let` has its value well-denoted, and its body well-denoted at the
@@ -30,8 +30,8 @@ of them:
 The regime of a binder is no datum of the term (task #344): it is
 read off these values by the interpretation, and the type clauses are
 what makes that reading coherent — an abstraction is a member of its
-function space (`SetLib.lamV_mem`) because every fibre is a
-type.  The predicate transports along `Expr.inst` by the substitution
+function space (`SetLib.lamV_mem`) when its body values lie in types,
+which the typing rules supply (`Infer.lam_sound`).  The predicate transports along `Expr.inst` by the substitution
 lemmas of `Interp.lean` (`WellDenoted_inst0`); a β step at a redex that
 is not the point keeps the denotation and the invariant
 (`Sound.lean`, `Red.beta_sound`).
@@ -42,7 +42,10 @@ member of it — the semantic reading of `Γ ⊢`.
 
 Con-leche's `ConLeche/Semantics/WellDenoted.lean` is the same recursive
 definition on its terms `Term`, with the same type clauses and
-further ones for their projections, equalities and proof term.
+further ones for their projections, equalities and proof term; it
+states the application clause through a function space holding the
+head, whose domain is a type holding the argument, which implies
+`AppliesTo` (`appliesTo_of_mem_piR`).
 -/
 
 namespace Fragment
@@ -53,23 +56,17 @@ universe u
 variable {V : Type u} [SetLib V] (M : Name → List Nat → V) (φ : Name → Nat)
 
 /-- **The semantic invariant** (see the module docstring): a binder's
-domain is a type; a binder's codomain fibres are types; an application
-in the graph regime has a type as its slot's domain. -/
+domain is a type; a Π's codomain fibres are types; an application's
+argument is in the function's domain (`AppliesTo`). -/
 def WellDenoted : (Nat → V) → Expr → Prop
   | _, .bvar _ => True
   | _, .sort _ => True
   | _, .const _ _ => True
   | ρ, .app f a =>
-    WellDenoted ρ f ∧ WellDenoted ρ a ∧
-      ∃ (p : Bool) (A : V) (B : V → V),
-        interp M φ ρ f ∈ˢ piR p A B ∧ interp M φ ρ a ∈ˢ A ∧
-        (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) ∧ (p = false → IsTy A)
+    WellDenoted ρ f ∧ WellDenoted ρ a ∧ AppliesTo (interp M φ ρ f) (interp M φ ρ a)
   | ρ, .lam A b =>
     WellDenoted ρ A ∧ IsTy (interp M φ ρ A) ∧
-      (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted (cons x ρ) b) ∧
-      ∃ B : V → V,
-        (∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) b ∈ˢ B x) ∧
-        (∀ x, x ∈ˢ interp M φ ρ A → IsTy (B x))
+      (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted (cons x ρ) b)
   | ρ, .pi A B =>
     WellDenoted ρ A ∧ IsTy (interp M φ ρ A) ∧
       (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted (cons x ρ) B) ∧
@@ -85,18 +82,13 @@ def WellDenoted : (Nat → V) → Expr → Prop
 theorem WellDenoted_app (ρ : Nat → V) (f a : Expr) :
     WellDenoted M φ ρ (.app f a) ↔
       (WellDenoted M φ ρ f ∧ WellDenoted M φ ρ a ∧
-        ∃ (p : Bool) (A : V) (B : V → V),
-          interp M φ ρ f ∈ˢ piR p A B ∧ interp M φ ρ a ∈ˢ A ∧
-          (p = true → ∀ x, x ∈ˢ A → B x ∈ˢ univ 0) ∧ (p = false → IsTy A)) := by
+        AppliesTo (interp M φ ρ f) (interp M φ ρ a)) := by
   rw [WellDenoted]
 
 theorem WellDenoted_lam (ρ : Nat → V) (A : Expr) (b : Expr) :
     WellDenoted M φ ρ (.lam A b) ↔
       (WellDenoted M φ ρ A ∧ IsTy (interp M φ ρ A) ∧
-        (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) b) ∧
-        ∃ B : V → V,
-          (∀ x, x ∈ˢ interp M φ ρ A → interp M φ (cons x ρ) b ∈ˢ B x) ∧
-          (∀ x, x ∈ˢ interp M φ ρ A → IsTy (B x))) := by
+        (∀ x, x ∈ˢ interp M φ ρ A → WellDenoted M φ (cons x ρ) b)) := by
   rw [WellDenoted]
 
 theorem WellDenoted_pi (ρ : Nat → V) (A : Expr) (B : Expr) :
@@ -125,12 +117,9 @@ theorem WellDenoted_liftN (n : Nat) :
   | lam A b ihA ihb =>
     intro k ρ
     rw [Expr.liftN_lam, WellDenoted_lam, WellDenoted_lam, ihA, interp_liftN]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · rw [ihb, cons_shiftE]
-    · rw [interp_liftN, cons_shiftE]
+    refine and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl ?_))
+    rw [ihb, cons_shiftE]
   | pi A B ihA ihB =>
     intro k ρ
     rw [Expr.liftN_pi, WellDenoted_pi, WellDenoted_pi, ihA, interp_liftN]
@@ -170,12 +159,9 @@ theorem WellDenoted_inst :
     rw [Expr.inst_lam, WellDenoted_lam, WellDenoted_lam, ihA a k ρ ha, interp_inst]
     have ha' : ∀ x, WellDenoted M φ (shiftE (k + 1) 0 (cons x ρ)) a := by
       intro x; rwa [shiftE_succ_cons]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl ?_)
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    · rw [ihb a (k + 1) (cons x ρ) (ha' x), shiftE_succ_cons, cons_instE]
-    · rw [interp_inst, shiftE_succ_cons, cons_instE]
+    refine and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl ?_))
+    rw [ihb a (k + 1) (cons x ρ) (ha' x), shiftE_succ_cons, cons_instE]
   | pi A B ihA ihB =>
     intro a k ρ ha
     rw [Expr.inst_pi, WellDenoted_pi, WellDenoted_pi, ihA a k ρ ha, interp_inst]
@@ -213,11 +199,8 @@ theorem WellDenoted_instL (ps : List Name) (ls : List Level) :
   | lam A b ihA ihb =>
     intro ρ
     rw [Expr.instL_lam, WellDenoted_lam, WellDenoted_lam, ihA, interp_instL]
-    refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl (ihb _))
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl)))
-    rw [interp_instL]
+    exact and_congr Iff.rfl (and_congr Iff.rfl
+      (forall_congr' fun x => imp_congr Iff.rfl (ihb _)))
   | pi A B ihA ihB =>
     intro ρ
     rw [Expr.instL_pi, WellDenoted_pi, WellDenoted_pi, ihA, interp_instL]
@@ -231,21 +214,20 @@ theorem WellDenoted_instL (ps : List Name) (ls : List Level) :
 
 /-! ### Establishing the application clause -/
 
-/-- **The application slot, from the function's type**: a function in a
+/-- **The application clause, from the function's type**: a function in a
 Π's interpretation and an argument in the Π's domain make a
-well-denoted application, the Π's own clauses supplying the regime's
-component. -/
+well-denoted application, the Π's own clauses supplying that the
+domain is a type. -/
 theorem WellDenoted_app_of {ρ : Nat → V} {f a A B : Expr}
     (hf : WellDenoted M φ ρ f) (ha : WellDenoted M φ ρ a)
     (hpi : WellDenoted M φ ρ (.pi A B))
     (hmemf : interp M φ ρ f ∈ˢ interp M φ ρ (.pi A B))
     (hmema : interp M φ ρ a ∈ˢ interp M φ ρ A) :
     WellDenoted M φ ρ (.app f a) := by
-  rw [WellDenoted_pi] at hpi
   rw [WellDenoted_app]
-  exact ⟨hf, ha, propB (interp M φ ρ A) (fun x => interp M φ (cons x ρ) B), interp M φ ρ A,
-    fun x => interp M φ (cons x ρ) B, hmemf, hmema, fun hp => propB_eq_true.mp hp,
-    fun _ => hpi.2.1⟩
+  rw [interp_pi] at hmemf
+  rw [WellDenoted_pi] at hpi
+  exact ⟨hf, ha, appliesTo_of_mem_piR hmemf hpi.2.1 hmema⟩
 
 /-! ## Contexts -/
 

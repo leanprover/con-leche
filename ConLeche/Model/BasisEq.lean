@@ -84,22 +84,13 @@ theorem eqSpine_interp {ψ : Name → Nat} {i j k : Nat} {ρ : Nat → V}
   rw [eqSpine, interp_app, interp_app, interp_app, hAi, haj, hbk,
     eqValT_app₃ ψ ρ Aset a b hA ha hb]
 
-theorem eqReflSpine_data {ψ : Name → Nat} {i j : Nat} {ρ : Nat → V}
-    {Aset a : V} (hi : ρ i = Aset) (hj : ρ j = a)
-    (hA : Aset ∈ˢ (univ (ψ uN) : V)) (ha : a ∈ˢ Aset) :
+theorem eqReflSpine_data {ψ : Name → Nat} {i j : Nat} {ρ : Nat → V} :
     interp V ρ (eqReflSpine ψ i j) = (pt : V) ∧
       WellDenoted V ρ (eqReflSpine ψ i j) := by
   have hpt : interp V ρ (eqReflValT ψ) = (pt : V) :=
     eqReflValT_interp ψ ρ
-  have hAi : interp V ρ (Term.bvar i) = Aset := by
-    rw [interp_bvar, hi]
-  have haj : interp V ρ (Term.bvar j) = a := by
-    rw [interp_bvar, hj]
-  have h1 := WellDenoted_app_pt (S := (univ (ψ uN) : V))
-    (a := Term.bvar i) (eqReflValT_wellDenoted ψ ρ) hpt
-    trivial (by rw [hAi]; exact hA)
-  have h2 := WellDenoted_app_pt (S := Aset) (a := Term.bvar j)
-    h1.1 h1.2 trivial (by rw [haj]; exact ha)
+  have h1 := WellDenoted_app_pt (a := Term.bvar i) (eqReflValT_wellDenoted ψ ρ) hpt trivial
+  have h2 := WellDenoted_app_pt (a := Term.bvar j) h1.1 h1.2 trivial
   exact ⟨h2.2, h2.1⟩
 
 /-! ## `Eq` and `Eq.refl` -/
@@ -363,7 +354,6 @@ theorem eqRecMinorTy_data {ψ : Name → Nat} {Aset a M : V}
       app (app M a) pt ∈ˢ (univ (ψ u1N) : V) := by
   obtain ⟨hrint, hrok⟩ := eqReflSpine_data (ψ := ψ) (i := 2) (j := 1)
     (ρ := cons M (cons a (cons Aset ρ)))
-    (by simp [cons]) (by simp [cons]) hA ha
   have hM0 : M ∈ˢ piV Aset (fun b => piV (eqv a b)
       fun _ => (univ (ψ u1N) : V)) := hM
   have hMa : app M a ∈ˢ piV (eqv a a) fun _ => (univ (ψ u1N) : V) :=
@@ -379,11 +369,11 @@ theorem eqRecMinorTy_data {ψ : Name → Nat} {Aset a M : V}
     rw [eqRecMinorTy, interp_app, interp_app, hrint, hMb, hab]
   refine ⟨hint, ⟨?_, by rw [hint]; exact IsTy_of_mem_univ hMap⟩, hMap⟩
   rw [eqRecMinorTy, WellDenoted_app]
-  refine ⟨?_, hrok, slot_of_mem_piV V (by rw [interp_app, hMb, hab]; exact hMa)
-    (by rw [hrint]; exact pt_mem_eqv_self a) (IsTy_eqv a a)⟩
+  refine ⟨?_, hrok, appliesTo_of_mem_piV (by rw [interp_app, hMb, hab]; exact hMa)
+    (IsTy_eqv a a) (by rw [hrint]; exact pt_mem_eqv_self a)⟩
   rw [WellDenoted_app]
-  exact ⟨trivial, trivial, slot_of_mem_piV V (by rw [hMb]; exact hM0)
-    (by rw [hab]; exact ha) (IsTy_of_mem_univ hA)⟩
+  exact ⟨trivial, trivial, appliesTo_of_mem_piV (by rw [hMb]; exact hM0)
+    (IsTy_of_mem_univ hA) (by rw [hab]; exact ha)⟩
 
 /-- **The major premise collapses the block**: an inhabitant of
 `eqv a b` identifies `a` with `b` and is itself the canonical proof.
@@ -1108,11 +1098,11 @@ theorem eqRecTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
         exact IsTy_of_mem_univ (app_mem_piV hMb hh))
     rw [hsint] at hh
     rw [WellDenoted_app]
-    refine ⟨?_, trivial, slot_of_mem_piV V (by rw [interp_app, hM3, hb1]; exact hMb)
-      (by rw [hh0]; exact hh) (IsTy_eqv a bb)⟩
+    refine ⟨?_, trivial, appliesTo_of_mem_piV (by rw [interp_app, hM3, hb1]; exact hMb)
+      (IsTy_eqv a bb) (by rw [hh0]; exact hh)⟩
     rw [WellDenoted_app]
-    exact ⟨trivial, trivial, slot_of_mem_piV V (by rw [hM3]; exact hM0)
-      (by rw [hb1]; exact hbb) (IsTy_of_mem_univ hA)⟩
+    exact ⟨trivial, trivial, appliesTo_of_mem_piV (by rw [hM3]; exact hM0)
+      (IsTy_of_mem_univ hA) (by rw [hb1]; exact hbb)⟩
   have h5 : ∀ Aset a M mn : V, Aset ∈ˢ (univ (ψ uN) : V) →
       a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
       WellDenoted V (cons mn (cons M (cons a (cons Aset ρ))))

@@ -36,7 +36,7 @@ stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]
 of the environment, used at a list of levels $arrow(ell)$,
-#src("ConLeche/Kernel/Expr.lean", 433, 443)[one per level parameter] of its declaration.
+#src("ConLeche/Kernel/Expr.lean", 435, 445)[one per level parameter] of its declaration.
 
 $
   e & colon.double.eq dots | c.\{arrow(ell)\}
@@ -94,9 +94,9 @@ let the model read a stored term without looking at anything
 that is added later, because the interpretation of a term depends only on
 the constants and the free variables it mentions and the level
 parameters it uses
-(#src("whitepaper/Fragment/Hygiene.lean", 593, 595)[constants],
+(#src("whitepaper/Fragment/Hygiene.lean", 585, 587)[constants],
 #src("whitepaper/Fragment/Hygiene.lean", 466, 468)[variables],
-#src("whitepaper/Fragment/Hygiene.lean", 656, 658)[parameters]).
+#src("whitepaper/Fragment/Hygiene.lean", 644, 646)[parameters]).
 
 *The interpretation, extended.* The interpretation of @sec:interp
 gains one parameter, an _assignment_ $M$ of a set to every constant
@@ -119,7 +119,7 @@ invariant gains the clause that a constant, like a variable or a
 sort, is always well-denoted.
 
 *The contract.* What the soundness theorem, extended below,
-assumes of the environment is #src("whitepaper/Fragment/EnvModel.lean", 298, 362)[a _model_]: an
+assumes of the environment is #src("whitepaper/Fragment/EnvModel.lean", 293, 357)[a _model_]: an
 assignment $M(c, arrow(n))$ of a set to every constant $c$ and every
 list of natural numbers $arrow(n)$ (the values of its level
 parameters), satisfying two laws (four more, for inductive types,
@@ -130,10 +130,10 @@ the semantic invariant of @sec:inv.
 
 #definition(name: "Model of an environment")[
   #set enum(numbering: "1.")
-  + #src("whitepaper/Fragment/EnvModel.lean", 302, 310)[Typing]: for every $(c.\{arrow(p)\} : T) in E$,
+  + #src("whitepaper/Fragment/EnvModel.lean", 297, 305)[Typing]: for every $(c.\{arrow(p)\} : T) in E$,
     $ rho models T[arrow(p) := arrow(ell)], quad lden T[arrow(p) := arrow(ell)] rden_rho "is a type", quad "and" quad
       M(c, phi(arrow(ell))) in lden T[arrow(p) := arrow(ell)] rden_rho. $
-  + #src("whitepaper/Fragment/EnvModel.lean", 311, 317)[Unfolding]: for every $(c.\{arrow(p)\} : T := v) in E$,
+  + #src("whitepaper/Fragment/EnvModel.lean", 306, 312)[Unfolding]: for every $(c.\{arrow(p)\} : T := v) in E$,
     $ rho models v[arrow(p) := arrow(ell)] quad "and" quad
       lden v[arrow(p) := arrow(ell)] rden_rho = M(c, phi(arrow(ell))). $
 ] <def:model>
@@ -148,18 +148,18 @@ the declared level parameters.
   (#src("ConLeche/Model/Env/EnvModelM.lean", 229, 252)[the carrier's invariant]).
 ]
 
-The empty environment #src("whitepaper/Fragment/EnvModel.lean", 364, 373)[has a model
+The empty environment #src("whitepaper/Fragment/EnvModel.lean", 359, 368)[has a model
 trivially]: any assignment, and laws with nothing to say.
 
 *Soundness, extended.* @thm:sound holds for the relations extended by
 the three rules above, with one more hypothesis: fix a model of the
 environment, a valuation $phi$, and let $rho$ satisfy $Gamma$; then
-the three claims #src("whitepaper/Fragment/Sound.lean", 2322, 2326)[hold as stated], and
+the three claims #src("whitepaper/Fragment/Sound.lean", 2293, 2297)[hold as stated], and
 @cor:closed holds under every model. The induction of @sec:claims
 gains three cases, one per rule.
 
 #proof[
-  *#src("whitepaper/Fragment/Sound.lean", 144, 150)[Rule delta]*, $c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
+  *#src("whitepaper/Fragment/Sound.lean", 137, 143)[Rule delta]*, $c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
   definition $c$ with parameters $arrow(p)$ and value $v$, at
   $|arrow(ell)| = |arrow(p)|$ levels: \
   Law 2 says the instantiated
@@ -168,14 +168,14 @@ gains three cases, one per rule.
   The redex's semantic invariant is not used.
   @thm:install-def shows the law holds when a definition is added.
 
-  *#src("whitepaper/Fragment/Sound.lean", 177, 179)[Rule const, equality]*,
+  *#src("whitepaper/Fragment/Sound.lean", 170, 172)[Rule const, equality]*,
   $c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
   $arrow(ell) eq.dot arrow(ell)'$ pointwise: \
   The oracle answers yes
   only if the levels agree at every valuation (@sec:levels), so the
   two constants #src("ConLeche/Model/Rules/DefEqSound.lean", 70, 72)[read the same entry of $M$].
 
-  *#src("whitepaper/Fragment/Sound.lean", 276, 281)[Rule const, inference]*,
+  *#src("whitepaper/Fragment/Sound.lean", 267, 272)[Rule const, inference]*,
   $c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$: \
   The constant is
   well-denoted, and law 1 says its instantiated type is well-denoted,

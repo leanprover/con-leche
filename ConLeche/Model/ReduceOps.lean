@@ -41,11 +41,7 @@ context kit collapses to `elemA`/`sat_elemCtx` below.
 
 `DefEqClaim` compares **graded** readings.  The certificate
 variable's side is free (`WellDenoted` of a `.bvar` is `True`); the
-applied side's `WellDenoted` app clause needs the *applied* membership
-
-> `∃ v A' B', interp ρ (A ψ) ∈ˢ piR v A' B' ∧ x ∈ˢ A' ∧
->   (v = 0 → ∀ y ∈ˢ A', B' y ∈ˢ univZero)`
-
+applied side's `WellDenoted` app clause needs `AppliesTo (interp ρ (A ψ)) x`,
 and every part of it is already established at the install:
 
 * the pin fixes the stored type to `.forallE (.const E []) (.const E [])`
@@ -54,8 +50,7 @@ and every part of it is already established at the install:
   and `interp` of it is a `piV` over the element set;
 * the `piV` membership is the constant's own `mem_type` obligation
   (`hmemA`, which `harvestOpaque` proves anyway);
-* the slot's numeral is the value-read `propN`, whose `v = 0` fibre
-  clause is `propN_eq_zero`.
+* the application clause is `appliesTo_of_mem_piV` at that membership.
 
 The preservation half is `reduceOps_cons_fresh` (`DivMod.lean`,
 beside its `eq_law` sibling — the law mentions two stored leaves, so
@@ -349,11 +344,7 @@ theorem reduceOps_install
     have hm := hmemA ψ ρ'
     rw [hTaShape ψ, interp_pi, hfib] at hm
     rw [WellDenoted_app]
-    refine ⟨hAok ψ ρ', by simp, ?_⟩
-    exact ⟨_, interp V ρ' (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ),
-      fun _ => interp V ρ'
-        (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ),
-      hm, hslot ρ' hsat, propN_eq_zero.mp, fun _ => helemTy ψ ρ'⟩
+    exact ⟨hAok ψ ρ', by simp, appliesTo_of_mem_piV hm (helemTy ψ ρ') (hslot ρ' hsat)⟩
   -- both sides are members of the element type
   have hmemApp : ∀ ρ' : Nat → V, Sat V (elemCtx mp.base2 cv.name ψ) ρ' →
       interp V ρ' (.app (A ψ) (.bvar 0))

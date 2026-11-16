@@ -202,9 +202,7 @@ theorem natArg_succ (m : EnvModel V env) {ψ : Name → Nat}
   rw [hnatEq] at hsucc hNty
   refine ⟨?_, ?_⟩
   · rw [WellDenoted_app]
-    exact ⟨m.acval_wellDenoted _ _ ρ, htok,
-      1, natLeafV m ψ ρ, fun _ => natLeafV m ψ ρ, hsucc, htm,
-      fun h => absurd h Nat.one_ne_zero, fun _ => hNty⟩
+    exact ⟨m.acval_wellDenoted _ _ ρ, htok, appliesTo_of_mem_piR hsucc hNty htm⟩
   · rw [interp_app]
     exact app_mem_piR_pos Nat.one_ne_zero hsucc htm
 
@@ -267,15 +265,11 @@ theorem natBinHead_app (m : EnvModel V env) {ψ : Name → Nat}
     app_mem_piR hinner hym hB2
   refine ⟨?_, ?_⟩
   · rw [WellDenoted_app]
-    refine ⟨?_, hyok, b₂, natLeafV m ψ ρ, fun _ => codS ρ, ?_, hym, ?_, fun _ => hNty⟩
+    refine ⟨?_, hyok, ?_⟩
     · rw [WellDenoted_app]
-      exact ⟨hfok, hxok, b₁, natLeafV m ψ ρ,
-        fun _ => piR b₂ (natLeafV m ψ ρ) (fun _ => codS ρ), hfm, hxm,
-        fun hz => hB1 hz, fun _ => hNty⟩
+      exact ⟨hfok, hxok, appliesTo_of_mem_piR hfm hNty hxm⟩
     · rw [interp_app]
-      exact hinner
-    · intro hz z hz'
-      exact hB2 hz z hz'
+      exact appliesTo_of_mem_piR hinner hNty hym
   · rw [interp_app, interp_app]
     exact houter
 
@@ -296,8 +290,7 @@ theorem natUnHead_app (m : EnvModel V env) {ψ : Name → Nat}
       ∈ˢ codS ρ := app_mem_piR hfm hxm hB1
   refine ⟨?_, ?_⟩
   · rw [WellDenoted_app]
-    exact ⟨hfok, hxok, b₁, natLeafV m ψ ρ, fun _ => codS ρ, hfm, hxm,
-      fun hz => hB1 hz, fun _ => hNty⟩
+    exact ⟨hfok, hxok, appliesTo_of_mem_piR hfm hNty hxm⟩
   · rw [interp_app]
     exact happ
 

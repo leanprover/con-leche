@@ -170,25 +170,6 @@ theorem strict_sigmaPairs {A : V} {B : V → V} : Strict (sigmaPairs A B) :=
 
 theorem IsTy_of_strict {X : V} (h : Strict X) : IsTy X := Or.inr h
 
-/-- **Every set is a member of some type** (task #342, L5): `{pt}` for the
-point, `{y}` for a set that is neither the point nor its tag, and
-`{ptTag, ∅}` for the tag. -/
-theorem exists_IsTy_mem (y : V) : ∃ T : V, IsTy T ∧ y ∈ˢ T := by
-  by_cases hp : y = pt
-  · subst hp
-    exact ⟨unitSet, Or.inl (mem_univZero.mpr (Subset.refl _)), pt_mem_unitSet⟩
-  by_cases ht : y = ptTag
-  · subst ht
-    refine ⟨upair ptTag empty, Or.inr ⟨fun h => ?_, fun h => ?_⟩, mem_upair.mpr (Or.inl rfl)⟩
-    · have he : (empty : V) ∈ˢ pt := h ▸ mem_upair.mpr (Or.inr rfl)
-      exact ne_empty_of_mem empty_mem_ptTag (mem_pt.mp he).symm
-    · rcases mem_upair.mp h with h | h
-      · have he : (empty : V) ∈ˢ pt := h ▸ empty_mem_ptTag
-        exact ne_empty_of_mem empty_mem_ptTag (mem_pt.mp he).symm
-      · exact pt_ne_empty h
-  · refine ⟨sing y, Or.inr ⟨fun h => ht (mem_pt.mp (h ▸ mem_sing.mpr rfl)),
-      fun h => hp (mem_sing.mp h).symm⟩, mem_sing.mpr rfl⟩
-
 /-! ## The sorts themselves -/
 
 theorem univZero_mem_tg_succ (n : Nat) : (univZero : V) ∈ˢ tg (n + 1) := by

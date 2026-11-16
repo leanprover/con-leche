@@ -6,7 +6,7 @@ open Lean
 
 The instrument behind `scripts/code-stats.py --executed`.  In the
 environment of the executable's root module (`Main`, the `con-leche`
-exe of `lakefile.toml`), it walks the **compiled IR** from `main`: a
+exe of `lakefile.lean`), it walks the **compiled IR** from `main`: a
 declaration is reached when a reached IR body names it in a full
 application (`fap`), a partial application (`pap`, a closure), or as
 a constant.  The IR is what the binary links, so `@[implemented_by]`,

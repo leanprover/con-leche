@@ -38,8 +38,7 @@ membership.
 
 `Nat → Nat` sits at result sort `1`, so the successor's function space is in
 the **graph regime** and `app_mem_piR_pos` applies with no fibre
-premise; the app slot's kind-`0` component is vacuous for the same
-reason. -/
+premise. -/
 theorem natLit_factsAV {ρ : Nat → V} {za sa natA : Term}
     (hokz : WellDenoted V ρ za) (hoks : WellDenoted V ρ sa)
     (hz : interp V ρ za ∈ˢ interp V ρ natA)
@@ -57,8 +56,7 @@ theorem natLit_factsAV {ρ : Nat → V} {za sa natA : Term}
     refine ⟨?_, ?_⟩
     · show WellDenoted V ρ (.app sa (natLitT za sa n))
       rw [WellDenoted_app]
-      exact ⟨hoks, ihA, 1, _, _, hsucc, ihm,
-        fun h => absurd h Nat.one_ne_zero, fun _ => hnat⟩
+      exact ⟨hoks, ihA, appliesTo_of_mem_piR hsucc hnat ihm⟩
     · show interp V ρ (.app sa (natLitT za sa n)) ∈ˢ _
       rw [interp_app]
       exact app_mem_piR_pos Nat.one_ne_zero hsucc ihm

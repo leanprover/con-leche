@@ -584,29 +584,14 @@ theorem ihVal_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     refine ⟨?_, ?_, ?_⟩
     · -- the invariant
       simp only [ihVal]
-      refine WellDenoted_mkLams_sem _ _ ?_ ?_ ?_
-        (G := fun ρ₁ => appList (ρ₁ (tele.length + c.fields.length + S.n))
-          ((es.map fun e => interp (S.M₃ m.M) (Level.substVal φ S.recLparams us) ρ₁
-            (Expr.atCtx c.fields.length k 0 (S.n + 1) tele.length e)) ++
-            [interp (S.M₃ m.M) (Level.substVal φ S.recLparams us) ρ₁
-              (Expr.mkAppN (.bvar (tele.length + c.fields.length - 1 - k))
-                (Expr.varsAt 0 tele.length))]))
+      refine WellDenoted_mkLams _ _ ?_ ?_
       · have h := CtxWD_liftCtx_atCtx (S.M₃ m.M) (Level.substVal φ S.recLparams us) ρ
           (ihs := []) (l := 0) (fs := fs) (os := mins ++ [m']) (ps := ps) rfl hf hosl (Nat.le_of_lt hk) tele
         simp only [consList_nil] at h
         rw [h, hkd]
         exact hwdT
       · intro ys hys
-        have h := hcall ys ((hfitT ys).mp hys)
-        refine ⟨h.1, ?_⟩
-        rw [h.2.1]
-        exact h.2.2.1
-      · intro ys hys
-        have h := hcall ys ((hfitT ys).mp hys)
-        rw [h.2.1]
-        exact IsTy_of_mem_typeU (R₃.R.motiveOk_of_mem hS hps hp hm _
-          (hidx.2.1 k _ hkf' hk ys ((hfitT ys).mp hys)) _
-          (S.reflBody_sub _ _ _ _ (appList_mem_of_piCtx m.M _ hget ((hfitT ys).mp hys))))
+        exact (hcall ys ((hfitT ys).mp hys)).1
     · -- the hypothesis' set
       dsimp only [IhTyped, ihVal]
       rw [interp_mkLams, hl, hkd]

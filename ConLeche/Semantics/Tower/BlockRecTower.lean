@@ -121,16 +121,13 @@ theorem wd_andAV {P Q : Term} {ρ : Nat → V} (hP : WellDenoted V ρ P) (hQ : W
     rw [interp_lam, lamV_congr fun x _ => by rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]]
   show WellDenoted V ρ (.app (.app (.const .psigma [0, 0]) P) (.lam P (Q.liftN 1 0)))
   rw [WellDenoted_app]
-  refine ⟨?_, ?_, 1, psigmaFibreSpace V 0 (interp V ρ P), fun _ => (univ 0 : V), ?_, ?_,
-    fun h0 => absurd h0 Nat.one_ne_zero, fun _ => IsTy_piV⟩
+  refine ⟨?_, ?_, appliesTo_of_mem_piR (v := 1) (A := psigmaFibreSpace V 0 (interp V ρ P))
+    (B := fun _ => (univ 0 : V)) ?_ IsTy_piV ?_⟩
   · rw [WellDenoted_app]
-    exact ⟨trivial, hP, 1, univ 0, fun A => piR 1 (psigmaFibreSpace V 0 A) fun _ => (univ 0 : V),
-      hps, hP', fun h0 => absurd h0 Nat.one_ne_zero, fun _ => IsTy_univ 0⟩
+    exact ⟨trivial, hP, appliesTo_of_mem_piR hps (IsTy_univ 0) hP'⟩
   · rw [WellDenoted_lam]
-    refine ⟨hP, Or.inl hPu, fun x _ => ?_, fun _ => (univ 0 : V), fun x _ => ?_,
-      fun _ _ => IsTy_univ 0⟩
-    · rw [WellDenoted_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hQ
-    · rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hQ'
+    refine ⟨hP, Or.inl hPu, fun x _ => ?_⟩
+    rw [WellDenoted_liftN, shiftE_succ_cons, shiftE_zero_zero]; exact hQ
   · show SetTheory.app (psigmaV V 0 0) (interp V ρ P) ∈ˢ _
     exact app_mem_piR_pos Nat.one_ne_zero hps hP'
   · rw [hlam]
@@ -344,17 +341,13 @@ theorem wd_sigChainAV :
     show WellDenoted V ρ (.app (.app (.const .psigma [s, tailLv s Ts]) T)
       (.lam T (sigChainAV s Ts Q)))
     rw [WellDenoted_app]
-    refine ⟨?_, ?_, Nat.max s (tailLv s Ts) + 1, psigmaFibreSpace V (tailLv s Ts) (interp V ρ T),
-      fun _ => (univ (Nat.max s (tailLv s Ts)) : V), ?_, ?_,
-      fun h0 => absurd h0 (Nat.succ_ne_zero _), fun _ => IsTy_piV⟩
+    refine ⟨?_, ?_, appliesTo_of_mem_piR (v := Nat.max s (tailLv s Ts) + 1)
+      (A := psigmaFibreSpace V (tailLv s Ts) (interp V ρ T))
+      (B := fun _ => (univ (Nat.max s (tailLv s Ts)) : V)) ?_ IsTy_piV ?_⟩
     · rw [WellDenoted_app]
-      exact ⟨trivial, h.2.1, Nat.max s (tailLv s Ts) + 1, univ s, _, hps, h.1,
-        fun h0 => absurd h0 (Nat.succ_ne_zero _), fun _ => IsTy_univ s⟩
+      exact ⟨trivial, h.2.1, appliesTo_of_mem_piR hps (IsTy_univ s) h.1⟩
     · rw [WellDenoted_lam]
-      refine ⟨h.2.1, IsTy_of_mem_univ h.1, fun r hr => wd_sigChainAV (h.2.2 r hr),
-        fun _ => (univ (tailLv s Ts) : V), fun r hr => ?_, fun _ _ => IsTy_univ _⟩
-      rw [interp_sigChainAV (h.2.2 r hr)]
-      exact sigChainV_tail_univ (h.2.2 r hr)
+      exact ⟨h.2.1, IsTy_of_mem_univ h.1, fun r hr => wd_sigChainAV (h.2.2 r hr)⟩
     · show SetTheory.app (psigmaV V s (tailLv s Ts)) (interp V ρ T) ∈ˢ _
       exact app_mem_piR_pos (Nat.succ_ne_zero _) hps h.1
     · rw [interp_lam, lamV_congr fun r hr => interp_sigChainAV (h.2.2 r hr)]
@@ -465,14 +458,13 @@ theorem selChainAV_facts {ρ : Nat → V} {Ts : List Term} {Q : Term}
     refine ⟨?_, trivial, ?_⟩
     · rw [WellDenoted_app]
       refine ⟨trivial, wd_sigChainAV h, ?_⟩
-      show ∃ v A B, choiceV V s ∈ˢ piR v A B ∧ _
+      show AppliesTo (choiceV V s) _
       rw [interp_sigChainAV h]
-      exact piV_slot hchoice hu (IsTy_univ s)
-    · show ∃ v A B, SetTheory.app (choiceV V s) (interp V ρ (sigChainAV s Ts Q))
-        ∈ˢ piR v A B ∧ _
+      exact appliesTo_of_mem_piV hchoice (IsTy_univ s) hu
+    · show AppliesTo (SetTheory.app (choiceV V s) (interp V ρ (sigChainAV s Ts Q))) _
       rw [interp_sigChainAV h]
-      exact piV_slot (app_mem_piV hchoice hu) (pt_mem_dnegSpace_of hne.choose_spec)
-        (IsTy_piR _ _ _)
+      exact appliesTo_of_mem_piV (app_mem_piV hchoice hu) (IsTy_piR _ _ _)
+        (pt_mem_dnegSpace_of hne.choose_spec)
 
 /-- **THE KIT'S THEOREM**: at a formed, inhabited chain, the chosen
 element's projections are a fitting spine whose components satisfy

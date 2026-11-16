@@ -54,11 +54,11 @@ every term denotes a set, well-typed or not, and the interpretation
 uses nothing beyond what is in the term itself. In particular it uses
 no typing information, nothing that would have to be inferred. Where
 a typing judgement would say "this term has that type", there is a
-#src("whitepaper/Fragment/WellDenoted.lean", 58, 78)[semantic invariant]
+#src("whitepaper/Fragment/WellDenoted.lean", 61, 75)[semantic invariant]
 on the term's set, imposed at every subterm: every application applies
 a function to a member of its domain, every binder's domain is a type,
 and so on.
-#src("whitepaper/Fragment/Sound.lean", 2322, 2326)[One induction over the three relations]
+#src("whitepaper/Fragment/Sound.lean", 2293, 2297)[One induction over the three relations]
 then proves three claims at once. A reduction step preserves the
 denotation and the semantic invariant; a verdict "definitionally
 equal" means that the two sides denote the same set; and an inferred
@@ -76,7 +76,7 @@ element: the model has one distinguished set, _the point_, which every
 proof of every proposition denotes, so proof irrelevance is built in.
 The two cases look the same on the page, and telling them apart by
 the sort of `B` would take type inference. Our interpretation instead
-#src("whitepaper/Fragment/Lib.lean", 477, 481)[reads the answer off the values]:
+#src("whitepaper/Fragment/Lib.lean", 523, 527)[reads the answer off the values]:
 a `∀` denotes a truth value exactly when every one of its fibres (the
 set `B` denotes at a member of the domain) is a truth value, and a
 lambda denotes the point exactly when every value of its body is the point.
