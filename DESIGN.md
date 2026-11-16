@@ -122435,3 +122435,60 @@ demotable), plain-reach (638, all allowlisted), binary-link, olean gate 342/342,
 fixtures: `strict_succ_counter` 15.5 G instructions, `lit_hash_low_bits` 1.9 G, both accepted
 within their 10 s timeouts.  The whitepaper builds (`nix develop ./whitepaper -c
 whitepaper/build.sh`).  No `sorry`, no new axiom, no new `unsafe`, `implemented_by` or C.
+
+## TASK #601 — a self-contained GF(3) matrix-product benchmark modelled on C06's `ck97` (2026-11-16, agent/601-bench)
+
+Benchmark only; nothing in the checker changed, and the benchmark is not in the test suite (too
+heavy for e2e).  The perf streams belong to the kernel arena; the maintainer decides whether to
+submit it there.  Question (maintainer): a scaled-down, self-contained version of the workload of
+CFSG's `Fi24Seven.C06` theorem `ck97` (#597), about 10 GiB on the official kernel.
+
+**The file.**  `Gf3Mul.lean`, about 6 KB, no `import` (only `Init`), written by a generator
+(`gen.py D M_SMALL M_BIG OUT`, run as `gen.py 781 2 11`).  It keeps what `ck97` computes and
+nothing else:
+
+* `mul3s`, `mulLoop3` and `strictN` are CFSG's (`Orders/Mat3.lean`, `Common/Loop.lean`),
+  unchanged; `prodV` is `SlpMat.lean`'s; the constants `D`, `N`, `LO`, `RM`, `CI`, `ONE`, `MUL`
+  are `BrFi24`'s: 781×781 matrices over GF(3), each the pair of bit-sliced `Nat`s of 609 961 bits.
+* `word` is the letter pattern of `ck97`'s node 2176 (from CFSG's `plan.json.gz` and
+  `words.json.gz`): 87 letters over the chunk's 14 inputs, renumbered 0–13 by first appearance.
+  The first 45 letters alternate between two inputs.
+* The inputs are generated, not CFSG's: `G k` takes two bit strings from `Nat.pow b 32000`
+  (b = 1000003 + 2k and its successor; middle bits, masked to `N`) and sets entry 1 where only the
+  first is set, 2 where only the second is.
+* `fp m` is the product of the first `m` letters modulo 2^61 − 1; `small` (m = 2, one product)
+  and `big` (m = 11, ten products) state it equal to a constant, proved `by decide +kernel` (the
+  proof is the auxiliary theorem `small._proof_1_1`, checked once).  The constants come from
+  the same algorithm in Python (`gen.py`), which first checks itself against schoolbook GF(3)
+  multiplication at size 7; the kernel accepting both theorems confirms the two agree.  The
+  theorem compares a fingerprint, not the full product as `ck97`'s `outsOK` does, so that the
+  file stays small.
+
+**Exports.**  lean4export (its v4.35.0 tree, rebuilt in `_tmp/601/lean4export`: the old binary's
+nix interpreter is gone), `lean4export Gf3Mul -- Gf3Bench.small` (resp. `big`), format 3.1.0 like
+the arena streams: `gf3-mul-small.ndjson` 800 589 bytes, `gf3-mul-big.ndjson` 800 587 bytes,
+15 002 lines; most of it is `Init`'s `Nat.div`/`Nat.mod`/`Nat.bitwise` closure.
+
+**Measurements** (one run each, guard 30 GB, `timeout`; instructions:u of the whole process;
+peak = `time`'s maxrss, with the guard's RssAnon peak in brackets; the official kernel is #597's
+`replay2.lean` on the module with the two constants named, whose start costs 2.5 G and 0.9 GiB;
+con-leche is `modular` 8fbd4e80f, `--jobs=1 -- FILE.ndjson`):
+
+| run | instr | peak |
+|---|---|---|
+| Lean replay, `small` | 7.27 G | 2.16 GiB (1.66) |
+| Lean replay, `big` | 56.50 G | 11.43 GiB (10.34) |
+| `lean Gf3Mul.lean` (both theorems) | 59.38 G | 12.18 GiB (10.44) |
+| con-leche, `gf3-mul-small.ndjson` | 7.12 G | 1.25 GiB |
+| con-leche, `gf3-mul-big.ndjson` | 71.14 G | 10.50 GiB (9.78) |
+
+Wall times are 1–8 s (not a measurement on this machine).
+
+**Against C06.**  Per product (big − small, nine products): the official kernel 5.47 G
+instructions and 1.03 GiB (maxrss; 0.96 GiB RssAnon), con-leche 7.11 G and 1.03 GiB.  #597
+measured on `ck97`'s prefixes 5.3 G and 7.1 G, 1.0 GiB in both kernels.  con-leche/official:
+1.30 here, 1.34 on C06.  The memory grows linearly in both kernels, as in C06; the matrices are
+random rather than group elements, which does not change the sizes of the numbers.
+
+Files (in `_tmp/601/bench/`): `Gf3Mul.lean`, `gen.py`, `gf3-mul-small.ndjson`,
+`gf3-mul-big.ndjson`; the run script `_tmp/601/bin/run.sh` and the logs `_tmp/601/logs/`.
