@@ -120460,3 +120460,98 @@ one pass over every big literal built) and saves cycles on CCK4, where the probe
 collided: 219 G instructions, 145 G cycles against the probe's 382 G and 674 G.  Memory
 unchanged (ck318 peak 12.4 GiB both).  The remaining gaps to Lean (ck318 1.4× net instructions,
 CCK4 2.7×, McLEnumA 2×) are ground-reduction speed (#423), not the hash.
+
+## TASK #451 — handover: state, workflow and open items (2026-11-16)
+
+A starting point for whoever picks up task #451.  The lane records above
+(in the #451 section and after it) hold the details; this record says where
+things stand and how to work on them.
+
+**What exists.**  `InLean/` is a twin of the cached checker on `Lean.Expr`
+and `Lean.Kernel.Environment` (imports only Init, Std, Lean).  `InLeanProof/`
+proves `InLeanProof.addDeclSound` (and `no_false`) against master's
+SPECIFICATION, reusing master's cached-tier proof scripts; axioms
+`propext`, `Classical.choice`, `Quot.sound` and the three stop-gaps of
+`InLeanProof/MkDataAxioms.lean` (theorems in the lean4 PRs).
+`inlean-replay` replays an `.olean` environment (`--kernel=inlean|official`,
+`--compare`).  Shared as con-leche PR #19 (branch `agent/451-inlean`).
+Last synced master: d7d2b7c00.
+
+**Following master.**  The procedure is "How InLean follows master" in the
+"Lane spec-relation" record: `scripts/inlean-cached-diff.sh <last> <new>`
+plus `git log -p`, one decision per changed declaration, recorded in the
+sync's record.  The rule: a difference from master's cached code is fixed by
+changing the twin, never by re-proving against InLean's old code.  Proofs
+relate to the specification, so a cached-only change on master breaks no
+InLean proof: the checklist is what catches it.
+
+**The lean4 side.**  Two experimental PRs on leanprover/lean4, both based on
+lean4 master: #16410 (branch `joachim/inlean-add`, 08bb38d8) adds InLean to
+core without using it; #16353 (branch `joachim/inlean-kernel`, de56e62c) is
+based on #16410 and switches the kernel (deletes the C++ type checker, adds
+the core glue `src/Lean/Kernel/InLean/Core.lean`, `Lean.Replay`'s literal
+replay, the test changes).  Working steps:
+- Regenerate InLean with `scripts/inlean-sync.py generate <clone>/src/Lean/Kernel/InLean`
+  (`check` to verify); commit it on `joachim/inlean-add`, then
+  `git merge --no-ff joachim/inlean-add` into `joachim/inlean-kernel`.
+  `Core.lean` and `pins/` are core-only and edited in the clone.
+- To merge lean4 master: merge `origin/master` into the add branch, then
+  the add branch into the kernel branch.
+- Tests: the full stage1 suite (`async/elab/async_systems_info` fails in
+  the sandbox, on stock too); `tests/elab_bench` at `TEST_BENCH=1` through
+  `run_bench.sh` (not `run_test.sh`, which flags timing output); radar's
+  part 2 is `make bench-part2` on stage1 (delete the old
+  `*.measurements.jsonl`, including `bench/vcgen`'s, or make does nothing);
+  `leanchecker --fresh Init`; `tests/elab/inleanQuotTwice.lean`.  Build the
+  add branch in a separate worktree of the clone with its own build dir, so
+  the kernel branch's build stays usable.
+- Benchmarks: comment `!bench` on both PRs.  Radar's API compares any two
+  benchmarked commits:
+  `https://radar.lean-lang.org/api/compare/lean4/<a>/<b>/`
+  (`comparison.measurements`); per-run logs at
+  `/api/commits/lean4/<sha>/runs/{build,other}/`.  Compare the add branch
+  with its lean4 master base (cost of compiling InLean) and the kernel
+  branch with the add branch (cost of the switch).
+
+**Where it stands (radar, 2026-11-13).**  Adding InLean: build 1.032×,
+nothing else moves.  Switching: build 1.038×, type checking 1.44× the C++
+kernel's wall time, median module 1.009×, median `elab_bench` 1.058×;
+worst `Init.Data.Nat.Bitwise.Basic` 2.18× (certifies lean4 master's
+`Nat.land/lor/xor` since #578's pin variant), `grind_field_kernel_cancel`
+1.57×, `bv_stress_structures`/`cbv_*` about 1.5×.  On Init, InLean costs
+349.4 G against con-leche's 325.2 G (+7.5 %).  Analyses: no environment
+traversal on entry; the fixed cost per kernel call is 25–40 k instructions
+(about 2.5 % of the slowdown); the rest is the cost per term, shared with
+con-leche (memory management about 41 % of InLean's time against about 20 %
+for stock; ι's whnf of the major premise; instantiation).  On the arena,
+con-leche's lead on `init-full` comes from the official checker's NDJSON
+parse (24 % of its count); without it con-leche is 1.23× on Init and 0.84×
+on Mathlib (PERF.md).
+
+**Rulings given during the task** (besides those in the records above):
+InLean is as close to con-leche's production code as possible, faithful
+before fast; a fast direct calculation over a memo in InLean, where no
+reuse across declarations is possible; per-declaration memos only; error
+reporting is not a focus (tests are adjusted to `(InLean) …` messages); in
+the core glue, do only what the official kernel does (share a theorem's
+type and value for its check, install the original once); don't take the
+`mdata`-stripping route; master's departures from the official kernel go
+through master first.
+
+**Open.**
+- Not ruled on: whether the limits' poll should run only every N bodies
+  (up to 3.5 % inside Lean; the heartbeat limit would fire at a coarser,
+  still deterministic point).
+- Not ruled on: the literal flags computed at every `FEnv` build cost about
+  7 k instructions per declaration (tiny declarations +4–18 %, under
+  0.02 % of the build); kept in master's shape.
+- Idea: lean4#13375 (skip kernel-side sharing of theorems, relying on the
+  elaborator's `shareCommonPreDefs`); its own benchmarks were mixed.
+- Idea, for later: a fuel-free (`partial_fixpoint`) twin of the cached core
+  as a simulation target; the obstacle is that the cached core is stateful,
+  not only fuelled ("Lane spec-relation").
+- The compile of the 69-function `mutual` block in `CoreC` is a Lean
+  elaboration cost (well-founded termination goals); a reproducer went to
+  lean4 (#16409 already halved it).
+- The remaining type-checking gap is con-leche's cost per term; it is
+  addressed in con-leche's core, and InLean picks it up at each sync.
