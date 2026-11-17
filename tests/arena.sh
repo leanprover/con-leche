@@ -233,9 +233,8 @@ if tests/olean.sh; then :; else fail=1; fi
 # `scripts/selfcheck.sh --fresh` exports this tree's own development
 # (every con-leche declaration and its dependency cone, ~0.7 GB of
 # NDJSON) and runs the checker on it at `--verified --jobs=8`: under a
-# minute with the export (2 CPU-minutes); the first run in a checkout
-# also clones and builds `lean4export` at the tree's toolchain (it needs
-# the network once).  The gate is the checker's exit 0.
+# minute with the export (2 CPU-minutes); the exporter is the toolchain's
+# own `leanexport`.  The gate is the checker's exit 0.
 if [ "$SELFCHECK" = on ]; then
   if scripts/selfcheck.sh --fresh _tmp/selfcheck-gate > _tmp/selfcheck-gate.log 2>&1; then
     echo "selfcheck: $(grep -o 'accepted [0-9]* declarations' _tmp/selfcheck-gate.log | tail -1)"
@@ -244,8 +243,8 @@ if [ "$SELFCHECK" = on ]; then
     fail=1
   fi
   # THE OLEAN COMPARE: the records the olean reader makes of Init's closure
-  # are, record for record, lean4export's (the exporter the self-check built).
-  if tests/olean-compare.sh _tmp/selfcheck-gate/lean4export; then :; else fail=1; fi
+  # are, record for record, the toolchain's exporter's.
+  if tests/olean-compare.sh; then :; else fail=1; fi
 fi
 
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
