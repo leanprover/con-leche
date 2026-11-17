@@ -536,7 +536,7 @@ import hashlib
 NATIVE = {
     'lakefile.lean': ('c29722e0429fc5b4cc0342fa28ab243f7f64b6810289a2e5c181a016f2d022c9',
         'the build: the targets, and the C compile and link of native/'),
-    'native/nat_hash.c': ('4b51383deddefcd7d3945c4d3f65abcafd5a7b16c1643f66361364b626b7a020',
+    'native/nat_hash.c': ('82c433e24141511e997a50a488ddf267408a7b45188ee8829536c74fad2f851b',
         'natBigHash, the hash of a big Nat literal (vendored from lean4#16146)'),
 }
 NATIVE_EXT = ('.c', '.h', '.cc', '.cpp', '.S', '.s')

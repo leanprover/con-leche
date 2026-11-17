@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # scripts/selfcheck.sh — THE SELF-CHECK (task #199).
 #
-# Export con-leche's own Lean development with `lean4export` and run con-leche on
-# the result.  The checker whose consistency the tree proves is asked to
+# Export con-leche's own Lean development with the toolchain's `leanexport` and
+# run con-leche on the result.  The checker whose consistency the tree proves is asked to
 # accept the proof that says so.
 #
 # WHAT IS EXPORTED.  Not "the whole imported environment": `ConLeche` reaches
@@ -12,7 +12,7 @@
 # no declaration of ours depends on.  What is exported is **every
 # non-internal constant declared by a con-leche module, plus its transitive
 # dependency cone** — `scripts/SelfcheckDecls.lean` prints the root list,
-# `lean4export` walks the cone.  On master `2d36855d` (task #199) that
+# the exporter walks the cone.  On master `2d36855d` (task #199) that
 # is 15,738 roots and 34,417 exported declarations (17,062 theorems,
 # 16,315 definitions, 781 inductive blocks, 252 opaques, 4 quotient
 # constants, and exactly the 3 standard axioms `propext`, `Quot.sound`,
@@ -38,7 +38,7 @@
 #     is in no default target, has no `.olean` in a normal build, and
 #     nothing imports it, so it cannot enter the cone.
 #   * `ConLecheTests` — fixtures, not the development.
-#   * `unsafe` declarations.  `lean4export` skips them unless
+#   * `unsafe` declarations.  The exporter skips them unless
 #     `--export-unsafe` is given, and skips them even when they are
 #     reached as dependencies.  This is SAFE here and it was checked:
 #     the only `isUnsafe` constants in the cone are `ConLeche.Expr.beqB`,
@@ -61,23 +61,20 @@
 #     scripts/selfcheck.sh [--trusted] [--fresh] [OUTDIR]
 #
 #   The script's exit code is the checker's (0 = the self-check accepts).
-#   `--fresh` deletes OUTDIR's root list and export first (the exporter
-#   build is kept), so the check is of THIS tree — what
+#   `--fresh` deletes OUTDIR's root list and export first, so the check
+#   is of THIS tree — what
 #   `tests/arena.sh --selfcheck` runs.
 #
 #   OUTDIR defaults to `_tmp/selfcheck`.  Steps are skipped when their
 #   output is already there, so a re-run only redoes the check:
-#     $OUTDIR/lean4export/   the exporter, built at THIS tree's toolchain
 #     $OUTDIR/con-leche-decls.txt the root declaration list
 #     $OUTDIR/con-leche-export.ndjson  the export
 #     $OUTDIR/check.log      the checker's stderr, timestamped
 #
-# THE EXPORTER RECIPE.  `lean4export`'s output format tracks the Lean
-# version, so it must be built at the *same* toolchain as the tree.  The
-# upstream repo carries one `chore: bump toolchain to vX` commit per
-# release; this script finds the one whose `lean-toolchain` equals ours
-# and builds that.  (`_tmp/lean4export` in a dev checkout is a v4.29.1
-# build and is NOT usable here.)
+# THE EXPORTER.  `leanexport` in the repository toolchain's own `bin/`:
+# Lean ships an exporter since lean4#14885 (in releases after
+# v4.34.0-rc2), with lean4export's command line, and the toolchain's own
+# exporter is the one whose output format matches the tree's Lean.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -108,22 +105,10 @@ ROOTS=(ConLeche ConLeche.Term ConLeche.SetModel ConLeche.Semantics ConLeche.Mode
        ConLeche.Verify.Cached ConLeche.MainTheorem ConLeche.PinGen.Certs Main)
 
 # ---------------------------------------------------------------- 1/4
-L4E=$OUTDIR/lean4export
-if [ ! -x "$L4E/.lake/build/bin/lean4export" ]; then
-  echo "[selfcheck] building lean4export for $TOOLCHAIN"
-  rm -rf "$L4E"
-  git clone -q https://github.com/leanprover/lean4export "$L4E"
-  ( cd "$L4E"
-    # the newest commit whose lean-toolchain is ours
-    for c in $(git log --format=%H -- lean-toolchain); do
-      if [ "$(git show "$c:lean-toolchain")" = "$TOOLCHAIN" ]; then
-        git checkout -q "$c"; break
-      fi
-    done
-    [ "$(cat lean-toolchain)" = "$TOOLCHAIN" ] || {
-      echo "[selfcheck] no lean4export commit for $TOOLCHAIN" >&2; exit 3; }
-    lake build )
-fi
+EXPORT_BIN="$(lean --print-prefix)/bin/leanexport"
+[ -x "$EXPORT_BIN" ] || {
+  echo "[selfcheck] $TOOLCHAIN ships no leanexport ($EXPORT_BIN)" >&2; exit 3; }
+echo "[selfcheck] exporter: $EXPORT_BIN"
 
 # ---------------------------------------------------------------- 2/4
 if [ ! -s "$OUTDIR/con-leche-decls.txt" ]; then
@@ -138,7 +123,7 @@ echo "[selfcheck] $(wc -l < "$OUTDIR/con-leche-decls.txt") root declarations"
 # CHECK that is Mathlib-scale, not this.
 if [ ! -s "$OUTDIR/con-leche-export.ndjson" ]; then
   echo "[selfcheck] exporting"
-  timeout 3600 lake env "$L4E/.lake/build/bin/lean4export" "${ROOTS[@]}" \
+  timeout 3600 lake env "$EXPORT_BIN" "${ROOTS[@]}" \
     -- $(cat "$OUTDIR/con-leche-decls.txt") > "$OUTDIR/con-leche-export.ndjson"
 fi
 echo "[selfcheck] export: $(du -h "$OUTDIR/con-leche-export.ndjson" | cut -f1), \

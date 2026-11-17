@@ -47,7 +47,7 @@ A dump is named after the toolchain that FIRST needed it, not after
 the repository toolchain: a toolchain bump whose Init a committed pin set
 still matches adds nothing (maintainer's ruling, task #328:
 *"if the previous works with the new Init we should not add one"*) —
-Today the repository toolchain is v4.35.0 and its dump is the
+Today the repository toolchain is v4.36.0 and its dump is the
 nightly-2026-09-10 one; lean4 master's wf-recursion changes
 (2026-11-12) needed the newest dump, generated on
 nightly-2026-11-16 (task #578).  "Matches"
