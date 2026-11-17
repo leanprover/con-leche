@@ -97,7 +97,7 @@ theorem preBeth_lt_of_lt_ord (hκ : κ.IsInaccessible) :
     intro h
     rw [preBeth_limit ha.isSuccPrelimit]
     refine Cardinal.lift_iSup_lt_of_lt_cof_ord ?_ fun b => ih b b.2 (b.2.trans h)
-    rw [hκ.isRegular.lift.cof_ord, mk_Iio_ordinal, lift_lift, lift_lt]
+    rw [hκ.isRegular.lift.cof_ord, Ordinal.cardinalMk_Iio, lift_lift, lift_lt]
     exact lt_ord.mp h
 
 /-- `|V_ κ| = κ` for `κ` inaccessible. -/

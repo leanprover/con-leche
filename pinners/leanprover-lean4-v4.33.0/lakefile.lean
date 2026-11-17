@@ -21,12 +21,13 @@ open System Lake DSL
 --     PinDump                                the executable root
 --     ConLeche.PinGen{,.Dump,.Prelude}       the generator
 --     ConLeche.PinGen.Certs                  the certificate theorems
---     ConLeche.Kernel.{Name,PropWhen,Expr}   the checker's Expr datatypes
+--     ConLeche.Kernel.{PtrDecEq,Name,PropWhen,Exclusive,Expr}
+--                                            the checker's Expr datatypes
 --     ConLeche.Kernel.NatHash                the literal hash (its C below)
 --
 -- — and the last two lines are the reason the generator is not free-standing:
 -- a dump is an encoding of `ConLeche.Expr`, so the generator builds the
--- checker's expression datatypes.  Those three files, and the five
+-- checker's expression datatypes.  Those files, and the five
 -- above them, are written in the subset every toolchain accepts;
 -- that claim is not a hope, it is what this project's cold build
 -- checks, on every toolchain, in `tests/pindump.sh` and in CI.
@@ -46,16 +47,26 @@ open System Lake DSL
 --      `ConLeche/PinGen/Certs.lean`) and say at its top why it is
 --      forked and how it differs.
 --
--- No fork exists today, which is why the root stays the whole
--- `ConLeche` hierarchy: any module the cone grows into then resolves
--- without editing this file.  `lake build` here builds the executable
--- and nothing else, so that root is never built as a library.
+-- THIS PINNER FORKS `ConLeche.Kernel.PtrDecEq`: its toolchain predates
+-- lean4's `withPtrEq` change of 2026-11 (the repository toolchain,
+-- v4.36.0, has it), so its `withPtrEqDecEq` takes no pointer test and its
+-- `withPtrEq` hides the body `withPtrEq_eq` needs.  The shared library
+-- below lists the cone explicitly, minus that module and `NatHash` (the
+-- native section's), and `PinnerFork` serves the fixed copy from this
+-- directory.  The v4.33.0, v4.34.0-rc2 and nightly-2026-09-10 pinners
+-- hold the same copy.
 
 package pinner
 
 lean_lib ConLecheShared where
   srcDir := "../.."
-  roots := #[`ConLeche]
+  roots := #[`ConLeche.PinGen, `ConLeche.PinGen.Dump, `ConLeche.PinGen.Prelude,
+    `ConLeche.PinGen.Certs, `ConLeche.Kernel.Name, `ConLeche.Kernel.PropWhen,
+    `ConLeche.Kernel.Expr, `ConLeche.Kernel.Exclusive]
+
+lean_lib PinnerFork where
+  srcDir := "."
+  roots := #[`ConLeche.Kernel.PtrDecEq]
 
 @[default_target]
 lean_exe «natop-pins-export» where

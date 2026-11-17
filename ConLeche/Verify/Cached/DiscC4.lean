@@ -440,25 +440,45 @@ theorem Runs.whnfCore_easy {c : Bool} {d : Nat} {i : Expr} (h : whnfCoreEasy i =
 grind_pattern [conleche_grind] Runs.whnfCore_easy =>
   Runs ((fueledFns mode eager env).whnfCore c d i) i
 
-/-- A full whnfCore memo hit answers the fueled whnfCore, well scoped. -/
-theorem CSOK.whnfCore_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+/-- A full whnfCore memo hit answers the fueled whnfCore. -/
+theorem CSOK.whnfCore_hit {s : CState} {d : Nat} {i r : Expr}
     (hs : CSOK mode eager env s) (hl : s.whnfCoreC[i]? = some r) (hw : Expr.WScoped d i) :
-    Runs ((fueledFns mode eager env).whnfCore false d i) r ∧ Expr.WScoped d r := by
+    Runs ((fueledFns mode eager env).whnfCore false d i) r := by
   obtain ⟨F, hall⟩ := hs.whnfCoreC i r hl
-  have hrun := hall d hw.to_wscopedB
-  exact ⟨⟨F, hrun⟩, whnfCore_WScoped henv F hrun hw⟩
+  exact ⟨F, hall d hw.to_wscopedB⟩
 grind_pattern [conleche_grind] CSOK.whnfCore_hit =>
   CSOK mode eager env s, s.whnfCoreC[i]?, Runs ((fueledFns mode eager env).whnfCore false d i) r
 
+/-- The answer of that hit is well scoped.  A lemma of its own, with its
+own trigger: `vcgen` proves a post's conjuncts one at a time, and the
+`WScoped` goal does not mention the `Runs` term above. -/
+theorem CSOK.whnfCore_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode eager env s) (hl : s.whnfCoreC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := by
+  obtain ⟨F, hall⟩ := hs.whnfCoreC i r hl
+  exact whnfCore_WScoped henv F (hall d hw.to_wscopedB) hw
+grind_pattern [conleche_grind] CSOK.whnfCore_hit_ws =>
+  CSOK mode eager env s, s.whnfCoreC[i]?, Expr.WScoped d r
+
 /-- A cheap whnfCore memo hit answers the fueled cheap whnfCore. -/
-theorem CSOK.whnfCoreCheap_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+theorem CSOK.whnfCoreCheap_hit {s : CState} {d : Nat} {i r : Expr}
     (hs : CSOK mode eager env s) (hl : s.whnfCoreCheapC[i]? = some r) (hw : Expr.WScoped d i) :
-    Runs ((fueledFns mode eager env).whnfCore true d i) r ∧ Expr.WScoped d r := by
+    Runs ((fueledFns mode eager env).whnfCore true d i) r := by
   obtain ⟨F, hall⟩ := hs.whnfCoreCheapC i r hl
-  have hrun := hall d hw.to_wscopedB
-  exact ⟨⟨F, hrun⟩, whnfCore_WScoped henv F hrun hw⟩
+  exact ⟨F, hall d hw.to_wscopedB⟩
 grind_pattern [conleche_grind] CSOK.whnfCoreCheap_hit =>
   CSOK mode eager env s, s.whnfCoreCheapC[i]?, Runs ((fueledFns mode eager env).whnfCore true d i) r
+
+/-- The answer of that hit is well scoped.  A lemma of its own, with its
+own trigger: `vcgen` proves a post's conjuncts one at a time, and the
+`WScoped` goal does not mention the `Runs` term above. -/
+theorem CSOK.whnfCoreCheap_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode eager env s) (hl : s.whnfCoreCheapC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := by
+  obtain ⟨F, hall⟩ := hs.whnfCoreCheapC i r hl
+  exact whnfCore_WScoped henv F (hall d hw.to_wscopedB) hw
+grind_pattern [conleche_grind] CSOK.whnfCoreCheap_hit_ws =>
+  CSOK mode eager env s, s.whnfCoreCheapC[i]?, Expr.WScoped d r
 
 /-- A continuing step: the term answers what its continuation answers. -/
 theorem Runs.whnfCore_of_cont {c : Bool} {d : Nat} {e e' v : Expr}
@@ -695,7 +715,8 @@ theorem whnfCoreLoopC_spec (ih : SSimC .verified eager env f)
   | succ n ihn =>
     intro pend pendC i s₀ hs hw hp hpc
     sym only [conleche_grind, CSOK.chainStored henv, CSOK.chainStored_nil henv,
-        CSOK.chainStoredDone henv, CSOK.whnfCore_hit henv, CSOK.whnfCoreCheap_hit henv] =>
+        CSOK.chainStoredDone henv, CSOK.whnfCore_hit, CSOK.whnfCore_hit_ws henv,
+        CSOK.whnfCoreCheap_hit, CSOK.whnfCoreCheap_hit_ws henv] =>
       vcgen [whnfCoreLoopI.eq_def, storeChainI, whnfCoreLookupI,
         whnfCoreStepC_spec ih henv, ihn] <;> finish
 

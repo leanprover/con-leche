@@ -399,7 +399,7 @@ Read from the outside in:
    With more workers the parse runs on as many owner threads and takes
    a window of chunks at a time, one chunk of whole lines per owner,
    the next window read before the current one is computed
-   ([function `windowStep` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L492-L494)):
+   ([function `windowStep` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L494-L496)):
    the owner scans its chunk once into syntax records that never leave
    its thread and applies its lines, deferring a line that reads an
    entry of another chunk of the window to a later round, until nothing
@@ -1181,7 +1181,7 @@ resolves at the smaller one
 ([theorem `knot_ext` in `ConLeche/Verify/EnvExt.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt.lean#L480-L482)).
 All the knot reads past the term is what a stored constant's record names, and a
 declaration boundary has it stored
-([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L29-L30)).
+([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L28-L29)).
 The model therefore keeps one reading of a family: a recorded block's datum says which
 reduct it shows for a member (`LfpDatum.telescope`), and a member's model reads its declared
 type and its reduct as one value at every valuation
@@ -1665,8 +1665,7 @@ are interface.  The term language, the `SetTheory` interface, the pure
 set constructions and the denotation (`Term/*`, `SetTheory/*`, `SetModel/*`,
 `Semantics/*`) keep the blanket for the same reason the checker does — the
 tiers above unfold them. The only `import all` lines read toolchain
-bodies the module system hides (`Init.Util`'s `withPtrEq`,
-`Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`),
+bodies the module system hides (`Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`),
 and every such line carries its reason.
 
 ## 11. Module map

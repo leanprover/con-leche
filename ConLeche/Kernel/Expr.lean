@@ -3,13 +3,6 @@ module
 public import ConLeche.Kernel.Name
 public import ConLeche.Kernel.Exclusive
 public import ConLeche.Kernel.NatHash
-/- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
-is that it is *definitionally* `k ()` — which is what `Expr.beqMemo_eq`
-proves.  `import all` makes that body visible **in this module only**;
-that theorem is the public relay, so no importer needs it, and the
-executed `Expr.beq` stays the plain `decide (· = ·)` that the kernel
-can still reduce. -/
-import all Init.Util
 
 /-!
 # Kernel expressions
@@ -89,7 +82,7 @@ before the structural step, at every node — `level.cpp:125` is `kind` →
 `hash` → `is_eqp` → structural.  The children start over with the
 pointer, the parameter with `Name.decEqPtr`. -/
 def Level.decEqPtr (a b : Level) : Decidable (a = b) :=
-  ConLeche.ptrDecEq a b fun _ =>
+  ConLeche.ptrDecEq withPtrEq ConLeche.withPtrEq_eq a b fun _ =>
     if hh : a.hashData = b.hashData then
       match a, b with
       | .zero, .zero => isTrue rfl
@@ -164,10 +157,10 @@ the literal's hash (`Expr.beqMemo`, `enterBeq`).  A memo hit on a
 literal that was found again in a new node is then one pointer test,
 not a walk over the number's words. -/
 @[inline] def Literal.decEqPtr (a b : Literal) : Decidable (a = b) :=
-  ConLeche.ptrDecEq a b fun _ =>
+  ConLeche.ptrDecEq withPtrEq ConLeche.withPtrEq_eq a b fun _ =>
     match a, b with
     | .natVal n, .natVal m =>
-      match ConLeche.ptrDecEq n m (fun _ => Nat.decEq n m) with
+      match ConLeche.ptrDecEq withPtrEq ConLeche.withPtrEq_eq n m (fun _ => Nat.decEq n m) with
       | isTrue h => isTrue (by rw [h])
       | isFalse h => isFalse (fun e => h (Literal.natVal.inj e))
     | .strVal s, .strVal t =>
@@ -982,7 +975,7 @@ on equal addresses only, where the runtime pointer test answers
 to the structural `decEq`, which `decEqPtr` does not exist yet to
 replace.  Code outside the equality uses `ptrDec`. -/
 @[inline] def ptrDecStruct (a b : Expr) : Decidable (a = b) :=
-  ConLeche.ptrDecEq a b (fun _ => decEq a b)
+  ConLeche.ptrDecEq withPtrEq ConLeche.withPtrEq_eq a b (fun _ => decEq a b)
 
 /-- Does the entry at `key` identify the pair `(a, b)`?  The stored
 addresses are the filter; the stored objects, tested by identity, are
@@ -1284,10 +1277,10 @@ memoised descent.  What both `==` (`beq_eq_beqMemo`) and every
     (fun h => by subst h; simp)
 
 /-- The executed equality decides `a = b`: `withPtrEq a b k h` is
-*defined* as `k ()`, the word guard cannot reject an equal pair, and
-`beqDec` is a decision of `a = b`. -/
+`k ()` (`ConLeche.withPtrEq_eq`), the word guard cannot reject an equal
+pair, and `beqDec` is a decision of `a = b`. -/
 theorem beqMemo_iff (a b : Expr) : beqMemo a b = true ↔ a = b := by
-  show (if a.data == b.data then @decide (a = b) (beqDec a b) else false) = true ↔ a = b
+  rw [beqMemo, ConLeche.withPtrEq_eq]
   by_cases h : a = b
   · subst h; simp
   · simp [h]
@@ -1312,7 +1305,7 @@ pure model.  The memo tables' hit validation (`Cached/ExprOpsC.lean`);
 a fallback that compiled code would run is `decEqPtr`, never the
 structural walk. -/
 @[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
-  ConLeche.ptrDecEq a b (fun _ => inferInstance)
+  ConLeche.ptrDecEq withPtrEq ConLeche.withPtrEq_eq a b (fun _ => inferInstance)
 
 /-- The executed equality is the specification. -/
 theorem beqMemo_eq (a b : Expr) : beqMemo a b = decide (a = b) := by

@@ -151,10 +151,10 @@
    311      (chunk : USize := chunkSize) : μ (Except (CheckError × Nat) ParseResultD) :=
    312    foldChunks path chunk ((StateD.init.markLinear, .empty, 0, 0) : SerSt) serStep serFin
 
-== ConLeche/Driver/OwnerParse.lean#L492-L494
-   492  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
-   493      (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
-   494      IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
+== ConLeche/Driver/OwnerParse.lean#L494-L496
+   494  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
+   495      (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
+   496      IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
 
 == ConLeche/Verify/Frontend/Good.lean#L528
    528  inductive Good (Γ : WCtx) : Nat → TV → Prop where
@@ -954,9 +954,9 @@
    481      ∀ (fuel : Nat) (eager : Bool),
    482        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
 
-== ConLeche/Verify/EnvExt/Reads.lean#L29-L30
-    29  structure StoredFacts (env : Env) : Prop where
-    30    wf : EnvWF env
+== ConLeche/Verify/EnvExt/Reads.lean#L28-L29
+    28  structure StoredFacts (env : Env) : Prop where
+    29    wf : EnvWF env
 
 == ConLeche/Model/Inductives/FormerInEnv.lean#L29
     29  structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVal) : Prop where
