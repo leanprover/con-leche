@@ -6607,6 +6607,57 @@
    159        ∃ m' : BlockModel V (applyAll ds E),
    160          (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
 
+== whitepaper/Fragment/ModularSyntactic.lean#L89-L92
+    89  /-- **A model of an environment**: a realisation. -/
+    90  structure Real (T : SubstSystem N) (E : SEnv T) where
+    91    σ : N → T.Tm
+    92    real : Realises σ E.1
+
+== whitepaper/Fragment/ModularSyntactic.lean#L188-L195
+   188  /-- **Amalgamation**: the union of realisations that agree on every name
+   189  of `C` two members store. -/
+   190  theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T}
+   191      (h : Assembled C E) (m : (i : ι) → Real T (E i))
+   192      (hcomp : ∀ c i i', (C.1 c).isSome → ((E i).1 c).isSome →
+   193        ((E i').1 c).isSome → some ((m i).σ c) = some ((m i').σ c)) :
+   194      ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → ((E i).1 c).isSome →
+   195        some (mC.σ c) = some ((m i).σ c) := by
+
+== whitepaper/Fragment/ModularSyntactic.lean#L131-L134
+   131  /-- **The step for one definition**: realised by its realised value,
+   132  by the substitution lemma. -/
+   133  theorem addDef_step {Γ : SEnv T} {c : N} {A t : T.Tm} {hd : T.Der Γ.1 t A} (hc : Γ.1 c = none)
+   134      (m : Real T Γ) : ∃ m' : Real T (addDef Γ c A t hd), ∀ d, (Γ.1 d).isSome → m'.σ d = m.σ d := by
+
+== whitepaper/Fragment/ModularSyntactic.lean#L223-L249
+   223  variable (T) in
+   224  /-- **A syntactic consistency proof as a modular semantics.** -/
+   225  noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
+   226    Env := SEnv T
+   227    Name := N
+   228    Stores E c := (E.1 c).isSome = true
+   229    Mod := Real T
+   230    Val := Option T.Tm
+   231    val m c := some (m.σ c)
+   232    proofVal := none
+   233    Assembled C _ E := Assembled C E
+   234    assembled_src h c hc := by
+   235      obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
+   236      obtain ⟨i, v', hE, -⟩ := h c A v hA
+   237      exact ⟨i, by rw [hE]; rfl⟩
+   238    amalgamate h m hc := by
+   239      obtain ⟨mC, hmC⟩ := amalgamate h m fun c i i' => hc i i' c
+   240      exact ⟨mC, fun i c hc _ hs => hmC c i hc hs⟩
+   241    ProofIn _ _ _ := False
+   242    proof_val h := h.elim
+   243    ProofBy _ _ _ _ := False
+   244    proofBy_val h := h.elim
+   245    Decls := List (N × T.Tm × T.Tm)
+   246    Accepts := Accepts
+   247    step h m := by
+   248      obtain ⟨m', hm'⟩ := h.step m
+   249      exact ⟨m', fun c hc => ⟨h.stores c hc, by rw [hm' c hc]⟩⟩
+
 == whitepaper/Fragment/ModularModel.lean#L651-L652
    651  /-- **A module's own environment**: its context with its declarations. -/
    652  def Module.own (m : Module) : Env := applyAll m.decls m.context
@@ -6820,57 +6871,6 @@
    351      -- the new module's context values are its sources'
    352      have hnew : ∀ n (hn : S.Stores (dev.ctx k) n),
 
-== whitepaper/Fragment/ModularSyntactic.lean#L89-L92
-    89  /-- **A model of an environment**: a realisation. -/
-    90  structure Real (T : SubstSystem N) (E : SEnv T) where
-    91    σ : N → T.Tm
-    92    real : Realises σ E.1
-
-== whitepaper/Fragment/ModularSyntactic.lean#L188-L195
-   188  /-- **Amalgamation**: the union of realisations that agree on every name
-   189  of `C` two members store. -/
-   190  theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T}
-   191      (h : Assembled C E) (m : (i : ι) → Real T (E i))
-   192      (hcomp : ∀ c i i', (C.1 c).isSome → ((E i).1 c).isSome →
-   193        ((E i').1 c).isSome → some ((m i).σ c) = some ((m i').σ c)) :
-   194      ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → ((E i).1 c).isSome →
-   195        some (mC.σ c) = some ((m i).σ c) := by
-
-== whitepaper/Fragment/ModularSyntactic.lean#L131-L134
-   131  /-- **The step for one definition**: realised by its realised value,
-   132  by the substitution lemma. -/
-   133  theorem addDef_step {Γ : SEnv T} {c : N} {A t : T.Tm} {hd : T.Der Γ.1 t A} (hc : Γ.1 c = none)
-   134      (m : Real T Γ) : ∃ m' : Real T (addDef Γ c A t hd), ∀ d, (Γ.1 d).isSome → m'.σ d = m.σ d := by
-
-== whitepaper/Fragment/ModularSyntactic.lean#L223-L249
-   223  variable (T) in
-   224  /-- **A syntactic consistency proof as a modular semantics.** -/
-   225  noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
-   226    Env := SEnv T
-   227    Name := N
-   228    Stores E c := (E.1 c).isSome = true
-   229    Mod := Real T
-   230    Val := Option T.Tm
-   231    val m c := some (m.σ c)
-   232    proofVal := none
-   233    Assembled C _ E := Assembled C E
-   234    assembled_src h c hc := by
-   235      obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
-   236      obtain ⟨i, v', hE, -⟩ := h c A v hA
-   237      exact ⟨i, by rw [hE]; rfl⟩
-   238    amalgamate h m hc := by
-   239      obtain ⟨mC, hmC⟩ := amalgamate h m fun c i i' => hc i i' c
-   240      exact ⟨mC, fun i c hc _ hs => hmC c i hc hs⟩
-   241    ProofIn _ _ _ := False
-   242    proof_val h := h.elim
-   243    ProofBy _ _ _ _ := False
-   244    proofBy_val h := h.elim
-   245    Decls := List (N × T.Tm × T.Tm)
-   246    Accepts := Accepts
-   247    step h m := by
-   248      obtain ⟨m', hm'⟩ := h.step m
-   249      exact ⟨m', fun c hc => ⟨h.stores c hc, by rw [hm' c hc]⟩⟩
-
 == ConLeche/Modular.lean#L220-L240
    220  /-- **An importer's checks** (at module `i`; see the module docstring). -/
    221  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
@@ -6937,6 +6937,184 @@
 == ConLeche/Modular/Generic.lean#L278-L279
    278  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    279      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
+
+>>> whitepaper/sections/06c-compare.typ
+
+== whitepaper/Fragment/ModularModel.lean#L724-L731
+   724  /-- **Validation by comparison**: module `i`'s whole own environment is
+   725  its context, assembled from its imports' views by agreement — every
+   726  constant is an import's, or an assumption of its type. -/
+   727  structure Compared (dev : Nat → Module) (i : Nat) : Prop where
+   728    iface : InterfaceOk dev i
+   729    importOk : ImportOk dev i
+   730    own : (dev i).own = (dev i).context
+   731  
+
+== whitepaper/Fragment/Compare.lean#L90-L96
+    90  /-- **Renaming level parameters changes no instance**: a term over the
+    91  level parameters `ps`, renamed position by position to the distinct
+    92  names `ps'`, has at `ps'` the instances it had at `ps`. -/
+    93  theorem Expr.instL_rename {ps ps' : List Name} {ls : List Level}
+    94      (hnd : ps'.Nodup) (hl' : ps'.length = ps.length) (hl : ls.length = ps.length) :
+    95      ∀ e : Expr, e.lparamsIn ps = true →
+    96        (e.instL ps (ps'.map .param)).instL ps' ls = e.instL ps ls
+
+== whitepaper/Fragment/Compare.lean#L130-L135
+   130  theorem Valid.redeclared_is_proof {dev : Nat → Module} {i : Nat} (hv : Valid dev i)
+   131      {n : Name} (hn : ((dev i).context.find? n).isSome = true) {x : Nat × Env}
+   132      (hx : x ∈ sources dev i) (hs : (x.2.find? n).isSome = true)
+   133      (hne : x.1 ≠ (dev i).src n) (hctx : ((dev x.1).context.find? n).isSome = false) :
+   134      ProofSide dev i n x ∧
+   135        ∀ y ∈ sources dev i, y.1 = (dev i).src n → (y.2.find? n).isSome = true →
+
+== whitepaper/Fragment/Compare.lean#L154-L162
+   154  theorem compare_solves (dev : Nat → Module) (c : Nat) (h : ∀ j ≤ c, Valid dev j)
+   155      (hc : Compared dev c) :
+   156      ∃ m : (i : Nat) → i < c + 1 → BlockModel V (dev i).own,
+   157        (∀ j (hj : j < c + 1) n, ((dev j).context.find? n).isSome = true →
+   158          ∃ h : (dev j).src n < c + 1, (m j hj).M n = (m ((dev j).src n) h).M n) ∧
+   159        ∀ n ci, (dev c).own.find? n = some ci →
+   160          ∃ h : (dev c).src n < c + 1,
+   161            ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+   162              (m ((dev c).src n) h).M n (ls.map (Level.eval φ)) ∈ˢ
+
+== ConLeche/Driver/Compare.lean#L236-L242
+   236  /-- **The challenge's lookup**: the trusted path, never anything else. -/
+   237  def CmpReq.chalRoots (r : CmpReq) : Roots :=
+   238    if r.trusted.isEmpty then { path := r.path } else { path := r.trusted }
+   239  
+   240  /-- **The solution's lookup**: the trusted path first, then the search path. -/
+   241  def CmpReq.solRoots (r : CmpReq) : Roots :=
+   242    if r.trusted.isEmpty then { path := r.path } else { path := r.trusted, fallback := r.path }
+
+== ConLeche/Verify/Frontend/Olean/Local.lean#L469-L471
+   469  theorem challenge_local {dirs : SearchPath} {C : Name} {cs : Option (Array Name)} {fs₁ fs₂ : FS}
+   470      (h : FS.AgreeUnder dirs fs₁ fs₂) :
+   471      challengeView dirs C cs fs₁ = challengeView dirs C cs fs₂ := by
+
+== ConLeche/Driver/Compare.lean#L114-L120
+   114  /-- **A hole of the challenge** (of `C`'s own records): an axiom, or a definition, theorem or
+   115  opaque constant whose value uses `sorryAx`; a theorem's value is read off its file (`uses`). -/
+   116  def isHole (uses : Declaration → Array Name) : Declaration → Bool
+   117    | .axiomDecl _ => true
+   118    | .defnDecl _ v _ | .opaqueDecl _ v => (Frontend.usedConstsGo {} #[] v).2.contains sorryAxName
+   119    | d@(.thmDecl _ _) => (uses d).contains sorryAxName
+   120    | _ => false
+
+== ConLeche/Driver/Compare.lean#L136-L178
+   136  def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
+   137      (homeC homeS : Option Name) (dC dS : Declaration) :
+   138      Except String (Declaration × Option Filled) :=
+   139    let n := recKey dC
+   140    let homeName (h : Option Name) : String := (h.map toString).getD "the built-in prelude"
+   141    if !own then
+   142      let proofKey := match dC with
+   143        | .thmDecl .. => true
+   144        | _ => false
+   145      if !proofKey && homeC != homeS then
+   146        .error s!"{n}: the challenge reads it from {homeName homeC}, the solution's is \
+   147          {homeName homeS}'s; a name the challenge imports must be its home's constant"
+   148      else if sameRecord dC dS then .ok (dS, none)
+   149      else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC} \
+   150        of {homeName homeC}"
+   151    else if isHole uses dC then
+   152      let label := match dC with
+   153        | .axiomDecl _ => "axiom"
+   154        | d => s!"{recKind d} := sorry"
+   155      let filled : Except String (Declaration × Option Filled) :=
+   156        match recCv? dC, recCv? dS with
+   157        | some cv, some cv' =>
+   158          if sameCvUpToLevels cv cv' then
+   159            .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
+   160          else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
+   161        | _, _ => .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
+   162      if n == quotSoundName || n == sorryAxName then
+   163        .error s!"{declined}{n}: a hole at {if n == quotSoundName then "the quotient's axiom"
+   164          else "the placeholder axiom"}, which installs no axiom of its own; con-leche cannot \
+   165          fill it"
+   166      else
+   167      match dS with
+   168      | .axiomDecl _ | .opaqueDecl .. => filled
+   169      | .defnDecl .. | .thmDecl .. =>
+   170        if reduceOpNames.contains n then
+   171          .error s!"{declined}{n}: the solution fills this hole at a compiler-trust name with a \
+   172            {recKind dS}; con-leche can fill it only with an opaque constant or an axiom"
+   173        else filled
+   174      | _ => .error s!"{declined}{n}: the solution fills this hole with an {recKind dS}; \
+   175          con-leche can fill a hole only with a definition, a theorem, an opaque constant or an \
+   176          axiom at the moment"
+   177    else if sameRecordUpToLevels dC dS then .ok (dS, none)
+   178    else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC}"
+
+== ConLeche/Model/Modular/Compare.lean#L569-L571
+   569  @[expose] def cmpDev (ds ctx : List Declaration) : Nat → Modular.Module
+   570    | 0 => { imports := [], ctx := [], decls := ds, src := fun _ => 0, iface := ctx }
+   571    | _ => { imports := [0], ctx := ctx, decls := [], src := fun _ => 0, iface := [] }
+
+== ConLeche/Model/Modular/Compare.lean#L650-L663
+   650  theorem compare_models (V : Type w) [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
+   651      {F : Expr → Expr} {C : Name} {uses : Declaration → Array Name}
+   652      {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+   653      {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+   654      {env : Env}
+   655      (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled))
+   656      (hsc : ctxScoped ctx = none)
+   657      (hchk : Cached.checkDecls .verified pins maxNatSize (recsS.map (Cached.fillDecl F)) = .ok env) :
+   658      ∃ (mC : ConLeche.Model V (streamEnv (recsC.toList.map (chalRecord C uses homesC))))
+   659        (mS : ConLeche.Model V (streamEnv (recsS.map (Cached.fillDecl F)).toList)),
+   660        ∀ n cC, (streamEnv (recsC.toList.map (chalRecord C uses homesC))).find? n = some cC →
+   661          ∃ cS, (streamEnv (recsS.map (Cached.fillDecl F)).toList).find? n = some cS ∧
+   662            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+   663            ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+
+== ConLeche/Model/Copies.lean#L292-L293
+   292  noncomputable def Model.ofCopies {env env' : Env} (m : EnvModelM V env)
+   293      (h : CopiesEnv env env') : ConLeche.Model V env' where
+
+== ConLeche/MainTheorem.lean#L342-L368
+   342  theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+   343      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   344      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+   345        "--search-path=" ++ D, "--", c, s]) fs 0) :
+   346      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+   347      ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
+   348        ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
+   349          (homes := true)) fs (.ok rdC) ∧
+   350        ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
+   351          (homes := true)) fs (.ok rdS) ∧
+   352        ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
+   353          (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
+   354          (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+   355            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+   356              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+   357              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+   358                (cC.toConstantVal.levelParams.map Level.param))) ∧
+   359          (∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
+   360            Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
+   361            ∃ cv cS, Driver.recCv? d = some cv ∧
+   362              (Driver.solutionEnv pre r.solRoots fs rdS).find? cv.name = some cS ∧
+   363              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
+   364                mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
+   365                  (cv.levelParams.map Level.param)) ∈ˢ Ty) ∧
+   366          ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? ≠ some C →
+   367            (∀ cv v, d ≠ .thmDecl cv v) →
+   368            rdS.homes[Driver.recKey d]? = rdC.homes[Driver.recKey d]? := by
+
+== ConLeche/MainTheorem.lean#L386-L399
+   386  theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   387      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   388      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+   389        "--search-path=" ++ D, "--", c, s]) fs 0) :
+   390      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+   391      ∀ fs', FS.AgreeUnder r.chalRoots.path fs fs' →
+   392        ∃ pre rdC, builtinPreludeE = .ok pre ∧
+   393          Olean.challengeView r.chalRoots.path C none fs' (.ok (.ok rdC)) ∧
+   394          ∃ mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC),
+   395            ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
+   396              Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
+   397              ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
+   398                Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
+   399                ∃ v, v ∈ˢ Ty := by
 
 >>> whitepaper/sections/07-left-out.typ
 
