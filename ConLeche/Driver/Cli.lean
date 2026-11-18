@@ -122,8 +122,8 @@ def synopsis : String := String.intercalate "\n" [
   "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE",
   "  con-leche [OPTIONS] --olean --modular --search-path=DIRS [--] MODULE",
   "  con-leche [OPTIONS] --olean --schedule[-OPT=V] --search-path=DIRS [--] MODULE",
-  "  con-leche [OPTIONS] --olean --compare [--trusted-search-path=DIRS] --search-path=DIRS",
-  "            [--] CHALLENGE SOLUTION"]
+  "  con-leche [OPTIONS] --olean --compare [--trusted-search-path=DIRS]",
+  "            --search-path=DIRS [--] CHALLENGE SOLUTION"]
 
 /-- The line after a usage error. -/
 def tryHelp : String := "Try 'con-leche --help' for more information."
@@ -159,9 +159,10 @@ def helpText : String := String.intercalate "\n" [
   "                      SOLUTION's closure is accepted. Prints the holes and",
   "                      what fills each. With --constant=NAME (declarations of",
   "                      CHALLENGE itself), only what NAME mentions",
-  "  --trusted-search-path=DIRS  With --compare: CHALLENGE and all it imports are",
-  "                      read from DIRS only; SOLUTION's modules from DIRS",
-  "                      first, then --search-path. Colon-separated; repeatable",
+  "  --trusted-search-path=DIRS",
+  "                      With --compare: CHALLENGE and all it imports are read",
+  "                      from DIRS only; SOLUTION's modules from DIRS first,",
+  "                      then --search-path. Colon-separated; repeatable",
   "  --check-graph       Check only that the modules' import graph is acyclic",
   "                      and that every import is on the search path",
   "  --module            Check MODULE's own declarations alone, against what",
