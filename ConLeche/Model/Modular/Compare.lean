@@ -36,6 +36,9 @@ theorem constsCopy_refl : ∀ l : List ConstantInfo, ConstsCopy l l
 
 theorem RecCopy.refl (d : Declaration) : RecCopy d d := ⟨constsCopy_refl _, rfl⟩
 
+theorem QuotKind.slot_inj {k k' : QuotKind} (h : k.slot = k'.slot) : k = k' := by
+  cases k <;> cases k' <;> simp_all [QuotKind.slot]
+
 theorem sameRecord_eq {d d' : Declaration} (h : sameRecord d d' = true) :
     declConstants d = declConstants d' ∧ declTables d = declTables d' := by
   unfold sameRecord at h
@@ -45,7 +48,8 @@ theorem sameRecord_eq {d d' : Declaration} (h : sameRecord d d' = true) :
     rw [eq_of_listBeqBy (fun _ _ => ConstantInfo.eq_of_beqP) hb]
     exact ⟨rfl, rfl⟩
   · simp only [Bool.and_eq_true, beq_iff_eq] at h
-    obtain ⟨rfl, hc⟩ := h
+    obtain ⟨hk, hc⟩ := h
+    obtain rfl : _ := QuotKind.slot_inj hk
     rw [ConstantVal.eq_of_beqP hc]
     exact ⟨rfl, rfl⟩
   · simp only [Bool.and_eq_true, beq_iff_eq] at h

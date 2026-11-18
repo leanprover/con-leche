@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.CheckMain
 public import ConLeche.Driver.Reach
+import ConLeche.Verify.Cached.DeclNames
 
 @[expose] public section
 
@@ -93,7 +94,7 @@ its record's value is where to read it), an inductive block's parameter count an
 quotient record's slot equal. -/
 def sameRecord : Declaration → Declaration → Bool
   | .indDecl b n, .indDecl b' n' => n == n' && listBeqBy ConstantInfo.beqP b b'
-  | .quotDecl k cv, .quotDecl k' cv' => k == k' && cv.beqP cv'
+  | .quotDecl k cv, .quotDecl k' cv' => k.slot == k'.slot && cv.beqP cv'
   | .opaqueDecl cv v, .opaqueDecl cv' v' => cv.beqP cv' && v == v'
   | .thmDecl cv _, .thmDecl cv' _ => cv.beqP cv'
   | d@(.defnDecl ..), d'@(.defnDecl ..) | d@(.axiomDecl _), d'@(.axiomDecl _) =>
