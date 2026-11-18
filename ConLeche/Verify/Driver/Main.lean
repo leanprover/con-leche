@@ -64,7 +64,8 @@ theorem append_ne {other l : String} (d : String) (h : other.toList.isPrefixOf l
 /-- `parseArgs` past the literal flags. -/
 theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ "--")
     (h2 : s ≠ "--verified") (h3 : s ≠ "--trusted") (h4 : s ≠ "--progress") (h5 : s ≠ "--olean")
-    (h6 : s ≠ "--check-graph") (h7 : s ≠ "--module") (h8 : s ≠ "--modular") :
+    (h6 : s ≠ "--check-graph") (h7 : s ≠ "--module") (h8 : s ≠ "--modular")
+    (h9 : s ≠ "--compare") :
     parseArgs (s :: rest) a =
       if let some v := flagValue "--progress=" s then
         match progressPace v with
@@ -85,6 +86,8 @@ theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ 
         parseArgs rest { a with constants := a.constants.push v }
       else if let some v := flagValue "--search-path=" s then
         parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
+      else if let some v := flagValue "--trusted-search-path=" s then
+        parseArgs rest { a with trustedPath := a.trustedPath ++ searchPathOf v }
       else if let some v := flagValue "--schedule" s then
         parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
       else if s.startsWith "-" then
@@ -109,7 +112,8 @@ theorem parseArgs_olean (dirs root : String) :
     rfl
   rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
       (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
-      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
     flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
     flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
     flagValue_append]
@@ -133,7 +137,8 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
     (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
     (ho : (parseArgs args {}).olean = true) (hcg : (parseArgs args {}).checkGraph = false)
     (hm : (parseArgs args {}).module = false) (hmd : (parseArgs args {}).modular = false)
-    (hsc : (parseArgs args {}).scheduled = false)
+    (hsc : (parseArgs args {}).scheduled = false) (hcmp : (parseArgs args {}).compare = false)
+    (htp : (parseArgs args {}).trustedPath = [])
     (h : (runArgs args : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
       ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
@@ -152,7 +157,8 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
             (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env) from
     H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
-  · simp only [hh, hb, ho, hcg, hm, hmd, hsc, Bool.false_eq_true, ite_false, ite_true]
+  · simp only [hh, hb, ho, hcg, hm, hmd, hsc, hcmp, htp, List.isEmpty_nil, Bool.and_true,
+      Bool.not_true, Bool.false_eq_true, ite_false, ite_true]
     intro c _ hc h0
     subst h0
     split at hc
@@ -188,7 +194,8 @@ theorem runArgs_olean_accept {dirs root : String} {fs : FS} {hs hs' : HS}
           (Cached.fillDecl (fillOf (searchPathOf dirs) fs rd.values))) = .ok env := by
   have hp := parseArgs_olean dirs root
   obtain ⟨pre, rd, env, h1, h2, h3⟩ := runArgs_oleans_accept (helpWanted_olean dirs root)
-    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) h
+    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp])
+    (by rw [hp]) h
   rw [hp] at h2 h3
   exact ⟨pre, rd, env, h1, h2, h3⟩
 
@@ -203,7 +210,8 @@ theorem parseArgs_graph (dirs root : String) :
     rfl
   rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
       (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
-      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
     flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
     flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
     flagValue_append]
@@ -239,8 +247,8 @@ theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS} {hs hs' :
       simp [hr]
     simp only [hf] at hc
     have hm : (#[root].filterMap Frontend.Olean.parseModName).toList = [r] := by simp [hr]
-    simp only [hm, Bool.false_or, Array.isEmpty_empty, Bool.not_true, Bool.false_eq_true,
-      ite_false] at hc
+    simp only [hm, Bool.or_false, List.isEmpty_nil, Array.isEmpty_empty,
+      Bool.not_true, Bool.false_eq_true, ite_false] at hc
     split at hc
     · simp [eprintln] at hc
     · exact ⟨_, _, _, hc⟩
@@ -276,7 +284,8 @@ theorem parseArgs_module (dirs root : String) :
     rfl
   rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
       (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
-      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
     flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
     flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
     flagValue_append]
@@ -306,7 +315,8 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
       fs hs (fun c => c = 0 → ∃ m jobs, Olean.parseModName root = some m ∧
         WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs m jobs) from H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
-  · simp only [helpWanted_module, parseArgs_module, Bool.false_eq_true, ite_false, ite_true]
+  · simp only [helpWanted_module, parseArgs_module, List.isEmpty_nil, Bool.and_true,
+      Bool.not_true, Bool.false_eq_true, ite_false, ite_true]
     intro c _ hc h0
     subst h0
     split at hc
@@ -337,7 +347,8 @@ theorem parseArgs_modular (dirs root : String) :
     rfl
   rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
       (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
-      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
     flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
     flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
     flagValue_append]
@@ -377,7 +388,8 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
         (C.map fun e => rk e.1).Nodup ∧
         ∀ e ∈ C, WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs e.1 1) from H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
-  · simp only [helpWanted_modular, parseArgs_modular, Bool.false_eq_true, ite_false, ite_true]
+  · simp only [helpWanted_modular, parseArgs_modular, List.isEmpty_nil, Bool.and_true,
+      Bool.not_true, Bool.false_eq_true, ite_false, ite_true]
     intro c _ hc h0
     subst h0
     split at hc

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.Modular
 public import ConLeche.Driver.Schedule
+public import ConLeche.Driver.Compare
 
 /-!
 # What a run does, by its request, generic in the IO class (task #424)
@@ -39,6 +40,9 @@ inductive Req where
   `jobsGiven`: `--jobs` was given -/
   | schedule (searchPath : List System.FilePath) (root : Name) (opts : List String)
       (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat) (jobsGiven : Bool)
+  /-- a challenge and its solution, compared, and the solution's closure checked
+  (`compareG`) -/
+  | compare (r : CmpReq) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- one module against its context (`checkModuleG`) -/
   | module (searchPath : List System.FilePath) (m : Name) (mode : CheckMode) (maxNatSize : Nat)
       (pace : Pace) (jobs : Nat)
@@ -52,6 +56,7 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .modular sp root mode maxNatSize pace jobs => checkModularG sp root mode maxNatSize pace jobs
   | .schedule sp root opts mode maxNatSize pace jobs jobsGiven =>
     scheduleG sp root opts mode maxNatSize pace jobs jobsGiven
+  | .compare r mode maxNatSize pace jobs => compareG r mode maxNatSize pace jobs
   | .module sp m mode maxNatSize pace jobs => do
     let (R, T) ← workerTables sp m
     checkModuleG (T.reads R) R m mode maxNatSize pace jobs
