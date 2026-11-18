@@ -148,6 +148,7 @@ public import ConLeche.Model.ReduceOps
 public import ConLeche.Model.Modular.Step
 public import ConLeche.Model.Modular.Valid
 public import ConLeche.Model.Modular.Restrict
+public import ConLeche.Model.Modular.Compare
 
 @[expose] public section
 

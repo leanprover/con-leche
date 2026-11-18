@@ -158,6 +158,9 @@ def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
           .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
         else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
       | _, _ => .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
+    if n == quotSoundName then
+      .error s!"{declined}{n}: a hole at the quotient's axiom; con-leche cannot fill it"
+    else
     match dS with
     | .axiomDecl _ | .opaqueDecl .. => filled
     | .defnDecl .. | .thmDecl .. =>
@@ -170,6 +173,12 @@ def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
         axiom at the moment"
   else if sameRecordUpToLevels dC dS then .ok (dS, none)
   else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC}"
+
+/-- **A challenge record in the challenge's own environment**: a hole of `C` as its statement
+(`Modular.stmtOf`), any other record as it is. -/
+def chalRecord (C : Name) (uses : Declaration → Array Name) (homesC : Std.HashMap Name Name)
+    (d : Declaration) : Declaration :=
+  if homesC[recKey d]? == some C && isHole uses d then Modular.stmtOf d else d
 
 /-- **What the challenge's records stand for**, in order, and the holes filled, or the first
 record the solution does not meet.  `idxS` finds the solution's prepared record of a key. -/
