@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
-public import ConLeche.Verify.Frontend.Olean.Roots
+import ConLeche.Verify.Frontend.ModelIO
 import Std.Data.HashMap.Lemmas
 
 /-!

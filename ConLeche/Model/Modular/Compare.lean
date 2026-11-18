@@ -4,7 +4,7 @@ public import ConLeche.Model.Copies
 public import ConLeche.Driver.Compare
 public import ConLeche.Verify.Cached.Fill
 public import ConLeche.Model.Modular.Valid
-public import ConLeche.Model.Modular.Main
+import ConLeche.Model.Modular.Main
 import ConLeche.Verify.Driver.ComposeReads
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Model.Modular.Proofs
