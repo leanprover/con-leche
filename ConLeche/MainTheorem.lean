@@ -20,9 +20,7 @@ public import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Driver.Graph
-public import ConLeche.Verify.Driver.Worker
-public import ConLeche.Verify.Driver.ComposeCompare
-import ConLeche.Model.Modular.CompareRun
+public import ConLeche.Model.Modular.CompareRun
 public section
 
 /-!
