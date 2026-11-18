@@ -1011,6 +1011,14 @@ cmp_case "a solution axiom at a hole's name" 2 CmpAxC CmpAxBadS
 cmp_grep "a hole filled by an inductive type" 2 "T: the solution fills this hole with an inductive type" CmpIndC CmpIndS
 cmp_grep "level parameters named otherwise" 0 "hole h (axiom) filled by CmpLvS's theorem" CmpLvC CmpLvS
 cmp_grep "binders named otherwise" 0 "hole gt (theorem := sorry) filled by CmpBndS's theorem" CmpBndC CmpBndS
+# holes con-leche cannot fill (declines; the target verdicts: Quot.sound and sorryAx filled by
+# the same axiom accepted, once the comparison carries their pin copies; a definition at a
+# compiler-trust name rejected, as the solution's own check rejects it)
+cmp_grep "a hole at Quot.sound" 2 "declined: Quot.sound: a hole at the quotient's axiom" QsA QsB
+cmp_grep "a hole at sorryAx" 2 "declined: sorryAx: a hole at the placeholder axiom" CmpSorryC CmpSorryS
+cmp_grep "a compiler-trust hole filled by a definition" 2 \
+  "declined: Lean.reduceBool: the solution fills this hole at a compiler-trust name with a definition" \
+  CmpTrustC CmpTrustS
 cmp_grep "a definition hole filled by an opaque constant" 0 "filled by UpKindDefOpqSol's opaque constant" UpKindDef UpKindDefOpqSol
 cmp_grep "a theorem hole filled by a definition" 0 "filled by UpKindThmDefSol's definition" UpKindThm UpKindThmDefSol
 cmp_grep "a hole filled by an imported definition" 0 "hole n (definition := sorry) filled by UpHidDef's definition" UpKindDef UpHidDefSol
