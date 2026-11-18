@@ -21,13 +21,18 @@ that declares it, as every worker reads it.
    `NamePositions.withImports`): the header fixpoint of `C`'s imports and of the solution with
    everything it holds, the name index, Lean's clash rule over every loaded name.  `C`'s own
    names are no constants of this part: they are the solution's.
+   A solution whose closure holds the challenge is refused (the graph check refuses it too: the
+   added import closes a cycle).
 3. **The context** (`reach`): from `C`'s own names, every one a name the loads hold (else the
-   solution lacks it), with no own name of its own (each is read from the module of `S`'s closure
-   that declares it); the names `C`'s records read that `C` imports are capture-checked as reads
-   of `C` (the `reads` of `reach`: the context's copy is the one `C`'s own view loads, or both are
-   proofs of one statement).  So a name the challenge imports is its home's constant: a solution
-   declaring one of them itself is refused by the capture check or the clash rule.
-4. **The comparison** (`cmpCtxRecord`), each record of `C` against the context's record of its
+   solution lacks it), and the names `C`'s records read that `C` imports; with no own name of
+   its own, so that each of `C`'s names is read from the module of `S`'s closure that declares
+   it.
+4. **The homes** (`importedAt`): every name `C`'s records read that `C` imports is, in the
+   context, the constant of the module `C`'s own view (the reads at `C`'s own header) loads it
+   from first, or both are theorems of one statement (Lean's key for a proof).  So a name the
+   challenge imports is its home's constant: a solution declaring one of them itself is refused
+   here, or by the clash rule before.
+5. **The comparison** (`cmpCtxRecord`), each record of `C` against the context's record of its
    key: a hole (`isHole`) by the statement up to the names of level parameters
    (`sameCvUpToLevels`), of any kind; a theorem by its statement (the context holds a theorem as
    its statement); an opaque constant by its statement and its value, read off its home's private
@@ -126,6 +131,41 @@ def opaqueValue (cv : ConstantVal) (v : Expr) : Option (CEntryF Name Expr) → B
       (.defnInfo { name, levelParams, type } v' .opaque)
   | _ => false
 
+/-- **A name the challenge imports is its home's constant** (the merging rule's key): the
+context's copy of `y` is of the module the challenge's own view loads it from first (`wrC`, the
+reads at `C`'s own header), or both copies are theorems of one statement (Lean's key for a
+proof).  `none` when it is; else why not. -/
+def importedAt {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (wrC : WorkerReads) (r : Reach)
+    (owner : Std.HashMap Name Nat) (y : Name) : μ (Option String) := do
+  match wrC.index.first[y]? with
+  | none => pure (some s!"{y}: the challenge's records read it, and no module the challenge \
+      loads holds it")
+  | some cp =>
+    let hC := wrC.loads.nameAt cp.mod
+    match owner[y]? with
+    | none => pure (some s!"{y}: the challenge's records read it, and the context does not hold it")
+    | some k =>
+      let hS := r.homes.getD k .anonymous
+      if hC == hS then return none
+      let msg := s!"{y}: the challenge reads it from {hC}, the solution's is {hS}'s; a name the \
+        challenge imports must be its home's constant"
+      let cvOf (e : CEntryF Name Expr) : ConstantVal :=
+        { name := e.name, levelParams := e.levelParams, type := e.type }
+      match ← privEntry rd hS y, ← privEntry rd hC y with
+      | some (qS, some eS), some (qC, some eC) =>
+        if qS.tag == 2 && qC.tag == 2 && (cvOf eS).beqP (cvOf eC) then pure none
+        else pure (some msg)
+      | _, _ => pure (some msg)
+
+/-- Every name of `ys` its home's constant (`importedAt`), or the first that is not. -/
+def importedAll {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (wrC : WorkerReads) (r : Reach)
+    (owner : Std.HashMap Name Nat) : List Name → μ (Option String)
+  | [] => pure none
+  | y :: ys => do
+    match ← importedAt rd wrC r owner y with
+    | some why => pure (some why)
+    | none => importedAll rd wrC r owner ys
+
 /-- **The comparison's verdict at one challenge record**: `cmpCtxRecord` against the context's
 record storing its key, and an opaque constant's value. -/
 def cmpAt {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ)
@@ -158,6 +198,8 @@ structure CmpModuleRead where
   /-- the header fixpoint of its header with the solution added, the name index, the clash
   rule's copies -/
   reads : WorkerReads
+  /-- the same at its own header: its own view -/
+  view : WorkerReads
   /-- the context -/
   reach : Reach
   /-- the holes filled -/
@@ -187,6 +229,8 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
   match ← workerReads rd C jobs #[Graph.solutionImport S] with
   | .error e => pure (fail e)
   | .ok wr =>
+  if wr.loads.index.contains C then
+    return .error (s!"{S} does not solve {C}: the solution's closure holds the challenge", 1)
   workerSay pace t0 s!"loads {wr.loads.order.size} modules, {wr.index.first.size} names"
   match ownRecords l with
   | .error (e, _) => pure (fail e)
@@ -198,19 +242,29 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
       this name", 1))
   | none =>
   let ownSet := ownNames l
-  let reads := ds.foldl (fun acc d =>
-    acc ++ ((recordReads (cmpView uses d)).filter (!ownSet.contains ·)).map (C, ·)) #[]
-  match ← reach rd C wr {} own reads with
+  -- what the challenge's records read of what it imports
+  let imported := ds.foldl (fun acc d =>
+    acc ++ (recordReads (cmpView uses d)).filter (!ownSet.contains ·)) #[]
+  match ← reach rd C wr {} (own ++ imported) with
   | .error e => pure (fail e)
   | .ok r =>
   if !namesNodupGo {} (r.ctx.toList.flatMap Modular.declNames) then
     return .error ("invalid: a context record declares one of its names twice", 1)
   workerSay pace t0 s!"reach: {r.ctx.size} records"
-  match ← cmpAll rd uses r (ownerMap r.ctx) ds.toList #[] with
+  let owner := ownerMap r.ctx
+  -- the challenge's own view, for the homes of what it imports
+  match ← workerReads rd C jobs with
+  | .error e => pure (fail e)
+  | .ok wrC =>
+  match ← importedAll rd wrC r owner imported.toList with
+  | some why => pure (.error (s!"{S} does not solve {C}: {why}", 1))
+  | none =>
+  match ← cmpAll rd uses r owner ds.toList #[] with
   | .error why =>
     if declined.isPrefixOf why then pure (.error (why, 2))
     else pure (.error (s!"{S} does not solve {C}: {why}", 1))
-  | .ok filled => pure (.ok { home := l, emitted := ds, reads := wr, reach := r, filled })
+  | .ok filled =>
+    pure (.ok { home := l, emitted := ds, reads := wr, view := wrC, reach := r, filled })
 
 /-- **The compare worker** (see the module docstring), generic in the IO class. -/
 def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S : Name)

@@ -1077,5 +1077,70 @@ case_ "compare: …and without it" 1 \
   --olean --compare --trusted-search-path=$LIB:$INIT -- CmpHomeC CmpHomeS1
 rm -rf "$TRU" "$TMPDIR/cmp-trusted2" "$BAD"
 
+# --- the challenge as one module of a modular run (task #608) ----------------
+# `--schedule --compare`: the graph with the challenge's added import of its solution, a worker
+# per module of the two closures but the challenge, and the compare worker at the challenge;
+# the same verdicts as the merged comparison (but CmpImpS: a cycle, 1, where the merged run
+# declines the challenge's sorry, 2).  The compare worker alone: its own verdict and line (0 where
+# only a worker of the solution's closure refuses).
+mcmp() { # <description> <run's exit> <compare worker's exit> <its line's pattern> <C> <S>
+  case_ "modular compare: $1" "$2" --olean --schedule --compare --jobs=2 --search-path=$MSP -- "$5" "$6"
+  case_grep "modular compare: $1 (the compare worker)" "$3" "$4" \
+    --olean --module --compare --search-path=$MSP -- "$5" "$6"
+}
+mcmp "theorem holes filled" 0 0 "hole g_eq (theorem := sorry) filled by CmpSol's theorem" CmpChal CmpSol
+mcmp "a definition that differs" 1 1 "g: the solution's definition differs" CmpChal CmpSolDef
+mcmp "a hole stated differently" 1 1 "g_eq: the solution's theorem is not of the hole's type" CmpChal CmpSolStmt
+mcmp "a constant the solution lacks" 1 1 "easy: the solution has no constant of this name" CmpChal CmpSolMissing
+mcmp "a solution that uses sorry" 2 0 "hole easy (theorem := sorry) filled by CmpSolSorry's theorem" CmpChal CmpSolSorry
+mcmp "definition and opaque holes filled" 0 0 "hole answer (definition := sorry) filled by CmpOpqSol's definition" CmpOpq CmpOpqSol
+mcmp "an opaque constant of another value" 1 1 "k: the solution's opaque constant differs" CmpOpq CmpOpqSolK
+mcmp "an axiom hole filled by a theorem" 0 0 "hole ax (axiom) filled by CmpAxS's theorem" CmpAxC CmpAxS
+mcmp "a solution axiom at a hole's name" 2 0 "hole ax (axiom) filled by CmpAxBadS's axiom" CmpAxC CmpAxBadS
+mcmp "a hole filled by an inductive type" 2 2 "T: the solution fills this hole with an inductive type" CmpIndC CmpIndS
+mcmp "level parameters named otherwise" 0 0 "hole h (axiom) filled by CmpLvS's theorem" CmpLvC CmpLvS
+mcmp "binders named otherwise" 0 0 "hole gt (theorem := sorry) filled by CmpBndS's theorem" CmpBndC CmpBndS
+mcmp "a hole at Quot.sound" 2 2 "declined: Quot.sound: a hole at the quotient's axiom" QsA QsB
+mcmp "a hole at sorryAx" 2 2 "a context record reads sorryAx" CmpSorryC CmpSorryS
+mcmp "a compiler-trust hole filled by a definition" 2 2 \
+  "declined: Lean.reduceBool: the solution fills this hole at a compiler-trust name with a definition" \
+  CmpTrustC CmpTrustS
+mcmp "a definition hole filled by an opaque constant" 0 0 "filled by UpKindDefOpqSol's opaque constant" UpKindDef UpKindDefOpqSol
+mcmp "a theorem hole filled by a definition" 0 0 "filled by UpKindThmDefSol's definition" UpKindThm UpKindThmDefSol
+mcmp "a hole filled by an imported definition" 0 0 "hole n (definition := sorry) filled by UpHidDef's definition" UpKindDef UpHidDefSol
+# imported names are their home's: the solution's own `f` is loaded beside the home's
+mcmp "an imported name declared by the solution" 1 1 "modules CmpHomeA and CmpHomeS1 store different constants named f" CmpHomeC CmpHomeS1
+mcmp "an imported name redeclared with its body" 1 1 "modules CmpHomeA and CmpHomeS2 store different constants named f" CmpHomeC3 CmpHomeS2
+mcmp "an imported name read from its home" 0 0 "hole t (theorem := sorry) filled by CmpHomeS3's theorem" CmpHomeC3 CmpHomeS3
+mcmp "a solution importing its challenge" 1 1 "the solution's closure holds the challenge" CmpChal CmpImpS
+mcmp "upstream simple-match" 0 0 "hole comm (theorem := sorry) filled by UpCommSol's theorem" UpComm UpCommSol
+mcmp "upstream simple-axiom-issue" 2 0 "hole comm (theorem := sorry) filled by UpCommAxSol's theorem" UpComm UpCommAxSol
+mcmp "upstream simple-mismatch" 1 1 "comm: the solution's axiom is not of the hole's type" UpComm UpCommMisSol
+mcmp "upstream def-hole" 0 0 "hole n (definition := sorry) filled by UpDefHoleSol's definition" UpDefHole UpDefHoleSol
+mcmp "upstream def-hole-axiom-issue" 2 2 "a context record reads sorryAx" UpDefHole UpDefHoleAxSol
+mcmp "upstream def-hole-kind-mismatch" 2 0 "hole n (definition := sorry) filled by UpDefHoleKindSol" UpDefHole UpDefHoleKindSol
+mcmp "upstream def-hole-type-mismatch" 1 1 "n: the solution's definition is not of the hole's type" UpDefHoleTy UpDefHoleTySol
+mcmp "upstream numeric-namespace" 0 0 "hole «123».foo" 'UpNum.«12.34».«5»' UpNumSol
+mcmp "upstream opaque-value" 2 0 "hole boom (theorem := sorry) filled by UpBoomOpqSol's theorem" UpBoom UpBoomOpqSol
+mcmp "upstream primitive-issue" 1 1 "store different constants named Nat.gcd" UpGcd UpGcdSol
+mcmp "upstream proj_trick" 1 1 "S: the solution's inductive type differs" UpProj UpProjSol
+mcmp "upstream quot_mismatch" 1 1 "reads Nat.pred, which no module it loads holds" UpQuot UpQuotSol
+mcmp "upstream theorem_hole_issue" 0 0 "hole hw (theorem := sorry) filled by UpThmHoleSol's theorem" UpThmHole UpThmHoleSol
+mcmp "upstream check-multi as a comparison" 1 1 "a_thm: the solution has no constant of this name" UpMultiA UpMultiB
+case_grep "modular compare: the graph with the solution added" 0 "acyclic: 4 modules, 4 import edges" \
+  --check-graph --compare --search-path=$MSP -- CmpChal CmpSol
+case_grep "modular compare: the graph of a solution importing its challenge" 1 \
+  "import cycle: CmpChal → CmpImpS → CmpChal" --check-graph --compare --search-path=$MSP -- CmpChal CmpImpS
+case_grep "modular compare: the commands" 0 "check-graph --compare --search-path=" \
+  --olean --schedule-commands --compare --search-path=$MSP -- CmpChal CmpSol
+case_grep "modular compare: the commands' compare worker" 0 "module --compare --verified --search-path=.* -- '«CmpChal»' '«CmpSol»'" \
+  --olean --schedule-commands --compare --search-path=$MSP -- CmpChal CmpSol
+case_ "modular compare: --check-graph with one module" 3 --check-graph --compare --search-path=$MSP -- CmpChal
+case_ "modular compare: --check-graph with the module twice" 3 --check-graph --compare --search-path=$MSP -- CmpChal CmpChal
+case_ "modular compare: --module with one module" 3 --olean --module --compare --search-path=$MSP -- CmpChal
+case_ "modular compare: --modular" 3 --olean --modular --compare --search-path=$MSP -- CmpChal CmpSol
+case_ "modular compare: --module and --schedule" 3 --olean --module --schedule --compare --search-path=$MSP -- CmpChal CmpSol
+case_ "modular compare: --constant" 3 --olean --module --compare --constant=g --search-path=$MSP -- CmpChal CmpSol
+
 echo "olean gate: $ok/$total as expected"
 exit $fail

@@ -994,17 +994,13 @@ structure Reach where
   inferred : Nat
 
 /-- **The reach of module `m`** from the names its own records read (`roots`): the clash
-rule's keys, the worklist, the context's validation, the inferred flags.  `reads`: more reads to
-capture-check, each with the home whose view it is read in, with the partners' (a compared
-challenge's records' reads of what the challenge imports, task #608). -/
+rule's keys, the worklist, the context's validation, the inferred flags. -/
 def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (wr : WorkerReads)
-    (own : Std.HashSet Name) (roots : Array Name) (reads : Array (Name × Name) := #[]) :
-    μ (Except CheckError Reach) := do
+    (own : Std.HashSet Name) (roots : Array Name) : μ (Except CheckError Reach) := do
   let env : ReachEnv μ := { rd, mod := m, wr, own, copies := clashCopiesOf wr }
   match ← clashAgree env {} wr.clashes.toList #[] with
   | (_, .error e) => pure (.error e)
   | (c, .ok extra) =>
-    let c := { c with partners := c.partners ++ reads }
     let rs := (roots ++ extra).toList.filter (!own.contains ·)
     match rs.find? (!wr.index.first.contains ·) with
     | some x => pure (.error (.invalid s!"module {m} reads {x}, which no module it loads holds"))
