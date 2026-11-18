@@ -122550,15 +122550,11 @@ threshold), the FLT clone `flt/` (1.6 GB, sources only), `init.log`, `lean-sched
 
 ## TASK #607 — `--compare` and `--trusted-search-path` in the merged `--olean` mode (2026-11-18, agent/607-compare; lands on `compare`, not `modular`)
 
-**Status: #607 cont. — the code and the fixtures are on the lane; the theorems T1 and T2 are
-not written, so the lane does not land.**  The plan for them is at the end of this record.
-Coordinator review (2026-11-18): the "compared, not checked" design accepted (subject to the
-maintainer's veto); a hole filled by an inductive type's constant declines (done, ffa5f730f);
-T2 at the challenge's OWN level-parameter names — generalise `Model/BasisRename.lean`'s
-`RenEnv`/`renAcval` from pin copies to any constant, do not weaken the statement; then T1, T2,
-the axiom pins, the docs, every gate (plain-reach: a cached twin of `ConstantVal.atLps` /
-`ConstantInfo.atLps` if the gate flags the plain one), and the landing on `compare` (--no-ff
-from a worktree of `compare`, worktrees removed).
+**Status: #607 cont. (second session, 2026-11-18) — code and fixtures on the lane (olean gate
+385/385, `lake build`/`lake test` warning-free); the generalised renaming and the model-tier
+core of T2 are proved (no sorry); the driver half of T2, T1, the axiom pins, the docs, the gates
+and the landing are not done, so the lane does not land.**  The exact state and what remains are
+in "State after the second session" at the end of this record.
 
 **CLI** (`ConLeche/Driver/Cli.lean`, `Driver/Compare.lean`):
 `con-leche --olean --compare [--trusted-search-path=DIRS] [--search-path=DIRS] [--constant=NAME]
@@ -122712,3 +122708,80 @@ whitepaper, the `Challenge.lean`/`comparator.json` note (con-leche's own challen
 statement file comparator checks against `MainTheorem`; `--compare ConLeche.Challenge
 ConLeche.MainTheorem` is the same check by con-leche itself); the arena battery and the other
 gates; landing on `compare`.
+
+### State after the second session (#607 cont.)
+
+**Code changes this session** (all on `agent/607-compare`, gated by the olean gate 385/385):
+* The renaming direction: `sameCvUpToLevels`/`sameUpToLevels` now rename the SOLUTION's
+  (checked, so well-scoped) constant to the challenge's level names and compare with the
+  challenge's (`(cv'.atLps cv.levelParams).beqP cv`).  Renaming the challenge's instead was
+  unsound for the theorem: an unchecked challenge record with a stray level parameter
+  (`foo.{u} : Sort v → Sort u` against the solution's `foo.{v} : Sort v → Sort v`) passed.
+* Two declines in the hole branch of `cmpRecord`: a hole at `Quot.sound` (its record installs
+  `quotAt`, a pin copy, not an axiom copy), and a hole at a compiler-trust name
+  (`reduceOpNames`) filled by a definition or a theorem (its statement would not present the
+  record: `Presents` excludes those names from the statement form).  No fixture for either
+  (a challenge declaring `Quot.sound` or `Lean.reduceBool` itself needs a prelude-free module
+  pair; to add with the next session's gates).
+* `ctxScoped` installs each name one at a time, so a name twice within one record is refused
+  too (needed for `ImportOk.nodup`).
+* `CmpHomeS3` is now a module (`public import CmpHomeA`, `import all CmpHomeA`,
+  `public theorem t : Eq f 3 := (rfl)`), as the coordinator asked.
+* `Driver.chalRecord`: the challenge's record in its own environment, a hole as its statement.
+* The help text's `--compare` lines fit 80 columns (`lake test`'s check).
+
+**Proofs this session:**
+* `Verify/PinRen.lean`: `LpsCopy`, `CopyEnv` (what the reading needs of two environments: each
+  stored name stored on both sides at as many level parameters, the second's distinct; the
+  literals and projections alike), `RenEnv.copy` (the pins' relation is one), the literal
+  shapes' level counts.  `Model/BasisRename.lean`: `renAcval_inst` and `denote_ren` are over
+  `LpsCopy`/`CopyEnv` now, so they hold for any constant; the pin transport is unchanged.
+* `Model/Copies.lean` (new): `ConstCopy` (the same, or `c.atLps ps`, `ps` distinct, as many),
+  `CopiesEnv` (position by position, same tables, names distinct), `CopiesEnv.copy` (to
+  `CopyEnv`, over `EnvWF` for the `List` shapes), and `Model.ofCopies` — a `Model V env'` read
+  off an `EnvModelM V env`, `cval n φ = cvalOf acval n (substFn φ c.lps (c'.lps.map param))`
+  (`Model.ofCopies_cval`).  No `EnvModelM` transport is needed: the model only reads types.
+  `Model/Denotes.lean`: `cvalOf` exposed, `fvarsBelow_zero_of_not_hasFvar` public.
+* `Model/Modular/Compare.lean` (new, rooted in `ConLeche/Model.lean`): `cmpRecord_spec` (one
+  record: the challenge's record, a hole as its statement, installs copies of what it stands
+  for, the same tables; the solution's record, filled or not, presents it; the home rule for an
+  imported non-theorem), `compareRecords_spec`, `ctxScoped_spec`, `chal_copies` (the
+  challenge's environment `streamEnv (recsC.toList.map (chalRecord C uses homesC))` is a
+  `CopiesEnv` of `streamEnv ctx`), `cmpDev` (module 0 the solution, its filled records,
+  presenting `ctx`; module 1 the challenge, context `ctx`, read from 0, no records) with
+  `cmpDev_localOk`, and the core:
+  - `compare_models` — on `compareRecords … = .ok (ctx, filled)`, `ctxScoped ctx = none` and
+    `checkDecls .verified pins maxNatSize (recsS.map (fillDecl F)) = .ok env`: models
+    `mC : Model V envC` (the challenge's environment) and `mS : Model V envS` (the solution's
+    filled records) with, for every name `envC` stores, the solution's constant of that name, as
+    many level parameters, and `mC.cval n φ = mS.cval n (substFn φ cS.lps (cC.lps.map param))`
+    (a hole is inhabited in `mC` by `Model.mem`, its value the solution's constant's);
+  - `compare_homes` — every record of the challenge whose key's home is not `C`, but a theorem,
+    has the same home in `rdS.homes` as in `rdC.homes`.
+
+**What remains, in order:**
+1. **T2's driver half** (`Verify/Driver/Main.lean` + a new `Verify/Driver/CompareRun.lean`):
+   `runArgs_compare_accept`, an exit 0 of `runArgs` at
+   `["--olean", "--compare", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]`
+   gives `pre`, `rdC` (an outcome of `readOleansAt (chalRoots) #[C] none 1? …`), `rdS`,
+   `compareRecords … = .ok (ctx, filled)`, `ctxScoped ctx = none` and the solution's
+   `checkDecls`.  Two gaps: (a) `readOleans_ok`/`readOleans_good`
+   (`Verify/Frontend/Olean/Files.lean`) are stated for `readOleans` on a `SearchPath`; the
+   solution is read by `readOleansAt` on `Roots` with a fallback (and `lenient`, `homes`), so
+   they need restating for `readOleansAt` (`T.bare = sp` becomes the fallback-aware
+   invariant); `checkOleansG_accept` then applies as in `checkMainG_oleans_accept`;
+   (b) `compareG`'s own unfolding (two reads, `fallbackOnly`, the `--constant` check, the
+   declines, `verdictG`) in the style of `checkMainG_oleans_accept`.  The jobs/pace arguments:
+   the model's `parMapExcept` is `mapExcept`, so the read's outcome set does not depend on them;
+   T1's `challengeView` fixes `jobs := 1`, `.off`, so a lemma "readOleansAt at any jobs/pace
+   has the outcomes at 1/.off" is needed, or the view quantifies over them.
+2. **T2 in `MainTheorem.lean`** (`compare_solves`): the driver half + `compare_models` +
+   `compare_homes`, the statement at the challenge's own level names as above, plus the
+   homes; `Challenge.lean` gets the statement.
+3. **T1** (`Verify/Frontend/Olean/Local.lean`), as planned above; nothing of it is written.
+4. The corollary T1+T2, the axiom pins (`tests/ConLecheTests/Axioms.lean`), OVERVIEW (mode,
+   trusted path, the comparison rule vs leanprover/comparator's, the theorems, the module map
+   incl. `Model/Copies.lean`, `Model/Modular/Compare.lean`), the `Challenge.lean`/
+   `comparator.json` note, fixtures for the two new declines, all gates
+   (`tests/arena.sh` under the guard; plain-reach on `ConstantVal.atLps`; trust-surface,
+   binary-link, shake, overview-links, quote-gate), then the landing on `compare`.
