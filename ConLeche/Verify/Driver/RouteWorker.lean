@@ -102,7 +102,8 @@ theorem first_none_of_ownNames {M : Name} {jobs : Nat} {w : WorkerRead}
   exact Option.not_isSome_iff_eq_none.1 (by simpa using h)
 
 /-- **A copy the name index records makes its name loaded.** -/
-theorem first_of_at {M : Name} {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w)
+theorem first_of_at {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs M jobs w x)
     {cp : Copy} {q : NamePosition} (hq : w.reads.index.at cp = some q) :
     (w.reads.index.first[q.name]?).isSome = true := by
   obtain ⟨_, _, hr⟩ := hw.reads

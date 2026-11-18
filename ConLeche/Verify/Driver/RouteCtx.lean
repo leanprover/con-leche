@@ -513,21 +513,21 @@ namespace Run
 variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
 
 /-- **An emitted record of a module of the run passed the reserved names' check.** -/
-theorem own_basis {h : Name} (hh : h ∈ R.names) {p : Declaration} (hp : p ∈ (R.w h).emitted) :
+theorem own_basis {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : Declaration} (hp : p ∈ (R.w h).emitted) :
     basisNamesOk p = true := by
   have := declsRun_basis (R.run h hh) _
     (List.mem_map_of_mem (f := fillDecl (fillOf sp fs #[⟨h, (R.w h).home.frontier⟩]))
-      (emitted_own (R.facts h hh) hp))
+      (emitted_own (R.facts₀ hh hx) hp))
   cases p <;> exact this
 
 /-- **A name an own constant's type reads, loaded at the module, is in its context**: the
 constant is an own record's or a context record's, and either's reads are stored there. -/
-theorem stored_of_own_const {h : Name} (hh : h ∈ R.names) {ci : ConstantInfo}
+theorem stored_of_own_const {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {ci : ConstantInfo}
     (hci : ci ∈ (ownEnvOf sp fs h (R.w h)).consts) {y : Name}
     (hy : y ∈ ci.toConstantVal.type.needs)
     (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
     ((R.dev (R.rk h)).context.find? y).isSome = true := by
-  have hw := R.facts h hh
+  have hw := R.facts₀ hh hx
   have hno : (ownNames (R.w h).home).contains y = false := by
     cases hc : (ownNames (R.w h).home).contains y
     · rfl
@@ -548,11 +548,11 @@ theorem stored_of_own_const {h : Name} (hh : h ∈ R.names) {ci : ConstantInfo}
 
 /-- **An emitted record's constant is a constant of its module's merge**, of its name, of a
 kind past the statements' where it is no statement. -/
-theorem emitted_names {h : Name} (hh : h ∈ R.names) {p : Declaration} (hp : p ∈ (R.w h).emitted)
+theorem emitted_names {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : Declaration} (hp : p ∈ (R.w h).emitted)
     {ci : ConstantInfo} (hci : ci ∈ declConstants p) :
     ∃ c : CEntry, (homeMerged (R.w h)).map[c.name]? = some c ∧ c.name = ci.name ∧
       (ci.isStmtKind = false → 4 ≤ c.kind.tag) := by
-  have hw := R.facts h hh
+  have hw := R.facts₀ hh hx
   obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hem, hown⟩ :=
     home_records hw
   have hname : ci.name ∈ declNames p := List.mem_map_of_mem hci
@@ -616,22 +616,22 @@ theorem emitted_names {h : Name} (hh : h ∈ R.names) {p : Declaration} (hp : p 
     exact ⟨c, hc, hcn, fun _ => ht⟩
 
 /-- **An emitted record's names are its module's own.** -/
-theorem emitted_ownNames {h : Name} (hh : h ∈ R.names) {p : Declaration}
+theorem emitted_ownNames {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : Declaration}
     (hp : p ∈ (R.w h).emitted) {n : Name} (hn : n ∈ declNames p) :
     (ownNames (R.w h).home).contains n = true := by
   obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hn
-  obtain ⟨c, hc, hcn, -⟩ := R.emitted_names hh hp hci
+  obtain ⟨c, hc, hcn, -⟩ := R.emitted_names hh hx hp hci
   have := (mergedOfList_spec _).2.1 _ _ hc
   rw [show ci.toConstantVal.name = c.name from hcn.symm]
   exact ownNames_mem (Array.mem_toList_iff.1 (List.mem_filter.1 this).1)
 
 /-- **A name an own environment stores, loaded at the module, is in its context**: an own
 record's names are the module's own, which no load holds. -/
-theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) {y : Name}
+theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {y : Name}
     (hy : ((ownEnvOf sp fs h (R.w h)).find? y).isSome = true)
     (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
     ((R.dev (R.rk h)).context.find? y).isSome = true := by
-  have hw := R.facts h hh
+  have hw := R.facts₀ hh hx
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.1 hy
   have hn := Env.find?_name hci
   rw [R.dev_rk hh]
@@ -641,7 +641,7 @@ theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) {y : Name}
     have hpe : p0 ∈ (R.w h).emitted.toList := by
       rw [hw.own] at hp0
       exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.1 hp0
-    have := R.emitted_ownNames hh (Array.mem_toList_iff.1 hpe) (List.mem_map_of_mem (f := fun c : ConstantInfo => c.toConstantVal.name) hcp)
+    have := R.emitted_ownNames hh hx (Array.mem_toList_iff.1 hpe) (List.mem_map_of_mem (f := fun c : ConstantInfo => c.toConstantVal.name) hcp)
     rw [show ci.toConstantVal.name = y from hn] at this
     rw [first_none_of_ownNames hw this] at hl
     cases hl
@@ -687,7 +687,8 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     (hk : k.tag < 4) :
     ∃ ci, (R.dev (R.rk M)).context.find? y = some ci ∧ ci.toConstantVal = cv ∧
       ci.isStmtKind = true ∧ CopyAt sp fs s ∧ s.part.level ≠ .server ∧
-      s.pos.skipped = false ∧ cv.name = y ∧ y ≠ sorryAxName ∧ s.part.mod ∈ R.names := by
+      s.pos.skipped = false ∧ cv.name = y ∧ y ≠ sorryAxName ∧ s.part.mod ∈ R.names ∧
+      R.x s.part.mod = #[] := by
   have hw := R.facts M hM
   obtain ⟨k0, d, hm, hk0, hh, hyd⟩ := R.ctx_record hM hy
   obtain ⟨-, hrec, -⟩ := R.cap_facts hM
@@ -695,8 +696,8 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
   obtain ⟨s'', hs'', hmod⟩ := hall y hyd
   rw [hs] at hs''
   cases hs''
-  obtain ⟨hhm, -⟩ := R.home_rank hM hh
-  have hwm := R.facts hm hhm
+  obtain ⟨hhm, -, hxm⟩ := R.home_rank hM hh
+  have hwm := R.facts₀ hhm hxm
   have hrun : OwnRun .verified maxNatSize sp fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
   obtain ⟨f, r0, a, sk, skels, hf, -⟩ := home_records hwm
   have hf' : ModelIO.CanGive (readFiles sp s.part.mod .private) fs (.ok f) := by
@@ -734,7 +735,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
       have hqmem : quotAt .sound cv ∈ declConstants p := by
         rcases hpres with ⟨hperm, -⟩ | ⟨he, -⟩
         · exact hperm.mem_iff.1 (by simp [declConstants, hqs])
-        · have hb := R.own_basis hhm hp
+        · have hb := R.own_basis hhm hxm hp
           cases p with
           | axiomDecl c =>
             simp only [stmtOf, Declaration.axiomDecl.injEq] at he
@@ -755,10 +756,10 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
       obtain ⟨ci', hci', hcv', hks', -⟩ := copy_own hwm hrun hmod hcp hlv hr hst hsk1 hk hsy
       rw [← hyq, ← hcvy, hci'] at hfO
       cases hfO
-      refine ⟨quotAt .sound cv, ?_, hcv', hks', hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm⟩
+      refine ⟨quotAt .sound cv, ?_, hcv', hks', hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm, hmod ▸ hxm⟩
       have := hfind (quotAt .sound cv) (by simp [declConstants, hqs])
       rwa [← hyq] at this
-    · refine ⟨.axiomInfo cv, ?_, rfl, rfl, hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm⟩
+    · refine ⟨.axiomInfo cv, ?_, rfl, rfl, hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm, hmod ▸ hxm⟩
       have := hfind (.axiomInfo cv) (by simp [declConstants, hqs, hsy])
       rwa [show (ConstantInfo.axiomInfo cv).name = y from hcvy] at this
   | @entry s1 r1 r₀ e d1 cv1 k1 hs1 hl1 hr1 he hr₀ hst₀ hk1 hsk1 hd1 =>
@@ -782,7 +783,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     obtain ⟨v', hh'', rfl⟩ := defn_presents hpres
     have hsy : cv.name ≠ sorryAxName := declsRun_defn_sorry (R.run hm hhm)
       (List.mem_map.2 ⟨_, emitted_own hwm hp, rfl⟩)
-    refine ⟨.defnInfo cv v hh', ?_, rfl, rfl, hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm⟩
+    refine ⟨.defnInfo cv v hh', ?_, rfl, rfl, hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm, hmod ▸ hxm⟩
     have := hfind (.defnInfo cv v hh') (by simp [declConstants])
     rwa [show (ConstantInfo.defnInfo cv v hh').name = y from hcvy] at this
   | @quot s1 r1 cv1 q d1 hs1 hl1 hr1 hst1 hd1 =>
@@ -816,7 +817,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
       · exact hperm.mem_iff.1 hci
       · cases p <;> simp only [stmtOf] at he <;>
           first | (cases he; done) | (rw [← he]; exact hci)
-    obtain ⟨c, hc, hcn, htc⟩ := R.emitted_names hhm hp hcp'
+    obtain ⟨c, hc, hcn, htc⟩ := R.emitted_names hhm hxm hp hcp'
     have hcm := (mergedOfList_spec _).2.1 _ _ hc
     obtain ⟨q₁, hq₁, hq₁n, hq₁t⟩ :=
       home_const_pos hwm (Array.mem_toList_iff.1 (List.mem_filter.1 hcm).1)
@@ -887,7 +888,8 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
   obtain ⟨-, hrec, -, -, -, -, hreach⟩ := R.cap_facts hM
   obtain ⟨hR, horig⟩ := hreach _ hP
   have hhN : h ∈ R.names := (R.reached_rank hM hR).1
-  have hwh := R.facts h hhN
+  have hxN : R.x h = #[] := (R.reached_rank hM hR).2.2
+  have hwh := R.facts₀ hhN hxN
   have hno : (ownNames (R.w h).home).contains y = false := by
     cases hc : (ownNames (R.w h).home).contains y
     · rfl
@@ -902,7 +904,7 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
     rw [hmod] at hrf
     obtain ⟨p, hp, hpr⟩ := recordFrom_presents hrf hwh
     rw [R.dev_rk hhN]
-    exact own_reads_ctx hwh hp (presents_reads hpr (R.own_basis hhN hp) hy) hno (by simp [hlc])
+    exact own_reads_ctx hwh hp (presents_reads hpr (R.own_basis hhN hxN hp) hy) hno (by simp [hlc])
   · -- an `agreeCheck` partner read: a name of the statement of a copy of `h`
     obtain ⟨hcp, hlv, -⟩ := homeView_copy hv hs₂
     have hyn' : y ∈ cv₂.type.needs := by
@@ -919,10 +921,10 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
       have hst' := own_type_stored ⟨_, R.run h hhN⟩
         (List.mem_map.2 ⟨_, emitted_own hwh hp, rfl⟩) hrec y
         (by rw [← needs_eq_readNames]; exact hyn')
-      exact R.stored_of_own_find hhN hst' hl
+      exact R.stored_of_own_find hhN hxN hst' hl
     · obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own hwh ⟨_, R.run h hhN⟩ hmod2.symm hcp hlv hrg hst
         hsk2 htag hsy
-      exact R.stored_of_own_const hhN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
+      exact R.stored_of_own_const hhN hxN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
   · -- a clash partner read: a copy, at `h`, of a clash's name the context stores
     obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
     obtain ⟨cl, hcl, hcln, cp, kd, he, hk1⟩ := clashCopiesOf_spec hcs (k := kc.1) (cv := kc.2)
@@ -970,7 +972,7 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
     rw [hq₀] at hq₀'; cases hq₀'
     obtain ⟨-, ht₀⟩ := workerClash_kinds hrd hcl' he₀ he₀
     obtain ⟨hsk, ht⟩ := workerClash_kinds hrd hcl' he' he₀
-    obtain ⟨-, -, -, -, -, -, hsk₀, -, hnsy, -⟩ :=
+    obtain ⟨-, -, -, -, -, -, hsk₀, -, hnsy, -, -⟩ :=
       R.ctx_stmt hM hyn hs₀ hrg₀ hst₀ (by rcases ht₀ with h0 | h0 <;> rw [h0] <;> decide)
     have hskq : (spotOf (R.w M).reads cp q).pos.skipped = false := by
       rw [(copyAt_kind hcpq hrg hstq).2]
@@ -984,7 +986,7 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
       rcases needsGo_sound _ _ _ _ hz2 with h0 | h0
       · simp at h0
       · exact h0
-    exact R.stored_of_own_const hhN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
+    exact R.stored_of_own_const hhN hxN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
 
 /-- **The names a context statement's type reads are passed as reads of its home**, the module
 of its copy, which is of smaller rank. -/
@@ -1006,7 +1008,7 @@ theorem ctx_reads {M : Name} (hM : M ∈ R.names) {y : Name} {ci : ConstantInfo}
   obtain ⟨s', hs', hmod⟩ := hall y hyd
   rw [hs] at hs'
   cases hs'
-  obtain ⟨hhm, hlt⟩ := R.home_rank hM hh
+  obtain ⟨hhm, hlt, -⟩ := R.home_rank hM hh
   refine ⟨hmod ▸ hhm, hmod ▸ hlt, fun c hc => ⟨_, rfl, ?_⟩⟩
   rw [hmod]
   exact hreads c (recordReads_complete (.inl ⟨ci, hcd, .inl (by rw [needs_eq_readNames]; exact hc)⟩))

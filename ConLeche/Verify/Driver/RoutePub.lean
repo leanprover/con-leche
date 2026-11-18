@@ -94,9 +94,10 @@ theorem pub_loaded {M : Name} (hM : M ∈ R.names) {h y : Name} (hh : h ∈ R.na
   obtain ⟨own, hown, hldh, _, hsizeh, -⟩ := workerReads_loads hrdh
   obtain ⟨is, i0, his, hi0, -, hi0b⟩ := hab.first (Ne.symm hne)
   obtain rfl := moduleImports_canGive_unique his (R.rootImports hh hown)
-  have hmem := headerFixpoint_complete hldh hi0 hi0b
+  have hmem := headerFixpoint_complete hldh
+    (by rw [NamePositions.withImports_imports]; exact Array.mem_append_left _ hi0) hi0b
   have hrank := R.fixpoint_rank hh hown hldh hmem
-  refine ⟨hrank.1, hrank.2, ?_⟩
+  refine ⟨hrank.1, hrank.2.1, ?_⟩
   obtain ⟨j, hj, hjb⟩ := Array.getElem_of_mem hmem
   have hjb' : (R.w a).reads.loads.nameAt j = b := by
     unfold Loads.nameAt; rw [Array.getElem?_eq_getElem hj, hjb]; rfl
@@ -109,7 +110,7 @@ theorem pub_loaded {M : Name} (hM : M ∈ R.names) {h y : Name} (hh : h ∈ R.na
   have hin : ∃ q' ∈ (R.w a).reads.index.parts[j].consts, q'.name = y := by
     unfold LoadFlags.level at ht
     split at ht
-    · obtain ⟨q', hq', hn⟩ := exported_sub_private (R.facts b hrank.1) hte ht hq
+    · obtain ⟨q', hq', hn⟩ := exported_sub_private (R.facts₀ hrank.1 hrank.2.2) hte ht hq
       exact ⟨q', hq', hn.trans hqn⟩
     · rw [partNames_eq ht hte]; exact ⟨q, hq, hqn⟩
   obtain ⟨q', hq', hn⟩ := hin

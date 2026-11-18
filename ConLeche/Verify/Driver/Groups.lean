@@ -767,8 +767,8 @@ the record at position `i` of the context, read from module `h` (`homes[i]`), an
 at `h` accepted on the same snapshot, one of `h`'s own records with its theorems' values in place
 (`h`'s `decls` in the development), presented by it (`Presents`).  What `h`'s check of its views
 says of the copy read is `copy_behind`'s. -/
-theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) {i : Nat} {d : Declaration} {h : Name}
+theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs m jobs w x) {i : Nat} {d : Declaration} {h : Name}
     (hd : w.reach.ctx[i]? = some d) (hh : w.reach.homes[i]? = some h)
     {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts sp fs h jobs' w') :
     ∃ p ∈ w'.own.toList.map (fillDecl (fillOf sp fs #[⟨h, w'.home.frontier⟩])), Presents d p := by
@@ -782,8 +782,8 @@ theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
   exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.2 (Array.mem_toList_iff.2 hp)
 
 /-- Every context record has its home. -/
-theorem worker_home {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
+theorem worker_home {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs m jobs w x) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
     ∃ (i : Nat) (h : Name), w.reach.ctx[i]? = some d ∧ w.reach.homes[i]? = some h := by
   obtain ⟨_, _, hrd⟩ := hw.reads
   obtain ⟨_, _, hre⟩ := hw.reach
@@ -803,11 +803,12 @@ theorem interfaceOk_of_workers {sp : SearchPath} {fs : FS} {hb : Name} {jobs : N
     {w : WorkerRead} (hw : WorkerFacts sp fs hb jobs w)
     (dev : Nat → Module) (b : Nat)
     (hdecls : (dev b).decls = w.own.toList.map (fillDecl (fillOf sp fs #[⟨hb, w.home.frontier⟩])))
-    (hiface : ∀ e ∈ (dev b).iface, ∃ (M : Name) (jM : Nat) (wM : WorkerRead) (i : Nat),
-      WorkerFacts sp fs M jM wM ∧ wM.reach.ctx[i]? = some e ∧ wM.reach.homes[i]? = some hb) :
+    (hiface : ∀ e ∈ (dev b).iface, ∃ (M : Name) (jM : Nat) (wM : WorkerRead) (xM : Array ImportRec)
+      (i : Nat), WorkerFacts sp fs M jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+        wM.reach.homes[i]? = some hb) :
     InterfaceOk dev b := by
   refine ⟨fun e he => ?_⟩
-  obtain ⟨M, jM, wM, i, hwM, hc, hh⟩ := hiface e he
+  obtain ⟨M, jM, wM, xM, i, hwM, hc, hh⟩ := hiface e he
   rw [hdecls]
   exact worker_presented hwM hc hh hw
 
@@ -815,19 +816,20 @@ theorem interfaceOk_of_workers {sp : SearchPath} {fs : FS} {hb : Name} {jobs : N
 context as its `ctx`, each context name read from the module its record's home is (`srcOf`,
 `nameOf`), and whose modules present the context records workers read from them, every context
 record is a presentation of the module its names are read from. -/
-theorem presented_of_worker {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) (dev : Nat → Module) (i : Nat)
+theorem presented_of_worker {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs M jobs w x) (dev : Nat → Module) (i : Nat)
     (hctx : (dev i).ctx = w.reach.ctx.toList) (nameOf : Nat → Name)
     (hsrc : ∀ (j : Nat) (d : Declaration) (h : Name), w.reach.ctx[j]? = some d →
       w.reach.homes[j]? = some h → ∀ n ∈ declNames d, nameOf ((dev i).src n) = h)
-    (hiface : ∀ (b : Nat) (e : Declaration), (∃ (M' : Name) (j' : Nat) (w' : WorkerRead) (k : Nat),
-      WorkerFacts sp fs M' j' w' ∧ w'.reach.ctx[k]? = some e ∧ w'.reach.homes[k]? = some (nameOf b)) →
+    (hiface : ∀ (b : Nat) (e : Declaration), (∃ (M' : Name) (j' : Nat) (w' : WorkerRead)
+      (x' : Array ImportRec) (k : Nat), WorkerFacts sp fs M' j' w' x' ∧ w'.reach.ctx[k]? = some e ∧
+        w'.reach.homes[k]? = some (nameOf b)) →
       e ∈ (dev b).iface) :
     ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface := by
   intro d hd n hn
   rw [hctx] at hd
   obtain ⟨j, h, hj, hh⟩ := worker_home hw hd
-  refine hiface _ d ⟨M, jobs, w, j, hw, hj, ?_⟩
+  refine hiface _ d ⟨M, jobs, w, x, j, hw, hj, ?_⟩
   rw [hsrc j d h hj hh n hn]
   exact hh
 

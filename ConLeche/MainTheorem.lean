@@ -258,7 +258,8 @@ theorem run_no_False (V : Type w) [SetTheory V] {sp : Olean.SearchPath} {fs : FS
   obtain ⟨_, w, -⟩ := acc m hm
   let R := Driver.Compose.Run.ofAccepted C rk good edges inj acc w
   have hmR : m ∈ R.names := by rw [Driver.Compose.Run.ofAccepted_names]; exact hm
-  obtain ⟨ci, hci, hcty⟩ := R.thm_own hmR hv hmem hk
+  obtain ⟨ci, hci, hcty⟩ :=
+    R.thm_own hmR (Driver.Compose.Run.ofAccepted_x C rk good edges inj acc w m) hv hmem hk
   exact modular_no_False V natOpPinSets maxNatSize R.dev (R.rk m) (fun j _ => R.localOk j) (R.rk m)
     (Nat.le_refl _) ci hci (by rw [hcty, hty])
 

@@ -284,8 +284,8 @@ theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {R : Roo
 /-- **The context of an accepted worker**: every context record `RecordScoped` in the
 prefix of the context ending with it (`ImportOk.ordered`) and in the context, every name it reads
 stored there, the context `EnvWF`, its names distinct (`ImportOk.nodup`). -/
-theorem worker_ctx {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) :
+theorem worker_ctx {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs m jobs w x) :
     (∀ k (hk : k < w.reach.ctx.toList.length),
       RecordScoped (streamEnv (w.reach.ctx.toList.take (k + 1))) w.reach.ctx.toList[k]) ∧
     (∀ d ∈ w.reach.ctx.toList, RecordScoped (streamEnv w.reach.ctx.toList) d) ∧
@@ -346,8 +346,8 @@ theorem nodup_flatMap_inj {α β : Type} {f : α → List β} :
 
 /-- **A context name is one record's** (`ImportOk.one_src`, with a module's source a function
 of the record storing the name): two context records storing one name are one. -/
-theorem worker_one_record {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) {d d' : Declaration} (hd : d ∈ w.reach.ctx.toList)
+theorem worker_one_record {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs m jobs w x) {d d' : Declaration} (hd : d ∈ w.reach.ctx.toList)
     (hd' : d' ∈ w.reach.ctx.toList) {n : Name} (hn : n ∈ declNames d) (hn' : n ∈ declNames d') :
     d = d' := by
   exact nodup_flatMap_inj hw.nodup hd hd' hn hn'
@@ -355,8 +355,8 @@ theorem worker_one_record {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
 /-! ## The own records are the module's -/
 
 /-- The home of an accepted worker: its files, loaded. -/
-theorem workerFacts_load {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) :
+theorem workerFacts_load {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs m jobs w x) :
     ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ loadAt 0 m f = some w.home := by
   obtain ⟨f, hf, h⟩ := hw.home
   simp only [homeOf] at h
@@ -524,7 +524,7 @@ context record is closed in the context, which is well formed.  What
 is left of `ImportOk` relates `i` to other modules (`below`, `src_lt`, `presented`, `reads`,
 the agreement): the composition's (task #467). -/
 theorem worker_local {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
-    {w : WorkerRead} (hw : WorkerFacts sp fs m jobs w)
+    {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts sp fs m jobs w x)
     (hrun : DeclsRun mode natOpPinSets maxNatSize
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
