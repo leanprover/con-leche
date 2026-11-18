@@ -102,7 +102,7 @@ noncomputable def Run.ofCompare (Cn S : Name) (C : List Graph.Node) (rk : Name �
       rw [cmpExtra_self]
       exact hcr.facts
     · have hm : M ∈ C.map (·.1) ∧ M ≠ Cn := ⟨hM, hc⟩
-      rw [dif_pos hm, dif_pos hm, cmpExtra_other hc]
+      rw [dite_eq_left hm, dite_eq_left hm, cmpExtra_other hc]
       exact (acc M hM hc).choose_spec.choose_spec.1
   run M hM := by
     by_cases hc : M = Cn
@@ -110,11 +110,11 @@ noncomputable def Run.ofCompare (Cn S : Name) (C : List Graph.Node) (rk : Name �
       simp only [ne_eq, not_true_eq_false, and_false, ↓reduceDIte, ↓reduceIte, ownDecls]
       have hown : cr.w.own = #[] := by
         rw [hcr.facts.own, recsOf]
-        simp [cmpExtra_self]
+        simp
       simp only [hown, Array.toList_empty, List.map_nil, Array.size_empty, Nat.add_zero]
       exact .nil _
     · have hm : M ∈ C.map (·.1) ∧ M ≠ Cn := ⟨hM, hc⟩
-      rw [dif_pos hm]
+      rw [dite_eq_left hm]
       exact (acc M hM hc).choose_spec.choose_spec.2
 
 /-- The compared run's module at the challenge is the compare worker's read. -/

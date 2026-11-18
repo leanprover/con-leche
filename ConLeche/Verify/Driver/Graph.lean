@@ -90,7 +90,7 @@ theorem closureLevels_good {jobs : Nat} :
     simp only [closureLevels, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨⟨rfl, rfl⟩, -⟩ := h
     exact ⟨hout, hT, hp⟩
-  | 0, _ :: _, _, _, _, _, _, _, _, _, _, _, h => by simp [closureLevels] at h
+  | 0, _ :: _, _, _, _, _, _, _, _, _, _, _, h => by rw [closureLevels] at h; simp at h
   | fuel + 1, x :: xs, seen, out, C, T, T', hT, hp, hout, _, _, h => by
     simp only [closureLevels, ModelIO.bind_ok] at h
     obtain ⟨T₁, _, hT₁, r, _, hr, h⟩ := h
@@ -310,7 +310,7 @@ theorem closureLevels_closure {jobs : Nat} {roots : List Name}
     simp only [closureLevels, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨⟨rfl, rfl⟩, -⟩ := h
     exact hout
-  | 0, _ :: _, _, _, _, _, _, _, _, _, _, _, _, h => by simp [closureLevels] at h
+  | 0, _ :: _, _, _, _, _, _, _, _, _, _, _, _, h => by rw [closureLevels] at h; simp at h
   | fuel + 1, x :: xs, seen, out, C, T, T', hT, hp, hlvl, hout, _, _, h => by
     simp only [closureLevels, ModelIO.bind_ok] at h
     obtain ⟨T₁, _, hT₁, r, _, hr, h⟩ := h
