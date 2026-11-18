@@ -158,8 +158,10 @@ def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
           .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
         else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
       | _, _ => .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
-    if n == quotSoundName then
-      .error s!"{declined}{n}: a hole at the quotient's axiom; con-leche cannot fill it"
+    if n == quotSoundName || n == sorryAxName then
+      .error s!"{declined}{n}: a hole at {if n == quotSoundName then "the quotient's axiom"
+        else "the placeholder axiom"}, which installs no axiom of its own; con-leche cannot \
+        fill it"
     else
     match dS with
     | .axiomDecl _ | .opaqueDecl .. => filled

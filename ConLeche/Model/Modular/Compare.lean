@@ -24,7 +24,7 @@ or not.
 
 namespace ConLeche.Model.Compare
 
-open ConLeche ConLeche.Driver ConLeche.Verify ConLeche.Model
+open ConLeche ConLeche.Driver ConLeche.Verify ConLeche.Model SetTheory
 
 /-- **A record installing copies of another's constants**, the same tables. -/
 @[expose] def RecCopy (e r : Declaration) : Prop :=
@@ -262,7 +262,7 @@ theorem cmpRecord_spec {C : Name} {uses : Declaration → Array Name} {own : Boo
           intro cv cv' h1 h2 hs hkS
           have hc := sameCv_copy hs
           have hn : cv'.name ≠ quotSoundName := by
-            rw [← cv_name hc, ← recKey_of_recCv h1]; simpa using hq
+            rw [← cv_name hc, ← recKey_of_recCv h1]; exact fun e => hq (by simp [e])
           rw [stmtOf_of_recCv h1 (isHole_kind hh), stmtOf_of_recCv h2 hkS]
           exact ⟨recCopy_axiom hc hn, hn⟩
         split at h
@@ -310,6 +310,19 @@ theorem cmpRecord_spec {C : Name} {uses : Declaration → Array Name} {own : Boo
         obtain ⟨rfl, -⟩ := Prod.mk.inj (Except.ok.inj h)
         exact ⟨sameRecordUpTo_copy hs, presents_fill dS, fun h => nomatch h⟩
       · exact nomatch h
+
+/-- **A hole the comparison accepts is at neither the quotient's axiom nor the placeholder
+axiom.** -/
+theorem cmpRecord_hole_name {C : Name} {uses : Declaration → Array Name}
+    {homeC homeS : Option Name} {dC dS e : Declaration} {f : Option Filled}
+    (hh : isHole uses dC = true) (h : cmpRecord C uses true homeC homeS dC dS = .ok (e, f)) :
+    recKey dC ≠ quotSoundName ∧ recKey dC ≠ sorryAxName := by
+  unfold cmpRecord at h
+  simp only [Bool.not_true, Bool.false_eq_true, ↓reduceIte, hh] at h
+  split at h
+  · exact nomatch h
+  · rename_i hq
+    exact ⟨fun e => hq (by simp [e]), fun e => hq (by simp [e])⟩
 
 /-! ## The comparison, record by record -/
 
@@ -699,5 +712,64 @@ theorem compare_homes {C : Name} {uses : Declaration → Array Name}
   obtain ⟨-, hall⟩ := compareRecords_spec hcmp
   obtain ⟨e, -, dS, -, f, hr⟩ := hall k hk
   exact ((cmpRecord_spec hr).2.2 (by simpa using hne) hthm).symm
+
+theorem isHole_recCv {uses : Declaration → Array Name} {d : Declaration}
+    (h : isHole uses d = true) : ∃ cv, recCv? d = some cv := by
+  cases d <;> simp_all [isHole, recCv?]
+
+/-- **The holes are inhabited by the solution's constants**: on the same accepts as
+`compare_models`, its two models, and for every hole of the challenge module `C` (a record of
+`C`'s own that `isHole` names), the solution's constant of its name, whose value in the
+solution's model, read at the challenge's level-parameter names, is a member of what the
+hole's type denotes in the challenge's model. -/
+theorem compare_solved (V : Type w) [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {F : Expr → Expr} {C : Name} {uses : Declaration → Array Name}
+    {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+    {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+    {env : Env}
+    (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled))
+    (hsc : ctxScoped ctx = none)
+    (hchk : Cached.checkDecls .verified pins maxNatSize (recsS.map (Cached.fillDecl F)) = .ok env) :
+    ∃ (mC : ConLeche.Model V (streamEnv (recsC.toList.map (chalRecord C uses homesC))))
+      (mS : ConLeche.Model V (streamEnv (recsS.map (Cached.fillDecl F)).toList)),
+      (∀ n cC, (streamEnv (recsC.toList.map (chalRecord C uses homesC))).find? n = some cC →
+        ∃ cS, (streamEnv (recsS.map (Cached.fillDecl F)).toList).find? n = some cS ∧
+          cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+          ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+            (cC.toConstantVal.levelParams.map Level.param))) ∧
+      ∀ d ∈ recsC, homesC[recKey d]? = some C → isHole uses d = true →
+        ∃ cv cS, recCv? d = some cv ∧
+          (streamEnv (recsS.map (Cached.fillDecl F)).toList).find? cv.name = some cS ∧
+          ∀ φ ρ, ∃ T, Denotes mC.cval (streamEnv (recsC.toList.map (chalRecord C uses homesC)))
+            φ ρ cv.type T ∧
+            mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
+              (cv.levelParams.map Level.param)) ∈ˢ T := by
+  obtain ⟨mC, mS, h1⟩ := compare_models V hcmp hsc hchk
+  have hcp := chal_copies hcmp hsc
+  refine ⟨mC, mS, h1, fun d hd hown hh => ?_⟩
+  obtain ⟨cv, hcv⟩ := isHole_recCv hh
+  have hnames : cv.name ≠ quotSoundName ∧ cv.name ≠ sorryAxName := by
+    obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem hd
+    obtain ⟨-, hall⟩ := compareRecords_spec hcmp
+    obtain ⟨e, he, dS, hdS, f, hr⟩ := hall k hk
+    rw [hown] at hr
+    rw [← recKey_of_recCv hcv]
+    exact cmpRecord_hole_name hh (by simpa using hr)
+  have hrec : chalRecord C uses homesC d = .axiomDecl cv := by
+    simp only [chalRecord, hown, beq_self_eq_true, hh, Bool.and_self, ↓reduceIte]
+    exact stmtOf_of_recCv hcv (isHole_kind hh)
+  have hm : ConstantInfo.axiomInfo cv ∈
+      (streamEnv (recsC.toList.map (chalRecord C uses homesC))).consts :=
+    (mem_streamEnv_consts _ Env.empty).2 (.inl ⟨_, List.mem_map_of_mem
+      (Array.mem_toList_iff.mpr hd), by rw [hrec]; simp [declConstants, hnames]⟩)
+  obtain ⟨-, -, -, hf, -⟩ := mem_copies hcp.consts hcp.nodup _ hm
+  obtain ⟨cS, hS, -, he⟩ := h1 cv.name (.axiomInfo cv) hf
+  refine ⟨cv, cS, hcv, hS, fun φ ρ => ?_⟩
+  obtain ⟨T, hT, hmem⟩ := mC.mem _ hm φ ρ
+  refine ⟨T, hT, ?_⟩
+  have e2 : mC.cval cv.name φ = mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
+      (cv.levelParams.map Level.param)) := he φ
+  rw [← e2]
+  exact hmem
 
 end ConLeche.Model.Compare

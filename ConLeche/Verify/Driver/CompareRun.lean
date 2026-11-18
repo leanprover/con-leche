@@ -28,6 +28,18 @@ open ConLeche Frontend.Olean Cached
     Array Declaration :=
   (Frontend.prepareD pre rd.decls (usedOf (some (R.path, rd)))).decls
 
+/-- **The challenge's environment**: its prepared records installed in order, every hole of the
+challenge module `C` (`isHole`) as the axiom of its statement (`chalRecord`), at the challenge's
+own level-parameter names. -/
+@[expose] def challengeEnv (pre : Frontend.PreludeIx) (C : Name) (R : Roots) (rd : OleanRead) :
+    Env :=
+  streamEnv ((cmpRecs pre R rd).toList.map (chalRecord C (usedOf (some (R.path, rd))) rd.homes))
+
+/-- **The solution's environment**: its prepared records, its theorems' values in place. -/
+@[expose] noncomputable def solutionEnv (pre : Frontend.PreludeIx) (R : Roots) (fs : FS)
+    (rd : OleanRead) : Env :=
+  streamEnv ((cmpRecs pre R rd).map (fillDecl (fillOf R fs rd.values))).toList
+
 theorem CmpReq.chalRoots_bare (r : CmpReq) : r.chalRoots.bare = r.chalRoots := by
   unfold CmpReq.chalRoots
   split <;> rfl

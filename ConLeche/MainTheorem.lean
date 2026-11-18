@@ -15,6 +15,8 @@ import ConLeche.Verify.Driver.Main
 import ConLeche.Modular
 import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
+import ConLeche.Model.Modular.Compare
+public import ConLeche.Verify.Driver.CompareRun
 import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.Worker
@@ -310,5 +312,66 @@ theorem main_modular_one_no_False (V : Type w) [SetTheory V] {dirs root : String
       (fun e he i hi => (edges e he i hi).1) hcl) hv hmem hk hty
   obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
   exact ⟨1, hacc e he⟩
+
+/-! ## A challenge and its solution (task #607)
+
+`--olean --compare` reads a challenge module `C` through the trusted directories alone and a
+solution module `S` through the trusted directories, then the search path; it compares the
+challenge's records with the solution's (`Driver.compareRecords`) and checks the solution's
+closure.  An accept makes the two a development of two modules, the solution's and the
+challenge's, both passing the local checks, and the modular theorem's construction gives the
+challenge's environment a model read off the solution's (`Model.Compare.compare_models`). -/
+
+open Frontend in
+/-- **An accepted comparison: the challenge has a solution.**  Every exit 0 of `runArgs` at
+`--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`, where `c` names the
+module `C` and `s` the module `S`, read the challenge's closure through `T` alone and the
+solution's through `T`, then `D`, and in every set theory `V` there are
+
+* a model `mC` of the challenge's environment (`Driver.challengeEnv`: its records at their own
+  level-parameter names, every hole of `C` the axiom of its statement) and a model `mS` of the
+  solution's (`Driver.solutionEnv`), such that
+* every constant of the challenge's environment is the solution's constant of that name, with as
+  many level parameters, and `mC` gives it `mS`'s value read at the challenge's names;
+* every hole of `C` is inhabited by the solution's constant: that constant's value in `mS` is a
+  member of what the hole's type denotes in `mC`;
+* every declaration `C` imports (its home, the first module of the challenge's closure storing
+  it, is not `C`), but a theorem, which Lean keys by its statement, has the same home in the
+  solution's closure: it is that module's constant, not one the solution declares itself. -/
+theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+      "--search-path=" ++ D, "--", c, s]) fs 0) :
+    let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+    ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
+      ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
+        (homes := true)) fs (.ok rdC) ∧
+      ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
+        (homes := true)) fs (.ok rdS) ∧
+      ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
+        (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
+        (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+          ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+            ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+              (cC.toConstantVal.levelParams.map Level.param))) ∧
+        (∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
+          Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
+          ∃ cv cS, Driver.recCv? d = some cv ∧
+            (Driver.solutionEnv pre r.solRoots fs rdS).find? cv.name = some cS ∧
+            ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
+              mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
+                (cv.levelParams.map Level.param)) ∈ˢ Ty) ∧
+        ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? ≠ some C →
+          (∀ cv v, d ≠ .thmDecl cv v) →
+          rdS.homes[Driver.recKey d]? = rdC.homes[Driver.recKey d]? := by
+  intro r
+  obtain ⟨_, _, h⟩ := h
+  obtain ⟨pre, rdC, rdS, ctx, filled, env, h1, h2, h3, h4, h5, h6⟩ :=
+    Driver.runArgs_compare_accept hc hs h
+  obtain ⟨mC, mS, h7, h8⟩ := Model.Compare.compare_solved V h4 h5 h6
+  refine ⟨pre, rdC, rdS, h1, h2, h3, mC, mS, h7, h8, fun d hd hne hthm => ?_⟩
+  obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem hd
+  exact Model.Compare.compare_homes h4 k hk hne hthm
 
 end ConLeche
