@@ -370,4 +370,112 @@ theorem compareRecords_spec {C : Name} {uses : Declaration → Array Name}
         obtain ⟨i, -, hi⟩ := Option.bind_eq_some_iff.mp hdS
         exact Array.mem_of_getElem? hi
 
+/-! ## The order check -/
+
+/-- The names, installed one at a time, none twice. -/
+theorem installs_ok {install : Std.HashSet Name → Name → Except String (Std.HashSet Name)}
+    (hi : ∀ S n S', install S n = .ok S' → S.contains n = false ∧ S' = S.insert n) :
+    ∀ (ns : List Name) (S S' : Std.HashSet Name), ns.foldlM install S = .ok S' →
+      (∀ n ∈ ns, S.contains n = false) ∧ ns.Nodup ∧
+        ∀ m, S'.contains m = true ↔ (S.contains m = true ∨ m ∈ ns)
+  | [], S, S', h => by
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    simp
+  | n :: ns, S, S', h => by
+    simp only [List.foldlM, bind, Except.bind] at h
+    split at h
+    · exact nomatch h
+    · rename_i S₁ h₁
+      obtain ⟨hn, rfl⟩ := hi S n S₁ h₁
+      obtain ⟨hf, hnd, hc⟩ := installs_ok hi ns _ S' h
+      refine ⟨fun m hm => ?_, List.nodup_cons.mpr ⟨fun hm => ?_, hnd⟩, fun m => ?_⟩
+      · rcases List.mem_cons.mp hm with rfl | hm
+        · exact hn
+        · have := hf m hm
+          simp only [Std.HashSet.contains_insert, Bool.or_eq_false_iff] at this
+          exact this.2
+      · have := hf n hm
+        simp [Std.HashSet.contains_insert] at this
+      · rw [hc m]
+        simp only [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq, List.mem_cons]
+        constructor
+        · rintro ((rfl | h) | h) <;> simp_all
+        · rintro (h | rfl | h) <;> simp_all
+
+/-- A fold over records that installs each one's names fresh and checks what it reads. -/
+theorem scoped_fold {g : Std.HashSet Name → Declaration → Except String (Std.HashSet Name)}
+    (hg : ∀ S e S', g S e = .ok S' → (∀ n ∈ Modular.declNames e, S.contains n = false) ∧
+      (Modular.declNames e).Nodup ∧
+      (∀ m, S'.contains m = true ↔ (S.contains m = true ∨ m ∈ Modular.declNames e)) ∧
+      ∀ y ∈ recordReads e, S'.contains y = true) :
+    ∀ (L P : List Declaration) (S₀ S₁ : Std.HashSet Name),
+      (∀ m, S₀.contains m = true ↔ m ∈ P.flatMap Modular.declNames) →
+      (P.flatMap Modular.declNames).Nodup → L.foldlM g S₀ = .ok S₁ →
+      ((P ++ L).flatMap Modular.declNames).Nodup ∧
+        ∀ i (hi : i < L.length), ∀ y ∈ recordReads L[i],
+          y ∈ (P ++ L.take (i + 1)).flatMap Modular.declNames
+  | [], _, _, _, _, hnd, _ => by simpa using hnd
+  | e :: L, P, S₀, S₁, hS₀, hnd, hf => by
+    simp only [List.foldlM, bind, Except.bind] at hf
+    split at hf
+    · exact nomatch hf
+    · rename_i S₃ h₃
+      obtain ⟨hnew, hnd₁, hc, hrd⟩ := hg _ _ _ h₃
+      have hS₃ : ∀ m, S₃.contains m = true ↔ m ∈ (P ++ [e]).flatMap Modular.declNames := by
+        intro m; rw [hc m, hS₀ m]; simp
+      have hnd₃ : ((P ++ [e]).flatMap Modular.declNames).Nodup := by
+        simp only [List.flatMap_append, List.flatMap_cons, List.flatMap_nil, List.append_nil]
+        refine List.nodup_append.mpr ⟨hnd, hnd₁, fun a ha b hb hab => ?_⟩
+        subst hab
+        have := hnew a hb
+        rw [← Bool.not_eq_true, hS₀ a] at this
+        exact this ha
+      obtain ⟨hA, hB⟩ := scoped_fold hg L (P ++ [e]) S₃ S₁ hS₃ hnd₃ hf
+      refine ⟨by simpa using hA, fun i hi y hy => ?_⟩
+      cases i with
+      | zero =>
+        have hy' := (hS₃ y).mp (hrd y hy)
+        simpa using hy'
+      | succ i =>
+        have := hB i (by simp at hi; omega) y hy
+        simpa using this
+
+/-- **The order check's accept** (`Driver.ctxScoped`): no name installed twice, and every name
+a record reads installed by it or a record before it. -/
+theorem ctxScoped_spec {ctx : Array Declaration} (h : ctxScoped ctx = none) :
+    (ctx.toList.flatMap Modular.declNames).Nodup ∧
+      ∀ k (hk : k < ctx.size), ∀ y ∈ recordReads ctx[k],
+        y ∈ (ctx.toList.take (k + 1)).flatMap Modular.declNames := by
+  unfold ctxScoped at h
+  dsimp only at h
+  split at h
+  · exact nomatch h
+  · rename_i S hS
+    rw [← Array.foldlM_toList] at hS
+    have key := scoped_fold ?hg ctx.toList [] {} S (by simp) (by simp) hS
+    · obtain ⟨hA, hB⟩ := key
+      refine ⟨by simpa using hA, fun k hk y hy => ?_⟩
+      have := hB k (by simpa using hk) y (by simpa using hy)
+      simpa using this
+    case hg =>
+      intro S₀ e S' hx
+      try dsimp only at hx
+      split at hx
+      · exact nomatch hx
+      · rename_i S₂ h₂
+        split at hx
+        · exact nomatch hx
+        · rename_i hfind
+          obtain rfl := Except.ok.inj hx
+          obtain ⟨hnew, hnd, hc⟩ := installs_ok (fun S n S' hi => by
+            try dsimp only at hi
+            split at hi
+            · exact nomatch hi
+            · rename_i hn
+              exact ⟨by simpa using hn, (Except.ok.inj hi).symm⟩) _ _ _ h₂
+          refine ⟨hnew, hnd, hc, fun y hy => ?_⟩
+          have := Array.find?_eq_none.mp hfind y hy
+          simpa using this
+
 end ConLeche.Model.Compare
