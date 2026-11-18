@@ -991,5 +991,81 @@ case_grep "--schedule-commands: --jobs where given" 0 "^/.* --module --jobs=3 " 
 rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"
+# --- a challenge and its solution (--compare, task #607) ---------------------
+# holes: the challenge module's own axioms and sorry declarations, met by the solution's
+# constant of the name and type (up to level-parameter names), of any kind
+cmp_case() { case_ "compare: $1" "$2" --olean --compare --search-path=$MSP -- "${@:3}"; }
+cmp_grep() { case_grep "compare: $1" "$2" "$3" --olean --compare --search-path=$MSP -- "${@:4}"; }
+cmp_grep "theorem holes filled" 0 "hole g_eq (theorem := sorry) filled by CmpSol's theorem" CmpChal CmpSol
+cmp_grep "a definition that differs" 1 "g: the solution's definition differs" CmpChal CmpSolDef
+cmp_grep "a hole stated differently" 1 "g_eq: the solution's theorem is not of the hole's type" CmpChal CmpSolStmt
+cmp_grep "a constant the solution lacks" 1 "easy: the solution has no constant of this name" CmpChal CmpSolMissing
+# the solution's check declines sorry, as every --olean run does
+cmp_case "a solution that uses sorry" 2 CmpChal CmpSolSorry
+cmp_grep "definition and opaque holes filled" 0 "hole answer (definition := sorry) filled by CmpOpqSol's definition" CmpOpq CmpOpqSol
+cmp_grep "an opaque constant of another value" 1 "k: the solution's opaque constant differs" CmpOpq CmpOpqSolK
+cmp_grep "an axiom hole filled by a theorem" 0 "hole ax (axiom) filled by CmpAxS's theorem" CmpAxC CmpAxS
+# a non-standard axiom at the hole's name: the solution's check declines it, as always
+cmp_case "a solution axiom at a hole's name" 2 CmpAxC CmpAxBadS
+cmp_grep "level parameters named otherwise" 0 "hole h (axiom) filled by CmpLvS's theorem" CmpLvC CmpLvS
+cmp_grep "binders named otherwise" 0 "hole gt (theorem := sorry) filled by CmpBndS's theorem" CmpBndC CmpBndS
+cmp_grep "a definition hole filled by an opaque constant" 0 "filled by UpKindDefOpqSol's opaque constant" UpKindDef UpKindDefOpqSol
+cmp_grep "a theorem hole filled by a definition" 0 "filled by UpKindThmDefSol's definition" UpKindThm UpKindThmDefSol
+cmp_grep "a hole filled by an imported definition" 0 "hole n (definition := sorry) filled by UpHidDef's definition" UpKindDef UpHidDefSol
+# imported names are their home's: never compared by content
+cmp_grep "an imported name declared by the solution" 1 "f: the challenge reads it from CmpHomeA, the solution's is CmpHomeS1's" CmpHomeC CmpHomeS1
+cmp_grep "an imported name redeclared with its body" 1 "f: the challenge reads it from CmpHomeA, the solution's is CmpHomeS2's" CmpHomeC3 CmpHomeS2
+cmp_grep "an imported name read from its home" 0 "hole t (theorem := sorry) filled by CmpHomeS3's theorem" CmpHomeC3 CmpHomeS3
+# the ported upstream pairs (comparator's test suite)
+cmp_grep "upstream simple-match" 0 "hole comm (theorem := sorry) filled by UpCommSol's theorem" UpComm UpCommSol
+cmp_case "upstream simple-axiom-issue" 2 UpComm UpCommAxSol
+cmp_grep "upstream simple-mismatch" 1 "comm: the solution's axiom is not of the hole's type" UpComm UpCommMisSol
+cmp_grep "upstream def-hole" 0 "hole n (definition := sorry) filled by UpDefHoleSol's definition" UpDefHole UpDefHoleSol
+cmp_case "upstream def-hole-axiom-issue" 2 UpDefHole UpDefHoleAxSol
+cmp_case "upstream def-hole-kind-mismatch" 2 UpDefHole UpDefHoleKindSol
+cmp_grep "upstream def-hole-type-mismatch" 1 "n: the solution's definition is not of the hole's type" UpDefHoleTy UpDefHoleTySol
+cmp_grep "upstream numeric-namespace" 0 "hole «123».foo" 'UpNum.«12.34».«5»' UpNumSol
+cmp_case "upstream opaque-value" 2 UpBoom UpBoomOpqSol
+# (the solution imports less of Init than the challenge: a constant it lacks)
+cmp_grep "upstream primitive-issue" 1 "the solution has no constant of this name" UpGcd UpGcdSol
+cmp_grep "upstream proj_trick" 1 "S: the solution's inductive type differs" UpProj UpProjSol
+cmp_case "upstream quot_mismatch" 1 UpQuot UpQuotSol
+cmp_grep "upstream theorem_hole_issue" 0 "hole hw (theorem := sorry) filled by UpThmHoleSol's theorem" UpThmHole UpThmHoleSol
+cmp_grep "upstream check-multi as a comparison" 1 "a_thm: the solution has no constant of this name" UpMultiA UpMultiB
+# --constant: declarations of the challenge module itself; the cone alone compared
+case_grep "compare: --constant at a challenge declaration" 0 "hole foo (theorem := sorry)" \
+  --olean --compare --constant=foo --search-path=$MSP -- UpDefHole UpDefHoleSol
+case_grep "compare: --constant at an imported name" 1 \
+  "--constant=Nat.add: not a declaration of the challenge module UpDefHole" \
+  --olean --compare --constant=Nat.add --search-path=$MSP -- UpDefHole UpDefHoleSol
+case_ "compare: a module compared with itself" 3 --olean --compare --search-path=$MSP -- CmpChal CmpChal
+case_ "compare: one module name only" 3 --olean --compare --search-path=$MSP -- CmpChal
+case_ "compare: --trusted-search-path without --compare" 3 --olean --trusted-search-path=$MSP -- CmpChal
+# the trusted path: the challenge and its imports read from it alone
+TRU="$TMPDIR/cmp-trusted"; BAD="$TMPDIR/cmp-bad"
+rm -rf "$TRU" "$BAD"; mkdir -p "$TRU" "$BAD"
+for f in "$LIB"/*; do case $(basename "$f") in CmpHomeA.*) ;; *) ln -s "$PWD/$f" "$TRU/";; esac; done
+cp "$LIB"/CmpHomeA.* "$BAD/"
+printf 'not an olean' > "$BAD/CmpHomeA.olean"
+cp "$LIB"/CmpHomeC3.* "$BAD/"; printf 'not an olean' > "$BAD/CmpHomeC3.olean"
+case_grep "compare: a challenge module only on the search path" 1 \
+  "the challenge's module CmpHomeA is not on the trusted path" \
+  --olean --compare --trusted-search-path=$TRU:$INIT --search-path=$LIB -- CmpHomeC3 CmpHomeS3
+# the solution's module, only on the search path, read from it
+cp -r "$TRU" "$TMPDIR/cmp-trusted2"; rm -f "$TMPDIR/cmp-trusted2"/CmpHomeS3.*; ln -s "$PWD/$LIB"/CmpHomeA.* "$TMPDIR/cmp-trusted2/"
+case_ "compare: the solution read from the search path" 0 \
+  --olean --compare --trusted-search-path=$TMPDIR/cmp-trusted2:$INIT --search-path=$LIB -- CmpHomeC3 CmpHomeS3
+# a module in both paths is the trusted one: corrupted copies on the search path are never read
+case_ "compare: the trusted path shadows the search path" 0 \
+  --olean --compare --trusted-search-path=$LIB:$INIT --search-path=$BAD -- CmpHomeC3 CmpHomeS3
+# locality: what is outside the trusted path does not change the verdict on the challenge
+case_ "compare: the verdict without the search path" 0 \
+  --olean --compare --trusted-search-path=$LIB:$INIT -- CmpHomeC3 CmpHomeS3
+case_ "compare: the verdict with a corrupted search path" 1 \
+  --olean --compare --trusted-search-path=$LIB:$INIT --search-path=$BAD -- CmpHomeC CmpHomeS1
+case_ "compare: …and without it" 1 \
+  --olean --compare --trusted-search-path=$LIB:$INIT -- CmpHomeC CmpHomeS1
+rm -rf "$TRU" "$TMPDIR/cmp-trusted2" "$BAD"
+
 echo "olean gate: $ok/$total as expected"
 exit $fail
