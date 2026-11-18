@@ -338,8 +338,8 @@ theorem readInfos_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
   within_tac []
 
 theorem workerReads_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
-    (h : OleanReads.Within fs rd sp) (m : Name) (jobs : Nat) :
-    ModelIO.Within fs (workerReads rd m jobs) (workerReads (.ofPath sp) m jobs) := by
+    (h : OleanReads.Within fs rd sp) (m : Name) (jobs : Nat) (x : Array ImportRec) :
+    ModelIO.Within fs (workerReads rd m jobs x) (workerReads (.ofPath sp) m jobs x) := by
   simp only [workerReads]
   refine ModelIO.Within.bind (h.names _) fun r => ?_
   rcases r with e | own

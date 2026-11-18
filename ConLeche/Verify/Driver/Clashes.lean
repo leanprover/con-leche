@@ -786,16 +786,15 @@ theorem readInfos_ok {sp : SearchPath} {fs : FS} {ld : Loads} {ix : NameIndex} {
 
 /-- **What an accepting `workerReads` built**: the index of the loaded parts, the statements it
 read for the doubly held names, the clashes from them, and Lean's merge rule passed on each. -/
-theorem workerReads_open {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+theorem workerReads_open {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs') :
     wr.index = nameIndexOf wr.index.parts ∧
     (∃ infos, ModelIO.CanGive (readInfos (.ofPath sp) wr.loads wr.index jobs
         ((clashCopies wr.index).flatMap (·.2))) fs (.ok infos) ∧
       wr.clashes = (clashCopies wr.index).map fun (n, cs) =>
         { name := n, copies := cs.filterMap fun c => (infos[c]?).map fun (s, k) => (c, s, k) }) ∧
     ∃ headTy, wr.clashes.toList.forM (clashOk wr.loads headTy) = .ok () := by
-  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
-    ModelIO.bind_ok] at h
+  simp only [workerReads, ModelIO.bind_ok] at h
   obtain ⟨a, _, -, h⟩ := h
   rcases a with e | own
   · simp at h
@@ -836,8 +835,8 @@ theorem workerReads_open {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr
 index records is a position of its name; every name position of a loaded part is a copy, recorded
 as its name's first copy or a later one; a later copy is not its name's first; the first copy's
 module comes no later; and a copy is one on the snapshot (`CopyAt` at its spot). -/
-theorem workerIndex_copies {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+theorem workerIndex_copies {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs') :
     (∀ i t q, wr.index.parts[i]? = some t → q ∈ t.consts →
       ∃ cp, cp.mod = i ∧ wr.index.at cp = some q) ∧
     (∀ n cp, wr.index.first[n]? = some cp → ∃ q, wr.index.at cp = some q ∧ q.name = n) ∧
@@ -875,9 +874,9 @@ theorem workerIndex_copies {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {
       exact ⟨t, hparts cp.mod t hp, Array.mem_of_getElem? ha⟩
 
 /-- **Two copies of one name make a clash**, listing both with their statements. -/
-theorem workerClash_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
+theorem workerClash_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec}
     {wr : WorkerReads} {hs hs' : HS}
-    (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+    (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {y : Name} {cp cp' : Copy} {q q' : NamePosition} (hne : cp ≠ cp')
     (hq : wr.index.at cp = some q) (hq' : wr.index.at cp' = some q') (hn : q.name = y)
     (hn' : q'.name = y) :
@@ -923,8 +922,8 @@ theorem workerClash_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
 
 /-- **A clash copy's statement and kind are its position's**, read off the skeleton of the part
 its module is loaded at, and of the clash's name. -/
-theorem workerClash_stmt {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+theorem workerClash_stmt {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {cp : Copy} {cv : ConstantVal}
     {kd : CKindF Name Unit} (he : (cp, cv, kd) ∈ cl.copies.toList) :
     ∃ q, wr.index.at cp = some q ∧ CopyAt sp fs (spotOf wr cp q) ∧
@@ -1008,8 +1007,8 @@ theorem clashOk_fold {X : Type} (stmt : X → ConstantVal) {g : X → X → Exce
 
 /-- **A clash's copies share one statement**: Lean's merge rule passed on it, and it compares
 names, types and level parameters. -/
-theorem workerClash_same {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+theorem workerClash_same {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {e₁ e₂ : Copy × ConstantVal × CKindF Name Unit}
     (h₁ : e₁ ∈ cl.copies.toList) (h₂ : e₂ ∈ cl.copies.toList) : SameStmt e₁.2.1 e₂.2.1 := by
   obtain ⟨-, -, headTy, hfm⟩ := workerReads_open h
@@ -1085,13 +1084,14 @@ theorem clashCopiesOf_spec {wr : WorkerReads} {n : Name} {cs : Array (Name × Co
 fixpoint from that part's header, the public-import closures of that load order, one loaded part
 per module of the order, the own part's names fresh (none is a loaded name), and every clash copy
 of a module of the order. -/
-theorem workerReads_loads {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+theorem workerReads_loads {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs') :
     ∃ own, ModelIO.CanGive (readPartNames sp (m, .private)) fs (.ok own) ∧
-      ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule own.header.imports) fs
-        (.ok wr.loads) ∧
-      wr.pub = pubClosures wr.loads ∧ wr.index.parts.size = wr.loads.order.size ∧ wr.own = own ∧
-      (∀ q ∈ own.consts, wr.index.first.contains q.name = false) ∧
+      ModelIO.CanGive (headerFixpoint (moduleImports sp) (own.withImports x).header.isModule
+        (own.withImports x).header.imports) fs (.ok wr.loads) ∧
+      wr.pub = pubClosures wr.loads ∧ wr.index.parts.size = wr.loads.order.size ∧
+      wr.own = own.withImports x ∧
+      (∀ q ∈ (own.withImports x).consts, wr.index.first.contains q.name = false) ∧
       ∀ cl ∈ wr.clashes.toList, ∀ x ∈ cl.copies.toList, x.1.mod < wr.loads.order.size := by
   have hcl : ∀ (cl : Clash), cl ∈ wr.clashes.toList → ∀ (x : Copy × ConstantVal × CKindF Name Unit),
       x ∈ cl.copies.toList → ∃ q, wr.index.at x.1 = some q := by
@@ -1099,8 +1099,7 @@ theorem workerReads_loads {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
     obtain ⟨q, hq, -⟩ := workerClash_stmt h hcl' (cp := x.1) (cv := x.2.1) (kd := x.2.2) hx
     exact ⟨q, hq⟩
   have hix := (workerReads_open h).1
-  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
-    ModelIO.bind_ok] at h
+  simp only [workerReads, ModelIO.bind_ok] at h
   obtain ⟨a, hs₀, ha, h⟩ := h
   rcases a with e | own
   · simp at h
@@ -1135,8 +1134,9 @@ theorem workerReads_loads {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
   subst h
-  have hb' : ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule
-      own.header.imports) fs (.ok ld) := ⟨_, _, hb⟩
+  have hb' : ModelIO.CanGive (headerFixpoint (moduleImports sp)
+      (own.withImports x).header.isModule (own.withImports x).header.imports) fs (.ok ld) :=
+    ⟨_, _, hb⟩
   obtain ⟨hfl, -⟩ := headerFixpoint_sound hb'
   have hc' : (mapExcept (readPartNames sp) ((ld.order.zip ld.flags).toList.map
       fun (n, fl) => (n, fl.level)) : ModelIO _) fs _ (.ok (.ok parts)) _ := hc

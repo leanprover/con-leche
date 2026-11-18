@@ -135,9 +135,9 @@ theorem partNames_unique {sp : SearchPath} {fs : FS} {M : Name} {f : ModFiles}
 /-- **A worker's reads, on the snapshot**: its own private part's table, the header fixpoint of
 its header, the loaded parts' tables (`keys` the parts in the load order) under the name index,
 and freshness. -/
-theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
-    PartNames sp fs ⟨m, .private⟩ wr.own ∧
+theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+    (∃ own, PartNames sp fs ⟨m, .private⟩ own ∧ wr.own = own.withImports x) ∧
     ModelIO.CanGive (headerFixpoint (moduleImports sp) wr.own.header.isModule
       wr.own.header.imports) fs (.ok wr.loads) ∧
     (∃ parts : List NamePositions,
@@ -148,8 +148,7 @@ theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr
         ModelIO.CanGive (readPartNames sp x) fs (.ok t)) ∧
       wr.index = nameIndexOf parts.toArray) ∧
     freshOk m wr.loads wr.index wr.own = .ok () := by
-  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
-    ModelIO.bind_ok] at h
+  simp only [workerReads, ModelIO.bind_ok] at h
   obtain ⟨a, _, ha, h⟩ := h
   rcases a with e | own
   · simp at h
@@ -178,7 +177,7 @@ theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr
   rcases z with e | u
   · simp at h
   simp only at h
-  cases hfr : freshOk m ld (nameIndexOf parts.toArray) own with
+  cases hfr : freshOk m ld (nameIndexOf parts.toArray) (own.withImports x) with
   | error e => simp [hfr] at h
   | ok u =>
   simp only [hfr, ModelIO.pure_iff, Except.ok.injEq] at h
@@ -187,13 +186,15 @@ theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr
   have hc' : (mapExcept (readPartNames sp) ((ld.order.zip ld.flags).toList.map
       fun (n, fl) => (n, fl.level)) : ModelIO _) fs _ (.ok (.ok parts)) _ := hc
   obtain ⟨hlen, hget⟩ := mapExcept_getElem hc'
-  exact ⟨⟨_, _, ha⟩, ⟨_, _, hb⟩, ⟨parts, hlen, hget, rfl⟩, hfr⟩
+  exact ⟨⟨own, ⟨_, _, ha⟩, rfl⟩, ⟨_, _, hb⟩, ⟨parts, hlen, hget, rfl⟩, hfr⟩
 
 /-- The private part's name table holds the worker's own table. -/
 theorem worker_ownTable {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) : PartNames sp fs ⟨M, .private⟩ w.reads.own := by
   obtain ⟨_, _, h⟩ := hw.reads
-  exact (workerReads_spec h).1
+  obtain ⟨own, hown, he⟩ := (workerReads_spec h).1
+  rw [he, NamePositions.withImports_empty]
+  exact hown
 
 /-- **An exported copy is behind a private one**: a copy of `M`'s exported part has a copy of its
 name in `M`'s private part. -/
@@ -701,7 +702,9 @@ theorem homeView_index {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : 
     (v[y]? = none → w.reads.index.first[y]? = none) := by
   obtain ⟨own', ld', ts, hown', hld', hlen, hts, rfl⟩ := hv
   obtain ⟨_, _, hr⟩ := hw.reads
-  obtain ⟨hown, hld, ⟨parts, hplen, hparts, hix⟩, hfresh⟩ := workerReads_spec hr
+  obtain ⟨⟨own, hown, hwo⟩, hld, ⟨parts, hplen, hparts, hix⟩, hfresh⟩ := workerReads_spec hr
+  rw [NamePositions.withImports_empty] at hwo
+  rw [← hwo] at hown
   obtain rfl := partNames_eq hown' hown
   obtain rfl := hdet _ _ hld' hld
   generalize hK : ((w.reads.loads.order.zip w.reads.loads.flags).toList.map

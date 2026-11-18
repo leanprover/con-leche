@@ -56,6 +56,17 @@ def cmpView (uses : Declaration → Array Name) (d : Declaration) : Declaration 
   | .thmDecl .. | .opaqueDecl .. => Modular.stmtOf d
   | d => d
 
+/-- **What the challenge's records read of what it imports**: the names each record, as the
+context holds it (`cmpView`), reads that are not the challenge's own. -/
+def cmpImported (l : Loaded) (ds : Array Declaration) : Array Name :=
+  ds.foldl (fun acc d =>
+    acc ++ (recordReads (cmpView (ownUses l) d)).filter (!(ownNames l).contains ·)) #[]
+
+/-- **The compare worker's reach roots**: the challenge's own names (unsafe and partial ones left
+out, as no record holds them), then what its records read of what it imports. -/
+def cmpRoots (l : Loaded) (ds : Array Declaration) : Array Name :=
+  (l.constants.filter (!·.skipped)).map (·.name) ++ cmpImported l ds
+
 /-- A stored constant's kind, by its tag (`CKindF.tag`), for the messages. -/
 def tagKind : Nat → String
   | 0 => "axiom"
@@ -189,20 +200,12 @@ def cmpAt {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ)
           opaque constant")
       | _ => pure (.ok f)
 
-/-- **What the compare worker has read and compared.** -/
+/-- **What the compare worker has read and compared**: what a worker reads (`w`: the home, the
+reads with the solution added, the records, the reach; no own record to check), the reads at the
+challenge's own header (its own view), and the holes filled. -/
 structure CmpModuleRead where
-  /-- the challenge's private view, loaded -/
-  home : Loaded
-  /-- its records -/
-  emitted : Array Declaration
-  /-- the header fixpoint of its header with the solution added, the name index, the clash
-  rule's copies -/
-  reads : WorkerReads
-  /-- the same at its own header: its own view -/
+  w : WorkerRead
   view : WorkerReads
-  /-- the context -/
-  reach : Reach
-  /-- the holes filled -/
   filled : Array Filled
 
 /-- Every challenge record compared, in order: the holes filled, or the first record not met. -/
@@ -225,7 +228,7 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
   | .ok f =>
   match homeOf C f with
   | .error e => pure (fail e)
-  | .ok (l, _) =>
+  | .ok (l, expo) =>
   match ← workerReads rd C jobs #[Graph.solutionImport S] with
   | .error e => pure (fail e)
   | .ok wr =>
@@ -236,16 +239,11 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
   | .error (e, _) => pure (fail e)
   | .ok ds =>
   let uses := ownUses l
-  let own := (l.constants.filter (!·.skipped)).map (·.name)
-  match own.find? (!wr.index.first.contains ·) with
-  | some n => pure (.error (s!"{S} does not solve {C}: {n}: the solution has no constant of \
-      this name", 1))
+  match (l.constants.filter (!·.skipped)).find? (!wr.index.first.contains ·.name) with
+  | some c => pure (.error (s!"{S} does not solve {C}: {c.name}: the solution has no constant \
+      of this name", 1))
   | none =>
-  let ownSet := ownNames l
-  -- what the challenge's records read of what it imports
-  let imported := ds.foldl (fun acc d =>
-    acc ++ (recordReads (cmpView uses d)).filter (!ownSet.contains ·)) #[]
-  match ← reach rd C wr {} (own ++ imported) with
+  match ← reach rd C wr {} (cmpRoots l ds) with
   | .error e => pure (fail e)
   | .ok r =>
   if !namesNodupGo {} (r.ctx.toList.flatMap Modular.declNames) then
@@ -256,7 +254,7 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
   match ← workerReads rd C jobs with
   | .error e => pure (fail e)
   | .ok wrC =>
-  match ← importedAll rd wrC r owner imported.toList with
+  match ← importedAll rd wrC r owner (cmpImported l ds).toList with
   | some why => pure (.error (s!"{S} does not solve {C}: {why}", 1))
   | none =>
   match ← cmpAll rd uses r owner ds.toList #[] with
@@ -264,7 +262,9 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
     if declined.isPrefixOf why then pure (.error (why, 2))
     else pure (.error (s!"{S} does not solve {C}: {why}", 1))
   | .ok filled =>
-    pure (.ok { home := l, emitted := ds, reads := wr, view := wrC, reach := r, filled })
+    pure (.ok { w := { home := l, expo, reads := wr, emitted := ds, own := #[], reach := r,
+                       hoisted := #[], values := {} },
+                view := wrC, filled })
 
 /-- **The compare worker** (see the module docstring), generic in the IO class. -/
 def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S : Name)
@@ -279,8 +279,8 @@ def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C 
     diagLine s!"con-leche: challenge {C}: {why} ({modeTag})"
     return code
   | .ok w =>
-    outLine s!"con-leche: accepted: {S} solves {C}: {w.emitted.size} challenge declarations \
-      compared, {w.filled.size} holes filled, against {w.reach.ctx.size} context records \
+    outLine s!"con-leche: accepted: {S} solves {C}: {w.w.emitted.size} challenge declarations \
+      compared, {w.filled.size} holes filled, against {w.w.reach.ctx.size} context records \
       ({modeTag})"
     for f in w.filled do
       outLine s!"con-leche: hole {f.name} ({f.hole}) filled by {f.home}'s {f.filler}"

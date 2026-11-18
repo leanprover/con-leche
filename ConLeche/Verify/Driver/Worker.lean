@@ -71,6 +71,23 @@ theorem streamEnv_fill (F : Expr → Expr) :
 
 /-! ## What the worker read -/
 
+/-- With no import added, a worker's own part is its private part's. -/
+@[simp] theorem _root_.ConLeche.Frontend.Olean.NamePositions.withImports_empty
+    (own : NamePositions) : own.withImports #[] = own := by
+  simp [NamePositions.withImports]
+
+/-- Imports added: the header's, followed by them. -/
+theorem _root_.ConLeche.Frontend.Olean.NamePositions.withImports_imports (own : NamePositions)
+    (x : Array ImportRec) : (own.withImports x).header.imports = own.header.imports ++ x := by
+  unfold NamePositions.withImports
+  split <;> simp_all
+
+/-- Imports added: of the module system as the module is. -/
+theorem _root_.ConLeche.Frontend.Olean.NamePositions.withImports_isModule (own : NamePositions)
+    (x : Array ImportRec) : (own.withImports x).header.isModule = own.header.isModule := by
+  unfold NamePositions.withImports
+  split <;> rfl
+
 /-- **What a worker read and checked before its jobs, on a snapshot** (`workerRead`'s phases, see
 `ConLeche/Driver/Worker.lean`). -/
 structure WorkerFacts (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead) :
@@ -134,7 +151,7 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pa
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
   subst h
-  refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd m jobs).canGive ⟨_, _, hy⟩, hds,
+  refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd m jobs #[]).canGive ⟨_, _, hy⟩, hds,
     (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl, ?_⟩
   -- the values' region: the home's files' private region
   exact cacheOK_files (md := ⟨m, l.frontier⟩) rfl hf

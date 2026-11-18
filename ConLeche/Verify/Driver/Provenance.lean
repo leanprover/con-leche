@@ -152,13 +152,12 @@ theorem loadsIndex_spec (order : List Name) {m : Name} {i : Nat}
 
 /-- **The worker's name index and load order are the snapshot's**: each loaded part's table is
 its module's at its level, and the order names each module where the index says. -/
-theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs') :
+theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs') :
     (∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t) ∧
     (∀ n i, wr.loads.index[n]? = some i → wr.loads.nameAt i = n) := by
-  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
-    ModelIO.bind_ok] at h
+  simp only [workerReads, ModelIO.bind_ok] at h
   obtain ⟨a, _, -, h⟩ := h
   rcases a with e | own
   · simp at h

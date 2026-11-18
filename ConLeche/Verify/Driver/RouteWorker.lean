@@ -220,8 +220,8 @@ theorem length_filterMap_all {α β : Type} {f : α → Option β} :
       length_filterMap_all fun z hz => h z (List.mem_cons_of_mem _ hz)]
 
 /-- **A clash lists two copies or more.** -/
-theorem workerClash_two {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+theorem workerClash_two {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) : 2 ≤ cl.copies.toList.length := by
   obtain ⟨-, ⟨infos, hinf, hcls⟩, -⟩ := workerReads_open h
   obtain ⟨-, hcomp⟩ := readInfos_ok hinf
@@ -241,8 +241,8 @@ theorem workerClash_two {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr 
 
 /-- **A clash's copies are theorems or axioms, all unsafe or none**: Lean's merge rule
 (`subsumesF`) passed on it. -/
-theorem workerClash_kinds {m : Name} {jobs : Nat} {wr : WorkerReads} {hs hs' : HS}
-    (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+theorem workerClash_kinds {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads} {hs hs' : HS}
+    (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {e₁ e₂ : Copy × ConstantVal × CKindF Name Unit}
     (h₁ : e₁ ∈ cl.copies.toList) (h₂ : e₂ ∈ cl.copies.toList) :
     e₁.2.2.skipped = e₂.2.2.skipped ∧ (e₁.2.2.tag = 0 ∨ e₁.2.2.tag = 2) := by

@@ -35,9 +35,9 @@ namespace ConLeche.Driver.Compose
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 /-- **The reach's table lists every copy of a clash**, under the clash's name. -/
-theorem clashCopiesOf_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
+theorem clashCopiesOf_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec}
     {wr : WorkerReads} {hs hs' : HS}
-    (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+    (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {e : Copy × ConstantVal × CKindF Name Unit}
     (he : e ∈ cl.copies.toList) :
     ∃ cs, (clashCopiesOf wr)[cl.name]? = some cs ∧ (wr.loads.nameAt e.1.mod, e.2.1) ∈ cs.toList := by
