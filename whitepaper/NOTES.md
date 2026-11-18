@@ -618,3 +618,14 @@ comment block at the top of `lib.typ`.
     through the projections (`EtaIota.lean`) cover every remaining
     large eliminator, and no ι step checks a constructor application.
     (Lane R4, 2026-10-13.)
+
+40. **The home rule as agreement.**  In the fragment a challenge is one
+    more module of the development, importing its own imports and the
+    solution; the home rule is then the agreement of copies that every
+    module already checks (`Valid.redeclared_is_proof`,
+    `Fragment/Compare.lean`), and `compare_solves` is the modular
+    theorem plus the typing law.  The merged `--olean --compare` mode
+    makes the solution's whole closure one module and checks the homes
+    as a separate clause of the comparison (`compare_homes`); with the
+    challenge placed in the modular family, as for the modular modes,
+    that clause and its proof would follow from agreement.  (2026-11-18.)

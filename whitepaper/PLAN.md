@@ -128,6 +128,15 @@ are recorded here so every lane works from the same spec. Task #324.
    parallelism, comparison; NO global environment and NO renaming;
    Lean's levels, `import all`, re-exports and merge rule appear only
    in a mapping table at the end; con-leche in a `#real` block.
+7b. Comparing a challenge with a solution (task #609, `06c-compare.typ`,
+   `Fragment/Compare.lean`): the challenge as a module validated by
+   comparison; the three rules (holes, other declarations, imported
+   names by their home); level parameters by position (a renaming
+   lemma); the attack on a comparison without homes, the weak and the
+   strong statement; the home rule as agreement; the theorem (a
+   compatible family, every entry's type inhabited by the value of the
+   module it is read from); locality, the CLI and comparator only in
+   the `#real` block.
 8. What we left out, and how the real proof differs from the fragment
    (fvar, `Term` layer, bridge, ...), with links.
 

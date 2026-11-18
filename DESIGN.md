@@ -122852,6 +122852,42 @@ reached, all allowlisted), trust-surface, binary-link, layering, shake (`pub-imp
 gets a measured fallback for `Local.lean`'s `Records` import), overview-links, quote-gate OK.
 
 
+## TASK #609 — the whitepaper's section on comparing a challenge with a solution (2026-11-18, agent/609-wp-compare; lands on `compare`)
+
+**Status: done.**  A new §8, "Comparing a challenge with a solution"
+(`whitepaper/sections/06c-compare.typ`, `<sec:compare>`), after §7; §7's short subsection
+"Comparing a module" (`<sec:mod-compare>`) is gone, its syntactic-illustration remark moved to the
+end of §7's instance subsection, and §7 points to §8 where the compared alternative is introduced.
+The introduction counts nine parts; "What we left out" is §9.
+
+**Outline:** challenges and solutions (definition: own names, holes as assumptions, the solution an
+earlier module; the challenge a module validated by comparison, reading its own names from the
+solution and imported names from their homes); the comparison rule (holes filled by any entry that
+states something, other declarations unchanged, imported names by their home; level parameters by
+position, Lemma "Renaming level parameters"); why the home decides (module `a` with a hidden
+`f : Nat := 3`, hole `t : f = 5`, a solution with its own `f := 5`: the weak statement holds, the
+strong one rules it out; Lemma "The home rule" — the home rule is the agreement of copies);
+Theorem "The challenge has a solution"; locality (abstract paragraph, then a `#real` block: the
+trusted search path, `challenge_local`, `main_compare_solves`, `main_compare_trusted`, `cmpDev`,
+`compare_models`, `Model.ofCopies`, and leanprover/comparator's rule for contrast).
+
+**Fragment** (`whitepaper/Fragment/Compare.lean`, new, axioms pinned): `Expr.instL_rename`
+(renaming level parameters changes no instance; `Level.lookupLevel_rename`,
+`Level.subst_rename`), `Valid.redeclared_is_proof` (a view of a module other than the one the
+name is read from, which declares the name itself, agrees only as a proof; axioms: `propext`),
+`compare_solves` (valid modules up to a compared challenge: a compatible family in which every
+entry of the challenge has its type inhabited by the value of the module it is read from).  The
+level renaming is not built into the fragment's refinement: the fragment compares at equal names
+and the lemma justifies the reduction; con-leche carries models across it (`Model.ofCopies`).
+
+**Gates:** `whitepaper/build.sh` (PDF + HTML) OK; `fragment-gate.sh` OK; `links-gate.sh` updated
+(544 links; only additions and moves) and OK; quote gate not applicable (OVERVIEW/README
+untouched); `lake build` unaffected (only `whitepaper/` changed; the fragment is no default target).
+NOTES.md entry 40: the home rule as agreement, and what that would simplify in con-leche's merged
+mode.  PLAN.md: item 7b of the order of presentation.
+
+
+
 ## TASK #608 — `--compare` in the modular modes: the challenge as one more module (2026-11-18, agent/608-modular-compare; lands on `compare`)
 
 **Status: first session — the code, the CLI and the fixtures done (olean gate 470/470); the

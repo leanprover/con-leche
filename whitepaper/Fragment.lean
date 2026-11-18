@@ -57,4 +57,5 @@ public import Fragment.ModularModel
 public import Fragment.ModularSemantics
 public import Fragment.ModularInstance
 public import Fragment.ModularSyntactic
+public import Fragment.Compare
 public import Fragment.Axioms

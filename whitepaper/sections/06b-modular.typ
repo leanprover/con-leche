@@ -167,7 +167,8 @@ $c$ agrees; write $Rd_i (c)$. For an environment $E$, abbreviate
 assembly of $E$ from the views in $X_i$ by $Asm_i (E)$.
 A module may either check its declarations over the assembled context,
 or have its context as its whole own environment.
-The latter case will serve challenge–solution comparison.
+The latter case serves the comparison of a challenge with its
+solution (@sec:compare).
 
 #definition(name: "Valid module")[
   The #src("whitepaper/Fragment/ModularSemantics.lean", 239, 246)[validity conditions]
@@ -372,6 +373,23 @@ therefore gives
 #src("whitepaper/Fragment/ModularModel.lean", 155, 160)[the conservative step],
 preserving old values and keeping proofs the point.
 
+#remark(name: "A syntactic illustration")[
+  The #src("whitepaper/Fragment/ModularSyntactic.lean", 89, 92)[models]
+  may instead be realisations by terms of a fixed ground theory:
+  each constant is assigned a term of its realised type, equal to
+  its realised value when a definition. Compatible realisations
+  #src("whitepaper/Fragment/ModularSyntactic.lean", 188, 195)[amalgamate]
+  by choosing, for each name, the term of a member storing it. The
+  #src("whitepaper/Fragment/ModularSyntactic.lean", 131, 134)[step]
+  realises a fresh definition by its value under the old realisation;
+  a substitution lemma gives its typing. This
+  #src("whitepaper/Fragment/ModularSyntactic.lean", 223, 249)[instance]
+  handles definitions only, and recognises no proofs, so copies agree
+  only by being read from one module. It illustrates
+  the interface; connecting a syntactic consistency proof of Lean
+  would require a separate argument, including the shared proof value.
+]
+
 == The local checks <sec:mod-local>
 
 For this instance,
@@ -397,7 +415,7 @@ paired with the module presenting it. The
 Alternatively, a module passes by
 #src("whitepaper/Fragment/ModularModel.lean", 724, 730)[comparison]:
 check its views and its context as above, with its own environment
-its context.
+its context. @sec:compare uses this for a challenge and its solution.
 Write $Pass_i$ for acceptance by either alternative. These concrete
 checks #src("whitepaper/Fragment/ModularInstance.lean", 113, 126)[imply abstract validity]:
 $
@@ -452,43 +470,6 @@ has the same dependencies: restrict the imports' models, amalgamate,
 and extend for checked declarations. Its compatibility proof uses
 the earlier family too, but the numbering adds no inputs to the
 construction of a module's model.
-
-== Comparing a module <sec:mod-compare>
-
-A _challenge_ specifies required constants; its assumptions are
-_holes_, fixing level parameters and types. A solution supplies
-entries at the same names. Represent it by an earlier module offering
-the needed views, from which the challenge reads its names. The
-comparison alternative checks assembly of the challenge's whole own
-environment, including specified values and rules. An assumption may
-be filled by a definition or an assumption with the required type; a
-retained non-assumption must agree exactly.
-
-Assembly checks dependencies and block conditions as above, and supplies
-a model directly, so the challenge's declarations need no separate
-type check. If the relevant modules pass, @thm:mod gives models in
-which the challenge's names have the solution's values, and @cor:mod
-makes every hole's type inhabited in the challenge's model. A
-challenge storing the empty Prop block's recursor therefore cannot
-also have a hole of that proposition's type and pass with an accepted
-solution.
-
-#remark(name: "A syntactic illustration")[
-  The #src("whitepaper/Fragment/ModularSyntactic.lean", 89, 92)[models]
-  may instead be realisations by terms of a fixed ground theory:
-  each constant is assigned a term of its realised type, equal to
-  its realised value when a definition. Compatible realisations
-  #src("whitepaper/Fragment/ModularSyntactic.lean", 188, 195)[amalgamate]
-  by choosing, for each name, the term of a member storing it. The
-  #src("whitepaper/Fragment/ModularSyntactic.lean", 131, 134)[step]
-  realises a fresh definition by its value under the old realisation;
-  a substitution lemma gives its typing. This
-  #src("whitepaper/Fragment/ModularSyntactic.lean", 223, 249)[instance]
-  handles definitions only, and recognises no proofs, so copies agree
-  only by being read from one module. It illustrates
-  the interface; connecting a syntactic consistency proof of Lean
-  would require a separate argument, including the shared proof value.
-]
 
 == Lean's module system in these terms <sec:mod-lean>
 

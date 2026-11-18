@@ -5,6 +5,7 @@ public import Fragment.Modular
 public import Fragment.ModularModel
 public import Fragment.ModularInstance
 public import Fragment.ModularSyntactic
+public import Fragment.Compare
 public import Fragment.Install
 public import Fragment.Access
 public import Fragment.UniformBeta
@@ -607,3 +608,18 @@ info: 'Fragment.ProofIn.eq_dflt' depends on axioms: [propext, Classical.choice, 
 info: 'Fragment.toDev_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.toDev_valid
+
+/--
+info: 'Fragment.compare_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.compare_solves
+
+/--
+info: 'Fragment.Valid.redeclared_is_proof' depends on axioms: [propext]
+-/
+#guard_msgs in #print axioms Fragment.Valid.redeclared_is_proof
+
+/--
+info: 'Fragment.Expr.instL_rename' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Expr.instL_rename
