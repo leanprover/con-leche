@@ -229,7 +229,7 @@ theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : RenEnv env env') {
       LfpCtorReads (renAcval mp.base2.acval env env') env' D ∧ LfpCaps env' D := by
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
-    fun φ d e => denote_ren h mp.base2.acval_params φ d e
+    fun φ d e => denote_ren h.copy mp.base2.acval_params φ d e
   obtain ⟨hL, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, ⟨hcK, hcC⟩⟩ := mp.lfp_ok D hD
   have hC' : ∀ c, c < D.k → ∀ j, j < D.nctors c →
       env'.find? (D.ctorName c j) = env.find? (D.ctorName c j) :=
@@ -482,7 +482,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     .inr ⟨by decide, ⟨rfl, by decide, rfl⟩, ⟨rfl, hnd1, rfl⟩⟩
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
-    fun φ d e => denote_ren h mp.base2.acval_params φ d e
+    fun φ d e => denote_ren h.copy mp.base2.acval_params φ d e
   -- the leaves at the new names
   have htr : ∀ ψ : Name → Nat, Level.substFn ψ [uN] [Level.param p] uN = ψ p := fun ψ => by
     simp [Level.substFn, Level.eval]
@@ -856,7 +856,7 @@ theorem CoverRel.ren {κ : Prop} {L₀ : List ConstantInfo} {E env env' : Env} {
     rw [hac, renAcval_same ((R.stE n hn).2.trans (R.stE n hn).1.symm)]
     exact r.leaf n hn,
    fun ψ d e ta hb hta => by
-    rw [hac, denote_ren R.ren m₁.base2.acval_params ψ d e]
+    rw [hac, denote_ren R.ren.copy m₁.base2.acval_params ψ d e]
     exact r.read ψ d e ta hb hta⟩
 
 /-- **A pinned block, at the record's names, at the P tier.** -/

@@ -72,18 +72,21 @@ def recKind : Declaration → String
 def levelsRenaming (ps ps' : List Name) : Bool :=
   ps.length == ps'.length && decide ps.Nodup && decide ps'.Nodup
 
-/-- **Two statements, up to the names of their level parameters**: the same, or as many
-names, each list without repeats, and the first at the second's names the second. -/
+/-- **A challenge's statement, the solution's up to the names of its level parameters**: the
+same, or as many names, each list without repeats, and the solution's (`cv'`) at the
+challenge's names the challenge's.  The solution's is the one renamed: it is checked, so its
+level parameters are all among its names, and the renaming reads it whole. -/
 def sameCvUpToLevels (cv cv' : ConstantVal) : Bool :=
   if cv.levelParams == cv'.levelParams then cv.beqP cv'
-  else levelsRenaming cv.levelParams cv'.levelParams && (cv.atLps cv'.levelParams).beqP cv'
+  else levelsRenaming cv.levelParams cv'.levelParams && (cv'.atLps cv.levelParams).beqP cv
 
-/-- **Two constants, up to the names of their level parameters** (`ConstantInfo.atLps`). -/
+/-- **A challenge's constant, the solution's up to the names of its level parameters**
+(`ConstantInfo.atLps`, the solution's renamed). -/
 def sameUpToLevels (c c' : ConstantInfo) : Bool :=
   let ps := c.toConstantVal.levelParams
   let ps' := c'.toConstantVal.levelParams
   if ps == ps' then c.beqP c'
-  else levelsRenaming ps ps' && (c.atLps ps').beqP c'
+  else levelsRenaming ps ps' && (c'.atLps ps).beqP c
 
 /-- **Two records, the same**: of one kind, their constants equal (a theorem by its statement:
 its record's value is where to read it), an inductive block's parameter count and a
@@ -148,13 +151,21 @@ def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
     let label := match dC with
       | .axiomDecl _ => "axiom"
       | d => s!"{recKind d} := sorry"
-    match recCv? dC, dS with
-    | some cv, .axiomDecl cv' | some cv, .defnDecl cv' _ _ | some cv, .thmDecl cv' _
-    | some cv, .opaqueDecl cv' _ =>
-      if sameCvUpToLevels cv cv' then
-        .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
-      else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
-    | _, _ => .error s!"{declined}{n}: the solution fills this hole with an {recKind dS}; \
+    let filled : Except String (Declaration × Option Filled) :=
+      match recCv? dC, recCv? dS with
+      | some cv, some cv' =>
+        if sameCvUpToLevels cv cv' then
+          .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
+        else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
+      | _, _ => .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
+    match dS with
+    | .axiomDecl _ | .opaqueDecl .. => filled
+    | .defnDecl .. | .thmDecl .. =>
+      if reduceOpNames.contains n then
+        .error s!"{declined}{n}: the solution fills this hole at a compiler-trust name with a \
+          {recKind dS}; con-leche can fill it only with an opaque constant or an axiom"
+      else filled
+    | _ => .error s!"{declined}{n}: the solution fills this hole with an {recKind dS}; \
         con-leche can fill a hole only with a definition, a theorem, an opaque constant or an \
         axiom at the moment"
   else if sameRecordUpToLevels dC dS then .ok (dS, none)
@@ -179,11 +190,13 @@ def compareRecords (C : Name) (uses : Declaration → Array Name) (homesC homesS
 /-- **What the challenge's records stand for reads only what the records before it, or itself,
 install**, each name installed once; otherwise the first record that does not. -/
 def ctxScoped (ctx : Array Declaration) : Option String :=
+  let install (seen : Std.HashSet Name) (n : Name) : Except String (Std.HashSet Name) :=
+    if seen.contains n then .error s!"{n}: installed twice by the challenge's records"
+    else .ok (seen.insert n)
   let step (seen : Std.HashSet Name) (e : Declaration) : Except String (Std.HashSet Name) :=
-    match (Modular.declNames e).find? seen.contains with
-    | some n => .error s!"{n}: installed by two of the challenge's records"
-    | none =>
-      let seen := seen.insertMany (Modular.declNames e)
+    match (Modular.declNames e).foldlM install seen with
+    | .error why => .error why
+    | .ok seen =>
       match (recordReads e).find? (!seen.contains ·) with
       | some y => .error s!"{recKey e}: reads {y}, which no challenge record before it installs"
       | none => .ok seen
