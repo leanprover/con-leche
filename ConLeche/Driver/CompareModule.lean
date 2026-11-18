@@ -3,6 +3,7 @@ module
 public import ConLeche.Driver.Worker
 public import ConLeche.Driver.Compare
 public import ConLeche.Driver.Graph
+import ConLeche.Verify.Cached.DeclNames
 
 @[expose] public section
 
