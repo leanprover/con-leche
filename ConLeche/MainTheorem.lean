@@ -17,6 +17,7 @@ import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
 import ConLeche.Model.Modular.Compare
 public import ConLeche.Verify.Driver.CompareRun
+public import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.Worker
@@ -373,5 +374,38 @@ theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S :
   refine ⟨pre, rdC, rdS, h1, h2, h3, mC, mS, h7, h8, fun d hd hne hthm => ?_⟩
   obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem hd
   exact Model.Compare.compare_homes h4 k hk hne hthm
+
+open Frontend in
+/-- **An accepted comparison is a property of the trusted files alone** (T1 and T2).  Every exit
+0 of `runArgs` at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` on
+a snapshot `fs` says of every snapshot `fs'` that agrees with `fs` on the paths the reader forms
+under the challenge's directories (`T`, or `D` where `T` names none): the challenge's read on
+`fs'` (`Olean.challengeView`) can give records whose environment, every hole of `C` the axiom of
+its statement, has a model in every set theory `V`, in which every hole is inhabited.  What the
+solution's files hold, and the search path's, is not in the statement. -/
+theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+    {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+      "--search-path=" ++ D, "--", c, s]) fs 0) :
+    let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+    ∀ fs', FS.AgreeUnder r.chalRoots.path fs fs' →
+      ∃ pre rdC, builtinPreludeE = .ok pre ∧
+        Olean.challengeView r.chalRoots.path C none fs' (.ok (.ok rdC)) ∧
+        ∃ mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC),
+          ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
+            Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
+            ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
+              Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
+              ∃ v, v ∈ˢ Ty := by
+  intro r fs' hag
+  obtain ⟨pre, rdC, rdS, h1, h2, -, mC, mS, -, h5, -⟩ := main_compare_solves V hc hs h
+  refine ⟨pre, rdC, h1, ?_, mC, fun d hd hown hh => ?_⟩
+  · rw [← Olean.challenge_local hag]
+    obtain ⟨hs₁, hs₂, h2⟩ := h2
+    refine ⟨hs₁, hs₂, ?_⟩
+    rw [← r.chalRoots_eta]
+    exact h2
+  · obtain ⟨cv, cS, hcv, -, hmem⟩ := h5 d hd hown hh
+    exact ⟨cv, hcv, fun φ ρ => let ⟨Ty, hT, hm⟩ := hmem φ ρ; ⟨Ty, hT, _, hm⟩⟩
 
 end ConLeche

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.MainTheorem
 public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.Local
 public import ConLeche.Verify.Frontend.Olean.View
 public import ConLeche.Verify.Frontend.Olean.Emit
 public import ConLeche.Verify.Frontend.Olean.Group
@@ -163,6 +164,24 @@ info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.cho
 -/
 #guard_msgs in
 #print axioms ConLeche.main_oleans_no_False
+
+/--
+info: 'ConLeche.main_compare_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_solves
+
+/--
+info: 'ConLeche.main_compare_trusted' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_trusted
+
+/--
+info: 'ConLeche.Frontend.Olean.challenge_local' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.challenge_local
 
 /--
 info: 'ConLeche.main_modular_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]

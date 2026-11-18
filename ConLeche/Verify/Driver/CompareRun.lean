@@ -44,6 +44,10 @@ theorem CmpReq.chalRoots_bare (r : CmpReq) : r.chalRoots.bare = r.chalRoots := b
   unfold CmpReq.chalRoots
   split <;> rfl
 
+theorem CmpReq.chalRoots_eta (r : CmpReq) : r.chalRoots = { path := r.chalRoots.path } := by
+  unfold CmpReq.chalRoots
+  split <;> rfl
+
 theorem CmpReq.solRoots_bare (r : CmpReq) : r.solRoots.bare = r.solRoots := by
   unfold CmpReq.solRoots
   split <;> rfl
