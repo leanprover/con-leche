@@ -122851,3 +122851,114 @@ sweeps without divergence, self-check accepted, axioms pinned (75 theorems); pla
 reached, all allowlisted), trust-surface, binary-link, layering, shake (`pub-import-plan.py`
 gets a measured fallback for `Local.lean`'s `Records` import), overview-links, quote-gate OK.
 
+
+## TASK #608 — `--compare` in the modular modes: the challenge as one more module (2026-11-18, agent/608-modular-compare; lands on `compare`)
+
+**Status: first session — the code, the CLI and the fixtures done (olean gate 470/470); the
+theory designed, not yet written; nothing landed.**  The state is "State after the first session"
+at the end of this record.
+
+**CLI** (`Driver/Cli.lean`, `Driver/CompareModule.lean`, `Driver/Graph.lean`, `Driver/Schedule*`):
+* `con-leche --olean --module --compare --search-path=DIRS -- C S`: **the compare worker**, the
+  challenge `C`'s worker in a modular run over the closures of `C` and of its solution `S`;
+* `con-leche --check-graph --compare --search-path=DIRS -- C S`: the graph of `C`'s closure with
+  the edge `C → S` added (`Graph.cmpExtra`: `import all S` appended to `C`'s header), so it covers
+  both closures; a solution whose closure holds `C` closes a cycle (exit 1, CmpImpS);
+* `con-leche --olean --schedule[-commands] --compare --search-path=DIRS -- C S`: that graph, a
+  `--module` worker per module but `C`, and the compare worker at `C`; the commands' first line is
+  the `--check-graph --compare` run.
+* Not (yet): `--trusted-search-path` in these modes (usage error, exit 3; see below);
+  `--olean --modular --compare` (usage error: the one-process mode gets it with the theory, if
+  cheap); `--constant` (usage error).
+
+**The compare worker** (`cmpModuleRead`, the maintainer's design: `C` one more module of the
+modular family, as cfsg's `compared` modules were; DESIGN #370 "Compared modules"):
+1. the home: `C`'s private view loaded, its parts checked (`homeOf`), its records emitted
+   (`ownRecords`), as the worker's;
+2. the reads: `workerReads` at `C` with `import all S` added to the header
+   (`NamePositions.withImports`: the header's imports and the added ones, no own constant, so
+   that `C`'s own names, which the solution holds, are not checked fresh); the clash rule over
+   every loaded name; a solution whose closure holds `C` refused;
+3. the context: `reach` with no own name, from `C`'s own names (each must be in the loads, else
+   "the solution has no constant of this name") and the names `C`'s records read that `C`
+   imports (`cmpRoots`, the records as the context holds them, `cmpView`: holes, theorems and
+   opaque constants as their statements).  So every name of `C` is read from the module of
+   `S`'s closure that declares it, through the ordinary reach, capture check and validation;
+4. the homes (`importedAt`, the ruling "imported names identified by HOME"): every name `C`'s
+   records read that `C` imports is, in the context, the constant of the module `C`'s OWN view
+   (`workerReads` at `C`'s own header) loads it from first, or both copies are theorems of one
+   statement (Lean's key for a proof).  The clash rule already refuses a solution that loads a
+   different non-proof constant of an imported name (CmpHomeS1, CmpHomeS2: "modules CmpHomeA
+   and CmpHomeS1 store different constants named f"); `importedAt` is what the theorem's home
+   clause reads;
+5. the comparison (`cmpCtxRecord`, `cmpAt`), each record of `C` against the context's record of
+   its key: a hole by its statement up to level-parameter renaming, any kind (the #607
+   declines: `Quot.sound`, `sorryAx`, a compiler-trust name filled by a definition or theorem,
+   a hole filled by an inductive type's constant); a theorem by its statement (the context
+   holds a theorem as its statement), of the same kind; an opaque constant by its statement and
+   its value, read off its home's private part (`privEntry`, `opaqueValue`: the ruling
+   "non-holes identical up to renaming", CmpOpqSolK refused as in the merged mode); a
+   definition the context holds as its statement (hidden at its home, not `import all`'d) is
+   refused; any other record as the context holds it (`sameRecordUpToLevels`).
+Output: `con-leche: accepted: S solves C: N challenge declarations compared, K holes filled,
+against M context records`, then the holes, each with its home and the kind the home declares.
+
+**Design points settled in the lane:**
+* A seeded capture check of `C`'s reads as reads of a home `C` (a first version) was dropped:
+  the capture theory's passed pairs need their reader `Reached`, and `C` is no loaded module of
+  its own reach.  The home rule is instead `importedAt` against `C`'s own view, a separate,
+  simple read whose statement is the theorem's home clause.
+* The run's verdicts on the #607 fixtures are the merged mode's (every pair, `mcmp` in
+  `tests/olean.sh`), but CmpImpS (new: a solution importing its challenge): 1 here (a cycle),
+  2 in the merged mode (the challenge's `sorry` checked in the solution's closure).  The compare
+  worker alone gives 0 where only a worker of the solution's closure refuses (CmpSolSorry,
+  CmpAxBadS, the upstream axiom/kind/opaque issues): its accept says nothing of the solution's
+  own checks, which are the other workers'.
+* Messages differ from the merged mode where the modular reads find the fault first: the clash
+  rule (CmpHomeS1/S2, UpGcd), the reach (UpQuot, CmpSorryC, UpDefHoleAxSol).
+
+**The theory (designed; to write).**  The run is `Driver.Compose.Run` with the added imports:
+* `Graph.NodeOk sp fs extra e` (done): a node's imports are its header's followed by
+  `extra e.1`; `checkGraphG_ok`/`graphOf_ok`/`graphOf_closure` are over any `extra`
+  (`HdrClosure` of roots holding every added import's module: `[C, S]`).
+* `WorkerFacts` gains `x : Array ImportRec` (default `#[]`): `reads` at `workerReads … jobs x`,
+  `reach` with own names `if x.isEmpty then ownNames w.home else {}` and roots `ownRoots …` or
+  `cmpRoots`, `own` the hoisted records or `#[]`.  The compare worker's `WorkerRead` is
+  `{ home, expo, reads, emitted, own := #[], reach, hoisted := #[], values := {} }`.
+* `Run` gains `x : Name → Array ImportRec` with `good : NodeOk sp fs x e`, `facts` at `x M`, and
+  "no node imports a module with added imports" (from the graph: every node is reachable from
+  the root `C`, ranks decrease along edges); so every HOME of a context record (a loaded module)
+  has `x h = #[]`, and the home-side lemmas (`own_basis`, `emitted_ownNames`, `copy_own`, …)
+  apply unchanged.  The reader-side lemmas (`capture`, `reached_rank`, `fixpoint_rank`,
+  `rootImports`, the routes) are over `workerReads … x` and the env's own set `ownOf x`.
+  `rootImports` at the compare module: its header's imports are `C`'s followed by `S`
+  (`NodeOk`).  `Run.dev`'s module at `C`: context its reach, no own records (`ownDecls` of
+  `#[]`), presents nothing.
+* `Run.localOk` then holds at every rank, the compare module included (no new local fact: its
+  context is a reach like every worker's).
+* The comparison's spec (`cmpAll`, `importedAll`) gives, for each record of `C`, the context's
+  record of its key related as `Driver.chalRecord`/`cmpView` says (statement up to renaming,
+  same record up to renaming), so `streamEnv` of the context with `C`'s own records in place
+  (renamed back, holes as statements) is a `CopiesEnv` of the context's (#607's
+  `Model/Copies.lean`, `Model.ofCopies`).
+* **T2-modular** (`MainTheorem.main_compare_modular_solves`, to write): if `--check-graph
+  --compare -- c s`, a `--module` worker at every module of `HdrClosure [C, S]` but `C`, and
+  the compare worker `--olean --module --compare -- c s` all exit 0 on one snapshot, then the
+  family of `modular_model_exists` over the run's development (closure(C) ∪ closure(S)) gives a
+  model `mC` of the challenge's environment (its context, `C`'s records in place) such that
+  every name of it is the model of its home module: `mC.cval n = m_{rk (home n)}.cval n` (at the
+  level renaming for `C`'s own names), every imported name's home is the module `C`'s own view
+  reads it from (or a theorem twin), and every hole's type is inhabited.  CmpHomeS1 is refused
+  by every implementation that proves it: `C`'s `f` is `CmpHomeA`'s, `3` in `mC`, so `t : f = 5`
+  is empty.
+* T1-modular: `challenge_local` (#607) is about `readOleansAt`; the workers read through
+  `OleanReads`/`workerTables`.  A T1 for the modular commands needs the locality of
+  `workerRead`/`reach`/`checkModuleG`/`cmpModuleRead` (the same `LocalTo` closure lemmas over
+  `ModTables.reads`, `headerFixpoint`, the reach's `ReachCache` reads), which #607 does not give.
+  To report, unless done.
+* The trusted path in the modular modes: every worker of the run must read through one lookup
+  (`Run` is over one `sp`); `--trusted-search-path=T --search-path=D` would be the `Roots`
+  `{path := T, fallback := D}` for every worker and the compare worker, with the graph check
+  refusing a module of `C`'s closure (without the added edge) whose root `T` does not hold.  The
+  modular theory is over `SearchPath` (`.ofPath sp`, `{path := sp}`); generalizing it to a
+  `Roots` with `bare` (#607's third session did this for `readOleansAt`) is the work.
