@@ -408,6 +408,7 @@ theorem own_reads_ctx {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : W
     ((streamEnv w.reach.ctx.toList).find? y).isSome = true := by
   obtain ⟨_, _, hr⟩ := hw.reach
   refine (reach_ok hr).2.2.2.2 y ?_ ho
+  show y ∈ ownRoots w.reads.index w.home w.emitted
   unfold ownRoots
   refine Array.mem_append.2 (.inl (Array.mem_filter.2 ⟨Array.mem_append.2 (.inl ?_), hk⟩))
   rw [← Array.foldl_toList]

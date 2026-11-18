@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Driver.Worker
+public import ConLeche.Driver.CompareModule
 public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Driver.Shared
@@ -88,26 +89,41 @@ theorem _root_.ConLeche.Frontend.Olean.NamePositions.withImports_isModule (own :
   unfold NamePositions.withImports
   split <;> rfl
 
+/-- **The reach's own names at a module with imports `x` added**: its own names; none at a
+compared challenge (`x` not empty, task #608), whose names are read from its solution. -/
+@[expose] def ownOf (x : Array ImportRec) (w : WorkerRead) : Std.HashSet Name :=
+  if x.isEmpty then ownNames w.home else {}
+
+/-- **The reach's roots at a module with imports `x` added**: what its own records read
+(`ownRoots`); at a compared challenge, its names and what its records read of what it imports
+(`cmpRoots`). -/
+@[expose] def rootsOf (x : Array ImportRec) (w : WorkerRead) : Array Name :=
+  if x.isEmpty then ownRoots w.reads.index w.home w.emitted else cmpRoots w.home w.emitted
+
+/-- **The records a worker checks**: its own records in the hoist's order; none at a compared
+challenge, whose records are compared, not checked. -/
+@[expose] def recsOf (x : Array ImportRec) (w : WorkerRead) : Array Declaration :=
+  if x.isEmpty then (Frontend.hoistNatOpGround (ownUses w.home) w.emitted).1 else #[]
+
 /-- **What a worker read and checked before its jobs, on a snapshot** (`workerRead`'s phases, see
-`ConLeche/Driver/Worker.lean`). -/
-structure WorkerFacts (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead) :
-    Prop where
+`ConLeche/Driver/Worker.lean`); `x` the imports the run adds to the module's header (none, but at
+a compared challenge, whose worker is `cmpModuleRead`, task #608). -/
+structure WorkerFacts (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead)
+    (x : Array ImportRec := #[]) : Prop where
   /-- the home: its private part's files, the private view loaded off them, its three parts
   checked against each other -/
   home : ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧
     homeOf m f = .ok (w.home, w.expo)
   /-- the header fixpoint, the name index, Lean's clash rule over every loaded name, freshness -/
-  reads : ModelIO.CanGive (workerReads (.ofPath sp) m jobs) fs (.ok w.reads)
+  reads : ModelIO.CanGive (workerReads (.ofPath sp) m jobs x) fs (.ok w.reads)
   /-- the own records: the emission of the loaded constants -/
   emitted : ownRecords w.home = .ok w.emitted
   /-- the context: the reach from the own records' reads -/
-  reach : ModelIO.CanGive
-    (reach (.ofPath sp) m w.reads (ownNames w.home) (ownRoots w.reads.index w.home w.emitted))
-    fs (.ok w.reach)
+  reach : ModelIO.CanGive (reach (.ofPath sp) m w.reads (ownOf x w) (rootsOf x w)) fs (.ok w.reach)
   /-- the context's names, distinct -/
   nodup : (w.reach.ctx.toList.flatMap declNames).Nodup
   /-- the own records, in the hoist's order -/
-  own : w.own = (Frontend.hoistNatOpGround (ownUses w.home) w.emitted).1
+  own : w.own = recsOf x w
   /-- the region the theorems' values are read from: the home's, on the snapshot -/
   values : CacheOK sp fs #[⟨m, w.home.frontier⟩] w.values
 
@@ -301,6 +317,7 @@ theorem worker_ground {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : W
     ((streamEnv w.reach.ctx.toList).find? g).isSome = true := by
   obtain ⟨_, _, hr⟩ := hw.reach
   refine (reach_ok hr).2.2.2.2 g ?_ ho
+  show g ∈ ownRoots w.reads.index w.home w.emitted
   unfold ownRoots
   refine Array.mem_append.2 (.inr (Array.mem_filter.2 ⟨?_, hix⟩))
   rw [← Array.foldl_toList]
