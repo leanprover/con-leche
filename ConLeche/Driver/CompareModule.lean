@@ -29,7 +29,7 @@ that declares it, as every worker reads it.
    it.
 4. **The homes** (`importedAt`): every name `C`'s records read that `C` imports is, in the
    context, the constant of the module `C`'s own view (the reads at `C`'s own header) loads it
-   from first, or both are theorems of one statement (Lean's key for a proof).  So a name the
+   from first.  So a name the
    challenge imports is its home's constant: a solution declaring one of them itself is refused
    here, or by the clash rule before.
 5. **The comparison** (`cmpCtxRecord`), each record of `C` against the context's record of its
@@ -144,38 +144,21 @@ def opaqueValue (cv : ConstantVal) (v : Expr) : Option (CEntryF Name Expr) → B
 
 /-- **A name the challenge imports is its home's constant** (the merging rule's key): the
 context's copy of `y` is of the module the challenge's own view loads it from first (`wrC`, the
-reads at `C`'s own header), or both copies are theorems of one statement (Lean's key for a
-proof).  `none` when it is; else why not. -/
-def importedAt {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (wrC : WorkerReads) (r : Reach)
-    (owner : Std.HashMap Name Nat) (y : Name) : μ (Option String) := do
+reads at `C`'s own header).  `none` when it is; else why not. -/
+def importedAt (wrC : WorkerReads) (r : Reach) (owner : Std.HashMap Name Nat) (y : Name) :
+    Option String :=
   match wrC.index.first[y]? with
-  | none => pure (some s!"{y}: the challenge's records read it, and no module the challenge \
-      loads holds it")
+  | none => some s!"{y}: the challenge's records read it, and no module the challenge loads \
+      holds it"
   | some cp =>
     let hC := wrC.loads.nameAt cp.mod
     match owner[y]? with
-    | none => pure (some s!"{y}: the challenge's records read it, and the context does not hold it")
+    | none => some s!"{y}: the challenge's records read it, and the context does not hold it"
     | some k =>
       let hS := r.homes.getD k .anonymous
-      if hC == hS then return none
-      let msg := s!"{y}: the challenge reads it from {hC}, the solution's is {hS}'s; a name the \
+      if hC == hS then none
+      else some s!"{y}: the challenge reads it from {hC}, the solution's is {hS}'s; a name the \
         challenge imports must be its home's constant"
-      let cvOf (e : CEntryF Name Expr) : ConstantVal :=
-        { name := e.name, levelParams := e.levelParams, type := e.type }
-      match ← privEntry rd hS y, ← privEntry rd hC y with
-      | some (qS, some eS), some (qC, some eC) =>
-        if qS.tag == 2 && qC.tag == 2 && (cvOf eS).beqP (cvOf eC) then pure none
-        else pure (some msg)
-      | _, _ => pure (some msg)
-
-/-- Every name of `ys` its home's constant (`importedAt`), or the first that is not. -/
-def importedAll {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (wrC : WorkerReads) (r : Reach)
-    (owner : Std.HashMap Name Nat) : List Name → μ (Option String)
-  | [] => pure none
-  | y :: ys => do
-    match ← importedAt rd wrC r owner y with
-    | some why => pure (some why)
-    | none => importedAll rd wrC r owner ys
 
 /-- **The comparison's verdict at one challenge record**: `cmpCtxRecord` against the context's
 record storing its key, and an opaque constant's value. -/
@@ -218,11 +201,14 @@ def cmpAll {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ)
     | .error e => pure (.error e)
     | .ok f => cmpAll rd uses r owner ds (match f with | some f => acc.push f | none => acc)
 
-/-- **The compare worker's phases** (see the module docstring): the error and its exit code, or
-what was read and compared. -/
+/-- **The compare worker's phases** (see the module docstring): what was read and compared, or
+why not (a comparison that positively detects what con-leche cannot fill: `notImplemented`, its
+reason without `declined`'s prefix). -/
 def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S : Name) (pace : Pace)
-    (t0 jobs : Nat) : μ (Except (String × UInt8) CmpModuleRead) := do
-  let fail (e : CheckError) : Except (String × UInt8) CmpModuleRead := .error (toString e, e.exitCode)
+    (t0 jobs : Nat) : μ (Except CheckError CmpModuleRead) := do
+  let fail (e : CheckError) : Except CheckError CmpModuleRead := .error e
+  let unsolved (why : String) : Except CheckError CmpModuleRead :=
+    .error (.invalid s!"{S} does not solve {C}: {why}")
   match ← rd.files C .private with
   | .error e => pure (fail e)
   | .ok f =>
@@ -233,34 +219,33 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
   | .error e => pure (fail e)
   | .ok wr =>
   if wr.loads.index.contains C then
-    return .error (s!"{S} does not solve {C}: the solution's closure holds the challenge", 1)
+    return unsolved "the solution's closure holds the challenge"
   workerSay pace t0 s!"loads {wr.loads.order.size} modules, {wr.index.first.size} names"
   match ownRecords l with
   | .error (e, _) => pure (fail e)
   | .ok ds =>
   let uses := ownUses l
   match (l.constants.filter (!·.skipped)).find? (!wr.index.first.contains ·.name) with
-  | some c => pure (.error (s!"{S} does not solve {C}: {c.name}: the solution has no constant \
-      of this name", 1))
+  | some c => pure (unsolved s!"{c.name}: the solution has no constant of this name")
   | none =>
   match ← reach rd C wr {} (cmpRoots l ds) with
   | .error e => pure (fail e)
   | .ok r =>
   if !namesNodupGo {} (r.ctx.toList.flatMap Modular.declNames) then
-    return .error ("invalid: a context record declares one of its names twice", 1)
+    return fail (.invalid "a context record declares one of its names twice")
   workerSay pace t0 s!"reach: {r.ctx.size} records"
   let owner := ownerMap r.ctx
   -- the challenge's own view, for the homes of what it imports
   match ← workerReads rd C jobs with
   | .error e => pure (fail e)
   | .ok wrC =>
-  match ← importedAll rd wrC r owner (cmpImported l ds).toList with
-  | some why => pure (.error (s!"{S} does not solve {C}: {why}", 1))
+  match (cmpImported l ds).toList.findSome? (importedAt wrC r owner) with
+  | some why => pure (unsolved why)
   | none =>
   match ← cmpAll rd uses r owner ds.toList #[] with
   | .error why =>
-    if declined.isPrefixOf why then pure (.error (why, 2))
-    else pure (.error (s!"{S} does not solve {C}: {why}", 1))
+    if declined.isPrefixOf why then pure (fail (.notImplemented (why.drop declined.length).toString))
+    else pure (unsolved why)
   | .ok filled =>
     pure (.ok { w := { home := l, expo, reads := wr, emitted := ds, own := #[], reach := r,
                        hoisted := #[], values := {} },
@@ -275,9 +260,13 @@ def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C 
     | .trusted => "--trusted"
   CheckerIO.liftIO (readStarts pace s!"challenge {C}")
   match ← cmpModuleRead rd C S pace t0 jobs with
-  | .error (why, code) =>
+  | .error e =>
+    let why := match e with
+      | .notImplemented w => s!"declined: {w}"
+      | .invalid w => w
+      | .internal w => s!"internal error: {w}"
     diagLine s!"con-leche: challenge {C}: {why} ({modeTag})"
-    return code
+    return e.exitCode
   | .ok w =>
     outLine s!"con-leche: accepted: {S} solves {C}: {w.w.emitted.size} challenge declarations \
       compared, {w.filled.size} holes filled, against {w.w.reach.ctx.size} context records \

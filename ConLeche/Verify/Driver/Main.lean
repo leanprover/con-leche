@@ -5,6 +5,7 @@ public import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Driver.Modular
 import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.CompareRun
+public import ConLeche.Verify.Driver.CompareModule
 
 /-!
 # `runArgs`, in the model
@@ -335,6 +336,85 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
           obtain ⟨⟨R, T⟩, _, hT, hc⟩ := hc
           obtain ⟨hR, hp, hT⟩ := workerTables_ok hT
           exact ⟨m, _, rfl, checkModuleG_accept (modTables_within hR hp hT) hR hp hc⟩
+  · simp
+
+/-- The arguments `--olean --module --compare --search-path=<dirs> -- <c> <s>`: those two
+modules, those directories, every other setting at its default (the mode `.verified`). -/
+theorem parseArgs_cmpModule (dirs c s : String) :
+    parseArgs ["--olean", "--module", "--compare", "--search-path=" ++ dirs, "--", c, s] {} =
+      { olean := true, module := true, compare := true, searchPath := searchPathOf dirs,
+        files := #[c, s] } := by
+  have hfst : parseArgs ["--olean", "--module", "--compare", "--search-path=" ++ dirs, "--", c, s]
+      {} = parseArgs ["--search-path=" ++ dirs, "--", c, s]
+        { olean := true, module := true, compare := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
+    flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--olean --module --compare --search-path=<dirs> -- <c> <s>` ask for no help. -/
+theorem helpWanted_cmpModule (dirs c s : String) :
+    helpWanted ["--olean", "--module", "--compare", "--search-path=" ++ dirs, "--", c, s] =
+      false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--olean --module --compare --search-path=<dirs> -- <c> <s>`, in the model**
+(task #608): every outcome that is an exit 0 names a challenge `C` and a solution `S` and is an
+accepted compare worker (`CmpFacts`, `ConLeche/Verify/Driver/CompareModule.lean`) on that search
+path, at some worker count. -/
+theorem runArgs_cmpModule_accept {dirs c s : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--olean", "--module", "--compare", "--search-path=" ++ dirs, "--", c, s] :
+      ModelIO _) fs hs (.ok 0) hs') :
+    ∃ C S jobs, Olean.parseModName c = some C ∧ Olean.parseModName s = some S ∧
+      ∃ cr, CmpFacts (searchPathOf dirs) fs C S jobs cr := by
+  suffices H : ModelIO.AllOk (runArgs ["--olean", "--module", "--compare", "--search-path=" ++ dirs,
+      "--", c, s]) fs hs (fun v => v = 0 → ∃ C S jobs, Olean.parseModName c = some C ∧
+        Olean.parseModName s = some S ∧ ∃ cr, CmpFacts (searchPathOf dirs) fs C S jobs cr) from
+    H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
+  · simp only [helpWanted_cmpModule, parseArgs_cmpModule, List.isEmpty_nil, Bool.and_true,
+      Bool.not_true, Bool.false_eq_true, ite_false, ite_true]
+    intro v _ hv h0
+    subst h0
+    split at hv
+    · simp [eprintln] at hv
+    · cases hc : Olean.parseModName c with
+      | none =>
+        have : (#[c, s] : Array String).find? (fun f => (Olean.parseModName f).isNone) =
+            some c := by simp [hc]
+        simp [this, eprintln] at hv
+      | some C =>
+      cases hsn : Olean.parseModName s with
+      | none =>
+        have : (#[c, s] : Array String).find? (fun f => (Olean.parseModName f).isNone) =
+            some s := by simp [hc, hsn]
+        simp [this, eprintln] at hv
+      | some S =>
+        have : (#[c, s] : Array String).find? (fun f => (Olean.parseModName f).isNone) = none := by
+          simp [hc, hsn]
+        simp only [this, Array.find?_empty, List.filterMap_cons, hc, hsn, List.filterMap_nil,
+          Array.isEmpty_empty] at hv
+        split at hv
+        · simp [eprintln] at hv
+        · simp only [Bool.true_or, Bool.or_false, Bool.false_or, Bool.not_true,
+            Bool.false_eq_true, ↓reduceIte, Bool.and_false, Array.isEmpty_empty,
+            List.isEmpty_nil] at hv
+          simp only [runReq, ModelIO.bind_ok] at hv
+          obtain ⟨⟨R, T⟩, _, hT, hv⟩ := hv
+          obtain ⟨hR, hp, hT⟩ := workerTables_ok hT
+          exact ⟨C, S, _, rfl, rfl, checkCmpModuleG_accept (modTables_within hR hp hT) hv⟩
   · simp
 
 /-- The arguments `--olean --modular --search-path=<dirs> -- <root>`: that one root, those
