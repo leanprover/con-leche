@@ -122962,3 +122962,80 @@ against M context records`, then the holes, each with its home and the kind the 
   refusing a module of `C`'s closure (without the added edge) whose root `T` does not hold.  The
   modular theory is over `SearchPath` (`.ofPath sp`, `{path := sp}`); generalizing it to a
   `Roots` with `bare` (#607's third session did this for `readOleansAt`) is the work.
+
+### State after the first session (#608 cont.)
+
+**Done and committed on `agent/608-modular-compare`** (each commit builds, `lake build` green;
+`lake test` and the gates other than the olean gate not yet run on the lane):
+* Code, CLI, fixtures (olean gate 470/470, `mcmp` block in `tests/olean.sh`, CmpImpS).  The home
+  rule (`importedAt`) is STRICT: the context's copy of an imported name the challenge's records
+  read is of the module the challenge's own view loads it first from; no theorem-twin allowance
+  (dropped for the theorem: a twin from another module would need the twin's module's own
+  environment in the statement; such a twin is the context's copy only where the compare loads
+  meet the other module first, which Lean's order, the challenge's imports before the added
+  solution, makes rare).  Deviation from #607 (which keys a theorem by its statement), to report.
+* `WorkerFacts sp fs m jobs w (x := #[])`: reads at `workerReads … jobs x`, reach with
+  `ownOf x w`/`rootsOf x w` (`cmpRoots` at a compared challenge), own records `recsOf x w`.  The
+  worker's reads lemmas (`workerReads_spec/_open/_loads/_index`, clash lemmas) are over any `x`
+  (`NamePositions.withImports`, `withImports_empty/_imports/_isModule`).
+* `CmpFacts` and `cmpModuleRead_ok`, `checkCmpModuleG_accept` (`Verify/Driver/CompareModule.lean`);
+  `runArgs_cmpModule_accept`, `runArgs_graphCmp_accept` (`Verify/Driver/Main.lean`).
+* `Graph.NodeOk`, `checkGraphG_ok`/`graphOf_ok`/`graphOf_closure` over the added imports
+  (`HdrClosure` of roots holding the added imports' modules).
+* `Compose.Run` over `x` (`good : NodeOk`, `plain`: no node imports a module with imports added,
+  `facts` at `x M`; `facts₀` for a module with none); every loaded/reached module and every home
+  has none (`impReach_rank`, `fixpoint_rank`, `reached_rank`, `home_rank` give `R.x m = #[]`),
+  the home-side lemmas take it, the reader-side ones are over any `x` (`worker_home`,
+  `worker_ctx`, `worker_local`, `worker_presented`, `interfaceOk_of_workers`, `first_of_at`, …).
+  `Run.localOk` holds at every rank, the compared module included (it presents nothing).
+* `Verify/Driver/ComposeCompare.lean`: `cmp_rank_le`, `cmp_plain` (no module of the compared
+  closure imports the challenge: every module is in `HdrClosure [C, S]` and ranks at most `C`),
+  `Run.ofCompare` (graph facts with `cmpExtra`, a `WorkerAccepted` at every module but `C`, the
+  compare worker's `CmpFacts` at `C`; its `run` at `C` is `DeclsRun.nil`), `Run.ofCompare_w`.
+  Not yet imported by any root (built by name; `MainTheorem` will import it).
+
+**What remains, in order:**
+1. **The challenge's environment and its model** (model tier, a new `Model/Modular/CompareRun.lean`
+   or beside #607's `Model/Modular/Compare.lean`): `chalEnvOf cr := streamEnv (ctx.map (renameRec
+   lpsOf))`, the compare worker's context with every record storing a name of `C` renamed to
+   `C`'s level-parameter names (`lpsOf n` = `C`'s record's), every other record as it is.  From
+   `CmpFacts.cmp` (`cmpCtxRecord`'s accept: a hole `sameCvUpToLevels`, any kind, the context's
+   record an axiom or a definition; a theorem/opaque by statement against the context's axiom; a
+   definition `sameRecordUpToLevels`; groups and quotient records `sameRecord`, unrenamed) prove
+   `CopiesEnv (streamEnv ctx) chalEnv` (#607's `ConstCopy`/`RecCopy`, `sameCv_copy`,
+   `sameUpTo_copy`, `RecCopy.of_same`), with `EnvWF (streamEnv ctx)` from `worker_ctx`.  The
+   module's own environment is its context (`ownDecls` = `[]`), so `Model.Modular.modularModels`
+   (the `EnvModelM` behind `modular_model_exists`) at the run's development gives
+   `Model.ofCopies` of it, as `compare_models` does.  A hole's statement: the renamed context
+   record's constant has the hole's `ConstantVal` (`sameCvUpToLevels` gives the renamed type);
+   `Model.mem` gives its type inhabited, as `compare_solved`.
+2. **T2-modular** in `MainTheorem.lean` beside `main_modular_no_False`: hypotheses
+   `runArgs ["--check-graph", "--compare", "--search-path=" ++ dirs, "--", c, s]` exit 0, every
+   `m` with `HdrClosure (searchPathOf dirs) fs [C, S] m`, `m ≠ C`, an exit 0 of `--olean --module`
+   (as `main_modular_no_False`'s `hwork`), and `--olean --module --compare … -- c s` exit 0.
+   Glue: `runArgs_graphCmp_accept` → `checkGraphG_ok (roots' := [C, S])`, `cmp_plain`,
+   `runArgs_module_accept` per module, `runArgs_cmpModule_accept` → `Run.ofCompare` (the compare
+   worker's `jobs` and the graph's must be reconciled: `WorkerFacts` at `cjobs` is fine, `jobs` is
+   free per module) → `Run.localOk` → models.  Conclusion (concrete, as `main_compare_solves`):
+   the compare worker's `cr` with `CmpFacts`; models `m j` of every module's own environment of
+   the development (compatible: context names valued as their source module's, theorems `pt`);
+   a model `mC` of `chalEnvOf cr` with `mC.cval n φ = (m (rk C)).cval n (substFn …)` and, for every
+   name, its source module `rk (home n)` (the reach's home) whose model values it alike; for every
+   name `C`'s records read that `C` imports, that home is the module `C`'s own view
+   (`cr.view`) loads it from (`importedAt`); every hole's type inhabited in `mC`.
+   CmpHomeS1 is refused by any implementation that proves it: `f`'s home is `CmpHomeA`, whose
+   own environment holds `f := 3`.
+3. T1-modular: report what is missing (the workers' reads are not `readOleansAt`; their locality
+   needs `LocalTo` proofs for `workerTables`, `ModTables.reads`, `headerFixpoint`, the reach's
+   cache reads and `cmpModuleRead`).
+4. `--olean --modular --compare`: code (graph with `cmpExtra`, `modularStep` running the compare
+   worker at `C`) and `checkModularG_accept` over `Run.ofCompare`; cheap once 2 is done.
+5. The trusted path in the modular modes (`Roots` with a fallback for every worker; the
+   modular theory is over `SearchPath`): not started.
+6. Axiom pins (`tests/ConLecheTests/Axioms.lean`), OVERVIEW (modes, theorems, module map:
+   `Driver/CompareModule.lean`, `Verify/Driver/CompareModule.lean`,
+   `Verify/Driver/ComposeCompare.lean`), the gates (`lake test`, `tests/arena.sh` under the guard,
+   plain-reach — the compare worker reaches `ConstantVal.atLps…` through `sameCvUpToLevels`, the
+   #607 twins — trust-surface, binary-link, layering, shake, overview-links, quote-gate), the
+   measurement (`--schedule --compare ConLeche.Challenge ConLeche.MainTheorem`), the landing on
+   `compare`.
