@@ -53,7 +53,7 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- The set-valued leaf of a leaf valuation. -/
-noncomputable def cvalOf (acval : Name → (Name → Nat) → Term)
+@[expose] noncomputable def cvalOf (acval : Name → (Name → Nat) → Term)
     (n : Name) (ψ : Name → Nat) : V :=
   interp V (fun _ => SetTheory.empty) (acval n ψ)
 
@@ -191,7 +191,7 @@ theorem Denotes_strLitToConstructor {acval : Name → (Name → Nat) → Term}
 /-! ### The bridge -/
 
 /-- A term with no `fvar` is scoped below every depth. -/
-private theorem fvarsBelow_zero_of_not_hasFvar :
+theorem fvarsBelow_zero_of_not_hasFvar :
     ∀ {e : Expr}, e.hasFvar = false → Expr.fvarsBelow 0 e := by
   intro e
   induction e <;> simp_all [Expr.fvarsBelow, Expr.hasFvar]
