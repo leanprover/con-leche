@@ -306,4 +306,68 @@ theorem cmpRecord_spec {C : Name} {uses : Declaration → Array Name} {own : Boo
         exact ⟨sameRecordUpTo_copy hs, presents_fill dS, fun h => nomatch h⟩
       · exact nomatch h
 
+/-! ## The comparison, record by record -/
+
+/-- A fold that pushes one element per step, each related to its input. -/
+theorem foldlM_push {α β γ ε : Type} {g : Array β × γ → α → Except ε (Array β × γ)}
+    (P : α → β → Prop) (hg : ∀ acc a r, g acc a = .ok r → ∃ b, r.1 = acc.1.push b ∧ P a b) :
+    ∀ (L : List α) (acc r : Array β × γ), L.foldlM g acc = .ok r →
+      r.1.size = acc.1.size + L.length ∧ (∀ i, i < acc.1.size → r.1[i]? = acc.1[i]?) ∧
+      ∀ i (hi : i < L.length), ∃ b, r.1[acc.1.size + i]? = some b ∧ P L[i] b
+  | [], acc, r, h => by
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨rfl, fun _ _ => rfl, fun i hi => absurd hi (Nat.not_lt_zero _)⟩
+  | a :: L, acc, r, h => by
+    simp only [List.foldlM, bind, Except.bind] at h
+    split at h
+    · exact nomatch h
+    · rename_i r₁ h₁
+      obtain ⟨b, hb, hP⟩ := hg acc a r₁ h₁
+      obtain ⟨hs, hpre, hall⟩ := foldlM_push P hg L r₁ r h
+      have hs₁ : r₁.1.size = acc.1.size + 1 := by rw [hb, Array.size_push]
+      refine ⟨by rw [hs, hs₁]; simp; omega, fun i hi => ?_, fun i hi => ?_⟩
+      · rw [hpre i (by omega), hb, Array.getElem?_push_lt hi, Array.getElem?_eq_getElem hi]
+      · cases i with
+        | zero =>
+          refine ⟨b, ?_, hP⟩
+          rw [Nat.add_zero, hpre _ (by omega), hb, Array.getElem?_push_size]
+        | succ i =>
+          obtain ⟨b', hb', hP'⟩ := hall i (by simp at hi; omega)
+          refine ⟨b', ?_, hP'⟩
+          rw [← hb', hs₁]
+          congr 1
+          omega
+
+/-- **The comparison's accept, record by record**: what each challenge record stands for is
+`cmpRecord`'s accept against a solution record. -/
+theorem compareRecords_spec {C : Name} {uses : Declaration → Array Name}
+    {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+    {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+    (h : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled)) :
+    ctx.size = recsC.size ∧ ∀ k (hk : k < recsC.size), ∃ e, ctx[k]? = some e ∧
+      ∃ dS ∈ recsS, ∃ f, cmpRecord C uses (homesC[recKey recsC[k]]? == some C)
+        homesC[recKey recsC[k]]? homesS[recKey recsC[k]]? recsC[k] dS = .ok (e, f) := by
+  unfold compareRecords at h
+  rw [← Array.foldlM_toList] at h
+  have := foldlM_push (fun dC e => ∃ dS ∈ recsS, ∃ f, cmpRecord C uses
+      (homesC[recKey dC]? == some C) homesC[recKey dC]? homesS[recKey dC]? dC dS = .ok (e, f))
+    (fun acc a r hr => ?_) recsC.toList _ _ h
+  · obtain ⟨hs, -, hall⟩ := this
+    refine ⟨by simpa using hs, fun k hk => ?_⟩
+    obtain ⟨b, hb, hP⟩ := hall k (by simpa using hk)
+    exact ⟨b, by simpa using hb, by simpa using hP⟩
+  · obtain ⟨ctx₀, fl₀⟩ := acc
+    dsimp only at hr
+    split at hr
+    · exact nomatch hr
+    · rename_i dS hdS
+      split at hr
+      · exact nomatch hr
+      · rename_i d f hc
+        obtain ⟨rfl⟩ := hr
+        refine ⟨d, rfl, dS, ?_, f, hc⟩
+        obtain ⟨i, -, hi⟩ := Option.bind_eq_some_iff.mp hdS
+        exact Array.mem_of_getElem? hi
+
 end ConLeche.Model.Compare
