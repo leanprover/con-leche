@@ -180,6 +180,12 @@ def chalRecord (C : Name) (uses : Declaration → Array Name) (homesC : Std.Hash
     (d : Declaration) : Declaration :=
   if homesC[recKey d]? == some C && isHole uses d then Modular.stmtOf d else d
 
+/-- **Where the solution's record of a name is**: its position, by its key and by every name it
+installs. -/
+def recIndex (recs : Array Declaration) : Std.HashMap Name Nat :=
+  recs.foldl (init := ({}, 0)) (fun (m, i) d =>
+    ((m.insert (recKey d) i).insertMany ((Modular.declNames d).map (·, i)), i + 1)) |>.1
+
 /-- **What the challenge's records stand for**, in order, and the holes filled, or the first
 record the solution does not meet.  `idxS` finds the solution's prepared record of a key. -/
 def compareRecords (C : Name) (uses : Declaration → Array Name) (homesC homesS : Std.HashMap Name Name)
@@ -249,6 +255,22 @@ def fallbackOnly {μ : Type → Type} [CheckerIO μ] (r : CmpReq) : μ (Option S
             which only the solution reads"
     return none
 
+/-- **A `--constant` name that is no declaration of the challenge module**, and why; `homes` the
+challenge closure's. -/
+def foreignConstant (r : CmpReq) (homes : Std.HashMap Name Name) : Option String := do
+  let c ← (← r.constants).find? (homes[·]? != some r.challenge)
+  return s!"--constant={c}: not a declaration of the challenge module {r.challenge}\
+    {match homes[c]? with
+      | some h => s!" (it is {h}'s)"
+      | none => " (no module of its closure declares it)"}"
+
+/-- The receipt of the records hoisted ahead of the pinned `Nat` operations they ground. -/
+def hoistedNote {μ : Type → Type} [CheckerIO μ] (hoisted : Array Name) : μ Unit :=
+  if hoisted.size > 0 then
+    diagLine s!"con-leche: {hoisted.size} declarations hoisted ahead of the pinned Nat \
+      operations they ground: {String.intercalate ", " (hoisted.toList.map toString)}"
+  else pure ()
+
 /-- **The verdict of a failed read**: its line and exit code. -/
 def readFailed {μ : Type → Type} [CheckerIO μ] (modeTag label : String) :
     CheckError × Nat → μ UInt8
@@ -286,13 +308,9 @@ def compareG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (mode : CheckMode)
     readFailed modeTag (toString r.challenge) e
   | .ok rdC =>
   -- `--constant`: declarations of the challenge module itself
-  if let some cs := r.constants then
-    if let some c := cs.find? (rdC.homes[·]? != some r.challenge) then
-      diagLine s!"con-leche: --constant={c}: not a declaration of the challenge module \
-        {r.challenge}{match rdC.homes[c]? with
-          | some h => s!" (it is {h}'s)"
-          | none => " (no module of its closure declares it)"} ({modeTag})"
-      return 1
+  if let some why := foreignConstant r rdC.homes then
+    diagLine s!"con-leche: {why} ({modeTag})"
+    return 1
   -- the solution, from the constants the challenge's records need, or all of it
   let need := r.constants.map fun _ => rdC.decls.map recKey
   match ← readOleansAt r.solRoots #[r.solution] need jobs pace (lenient := true)
@@ -302,11 +320,8 @@ def compareG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (mode : CheckMode)
   let ⟨recsC, _, _⟩ := Frontend.prepareD prelude rdC.decls (usedOf (some (r.chalRoots.path, rdC)))
   let ⟨recsS, _, hoisted⟩ := Frontend.prepareD prelude rdS.decls
     (usedOf (some (r.solRoots.path, rdS)))
-  let idxS : Std.HashMap Name Nat :=
-    recsS.foldl (init := ({}, 0)) (fun (m, i) d =>
-      ((m.insert (recKey d) i).insertMany ((Modular.declNames d).map (·, i)), i + 1)) |>.1
   match compareRecords r.challenge (usedOf (some (r.chalRoots.path, rdC))) rdC.homes rdS.homes
-      recsS idxS recsC with
+      recsS (recIndex recsS) recsC with
   | .error why =>
     if declined.isPrefixOf why then
       diagLine s!"con-leche: {why} ({modeTag})"
@@ -317,9 +332,7 @@ def compareG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (mode : CheckMode)
   if let some why := ctxScoped ctx then
     diagLine s!"con-leche: {r.solution} does not solve {r.challenge}: {why} ({modeTag})"
     return 1
-  if hoisted.size > 0 then
-    diagLine s!"con-leche: {hoisted.size} declarations hoisted ahead of the pinned Nat \
-      operations they ground: {String.intercalate ", " (hoisted.toList.map toString)}"
+  hoistedNote hoisted
   -- the solution's closure, checked
   let tIndex ← clockMs
   let J ← CheckerIO.liftIO (Jobs.build recsS)

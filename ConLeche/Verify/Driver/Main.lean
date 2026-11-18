@@ -4,6 +4,7 @@ public import ConLeche.Driver.Cli
 public import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Driver.Modular
 import ConLeche.Verify.Driver.Graph
+public import ConLeche.Verify.Driver.CompareRun
 
 /-!
 # `runArgs`, in the model
@@ -409,5 +410,134 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
           obtain ⟨rk, h1, h2, h3, h4, -⟩ := Graph.graphOf_ok hC
           exact ⟨m, rfl, C.toList, rk, h1, h2 m (by simp), h3, h4, hall⟩
   · simp
+
+/-- **`runArgs` on `--olean --compare` arguments, in the model**: at any arguments that ask for
+no help, parse without a usage error and ask for `--olean --compare` (not `--check-graph`),
+every outcome that is an exit 0 is one of `compareG` on the two module names the arguments give,
+at the arguments' lookups and `--constant` names. -/
+theorem runArgs_compares_accept {args : List String} {fs : FS} {hs hs' : HS}
+    (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
+    (ho : (parseArgs args {}).olean = true) (hcg : (parseArgs args {}).checkGraph = false)
+    (hcmp : (parseArgs args {}).compare = true)
+    (h : (runArgs args : ModelIO _) fs hs (.ok 0) hs') :
+    ∃ C S jobs, (parseArgs args {}).files.toList.filterMap Olean.parseModName = [C, S] ∧
+      ModelIO.CanGive (compareG ⟨C, S, (parseArgs args {}).trustedPath,
+        (parseArgs args {}).searchPath, (parseArgs args {}).rootConstants⟩ (parseArgs args {}).mode
+        (parseArgs args {}).maxNatSize (parseArgs args {}).progress jobs) fs 0 := by
+  suffices H : ModelIO.AllOk (runArgs args) fs hs
+      (fun c => c = 0 → ∃ C S jobs,
+        (parseArgs args {}).files.toList.filterMap Olean.parseModName = [C, S] ∧
+        ModelIO.CanGive (compareG ⟨C, S, (parseArgs args {}).trustedPath,
+          (parseArgs args {}).searchPath, (parseArgs args {}).rootConstants⟩
+          (parseArgs args {}).mode (parseArgs args {}).maxNatSize (parseArgs args {}).progress
+          jobs) fs 0) from
+    H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
+  · simp only [hh, hb, ho, hcg, hcmp, Bool.false_eq_true, ite_false, ite_true]
+    intro c hs₂ hc h0
+    subst h0
+    split at hc
+    · simp [eprintln] at hc
+    · cases hf : (parseArgs args {}).files.find? (fun f => (Olean.parseModName f).isNone) with
+      | some m => simp [hf, eprintln] at hc
+      | none =>
+        simp only [hf] at hc
+        cases hg : (parseArgs args {}).constants.find? (fun c => (Olean.parseConstName c).isNone) with
+        | some m => simp [hg, eprintln] at hc
+        | none =>
+          simp only [hg] at hc
+          generalize hl : List.filterMap Olean.parseModName (parseArgs args {}).files.toList = l
+            at hc
+          generalize ((parseArgs args {}).module || (parseArgs args {}).modular ||
+            (parseArgs args {}).scheduled) = b at hc
+          rcases l with _ | ⟨C, _ | ⟨S, _ | ⟨_, _⟩⟩⟩ <;> cases b <;>
+            simp only [eprintln, ModelIO.bind_ok, ModelIO.liftIO_iff, ModelIO.pure_iff,
+              Except.ok.injEq, exists_eq_left] at hc
+          all_goals try (obtain ⟨_, _, h3, -⟩ := hc; cases h3)
+          split at hc
+          · simp at hc
+          · exact ⟨C, S, _, rfl, _, _, hc⟩
+  · simp
+
+/-- The arguments `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`:
+those two modules, those directories, and every other setting at its default (the mode
+`.verified`, every constant). -/
+theorem parseArgs_compare (T D c s : String) :
+    parseArgs ["--olean", "--compare", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+      c, s] {} =
+      { olean := true, compare := true, trustedPath := searchPathOf T,
+        searchPath := searchPathOf D, files := #[c, s] } := by
+  have hfst : parseArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+      "--search-path=" ++ D, "--", c, s] {} =
+      parseArgs ["--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]
+        { olean := true, compare := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
+    flagValue_other T (by decide) (by decide), flagValue_other T (by decide) (by decide),
+    flagValue_other T (by decide) (by decide)]
+  have hj : (("--trusted-search-path=" ++ T) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  rw [flagValue_other T (by decide) (by decide), flagValue_other T (by decide) (by decide),
+    flagValue_append]
+  simp only
+  rw [parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
+    flagValue_other D (by decide) (by decide), flagValue_other D (by decide) (by decide),
+    flagValue_natMax_searchPath, flagValue_other D (by decide) (by decide),
+    flagValue_append]
+  have hj' : (("--search-path=" ++ D) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj', Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of the compare arguments ask for no help. -/
+theorem helpWanted_compare (T D c s : String) :
+    helpWanted ["--olean", "--compare", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+      c, s] = false := by
+  have h1 : "--search-path=" ++ D ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ D ≠ "--help" := append_ne _ (by decide)
+  have h3 : "--trusted-search-path=" ++ T ≠ "--" := append_ne _ (by decide)
+  have h4 : "--trusted-search-path=" ++ T ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm, h3, h4.symm]
+
+/-- **`runArgs` on `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`,
+in the model**: every outcome that is an exit 0 read the challenge `C` (`c`) through `T` alone
+and the solution `S` (`s`) through `T`, then `D`, every constant of the challenge's closure; the
+comparison and its order check passed; and `checkDecls .verified` accepts the solution's records
+prepared with the built-in prelude, with the theorems' values in place. -/
+theorem runArgs_compare_accept {T D c s : String} {C S : Name} {fs : FS} {hs hs' : HS}
+    (hc : Olean.parseModName c = some C) (hsol : Olean.parseModName s = some S)
+    (h : (runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T, "--search-path=" ++ D,
+      "--", c, s] : ModelIO _) fs hs (.ok 0) hs') :
+    let r : CmpReq := ⟨C, S, searchPathOf T, searchPathOf D, none⟩
+    ∃ pre rdC rdS ctx filled env, builtinPreludeE = .ok pre ∧
+      ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
+        (homes := true)) fs (.ok rdC) ∧
+      ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
+        (homes := true)) fs (.ok rdS) ∧
+      compareRecords C (usedOf (some (r.chalRoots.path, rdC))) rdC.homes rdS.homes
+        (cmpRecs pre r.solRoots rdS) (recIndex (cmpRecs pre r.solRoots rdS))
+        (cmpRecs pre r.chalRoots rdC) = .ok (ctx, filled) ∧
+      ctxScoped ctx = none ∧
+      Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault
+        ((cmpRecs pre r.solRoots rdS).map
+          (Cached.fillDecl (fillOf r.solRoots fs rdS.values))) = .ok env := by
+  have hp := parseArgs_compare T D c s
+  obtain ⟨C', S', jobs, hf, _, _, hg⟩ := runArgs_compares_accept (helpWanted_compare T D c s)
+    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) h
+  rw [hp] at hf hg
+  simp only [List.filterMap_cons, List.filterMap_nil, hc, hsol] at hf
+  obtain ⟨rfl, rfl⟩ : C = C' ∧ S = S' := by simpa using hf
+  obtain ⟨pre, rdC, rdS, ctx, filled, env, h1, h2, -, h4, h5, h6, h7⟩ := compareG_accept hg
+  exact ⟨pre, rdC, rdS, ctx, filled, env, h1, h2, h4, h5, h6, h7⟩
 
 end ConLeche.Driver
