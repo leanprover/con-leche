@@ -104,10 +104,10 @@ theorem ClosedOrder.push {sp : SearchPath} {fs : FS} {out : Array Name} {m : Nam
 /-- **The walk's value**, through the roots it resolves (`T`, read off the snapshot). -/
 theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
     ∀ (fuel : Nat) (stack : List (Name × Bool)) (seen done : Std.HashSet Name) (out res : Array Name)
-      (T T' : Roots) {hs hs' : HS}, T.Ok fs → T.path = sp →
+      (T T' : Roots) {hs hs' : HS}, T.Ok fs → T.bare = sp →
       WalkInv sp fs R stack seen done out →
       (closureGo T fuel stack seen done out : ModelIO _) fs hs (.ok (.ok (res, T'))) hs' →
-      ClosedOrder sp fs res ∧ (∀ r ∈ R, r ∈ res) ∧ T'.Ok fs ∧ T'.path = sp := by
+      ClosedOrder sp fs res ∧ (∀ r ∈ R, r ∈ res) ∧ T'.Ok fs ∧ T'.bare = sp := by
   intro fuel
   induction fuel with
   | zero =>
@@ -310,7 +310,7 @@ module in it comes after all of that module's imports; the roots it resolved are
 snapshot. -/
 theorem closureOrder_ok {sp : SearchPath} {roots order : Array Name} {fs : FS} {hs hs' : HS}
     {T : Roots} (h : (closureOrder sp roots : ModelIO _) fs hs (.ok (.ok (order, T))) hs') :
-    ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧ T.Ok fs ∧ T.path = sp := by
+    ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧ T.Ok fs ∧ T.bare = sp := by
   refine closureGo_ok closureFuel _ {} {} #[] order _ T (Roots.ok_coe fs sp) rfl
     ⟨?_, ?_, ?_, ?_⟩ h
   · intro m

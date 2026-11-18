@@ -58,14 +58,14 @@ theorem cacheOK_empty {sp : Roots} {fs : FS} {values : Array ModRef} :
 
 /-- **The values through roots read off the snapshot are the search path's.** -/
 theorem fillOf_roots {fs : FS} {R : Roots} (hR : R.Ok fs) (values : Array ModRef) :
-    fillOf R fs values = fillOf (R.path : Roots) fs values := by
+    fillOf R fs values = fillOf R.bare fs values := by
   funext x
   cases x <;> simp only [fillOf]
   rw [ValueAt.roots hR]
 
 /-- A region kept off the search path is one kept through roots read off the snapshot. -/
 theorem CacheOK.roots {fs : FS} {R : Roots} (hR : R.Ok fs) {values : Array ModRef}
-    {c : ValueCache} (h : CacheOK (R.path : Roots) fs values c) : CacheOK R fs values c := by
+    {c : ValueCache} (h : CacheOK R.bare fs values c) : CacheOK R fs values c := by
   intro r hr
   obtain ⟨md, f, a, h1, h2, h3⟩ := h r hr
   exact ⟨md, f, a, h1, readFiles_rev hR h2, h3⟩
@@ -392,12 +392,12 @@ theorem checkMainG_oleans_accept {sp : SearchPath} {roots : Array Name}
     rotate_right
     · have hx' : (readOleans sp roots cs : ModelIO _) fs _ (.ok (.ok rd)) _ := hx
       obtain ⟨-, -, -, -, ⟨T, -, hrT, hT, hTp⟩, -⟩ := readOleans_ok hx'
-      subst hrT hTp
+      subst hrT
       have hgood : ∀ md ∈ rd.values, ∃ f r a,
           ModelIO.CanGive (readFiles rd.roots md.name .private) fs (.ok f) ∧
           f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := fun md hmd => by
         obtain ⟨f, r, a, h1, h2, h3⟩ := readOleans_good hx' md hmd
-        exact ⟨f, r, a, readFiles_rev hT h1, h2, h3⟩
+        exact ⟨f, r, a, readFiles_rev hT (hTp ▸ h1), h2, h3⟩
       simp only [Except.map]
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_eq, forall_const] <;>
@@ -408,7 +408,7 @@ theorem checkMainG_oleans_accept {sp : SearchPath} {roots : Array Name}
       all_goals
         obtain rfl := verdictG_ok hc h0
         obtain ⟨env, henv⟩ := checkOleansG_accept hgood hv
-        rw [fillOf_roots hT] at henv
+        rw [fillOf_roots hT, hTp] at henv
         exact ⟨_, rd, env, rfl, ⟨_, _, hx'⟩, henv⟩
     all_goals simp [Except.map]
 

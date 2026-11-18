@@ -552,7 +552,7 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
     (h : (readOleans sp roots constants jobs pace : ModelIO _) fs hs (.ok (.ok rd)) hs') :
     ∃ (order : Array Name) (ls : List Loaded) (mg : Merged) (rs : Array Name),
       (∃ T, ModelIO.CanGive (closureOrder sp roots) fs (.ok (order, T)) ∧ rd.roots = T ∧
-        T.Ok fs ∧ T.path = sp) ∧
+        T.Ok fs ∧ T.bare = sp) ∧
       ls.map (·.name) = order.toList ∧
       (∀ l ∈ ls, ∃ i f, (l.name, i) ∈ order.toList.zipIdx ∧
         ModelIO.CanGive (readFiles sp l.name .private) fs (.ok f) ∧ loadAt i l.name f = some l) ∧
@@ -561,7 +561,7 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
       mergeAll ls.toArray = .ok mg ∧ blocksOk mg = .ok () ∧ rootConstants mg constants = .ok rs ∧
       declsOf (emitAll mg rs) = .ok rd.decls ∧
       rd.values = ls.toArray.map (fun l => ⟨l.name, l.frontier⟩) ∧ rd.merged = mg := by
-  simp only [readOleans, loadClosure, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
+  simp only [readOleans, readOleansAt, loadClosure, Bool.false_eq_true, ↓reduceIte, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨n, x, _, ⟨_, o, _, ho, hx⟩, h⟩ := h
   rcases o with e | ⟨order, T⟩
   · simp only [ModelIO.pure_iff, Except.ok.injEq] at hx
@@ -794,7 +794,7 @@ its location, in the files of its module. -/
 
 /-- **The values through roots read off the snapshot are the search path's.** -/
 theorem ValueAt.roots {fs : FS} {R : Roots} (hR : R.Ok fs) :
-    ValueAt R fs = ValueAt (R.path : Roots) fs := by
+    ValueAt R fs = ValueAt R.bare fs := by
   funext values code e
   apply propext
   constructor

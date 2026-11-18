@@ -90,17 +90,16 @@ theorem readModTable_ok {sp : Roots} {fs : FS} {e : Graph.Node} {t : ModTable} {
 
 /-- The tables of the graph's modules, read off the snapshot. -/
 theorem tables_ok {sp : SearchPath} {R : Roots} {fs : FS} {C : List Graph.Node}
-    {ts : List ModTable} (hR : R.Ok fs) (hp : R.path = sp)
+    {ts : List ModTable} (hR : R.Ok fs) (hp : R.bare = sp)
     (hC : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (h : ∀ t ∈ ts, ∃ e ∈ C, ModelIO.CanGive (readModTable R e) fs (.ok t)) :
     TablesOk fs sp (ModTables.ofArray ts.toArray) := by
-  subst hp
   intro t ht
   simp only [ModTables.ofArray, List.mem_toArray] at ht
   obtain ⟨e, he, _, _, hr⟩ := h t ht
   obtain ⟨hn, hi, h1, h2, h3, h4⟩ := readModTable_ok hr
   rw [hn]
-  exact ⟨(findModule_sub hR _).canGive h1, (fun is h => by rw [hi] at h; cases h; exact hC e he),
+  exact ⟨(hp ▸ findModule_sub hR _ : ModelIO.Sub fs _ (findModule (sp : Roots) _)).canGive h1, (fun is h => by rw [hi] at h; cases h; exact hC e he),
     h2, h3, fun f h => by rw [h4] at h; cases h⟩
 
 /-! ## The run -/

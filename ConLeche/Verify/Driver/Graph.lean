@@ -53,7 +53,7 @@ theorem expand_mem : ∀ (rs : List Node) (seen : Std.HashSet Name) (out : Array
     · exact Or.inr (List.mem_cons_of_mem _ h)
 
 /-- A header read through roots read off the snapshot is one on the search path. -/
-theorem hdrOf_sub {T : Roots} (hT : T.Ok fs) (hp : T.path = sp) {m : Name} {e : Node} {hs hs' : HS}
+theorem hdrOf_sub {T : Roots} (hT : T.Ok fs) (hp : T.bare = sp) {m : Name} {e : Node} {hs hs' : HS}
     (h : (hdrOf T m : ModelIO _) fs hs (.ok (.ok e)) hs') :
     e.1 = m ∧ ModelIO.CanGive (moduleImports sp m) fs (.ok e.2) := by
   obtain ⟨h1, h2⟩ := hdrOf_ok h
@@ -65,12 +65,12 @@ theorem hdrOf_sub {T : Roots} (hT : T.Ok fs) (hp : T.path = sp) {m : Name} {e : 
 it resolved are read off the snapshot. -/
 theorem closureLevels_good {jobs : Nat} :
     ∀ (fuel : Nat) (lvl : List Name) (seen : Std.HashSet Name) (out C : Array Node)
-      (T T' : Roots), T.Ok fs → T.path = sp →
+      (T T' : Roots), T.Ok fs → T.bare = sp →
       (∀ e ∈ out.toList, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) →
       ∀ {hs hs' : HS}, (closureLevels T jobs fuel lvl seen out : ModelIO _) fs hs
         (.ok (.ok (C, T'))) hs' →
       (∀ e ∈ C.toList, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) ∧
-        T'.Ok fs ∧ T'.path = sp
+        T'.Ok fs ∧ T'.bare = sp
   | _, [], _, out, C, T, T', hT, hp, hout, _, _, h => by
     simp only [closureLevels, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨⟨rfl, rfl⟩, -⟩ := h
@@ -208,7 +208,7 @@ theorem graphOf_ok {roots : List Name} {jobs : Nat} {C : Array Node} {T : Roots}
       (∀ e ∈ C.toList, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) ∧
       (∀ r ∈ roots, r ∈ C.toList.map (·.1)) ∧
       (∀ e ∈ C.toList, ∀ i ∈ e.2, i.module ∈ C.toList.map (·.1) ∧ rk i.module < rk e.1) ∧
-      (C.toList.map fun e => rk e.1).Nodup ∧ T.Ok fs ∧ T.path = sp := by
+      (C.toList.map fun e => rk e.1).Nodup ∧ T.Ok fs ∧ T.bare = sp := by
   simp only [graphOf, ModelIO.bind_ok] at h
   obtain ⟨x, _, hx, h⟩ := h
   rcases x with err | ⟨C', T'⟩
@@ -274,7 +274,7 @@ theorem expand_next : ∀ (rs : List Node) (seen : Std.HashSet Name) (out : Arra
 /-- **Every module the walk returns is in the roots' import closure.** -/
 theorem closureLevels_closure {jobs : Nat} {roots : List Name} :
     ∀ (fuel : Nat) (lvl : List Name) (seen : Std.HashSet Name) (out C : Array Node)
-      (T T' : Roots), T.Ok fs → T.path = sp →
+      (T T' : Roots), T.Ok fs → T.bare = sp →
       (∀ x ∈ lvl, HdrClosure sp fs roots x) → (∀ e ∈ out.toList, HdrClosure sp fs roots e.1) →
       ∀ {hs hs' : HS}, (closureLevels T jobs fuel lvl seen out : ModelIO _) fs hs
         (.ok (.ok (C, T'))) hs' →
