@@ -211,43 +211,92 @@ theorem rootAt_ok {sp : SearchPath} {r : Name} {fs : FS} {hs hs' : HS} {a : Root
   · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
     exact Or.inl ⟨_, h.1⟩
 
+/-! ## A path and its fallback (task #607) -/
+
+theorem lookAt_noHandles (path fallback : SearchPath) (r : Name) :
+    (lookAt path fallback r : ModelIO RootAt).NoHandles := by
+  simp only [lookAt]
+  refine ModelIO.noHandles_bind (rootAt_noHandles _ _) fun a => ?_
+  cases a
+  · exact ModelIO.noHandles_pure _
+  · exact rootAt_noHandles _ _
+  all_goals exact ModelIO.noHandles_pure _
+
+/-- **A root's place on a path and its fallback, where no exception gave it, is determined.** -/
+theorem lookAt_ok {path fallback : SearchPath} {r : Name} {fs : FS} {hs hs' : HS} {a : RootAt}
+    (h : (lookAt path fallback r : ModelIO RootAt) fs hs (.ok a) hs') :
+    (∃ s, a = .failed s) ∨ (lookAt path fallback r : ModelIO RootAt).Gives fs a := by
+  simp only [lookAt, ModelIO.bind_ok] at h
+  obtain ⟨b, hs₁, hb, h⟩ := h
+  rcases rootAt_ok hb with ⟨s, rfl⟩ | hg
+  · simp only [lookNext, ModelIO.pure_iff, Except.ok.injEq] at h
+    exact Or.inl ⟨s, h.1⟩
+  · cases b with
+    | missing =>
+      rcases rootAt_ok h with ⟨s, rfl⟩ | hg'
+      · exact Or.inl ⟨s, rfl⟩
+      · exact Or.inr (hg.bind hg')
+    | failed e =>
+      simp only [lookNext, ModelIO.pure_iff, Except.ok.injEq] at h
+      exact Or.inl ⟨e, h.1⟩
+    | dir d =>
+      simp only [lookNext, ModelIO.pure_iff, Except.ok.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      exact Or.inr (hg.bind (ModelIO.gives_pure _ _))
+    | twice ds =>
+      simp only [lookNext, ModelIO.pure_iff, Except.ok.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      exact Or.inr (hg.bind (ModelIO.gives_pure _ _))
+
 /-! ## The roots a run resolved -/
+
+/-- **The lookup of a resolved map**: its path and fallback, nothing resolved. -/
+@[expose] def Roots.bare (R : Roots) : Roots := { path := R.path, fallback := R.fallback }
 
 /-- **Roots read off the snapshot**: each resolved root's place is one the lookup can give. -/
 @[expose] def Roots.Ok (fs : FS) (R : Roots) : Prop :=
-  ∀ r a, R.map[r]? = some a → ModelIO.CanGive (rootAt R.path r) fs a
+  ∀ r a, R.map[r]? = some a → ModelIO.CanGive (lookAt R.path R.fallback r) fs a
 
 /-- A search path with no root resolved. -/
 theorem Roots.ok_coe (fs : FS) (sp : SearchPath) : Roots.Ok fs (sp : Roots) := by
   intro r a h
   simp at h
 
-theorem Roots.rootOf_coe (sp : SearchPath) (r : Name) :
-    ((sp : Roots).rootOf r : ModelIO RootAt) = rootAt sp r := by
-  simp [Roots.rootOf]
+/-- A lookup with no root resolved. -/
+theorem Roots.ok_bare (fs : FS) (R : Roots) : Roots.Ok fs R.bare := by
+  intro r a h
+  simp [Roots.bare] at h
+
+theorem Roots.bare_bare (R : Roots) : R.bare.bare = R.bare := rfl
+
+theorem Roots.bare_coe (sp : SearchPath) : (sp : Roots).bare = (sp : Roots) := rfl
+
+theorem Roots.rootOf_bare (R : Roots) (r : Name) :
+    (R.bare.rootOf r : ModelIO RootAt) = lookAt R.path R.fallback r := by
+  simp [Roots.rootOf, Roots.bare]
 
 theorem Roots.rootOf_noHandles (R : Roots) (r : Name) :
     (R.rootOf r : ModelIO RootAt).NoHandles := by
   simp only [Roots.rootOf]
   split
   · exact ModelIO.noHandles_pure _
-  · exact rootAt_noHandles _ _
+  · exact lookAt_noHandles _ _ _
 
 /-- **A root's place through the map is one the lookup gives, from the same handles.** -/
 theorem Roots.rootOf_sub {fs : FS} {R : Roots} (hR : R.Ok fs) (r : Name) :
-    ModelIO.Sub fs (R.rootOf r) (rootAt R.path r) := by
+    ModelIO.Sub fs (R.rootOf r) (lookAt R.path R.fallback r) := by
   simp only [Roots.rootOf]
   split
   · rename_i a ha
     intro hs o hs' h
     simp only [ModelIO.pure_iff] at h
     obtain ⟨rfl, rfl⟩ := h
-    exact (rootAt_noHandles _ _).canGive (hR r a ha) _
+    exact (lookAt_noHandles _ _ _).canGive (hR r a ha) _
   · exact ModelIO.Sub.refl _
 
 /-- **Resolving a root keeps the map read off the snapshot.** -/
 theorem Roots.resolve_ok {fs : FS} {R R' : Roots} {m : Name} {hs hs' : HS} (hR : R.Ok fs)
-    (h : (R.resolve m : ModelIO Roots) fs hs (.ok R') hs') : R'.Ok fs ∧ R'.path = R.path := by
+    (h : (R.resolve m : ModelIO Roots) fs hs (.ok R') hs') : R'.Ok fs ∧ R'.bare = R.bare := by
   simp only [Roots.resolve] at h
   split at h
   · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
@@ -269,7 +318,7 @@ theorem Roots.resolve_ok {fs : FS} {R R' : Roots} {m : Name} {hs hs' : HS} (hR :
 theorem Roots.foldResolve_ok {fs : FS} :
     ∀ (ms : List Name) {R R' : Roots} {hs hs' : HS}, R.Ok fs →
       (ms.foldlM Roots.resolve R : ModelIO Roots) fs hs (.ok R') hs' →
-      R'.Ok fs ∧ R'.path = R.path
+      R'.Ok fs ∧ R'.bare = R.bare
   | [], R, R', hs, hs', hR, h => by
     simp only [List.foldlM_nil, ModelIO.pure_iff, Except.ok.injEq] at h
     obtain ⟨rfl, -⟩ := h
@@ -306,7 +355,7 @@ theorem Roots.rootOf_ok {R : Roots} {r : Name} {fs : FS} {hs hs' : HS} {a : Root
     exact Or.inr (ModelIO.gives_pure _ _)
   · rename_i hb
     rw [hb] at h
-    exact rootAt_ok h
+    exact lookAt_ok h
 
 /-- **A module found: the snapshot determines the location.** -/
 theorem findModule_ok {sp : Roots} {m : Name} {fs : FS} {hs : HS} {loc : Located} {hs' : HS}
@@ -324,48 +373,60 @@ theorem findModule_ok {sp : Roots} {m : Name} {fs : FS} {hs : HS} {loc : Located
 
 /-- **A module's location through the map is one the search path gives.** -/
 theorem findModule_sub {fs : FS} {R : Roots} (hR : R.Ok fs) (m : Name) :
-    ModelIO.Sub fs (findModule R m) (findModule (R.path : Roots) m) := by
+    ModelIO.Sub fs (findModule R m) (findModule R.bare m) := by
   simp only [findModule]
-  rw [Roots.rootOf_coe]
+  rw [Roots.rootOf_bare]
   exact (Roots.rootOf_sub hR _).map _
 
 theorem moduleImports_sub {fs : FS} {R : Roots} (hR : R.Ok fs) (m : Name) :
-    ModelIO.Sub fs (moduleImports R m) (moduleImports (R.path : Roots) m) := by
+    ModelIO.Sub fs (moduleImports R m) (moduleImports R.bare m) := by
   simp only [moduleImports]
   exact (findModule_sub hR m).bind fun _ => ModelIO.Sub.refl _
 
 theorem readFiles_sub {fs : FS} {R : Roots} (hR : R.Ok fs) (m : Name) (level : OLeanLevel) :
-    ModelIO.Sub fs (readFiles R m level) (readFiles (R.path : Roots) m level) := by
+    ModelIO.Sub fs (readFiles R m level) (readFiles R.bare m level) := by
   simp only [readFiles]
   exact (findModule_sub hR m).bind fun _ => ModelIO.Sub.refl _
 
 theorem readView_sub {fs : FS} {R : Roots} (hR : R.Ok fs) (m : Name) (level : OLeanLevel) :
-    ModelIO.Sub fs (readView R m level) (readView (R.path : Roots) m level) := by
+    ModelIO.Sub fs (readView R m level) (readView R.bare m level) := by
   simp only [readView]
   exact (readFiles_sub hR m level).bind fun _ => ModelIO.Sub.refl _
 
 theorem readPartNames_sub {fs : FS} {R : Roots} (hR : R.Ok fs) (x : Name × OLeanLevel) :
-    ModelIO.Sub fs (readPartNames R x) (readPartNames (R.path : Roots) x) := by
+    ModelIO.Sub fs (readPartNames R x) (readPartNames R.bare x) := by
   simp only [readPartNames]
   exact (findModule_sub hR x.1).bind fun _ => ModelIO.Sub.refl _
 
+/-- The reads through the map, against a lookup equal to the map's. -/
+theorem moduleImports_sub' {fs : FS} {R S : Roots} (hR : R.Ok fs) (hb : R.bare = S) (m : Name) :
+    ModelIO.Sub fs (moduleImports R m) (moduleImports S m) := hb ▸ moduleImports_sub hR m
+
+theorem readFiles_sub' {fs : FS} {R S : Roots} (hR : R.Ok fs) (hb : R.bare = S) (m : Name)
+    (level : OLeanLevel) : ModelIO.Sub fs (readFiles R m level) (readFiles S m level) :=
+  hb ▸ readFiles_sub hR m level
+
+theorem readPartNames_sub' {fs : FS} {R S : Roots} (hR : R.Ok fs) (hb : R.bare = S)
+    (x : Name × OLeanLevel) : ModelIO.Sub fs (readPartNames R x) (readPartNames S x) :=
+  hb ▸ readPartNames_sub hR x
+
 /-- **A module located on the search path is located there through the map too.** -/
 theorem findModule_rev {fs : FS} {R : Roots} (hR : R.Ok fs) {m : Name} {loc : Located}
-    {hs hs' : HS} (h : (findModule (R.path : Roots) m : ModelIO _) fs hs (.ok (.ok loc)) hs') :
+    {hs hs' : HS} (h : (findModule R.bare m : ModelIO _) fs hs (.ok (.ok loc)) hs') :
     (findModule R m : ModelIO _) fs hs (.ok (.ok loc)) hs' := by
   simp only [findModule, ModelIO.map_ok] at h ⊢
-  rw [Roots.rootOf_coe] at h
+  rw [Roots.rootOf_bare] at h
   obtain ⟨a, ha, hl⟩ := h
   refine ⟨a, ?_, hl⟩
   have ha' := locatedOf_ok hl
   subst ha'
-  have hhs : hs' = hs := ((rootAt_noHandles _ _) fs hs _ hs').1 ha |>.2
+  have hhs : hs' = hs := ((lookAt_noHandles _ _ _) fs hs _ hs').1 ha |>.2
   subst hhs
   unfold Roots.rootOf
   cases hb : R.map[m.root]? with
   | some b =>
     show (pure b : ModelIO RootAt) fs hs' _ hs'
-    rcases rootAt_ok ha with ⟨s, hs⟩ | hg
+    rcases lookAt_ok ha with ⟨s, hs⟩ | hg
     · cases hs
     · have := hg.eq (hR _ b hb)
       subst this
@@ -374,7 +435,7 @@ theorem findModule_rev {fs : FS} {R : Roots} (hR : R.Ok fs) {m : Name} {loc : Lo
 
 /-- **A view's files on the search path are its files through the map too.** -/
 theorem readFiles_rev {fs : FS} {R : Roots} (hR : R.Ok fs) {m : Name} {level : OLeanLevel}
-    {f : ModFiles} (h : ModelIO.CanGive (readFiles (R.path : Roots) m level) fs (.ok f)) :
+    {f : ModFiles} (h : ModelIO.CanGive (readFiles R.bare m level) fs (.ok f)) :
     ModelIO.CanGive (readFiles R m level) fs (.ok f) := by
   obtain ⟨hs, hs', h⟩ := h
   refine ⟨hs, hs', ?_⟩

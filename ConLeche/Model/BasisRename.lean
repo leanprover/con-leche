@@ -40,7 +40,7 @@ variable {V : Type w} [SetTheory V]
 
 section
 
-variable {env env' : Env} (h : RenEnv env env') {acval : Name → (Name → Nat) → Term}
+variable {env env' : Env} (h : CopyEnv env env') {acval : Name → (Name → Nat) → Term}
 
 include h
 
@@ -51,19 +51,16 @@ theorem renAcval_inst (hparams : ∀ (n : Name) (ci : ConstantInfo), env.find? n
       ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ ci.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
         acval n ψ₁ = acval n ψ₂)
     {n : Name} {c c' : ConstantInfo} (hf : env.find? n = some c) (hf' : env'.find? n = some c')
-    (hr : ConstRen c c') (φ : Name → Nat) {us : List Level}
+    (hr : LpsCopy c c') (φ : Name → Nat) {us : List Level}
     (hus : us.length = c.toConstantVal.levelParams.length) :
     renAcval acval env env' n (Level.substFn φ c'.toConstantVal.levelParams us)
       = acval n (Level.substFn φ c.toConstantVal.levelParams us) := by
   unfold renAcval renTr
   rw [hf, hf']
   dsimp only
-  rcases hr with rfl | ⟨-, h1, h2⟩
+  rcases hr with rfl | ⟨hnd, hl⟩
   · rw [Level.substFn_param_self]
-  · refine hparams n c hf _ _ fun p hp => ?_
-    have hl : c.toConstantVal.levelParams.length = c'.toConstantVal.levelParams.length := by
-      rw [h1.2.2, h2.2.2]
-    exact substFn_ren h2.2.1 hl (hus.trans hl) (fun _ _ => rfl) p hp
+  · exact hparams n c hf _ _ fun p hp => substFn_ren hnd hl (hus.trans hl) (fun _ _ => rfl) p hp
 
 omit h in
 /-- A name with the same lookup keeps its leaf. -/
@@ -91,16 +88,37 @@ theorem denote_ren (hparams : ∀ (n : Name) (ci : ConstantInfo), env.find? n = 
     (φ : Name → Nat) :
     ∀ (d : Nat) (e : Expr),
       denote (renAcval acval env env') env' φ d e = denote acval env φ d e := by
-  have hlen : ∀ {n c c'}, env.find? n = some c → env'.find? n = some c' → ConstRen c c' →
+  have hlen : ∀ {n c c'}, env.find? n = some c → env'.find? n = some c' → LpsCopy c c' →
       c.toConstantVal.levelParams.length = c'.toConstantVal.levelParams.length := by
     intro n c c' _ _ hr
-    rcases hr with rfl | ⟨-, h1, h2⟩
+    rcases hr with rfl | ⟨-, hl⟩
     · rfl
-    · rw [h1.2.2, h2.2.2]
+    · exact hl
   have hnat : ConLeche.natLitSupported env = ConLeche.natLitSupported env' := h.natLit.symm
   have hstr : ConLeche.strLitSupported env = ConLeche.strLitSupported env' := h.strLit.symm
   have hproj : ∀ (sn : Name) (i : Nat), env.findProj? sn i = env'.findProj? sn i :=
     fun sn i => (h.findProj sn i).symm
+  -- a literal's constant, at as many levels as it has parameters
+  have hlit : ∀ {n : Name} {us : List Level}, (∃ c, env.find? n = some c ∧
+      c.toConstantVal.levelParams.length = us.length) →
+      renAcval acval env env' n (Level.substFn φ (levelParamsAt env' n) us)
+        = acval n (Level.substFn φ (levelParamsAt env n) us) := by
+    intro n us ⟨c, hc, hl⟩
+    rcases h.find n with ⟨h1, -⟩ | ⟨c₁, c', h1, h2, hr⟩
+    · rw [h1] at hc; exact nomatch hc
+    · rw [h1] at hc
+      obtain rfl := Option.some.inj hc
+      unfold levelParamsAt
+      rw [h1, h2]
+      exact renAcval_inst hparams h1 h2 hr φ hl.symm
+  have hlit0 : ∀ {n : Name}, (∃ c, env.find? n = some c ∧
+      c.toConstantVal.levelParams.length = 0) →
+      renAcval acval env env' n (Level.substFn φ [] []) = acval n (Level.substFn φ [] []) := by
+    intro n hn
+    have e1 : ∀ ks : List Name, Level.substFn φ ks [] = φ := fun ks => by
+      funext p; cases ks <;> rfl
+    have := hlit (us := []) hn
+    rwa [e1, e1] at this
   intro d e
   induction d, e using denote.induct (env := env) with
   | case1 d u => rw [denote, denote]
@@ -138,20 +156,20 @@ theorem denote_ren (hparams : ∀ (n : Name) (ci : ConstantInfo), env.find? n = 
   | case10 d sn i e ihe =>
     rw [denote, denote, ihe, hproj sn i]
   | case11 d n hsup =>
+    have hs := hsup
+    simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hs
     rw [denote, ite_eq_left (hnat ▸ hsup), denote, ite_eq_left hsup,
-      renAcval_same (h.find_noLps rfl), renAcval_same (h.find_noLps rfl)]
+      hlit0 (natZeroOk_len hs.1.2), hlit0 (natSuccOk_len hs.2)]
   | case12 d n hsup =>
     rw [denote, ite_eq_right (fun h => hsup (hnat.trans h)), denote, ite_eq_right hsup]
   | case13 d s hsup =>
+    have hs := hsup
+    simp only [ConLeche.strLitSupported, ConLeche.natLitSupported, Bool.and_eq_true] at hs
     rw [denote, ite_eq_left (hstr ▸ hsup), denote, ite_eq_left hsup,
-      renAcval_same (n := ConLeche.natZeroName) (h.find_noLps rfl),
-      renAcval_same (n := ConLeche.natSuccName) (h.find_noLps rfl),
-      renAcval_same (n := ConLeche.stringOfListName) (h.find_nonres (by decide)),
-      renAcval_same (n := ConLeche.listNilName) (h.find_nonres (by decide)),
-      renAcval_same (n := ConLeche.listConsName) (h.find_nonres (by decide)),
-      renAcval_same (n := ConLeche.charName) (h.find_nonres (by decide)),
-      renAcval_same (n := ConLeche.charOfNatName) (h.find_nonres (by decide)),
-      levelParamsAt_ren (h.find_nonres (by decide)), levelParamsAt_ren (h.find_nonres (by decide))]
+      hlit0 (natZeroOk_len hs.1.1.1.1.1.1.1.1.2), hlit0 (natSuccOk_len hs.1.1.1.1.1.1.1.2),
+      hlit0 (stringOfListTyOk_len hs.1.1.1.1.1.2), hlit (listNilTyOk_len hs.1.1.1.2),
+      hlit (listConsTyOk_len hs.1.1.2), hlit0 (charTyOk_len hs.1.2),
+      hlit0 (charOfNatTyOk_len hs.2)]
   | case14 d s hsup =>
     rw [denote, ite_eq_right (fun h => hsup (hstr.trans h)), denote, ite_eq_right hsup]
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat' hstr' =>
@@ -738,7 +756,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
   have hparams := mp.base2.acval_params
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
-    fun φ d e => denote_ren h hparams φ d e
+    fun φ d e => denote_ren h.copy hparams φ d e
   let m' := mp.base2.rename h hwf hlink
   have hac : m'.acval = renAcval mp.base2.acval env env' := rfl
   have hsame : ∀ {n : Name}, env'.find? n = env.find? n → m'.acval n = mp.base2.acval n :=
@@ -810,7 +828,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
               · exact ⟨fun _ => h₂, fun _ => h₁⟩
               · rw [h₁, h₂]; exact ⟨fun h => (nomatch h), fun h => (nomatch h)⟩),
             fun lvls pins hn => (hnone _ _ hn).elim,
-            fun us hus => renAcval_inst hparams h1 h2 hrpair φ hus, fun cvj' cnP cnF iT hfc => ?_⟩
+            fun us hus => renAcval_inst hparams h1 h2 hrpair.lpsCopy φ hus, fun cvj' cnP cnF iT hfc => ?_⟩
           · rw [hrhs]
             exact inst_ren hnd' hlen.symm (hus.trans hlen.symm) _ hwfr.2.1
           · rcases h.find (RecRule.ctor rl) with ⟨-, g2⟩ | ⟨cj, cj', g1, g2, hrj⟩
@@ -837,7 +855,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
               have hnmj : (ConstantInfo.ctorInfo cvj cnP cnF iT).name = RecRule.ctor rl := by
                 simpa using Env.find?_name g1
               refine ⟨cvj, g1, hlj, fun usj hl => hrj.inst hl,
-                fun usj hl => renAcval_inst hparams g1 g2 hrj φ hl, hsp, fun us hus => ?_,
+                fun usj hl => renAcval_inst hparams g1 g2 hrj.lpsCopy φ hl, hsp, fun us hus => ?_,
                 fun us _ a ha => ?_, fun hk us => ?_⟩
               · rcases hfr with ⟨hp', hp⟩ | ⟨ls, hp, hp', hdefs, -⟩
                 · have A := hlk' cv' mI rP isK rules' rfl rl' hrl' hp' cvj' cnP cnF iT (hct ▸ g2) us

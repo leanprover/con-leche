@@ -32,10 +32,10 @@ process or in two.  Where `readAllViews` has a value:
 read of a file's start: what it finds is `importsPre` of the whole file, and it
 finds that wherever the file is valid and has such imports.
 
-`readOleans_filled`: a theorem's record, with what its reference stands for on the snapshot
+`readOleansAt_filled`: a theorem's record, with what its reference stands for on the snapshot
 (`ValueAt`) in place, is the constant the specification reads off that module's files.
-`readOleans_thm`: a theorem of the private view of a module of the closure (`InClosure`) is
-among a run's records, with its statement.  `readOleans_ok`: the records of a run are made of
+`readOleansAt_thm`: a theorem of the private view of a module of the closure (`InClosure`) is
+among a run's records, with its statement.  `readOleansAt_ok`: the records of a run are made of
 the private view of each module of the
 closure, each read by `readView` on the snapshot: the order holds the roots and has every
 module after its imports (`closureOrder_ok`, `ClosedOrder.view_imports`), and every constant
@@ -502,7 +502,7 @@ theorem mapExcept_ok {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs :
 
 /-- **A module of the order has its view's imports before it**: the imports the walk read
 off the file's start are its private view's. -/
-theorem ClosedOrder.view_imports {sp : SearchPath} {fs : FS} {order : Array Name}
+theorem ClosedOrder.view_imports {sp : Roots} {fs : FS} {order : Array Name}
     (hc : ClosedOrder sp fs order) {k : Nat} (hk : k < order.size) {d : ModDecoded}
     (hv : ModelIO.CanGive (readView sp order[k] .private) fs (.ok d)) :
     ∀ i ∈ d.imports, i.module ∈ order.toList.take k := by
@@ -546,22 +546,28 @@ theorem mapExcept_ok₂ {α β ε γ : Type} {f : α → ModelIO (Except ε β)}
 
 /-- **The records of a run** are made of the import closure's modules, each private view
 loaded (`loadAt`) from the files on the snapshot, whatever the job count: what a theorem's
-check reads comes from those files too. -/
-theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
-    {pace : Pace} {jobs : Nat} {fs : FS} {hs : HS} {rd : OleanRead} {hs' : HS}
-    (h : (readOleans sp roots constants jobs pace : ModelIO _) fs hs (.ok (.ok rd)) hs') :
+check reads comes from those files too.  The lookup `R` has no root resolved yet; its fallback,
+a compared solution's, is what any other read has empty. -/
+theorem readOleansAt_ok {R : Roots} (hR : R.bare = R) {roots : Array Name}
+    {constants : Option (Array Name)} {pace : Pace} {jobs : Nat} {lenient homes : Bool} {fs : FS}
+    {hs : HS} {rd : OleanRead} {hs' : HS}
+    (h : (readOleansAt R roots constants jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd))
+      hs') :
     ∃ (order : Array Name) (ls : List Loaded) (mg : Merged) (rs : Array Name),
-      (∃ T, ModelIO.CanGive (closureOrder sp roots) fs (.ok (order, T)) ∧ rd.roots = T ∧
-        T.Ok fs ∧ T.path = sp) ∧
+      (∃ T, ModelIO.CanGive (closureOrder R roots) fs (.ok (order, T)) ∧ rd.roots = T ∧
+        T.Ok fs ∧ T.bare = R) ∧
       ls.map (·.name) = order.toList ∧
       (∀ l ∈ ls, ∃ i f, (l.name, i) ∈ order.toList.zipIdx ∧
-        ModelIO.CanGive (readFiles sp l.name .private) fs (.ok f) ∧ loadAt i l.name f = some l) ∧
-      ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧
+        ModelIO.CanGive (readFiles R l.name .private) fs (.ok f) ∧ loadAt i l.name f = some l) ∧
+      ClosedOrder R fs order ∧ (∀ r ∈ roots, r ∈ order) ∧
       (∀ l ∈ ls, ∀ c ∈ l.constants, ∃ c', mg.map[c.name]? = some c' ∧ Stands c' c) ∧
-      mergeAll ls.toArray = .ok mg ∧ blocksOk mg = .ok () ∧ rootConstants mg constants = .ok rs ∧
+      mergeAll ls.toArray = .ok mg ∧ blocksOk mg = .ok () ∧
+      rootConstants mg (if lenient then constants.map (·.filter mg.map.contains) else constants)
+        = .ok rs ∧
       declsOf (emitAll mg rs) = .ok rd.decls ∧
-      rd.values = ls.toArray.map (fun l => ⟨l.name, l.frontier⟩) ∧ rd.merged = mg := by
-  simp only [readOleans, loadClosure, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
+      rd.values = ls.toArray.map (fun l => ⟨l.name, l.frontier⟩) ∧ rd.merged = mg ∧
+      rd.homes = (if homes then homesOf ls.toArray else {}) := by
+  simp only [readOleansAt, loadClosure, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨n, x, _, ⟨_, o, _, ho, hx⟩, h⟩ := h
   rcases o with e | ⟨order, T⟩
   · simp only [ModelIO.pure_iff, Except.ok.injEq] at hx
@@ -586,7 +592,8 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
         | error e => simp [hc] at h
         | ok u =>
         simp only [hc] at h
-        cases hr : rootConstants mg constants with
+        cases hr : rootConstants mg (if lenient then constants.map (·.filter mg.map.contains)
+            else constants) with
         | error e => simp [hr] at h
         | ok rs =>
           simp only [hr, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
@@ -596,11 +603,11 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
           | ok ds =>
           simp only [hd, ModelIO.pure_iff, Except.ok.injEq] at h
           obtain ⟨h, -⟩ := h
-          obtain ⟨hc1, hc2, hT, hTp⟩ := closureOrder_ok ho
+          obtain ⟨hc1, hc2, hT, hTp⟩ := closureOrder_ok hR ho
           have hF : (mapExcept (loadModule T n order.size) order.toList.zipIdx : ModelIO _) fs _
               (.ok (.ok ls)) _ := hy
           obtain ⟨h1, h2⟩ := mapExcept_ok₂ (g := Loaded.name) (g' := Prod.fst)
-            (Q := fun x l => x.1 = l.name ∧ ∃ f, ModelIO.CanGive (readFiles sp x.1 .private) fs (.ok f) ∧
+            (Q := fun x l => x.1 = l.name ∧ ∃ f, ModelIO.CanGive (readFiles R x.1 .private) fs (.ok f) ∧
                 loadAt x.2 x.1 f = some l) (fun x l _ _ hl => by
             simp only [loadModule, ModelIO.bind_ok] at hl
             obtain ⟨z, _, hz, hl⟩ := hl
@@ -620,7 +627,7 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
               · cases hl) hF
           obtain ⟨hk, -⟩ := mergeAll_ok hm
           refine ⟨order, ls, mg, rs, ⟨T, ⟨_, _, ho⟩, by subst h; rfl, hT, hTp⟩, by simpa using h1, fun l hl => ?_, hc1, hc2,
-            fun l hl => hk l (by simpa using hl), hm, by cases u; exact hc, hr, ?_, ?_, ?_⟩
+            fun l hl => hk l (by simpa using hl), hm, by cases u; exact hc, hr, ?_, ?_, ?_, ?_⟩
           · obtain ⟨⟨m, i⟩, hx, hn, f, hf, ha⟩ := h2 l hl
             simp only at hn hf ha
             subst hn
@@ -628,14 +635,15 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
           · subst h; exact hd
           · subst h; rfl
           · subst h; rfl
+          · subst h; rfl
 
 /-- **The private view of a module on a snapshot**, by the specification: the module's files
 on the search path, and what `decodeModuleSpec` says they hold at that level. -/
-@[expose] def ViewOf (sp : SearchPath) (fs : FS) (m : Name) (d : ModDecoded) : Prop :=
+@[expose] def ViewOf (sp : Roots) (fs : FS) (m : Name) (d : ModDecoded) : Prop :=
   ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ decodeModuleSpec f .private = some d
 
 /-- **The read of a module's private view is the view.** -/
-theorem readView_of_viewOf {sp : SearchPath} {fs : FS} {m : Name} {d : ModDecoded}
+theorem readView_of_viewOf {sp : Roots} {fs : FS} {m : Name} {d : ModDecoded}
     (h : ViewOf sp fs m d) : ModelIO.CanGive (readView sp m .private) fs (.ok d) := by
   obtain ⟨f, ⟨hs, hs', h1⟩, h2⟩ := h
   refine ⟨hs, hs', ?_⟩
@@ -646,13 +654,13 @@ theorem readView_of_viewOf {sp : SearchPath} {fs : FS} {m : Name} {d : ModDecode
 
 /-- **The modules of the closure of some roots**, on a snapshot: a root, or an import of the
 private view of one. -/
-inductive InClosure (sp : SearchPath) (fs : FS) (roots : Array Name) : Name → Prop
+inductive InClosure (sp : Roots) (fs : FS) (roots : Array Name) : Name → Prop
   | root {r : Name} : r ∈ roots → InClosure sp fs roots r
   | step {m : Name} {d : ModDecoded} {i : ImportRec} : InClosure sp fs roots m →
       ViewOf sp fs m d → i ∈ d.imports → InClosure sp fs roots i.module
 
 /-- The order holds the closure. -/
-theorem InClosure.mem_order {sp : SearchPath} {fs : FS} {roots order : Array Name} {m : Name}
+theorem InClosure.mem_order {sp : Roots} {fs : FS} {roots order : Array Name} {m : Name}
     (hc : ClosedOrder sp fs order) (hr : ∀ r ∈ roots, r ∈ order) (h : InClosure sp fs roots m) :
     m ∈ order := by
   induction h with
@@ -695,7 +703,7 @@ theorem readFiles_unique {sp : Roots} {m : Name} {fs : FS} {a b : ModFiles}
 
 /-- **A part's name positions off files the search path gives** are what the search path's
 name read gives. -/
-theorem readPartNames_of_files {fs : FS} {sp : SearchPath} {m : Name} {level : OLeanLevel}
+theorem readPartNames_of_files {fs : FS} {sp : Roots} {m : Name} {level : OLeanLevel}
     {f : ModFiles} (h : ModelIO.CanGive (readFiles sp m level) fs (.ok f)) :
     ModelIO.CanGive (readPartNames sp (m, level)) fs (namesOf m f level) := by
   obtain ⟨hs, hs', h⟩ := h
@@ -726,16 +734,18 @@ theorem view_parts {f : ModFiles} {r : Region} {a : UInt64} {d : ModDecoded}
 
 /-- **A theorem of a module of the closure is among the records**, with its statement, whichever
 of the proofs Lean's rule keeps. -/
-theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : FS}
+theorem readOleansAt_thm {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name} {jobs : Nat}
+    {pace : Pace} {lenient homes : Bool} {fs : FS}
     {rd : OleanRead} {m : Name} {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
-    {all : List Name}
-    {hs hs' : HS} (h : (readOleans sp roots none jobs : ModelIO _) fs hs (.ok (.ok rd)) hs')
+    {all : List Name} {hs hs' : HS}
+    (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
     (hcl : InClosure sp fs roots m) (hv : ViewOf sp fs m d)
     (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
     ∃ v', Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ v' ∈ rd.decls := by
-  obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hb, hr, hds, -, -⟩ := readOleans_ok h
+  obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hb, hr, hds, -, -⟩ :=
+    readOleansAt_ok hsp h
   have hrs : rs = mg.order := by
-    simp only [rootConstants] at hr
+    simp only [Option.map_none, ite_self, rootConstants] at hr
     cases hr
     rfl
   subst hrs
@@ -794,7 +804,7 @@ its location, in the files of its module. -/
 
 /-- **The values through roots read off the snapshot are the search path's.** -/
 theorem ValueAt.roots {fs : FS} {R : Roots} (hR : R.Ok fs) :
-    ValueAt R fs = ValueAt (R.path : Roots) fs := by
+    ValueAt R fs = ValueAt R.bare fs := by
   funext values code e
   apply propext
   constructor
@@ -819,12 +829,14 @@ theorem ValueAt.unique {sp : Roots} {fs : FS} {values : Array ModRef} {code : Na
 
 /-- **Every module's frontier holds only the specification's values**, of the files on the
 snapshot. -/
-theorem readOleans_good {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
-    {jobs : Nat} {fs : FS} {hs : HS} {rd : OleanRead} {hs' : HS}
-    (h : (readOleans sp roots constants jobs : ModelIO _) fs hs (.ok (.ok rd)) hs') :
+theorem readOleansAt_good {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
+    {constants : Option (Array Name)} {jobs : Nat} {pace : Pace} {lenient homes : Bool} {fs : FS}
+    {hs : HS} {rd : OleanRead} {hs' : HS}
+    (h : (readOleansAt sp roots constants jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd))
+      hs') :
     ∀ md ∈ rd.values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := by
-  obtain ⟨order, ls, mg, rs, -, -, h2, -, -, -, -, -, -, -, hv, -⟩ := readOleans_ok h
+  obtain ⟨order, ls, mg, rs, -, -, h2, -, -, -, -, -, -, -, hv, -⟩ := readOleansAt_ok hsp h
   intro md hmd
   rw [hv] at hmd
   obtain ⟨l, hl, rfl⟩ := Array.mem_map.mp hmd
@@ -874,16 +886,18 @@ reference in a record of the run stands, on the snapshot, for the value of the t
 specification reads off the files of the reference's module (`constSpec`), and the record's
 statement is that theorem's.  Whichever of a name's copies Lean's rule keeps, this is the
 kept one's: nothing is read from anywhere else. -/
-theorem readOleans_filled {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
-    {jobs : Nat} {fs : FS} {hs : HS} {rd : OleanRead} {hs' : HS} {cv : ConstantVal} {code : Nat}
-    {e : Expr} (h : (readOleans sp roots constants jobs : ModelIO _) fs hs (.ok (.ok rd)) hs')
+theorem readOleansAt_filled {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
+    {constants : Option (Array Name)} {jobs : Nat} {pace : Pace} {lenient homes : Bool} {fs : FS}
+    {hs : HS} {rd : OleanRead} {hs' : HS} {cv : ConstantVal} {code : Nat} {e : Expr}
+    (h : (readOleansAt sp roots constants jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd))
+      hs')
     (hd : Declaration.thmDecl cv (.bvar code) ∈ rd.decls)
     (hv : ValueAt sp fs rd.values code e) :
     ∃ md f r a sk loc c all, rd.values[refModule code]? = some md ∧
       ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧ loc ∈ sk.consts ∧
       constSpec r loc = some c ∧ c.kind = .thm e all ∧ cv = ⟨c.name, c.levelParams, c.type⟩ := by
-  obtain ⟨order, ls, mg, rs, -, h1, h2, -, -, -, hm, -, -, hds, hvals, -⟩ := readOleans_ok h
+  obtain ⟨order, ls, mg, rs, -, h1, h2, -, -, -, hm, -, -, hds, hvals, -⟩ := readOleansAt_ok hsp h
   obtain ⟨hk1, hk2, hk3, hk4⟩ := mergeAll_ok hm
   have hN : ∀ (n : Name) (x : CEntry), mg.map[n]? = some x → x.name = n := fun n x hx => (hk2 n x hx).1
   -- the record's constant

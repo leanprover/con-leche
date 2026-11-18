@@ -99,12 +99,15 @@ inductive RootAt where
   /-- an exception while looking, its message -/
   | failed (e : String)
 
-/-- **A search path with its roots resolved**: the directories, and the roots looked up on
-them so far, each with where its modules are.  A run resolves each root once, the first
-time it reads a module of it (`Roots.resolve`); a root not in the map is looked up on the
-directories. -/
+/-- **A search path with its roots resolved**: the directories, the fallback directories, and
+the roots looked up on them so far, each with where its modules are.  A run resolves each root
+once, the first time it reads a module of it (`Roots.resolve`); a root not in the map is looked
+up on the directories, and where none of them holds it, on the fallback directories
+(`lookAt`).  Only a compared solution has fallback directories (`--trusted-search-path`, task
+#607: the trusted path first, the search path after it); every other read has none. -/
 structure Roots where
   path : SearchPath
+  fallback : SearchPath := []
   map : Std.HashMap Name RootAt := {}
 
 /-- A search path, no root resolved yet. -/
@@ -138,16 +141,28 @@ def rootHits {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (r : Name) : 
 def rootAt {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (r : Name) : μ RootAt :=
   tryCatchThe IO.Error (rootHits sp r) fun e => return .failed (toString e)
 
+/-- The fallback's turn: where the path holds no directory of the root, the fallback's answer. -/
+def lookNext {μ : Type → Type} [CheckerIO μ] (fallback : SearchPath) (r : Name) :
+    RootAt → μ RootAt
+  | .missing => rootAt fallback r
+  | a => pure a
+
+/-- **Where a root's modules are, on a path and its fallback** (task #607): on the path, and
+where no directory of it holds the root, on the fallback.  A root the path holds shadows the
+fallback's copy; #511's rule (one location per root) holds on each of the two separately. -/
+def lookAt {μ : Type → Type} [CheckerIO μ] (path fallback : SearchPath) (r : Name) : μ RootAt :=
+  rootAt path r >>= lookNext fallback r
+
 /-- **Where a root's modules are**, from the map or looked up. -/
 def Roots.rootOf {μ : Type → Type} [CheckerIO μ] (R : Roots) (r : Name) : μ RootAt :=
   match R.map[r]? with
   | some a => pure a
-  | none => rootAt R.path r
+  | none => lookAt R.path R.fallback r
 
 /-- **The roots with module `m`'s resolved.** -/
 def Roots.resolve {μ : Type → Type} [CheckerIO μ] (R : Roots) (m : Name) : μ Roots := do
   if R.map.contains m.root then return R
-  return { R with map := R.map.insert m.root (← rootAt R.path m.root) }
+  return { R with map := R.map.insert m.root (← lookAt R.path R.fallback m.root) }
 
 /-- **Where a module's files are** (task #392): the search-path directory holding its
 root. -/

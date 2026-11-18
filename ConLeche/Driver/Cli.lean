@@ -121,7 +121,9 @@ def synopsis : String := String.intercalate "\n" [
   "  con-leche [OPTIONS] --check-graph --search-path=DIRS [--] MODULE...",
   "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE",
   "  con-leche [OPTIONS] --olean --modular --search-path=DIRS [--] MODULE",
-  "  con-leche [OPTIONS] --olean --schedule[-OPT=V] --search-path=DIRS [--] MODULE"]
+  "  con-leche [OPTIONS] --olean --schedule[-OPT=V] --search-path=DIRS [--] MODULE",
+  "  con-leche [OPTIONS] --olean --compare [--trusted-search-path=DIRS]",
+  "            --search-path=DIRS [--] CHALLENGE SOLUTION"]
 
 /-- The line after a usage error. -/
 def tryHelp : String := "Try 'con-leche --help' for more information."
@@ -147,6 +149,20 @@ def helpText : String := String.intercalate "\n" [
   "  --olean             Read modules and their import closure from .olean files",
   "  --search-path=DIRS  Colon-separated .olean directories; repeatable",
   "  --constant=NAME     Check only NAME and what it mentions; repeatable",
+  "  --compare           CHALLENGE SOLUTION: check that the module SOLUTION solves",
+  "                      the module CHALLENGE: each hole of CHALLENGE (its own",
+  "                      axioms and its own declarations whose value uses",
+  "                      sorry) is SOLUTION's constant of that name and type, up",
+  "                      to the names of level parameters; every other constant",
+  "                      of CHALLENGE is SOLUTION's (CHALLENGE's own up to those",
+  "                      names, an imported one the same module's); and",
+  "                      SOLUTION's closure is accepted. Prints the holes and",
+  "                      what fills each. With --constant=NAME (declarations of",
+  "                      CHALLENGE itself), only what NAME mentions",
+  "  --trusted-search-path=DIRS",
+  "                      With --compare: CHALLENGE and all it imports are read",
+  "                      from DIRS only; SOLUTION's modules from DIRS first,",
+  "                      then --search-path. Colon-separated; repeatable",
   "  --check-graph       Check only that the modules' import graph is acyclic",
   "                      and that every import is on the search path",
   "  --module            Check MODULE's own declarations alone, against what",
@@ -237,6 +253,12 @@ structure Args where
   schedule : Array String := #[]
   /-- some `--schedule` flag was given -/
   scheduled : Bool := false
+  /-- `--compare`: with `--olean`, the two module names are a challenge and its solution
+  (`compareG`) -/
+  compare : Bool := false
+  /-- `--trusted-search-path=DIR:DIR…`: with `--compare`, where the challenge is read, and
+  where the solution is read first -/
+  trustedPath : List System.FilePath := []
   files : Array String := #[]
   bad : Option String := none
 
@@ -273,6 +295,7 @@ def parseArgs : List String → Args → Args
   | "--check-graph" :: rest, a => parseArgs rest { a with checkGraph := true }
   | "--module" :: rest, a => parseArgs rest { a with module := true }
   | "--modular" :: rest, a => parseArgs rest { a with modular := true }
+  | "--compare" :: rest, a => parseArgs rest { a with compare := true }
   | s :: rest, a =>
     if let some v := flagValue "--progress=" s then
       match progressPace v with
@@ -293,6 +316,8 @@ def parseArgs : List String → Args → Args
       parseArgs rest { a with constants := a.constants.push v }
     else if let some v := flagValue "--search-path=" s then
       parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
+    else if let some v := flagValue "--trusted-search-path=" s then
+      parseArgs rest { a with trustedPath := a.trustedPath ++ searchPathOf v }
     else if let some v := flagValue "--schedule" s then
       parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
     else if s.startsWith "-" then
@@ -346,8 +371,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
       if a.checkGraph then
         -- `--check-graph`: the arguments are root modules; only their closure's import graph
         -- is read and checked (`Graph.checkGraphG`)
-        if a.olean || a.module || !a.constants.isEmpty then
-          eprintln "con-leche: --check-graph takes none of --olean, --module and --constant"
+        if a.olean || a.module || !a.constants.isEmpty || a.compare || !a.trustedPath.isEmpty then
+          eprintln "con-leche: --check-graph takes none of --olean, --module, --constant, --compare and --trusted-search-path"
           eprintln tryHelp
           return 3
         if a.files.isEmpty || a.searchPath.isEmpty then
@@ -368,7 +393,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
         -- read with their import closure along the search path, module
         -- names as Lean spells them, `«»` escapes included.
-        if a.files.isEmpty || a.searchPath.isEmpty then
+        if a.files.isEmpty || (a.searchPath.isEmpty && a.trustedPath.isEmpty) then
           eprintln "con-leche: --olean takes one or more module names and a \
             --search-path=DIRS"
           eprintln tryHelp
@@ -384,6 +409,27 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
+        if a.compare then
+          -- `--compare`: a challenge and its solution (`compareG`)
+          match a.files.toList.filterMap Frontend.Olean.parseModName,
+              a.module || a.modular || a.scheduled with
+          | [c, s], false =>
+            if c == s then
+              eprintln "con-leche: --compare takes two different modules, a challenge and \
+                its solution"
+              eprintln tryHelp
+              return 3
+            return ← runReq (.compare ⟨c, s, a.trustedPath, a.searchPath, a.rootConstants⟩
+              a.mode a.maxNatSize a.progress jobs)
+          | _, _ =>
+            eprintln "con-leche: --compare takes two module names, a challenge and its \
+              solution, and none of --module, --modular and --schedule"
+            eprintln tryHelp
+            return 3
+        if !a.trustedPath.isEmpty then
+          eprintln "con-leche: --trusted-search-path takes --compare"
+          eprintln tryHelp
+          return 3
         if a.scheduled then
           -- `--schedule`: one worker process per module of one root's closure
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
@@ -419,9 +465,9 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
           a.rootConstants a.mode a.maxNatSize a.progress jobs)
       if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular ||
-          a.scheduled then
-        eprintln "con-leche: --search-path, --constant, --module, --modular and --schedule take \
-          --olean"
+          a.scheduled || a.compare || !a.trustedPath.isEmpty then
+        eprintln "con-leche: --search-path, --trusted-search-path, --constant, --module, \
+          --modular, --schedule and --compare take --olean"
         eprintln tryHelp
         return 3
       match a.files.toList with

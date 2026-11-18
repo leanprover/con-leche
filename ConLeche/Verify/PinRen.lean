@@ -406,4 +406,102 @@ theorem RenEnv.findProj {env env' : Env} (h : RenEnv env env') (T : Name) (i : N
     env'.findProj? T i = env.findProj? T i := by
   simp only [Env.findProj?, h.findTable]
 
+/-! ## Copies of any constant
+
+`RenEnv` relates two copies of a pin.  What the reading of a term needs of two environments is
+less: every name stored on one side is stored on the other, at as many level parameters, the
+other's distinct, and the literals and projections read alike (`CopyEnv`).  A compared
+challenge's environment is one of these of its solution's (task #607), at no pin. -/
+
+/-- **One constant on both sides, as the reading needs it**: the same, or as many level
+parameters, the second's distinct. -/
+@[expose] def LpsCopy (c c' : ConstantInfo) : Prop :=
+  c' = c ∨ (c'.toConstantVal.levelParams.Nodup ∧
+    c.toConstantVal.levelParams.length = c'.toConstantVal.levelParams.length)
+
+/-- **Two environments a term reads alike in**, up to the level-parameter names of their
+constants (`Model/BasisRename.lean`'s `denote_ren`). -/
+structure CopyEnv (env env' : Env) : Prop where
+  find : ∀ n, (env.find? n = none ∧ env'.find? n = none) ∨
+    ∃ c c', env.find? n = some c ∧ env'.find? n = some c' ∧ LpsCopy c c'
+  natLit : natLitSupported env' = natLitSupported env
+  strLit : strLitSupported env' = strLitSupported env
+  findProj : ∀ (T : Name) (i : Nat), env'.findProj? T i = env.findProj? T i
+
+theorem ConstRen.lpsCopy {c c' : ConstantInfo} (h : ConstRen c c') : LpsCopy c c' := by
+  rcases h with rfl | ⟨-, h1, h2⟩
+  · exact .inl rfl
+  · exact .inr ⟨h2.2.1, by rw [h1.2.2, h2.2.2]⟩
+
+/-- Two copies of the pins are copies in the reading's sense. -/
+theorem RenEnv.copy {env env' : Env} (h : RenEnv env env') : CopyEnv env env' where
+  find n := by
+    rcases h.find n with h1 | ⟨c, c', h1, h2, hr⟩
+    · exact .inl h1
+    · exact .inr ⟨c, c', h1, h2, hr.lpsCopy⟩
+  natLit := h.natLit
+  strLit := h.strLit
+  findProj := h.findProj
+
+/-! ### The literals' constants, at their level-parameter counts -/
+
+theorem natZeroOk_len {o : Option ConstantInfo} (h : natZeroOk o = true) :
+    ∃ c, o = some c ∧ c.toConstantVal.levelParams.length = 0 := by
+  match o, h with
+  | some (.ctorInfo cv _ _ _), h =>
+    simp only [natZeroOk, Bool.and_eq_true, List.isEmpty_iff] at h
+    exact ⟨_, rfl, by simp [ConstantInfo.toConstantVal, h.1]⟩
+
+theorem natSuccOk_len {o : Option ConstantInfo} (h : natSuccOk o = true) :
+    ∃ c, o = some c ∧ c.toConstantVal.levelParams.length = 0 := by
+  match o, h with
+  | some (.ctorInfo cv _ _ _), h =>
+    simp only [natSuccOk, Bool.and_eq_true, List.isEmpty_iff] at h
+    exact ⟨_, rfl, by simp [ConstantInfo.toConstantVal, h.1]⟩
+
+theorem stringOfListTyOk_len {o : Option ConstantInfo} (h : stringOfListTyOk o = true) :
+    ∃ c, o = some c ∧ c.toConstantVal.levelParams.length = 0 := by
+  match o, h with
+  | some c, h =>
+    simp only [stringOfListTyOk, Bool.and_eq_true, List.isEmpty_iff] at h
+    exact ⟨_, rfl, by simp [h.1]⟩
+
+theorem charTyOk_len {o : Option ConstantInfo} (h : charTyOk o = true) :
+    ∃ c, o = some c ∧ c.toConstantVal.levelParams.length = 0 := by
+  match o, h with
+  | some c, h =>
+    simp only [charTyOk, Bool.and_eq_true, List.isEmpty_iff] at h
+    exact ⟨_, rfl, by simp [h.1]⟩
+
+theorem charOfNatTyOk_len {o : Option ConstantInfo} (h : charOfNatTyOk o = true) :
+    ∃ c, o = some c ∧ c.toConstantVal.levelParams.length = 0 := by
+  match o, h with
+  | some c, h =>
+    simp only [charOfNatTyOk, Bool.and_eq_true, List.isEmpty_iff] at h
+    exact ⟨_, rfl, by simp [h.1]⟩
+
+theorem listNilTyOk_len {o : Option ConstantInfo} (h : listNilTyOk o = true) :
+    ∃ c, o = some c ∧ c.toConstantVal.levelParams.length = 1 := by
+  match o, h with
+  | some c, h =>
+    refine ⟨c, rfl, ?_⟩
+    unfold listNilTyOk at h
+    split at h
+    · split at h
+      · simp_all
+      · exact nomatch h
+    · exact nomatch h
+
+theorem listConsTyOk_len {o : Option ConstantInfo} (h : listConsTyOk o = true) :
+    ∃ c, o = some c ∧ c.toConstantVal.levelParams.length = 1 := by
+  match o, h with
+  | some c, h =>
+    refine ⟨c, rfl, ?_⟩
+    unfold listConsTyOk at h
+    split at h
+    · split at h
+      · simp_all
+      · exact nomatch h
+    · exact nomatch h
+
 end ConLeche.Verify
