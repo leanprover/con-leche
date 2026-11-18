@@ -115,6 +115,10 @@ def isHole (uses : Declaration → Array Name) : Declaration → Bool
   | d@(.thmDecl _ _) => (uses d).contains sorryAxName
   | _ => false
 
+/-- What starts the reason of a comparison that positively detects a feature con-leche does
+not support: the run declines (exit 2) instead of rejecting. -/
+def declined : String := "declined: "
+
 /-- A hole and what fills it, for the report. -/
 structure Filled where
   name : Name
@@ -150,8 +154,9 @@ def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
       if sameCvUpToLevels cv cv' then
         .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
       else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
-    | _, _ => .error s!"{n}: a hole the solution fills with an {recKind dS}'s constant; only \
-        a definition, theorem, opaque constant or axiom fills a hole"
+    | _, _ => .error s!"{declined}{n}: the solution fills this hole with an {recKind dS}; \
+        con-leche can fill a hole only with a definition, a theorem, an opaque constant or an \
+        axiom at the moment"
   else if sameRecordUpToLevels dC dS then .ok (dS, none)
   else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC}"
 
@@ -276,10 +281,14 @@ def compareG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (mode : CheckMode)
   let ⟨recsS, _, hoisted⟩ := Frontend.prepareD prelude rdS.decls
     (usedOf (some (r.solRoots.path, rdS)))
   let idxS : Std.HashMap Name Nat :=
-    recsS.foldl (init := ({}, 0)) (fun (m, i) d => (m.insert (recKey d) i, i + 1)) |>.1
+    recsS.foldl (init := ({}, 0)) (fun (m, i) d =>
+      ((m.insert (recKey d) i).insertMany ((Modular.declNames d).map (·, i)), i + 1)) |>.1
   match compareRecords r.challenge (usedOf (some (r.chalRoots.path, rdC))) rdC.homes rdS.homes
       recsS idxS recsC with
   | .error why =>
+    if declined.isPrefixOf why then
+      diagLine s!"con-leche: {why} ({modeTag})"
+      return 2
     diagLine s!"con-leche: {r.solution} does not solve {r.challenge}: {why} ({modeTag})"
     return 1
   | .ok (ctx, filled) =>

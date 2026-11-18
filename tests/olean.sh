@@ -1007,6 +1007,8 @@ cmp_grep "an opaque constant of another value" 1 "k: the solution's opaque const
 cmp_grep "an axiom hole filled by a theorem" 0 "hole ax (axiom) filled by CmpAxS's theorem" CmpAxC CmpAxS
 # a non-standard axiom at the hole's name: the solution's check declines it, as always
 cmp_case "a solution axiom at a hole's name" 2 CmpAxC CmpAxBadS
+# a hole filled by an inductive type: not supported yet, declined
+cmp_grep "a hole filled by an inductive type" 2 "T: the solution fills this hole with an inductive type" CmpIndC CmpIndS
 cmp_grep "level parameters named otherwise" 0 "hole h (axiom) filled by CmpLvS's theorem" CmpLvC CmpLvS
 cmp_grep "binders named otherwise" 0 "hole gt (theorem := sorry) filled by CmpBndS's theorem" CmpBndC CmpBndS
 cmp_grep "a definition hole filled by an opaque constant" 0 "filled by UpKindDefOpqSol's opaque constant" UpKindDef UpKindDefOpqSol

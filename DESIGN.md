@@ -122568,7 +122568,7 @@ not written, so the lane does not land.**  The plan for them is at the end of th
   kind — definition, theorem, opaque constant, axiom (the solution's check declines every
   non-standard axiom, so only the standard ones and the trust family remain; there is no
   separate rule).  A hole filled by an inductive type's, constructor's, recursor's or
-  quotient constant is exit 1 for now (`cmpRecord`'s last arm): the modular theory's
+  quotient constant is a decline, exit 2, for now (`cmpRecord`'s last arm; CmpIndC/CmpIndS): the modular theory's
   presentations (`Modular.Presents`, `Model.Modular.Refines`) present a record as its
   statement only for a definition, theorem or opaque record; extending them is part of T2.
 * Every other record of `C` is the solution's up to the same renaming (`sameRecordUpToLevels`:
@@ -122687,7 +122687,7 @@ names, not the solution's: `EnvModelM`'s `acval_params` makes a constant's value
 own parameters only, and `Model/BasisRename.lean` (`renAcval`, `denote_ren`) carries a model
 across such a renaming for the pins; generalising `RenEnv` from pin copies to any constant is
 the work; (b) a hole filled by an inductive type's constant needs `Presents`/`Refines` to allow
-the axiom of any member of a group (now exit 1); (c) T1 and T2 combined: the challenge records
+the axiom of any member of a group (now a decline); (c) T1 and T2 combined: the challenge records
 of the model are an outcome of `challengeView` on any snapshot agreeing on the trusted
 directories.
 
