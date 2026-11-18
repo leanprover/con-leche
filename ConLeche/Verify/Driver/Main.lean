@@ -20,9 +20,9 @@ arguments nothing is said about `--help` or other flags.
 
 `runArgs_olean_accept`: the same at the arguments `--olean --search-path=<dirs> -- <root>`
 (`parseArgs_olean`): every outcome that is an exit 0 read records of that root's closure
-(`Olean.readOleans`, whose values `Olean.readOleans_ok` unfolds) that `checkDecls .verified`
+(`Olean.readOleansAt`, whose values `Olean.readOleansAt_ok` unfolds) that `checkDecls .verified`
 accepts prepared with the built-in prelude and with the theorems' values in place (`fillOf`,
-`Olean.readOleans_filled`).  `runArgs_oleans_accept` is the step at any arguments
+`Olean.readOleansAt_filled`).  `runArgs_oleans_accept` is the step at any arguments
 that ask for no help, parse without a usage error and ask for `--olean` without `--module`.
 
 The corollaries are in `ConLeche/MainTheorem.lean`.
@@ -141,7 +141,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
     (htp : (parseArgs args {}).trustedPath = [])
     (h : (runArgs args : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
-      ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
+      ModelIO.CanGive (Olean.readOleansAt (parseArgs args {}).searchPath
         ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
           fs (.ok rd) ∧
       Cached.checkDecls (parseArgs args {}).mode natOpPinSets (parseArgs args {}).maxNatSize
@@ -149,7 +149,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
           (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env := by
   suffices H : ModelIO.AllOk (runArgs args) fs hs
       (fun c => c = 0 → ∃ pre rd env, builtinPreludeE = .ok pre ∧
-        ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
+        ModelIO.CanGive (Olean.readOleansAt (parseArgs args {}).searchPath
           ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
           fs (.ok rd) ∧
         Cached.checkDecls (parseArgs args {}).mode natOpPinSets (parseArgs args {}).maxNatSize
@@ -187,7 +187,7 @@ is an exit 0 read records of that root's closure, every constant of it, that `ch
 theorem runArgs_olean_accept {dirs root : String} {fs : FS} {hs hs' : HS}
     (h : (runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
-      ModelIO.CanGive (Olean.readOleans (searchPathOf dirs) (#[root].filterMap Olean.parseModName)
+      ModelIO.CanGive (Olean.readOleansAt (searchPathOf dirs) (#[root].filterMap Olean.parseModName)
         none) fs (.ok rd) ∧
       Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault
         ((prepareD pre rd.decls (usedOf (some (searchPathOf dirs, rd)))).decls.map

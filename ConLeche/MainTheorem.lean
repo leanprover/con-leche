@@ -181,7 +181,7 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
   have hroots : (#[root].filterMap Olean.parseModName) = #[r] := by simp [hr]
   rw [hroots] at hrd
   obtain ⟨_, _, hrd⟩ := hrd
-  obtain ⟨v', hd⟩ := Olean.readOleans_thm hrd hcl hv hmem hk
+  obtain ⟨v', hd⟩ := Olean.readOleansAt_thm rfl hrd hcl hv hmem hk
   exact no_False_theorem_accepted V _ _ _
     (Array.mem_map_of_mem (f := Cached.fillDecl _) (Frontend.mem_prepareD hd)) hty env hchk
 

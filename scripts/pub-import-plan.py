@@ -135,8 +135,8 @@ FALLBACK = {
     # identifier `projGuardRowsGo`, `ProjGuard.lean:45`; `Expr.WScoped`, `ProjGuard.lean:30`).
     ('ConLeche.Verify.ProjGuard', 'ConLeche.Kernel.CoreDefs'),
     ('ConLeche.Verify.ProjGuard', 'ConLeche.Verify.Shift'),
-    # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
-    # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
+    # task #480 (the merge of #481): `readOleansAt_filled` and its neighbours state `OleanRead`,
+    # `readOleansAt`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
     # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).
     ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Frontend.Olean.Records'),
     ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.Olean.Merge'),

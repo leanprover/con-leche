@@ -26,7 +26,7 @@ open ConLeche
 
 /-- **The module order of a closure**: each module, in the model, has imports, all of them
 before it. -/
-@[expose] def ClosedOrder (sp : SearchPath) (fs : FS) (out : Array Name) : Prop :=
+@[expose] def ClosedOrder (sp : Roots) (fs : FS) (out : Array Name) : Prop :=
   ∀ k (hk : k < out.size), ∃ imps, ModelIO.CanGive (moduleImports sp out[k]) fs (.ok imps) ∧
     ∀ i ∈ imps, i.module ∈ out.toList.take k
 
@@ -35,7 +35,7 @@ def Cover (done : Std.HashSet Name) (above : List (Name × Bool)) (i : Name) : P
   done.contains i = true ∨ (i, false) ∈ above ∨ (i, true) ∈ above
 
 /-- **What the walk keeps of its stack**, `above` the entries over the rest. -/
-def WalkGood (sp : SearchPath) (fs : FS) (done seen : Std.HashSet Name) :
+def WalkGood (sp : Roots) (fs : FS) (done seen : Std.HashSet Name) :
     List (Name × Bool) → List (Name × Bool) → Prop
   | _, [] => True
   | above, (m, true) :: rest =>
@@ -45,7 +45,7 @@ def WalkGood (sp : SearchPath) (fs : FS) (done seen : Std.HashSet Name) :
     (seen.contains k = true → done.contains k = true ∨ (k, true) ∈ above) ∧
       WalkGood sp fs done seen ((k, false) :: above) rest
 
-theorem WalkGood.mono {sp : SearchPath} {fs : FS} {d d' s s' : Std.HashSet Name}
+theorem WalkGood.mono {sp : Roots} {fs : FS} {d d' s s' : Std.HashSet Name}
     {above above' : List (Name × Bool)}
     (hc : ∀ a i, Cover d (a ++ above) i → Cover d' (a ++ above') i)
     (hs : ∀ a k, s'.contains k = true →
@@ -63,7 +63,7 @@ theorem WalkGood.mono {sp : SearchPath} {fs : FS} {d d' s s' : Std.HashSet Name}
     exact ⟨fun hk => hs a k hk h1, WalkGood.mono hc hs rest ((k, false) :: a) h3⟩
 
 /-- Unseen modules pushed. -/
-theorem WalkGood.kids {sp : SearchPath} {fs : FS} {d s : Std.HashSet Name} :
+theorem WalkGood.kids {sp : Roots} {fs : FS} {d s : Std.HashSet Name} :
     ∀ (ks : List Name) (above t : List (Name × Bool)), (∀ k ∈ ks, s.contains k = false) →
       WalkGood sp fs d s (ks.reverse.map (·, false) ++ above) t →
       WalkGood sp fs d s above (ks.map (·, false) ++ t)
@@ -76,7 +76,7 @@ theorem WalkGood.kids {sp : SearchPath} {fs : FS} {d s : Std.HashSet Name} :
       simpa using h
 
 /-- **What the walk keeps.** -/
-structure WalkInv (sp : SearchPath) (fs : FS) (R : Array Name) (stack : List (Name × Bool))
+structure WalkInv (sp : Roots) (fs : FS) (R : Array Name) (stack : List (Name × Bool))
     (seen done : Std.HashSet Name) (out : Array Name) : Prop where
   outDone : ∀ m, m ∈ out ↔ done.contains m = true
   closed : ClosedOrder sp fs out
@@ -84,7 +84,7 @@ structure WalkInv (sp : SearchPath) (fs : FS) (R : Array Name) (stack : List (Na
   roots : ∀ r ∈ R, Cover done stack r
 
 /-- A module whose imports are done goes last. -/
-theorem ClosedOrder.push {sp : SearchPath} {fs : FS} {out : Array Name} {m : Name}
+theorem ClosedOrder.push {sp : Roots} {fs : FS} {out : Array Name} {m : Name}
     {imps : Array ImportRec} (hc : ClosedOrder sp fs out)
     (hm : ModelIO.CanGive (moduleImports sp m) fs (.ok imps)) (hi : ∀ i ∈ imps, i.module ∈ out) :
     ClosedOrder sp fs (out.push m) := by
@@ -102,7 +102,7 @@ theorem ClosedOrder.push {sp : SearchPath} {fs : FS} {out : Array Name} {m : Nam
     exact Array.mem_toList_iff.mpr (hi i hm')
 
 /-- **The walk's value**, through the roots it resolves (`T`, read off the snapshot). -/
-theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
+theorem closureGo_ok {sp : Roots} {fs : FS} {R : Array Name} :
     ∀ (fuel : Nat) (stack : List (Name × Bool)) (seen done : Std.HashSet Name) (out res : Array Name)
       (T T' : Roots) {hs hs' : HS}, T.Ok fs → T.bare = sp →
       WalkInv sp fs R stack seen done out →
@@ -307,11 +307,12 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
 
 /-- **The closure's order**: where the walk has a value, it holds every root, and every
 module in it comes after all of that module's imports; the roots it resolved are read off the
-snapshot. -/
-theorem closureOrder_ok {sp : SearchPath} {roots order : Array Name} {fs : FS} {hs hs' : HS}
-    {T : Roots} (h : (closureOrder sp roots : ModelIO _) fs hs (.ok (.ok (order, T))) hs') :
+snapshot.  The walk starts from a lookup with no root resolved (`sp.bare = sp`). -/
+theorem closureOrder_ok {sp : Roots} (hsp : sp.bare = sp) {roots order : Array Name} {fs : FS}
+    {hs hs' : HS} {T : Roots}
+    (h : (closureOrder sp roots : ModelIO _) fs hs (.ok (.ok (order, T))) hs') :
     ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧ T.Ok fs ∧ T.bare = sp := by
-  refine closureGo_ok closureFuel _ {} {} #[] order _ T (Roots.ok_coe fs sp) rfl
+  refine closureGo_ok closureFuel _ {} {} #[] order _ T (hsp ▸ Roots.ok_bare fs sp) hsp
     ⟨?_, ?_, ?_, ?_⟩ h
   · intro m
     simp

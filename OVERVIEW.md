@@ -859,17 +859,17 @@ theorem's value in place. The check phase reads the values through the IO class,
 map (`CheckerIO.parMapWorkers`) is in the model with a worker's state whatever its own elements
 can make of it, so that a value read at any state a worker can reach is what the reference stands
 for on the snapshot (`readValue_spec`), and `checkOleansG_accept` is `checkDecls`' accept:
-the index does not depend on a theorem's value (`buildIndex_fill`). `readOleans_filled` says
+the index does not depend on a theorem's value (`buildIndex_fill`). `readOleansAt_filled` says
 those records are the specification's: a theorem's record with its value in place is the
 constant the specification reads off that module's files, its statement and its proof.
-`readOleans_ok` says what those records are made of: the order holds the named modules and
+`readOleansAt_ok` says what those records are made of: the order holds the named modules and
 has every module after its imports (`closureOrder_ok`), every constant of their private views
 stands in the merge, itself or a constant of its name and statement that Lean's own import lets
 stand for it (`mergeAll_ok`), every constant the walk visits and does not filter out has its record,
 where the blocks of the merged constants agree, which `blocksOk` checks before the walk
 (`emitAll_covers`), and every declaration comes from stored constants (`declsOf_from`).
 A theorem of a module of the closure is among the records with its statement (`declsOf_thm`,
-`readOleans_thm`), so `main_oleans_no_False` holds of the files, at the arguments `--olean
+`readOleansAt_thm`), so `main_oleans_no_False` holds of the files, at the arguments `--olean
 --search-path=<dirs> -- <root>`: if the private view of a module of the closure of `root`, by the
 specification (`ViewOf`, `decodeModuleSpec`), holds a theorem of type `False`, no run exits 0. An inductive block's record is
 known to be made of stored constants of the right kinds by their statements; its other fields and

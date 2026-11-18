@@ -20,7 +20,7 @@ and what an exit 0 means is about the records with those values in place:
   (`buildIndex_fill`);
 * `checkMainG_oleans_accept`: the same from the driver's run.
 
-That those records are the specification's own is `readOleans_filled`
+That those records are the specification's own is `readOleansAt_filled`
 (`ConLeche/Verify/Frontend/Olean/Files.lean`): a theorem's record, with its value in place, is
 the constant the specification reads off that module's files (`constSpec`), its statement and
 its proof.
@@ -365,13 +365,13 @@ theorem checkMainG_oleans_accept {sp : SearchPath} {roots : Array Name}
     {hs hs' : HS}
     (h : (checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
-      ModelIO.CanGive (readOleans sp roots cs) fs (.ok rd) ∧
+      ModelIO.CanGive (readOleansAt sp roots cs) fs (.ok rd) ∧
       checkDecls mode natOpPinSets maxNatSize
         ((Frontend.prepareD pre rd.decls (usedOf (some (sp, rd)))).decls.map
           (fillDecl (fillOf sp fs rd.values))) = .ok env := by
   suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs) fs hs
       (fun c => c = 0 → ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
-        ModelIO.CanGive (readOleans sp roots cs) fs (.ok rd) ∧
+        ModelIO.CanGive (readOleansAt sp roots cs) fs (.ok rd) ∧
         checkDecls mode natOpPinSets maxNatSize
           ((Frontend.prepareD pre rd.decls (usedOf (some (sp, rd)))).decls.map
             (fillDecl (fillOf sp fs rd.values))) = .ok env) from
@@ -390,13 +390,13 @@ theorem checkMainG_oleans_accept {sp : SearchPath} {roots : Array Name}
     obtain ⟨x, _, hx, rfl, rfl⟩ := hx
     rcases x with ⟨_ | _ | _, _⟩ | rd
     rotate_right
-    · have hx' : (readOleans sp roots cs : ModelIO _) fs _ (.ok (.ok rd)) _ := hx
-      obtain ⟨-, -, -, -, ⟨T, -, hrT, hT, hTp⟩, -⟩ := readOleans_ok hx'
+    · have hx' : (readOleansAt sp roots cs : ModelIO _) fs _ (.ok (.ok rd)) _ := hx
+      obtain ⟨-, -, -, -, ⟨T, -, hrT, hT, hTp⟩, -⟩ := readOleansAt_ok rfl hx'
       subst hrT
       have hgood : ∀ md ∈ rd.values, ∃ f r a,
           ModelIO.CanGive (readFiles rd.roots md.name .private) fs (.ok f) ∧
           f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := fun md hmd => by
-        obtain ⟨f, r, a, h1, h2, h3⟩ := readOleans_good hx' md hmd
+        obtain ⟨f, r, a, h1, h2, h3⟩ := readOleansAt_good rfl hx' md hmd
         exact ⟨f, r, a, readFiles_rev hT (hTp ▸ h1), h2, h3⟩
       simp only [Except.map]
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>

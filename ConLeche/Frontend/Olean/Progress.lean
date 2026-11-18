@@ -7,7 +7,7 @@ public import ConLeche.Frontend.Pace
 /-!
 # Reading `.olean` files: what `--progress` says while they are read
 
-The read's heartbeat (task #484): a line per step of `readOleans`, and during the load lines at
+The read's heartbeat (task #484): a line per step of `readOleansAt`, and during the load lines at
 `--progress`'s pace, each with the time and the resident set, so that a run that does
 not get through the read says how far it got and at what size.  `IO` actions, handed to
 `CheckerIO.liftIO`: nothing here changes what the read returns.

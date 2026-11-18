@@ -183,10 +183,10 @@ info: 'ConLeche.Driver.Compose.Run.localOk' depends on axioms: [propext, Classic
 #print axioms ConLeche.Driver.Compose.Run.localOk
 
 /--
-info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Frontend.Olean.readOleansAt_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Frontend.Olean.readOleans_ok
+#print axioms ConLeche.Frontend.Olean.readOleansAt_ok
 
 /--
 info: 'ConLeche.Frontend.Olean.emitAll_covers' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -207,16 +207,16 @@ info: 'ConLeche.Frontend.Olean.declsOf_from' depends on axioms: [propext, Classi
 #print axioms ConLeche.Frontend.Olean.declsOf_from
 
 /--
-info: 'ConLeche.Frontend.Olean.readOleans_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Frontend.Olean.readOleansAt_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Frontend.Olean.readOleans_thm
+#print axioms ConLeche.Frontend.Olean.readOleansAt_thm
 
 /--
-info: 'ConLeche.Frontend.Olean.readOleans_filled' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Frontend.Olean.readOleansAt_filled' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Frontend.Olean.readOleans_filled
+#print axioms ConLeche.Frontend.Olean.readOleansAt_filled
 
 /--
 info: 'ConLeche.Driver.checkMainG_oleans_accept' depends on axioms: [propext, Classical.choice, Quot.sound]

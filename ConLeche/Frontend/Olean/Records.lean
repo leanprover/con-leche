@@ -137,13 +137,6 @@ def readOleansAt {μ : Type → Type} [CheckerIO μ] (R : Roots)
             pure (.ok ⟨ds, ls.map fun l => ⟨l.name, l.frontier⟩, mg, R,
               if homes then homesOf ls else {}⟩)
 
-/-- **The whole read** on a search path (`readOleansAt`, no fallback, every named constant
-held by the closure, no homes). -/
-def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
-    (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1)
-    (pace : Pace := .off) : μ (Except (CheckError × Nat) OleanRead) :=
-  readOleansAt sp roots constants jobs pace
-
 /-! ## A theorem's value, read -/
 
 /-- **What a worker keeps between its checks**: the region of the module it read last.  The
@@ -207,7 +200,7 @@ checker itself reads a value in its check. -/
 def readOleansFull {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
     (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1) :
     μ (Except (CheckError × Nat) (Array Declaration)) := do
-  match ← readOleans sp roots constants jobs with
+  match ← readOleansAt sp roots constants jobs with
   | .error e => pure (.error e)
   | .ok rd =>
     match ← fillRecords rd.roots rd.values {} rd.decls.toList #[] with

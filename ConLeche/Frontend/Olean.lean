@@ -60,12 +60,12 @@ search path with the roots a run resolved, each once; a `SearchPath` is one with
 | name | theorem |
 |---|---|
 | `closureOrder sp roots : μ (Except CheckError (Array Name × Roots))` | `closureOrder_ok`: holds the roots, each module after its imports; the roots it resolved read off the snapshot |
-| `loadClosure sp n roots jobs : μ (Except CheckError (Array Loaded × Roots))`, a theorem's value left in the file | `loadAt_spec`, through `readOleans_ok` |
+| `loadClosure sp n roots jobs : μ (Except CheckError (Array Loaded × Roots))`, a theorem's value left in the file | `loadAt_spec`, through `readOleansAt_ok` |
 | `mergeAll ls : Except CheckError Merged` | `mergeAll_ok`: every constant stands in the merge |
 | `blocksOk mg : Except CheckError Unit` | `blocksOk_good`: the stored constants' blocks agree |
 | `emitAll mg rs : Emit`, `declsOf em` | `emitAll_spec`, `emitAll_covers` (visited means declared), `declsOf_thm`, `declsOf_from` |
-| `readOleans sp roots constants jobs pace : μ (Except (CheckError × Nat) OleanRead)`, a theorem's value a reference | `readOleans_ok`, `readOleans_thm`, `readOleans_filled` |
-| `readValue sp values c code : μ (ValueCache × Except CheckError Expr)`, what a reference stands for | `readOleans_filled`, `checkMainG_oleans_accept` |
+| `readOleansAt R roots constants jobs pace lenient homes : μ (Except (CheckError × Nat) OleanRead)`, a theorem's value a reference | `readOleansAt_ok`, `readOleansAt_thm`, `readOleansAt_filled` |
+| `readValue sp values c code : μ (ValueCache × Except CheckError Expr)`, what a reference stands for | `readOleansAt_filled`, `checkMainG_oleans_accept` |
 | `readOleansFull sp roots constants jobs : μ (Except (CheckError × Nat) (Array Declaration))`, with every value read, for the tools that compare records | |
 
 **A worker's reads** (one module `M`, against what Lean loads for it).

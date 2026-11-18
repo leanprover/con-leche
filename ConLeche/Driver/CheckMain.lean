@@ -86,7 +86,7 @@ def Input.label : Input → String
 
 /-- The input's declaration records: the stream's, by the stream parse
 (`parseStreamG`), or the closure's, by the `.olean` reader
-(`Frontend.Olean.readOleans`), whose theorems hold references to their values, with what
+(`Frontend.Olean.readOleansAt`), whose theorems hold references to their values, with what
 their checks need to read them. -/
 def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (pace : Pace) (jobs : Nat) :
     μ (Except (CheckError × Nat)
@@ -95,7 +95,7 @@ def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (pace : Pace) (
   | .ndjson file => do
     return (← parseStreamG file jobs).map fun r => (r.decls, none)
   | .oleans sp roots cs => do
-    return (← Frontend.Olean.readOleans sp roots cs jobs pace).map fun rd => (rd.decls, some (sp, rd))
+    return (← Frontend.Olean.readOleansAt sp roots cs jobs pace).map fun rd => (rd.decls, some (sp, rd))
 
 /-- What a record mentions, for the preparation: the record's expressions say it, except a
 theorem's read from an `.olean`, whose load read it off the file. -/
