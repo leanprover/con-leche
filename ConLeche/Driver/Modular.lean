@@ -3,6 +3,7 @@ module
 public import ConLeche.Driver.Worker
 public import ConLeche.Driver.Graph
 public import ConLeche.Driver.Tables
+public import ConLeche.Driver.CompareModule
 
 @[expose] public section
 
@@ -26,6 +27,11 @@ one process (DESIGN #460 §3, ruling 8):
    the location found once; a read the tables do not hold is the search path's.  Each module's
    own checks run on one thread; nothing a module builds is marked persistent, so it is freed
    with the module.
+With `--compare` (`sol`: the solution `S` of the challenge `root`, task #608), the graph is the
+closure of the challenge and its solution (`Graph.cmpExtra`: the solution added to the
+challenge's header), every module's table holds its header's imports, and the challenge's step is
+the compare worker's (`checkCmpModuleG`).
+
 4. **The verdict**: a line per module (the worker's, naming the module), then the run's: exit 0
    exactly when every module's worker step answered 0; otherwise the code of the first module,
    in the graph's order, that did not.
@@ -53,15 +59,34 @@ def readModTable {μ : Type → Type} [CheckerIO μ] (sp : Roots) (e : Graph.Nod
       | .ok expo => pure (.ok { name := e.1, loc, imports := some e.2, priv := some priv,
                                 expo := some expo })
 
-/-- One module of the run: its worker's steps over the tables, its code. -/
+/-- One module's code: its worker's steps over the tables; at a compared challenge (`cmp`: the
+challenge and its solution), the compare worker's. -/
+def stepCode {μ : Type → Type} [CheckerIO μ] (sp : Roots) (T : ModTables)
+    (cmp : Option (Name × Name)) (mode : CheckMode) (maxNatSize : Nat) (m : Name) : μ UInt8 :=
+  match cmp with
+  | some (C, S) =>
+    if m == C then checkCmpModuleG (T.reads sp) C S mode .off 1
+    else checkModuleG (T.reads sp) sp m mode maxNatSize .off 1 false
+  | none => checkModuleG (T.reads sp) sp m mode maxNatSize .off 1 false
+
+/-- One module of the run, with its code. -/
 def modularStep {μ : Type → Type} [CheckerIO μ] (sp : Roots) (T : ModTables)
-    (mode : CheckMode) (maxNatSize : Nat) (_ : Unit) (m : Name) :
+    (cmp : Option (Name × Name)) (mode : CheckMode) (maxNatSize : Nat) (_ : Unit) (m : Name) :
     μ (Unit × Except Empty (Name × UInt8)) := do
-  let c ← checkModuleG (T.reads sp) sp m mode maxNatSize .off 1 false
+  let c ← stepCode sp T cmp mode maxNatSize m
   pure ((), .ok (m, c))
 
+/-- The imports a compared run adds: the solution's to the challenge's header. -/
+def modExtra (root : Name) : Option Name → Name → Array ImportRec
+  | some S => Graph.cmpExtra root S
+  | none => fun _ => #[]
+
+/-- A node of the graph with its header's imports (the added ones dropped). -/
+def headerNode (extra : Name → Array ImportRec) (e : Graph.Node) : Graph.Node :=
+  (e.1, e.2.extract 0 (e.2.size - (extra e.1).size))
+
 /-- **The one-process mode**, generic in the IO class (see the module docstring). -/
-def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
+def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name) (sol : Option Name)
     (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
@@ -71,13 +96,14 @@ def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
     if pace.on then
       let now ← clockMs
       diagLine s!"con-leche: modular: {line} t={ConLeche.Cached.msSecs (now - t0)}s"
-  match ← Graph.graphOf sp [root] jobs with
+  match ← Graph.graphOf sp [root] jobs (modExtra root sol) with
   | .error e =>
     diagLine s!"con-leche: graph: {e}"
     return e.exitCode
   | .ok (C, sp) =>
     say s!"graph: acyclic, {C.size} modules"
-    match ← CheckerIO.parMapExcept jobs (readModTable sp) C.toList with
+    match ← CheckerIO.parMapExcept jobs (readModTable sp)
+        (C.toList.map (headerNode (modExtra root sol))) with
     | .error e =>
       diagLine s!"con-leche: {e} ({modeTag})"
       return e.exitCode
@@ -86,8 +112,8 @@ def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
       CheckerIO.liftIO (markShared T)
       say s!"tables read: {T.mods.size} modules, \
         {T.mods.foldl (fun n t => n + (t.priv.map (·.consts.size)).getD 0) 0} names"
-      let (_, res) ← CheckerIO.parMapWorkers jobs (fun _ => ()) (modularStep sp T mode maxNatSize)
-        (C.toList.map (·.1))
+      let (_, res) ← CheckerIO.parMapWorkers jobs (fun _ => ())
+        (modularStep sp T (sol.map (root, ·)) mode maxNatSize) (C.toList.map (·.1))
       match res with
       | .error e => nomatch e
       | .ok rs =>

@@ -194,7 +194,7 @@ theorem renamed_cv {cv cv' : ConstantVal} (hs : sameCvUpToLevels cv cv' = true) 
 
 /-- **Every hole of the challenge is a constant of the challenge's environment** with the hole's
 statement. -/
-theorem chal_hole {sp : SearchPath} {fs : FS} {C S : Name} {jobs : Nat} {c : CmpModuleRead}
+theorem chal_hole {sp : Roots} {fs : FS} {C S : Name} {jobs : Nat} {c : CmpModuleRead}
     (hc : CmpFacts sp fs C S jobs c) {d : Declaration} (hd : d ∈ c.w.emitted)
     (hh : isHole (ownUses c.w.home) d = true) :
     ∃ cv ci, recCv? d = some cv ∧ ci ∈ (chalEnvOf c).consts ∧ ci.toConstantVal = cv := by
@@ -254,7 +254,7 @@ the compare worker's, a model of every module's own environment and one of the c
 environment such that every context name is valued as its home values it, every name of the
 challenge's environment as its home values it at the challenge's level-parameter names, and every
 hole of the challenge is inhabited. -/
-theorem run_models (V : Type w) [SetTheory V] {sp : SearchPath} {fs : FS} {maxNatSize : Nat}
+theorem run_models (V : Type w) [SetTheory V] {sp : Roots} {fs : FS} {maxNatSize : Nat}
     (R : Run sp fs maxNatSize) {Cn S : Name} {jobs : Nat} {c : CmpModuleRead}
     (hC : Cn ∈ R.names) (hw : R.w Cn = c.w) (hcf : CmpFacts sp fs Cn S jobs c) :
     ∃ (m : ∀ M, M ∈ R.names → ConLeche.Model V (ownEnvOf sp fs M (R.w M)))

@@ -36,9 +36,10 @@ inductive Req where
   root a challenge whose header it is added to (`cmpExtra`, task #608) -/
   | graph (searchPath : List System.FilePath) (roots : List Name) (jobs : Nat)
       (cmp : Option Name)
-  /-- every module of a closure, each against its context, in one process (`checkModularG`) -/
-  | modular (searchPath : List System.FilePath) (root : Name) (mode : CheckMode)
-      (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
+  /-- every module of a closure, each against its context, in one process (`checkModularG`);
+  `sol`: the solution of the root, a challenge compared with it (task #608) -/
+  | modular (searchPath : List System.FilePath) (root : Name) (sol : Option Name)
+      (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- every module of a closure, one worker process each (`scheduleG`, outside the theorem);
   `jobsGiven`: `--jobs` was given -/
   | schedule (searchPath : List System.FilePath) (root : Name) (cmp : Option Name)
@@ -64,7 +65,8 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
     Graph.checkGraphG sp roots jobs (match cmp, roots with
       | some s, [c] => Graph.cmpExtra c s
       | _, _ => fun _ => #[])
-  | .modular sp root mode maxNatSize pace jobs => checkModularG sp root mode maxNatSize pace jobs
+  | .modular sp root sol mode maxNatSize pace jobs =>
+    checkModularG sp root sol mode maxNatSize pace jobs
   | .schedule sp root cmp opts mode maxNatSize pace jobs jobsGiven =>
     scheduleG sp root cmp opts mode maxNatSize pace jobs jobsGiven
   | .compare r mode maxNatSize pace jobs => compareG r mode maxNatSize pace jobs

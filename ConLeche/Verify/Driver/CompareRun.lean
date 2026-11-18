@@ -116,6 +116,10 @@ theorem compareG_accept {r : CmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace
     rcases x with e | rdS
     · exact fun c hs4 hc h0 => (readFailed_ne c hs4 hc h0).elim
     simp only
+    cases hin : rdS.values.any (·.name == r.challenge) with
+    | true => simp
+    | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
     cases hcmp : compareRecords r.challenge (usedOf (some (r.chalRoots.path, rdC))) rdC.homes
       rdS.homes (cmpRecs pre' r.solRoots rdS) (recIndex (cmpRecs pre' r.solRoots rdS))
       (cmpRecs pre' r.chalRoots rdC) with

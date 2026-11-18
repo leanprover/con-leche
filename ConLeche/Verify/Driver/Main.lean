@@ -472,11 +472,96 @@ theorem runArgs_cmpModule_accept {dirs c s : String} {fs : FS} {hs hs' : HS}
         split at hv
         · simp [eprintln] at hv
         · simp only [Bool.or_false, Bool.not_true, Bool.false_eq_true, ↓reduceIte,
-            Bool.and_false] at hv
+            Bool.and_false, Bool.false_and, Bool.or_self] at hv
           simp only [runReq, ModelIO.bind_ok] at hv
           obtain ⟨⟨R, T⟩, _, hT, hv⟩ := hv
           obtain ⟨hR, hp, hT⟩ := workerTables_ok rfl hT
           exact ⟨C, S, _, rfl, rfl, checkCmpModuleG_accept (modTables_within hR hp hT) hv⟩
+  · simp
+
+theorem parseArgs_modularCmp (dirs c s : String) :
+    parseArgs ["--olean", "--modular", "--compare", "--search-path=" ++ dirs, "--", c, s] {} =
+      { olean := true, modular := true, compare := true, searchPath := searchPathOf dirs,
+        files := #[c, s] } := by
+  have hfst : parseArgs ["--olean", "--modular", "--compare", "--search-path=" ++ dirs, "--", c, s]
+      {} = parseArgs ["--search-path=" ++ dirs, "--", c, s]
+        { olean := true, modular := true, compare := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
+    flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--olean --modular --compare --search-path=<dirs> -- <c> <s>` ask for no help. -/
+theorem helpWanted_modularCmp (dirs c s : String) :
+    helpWanted ["--olean", "--modular", "--compare", "--search-path=" ++ dirs, "--", c, s] =
+      false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--olean --modular --compare --search-path=<dirs> -- <c> <s>`, in the model**
+(task #608): every outcome that is an exit 0 names a challenge `C` and a solution `S` and is an
+accepting graph check over their closures (`C`'s header with `S` added), an accepted worker at
+every module of it but `C`, and an accepted compare worker at `C`. -/
+theorem runArgs_modularCmp_accept {dirs c s : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--olean", "--modular", "--compare", "--search-path=" ++ dirs, "--", c, s] :
+      ModelIO _) fs hs (.ok 0) hs') :
+    ∃ C S, Olean.parseModName c = some C ∧ Olean.parseModName s = some S ∧
+      ∃ jobs Cg T, ModelIO.CanGive (Graph.graphOf (searchPathOf dirs) [C] jobs
+        (Graph.cmpExtra C S)) fs (.ok (Cg, T)) ∧
+      (∀ e ∈ Cg.toList, e.1 ≠ C →
+        WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs e.1 1) ∧
+      ∃ cr, CmpFacts (searchPathOf dirs) fs C S 1 cr := by
+  suffices H : ModelIO.AllOk (runArgs ["--olean", "--modular", "--compare",
+      "--search-path=" ++ dirs, "--", c, s]) fs hs (fun v => v = 0 →
+        ∃ C S, Olean.parseModName c = some C ∧ Olean.parseModName s = some S ∧
+        ∃ jobs Cg T, ModelIO.CanGive (Graph.graphOf (searchPathOf dirs) [C] jobs
+          (Graph.cmpExtra C S)) fs (.ok (Cg, T)) ∧
+        (∀ e ∈ Cg.toList, e.1 ≠ C →
+          WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs e.1 1) ∧
+        ∃ cr, CmpFacts (searchPathOf dirs) fs C S 1 cr) from H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
+  · simp only [helpWanted_modularCmp, parseArgs_modularCmp, List.isEmpty_nil, Bool.and_true,
+      Bool.not_true, Bool.false_eq_true, ite_false, ite_true]
+    intro v _ hv h0
+    subst h0
+    split at hv
+    · simp [eprintln] at hv
+    · cases hc : Olean.parseModName c with
+      | none =>
+        have : (#[c, s] : Array String).find? (fun f => (Olean.parseModName f).isNone) =
+            some c := by simp [hc]
+        simp [this, eprintln] at hv
+      | some C =>
+      cases hsn : Olean.parseModName s with
+      | none =>
+        have : (#[c, s] : Array String).find? (fun f => (Olean.parseModName f).isNone) =
+            some s := by simp [hc, hsn]
+        simp [this, eprintln] at hv
+      | some S =>
+        have : (#[c, s] : Array String).find? (fun f => (Olean.parseModName f).isNone) = none := by
+          simp [hc, hsn]
+        simp only [this, Array.find?_empty, List.filterMap_cons, hc, hsn, List.filterMap_nil,
+          Array.isEmpty_empty] at hv
+        split at hv
+        · simp [eprintln] at hv
+        · simp only [Bool.or_false, Bool.not_true, Bool.false_eq_true, ↓reduceIte,
+            Bool.and_false, Bool.or_self] at hv
+          generalize (none : Option Nat).getD _ = j at hv
+          simp only [runReq, Bool.false_or, ↓reduceIte] at hv
+          obtain ⟨Cg, T, hg, hall, hcmp⟩ := checkModularG_accept rfl hv
+          exact ⟨C, S, rfl, rfl, _, Cg, T, hg, fun e he hne => hall e he (fun _ _ => hne),
+            hcmp S rfl⟩
   · simp
 
 /-- The arguments `--olean --modular --search-path=<dirs> -- <root>`: that one root, those
@@ -550,7 +635,7 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
           simp only [runReq] at hc
           obtain ⟨C, T, ⟨_, _, hC⟩, hall⟩ := checkModularG_accept rfl hc
           obtain ⟨rk, h1, h2, h3, h4, -⟩ := Graph.graphOf_ok rfl hC
-          exact ⟨m, rfl, C.toList, rk, fun e he => (h1 e he).plain, h2 m (by simp), h3, h4, hall⟩
+          exact ⟨m, rfl, C.toList, rk, fun e he => (h1 e he).plain, h2 m (by simp), h3, h4, fun e he => hall.1 e he (fun _ h => nomatch h)⟩
   · simp
 
 /-- **`runArgs` on `--olean --compare` arguments, in the model**: at any arguments that ask for

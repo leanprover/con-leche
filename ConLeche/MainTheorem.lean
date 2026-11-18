@@ -423,6 +423,70 @@ record with `C`'s.  On one snapshot, those runs together are a development every
 passes the local checks (`Driver.Compose.Run.ofCompare`), and the modular theorem's family gives
 the challenge's environment a model (`Model.CompareRun.run_models`). -/
 
+/-- **The core of the modular comparison theorems**: a closure of the challenge `C` and its
+solution `S` (each node's imports its header's, `S` added to `C`'s), ranked, with an accepted
+worker at every module but `C` and an accepted compare worker at `C`. -/
+theorem compare_closure_solves (V : Type w) [SetTheory V] {sp : Frontend.Olean.Roots} {fs : FS}
+    {C S : Name} (Cg : List Driver.Graph.Node) (rk : Name → Nat)
+    (good : ∀ e ∈ Cg, Driver.Graph.NodeOk sp fs (Driver.Graph.cmpExtra C S) e)
+    (hC : C ∈ Cg.map (·.1))
+    (edges : ∀ e ∈ Cg, ∀ i ∈ e.2, i.module ∈ Cg.map (·.1) ∧ rk i.module < rk e.1)
+    (inj : (Cg.map fun e => rk e.1).Nodup)
+    (hhdr : ∀ e ∈ Cg, Driver.Graph.HdrClosure sp fs [C, S] e.1)
+    (acc : ∀ M ∈ Cg.map (·.1), M ≠ C → ∃ jobs,
+      Driver.WorkerAccepted .verified Cached.maxNatSizeDefault sp fs M jobs)
+    {cr : Driver.CmpModuleRead} {cj : Nat} (hcr : Driver.CmpFacts sp fs C S cj cr) :
+    let InC := Driver.Graph.HdrClosure sp fs [C, S]
+    ∃ (w : Name → Driver.WorkerRead) (jobs : Name → Nat) (cr : Driver.CmpModuleRead) (cj : Nat),
+      Driver.CmpFacts sp fs C S cj cr ∧ w C = cr.w ∧
+      (∀ m, InC m → m ≠ C → Driver.WorkerFacts sp fs m (jobs m) (w m)) ∧
+      ∃ (mM : ∀ m, InC m → Model V (Driver.ownEnvOf sp fs m (w m)))
+        (mC : Model V (Driver.chalEnvOf cr)),
+        (∀ m (hm : InC m) n, ((streamEnv (w m).reach.ctx.toList).find? n).isSome = true →
+          ∃ hh : InC (Driver.Compose.ctxHome (w m).reach n),
+            (mM m hm).cval n = (mM _ hh).cval n) ∧
+        (∀ n cC, (Driver.chalEnvOf cr).find? n = some cC →
+          ∃ hh : InC (Driver.Compose.ctxHome cr.w.reach n), Driver.Compose.ctxHome cr.w.reach n ≠ C ∧
+            ∃ cS, (Driver.ownEnvOf sp fs (Driver.Compose.ctxHome cr.w.reach n)
+              (w (Driver.Compose.ctxHome cr.w.reach n))).find? n = some cS ∧
+            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+            ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
+              (cC.toConstantVal.levelParams.map Level.param))) ∧
+        (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+          ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
+            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
+        ∀ y ∈ Driver.cmpImported cr.w.home cr.w.emitted, ∃ cp,
+          cr.view.index.first[y]? = some cp ∧
+          Driver.Compose.ctxHome cr.w.reach y = cr.view.loads.nameAt cp.mod := by
+  intro InC
+  have plain := Driver.Compose.cmp_plain good hC edges hhdr
+  have hnames : ∀ m, InC m → m ∈ Cg.map (·.1) := fun m hm =>
+    (Driver.Compose.cmp_rank_le good hC edges hm).1
+  have hInC : ∀ m ∈ Cg.map (·.1), InC m := fun m hm => by
+    obtain ⟨e, he, rfl⟩ := List.mem_map.1 hm
+    exact hhdr e he
+  let R := Driver.Compose.Run.ofCompare C S Cg rk good edges inj plain acc cj cr hcr cr.w
+  have hw : R.w C = cr.w := Driver.Compose.Run.ofCompare_w C S Cg rk good edges inj plain acc cj
+    cr hcr cr.w
+  have hRn : R.names = Cg.map (·.1) := Driver.Compose.Run.ofCompare_names C S Cg rk good edges
+    inj plain acc cj cr hcr cr.w
+  have hRx : R.x = Driver.Graph.cmpExtra C S := Driver.Compose.Run.ofCompare_x C S Cg rk good
+    edges inj plain acc cj cr hcr cr.w
+  rw [← hRn] at hnames hInC hC
+  obtain ⟨m, mC, h1, h2, h3⟩ := Model.CompareRun.run_models V R hC hw hcr
+  have hx : ∀ h, R.x h = #[] → h ≠ C := fun h hx he => by
+    subst he
+    rw [hRx, Driver.Compose.cmpExtra_self] at hx
+    simp at hx
+  refine ⟨R.w, R.jobs, cr, cj, hcr, hw, fun M hM hne => R.facts₀ (hnames M hM)
+    (by rw [hRx]; exact Driver.Compose.cmpExtra_other hne), fun M hM => m M (hnames M hM), mC,
+    fun M hM n hn => ?_, fun n cC hfC => ?_, h3, R.cmp_home hC hw hcr⟩
+  · obtain ⟨hh, he⟩ := h1 M (hnames M hM) n hn
+    exact ⟨hInC _ hh, he⟩
+  · obtain ⟨hh, hxh, cS, hS, hl, he⟩ := h2 n cC hfC
+    exact ⟨hInC _ hh, hx _ hxh, cS, hS, hl, he⟩
+
+
 open Frontend in
 /-- **An accepted modular comparison: the challenge has a solution, module by module.**  On a
 snapshot where `--check-graph --compare --search-path=<dirs> -- <c> <s>`, `--olean --module` at
@@ -484,42 +548,66 @@ theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : Strin
         · simp [Driver.Graph.solutionImport] at hi; simp [hi]
         · simp at hi) hg
   have hC : C ∈ Cg.map (·.1) := hroots C (by simp)
-  have plain := Driver.Compose.cmp_plain good hC edges hhdr
-  have hnames : ∀ m, InC m → m ∈ Cg.map (·.1) := fun m hm =>
-    (Driver.Compose.cmp_rank_le good hC edges hm).1
-  have hInC : ∀ m ∈ Cg.map (·.1), InC m := fun m hm => by
-    obtain ⟨e, he, rfl⟩ := List.mem_map.1 hm
-    exact hhdr e he
   obtain ⟨_, _, hcm⟩ := hcmp
   obtain ⟨C', S', cj, hc', hs', cr, hcr⟩ := Driver.runArgs_cmpModule_accept hcm
   obtain rfl : C' = C := Option.some.inj (hc'.symm.trans hc)
   obtain rfl : S' = S := Option.some.inj (hs'.symm.trans hs)
-  have acc : ∀ M ∈ Cg.map (·.1), M ≠ C' → ∃ jobs,
-      Driver.WorkerAccepted .verified Cached.maxNatSizeDefault sp fs M jobs := by
-    intro M hM hne
-    obtain ⟨root', hp, _, _, hw⟩ := hwork M (hInC M hM) hne
-    obtain ⟨m', jobs', hp', hacc⟩ := Driver.runArgs_module_accept hw
-    obtain rfl : m' = M := Option.some.inj (hp'.symm.trans hp)
-    exact ⟨jobs', hacc⟩
-  let R := Driver.Compose.Run.ofCompare C' S' Cg rk good edges inj plain acc cj cr hcr cr.w
-  have hw : R.w C' = cr.w := Driver.Compose.Run.ofCompare_w C' S' Cg rk good edges inj plain acc cj
-    cr hcr cr.w
-  have hRn : R.names = Cg.map (·.1) := Driver.Compose.Run.ofCompare_names C' S' Cg rk good edges
-    inj plain acc cj cr hcr cr.w
-  have hRx : R.x = Driver.Graph.cmpExtra C' S' := Driver.Compose.Run.ofCompare_x C' S' Cg rk good
-    edges inj plain acc cj cr hcr cr.w
-  rw [← hRn] at hnames hInC hC
-  obtain ⟨m, mC, h1, h2, h3⟩ := Model.CompareRun.run_models V R hC hw hcr
-  have hx : ∀ h, R.x h = #[] → h ≠ C' := fun h hx he => by
-    subst he
-    rw [hRx, Driver.Compose.cmpExtra_self] at hx
-    simp at hx
-  refine ⟨R.w, R.jobs, cr, cj, hcr, hw, fun M hM hne => R.facts₀ (hnames M hM)
-    (by rw [hRx]; exact Driver.Compose.cmpExtra_other hne), fun M hM => m M (hnames M hM), mC,
-    fun M hM n hn => ?_, fun n cC hfC => ?_, h3, R.cmp_home hC hw hcr⟩
-  · obtain ⟨hh, he⟩ := h1 M (hnames M hM) n hn
-    exact ⟨hInC _ hh, he⟩
-  · obtain ⟨hh, hxh, cS, hS, hl, he⟩ := h2 n cC hfC
-    exact ⟨hInC _ hh, hx _ hxh, cS, hS, hl, he⟩
+  refine compare_closure_solves V Cg rk good hC edges inj hhdr (fun M hM hne => ?_) hcr
+  obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
+  obtain ⟨root', hp, _, _, hw⟩ := hwork e.1 (hhdr e he) hne
+  obtain ⟨m', jobs', hp', hacc⟩ := Driver.runArgs_module_accept hw
+  obtain rfl : m' = e.1 := Option.some.inj (hp'.symm.trans hp)
+  exact ⟨jobs', hacc⟩
+
+open Frontend in
+/-- **An accepted modular comparison in one process.**  On a snapshot where
+`--olean --modular --compare --search-path=<dirs> -- <c> <s>` exits 0 (`c` naming `C`, `s`
+naming `S`), the same as `main_compare_modular_solves` from its three kinds of commands. -/
+theorem main_compare_modular_one_solves (V : Type w) [SetTheory V] {dirs c s : String}
+    {C S : Name} {fs : FS} (hc : Olean.parseModName c = some C)
+    (hs : Olean.parseModName s = some S)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
+      "--search-path=" ++ dirs, "--", c, s]) fs 0) :
+    let sp := Driver.searchPathOf dirs
+    let InC := Driver.Graph.HdrClosure sp fs [C, S]
+    ∃ (w : Name → Driver.WorkerRead) (jobs : Name → Nat) (cr : Driver.CmpModuleRead) (cj : Nat),
+      Driver.CmpFacts sp fs C S cj cr ∧ w C = cr.w ∧
+      (∀ m, InC m → m ≠ C → Driver.WorkerFacts sp fs m (jobs m) (w m)) ∧
+      ∃ (mM : ∀ m, InC m → Model V (Driver.ownEnvOf sp fs m (w m)))
+        (mC : Model V (Driver.chalEnvOf cr)),
+        (∀ m (hm : InC m) n, ((streamEnv (w m).reach.ctx.toList).find? n).isSome = true →
+          ∃ hh : InC (Driver.Compose.ctxHome (w m).reach n),
+            (mM m hm).cval n = (mM _ hh).cval n) ∧
+        (∀ n cC, (Driver.chalEnvOf cr).find? n = some cC →
+          ∃ hh : InC (Driver.Compose.ctxHome cr.w.reach n), Driver.Compose.ctxHome cr.w.reach n ≠ C ∧
+            ∃ cS, (Driver.ownEnvOf sp fs (Driver.Compose.ctxHome cr.w.reach n)
+              (w (Driver.Compose.ctxHome cr.w.reach n))).find? n = some cS ∧
+            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+            ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
+              (cC.toConstantVal.levelParams.map Level.param))) ∧
+        (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+          ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
+            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
+        ∀ y ∈ Driver.cmpImported cr.w.home cr.w.emitted, ∃ cp,
+          cr.view.index.first[y]? = some cp ∧
+          Driver.Compose.ctxHome cr.w.reach y = cr.view.loads.nameAt cp.mod := by
+  intro sp InC
+  obtain ⟨_, _, h⟩ := h
+  obtain ⟨C', S', hc', hs', jobs, Cg, T, ⟨_, _, hg⟩, hall, cr, hcr⟩ :=
+    Driver.runArgs_modularCmp_accept h
+  obtain rfl : C' = C := Option.some.inj (hc'.symm.trans hc)
+  obtain rfl : S' = S := Option.some.inj (hs'.symm.trans hs)
+  obtain ⟨rk, good, hroots, edges, inj, -⟩ := Driver.Graph.graphOf_ok rfl hg
+  have hhdr := Driver.Graph.graphOf_closure rfl (roots' := [C', S'])
+    (fun r hr => by simp at hr; simp [hr])
+    (fun m i hi => by
+      unfold Driver.Graph.cmpExtra at hi
+      split at hi
+      · simp [Driver.Graph.solutionImport] at hi; simp [hi]
+      · simp at hi) hg
+  refine compare_closure_solves V Cg.toList rk good (hroots C' (by simp)) edges inj hhdr
+    (fun M hM hne => ?_) hcr
+  obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
+  exact ⟨1, hall e he hne⟩
 
 end ConLeche

@@ -3,7 +3,8 @@ module
 public import ConLeche.Driver.Modular
 public import ConLeche.Verify.Driver.Worker
 public import ConLeche.Verify.Driver.Tables
-import ConLeche.Verify.Driver.Graph
+public import ConLeche.Verify.Driver.Graph
+public import ConLeche.Verify.Driver.CompareModule
 
 /-!
 # The one-process mode, in the model
@@ -104,14 +105,26 @@ theorem tables_ok {sp : Roots} {R : Roots} {fs : FS} {C : List Graph.Node}
 
 /-! ## The run -/
 
+/-- A node of a graph with imports added, with its header's imports. -/
+theorem headerNode_ok {sp : Roots} {fs : FS} {extra : Name → Array ImportRec} {e : Graph.Node}
+    (h : Graph.NodeOk sp fs extra e) :
+    ModelIO.CanGive (moduleImports sp (headerNode extra e).1) fs (.ok (headerNode extra e).2) := by
+  obtain ⟨imps, hi, he⟩ := h
+  simp only [headerNode, he, Array.size_append, Nat.add_sub_cancel]
+  rw [Array.extract_append_left]
+  simpa using hi
+
 /-- **An exit 0 of the one-process mode, in the model**: the closure is the graph check's
 accepting outcome, and every module of it is an accepted worker (`WorkerAccepted`, at one job),
-whatever the `liftIO` actions answered. -/
-theorem checkModularG_accept {sp : Roots} (hsp : sp.bare = sp) {root : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
-    {jobs : Nat} {fs : FS} {hs hs' : HS}
-    (h : (checkModularG sp root mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
-    ∃ C T, ModelIO.CanGive (Graph.graphOf sp [root] jobs) fs (.ok (C, T)) ∧
-      ∀ e ∈ C.toList, WorkerAccepted mode maxNatSize sp fs e.1 1 := by
+whatever the `liftIO` actions answered; with `--compare` (`sol = some S`), the challenge `root`
+is an accepting compare worker's (`CmpFacts`) instead. -/
+theorem checkModularG_accept {sp : Roots} (hsp : sp.bare = sp) {root : Name} {sol : Option Name}
+    {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
+    (h : (checkModularG sp root sol mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+    ∃ C T, ModelIO.CanGive (Graph.graphOf sp [root] jobs (modExtra root sol)) fs (.ok (C, T)) ∧
+      (∀ e ∈ C.toList, (∀ S, sol = some S → e.1 ≠ root) →
+        WorkerAccepted mode maxNatSize sp fs e.1 1) ∧
+      ∀ S, sol = some S → ∃ c, CmpFacts sp fs root S 1 c := by
   simp only [checkModularG, clockMs, diagLine, outLine, ModelIO.bind_ok] at h
   obtain ⟨t0, _, -, x, _, hx, h⟩ := h
   rcases x with e | ⟨C, R⟩
@@ -124,8 +137,11 @@ theorem checkModularG_accept {sp : Roots} (hsp : sp.bare = sp) {root : Name} {mo
   · simp only [ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at h
     obtain ⟨_, _, -, h, -⟩ := h
     exact absurd h.symm (CheckError.exitCode_ne_zero _)
-  obtain ⟨rk, hgood, -, -, -, hR, hp⟩ := Graph.graphOf_ok hsp hx
-  have hT := tables_ok hR hp (fun e he => (hgood e he).plain) (mapExcept_both hy).1
+  obtain ⟨rk, hgood, hroot, -, -, hR, hp⟩ := Graph.graphOf_ok hsp hx
+  have hT := tables_ok hR hp (fun e he => by
+    obtain ⟨e₀, he₀, rfl⟩ := List.mem_map.1 he
+    exact headerNode_ok (hgood e₀ he₀)) (mapExcept_both hy).1
+  have hrd := modTables_within hR hp hT
   simp only [ModelIO.bind_ok] at h
   obtain ⟨_, _, -, _, _, -, ⟨ss, res⟩, _, hz, h⟩ := h
   rcases res with e | rs
@@ -136,18 +152,39 @@ theorem checkModularG_accept {sp : Roots} (hsp : sp.bare = sp) {root : Name} {mo
   cases hf : rs.find? (·.2 != 0) with
   | none =>
     have hn := hf
-    refine ⟨C, R, ⟨_, _, hx⟩, fun e he => ?_⟩
-    have hmem : e.1 ∈ C.toList.map (·.1) := List.mem_map_of_mem he
-    obtain ⟨r, hr, _, _, hw⟩ := hm _ hmem
-    obtain ⟨s, -, s', hs⟩ := hw
-    simp only [modularStep, ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq,
-      Prod.mk.injEq] at hs
-    obtain ⟨c, _, hc, ⟨-, rfl⟩, -⟩ := hs
-    have h0 : c = 0 := by
-      have := List.find?_eq_none.1 hn _ hr
-      simpa using this
-    subst h0
-    exact checkModuleG_accept (modTables_within hR hp hT) hR hp hc
+    have hstep : ∀ m ∈ C.toList.map (·.1), ∃ hs₁ hs₂, (modularStep R (ModTables.ofArray ts.toArray)
+        (sol.map (root, ·)) mode maxNatSize () m : ModelIO _) fs hs₁ (.ok ((), .ok (m, 0))) hs₂ := by
+      intro m hmem
+      obtain ⟨r, hr, _, _, hw⟩ := hm _ hmem
+      obtain ⟨s, -, s', hs⟩ := hw
+      have hs0 := hs
+      simp only [modularStep, ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq,
+        Prod.mk.injEq] at hs
+      obtain ⟨c, _, -, ⟨-, rfl⟩, -⟩ := hs
+      have h0 : c = 0 := by
+        have := List.find?_eq_none.1 hn _ hr
+        simpa using this
+      subst h0
+      exact ⟨_, _, hs0⟩
+    refine ⟨C, R, ⟨_, _, hx⟩, fun e he hne => ?_, fun S hS => ?_⟩
+    · obtain ⟨hsa, _, hs⟩ := hstep e.1 (List.mem_map_of_mem he)
+      simp only [modularStep, ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq,
+        Prod.mk.injEq] at hs
+      obtain ⟨c, hs₁, hc, ⟨-, -, rfl⟩, -⟩ := hs
+      have hc' : (checkModuleG (ModTables.ofArray ts.toArray |>.reads R) R e.1 mode maxNatSize .off 1
+          false : ModelIO _) fs hsa (.ok 0) hs₁ := by
+        cases hsol : sol with
+        | none => simpa [hsol, stepCode] using hc
+        | some S =>
+          have : (e.1 == root) = false := by simpa using hne S hsol
+          simpa [hsol, this, stepCode] using hc
+      exact checkModuleG_accept hrd hR hp hc'
+    · obtain ⟨_, _, hs⟩ := hstep root (hroot root (by simp))
+      simp only [modularStep, ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq,
+        Prod.mk.injEq] at hs
+      obtain ⟨c, _, hc, ⟨-, -, rfl⟩, -⟩ := hs
+      simp only [stepCode, hS, Option.map_some, beq_self_eq_true, ↓reduceIte] at hc
+      exact checkCmpModuleG_accept hrd hc
   | some mc =>
     obtain ⟨m, c⟩ := mc
     simp only [hf, ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at h

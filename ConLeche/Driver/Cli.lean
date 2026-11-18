@@ -158,7 +158,12 @@ def helpText : String := String.intercalate "\n" [
   "                      names, an imported one the same module's); and",
   "                      SOLUTION's closure is accepted. Prints the holes and",
   "                      what fills each. With --constant=NAME (declarations of",
-  "                      CHALLENGE itself), only what NAME mentions",
+  "                      CHALLENGE itself), only what NAME mentions. With",
+  "                      --check-graph, --module, --modular or --schedule:",
+  "                      CHALLENGE as one more module of a modular run over",
+  "                      the closures of both, compared, not checked (its",
+  "                      --module run is the compare worker; the guarantee",
+  "                      needs every command to exit 0)",
   "  --trusted-search-path=DIRS",
   "                      With --compare: CHALLENGE and all it imports are read",
   "                      from DIRS only; SOLUTION's modules from DIRS first,",
@@ -436,14 +441,17 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
               eprintln tryHelp
               return 3
             if a.module || a.modular || a.scheduled then
-              if a.modular || !a.constants.isEmpty || !a.trustedPath.isEmpty ||
-                  (a.module && a.scheduled) then
-                eprintln "con-leche: --compare with --module or --schedule takes none of \
-                  --modular, --constant and --trusted-search-path"
+              if !a.constants.isEmpty || !a.trustedPath.isEmpty ||
+                  (a.module && a.scheduled) || (a.modular && (a.module || a.scheduled)) then
+                eprintln "con-leche: --compare with --module, --modular or --schedule takes \
+                  one of them, and neither --constant nor --trusted-search-path"
                 eprintln tryHelp
                 return 3
               if a.module then
                 return ← runReq (.cmpModule a.searchPath c s a.mode a.progress jobs)
+              if a.modular then
+                return ← runReq (.modular a.searchPath c (some s) a.mode a.maxNatSize a.progress
+                  jobs)
               return ← runReq (.schedule a.searchPath c (some s) a.schedule.toList a.mode
                 a.maxNatSize a.progress jobs a.jobs.isSome)
             return ← runReq (.compare ⟨c, s, a.trustedPath, a.searchPath, a.rootConstants⟩
@@ -474,7 +482,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
               a.module with
           | [m], true, false =>
-            return ← runReq (.modular a.searchPath m a.mode a.maxNatSize a.progress jobs)
+            return ← runReq (.modular a.searchPath m none a.mode a.maxNatSize a.progress jobs)
           | _, _, _ =>
             eprintln "con-leche: --modular takes one module name, and neither --constant nor \
               --module"

@@ -1042,6 +1042,8 @@ cmp_grep "upstream proj_trick" 1 "S: the solution's inductive type differs" UpPr
 cmp_case "upstream quot_mismatch" 1 UpQuot UpQuotSol
 cmp_grep "upstream theorem_hole_issue" 0 "hole hw (theorem := sorry) filled by UpThmHoleSol's theorem" UpThmHole UpThmHoleSol
 cmp_grep "upstream check-multi as a comparison" 1 "a_thm: the solution has no constant of this name" UpMultiA UpMultiB
+# a solution importing its challenge is invalid input, as the modular run's cycle (task #608)
+cmp_grep "a solution importing its challenge" 1 "the solution's closure holds the challenge" CmpChal CmpImpS
 # --constant: declarations of the challenge module itself; the cone alone compared
 case_grep "compare: --constant at a challenge declaration" 0 "hole foo (theorem := sorry)" \
   --olean --compare --constant=foo --search-path=$MSP -- UpDefHole UpDefHoleSol
@@ -1080,11 +1082,13 @@ rm -rf "$TRU" "$TMPDIR/cmp-trusted2" "$BAD"
 # --- the challenge as one module of a modular run (task #608) ----------------
 # `--schedule --compare`: the graph with the challenge's added import of its solution, a worker
 # per module of the two closures but the challenge, and the compare worker at the challenge;
-# the same verdicts as the merged comparison (but CmpImpS: a cycle, 1, where the merged run
-# declines the challenge's sorry, 2).  The compare worker alone: its own verdict and line (0 where
-# only a worker of the solution's closure refuses).
+# the same verdicts as the merged comparison; `--modular --compare` is the same run in one
+# process.  The compare worker alone: its own verdict and line (0 where only a worker of the
+# solution's closure refuses).
 mcmp() { # <description> <run's exit> <compare worker's exit> <its line's pattern> <C> <S>
   case_ "modular compare: $1" "$2" --olean --schedule --compare --jobs=2 --search-path=$MSP -- "$5" "$6"
+  case_ "modular compare: $1 (one process)" "$2" \
+    --olean --modular --compare --jobs=2 --search-path=$MSP -- "$5" "$6"
   case_grep "modular compare: $1 (the compare worker)" "$3" "$4" \
     --olean --module --compare --search-path=$MSP -- "$5" "$6"
 }
@@ -1138,7 +1142,9 @@ case_grep "modular compare: the commands' compare worker" 0 "module --compare --
 case_ "modular compare: --check-graph with one module" 3 --check-graph --compare --search-path=$MSP -- CmpChal
 case_ "modular compare: --check-graph with the module twice" 3 --check-graph --compare --search-path=$MSP -- CmpChal CmpChal
 case_ "modular compare: --module with one module" 3 --olean --module --compare --search-path=$MSP -- CmpChal
-case_ "modular compare: --modular" 3 --olean --modular --compare --search-path=$MSP -- CmpChal CmpSol
+case_ "modular compare: --modular and --module" 3 --olean --modular --module --compare --search-path=$MSP -- CmpChal CmpSol
+case_ "modular compare: --modular and --schedule" 3 --olean --modular --schedule --compare --search-path=$MSP -- CmpChal CmpSol
+case_ "modular compare: --trusted-search-path" 3 --olean --modular --compare --trusted-search-path=$MSP --search-path=$MSP -- CmpChal CmpSol
 case_ "modular compare: --module and --schedule" 3 --olean --module --schedule --compare --search-path=$MSP -- CmpChal CmpSol
 case_ "modular compare: --constant" 3 --olean --module --compare --constant=g --search-path=$MSP -- CmpChal CmpSol
 
