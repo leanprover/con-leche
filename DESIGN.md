@@ -122965,8 +122965,9 @@ against M context records`, then the holes, each with its home and the kind the 
 
 ### State after the first session (#608 cont.)
 
-**Done and committed on `agent/608-modular-compare`** (each commit builds, `lake build` green;
-`lake test` and the gates other than the olean gate not yet run on the lane):
+**Done and committed on `agent/608-modular-compare`** (each commit builds; at 51ec645f2
+`lake build` and `lake test` green and warning-free, the olean gate 470/470; the other gates not
+yet run on the lane):
 * Code, CLI, fixtures (olean gate 470/470, `mcmp` block in `tests/olean.sh`, CmpImpS).  The home
   rule (`importedAt`) is STRICT: the context's copy of an imported name the challenge's records
   read is of the module the challenge's own view loads it first from; no theorem-twin allowance
