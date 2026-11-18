@@ -122550,11 +122550,9 @@ threshold), the FLT clone `flt/` (1.6 GB, sources only), `init.log`, `lean-sched
 
 ## TASK #607 — `--compare` and `--trusted-search-path` in the merged `--olean` mode (2026-11-18, agent/607-compare; lands on `compare`, not `modular`)
 
-**Status: #607 cont. (second session, 2026-11-18) — code and fixtures on the lane (olean gate
-385/385, `lake build`/`lake test` warning-free); the generalised renaming and the model-tier
-core of T2 are proved (no sorry); the driver half of T2, T1, the axiom pins, the docs, the gates
-and the landing are not done, so the lane does not land.**  The exact state and what remains are
-in "State after the second session" at the end of this record.
+**Status: done (third session, 2026-11-18) — T1, T2 and their corollary proved, no sorry, no new
+axiom; docs and gates done; landed on `compare`.**  The third session's record is "State after the
+third session" at the end of this record.
 
 **CLI** (`ConLeche/Driver/Cli.lean`, `Driver/Compare.lean`):
 `con-leche --olean --compare [--trusted-search-path=DIRS] [--search-path=DIRS] [--constant=NAME]
@@ -122785,3 +122783,71 @@ gates; landing on `compare`.
    `comparator.json` note, fixtures for the two new declines, all gates
    (`tests/arena.sh` under the guard; plain-reach on `ConstantVal.atLps`; trust-surface,
    binary-link, shake, overview-links, quote-gate), then the landing on `compare`.
+
+### State after the third session (#607 cont.)
+
+**The read's theorems over a lookup with a fallback.**  The wrapper `readOleans` is gone: every
+caller runs `readOleansAt`, and `readOleansAt_ok`/`_good`/`_thm`/`_filled` (was `readOleans_*`)
+state the read through any lookup with no root resolved (`R.bare = R`), with `lenient` and
+`homes` (`rd.homes` is `homesOf` of the loaded modules, or empty).  `ClosedOrder`, `ViewOf`,
+`InClosure`, `WalkGood` are over `Roots`; `closureOrder_ok` takes `sp.bare = sp`.  In the model
+the read's outcomes do not depend on the job count or the pace (the `liftIO`s answer anything,
+`parMapExcept` is `mapExcept`): the statements at `1`/`.off` take the run's outcome by
+definitional unfolding, so no lemma was needed.
+
+**T2's driver half** (`Verify/Driver/CompareRun.lean`): `compareG_accept` (an exit 0 of
+`compareG` gives the prelude, both reads, `foreignConstant = none`, the comparison's accept,
+`ctxScoped`, the solution's `checkDecls` over its filled records, `cmpRecs`); `compareG` was
+restructured for it (`foreignConstant`, `hoistedNote`, `recIndex`: one continuation each, no
+duplicated tails).  `Verify/Driver/Main.lean`: `runArgs_compares_accept` (any arguments asking
+for `--olean --compare`), `parseArgs_compare`, `runArgs_compare_accept` at
+`--olean --compare --trusted-search-path=T --search-path=D -- c s`.
+
+**T2** (`MainTheorem.main_compare_solves`): an exit 0 at those arguments gives the prelude, the
+challenge's read through `chalRoots`, the solution's through `solRoots`, models `mC` of
+`Driver.challengeEnv` (the challenge's prepared records, holes as `stmtOf`, at its own
+level-parameter names) and `mS` of `Driver.solutionEnv` with (1) every constant of the challenge's
+environment the solution's of that name, as many level parameters, `mC.cval n φ = mS.cval n
+(substFn φ cS.lps (cC.lps.map param))`; (2) every hole of `C` (own, `isHole`) has the solution's
+constant `cS` whose `mS` value at the challenge's names is a member of what the hole's type
+denotes in `mC` (`Model.Compare.compare_solved`); (3) every record `C` imports, but a theorem,
+has the same home in `rdS.homes` (the home rule: CmpHomeS1 falsifies (3)).  A hole at `sorryAx`
+now declines as one at `Quot.sound` does (neither installs an axiom of its own:
+`declConstants` drops `sorryAx` and gives `Quot.sound` its pin copy); `cmpRecord_hole_name`.
+Open point (b) of the plan (a hole filled by an inductive type's constant) stays a decline.
+
+**T1** (`Verify/Frontend/Olean/Local.lean`): `Under`, `FS.AgreeUnder` as planned;
+`ModelIO.LocalTo P Q x` = the same function of the handles on `P`-related snapshots, and every
+value satisfies `Q` (the post-condition carries `RootsIn dirs`: path, fallback and every resolved
+`.dir` among the directories).  Closed under `bind`, `map`, `tryCatch`, `mapM`, `mapExcept`,
+`foldReads`; leaves `pathExists`/`isDir`/`realPath`/`readBinFile`/`fileSize`/`openRead` on
+`Under` paths, `read`, `liftIO`, `pure`.  Every reader function is local
+(`rootHits` … `readOleansAt_local`); `challengeView dirs C cs fs` and
+`challenge_local : FS.AgreeUnder dirs fs₁ fs₂ → challengeView dirs C cs fs₁ = challengeView dirs
+C cs fs₂`.  The corollary `MainTheorem.main_compare_trusted`: an exit 0 on `fs` says of every
+`fs'` agreeing under `chalRoots.path` that the challenge's view on `fs'` has an outcome whose
+environment has a model with every hole inhabited.  Axioms of all three pinned
+(`propext`, `Classical.choice`, `Quot.sound`).
+
+**Not done, by choice:** `Challenge.lean` does not get the compare statements (they need the
+driver's vocabulary, which the challenge library does not import; the driver-level capstones
+`main_oleans_no_False` etc. are not in it either).  The whitepaper is unchanged (no natural
+place).
+
+**Plain reach:** the comparison's level renaming runs over `ConstantVal.atLpsC`/
+`ConstantInfo.atLpsC` (`Cached/CheckerC.lean`, the cached `Expr.instLevelParams`), `@[csimp]` in
+`Verify/Cached/DeclNames.lean`, which `Driver/Compare.lean` now imports (so `declConstants`/
+`declNames` there run their twins too); `sameRecord` compares a quotient kind by `slot`;
+`Modular.stmtOf` allowlisted (one match).
+
+**Fixtures** (olean gate 388/388): QsA/QsB (a hole at `Quot.sound`, 2), CmpSorryC/CmpSorryS
+(a hole at `sorryAx`, 2), CmpTrustC/CmpTrustS (`Lean.reduceBool` filled by a definition, 2).
+
+**Gates (third session, final tree):** `lake build` and `lake test` warning-free; olean gate
+388/388; `tests/arena.sh` in full under the guard: every gate OK but the whitepaper's line links,
+which the three lines `MainTheorem.lean` gained shifted (anchors repointed, `links-gate.sh
+--update`, then OK); arena tutorial 90/92 (as on master), e2e 617/617, trusted and `--jobs`
+sweeps without divergence, self-check accepted, axioms pinned (75 theorems); plain-reach (639
+reached, all allowlisted), trust-surface, binary-link, layering, shake (`pub-import-plan.py`
+gets a measured fallback for `Local.lean`'s `Records` import), overview-links, quote-gate OK.
+
