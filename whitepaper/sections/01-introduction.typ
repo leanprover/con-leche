@@ -111,7 +111,7 @@ from the main proof and is parametric in the same kind of abstract set
 theory. The underlined source links lead into the real proof and into
 that development.
 
-The rest is in eight parts. §2 presents the fragment without an
+The rest is in nine parts. §2 presents the fragment without an
 environment: terms and universe levels, the three relations, the
 abstract set theory, the interpretation, the semantic invariant, and
 the three claims with their proof. The routine cases of the proof are
@@ -136,9 +136,11 @@ proof case each. §7 checks a development module by module, each
 module against an environment built from what its imports present,
 and shows that every module's environment has a model, each module's
 model giving every name it reads the value it has in the model of the
-module it is read from. A module may
-also be validated by comparison with another, as a challenge is with
-its solution. §8 lists what
+module it is read from. §8 compares a challenge, a module with open
+statements, with a solution: an accepted comparison gives a model in
+which every statement holds, with the solution's value as its witness,
+and every imported name has the value it has where it is declared. §9
+lists what
 was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related
 relates the argument to earlier work.
