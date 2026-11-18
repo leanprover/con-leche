@@ -4,6 +4,10 @@ public import ConLeche.Model.Copies
 public import ConLeche.Driver.Compare
 public import ConLeche.Verify.Cached.Fill
 public import ConLeche.Model.Modular.Valid
+public import ConLeche.Model.Modular.Main
+import ConLeche.Verify.Driver.ComposeReads
+import ConLeche.Verify.Driver.Reach
+import ConLeche.Model.Modular.Proofs
 
 public section
 
@@ -539,5 +543,82 @@ theorem chal_copies {C : Name} {uses : Declaration → Array Name}
     rw [hei]
     simp only [List.getElem_map, Array.getElem_toList, chalRecord]
     exact (cmpRecord_spec hr).1
+
+/-! ## The two-module development -/
+
+/-- **A compared run as a development of two modules**: module 0 the solution, its own records
+`ds` (the solution's records, its theorems' values in place), presenting `ctx`; module 1 the
+challenge, checked against `ctx`, read from module 0, with no records of its own. -/
+@[expose] def cmpDev (ds ctx : List Declaration) : Nat → Modular.Module
+  | 0 => { imports := [], ctx := [], decls := ds, src := fun _ => 0, iface := ctx }
+  | _ => { imports := [0], ctx := ctx, decls := [], src := fun _ => 0, iface := [] }
+
+theorem empty_find? (n : Name) : (Env.empty.find? n) = none := rfl
+
+theorem names_isSome {L : List Declaration} {y : Name} (hy : y ∈ L.flatMap Modular.declNames) :
+    ((streamEnv L).find? y).isSome = true := by
+  obtain ⟨d, hd, hn⟩ := List.mem_flatMap.mp hy
+  obtain ⟨ci, hci, rfl⟩ := List.mem_map.mp hn
+  have hm : ci ∈ (streamEnv L).consts := (mem_streamEnv_consts L Env.empty).2 (.inl ⟨d, hd, hci⟩)
+  simpa [ConstantInfo.name] using Model.Modular.find?_isSome_of_mem' hm
+
+/-- **Both modules pass the local checks.** -/
+theorem cmpDev_localOk {pins : List NatOpPinSet} {maxNatSize : Nat} {F : Expr → Expr}
+    {C : Name} {uses : Declaration → Array Name}
+    {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+    {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+    {env : Env}
+    (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled))
+    (hsc : ctxScoped ctx = none)
+    (hchk : Cached.checkDecls .verified pins maxNatSize (recsS.map (Cached.fillDecl F)) = .ok env) :
+    ∀ j ≤ 1, Modular.LocalOk .verified pins maxNatSize
+      (cmpDev (recsS.map (Cached.fillDecl F)).toList ctx.toList) j := by
+  obtain ⟨hsz, hk⟩ := compareRecords_spec hcmp
+  obtain ⟨hnd, hrd⟩ := ctxScoped_spec hsc
+  have hcp := chal_copies hcmp hsc
+  -- every context record presents a solution record
+  have hpres : ∀ e ∈ ctx.toList, ∃ p ∈ (recsS.map (Cached.fillDecl F)).toList,
+      Modular.Presents e p := by
+    intro e he
+    obtain ⟨k, hk', rfl⟩ := List.mem_iff_getElem.mp he
+    have hkc : k < recsC.size := by simp at hk'; omega
+    obtain ⟨e', he', dS, hdS, f, hr⟩ := hk k hkc
+    have : ctx.toList[k] = e' := by
+      simp only [Array.getElem_toList]
+      exact Option.some.inj ((Array.getElem?_eq_getElem (by simpa using hk')).symm.trans he')
+    rw [this]
+    exact ⟨Cached.fillDecl F dS, by simpa using Array.mem_map_of_mem hdS, (cmpRecord_spec hr).2.1 F⟩
+  intro j hj
+  rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hj with rfl | rfl
+  · refine ⟨⟨hpres⟩, ⟨fun b hb => by simp [cmpDev] at hb, fun n hn => ?_, ?_,
+      fun d hd => by simp [cmpDev] at hd, fun d hd => by simp [cmpDev] at hd,
+      fun d hd => by simp [cmpDev] at hd, fun k hk => by simp [cmpDev] at hk, ?_⟩⟩
+    · simp [cmpDev, Modular.Module.context, streamEnv, empty_find?] at hn
+    · simp [cmpDev, Modular.Module.context, streamEnv, Env.empty]
+    · obtain ⟨n, fe, hrun, -⟩ := Cached.checkDecls_run (mode := .verified) hchk
+      exact ⟨_, hrun⟩
+  · have hctx : (cmpDev (recsS.map (Cached.fillDecl F)).toList ctx.toList 1).context
+        = streamEnv ctx.toList := rfl
+    refine ⟨⟨fun e he => by simp [cmpDev] at he⟩, ⟨fun b hb => ?_,
+      fun n _ => Nat.zero_lt_one, ?_, fun d hd n _ => hd, fun _ _ _ _ _ _ => rfl,
+      fun d hd n _ => ?_, fun k hk => ?_, ⟨_, .nil _⟩⟩⟩
+    · simp only [cmpDev, List.mem_singleton] at hb; omega
+    · rw [hctx]; exact hcp.nodup
+    · -- what a context record reads, stored in the solution and read alike
+      obtain ⟨k, hk', rfl⟩ := List.mem_iff_getElem.mp hd
+      apply recordReads_scoped
+      intro y hy
+      have hk'' : k < ctx.size := by simpa [cmpDev] using hk'
+      have hyt := hrd k hk'' y (by simpa [cmpDev] using hy)
+      obtain ⟨e, he, hye⟩ := List.mem_flatMap.mp hyt
+      have he' : e ∈ ctx.toList := List.mem_of_mem_take he
+      have hyn : y ∈ ctx.toList.flatMap Modular.declNames := List.mem_flatMap.mpr ⟨e, he', hye⟩
+      obtain ⟨p, hp, hpr⟩ := hpres e he'
+      exact Compose.Run.readsAlike_isSome (by rw [hctx]; exact names_isSome hyn) (.same rfl)
+        (Compose.Run.own_of_decl hp (Compose.presents_names hpr hye))
+    · apply recordReads_scoped
+      intro y hy
+      have hk'' : k < ctx.size := by simpa [cmpDev] using hk
+      exact names_isSome (by simpa [cmpDev] using hrd k hk'' y (by simpa [cmpDev] using hy))
 
 end ConLeche.Model.Compare
