@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Driver.CompareModule
+import ConLeche.Verify.Driver.Groups
+import ConLeche.Verify.Driver.Reach
 
 /-!
 # The run of a compared closure (task #608)
@@ -129,5 +131,53 @@ theorem Run.ofCompare_w (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
   classical
   show (if hM : Cn ∈ C.map (·.1) ∧ Cn ≠ Cn then _ else if Cn = Cn then cr.w else dflt) = cr.w
   simp
+
+/-! ## Homes and the compared module's environment -/
+
+/-- **The home of a context name** in a reach: the home of the first record storing it (what
+`Run.homeIn` reads off a worker's reach). -/
+@[expose] def ctxHome (r : Reach) (n : Name) : Name :=
+  ((r.ctx.toList.findIdx? fun d => (declNames d).contains n).bind fun k => r.homes[k]?).getD
+    .anonymous
+
+namespace Run
+
+variable (R : Run sp fs maxNatSize)
+
+theorem homeIn_eq (M n : Name) : R.homeIn M n = ctxHome (R.w M).reach n := rfl
+
+/-- **A context name's home is a module of the run**, of smaller rank, with no import added. -/
+theorem ctx_home {M : Name} (hM : M ∈ R.names) {n : Name}
+    (hn : ((streamEnv (R.w M).reach.ctx.toList).find? n).isSome = true) :
+    R.homeIn M n ∈ R.names ∧ R.rk (R.homeIn M n) < R.rk M ∧ R.x (R.homeIn M n) = #[] := by
+  obtain ⟨d, hdm, hnd⟩ := streamEnv_find_mem hn
+  obtain ⟨i, h, hi, hh⟩ := worker_home (R.facts M hM) hdm
+  rw [R.homeIn_spec hM hi hh hnd]
+  exact R.home_rank hM hh
+
+/-- **The home of a name, by the owner map** (the compare worker's lookup). -/
+theorem homeIn_owner {M : Name} (hM : M ∈ R.names) {y : Name} {k : Nat}
+    (hk : (ownerMap (R.w M).reach.ctx)[y]? = some k) :
+    R.homeIn M y = (R.w M).reach.homes.getD k .anonymous := by
+  obtain ⟨hlt, hy⟩ := ownerMap_spec hk
+  obtain ⟨-, -, -, hsz, -⟩ := R.capture hM
+  have hlt' : k < (R.w M).reach.homes.size := by rw [← hsz]; exact hlt
+  have hd : (R.w M).reach.ctx[k]? = some ((R.w M).reach.ctx.getD k default) := by
+    simp [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hlt]
+  have hh : (R.w M).reach.homes[k]? = some ((R.w M).reach.homes.getD k .anonymous) := by
+    simp [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hlt']
+  exact R.homeIn_spec hM hd hh hy
+
+/-- **A module's own environment is its worker's** (`ownEnvOf`). -/
+theorem dev_own {M : Name} (hM : M ∈ R.names) :
+    (R.dev (R.rk M)).own = ownEnvOf sp fs M (R.w M) := by
+  rw [R.dev_rk hM]; rfl
+
+/-- **A module with no own record**: its own environment is its context. -/
+theorem ownEnv_noOwn {M : Name} (h : (R.w M).own = #[]) :
+    ownEnvOf sp fs M (R.w M) = streamEnv (R.w M).reach.ctx.toList := by
+  simp [ownEnvOf, ownDeclsOf, h, streamEnv]
+
+end Run
 
 end ConLeche.Driver.Compose

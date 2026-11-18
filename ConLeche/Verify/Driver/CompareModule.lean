@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Driver.Reach
+import ConLeche.Verify.Frontend.Olean.Emit
+import ConLeche.Verify.Frontend.Olean.Group
 
 /-!
 # The compare worker, in the model (task #608)
@@ -16,13 +18,18 @@ establishes on a snapshot, for a challenge `C` and its solution `S` (`CmpFacts`)
 * the homes (`imported`): every name `C`'s records read that `C` imports is, in the context, of
   the module `C`'s own view loads it from first;
 * the comparison (`cmp`, `CmpAt`): every record of `C` meets the context's record of its key.
+
+**The challenge's environment** (`chalEnvOf`): the compare worker's context with every record of
+one of `C`'s names at `C`'s level-parameter names (`chalRec`, `cmpLps`), every other record as it
+is.  A record of the emission declares its key's stored constant (`ownRecords_cv`), so the
+level-parameter names of `C`'s records are a function of their keys.
 -/
 
 public section
 
 namespace ConLeche.Driver
 
-open ConLeche ConLeche.Modular ConLeche.Frontend.Olean ConLeche.Cached
+open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLeche.Cached
 
 /-- **A challenge record meets the context's record of its key** (`cmpCtxRecord`, whatever kind
 the home's private part names). -/
@@ -173,3 +180,163 @@ theorem checkCmpModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {C S 
     exact absurd h0 (CheckError.exitCode_ne_zero _)
   · intro v _ _ _
     exact ⟨c, cmpModuleRead_ok hrd hx⟩
+
+/-! ## The challenge's environment -/
+
+/-- **The level-parameter names of the challenge's statement of `n`** (the first record declaring
+it; they all declare one: `ownRecords_cv_unique`). -/
+@[expose] def cmpLps (ds : Array Declaration) (n : Name) : Option (List Name) :=
+  (ds.toList.findSome? fun d => (recCv? d).filter (·.name == n)).map (·.levelParams)
+
+/-- **The names to rename a record's level parameters to**: the challenge's, where they are other
+names than the record's, as many, neither list with a repeat. -/
+@[expose] def renamingTo (ps? : Option (List Name)) (lps : List Name) : Option (List Name) :=
+  ps?.bind fun ps => if ps != lps && levelsRenaming ps lps then some ps else none
+
+/-- **A context record at the challenge's level-parameter names** (`lpsOf`: the challenge's names
+for a key): a definition, theorem, opaque constant or axiom renamed (`ConstantInfo.atLps`, its
+value too), but the quotient's axiom; every other record as it is. -/
+@[expose] def chalRec (lpsOf : Name → Option (List Name)) : Declaration → Declaration
+  | d@(.axiomDecl cv) =>
+    if cv.name = quotSoundName then d else
+    match renamingTo (lpsOf cv.name) cv.levelParams with
+    | some ps => .axiomDecl (cv.atLps ps)
+    | none => d
+  | d@(.defnDecl cv v h) =>
+    match renamingTo (lpsOf cv.name) cv.levelParams with
+    | some ps => .defnDecl (cv.atLps ps) (v.instantiateLevelParams cv.levelParams (ps.map .param)) h
+    | none => d
+  | d@(.thmDecl cv v) =>
+    match renamingTo (lpsOf cv.name) cv.levelParams with
+    | some ps => .thmDecl (cv.atLps ps) (v.instantiateLevelParams cv.levelParams (ps.map .param))
+    | none => d
+  | d@(.opaqueDecl cv v) =>
+    match renamingTo (lpsOf cv.name) cv.levelParams with
+    | some ps => .opaqueDecl (cv.atLps ps) (v.instantiateLevelParams cv.levelParams (ps.map .param))
+    | none => d
+  | d => d
+
+/-- **The challenge's environment** (see the module docstring): the compare worker's context, every
+record of one of the challenge's names at the challenge's level-parameter names. -/
+@[expose] def chalEnvOf (c : CmpModuleRead) : Env :=
+  streamEnv (c.w.reach.ctx.toList.map (chalRec (cmpLps c.w.emitted)))
+
+/-- An inductive record declares no single statement. -/
+theorem declOfF_ind_recCv {nm : Nat → M Name} {lv : Nat → M Level}
+    {ex : Nat → M Expr} {tys : List IndTypeRec} {cts : List IndCtorRec}
+    {rcs : List IndRecRec} {d : Declaration}
+    (h : declOfF nm lv ex (.ind tys cts rcs) = .ok (.inl d)) : recCv? d = none := by
+  simp only [declOfF, bind, Except.bind, pure, Except.pure] at h
+  cases hv : validateIndF nm lv ex tys cts rcs with
+  | error e => simp only [hv] at h; cases h
+  | ok x =>
+    simp only [hv] at h
+    rcases x with x | ⟨c, n⟩
+    · simp at h
+    · simp only at h
+      cases hb : indBlockOfF nm lv ex tys c rcs n with
+      | error e => simp only [hb] at h; cases h
+      | ok d' =>
+        simp only [hb, Except.ok.injEq, Sum.inl.injEq] at h
+        subst h
+        obtain ⟨b, rfl⟩ := indBlockOfF_ind hb
+        rfl
+
+/-- **A record of the emission declares its key's stored constant**: its statement is that of
+the constant the own constants' merge holds under its name. -/
+theorem ownRecords_cv {l : Loaded} {ds : Array Declaration} (h : ownRecords l = .ok ds)
+    {d : Declaration} (hd : d ∈ ds) {cv : ConstantVal} (hcv : recCv? d = some cv) :
+    ∃ e : CEntry, (mergedOfList (l.constants.toList.filter (!·.skipped))).map[e.name]? = some e ∧
+      cv = ⟨e.name, e.levelParams, e.type⟩ := by
+  cases hb : blocksOk (mergedOfList (l.constants.toList.filter (!·.skipped))) with
+  | error e => simp [ownRecords, hb] at h
+  | ok u =>
+  simp only [ownRecords, hb] at h
+  have hN := mergedOfList_names (l.constants.toList.filter (!·.skipped))
+  obtain ⟨r, hr, hdr⟩ := (declsOf_spec h).2 d hd
+  have hR := (emitAll_spec hN _).1 r hr
+  cases r with
+  | ind ts cs rs => rw [declOfF_ind_recCv hdr] at hcv; cases hcv
+  | ax cvr u =>
+    obtain ⟨c, hst, hc1, -⟩ := hR
+    simp only [declOfF, cvOfF_of hc1, bind, Except.bind, pure, Except.pure] at hdr
+    split at hdr <;> simp only [Except.ok.injEq, Sum.inl.injEq, reduceCtorEq] at hdr
+    subst hdr
+    simp only [recCv?, Option.some.injEq] at hcv
+    exact ⟨c, hst, hcv.symm⟩
+  | defn cvr i hh s =>
+    obtain ⟨c, hst, hc1, -⟩ := hR
+    simp only [declOfF, cvOfF_of hc1, bind, Except.bind, pure, Except.pure] at hdr
+    split at hdr
+    · revert hdr
+      cases (emitAll _ _).ex i <;> simp only [reduceCtorEq, Except.ok.injEq, Sum.inl.injEq,
+        false_implies]
+      rintro rfl
+      simp only [recCv?, Option.some.injEq] at hcv
+      exact ⟨c, hst, hcv.symm⟩
+    · simp at hdr
+  | thm cvr i =>
+    obtain ⟨c, hst, hc1, -⟩ := hR
+    simp only [declOfF, cvOfF_of hc1, bind, Except.bind, pure, Except.pure] at hdr
+    revert hdr
+    cases (emitAll _ _).ex i <;> simp only [reduceCtorEq, Except.ok.injEq, Sum.inl.injEq,
+      false_implies]
+    rintro rfl
+    simp only [recCv?, Option.some.injEq] at hcv
+    exact ⟨c, hst, hcv.symm⟩
+  | opaq cvr i u =>
+    obtain ⟨c, hst, hc1, -⟩ := hR
+    simp only [declOfF, cvOfF_of hc1, bind, Except.bind, pure, Except.pure] at hdr
+    split at hdr
+    · simp at hdr
+    · revert hdr
+      cases (emitAll _ _).ex i <;> simp only [reduceCtorEq, Except.ok.injEq, Sum.inl.injEq,
+        false_implies]
+      rintro rfl
+      simp only [recCv?, Option.some.injEq] at hcv
+      exact ⟨c, hst, hcv.symm⟩
+  | quot cvr k =>
+    obtain ⟨c, hst, hc1, -⟩ := hR
+    simp only [declOfF, cvOfF_of hc1, bind, Except.bind, pure, Except.pure] at hdr
+    split at hdr <;> simp only [reduceCtorEq, Except.ok.injEq, Sum.inl.injEq] at hdr
+    all_goals (subst hdr; simp only [recCv?, Option.some.injEq] at hcv; exact ⟨c, hst, hcv.symm⟩)
+
+/-- **Two records of the emission declaring one name declare one statement.** -/
+theorem ownRecords_cv_unique {l : Loaded} {ds : Array Declaration} (h : ownRecords l = .ok ds)
+    {d₁ d₂ : Declaration} (h₁ : d₁ ∈ ds) (h₂ : d₂ ∈ ds) {cv₁ cv₂ : ConstantVal}
+    (hc₁ : recCv? d₁ = some cv₁) (hc₂ : recCv? d₂ = some cv₂) (hn : cv₁.name = cv₂.name) :
+    cv₁ = cv₂ := by
+  obtain ⟨e₁, he₁, rfl⟩ := ownRecords_cv h h₁ hc₁
+  obtain ⟨e₂, he₂, rfl⟩ := ownRecords_cv h h₂ hc₂
+  simp only at hn
+  rw [hn, he₂] at he₁
+  cases Option.some.inj he₁
+  rfl
+
+theorem findSome?_filter_spec {ds : List Declaration} {n : Name} {cv : ConstantVal}
+    (h : (ds.findSome? fun d => (recCv? d).filter (·.name == n)) = some cv) :
+    ∃ d ∈ ds, recCv? d = some cv ∧ cv.name = n := by
+  obtain ⟨d, hd, hf⟩ := List.exists_of_findSome?_eq_some h
+  refine ⟨d, hd, ?_⟩
+  cases hc : recCv? d with
+  | none => simp [hc] at hf
+  | some cv' =>
+    simp only [hc, Option.filter_some, beq_iff_eq] at hf
+    split at hf
+    · cases hf; exact ⟨rfl, by assumption⟩
+    · cases hf
+
+/-- **The challenge's names for one of its statements are that statement's.** -/
+theorem cmpLps_of_mem {l : Loaded} {ds : Array Declaration} (h : ownRecords l = .ok ds)
+    {d : Declaration} (hd : d ∈ ds) {cv : ConstantVal} (hcv : recCv? d = some cv) :
+    cmpLps ds cv.name = some cv.levelParams := by
+  unfold cmpLps
+  cases hf : ds.toList.findSome? (fun d => (recCv? d).filter (·.name == cv.name)) with
+  | none =>
+    exfalso
+    have := List.findSome?_eq_none_iff.1 hf d (Array.mem_toList_iff.2 hd)
+    simp [hcv] at this
+  | some cv' =>
+    obtain ⟨d', hd', hc', hn⟩ := findSome?_filter_spec hf
+    simp only [Option.map_some]
+    rw [ownRecords_cv_unique h (Array.mem_toList_iff.1 hd') hd hc' hcv hn]
