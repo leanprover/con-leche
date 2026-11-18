@@ -122547,3 +122547,160 @@ scale; the run says nothing about big modules.
 Files (in `_tmp/605/`): `bin/con-leche` (modular 010604125), `guard.sh` (47 GiB session
 threshold), the FLT clone `flt/` (1.6 GB, sources only), `init.log`, `lean-sched.out`,
 `lean-sched.log`, `lean-fail-msgs.txt`, `probe/dump.lean`.
+
+## TASK #607 — `--compare` and `--trusted-search-path` in the merged `--olean` mode (2026-11-18, agent/607-compare; lands on `compare`, not `modular`)
+
+**Status: #607 cont. — the code and the fixtures are on the lane; the theorems T1 and T2 are
+not written, so the lane does not land.**  The plan for them is at the end of this record.
+
+**CLI** (`ConLeche/Driver/Cli.lean`, `Driver/Compare.lean`):
+`con-leche --olean --compare [--trusted-search-path=DIRS] [--search-path=DIRS] [--constant=NAME]
+[--] CHALLENGE SOLUTION`.  Two different module names (else exit 3); not with `--module`,
+`--modular`, `--schedule`, `--check-graph`; `--trusted-search-path` only with `--compare`;
+`--olean` needs one of the two paths.
+
+**Rulings applied** (maintainer, 2026-11-18, three refinements during the lane):
+* A hole is a declaration of the challenge module `C` ITSELF: an axiom, or a definition, theorem
+  or opaque constant whose value uses `sorryAx` (a theorem's uses read off its file, the load's
+  `uses`).  An axiom in one of `C`'s imports is no hole.  A hole is filled by the solution's
+  constant of the same name and the same type up to a positional renaming of level parameters
+  (`sameCvUpToLevels`: as many names, neither list with a repeat, `ConstantVal.atLps`), of any
+  kind — definition, theorem, opaque constant, axiom (the solution's check declines every
+  non-standard axiom, so only the standard ones and the trust family remain; there is no
+  separate rule).  A hole filled by an inductive type's, constructor's, recursor's or
+  quotient constant is exit 1 for now (`cmpRecord`'s last arm): the modular theory's
+  presentations (`Modular.Presents`, `Model.Modular.Refines`) present a record as its
+  statement only for a definition, theorem or opaque record; extending them is part of T2.
+* Every other record of `C` is the solution's up to the same renaming (`sameRecordUpToLevels`:
+  a definition, theorem by statement, opaque constant with its value; an inductive block and a
+  quotient record exactly).
+* A name `C` imports is identified by its home, never by its content: the solution's constant
+  of that name has the same home module (`Olean.homesOf`: the first module of the order storing
+  it), or, for a theorem, Lean's proof key, the statement; and is the same record
+  (`sameRecord`: with the trusted path resolving first on both sides, the same file).  A
+  solution that declares an imported name itself is rejected, body and all (CmpHomeS1,
+  CmpHomeS2).  leanprover/comparator is more liberal here (below).
+* One comparison everywhere: `ConLeche.Expr` has no binder names, binder infos or `mdata`
+  (the reader drops them), so `ConstantInfo.beqP` (pointer-first, memoised `Expr.beq`) after
+  the level renaming is the relation; no derived equality.
+* `--trusted-search-path=DIRS` (repeatable, colon-separated): the challenge and all it imports
+  resolve through it alone (`CmpReq.chalRoots`); the solution through it first, then
+  `--search-path` (`Roots.fallback`, `lookAt`: a root the trusted path holds shadows the other
+  copy; #511's one-location rule on each path separately).  Without it both resolve through
+  `--search-path`.  A challenge module only the search path holds is exit 1 with where it is
+  (`fallbackOnly`, run only after the challenge's read failed: the read itself never looks at
+  the search path).
+* `--constant=NAME`: each a declaration of `C` itself (its home `C`; else exit 1 naming its
+  home).  The challenge is read from those names (`rootConstants`, the reach); the solution
+  from every name the challenge's records have (`lenient`: names the solution lacks are the
+  comparison's "no constant of this name").
+
+**Design points settled:**
+* Two environments, no merge: the challenge's records are COMPARED, not checked; the
+  solution's closure is checked as a plain `--olean` run checks it.  A module both closures hold
+  is checked once, in the solution.  (The brief expected the challenge closure checked with its
+  holes as axioms; that is not needed and is not done: every challenge record stands for a
+  solution record or the statement of one, `ctx` in `compareRecords`, so the challenge's
+  environment is a presentation of the accepted solution's and its model is read off the
+  solution's model — the modular theorem's construction, T2 below.)
+* What each challenge record stands for reads only what the records before it, or itself,
+  install, each name once (`ctxScoped`, over `recordReads`): `ImportOk.ordered`/`nodup` for
+  the challenge as a module of a two-module development.
+* Order of work: the comparison (cheap) before the solution's check (expensive).
+* Output: `con-leche: accepted: S solves C: N challenge declarations compared, K holes filled,
+  M solution declarations checked (--verified)`, then `con-leche: hole NAME (KIND) filled by
+  HOME's KIND`.
+
+**leanprover/comparator, for contrast** (`Comparator/Compare.lean`, read-only): the theorem
+targets must be `thmInfo` on both sides (or `axiomInfo` on both), definition holes `defnInfo`
+on both with equal `ConstantVal` and safety; every other constant the targets' statements
+reach is compared by Lean's derived `BEq` on `ConstantInfo` — exact level-parameter names,
+binder names, binder infos and `mdata` included; a constant is looked up by name in the two
+exports, with no notion of home, so a solution redeclaring an imported definition with the
+same body passes.  Con-leche is more liberal on kinds, level-parameter names, binder names and
+infos and `mdata` (the soundness argument covers them: the model reads none of them), and
+stricter on imported names (by home).
+
+**Fixtures** (`tests/olean.sh`, 384/384; sources `tests/olean/src/Cmp*.lean`, compiled into
+`tests/olean/lib` with the toolchain's `lean`, `tests/olean/build.sh` lists them): ported from
+cfsg — CmpChal with CmpSol (0), CmpSolDef (1), CmpSolStmt (1), CmpSolMissing (1), CmpSolSorry
+(2, the solution's check), CmpOpq with CmpOpqSol (0), CmpOpqSolK (1); the comparator pairs
+(UpComm…UpThmHole, as comparisons; primitive-issue is now 1: UpGcdSol imports less of Init, a
+constant it lacks); new — CmpAxC/CmpAxS (an axiom hole, 0), CmpAxC/CmpAxBadS (the solution's
+axiom at the hole's name: the solution's decline, 2), CmpLvC/CmpLvS (level parameters
+renamed, a hole and a definition, 0), CmpBndC/CmpBndS (binder names, 0), kinds
+(UpKindDef/UpKindDefOpqSol, UpKindThm/UpKindThmDefSol, UpKindDef/UpHidDefSol, 0), homes
+(CmpHomeC/CmpHomeS1 1, CmpHomeC3/CmpHomeS2 1, CmpHomeC3/CmpHomeS3 0 — S3 is a classic module
+importing CmpHomeA: a module-system solution cannot `rfl` an exported theorem about an
+unexposed `f`, `import all` or not), `--constant` (a challenge declaration 0, `Nat.add` 1),
+usage (self, one name, `--trusted-search-path` alone: 3), the trusted path (a challenge
+module only on the search path 1 with the message; the solution read from the search path 0;
+a corrupted copy on the search path shadowed 0; the verdict the same with and without a
+corrupted search path, 0 and 1).
+
+**Measurement** (instructions:u, one run, under the guard): `--olean --compare
+ConLeche.Challenge ConLeche.MainTheorem` (this lane's build, Lean v4.35.0's Init/Std/Lean on
+the path): accepted, 209 216 challenge declarations compared, 4 holes filled (the four
+capstones), 252 792 solution declarations checked; 1 547 G instructions, peak anon 5.4 GB.
+The comparison and `ctxScoped` passed on the whole closure (no false reject from the order
+check).
+
+### The theorems — the plan (#607 cont.)
+
+**T1, locality** (`Verify/Frontend/Olean/Local.lean`, new).  `FS.AgreeUnder dirs fs₁ fs₂ :=
+∀ p, Under dirs p → fs₁.real p = fs₂.real p ∧ fs₁.dir p = fs₂.dir p ∧ fs₁.file p = fs₂.file p`
+with `Under dirs p := ∃ d ∈ dirs, ∃ m, p = modDir d m ∨ ∃ ext, p = modFile d m ext` (the paths
+the reader forms; `modDir d .anonymous = d`, so `realPath d` is covered).  `ModelIO.LocalTo P x
+:= ∀ fs₁ fs₂, P fs₁ fs₂ → x fs₁ = x fs₂`, closed under `bind`, `tryCatch`, `pure`, `throw`,
+`liftIO` (any outcome on both), `mapExcept` (= `parMapExcept` in the model) and pointwise
+`match`; leaves: `pathExists/isDir/realPath/readBinFile/openRead/fileSize p` for `Under p`,
+`read` always (handles hold bytes).  Then `rootHits/rootAt` on `dirs` (every path `modDir d r`
+/ `modFile d r "olean"` / `d`), `Roots.rootOf/resolve` with the invariant "every `.dir d` of the
+map has `d ∈ path`" (fallback empty), `findModule`, `readImportsAt`/`foldChunks`/`foldReads`,
+`readFilesAt`/`readPartOr`/`oleanFailed`/`partFailed`, `closureGo` (by fuel), `loadModule`,
+`loadClosure`, `readOleansAt` (merge, blocks, emission are pure).  Statement:
+`challengeView dirs C cs fs := fun o => ∃ hs hs', readOleansAt {path := dirs} #[C] cs 1 .off
+true true fs hs o hs'` (the outcome set, failure included; jobs and pace do not change it) and
+`theorem challenge_local : FS.AgreeUnder dirs fs₁ fs₂ → challengeView dirs C cs fs₁ =
+challengeView dirs C cs fs₂`.  The driver's later `fallbackOnly` is outside the view.
+
+**T2, "the challenge has a solution"** (`MainTheorem.lean`, model tier).  `runArgs_compare_accept`
+(Verify/Driver/Main): an exit 0 of `--olean --compare …` gives the challenge's read `rdC` (an
+outcome of `challengeView`), the solution's `rdS`, the comparison's `ctx`, `ctxScoped ctx =
+none`, and `checkDecls` accepting the solution's prepared, filled records (`checkOleansG_accept`
+as in `checkMainG_oleans_accept`).  Then a two-module development (`Modular.Module`): module 0
+the solution (`ctx := []`, `decls :=` its filled records, `iface := ctx`), module 1 the
+challenge (`ctx :=` the comparison's `ctx`, `decls := []`, `src := fun _ => 0`).  `LocalOk` of
+both: module 0's `DeclsRun` is `checkDecls_run`; `InterfaceOk 0` is `Presents.refl`/`.inr`
+(stmtOf) through `Presents.fill`; module 1's `presented`, `one_src`, `src_lt` by construction,
+`ordered`/`nodup`/`reads` from `ctxScoped` with `recordReads_sound` (`reads`: `Agree.same`).
+`modular_model_exists` then gives `Model V (streamEnv ctx)` and `Model V envS` agreeing on every
+name.  Statement (to write): an exit 0 gives `rdC ∈ challengeView`, `ctx` related record by
+record to `rdC`'s prepared records (`CmpRec`: an imported record is the solution's record of
+the same home; a non-hole of `C` the solution's at its level names, `atLps`; a hole of `C` the
+axiom of the solution's statement), and models `mC : Model V (streamEnv ctx)`, `mS : Model V
+envS` with `mC.cval n = mS.cval n` for every name `ctx` installs, and for every imported name
+`homesS n = homesC n` — the rule is needed: without it no `CmpRec` for CmpHomeS1.  The holes'
+types are then inhabited in `mC` (`Model.mem`).
+Open points for T2: (a) the model of the challenge's environment at the CHALLENGE's level
+names, not the solution's: `EnvModelM`'s `acval_params` makes a constant's value depend on its
+own parameters only, and `Model/BasisRename.lean` (`renAcval`, `denote_ren`) carries a model
+across such a renaming for the pins; generalising `RenEnv` from pin copies to any constant is
+the work; (b) a hole filled by an inductive type's constant needs `Presents`/`Refines` to allow
+the axiom of any member of a group (now exit 1); (c) T1 and T2 combined: the challenge records
+of the model are an outcome of `challengeView` on any snapshot agreeing on the trusted
+directories.
+
+**The #608 target** (modular modes, branch `compare`): `C` as one more module of the modular
+family, its own names read from `S` by refinement (cfsg's `compared` design), and T2 as "the
+compatible family over closure(C) ∪ closure(S) given by `modular_model_exists` inhabits every
+hole of `C`"; compatibility makes `C`'s `f` `A`'s `f`, so CmpHomeS1 cannot be accepted by any
+implementation that proves it.  The merged mode's two-module development above is that
+family's degenerate case.
+
+**Not yet done**: T1, T2, the axiom pins, `runArgs_compare_accept`; OVERVIEW (modes, trusted
+path, theorems, §14 departures: none — the comparison is a mode, not a kernel departure),
+whitepaper, the `Challenge.lean`/`comparator.json` note (con-leche's own challenge is the
+statement file comparator checks against `MainTheorem`; `--compare ConLeche.Challenge
+ConLeche.MainTheorem` is the same check by con-leche itself); the arena battery and the other
+gates; landing on `compare`.
