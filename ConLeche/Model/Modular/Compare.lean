@@ -621,4 +621,83 @@ theorem cmpDev_localOk {pins : List NatOpPinSet} {maxNatSize : Nat} {F : Expr �
       have hk'' : k < ctx.size := by simpa [cmpDev] using hk
       exact names_isSome (by simpa [cmpDev] using hrd k hk'' y (by simpa [cmpDev] using hy))
 
+/-! ## The models -/
+
+universe w
+
+/-- **The compared run's models** (the model-tier core of `MainTheorem.compare_solves`): on the
+comparison's and the order check's accept and the fold's accept of the solution's records, the
+challenge's environment (its holes as statements) and the solution's have models, and the
+challenge's model values every name as the solution's model values it, at the challenge's
+level-parameter names. -/
+theorem compare_models (V : Type w) [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {F : Expr → Expr} {C : Name} {uses : Declaration → Array Name}
+    {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+    {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+    {env : Env}
+    (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled))
+    (hsc : ctxScoped ctx = none)
+    (hchk : Cached.checkDecls .verified pins maxNatSize (recsS.map (Cached.fillDecl F)) = .ok env) :
+    ∃ (mC : ConLeche.Model V (streamEnv (recsC.toList.map (chalRecord C uses homesC))))
+      (mS : ConLeche.Model V (streamEnv (recsS.map (Cached.fillDecl F)).toList)),
+      ∀ n cC, (streamEnv (recsC.toList.map (chalRecord C uses homesC))).find? n = some cC →
+        ∃ cS, (streamEnv (recsS.map (Cached.fillDecl F)).toList).find? n = some cS ∧
+          cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+          ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+            (cC.toConstantVal.levelParams.map Level.param)) := by
+  classical
+  have hok := cmpDev_localOk (F := F) hcmp hsc hchk
+  have hcp := chal_copies hcmp hsc
+  let dev := cmpDev (recsS.map (Cached.fillDecl F)).toList ctx.toList
+  obtain ⟨mm, hc⟩ := Model.Modular.modularModels (V := V) (pins := pins) (dev := dev) (i := 1) hok
+  have hex : ∀ j (hj : j < 2), ∃ mp : EnvModelM V (dev j).own,
+      ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = (mm j hj).1 n :=
+    fun j hj => (mm j hj).2.2.2.2.elim fun mp h => ⟨mp, h.2.2⟩
+  obtain ⟨mp1, hmp1⟩ := hex 1 (by omega)
+  obtain ⟨mp0, hmp0⟩ := hex 0 (by omega)
+  refine ⟨Model.ofCopies (env := streamEnv ctx.toList) mp1 hcp,
+    Model.ofEnvModelM (env := streamEnv (recsS.map (Cached.fillDecl F)).toList) mp0,
+    fun n cC hfC => ?_⟩
+  rcases hcp.find n with ⟨-, h2⟩ | ⟨c, cC', h1, h2, hr⟩
+  · rw [h2] at hfC; exact nomatch hfC
+  · rw [h2] at hfC
+    obtain rfl := Option.some.inj hfC
+    obtain ⟨cS, hS, hal, -⟩ := Model.Modular.agree_alike hok (Modular.Agree.same (dev := dev)
+      (i := 1) (b := 0) (n := n) rfl) (Nat.le_refl 1) (Nat.zero_le 1) h1
+    have hlps : cS.toConstantVal.levelParams = c.toConstantVal.levelParams := by
+      rw [hal.cv]
+    refine ⟨cS, hS, ?_, fun φ => ?_⟩
+    · rw [hlps]
+      rcases hr with rfl | ⟨ps, rfl, -, hl⟩
+      · rfl
+      · rw [atLps_cv]; exact hl
+    · refine (Model.ofCopies_cval mp1 hcp h1 h2 φ).trans ?_
+      refine Eq.trans ?_ (congrFun (congrFun (Model.Model.ofEnvModelM_cval
+        (env := streamEnv (recsS.map (Cached.fillDecl F)).toList) mp0) n) _).symm
+      rw [hlps]
+      refine congrFun (Model.cvalOf_congr ?_) _
+      have hn1 : ((dev 1).own.find? n).isSome = true := by
+        show ((streamEnv ctx.toList).find? n).isSome = true
+        rw [h1]; rfl
+      have hn0 : ((dev 0).own.find? n).isSome = true := by rw [hS]; rfl
+      rw [hmp1 n hn1, hmp0 n hn0]
+      obtain ⟨_, he, _⟩ := hc 1 (by omega) n ⟨by
+        show ((streamEnv ctx.toList).find? n).isSome = true
+        rw [h1]; rfl, trivial⟩
+      exact he
+
+/-- **The home rule, on the comparison's accept**: a name the challenge imports, but a
+theorem, has the same home in the solution's closure. -/
+theorem compare_homes {C : Name} {uses : Declaration → Array Name}
+    {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+    {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+    (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled)) :
+    ∀ k (hk : k < recsC.size), homesC[recKey recsC[k]]? ≠ some C →
+      (∀ cv v, recsC[k] ≠ .thmDecl cv v) →
+      homesS[recKey recsC[k]]? = homesC[recKey recsC[k]]? := by
+  intro k hk hne hthm
+  obtain ⟨-, hall⟩ := compareRecords_spec hcmp
+  obtain ⟨e, -, dS, -, f, hr⟩ := hall k hk
+  exact ((cmpRecord_spec hr).2.2 (by simpa using hne) hthm).symm
+
 end ConLeche.Model.Compare
