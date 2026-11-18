@@ -122637,9 +122637,10 @@ constant it lacks); new — CmpAxC/CmpAxS (an axiom hole, 0), CmpAxC/CmpAxBadS (
 axiom at the hole's name: the solution's decline, 2), CmpLvC/CmpLvS (level parameters
 renamed, a hole and a definition, 0), CmpBndC/CmpBndS (binder names, 0), kinds
 (UpKindDef/UpKindDefOpqSol, UpKindThm/UpKindThmDefSol, UpKindDef/UpHidDefSol, 0), homes
-(CmpHomeC/CmpHomeS1 1, CmpHomeC3/CmpHomeS2 1, CmpHomeC3/CmpHomeS3 0 — S3 is a classic module
-importing CmpHomeA: a module-system solution cannot `rfl` an exported theorem about an
-unexposed `f`, `import all` or not), `--constant` (a challenge declaration 0, `Nat.add` 1),
+(CmpHomeC/CmpHomeS1 1, CmpHomeC3/CmpHomeS2 1, CmpHomeC3/CmpHomeS3 0 — S3 is a module with
+`public import CmpHomeA` and `import all CmpHomeA`, proving `t : f = 3` by `(rfl)`: Lean
+refuses only an exported rfl-THEOREM, a term `rfl` that unfolds the unexposed `f`; the
+parentheses, a tactic proof or a private `rfl` theorem reused all compile), `--constant` (a challenge declaration 0, `Nat.add` 1),
 usage (self, one name, `--trusted-search-path` alone: 3), the trusted path (a challenge
 module only on the search path 1 with the message; the solution read from the search path 0;
 a corrupted copy on the search path shadowed 0; the verdict the same with and without a
