@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Copies
 public import ConLeche.Driver.Compare
 public import ConLeche.Verify.Cached.Fill
+public import ConLeche.Model.Modular.Valid
 
 public section
 
@@ -477,5 +478,66 @@ theorem ctxScoped_spec {ctx : Array Declaration} (h : ctxScoped ctx = none) :
           refine ⟨hnew, hnd, hc, fun y hy => ?_⟩
           have := Array.find?_eq_none.mp hfind y hy
           simpa using this
+
+/-! ## The challenge's environment, a copy of what it stands for -/
+
+theorem _root_.ConLeche.Model.ConstsCopy.append : ∀ {a a' b b' : List ConstantInfo}, ConstsCopy a a' →
+    ConstsCopy b b' → ConstsCopy (a ++ b) (a' ++ b')
+  | _, _, _, _, .nil, hb => hb
+  | _, _, _, _, .cons hc ha, hb => .cons hc (ha.append hb)
+
+theorem _root_.ConLeche.Model.ConstsCopy.reverse : ∀ {a a' : List ConstantInfo}, ConstsCopy a a' →
+    ConstsCopy a.reverse a'.reverse
+  | _, _, .nil => .nil
+  | _, _, .cons hc ha => by
+    simp only [List.reverse_cons]
+    exact ha.reverse.append (.cons hc .nil)
+
+theorem records_copy : ∀ (L L' : List Declaration), L.length = L'.length →
+    (∀ i (h : i < L.length) (h' : i < L'.length), RecCopy L[i] L'[i]) →
+    ConstsCopy (Model.Modular.recsC L) (Model.Modular.recsC L') ∧
+      L'.flatMap declTables = L.flatMap declTables
+  | [], [], _, _ => ⟨.nil, rfl⟩
+  | d :: L, d' :: L', hl, h => by
+    obtain ⟨h1, h2⟩ := records_copy L L' (by simpa using hl)
+      (fun i hi hi' => h (i + 1) (by simp; omega) (by simp; omega))
+    obtain ⟨h3, h4⟩ := h 0 (by simp) (by simp)
+    simp only [Model.Modular.recsC, List.flatMap_cons] at h1 h2 ⊢
+    exact ⟨h3.append h1, by simp only [List.getElem_cons_zero] at h4; rw [h4, h2]⟩
+  | [], _ :: _, hl, _ | _ :: _, [], hl, _ => by simp at hl
+
+/-- **The challenge's environment is a copy of what its records stand for**: on the comparison's
+and the order check's accept, the challenge's records, each hole as its statement, install
+copies of the constants of what they stand for, at the challenge's level-parameter names, and
+the same tables. -/
+theorem chal_copies {C : Name} {uses : Declaration → Array Name}
+    {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+    {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+    (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled))
+    (hsc : ctxScoped ctx = none) :
+    CopiesEnv (streamEnv ctx.toList) (streamEnv (recsC.toList.map (chalRecord C uses homesC))) := by
+  obtain ⟨hsz, hk⟩ := compareRecords_spec hcmp
+  obtain ⟨hnd, -⟩ := ctxScoped_spec hsc
+  have key := records_copy ctx.toList (recsC.toList.map (chalRecord C uses homesC))
+    (by simp [hsz]) ?hrec
+  · obtain ⟨hc, ht⟩ := key
+    refine ⟨?_, ?_, ?_⟩
+    · rw [Model.Modular.streamEnv_empty_consts, Model.Modular.streamEnv_empty_consts]
+      exact hc.reverse
+    · rw [Model.Modular.streamEnv_empty_tables, Model.Modular.streamEnv_empty_tables, ht]
+    · rw [Model.Modular.streamEnv_empty_consts, List.map_reverse,
+        (List.reverse_perm _).nodup_iff]
+      simp only [Model.Modular.recsC, List.map_flatMap]
+      exact hnd
+  case hrec =>
+    intro i h h'
+    have hi : i < recsC.size := by simpa using h'
+    obtain ⟨e, he, dS, -, f, hr⟩ := hk i hi
+    have hei : ctx.toList[i] = e := by
+      simp only [Array.getElem_toList]
+      exact Option.some.inj ((Array.getElem?_eq_getElem (by simpa using h)).symm.trans he)
+    rw [hei]
+    simp only [List.getElem_map, Array.getElem_toList, chalRecord]
+    exact (cmpRecord_spec hr).1
 
 end ConLeche.Model.Compare
