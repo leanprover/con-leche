@@ -253,11 +253,18 @@ def memLog : String :=
 #guard shellQuote "$HOME" = "'$HOME'"
 
 -- the commands: the graph check first, then a worker per module, in the order given
-#guard commandLines "/bin/con-leche" "/l:/i" (nm "R") [nm "B", nm "R"]
+#guard commandLines "/bin/con-leche" "/l:/i" (nm "R") none [nm "B", nm "R"]
     (workerArgs .verified 99 "/l:/i" none) =
   ["/bin/con-leche --check-graph --search-path=/l:/i -- '«R»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«B»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«R»'"]
+-- a compared challenge (task #608): the graph with the solution added, the compare worker at it
+#guard commandLines "/bin/con-leche" "/l:/i" (nm "C") (some (nm "S")) [nm "S", nm "C"]
+    (fun m => if m == nm "C" then cmpWorkerArgs .verified "/l:/i" none (nm "C") (nm "S")
+      else workerArgs .verified 99 "/l:/i" none m) =
+  ["/bin/con-leche --check-graph --compare --search-path=/l:/i -- '«C»' '«S»'",
+   "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«S»'",
+   "/bin/con-leche --olean --module --compare --verified --search-path=/l:/i -- '«C»' '«S»'"]
 -- `--jobs=N` only where given; the scheduler's own workers get their share
 #guard workerArgs .trusted 7 "d" (some 4) (nm "M") =
   #["--olean", "--module", "--jobs=4", "--trusted", "--max-nat-size=7", "--search-path=d", "--",

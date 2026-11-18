@@ -312,7 +312,7 @@ theorem runArgs_graphCmp_accept {dirs c s : String} {C S : Name} {fs : FS} {hs h
       Bool.not_true, Bool.false_eq_true, ite_false] at hv
     split at hv
     · simp [eprintln] at hv
-    · simp only [List.filterMap_cons, hc, hsol, List.filterMap_nil, Array.toList_filterMap] at hv
+    · simp only [List.filterMap_cons, hc, hsol, List.filterMap_nil] at hv
       split at hv
       · simp [eprintln] at hv
       · simp only [runReq] at hv
@@ -471,9 +471,8 @@ theorem runArgs_cmpModule_accept {dirs c s : String} {fs : FS} {hs hs' : HS}
           Array.isEmpty_empty] at hv
         split at hv
         · simp [eprintln] at hv
-        · simp only [Bool.true_or, Bool.or_false, Bool.false_or, Bool.not_true,
-            Bool.false_eq_true, ↓reduceIte, Bool.and_false, Array.isEmpty_empty,
-            List.isEmpty_nil] at hv
+        · simp only [Bool.or_false, Bool.not_true, Bool.false_eq_true, ↓reduceIte,
+            Bool.and_false] at hv
           simp only [runReq, ModelIO.bind_ok] at hv
           obtain ⟨⟨R, T⟩, _, hT, hv⟩ := hv
           obtain ⟨hR, hp, hT⟩ := workerTables_ok hT
