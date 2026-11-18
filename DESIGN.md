@@ -123079,6 +123079,9 @@ yet run on the lane):
 
 ### State after the second session (#608 cont.)
 
+**Status: items 1, 2, 5, 6 of the coordinator's list done; items 3 (`--trusted-search-path` in the
+modular modes) and 4 (T1-modular) open, a design choice below; nothing landed.**
+
 **Merged `compare`** (with #609's whitepaper §8) into the lane first (37c5977c5).
 
 **Done this session** (each commit builds; `lake build ConLeche.MainTheorem` green, no warnings):
@@ -123139,3 +123142,49 @@ outcome.  Two ways to cover two lookups, both large:
   (`LocalTo` lemmas, #607's `Local.lean`, for `workerTables`, `headerFixpoint`,
   `ModTables.reads`, `reach`, `cmpModuleRead`).
 
+* **`--olean --modular --compare`** (4a1aed24a): `checkModularG sp root sol`: the graph with
+  `modExtra root sol` (`cmpExtra`), every module's table at its header's imports (`headerNode`:
+  the added import dropped, so that the compare worker's own view at `C` is `C`'s header), the
+  challenge's step the compare worker's (`stepCode`).  `checkModularG_accept` (an accepted
+  worker at every module but the challenge, `CmpFacts` at it), `runArgs_modularCmp_accept`,
+  `MainTheorem.main_compare_modular_one_solves` (the same conclusion as
+  `main_compare_modular_solves`; both go through `compare_closure_solves`).  Fixtures: every
+  `mcmp` pair also in one process (the same exits as `--schedule --compare`); usage errors for
+  `--modular` with `--module`/`--schedule` and for `--trusted-search-path` (exit 3).
+* **CmpImpS in the merged mode** (ruling): `compareG` refuses a solution whose closure holds the
+  challenge right after the solution's read (`rdS.values` names it), exit 1 (was 2: the
+  challenge's `sorry` declined in the solution's check); `compareG_accept` takes the new branch;
+  fixture `compare: a solution importing its challenge`.
+* **`--constant` in the modular modes** (item 5): kept a usage error (exit 3, fixture
+  `modular compare: --constant`).  The compare worker's reach roots are all of `C`'s names; a
+  `--constant` subset would need `cmpRoots` restricted and `CmpFacts.cmp` over the subset, and
+  `run_models` then speaks of the subset's environment only.  Not cheap enough for this lane; to
+  document in OVERVIEW.
+* **Plain reach** (af8ea02b0): `Driver/CompareModule.lean` imports `Verify/Cached/DeclNames`
+  (the `@[csimp]` twins), as `Driver/Worker.lean` does; plain-reach 639 reached, all allowlisted.
+* Axioms of `main_compare_modular_solves` and `main_compare_modular_one_solves` pinned
+  (`propext`, `Classical.choice`, `Quot.sound`).
+
+**Gates at af8ea02b0:** `lake build` and `lake test` warning-free; olean gate 509/509 (under
+the guard); layering, trust-surface, binary-link, plain-reach, quote-gate OK.  Failing, to fix in
+the finishing stage: **overview-links** (`MainTheorem.lean` anchors moved by this lane's first
+session, `main_compare_solves` L342 → L345, and others: re-read the citing paragraphs, repoint,
+`--update`), **shake** (4 removals, among them `MainTheorem`'s import of
+`Model/Modular/CompareRun` — the umbrella `ConLeche/Model.lean` imports it too — and 13
+demotable `public import`s, from `pub-import-plan.py`: recompute after item 3).  Not run:
+`tests/arena.sh`, the measurement, OVERVIEW, whitepaper.
+
+**Next session, in order:** (a) the coordinator's choice between (i) and (ii) above for the
+two lookups of item 3 — my recommendation is (ii), per-module lookups in `Run`, because the
+cross-module steps go through a handful of uniqueness lemmas (`moduleImports_unique`,
+`readFiles_unique(_at)`, `partRegion_unique`, `partNames_unique`, `headerFixpoint_unique`)
+that generalise to two lookups with one path whose fallbacks are equal or one empty; (b) the
+code of item 3: `--module --trusted-search-path=T --search-path=D` (a worker through
+`{T, D}`), the compare worker with `{T}` for `C`'s home and own view and `{T, D}` for the reads
+with `S` added, the graph check resolving `C`'s closure through `T` alone (a second `graphOf`
+over `[C]` at `{T}`, or a per-node lookup), the schedule's commands passing `--search-path=T`
+to `C`'s closure and both paths to the rest; (c) item 4 through a two-snapshot `Within`
+(`ModelIO.Within fs a b` generalised to `Within2 fs₁ fs₂`, every combinator lemma and every
+`_within` composite unchanged in proof; `OleanReads.Within2 fs₁ fs₂ (.ofPath {T}) {T}` from
+#607's `Local.lean` leaves on `FS.AgreeUnder T`), then the corollary as `main_compare_trusted`;
+(d) the finishing list.
