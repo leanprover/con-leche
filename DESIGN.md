@@ -122552,6 +122552,13 @@ threshold), the FLT clone `flt/` (1.6 GB, sources only), `init.log`, `lean-sched
 
 **Status: #607 cont. — the code and the fixtures are on the lane; the theorems T1 and T2 are
 not written, so the lane does not land.**  The plan for them is at the end of this record.
+Coordinator review (2026-11-18): the "compared, not checked" design accepted (subject to the
+maintainer's veto); a hole filled by an inductive type's constant declines (done, ffa5f730f);
+T2 at the challenge's OWN level-parameter names — generalise `Model/BasisRename.lean`'s
+`RenEnv`/`renAcval` from pin copies to any constant, do not weaken the statement; then T1, T2,
+the axiom pins, the docs, every gate (plain-reach: a cached twin of `ConstantVal.atLps` /
+`ConstantInfo.atLps` if the gate flags the plain one), and the landing on `compare` (--no-ff
+from a worktree of `compare`, worktrees removed).
 
 **CLI** (`ConLeche/Driver/Cli.lean`, `Driver/Compare.lean`):
 `con-leche --olean --compare [--trusted-search-path=DIRS] [--search-path=DIRS] [--constant=NAME]
