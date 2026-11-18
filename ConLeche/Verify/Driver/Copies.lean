@@ -39,16 +39,16 @@ open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLech
 /-! ## A module's own environment -/
 
 /-- **A module's own records**, the theorems' values in place: the development's `decls`. -/
-@[expose] noncomputable def ownDeclsOf (sp : SearchPath) (fs : FS) (M : Name) (w : WorkerRead) :
+@[expose] noncomputable def ownDeclsOf (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
     List Declaration :=
   w.own.toList.map (fillDecl (fillOf sp fs #[⟨M, w.home.frontier⟩]))
 
 /-- **A module's own environment**: its context with its own records installed. -/
-@[expose] noncomputable def ownEnvOf (sp : SearchPath) (fs : FS) (M : Name) (w : WorkerRead) : Env :=
+@[expose] noncomputable def ownEnvOf (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) : Env :=
   streamEnv (ownDeclsOf sp fs M w) (streamEnv w.reach.ctx.toList)
 
 /-- **The own records accepted from the context** (`worker_local`'s run). -/
-@[expose] def OwnRun (mode : CheckMode) (maxNatSize : Nat) (sp : SearchPath) (fs : FS) (M : Name) (w : WorkerRead) :
+@[expose] def OwnRun (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
     Prop :=
   ∃ q, DeclsRun mode natOpPinSets maxNatSize (ownDeclsOf sp fs M w)
     (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList)) q
@@ -71,7 +71,7 @@ theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci
       exact ih hn.2 h'
 
 /-- **An accepted module's own environment names each constant once.** -/
-theorem ownEnv_nodup {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat}
+theorem ownEnv_nodup {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {M : Name} {jobs : Nat}
     {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hr : OwnRun mode maxNatSize sp fs M w) :
     NodupNames (ownEnvOf sp fs M w) := by
   obtain ⟨q, hq⟩ := hr
@@ -84,14 +84,14 @@ theorem ownEnv_nodup {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs
   simpa [NodupNames, ConstantInfo.name] using this
 
 /-- An own record's constant is in the own environment. -/
-theorem own_mem_ownEnv {sp : SearchPath} {fs : FS} {M : Name} {w : WorkerRead} {p : Declaration}
+theorem own_mem_ownEnv {sp : Roots} {fs : FS} {M : Name} {w : WorkerRead} {p : Declaration}
     (hp : p ∈ w.own.toList) {ci : ConstantInfo} (hci : ci ∈ declConstants p) :
     ci ∈ (ownEnvOf sp fs M w).consts :=
   (mem_streamEnv_consts _ _).2 (.inl ⟨_, List.mem_map_of_mem hp, by
     rw [declConstants_fillDecl]; exact hci⟩)
 
 /-- An emitted record is an own record. -/
-theorem emitted_own {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem emitted_own {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) : p ∈ w.own.toList := by
   rw [hw.own]
   exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.2 (Array.mem_toList_iff.2 hp)
@@ -123,7 +123,7 @@ theorem namePositionsAt_complete {r : Region} {root : UInt64} {t : NamePositions
   exact ⟨_, by simpa using hq, rfl, rfl⟩
 
 /-- A part's name table on the snapshot is one, where the module's private files read. -/
-theorem partNames_unique {sp : SearchPath} {fs : FS} {M : Name} {f : ModFiles}
+theorem partNames_unique {sp : Roots} {fs : FS} {M : Name} {f : ModFiles}
     (hf : ModelIO.CanGive (readFiles sp M .private) fs (.ok f)) {L : OLeanLevel}
     {t t' : NamePositions} (h : PartNames sp fs ⟨M, L⟩ t) (h' : PartNames sp fs ⟨M, L⟩ t') :
     t = t' := by
@@ -135,7 +135,7 @@ theorem partNames_unique {sp : SearchPath} {fs : FS} {M : Name} {f : ModFiles}
 /-- **A worker's reads, on the snapshot**: its own private part's table, the header fixpoint of
 its header, the loaded parts' tables (`keys` the parts in the load order) under the name index,
 and freshness. -/
-theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+theorem workerReads_spec {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
     {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs') :
     (∃ own, PartNames sp fs ⟨m, .private⟩ own ∧ wr.own = own.withImports x) ∧
     ModelIO.CanGive (headerFixpoint (moduleImports sp) wr.own.header.isModule
@@ -189,7 +189,7 @@ theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x 
   exact ⟨⟨own, ⟨_, _, ha⟩, rfl⟩, ⟨_, _, hb⟩, ⟨parts, hlen, hget, rfl⟩, hfr⟩
 
 /-- The private part's name table holds the worker's own table. -/
-theorem worker_ownTable {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem worker_ownTable {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) : PartNames sp fs ⟨M, .private⟩ w.reads.own := by
   obtain ⟨_, _, h⟩ := hw.reads
   obtain ⟨own, hown, he⟩ := (workerReads_spec h).1
@@ -198,7 +198,7 @@ theorem worker_ownTable {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w :
 
 /-- **An exported copy is behind a private one**: a copy of `M`'s exported part has a copy of its
 name in `M`'s private part. -/
-theorem exported_behind {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem exported_behind {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
     (hl : s.part.level = .exported) :
     ∃ q : Spot, CopyAt sp fs q ∧ q.part = ⟨M, .private⟩ ∧ q.pos.name = s.pos.name := by
@@ -219,7 +219,7 @@ theorem exported_behind {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w :
   exact ⟨⟨⟨M, .private⟩, q⟩, ⟨_, ht, hq⟩, rfl, hqn⟩
 
 /-- **A module's private part holds every name its exported part does.** -/
-theorem exported_sub_private {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem exported_sub_private {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) {te tp : NamePositions}
     (he : PartNames sp fs ⟨M, .exported⟩ te) (hp : PartNames sp fs ⟨M, .private⟩ tp)
     {q : NamePosition} (hq : q ∈ te.consts) : ∃ q' ∈ tp.consts, q'.name = q.name := by
@@ -335,7 +335,7 @@ theorem declsRun_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {pins : List N
     · exact ih d hd cv hcv
 
 /-- **An own statement record's type does not read its own name**, at an accepted worker. -/
-theorem own_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {M : Name}
+theorem own_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {M : Name}
     {w : WorkerRead} (hrun : OwnRun mode maxNatSize sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     cv.name ∉ cv.type.readNames := by
@@ -377,7 +377,7 @@ theorem declsRun_stmt_stored {mode : CheckMode} {maxNatSize : Nat} {pins : List 
     · exact ih h₁.canon d hd cv hcv
 
 /-- **The names an own statement record's type reads are stored** in the own environment. -/
-theorem own_type_stored {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {M : Name}
+theorem own_type_stored {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {M : Name}
     {w : WorkerRead} (hrun : OwnRun mode maxNatSize sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     ∀ n ∈ cv.type.readNames, ((ownEnvOf sp fs M w).find? n).isSome = true := by
@@ -387,7 +387,7 @@ theorem own_type_stored {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} 
   exact this
 
 /-- A name the context stores is stored in the own environment. -/
-theorem ctx_stored_own {sp : SearchPath} {fs : FS} {M : Name} {w : WorkerRead} {n : Name}
+theorem ctx_stored_own {sp : Roots} {fs : FS} {M : Name} {w : WorkerRead} {n : Name}
     (h : ((streamEnv w.reach.ctx.toList).find? n).isSome = true) :
     ((ownEnvOf sp fs M w).find? n).isSome = true := by
   obtain ⟨d, hd, hn⟩ := streamEnv_find_mem h
@@ -399,7 +399,7 @@ theorem ctx_stored_own {sp : SearchPath} {fs : FS} {M : Name} {w : WorkerRead} {
 
 /-- **What an own record reads is stored in the context**, where the reach's roots keep it: no
 own name, and loaded or no name of a pinned own constant's fast path (`ownRoots`' filter). -/
-theorem own_reads_ctx {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem own_reads_ctx {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) {y : Name}
     (hy : y ∈ recordReads p) (ho : (ownNames w.home).contains y = false)
     (hk : (w.reads.index.first.contains y || !(w.home.constants.foldl
@@ -438,7 +438,7 @@ theorem readFilesAt_unique {fs : FS} {loc : Located} {m : Name} {L : OLeanLevel}
   (Except.ok.inj (((readFilesAt_isDet loc m L fs).of_ok h₁).ok h₂)).symm
 
 /-- **A part's name table on the snapshot is one.** -/
-theorem partNames_eq {sp : SearchPath} {fs : FS} {k : PartKey} {t t' : NamePositions}
+theorem partNames_eq {sp : Roots} {fs : FS} {k : PartKey} {t t' : NamePositions}
     (h : PartNames sp fs k t) (h' : PartNames sp fs k t') : t = t' := by
   obtain ⟨_, _, h⟩ := h
   obtain ⟨_, _, h'⟩ := h'
@@ -688,7 +688,7 @@ no loaded module's (freshness), or the view's copy is the home's importer copy, 
 index's first copy at the part its module is loaded at (`importerSpot`'s spot); a name the view
 does not hold no loaded module holds.  Header-fixpoint determinism is a hypothesis
 (`hdet`, `Loads.lean`'s). -/
-theorem homeView_index {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem homeView_index {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w)
     (hdet : ∀ ld ld', ModelIO.CanGive (headerFixpoint (moduleImports sp)
         w.reads.own.header.isModule w.reads.own.header.imports) fs (.ok ld) →

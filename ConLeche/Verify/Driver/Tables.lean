@@ -30,7 +30,7 @@ open ConLeche ConLeche.Frontend.Olean
 /-! ## The tables' reads -/
 
 /-- **Tables read off the snapshot.** -/
-@[expose] def TablesOk (fs : FS) (sp : SearchPath) (T : ModTables) : Prop :=
+@[expose] def TablesOk (fs : FS) (sp : Roots) (T : ModTables) : Prop :=
   ∀ t ∈ T.mods, ModelIO.CanGive (findModule sp t.name) fs (.ok t.loc) ∧
     (∀ is, t.imports = some is → ModelIO.CanGive (moduleImports sp t.name) fs (.ok is)) ∧
     (∀ p, t.priv = some p →
@@ -64,7 +64,7 @@ theorem ModelIO.Within.of_table {α : Type} {fs : FS} {a : ModelIO α} {v : α}
 
 /-- A read at a module's location, where the location is the search path's: the read on the
 search path, from any open handles. -/
-theorem ModelIO.Within.at_loc {α : Type} {fs : FS} {sp : SearchPath} {m : Name} {loc : Located}
+theorem ModelIO.Within.at_loc {α : Type} {fs : FS} {sp : Roots} {m : Name} {loc : Located}
     {a : Located → ModelIO (Except CheckError α)} (hloc : ModelIO.CanGive (findModule sp m) fs (.ok loc))
     (ha : ModelIO.Within fs (a loc) (a loc)) :
     ModelIO.Within fs (a loc) (do
@@ -87,7 +87,7 @@ theorem readPartNamesAt_within (fs : FS) (loc : Located) (x : Name × OLeanLevel
 
 /-- **The tables' reads refine the search path's**, a read the tables do not hold made
 through roots read off the snapshot. -/
-theorem modTables_within {fs : FS} {sp : SearchPath} {R : Roots} {T : ModTables}
+theorem modTables_within {fs : FS} {sp : Roots} {R : Roots} {T : ModTables}
     (hR : R.Ok fs) (hp : R.bare = sp) (hT : TablesOk fs sp T) :
     OleanReads.Within fs (T.reads R) sp := by
   refine ⟨fun m => ?_, fun m level => ?_, fun x => ?_⟩
@@ -194,7 +194,7 @@ theorem headerFixpoint_keeps {σ : Type} {P : σ → Prop} {fs : FS}
 
 /-! ## A worker's tables -/
 
-theorem TablesOk.push {fs : FS} {sp : SearchPath} {T : ModTables} {t : ModTable}
+theorem TablesOk.push {fs : FS} {sp : Roots} {T : ModTables} {t : ModTable}
     (hT : TablesOk fs sp T)
     (ht : ModelIO.CanGive (findModule sp t.name) fs (.ok t.loc) ∧
       (∀ is, t.imports = some is → ModelIO.CanGive (moduleImports sp t.name) fs (.ok is)) ∧
@@ -211,7 +211,7 @@ theorem TablesOk.push {fs : FS} {sp : SearchPath} {T : ModTables} {t : ModTable}
   · exact hT u hu
   · exact ht
 
-theorem TablesOk.empty (fs : FS) (sp : SearchPath) : TablesOk fs sp {} := by
+theorem TablesOk.empty (fs : FS) (sp : Roots) : TablesOk fs sp {} := by
   intro t ht
   simp at ht
 
@@ -225,18 +225,18 @@ theorem moduleImports_at {sp : Roots} {n : Name} {fs : FS} {loc : Located}
 
 /-- **What a worker's tables keep**: the roots read off the snapshot, on the search path `sp`,
 and the tables. -/
-@[expose] def WorkerTablesOk (fs : FS) (sp : SearchPath) (RT : Roots × ModTables) : Prop :=
+@[expose] def WorkerTablesOk (fs : FS) (sp : Roots) (RT : Roots × ModTables) : Prop :=
   RT.1.Ok fs ∧ RT.1.bare = sp ∧ TablesOk fs sp RT.2
 
 /-- A location through roots read off the snapshot is the search path's. -/
-theorem findModule_at {fs : FS} {sp : SearchPath} {R : Roots} (hR : R.Ok fs) (hp : R.bare = sp)
+theorem findModule_at {fs : FS} {sp : Roots} {R : Roots} (hR : R.Ok fs) (hp : R.bare = sp)
     {n : Name} {loc : Located} {hs hs₁ : HS}
     (hf : (findModule R n : ModelIO _) fs hs (.ok (.ok loc)) hs₁) :
     (findModule (sp : Roots) n : ModelIO _) fs hs (.ok (.ok loc)) hs₁ := by
   have := findModule_sub hR n _ _ _ hf
   rwa [hp] at this
 
-theorem tabImports_keeps (fs : FS) (sp : SearchPath) (n : Name) :
+theorem tabImports_keeps (fs : FS) (sp : Roots) (n : Name) :
     StateKeeps (WorkerTablesOk fs sp) fs (tabImports n) := by
   intro ⟨R, T⟩ hs a RT' hs' h ⟨hR, hp, hT⟩
   simp only [tabImports, ModelIO.bind_ok] at h
@@ -262,12 +262,13 @@ theorem tabImports_keeps (fs : FS) (sp : SearchPath) (n : Name) :
   exact moduleImports_at hx' hy
 
 /-- **A worker's tables are read off the snapshot**, and so are the roots beside them. -/
-theorem workerTables_ok {fs : FS} {sp : SearchPath} {m : Name} {R : Roots} {T : ModTables}
-    {hs hs' : HS} (h : (workerTables sp m : ModelIO _) fs hs (.ok (R, T)) hs') :
+theorem workerTables_ok {fs : FS} {sp : Roots} (hsp : sp.bare = sp) {m : Name} {R : Roots}
+    {T : ModTables} {hs hs' : HS} (h : (workerTables sp m : ModelIO _) fs hs (.ok (R, T)) hs') :
     R.Ok fs ∧ R.bare = sp ∧ TablesOk fs sp T := by
   simp only [workerTables, ModelIO.bind_ok] at h
   obtain ⟨R₀, hs₀, hR₀, x, hs₁, hx, h⟩ := h
-  obtain ⟨hR₀ok, hR₀p⟩ := Roots.resolve_ok (Roots.ok_coe fs sp) hR₀
+  obtain ⟨hR₀ok, hR₀p⟩ := Roots.resolve_ok (hsp ▸ Roots.ok_bare fs sp) hR₀
+  replace hR₀p := hR₀p.trans hsp
   rcases x with e | loc
   · simp only [ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨⟨rfl, rfl⟩, -⟩ := h

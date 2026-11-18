@@ -26,7 +26,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
 
 /-- The compared run's added imports: the solution's import at the challenge, none elsewhere. -/
 theorem cmpExtra_self (Cn S : Name) : Graph.cmpExtra Cn S Cn = #[Graph.solutionImport S] := by

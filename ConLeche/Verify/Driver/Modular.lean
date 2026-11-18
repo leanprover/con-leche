@@ -89,7 +89,7 @@ theorem readModTable_ok {sp : Roots} {fs : FS} {e : Graph.Node} {t : ModTable} {
     (fun p h => by cases h; exact ⟨_, _, hz⟩), rfl⟩
 
 /-- The tables of the graph's modules, read off the snapshot. -/
-theorem tables_ok {sp : SearchPath} {R : Roots} {fs : FS} {C : List Graph.Node}
+theorem tables_ok {sp : Roots} {R : Roots} {fs : FS} {C : List Graph.Node}
     {ts : List ModTable} (hR : R.Ok fs) (hp : R.bare = sp)
     (hC : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (h : ∀ t ∈ ts, ∃ e ∈ C, ModelIO.CanGive (readModTable R e) fs (.ok t)) :
@@ -107,7 +107,7 @@ theorem tables_ok {sp : SearchPath} {R : Roots} {fs : FS} {C : List Graph.Node}
 /-- **An exit 0 of the one-process mode, in the model**: the closure is the graph check's
 accepting outcome, and every module of it is an accepted worker (`WorkerAccepted`, at one job),
 whatever the `liftIO` actions answered. -/
-theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
+theorem checkModularG_accept {sp : Roots} (hsp : sp.bare = sp) {root : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {hs hs' : HS}
     (h : (checkModularG sp root mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ C T, ModelIO.CanGive (Graph.graphOf sp [root] jobs) fs (.ok (C, T)) ∧
@@ -124,7 +124,7 @@ theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} 
   · simp only [ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at h
     obtain ⟨_, _, -, h, -⟩ := h
     exact absurd h.symm (CheckError.exitCode_ne_zero _)
-  obtain ⟨rk, hgood, -, -, -, hR, hp⟩ := Graph.graphOf_ok hx
+  obtain ⟨rk, hgood, -, -, -, hR, hp⟩ := Graph.graphOf_ok hsp hx
   have hT := tables_ok hR hp (fun e he => (hgood e he).plain) (mapExcept_both hy).1
   simp only [ModelIO.bind_ok] at h
   obtain ⟨_, _, -, _, _, -, ⟨ss, res⟩, _, hz, h⟩ := h

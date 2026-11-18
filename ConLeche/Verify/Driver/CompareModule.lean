@@ -39,7 +39,7 @@ the home's private part names). -/
     cmpCtxRecord uses d (r.ctx.getD k default) (r.homes.getD k .anonymous) kindS = .ok f
 
 /-- **What an exit 0 of the compare worker establishes** (see the module docstring). -/
-structure CmpFacts (sp : SearchPath) (fs : FS) (C S : Name) (jobs : Nat) (c : CmpModuleRead) :
+structure CmpFacts (sp : Roots) (fs : FS) (C S : Name) (jobs : Nat) (c : CmpModuleRead) :
     Prop where
   facts : WorkerFacts sp fs C jobs c.w #[Graph.solutionImport S]
   view : ModelIO.CanGive (workerReads (.ofPath sp) C jobs) fs (.ok c.view)
@@ -98,7 +98,7 @@ theorem findSome?_none {α β : Type} {f : α → Option β} :
 
 /-- **The compare worker's accept** is `CmpFacts`, whatever the heartbeat answered, for any reads
 `rd` that refine the search path's. -/
-theorem cmpModuleRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {C S : Name} {pace : Pace}
+theorem cmpModuleRead_ok {rd : OleanReads ModelIO} {sp : Roots} {C S : Name} {pace : Pace}
     {t0 jobs : Nat} {fs : FS} {c : CmpModuleRead} (hrd : OleanReads.Within fs rd sp)
     {hs hs' : HS} (h : (cmpModuleRead rd C S pace t0 jobs : ModelIO _) fs hs (.ok (.ok c)) hs') :
     CmpFacts sp fs C S jobs c := by
@@ -166,7 +166,7 @@ theorem cmpModuleRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {C S : Name
 challenge `C` and solution `S` over a snapshot `fs` that is an exit 0 is `CmpFacts`, at any
 `--jobs` and pace, whatever the `liftIO` actions answered, for any reads that refine the search
 path's. -/
-theorem checkCmpModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {C S : Name}
+theorem checkCmpModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {C S : Name}
     {mode : CheckMode} {pace : Pace} {jobs : Nat} {fs : FS} (hrd : OleanReads.Within fs rd sp)
     {hs hs' : HS} (h : (checkCmpModuleG rd C S mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ c, CmpFacts sp fs C S jobs c := by

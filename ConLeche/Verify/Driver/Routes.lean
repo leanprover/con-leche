@@ -35,7 +35,7 @@ namespace ConLeche.Driver.Compose
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 /-- **The reach's table lists every copy of a clash**, under the clash's name. -/
-theorem clashCopiesOf_complete {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec}
+theorem clashCopiesOf_complete {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec}
     {wr : WorkerReads} {hs hs' : HS}
     (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {e : Copy × ConstantVal × CKindF Name Unit}
@@ -117,7 +117,7 @@ theorem at_mod_lt {wr : WorkerReads} (hsize : wr.index.parts.size = wr.loads.ord
 
 namespace Run
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
 
 /-- The own records' run is an `OwnRun`. -/
 theorem ownRun {M : Name} (hM : M ∈ R.names) : OwnRun .verified maxNatSize sp fs M (R.w M) :=
@@ -344,7 +344,7 @@ theorem localOk (j : Nat) : LocalOk .verified natOpPinSets maxNatSize R.dev j :=
 end Run
 
 /-- **Every module of the headers' closure is a node of a closure closed under imports.** -/
-theorem hdrClosure_mem {sp : SearchPath} {fs : FS} {roots : List Name} {C : List Graph.Node}
+theorem hdrClosure_mem {sp : Roots} {fs : FS} {roots : List Name} {C : List Graph.Node}
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (hroots : ∀ r ∈ roots, r ∈ C.map (·.1)) (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1))
     {m : Name} (h : Graph.HdrClosure sp fs roots m) : m ∈ C.map (·.1) := by

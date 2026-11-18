@@ -40,14 +40,14 @@ namespace ConLeche.Driver.Compose
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 /-- **A module's own records, with the theorems' values in place.** -/
-@[expose] noncomputable def ownDecls (sp : SearchPath) (fs : FS) (M : Name) (w : WorkerRead) :
+@[expose] noncomputable def ownDecls (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
     List Declaration :=
   w.own.toList.map (fillDecl (fillOf sp fs #[⟨M, w.home.frontier⟩]))
 
 /-- **An accepted run over a closure** (see the module docstring); `x` the imports the run adds
 to a module's header (a compared challenge's solution, task #608), no module of the closure
 importing a module with imports added. -/
-structure Run (sp : SearchPath) (fs : FS) (maxNatSize : Nat) where
+structure Run (sp : Roots) (fs : FS) (maxNatSize : Nat) where
   C : List Graph.Node
   rk : Name → Nat
   x : Name → Array ImportRec
@@ -63,7 +63,7 @@ structure Run (sp : SearchPath) (fs : FS) (maxNatSize : Nat) where
     ((w M).reach.ctx.size + (w M).own.size,
       mkFEnv (streamEnv (ownDecls sp fs M (w M)) (streamEnv (w M).reach.ctx.toList)))
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
 
 /-- **The run of a closure every module of which has an accepted worker.** -/
 noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)

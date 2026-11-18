@@ -284,7 +284,7 @@ theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r
   rintro ⟨_, _, h⟩
   obtain ⟨jobs, _, _, hg⟩ := Driver.runArgs_graph_accept hr h
   obtain ⟨C, rk, good, hroots, edges, inj, hhdr⟩ :=
-    Driver.Graph.checkGraphG_ok (fun _ h => h) (fun _ _ h => by simp at h) hg
+    Driver.Graph.checkGraphG_ok rfl (fun _ h => h) (fun _ _ h => by simp at h) hg
   replace good := fun e he => (good e he).plain
   refine run_no_False V (maxNatSize := Cached.maxNatSizeDefault) C rk good edges inj
     (fun M hM => ?_)
@@ -477,7 +477,7 @@ theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : Strin
   obtain ⟨_, _, hg⟩ := hgraph
   obtain ⟨gj, _, _, hg⟩ := Driver.runArgs_graphCmp_accept hc hs hg
   obtain ⟨Cg, rk, good, hroots, edges, inj, hhdr⟩ :=
-    Driver.Graph.checkGraphG_ok (roots' := [C, S]) (fun r hr => by simp at hr; simp [hr])
+    Driver.Graph.checkGraphG_ok rfl (roots' := [C, S]) (fun r hr => by simp at hr; simp [hr])
       (fun m i hi => by
         unfold Driver.Graph.cmpExtra at hi
         split at hi

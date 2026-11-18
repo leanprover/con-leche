@@ -30,7 +30,7 @@ open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLech
 
 /-- **A part's name table, from a home's files**: determined, the table of the view the part
 reads. -/
-theorem readPartNames_of_all {sp : SearchPath} {m : Name} {fs : FS} {f : ModFiles}
+theorem readPartNames_of_all {sp : Roots} {m : Name} {fs : FS} {f : ModFiles}
     {level : OLeanLevel} {t : NamePositions}
     (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f))
     (h : ModelIO.CanGive (readPartNames sp (m, level)) fs (.ok t)) :
@@ -56,7 +56,7 @@ theorem readPartNames_of_all {sp : SearchPath} {m : Name} {fs : FS} {f : ModFile
     rw [h.1]
 
 /-- **A part's files, from a home's**: determined. -/
-theorem partFiles_of_all {sp : SearchPath} {m : Name} {fs : FS} {f f' : ModFiles}
+theorem partFiles_of_all {sp : Roots} {m : Name} {fs : FS} {f f' : ModFiles}
     {level : OLeanLevel}
     (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f))
     (h : ModelIO.CanGive (readFiles sp m level) fs (.ok f')) : f' = f.upTo level := by
@@ -152,7 +152,7 @@ theorem loadsIndex_spec (order : List Name) {m : Name} {i : Nat}
 
 /-- **The worker's name index and load order are the snapshot's**: each loaded part's table is
 its module's at its level, and the order names each module where the index says. -/
-theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+theorem workerReads_index {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
     {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs') :
     (∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t) ∧
@@ -329,7 +329,7 @@ theorem entryDecl_congr {a b : CEntry} (h : a.toCEntryF = b.toCEntryF) : entryDe
 the check of its views), the merge of its own constants and their emission, and for every
 skeleton of its private part not filtered out, the constant the load read there, which the
 merge holds under its name. -/
-theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
+theorem home_records {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs h jobs w) :
     ∃ f r a sk skels, ModelIO.CanGive (readFiles sp h .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
@@ -1057,7 +1057,7 @@ theorem expoOf_cases {pc e : CEntryF Name Expr} {x : Expo} (h : expoOf pc e = so
 /-- **The home's private constant behind a copy** of one of its names, at a level a load reads
 (`.exported` or `.private`): a skeleton of the home's private part, filtered as the copy is, that
 the copy's stands for (`Behind`), by the home's check of its views where the copy is exported. -/
-theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region}
+theorem copy_behind {sp : Roots} {fs : FS} {h : Name} {f : ModFiles} {r : Region}
     {a : UInt64} {sk : ModSkel} {l : Loaded} {expo : Array Expo}
     (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f))
     (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
@@ -1290,7 +1290,7 @@ theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : R
 /-! ## A record presents its source's own record -/
 
 /-- A part's region on the snapshot is one. -/
-theorem partRegion_unique {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles}
+theorem partRegion_unique {sp : Roots} {fs : FS} {h : Name} {f : ModFiles}
     (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f)) {L : OLeanLevel} {r r' : Region}
     (h1 : PartRegion sp fs ⟨h, L⟩ r) (h2 : PartRegion sp fs ⟨h, L⟩ r') : r = r' := by
   obtain ⟨f1, a1, hf1, hr1⟩ := h1
@@ -1302,7 +1302,7 @@ theorem partRegion_unique {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles}
   exact (Prod.mk.inj (Option.some.inj hr2)).1
 
 /-- **A private copy's kind is that of the private skeleton of its name.** -/
-theorem private_tag {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
+theorem private_tag {sp : Roots} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
     {sk : ModSkel} {skels : List (CEntryF UInt64 UInt64)}
     (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f))
     (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
@@ -1354,7 +1354,7 @@ theorem groupOfKind_tag {x : Name} {k : CKindF Name Unit} (hg : groupOfKind x k 
   cases k <;> simp_all [groupOfKind, CKindF.tag]
 
 /-- **The statement, whole-constant and quotient cases.** -/
-theorem recordFrom_presents_nongroup {sp : SearchPath} {fs : FS} {h : Name}
+theorem recordFrom_presents_nongroup {sp : Roots} {fs : FS} {h : Name}
     {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp fs h jobs w) :
     (∀ {x : Name} {s : Spot} {r : Region} {cv : ConstantVal} {k : CKindF Name Unit},
       s.part.mod = h → CopyAt sp fs s → s.part.level ≠ .server → PartRegion sp fs s.part r →

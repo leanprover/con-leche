@@ -150,7 +150,7 @@ namespace Frontend.Olean
 
 /-- **Reads that refine the search path's**: each of the three operations' outcomes, on the
 snapshot, is one of the read of the files on `sp`. -/
-structure OleanReads.Within (fs : FS) (rd : OleanReads ModelIO) (sp : SearchPath) : Prop where
+structure OleanReads.Within (fs : FS) (rd : OleanReads ModelIO) (sp : Roots) : Prop where
   imports : ∀ m, ModelIO.Within fs (rd.imports m) (moduleImports sp m)
   files : ∀ m level, ModelIO.Within fs (rd.files m level) (readFiles sp m level)
   names : ∀ x, ModelIO.Within fs (rd.names x) (readPartNames sp x)
@@ -282,7 +282,7 @@ theorem _root_.ConLeche.ModelIO.Within.of_sub {α : Type} {fs : FS} {a b : Model
   fun hs₀ o hs' h hs₁ => hb hs₀ o hs' (hs _ _ _ h) hs₁
 
 /-- The search path's reads refine themselves. -/
-theorem OleanReads.Within.ofPath (fs : FS) (sp : SearchPath) :
+theorem OleanReads.Within.ofPath (fs : FS) (sp : Roots) :
     OleanReads.Within fs (OleanReads.ofPath sp) sp :=
   ⟨moduleImports_within fs sp, readFiles_within fs sp, readPartNames_within fs sp⟩
 
@@ -323,21 +323,21 @@ theorem headerFixpoint_within {fs : FS}
 
 /-! ## The worker's reads and its home -/
 
-theorem readInfosOf_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
+theorem readInfosOf_within {fs : FS} {rd : OleanReads ModelIO} {sp : Roots}
     (h : OleanReads.Within fs rd sp) (ld : Loads) (ix : NameIndex) (x : Nat × Array Copy) :
     ModelIO.Within fs (readInfosOf rd ld ix x) (readInfosOf (.ofPath sp) ld ix x) := by
   simp only [readInfosOf]
   refine ModelIO.Within.bind (h.files _ _) fun _ => ?_
   within_tac []
 
-theorem readInfos_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
+theorem readInfos_within {fs : FS} {rd : OleanReads ModelIO} {sp : Roots}
     (h : OleanReads.Within fs rd sp) (ld : Loads) (ix : NameIndex) (jobs : Nat) (cs : Array Copy) :
     ModelIO.Within fs (readInfos rd ld ix jobs cs) (readInfos (.ofPath sp) ld ix jobs cs) := by
   simp only [readInfos]
   refine ModelIO.Within.bind (parMapExcept_within (readInfosOf_within h ld ix) _ _ _) fun _ => ?_
   within_tac []
 
-theorem workerReads_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
+theorem workerReads_within {fs : FS} {rd : OleanReads ModelIO} {sp : Roots}
     (h : OleanReads.Within fs rd sp) (m : Name) (jobs : Nat) (x : Array ImportRec) :
     ModelIO.Within fs (workerReads rd m jobs x) (workerReads (.ofPath sp) m jobs x) := by
   simp only [workerReads]
@@ -367,11 +367,11 @@ namespace Driver
 open Frontend.Olean
 
 /-- The reach's environment with its reads on the search path. -/
-@[expose] def ReachEnv.onPath (env : ReachEnv ModelIO) (sp : SearchPath) : ReachEnv ModelIO :=
+@[expose] def ReachEnv.onPath (env : ReachEnv ModelIO) (sp : Roots) : ReachEnv ModelIO :=
   { env with rd := .ofPath sp }
 
 section
-variable {fs : FS} {env : ReachEnv ModelIO} {sp : SearchPath}
+variable {fs : FS} {env : ReachEnv ModelIO} {sp : Roots}
 
 theorem tableOf_within (h : OleanReads.Within fs env.rd sp) (c : ReachCache) (k : PartKey) :
     ModelIO.Within fs (tableOf env c k) (tableOf (env.onPath sp) c k) := by
@@ -532,7 +532,7 @@ theorem reachGo_within (h : OleanReads.Within fs env.rd sp) :
 
 end
 
-theorem reach_within {fs : FS} {rd : OleanReads ModelIO} {sp : SearchPath}
+theorem reach_within {fs : FS} {rd : OleanReads ModelIO} {sp : Roots}
     (h : OleanReads.Within fs rd sp) (m : Name) (wr : WorkerReads) (own : Std.HashSet Name)
     (roots : Array Name) :
     ModelIO.Within fs (reach rd m wr own roots) (reach (.ofPath sp) m wr own roots) := by

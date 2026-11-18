@@ -171,7 +171,7 @@ theorem here_unique {r : Region} {a : UInt64} {t : NamePositions} (ht : namePosi
 /-! ## The home's private part -/
 
 /-- The home's private name table is its private view's. -/
-theorem home_table {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
+theorem home_table {sp : Roots} {fs : FS} {h : Name} {f : ModFiles} {r : Region} {a : UInt64}
     (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f)) (hreg : f.viewRegion .private = some (r, a))
     {t : NamePositions} (ht : PartNames sp fs ⟨h, .private⟩ t) : namePositionsAt r a = some t := by
   have hnt := readPartNames_of_all hf ht
@@ -428,7 +428,7 @@ theorem blockCtors_toF {A B : Merged} :
 /-- **Every group read from module `h`'s private part presents one of `h`'s own records**: it
 is, constant by constant and in the block's order, the record `h`'s emission built of that
 group. -/
-theorem group_presents {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
+theorem group_presents {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs h jobs w) {n : Name} {d : Declaration}
     (hgr : GroupRead sp fs ⟨h, .private⟩ n d) : ∃ p ∈ w.emitted, Presents d p := by
   obtain ⟨t, q, tE, np, ni, nn, all, cs, ir, iu, irf, mqs, cqs, tys, rest, t', rb, r₁, r₂, r₃, r₄,
@@ -744,7 +744,7 @@ theorem group_presents {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : 
 
 /-- **A record read from module `h` presents one of `h`'s own records**, as the worker at `h`
 emitted them on the same snapshot. -/
-theorem recordFrom_presents {sp : SearchPath} {fs : FS} {d : Declaration} {h : Name} {jobs : Nat}
+theorem recordFrom_presents {sp : Roots} {fs : FS} {d : Declaration} {h : Name} {jobs : Nat}
     {w : WorkerRead} (hd : RecordFrom sp fs d h) (hw : WorkerFacts sp fs h jobs w) :
     ∃ p ∈ w.emitted, Presents d p := by
   obtain ⟨hs, he, hq⟩ := recordFrom_presents_nongroup hw
@@ -767,7 +767,7 @@ the record at position `i` of the context, read from module `h` (`homes[i]`), an
 at `h` accepted on the same snapshot, one of `h`'s own records with its theorems' values in place
 (`h`'s `decls` in the development), presented by it (`Presents`).  What `h`'s check of its views
 says of the copy read is `copy_behind`'s. -/
-theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+theorem worker_presented {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
     (hw : WorkerFacts sp fs m jobs w x) {i : Nat} {d : Declaration} {h : Name}
     (hd : w.reach.ctx[i]? = some d) (hh : w.reach.homes[i]? = some h)
     {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts sp fs h jobs' w') :
@@ -782,7 +782,7 @@ theorem worker_presented {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
   exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.2 (Array.mem_toList_iff.2 hp)
 
 /-- Every context record has its home. -/
-theorem worker_home {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+theorem worker_home {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
     (hw : WorkerFacts sp fs m jobs w x) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
     ∃ (i : Nat) (h : Name), w.reach.ctx[i]? = some d ∧ w.reach.homes[i]? = some h := by
   obtain ⟨_, _, hrd⟩ := hw.reads
@@ -799,7 +799,7 @@ theorem worker_home {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : Wor
 records, theorems' values in place, as its `decls`, and presents only context records that
 workers on the same snapshot read from `hb`, every presentation presents one of `b`'s own
 records. -/
-theorem interfaceOk_of_workers {sp : SearchPath} {fs : FS} {hb : Name} {jobs : Nat}
+theorem interfaceOk_of_workers {sp : Roots} {fs : FS} {hb : Name} {jobs : Nat}
     {w : WorkerRead} (hw : WorkerFacts sp fs hb jobs w)
     (dev : Nat → Module) (b : Nat)
     (hdecls : (dev b).decls = w.own.toList.map (fillDecl (fillOf sp fs #[⟨hb, w.home.frontier⟩])))
@@ -816,7 +816,7 @@ theorem interfaceOk_of_workers {sp : SearchPath} {fs : FS} {hb : Name} {jobs : N
 context as its `ctx`, each context name read from the module its record's home is (`srcOf`,
 `nameOf`), and whose modules present the context records workers read from them, every context
 record is a presentation of the module its names are read from. -/
-theorem presented_of_worker {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+theorem presented_of_worker {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
     (hw : WorkerFacts sp fs M jobs w x) (dev : Nat → Module) (i : Nat)
     (hctx : (dev i).ctx = w.reach.ctx.toList) (nameOf : Nat → Name)
     (hsrc : ∀ (j : Nat) (d : Declaration) (h : Name), w.reach.ctx[j]? = some d →

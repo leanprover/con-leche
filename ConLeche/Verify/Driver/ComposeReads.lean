@@ -19,7 +19,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
 
 /-- A presentation installs the names it presents. -/
 theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n ∈ declNames d) :

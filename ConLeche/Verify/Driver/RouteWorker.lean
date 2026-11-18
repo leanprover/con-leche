@@ -53,7 +53,7 @@ theorem readNames_needsGo {e : Expr} {n : Name} (h : n ∈ e.readNames) :
   have hi : NeedsInv (({} : Std.HashSet Expr), (#[] : Array Name)) := fun e he => by simp at he
   exact (needsGo_spec e {} #[] hi).2.2 n (by rw [needs_eq_readNames]; exact h)
 
-variable {sp : SearchPath} {fs : FS}
+variable {sp : Roots} {fs : FS}
 
 theorem ownNames_foldl (n : Name) : ∀ (l : List CEntry) (s : Std.HashSet Name),
     (l.foldl (fun s c => s.insert c.name) s).contains n = true →
@@ -221,7 +221,7 @@ theorem length_filterMap_all {α β : Type} {f : α → Option β} :
       length_filterMap_all fun z hz => h z (List.mem_cons_of_mem _ hz)]
 
 /-- **A clash lists two copies or more.** -/
-theorem workerClash_two {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+theorem workerClash_two {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
     {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) : 2 ≤ cl.copies.toList.length := by
   obtain ⟨-, ⟨infos, hinf, hcls⟩, -⟩ := workerReads_open h

@@ -246,7 +246,7 @@ theorem entryDecl_quot {c : CEntry} {d : Declaration} (h : entryDecl c = some d)
   split at h <;> (try (rename_i heq; cases heq)) <;> (try (cases h; exact ⟨_, rfl⟩)) <;> cases h
 
 /-- **A copy's position says its statement's kind**: its tag and its filter. -/
-theorem copyAt_kind {sp : SearchPath} {fs : FS} {s : Spot} {r : Region} {cv : ConstantVal}
+theorem copyAt_kind {sp : Roots} {fs : FS} {s : Spot} {r : Region} {cv : ConstantVal}
     {k : CKindF Name Unit} (hs : CopyAt sp fs s) (hr : PartRegion sp fs s.part r)
     (hst : StmtSkel r s.pos.loc cv k) : s.pos.tag = k.tag ∧ s.pos.skipped = k.skipped := by
   obtain ⟨t, ht, hq⟩ := hs
@@ -409,7 +409,7 @@ theorem ownNames_mem {l : Loaded} {c : CEntry} (hc : c ∈ l.constants) :
 
 /-- **A copy of a statement kind, of an accepted module's part, has a position of its name and
 of a statement kind in the module's private table.** -/
-theorem copy_private_pos {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem copy_private_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
     (hl : s.part.level ≠ .server) {r1 : Region} (hr : PartRegion sp fs s.part r1)
     {cv : ConstantVal} {k : CKindF Name Unit} (hst : StmtSkel r1 s.pos.loc cv k) (hk : k.tag < 4) :
@@ -435,7 +435,7 @@ theorem copy_private_pos {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w 
 
 /-- **A constant of an accepted module's private view has a position of its name and kind** in
 the module's private table. -/
-theorem home_const_pos {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem home_const_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) {c : CEntry} (hc : c ∈ w.home.constants) :
     ∃ q ∈ w.reads.own.consts, q.name = c.name ∧ q.tag = c.kind.tag := by
   obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
@@ -449,7 +449,7 @@ theorem home_const_pos {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : 
   · rw [htg, ← (lazyEntry_kind hle).2]
 
 /-- The private table of an accepted module names each position once. -/
-theorem own_pos_unique {sp : SearchPath} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem own_pos_unique {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w) {q q' : NamePosition} (hq : q ∈ w.reads.own.consts)
     (hq' : q' ∈ w.reads.own.consts) (hn : q.name = q'.name) : q = q' := by
   obtain ⟨f, r, a, sk, skels, hf, hreg, -⟩ := home_records hw
@@ -510,7 +510,7 @@ theorem part_resolve {m : Module} {y : Name} {ty : Expr}
 
 namespace Run
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
 
 /-- **An emitted record of a module of the run passed the reserved names' check.** -/
 theorem own_basis {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : Declaration} (hp : p ∈ (R.w h).emitted) :

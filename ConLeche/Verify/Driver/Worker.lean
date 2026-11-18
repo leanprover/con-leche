@@ -108,7 +108,7 @@ challenge, whose records are compared, not checked. -/
 /-- **What a worker read and checked before its jobs, on a snapshot** (`workerRead`'s phases, see
 `ConLeche/Driver/Worker.lean`); `x` the imports the run adds to the module's header (none, but at
 a compared challenge, whose worker is `cmpModuleRead`, task #608). -/
-structure WorkerFacts (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead)
+structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead)
     (x : Array ImportRec := #[]) : Prop where
   /-- the home: its private part's files, the private view loaded off them, its three parts
   checked against each other -/
@@ -128,7 +128,7 @@ structure WorkerFacts (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) (w : W
   values : CacheOK sp fs #[⟨m, w.home.frontier⟩] w.values
 
 /-- **`workerRead`'s accept** is `WorkerFacts`, whatever the heartbeat answered. -/
-theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pace : Pace}
+theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : Pace}
     {t0 jobs : Nat} {fs : FS} {w : WorkerRead} (hrd : OleanReads.Within fs rd sp) {hs hs' : HS}
     (h : (workerRead rd m pace t0 jobs : ModelIO _) fs hs (.ok (.ok w)) hs') :
     WorkerFacts sp fs m jobs w := by
@@ -175,7 +175,7 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : SearchPath} {m : Name} {pa
 /-! ## The own records accepted from the context -/
 
 /-- The values every job of a worker reads: its home's, on the snapshot. -/
-theorem workerFacts_good {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+theorem workerFacts_good {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs m jobs w) :
     ∀ md ∈ (#[⟨m, w.home.frontier⟩] : Array ModRef), ∃ f r a,
       ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
@@ -206,7 +206,7 @@ theorem workerFacts_good {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w 
 records, with their theorems' values in place (`fillOf` over the home's frontier), accepted one
 after another from the context's environment at position `ctx.size`, ending at the own
 environment (`ImportOk.accepted`). -/
-@[expose] def WorkerAccepted (mode : CheckMode) (maxNatSize : Nat) (sp : SearchPath) (fs : FS) (m : Name) (jobs : Nat) :
+@[expose] def WorkerAccepted (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) :
     Prop :=
   ∃ w, WorkerFacts sp fs m jobs w ∧
     DeclsRun mode natOpPinSets maxNatSize
@@ -217,7 +217,7 @@ environment (`ImportOk.accepted`). -/
         (streamEnv w.reach.ctx.toList)))
 
 /-- The check phase and the verdict of an accepted worker: an exit 0 is `WorkerAccepted`. -/
-theorem worker_tail {sp : SearchPath} {R : Roots} {m : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
+theorem worker_tail {sp : Roots} {R : Roots} {m : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {w : WorkerRead} (hR : R.Ok fs) (hp : R.bare = sp)
     (hw : WorkerFacts sp fs m jobs w) (tag who : String)
     (alone : Bool) (t0 tIndex tParse : Nat) (J : Jobs (w.reach.ctx ++ w.own)) :
@@ -253,7 +253,7 @@ theorem worker_tail {sp : SearchPath} {R : Roots} {m : Name} {mode : CheckMode} 
 snapshot `fs` that is an exit 0 is `WorkerAccepted`, at any `--jobs`, pace and `alone`, whatever
 the `liftIO` actions answered, for any reads `rd` that refine the search path's (the search
 path's own, `OleanReads.Within.ofPath`, or the one-process mode's tables). -/
-theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {R : Roots} {m : Name}
+theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {R : Roots} {m : Name}
     {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {jobs : Nat} {alone : Bool} {fs : FS}
     (hrd : OleanReads.Within fs rd sp) (hR : R.Ok fs) (hRp : R.bare = sp) {hs hs' : HS}
     (h : (checkModuleG rd R m mode maxNatSize pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
@@ -284,7 +284,7 @@ theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : SearchPath} {R : Roo
 /-- **The context of an accepted worker**: every context record `RecordScoped` in the
 prefix of the context ending with it (`ImportOk.ordered`) and in the context, every name it reads
 stored there, the context `EnvWF`, its names distinct (`ImportOk.nodup`). -/
-theorem worker_ctx {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+theorem worker_ctx {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
     (hw : WorkerFacts sp fs m jobs w x) :
     (∀ k (hk : k < w.reach.ctx.toList.length),
       RecordScoped (streamEnv (w.reach.ctx.toList.take (k + 1))) w.reach.ctx.toList[k]) ∧
@@ -310,7 +310,7 @@ theorem mem_foldl_append_if {α β : Type} (p : α → Bool) (f : α → Array �
 name of the pin ground of an own constant (`pinGround` over the shipped variants) that a loaded
 module holds and that is not an own name is stored in the context, so the operation's install
 check finds there whatever of its variants' pins and certificates the loaded modules hold. -/
-theorem worker_ground {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+theorem worker_ground {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs m jobs w) {c : CEntry} (hc : c ∈ w.home.constants)
     (hsk : c.skipped = false) {g : Name} (hg : g ∈ pinGround natOpPinSets c.name)
     (hix : w.reads.index.first.contains g = true) (ho : (ownNames w.home).contains g = false) :
@@ -346,7 +346,7 @@ theorem nodup_flatMap_inj {α β : Type} {f : α → List β} :
 
 /-- **A context name is one record's** (`ImportOk.one_src`, with a module's source a function
 of the record storing the name): two context records storing one name are one. -/
-theorem worker_one_record {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+theorem worker_one_record {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
     (hw : WorkerFacts sp fs m jobs w x) {d d' : Declaration} (hd : d ∈ w.reach.ctx.toList)
     (hd' : d' ∈ w.reach.ctx.toList) {n : Name} (hn : n ∈ declNames d) (hn' : n ∈ declNames d') :
     d = d' := by
@@ -355,7 +355,7 @@ theorem worker_one_record {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
 /-! ## The own records are the module's -/
 
 /-- The home of an accepted worker: its files, loaded. -/
-theorem workerFacts_load {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+theorem workerFacts_load {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
     (hw : WorkerFacts sp fs m jobs w x) :
     ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ loadAt 0 m f = some w.home := by
   obtain ⟨f, hf, h⟩ := hw.home
@@ -449,7 +449,7 @@ theorem skels_name_inj {r : Region} {a : UInt64} {sk : ModSkel}
 with its statement, and its reference, on the snapshot, stands for the specification's value
 (`ValueAt` over the home's frontier): the own records hold the module's theorems as the
 specification reads them off the files (`ViewOf`). -/
-theorem worker_thm {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+theorem worker_thm {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs m jobs w) {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
     {all : List Name} (hv : ViewOf sp fs m d) (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
     ∃ code, Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ (.bvar code) ∈ w.own ∧
@@ -523,7 +523,7 @@ record's names have one source (`one_src`), the own records are accepted from th
 context record is closed in the context, which is well formed.  What
 is left of `ImportOk` relates `i` to other modules (`below`, `src_lt`, `presented`, `reads`,
 the agreement): the composition's (task #467). -/
-theorem worker_local {mode : CheckMode} {maxNatSize : Nat} {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat}
+theorem worker_local {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
     {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts sp fs m jobs w x)
     (hrun : DeclsRun mode natOpPinSets maxNatSize
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))

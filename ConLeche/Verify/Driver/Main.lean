@@ -397,7 +397,7 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
             Array.isEmpty_empty] at hc
           simp only [runReq, ModelIO.bind_ok] at hc
           obtain ⟨⟨R, T⟩, _, hT, hc⟩ := hc
-          obtain ⟨hR, hp, hT⟩ := workerTables_ok hT
+          obtain ⟨hR, hp, hT⟩ := workerTables_ok rfl hT
           exact ⟨m, _, rfl, checkModuleG_accept (modTables_within hR hp hT) hR hp hc⟩
   · simp
 
@@ -475,7 +475,7 @@ theorem runArgs_cmpModule_accept {dirs c s : String} {fs : FS} {hs hs' : HS}
             Bool.and_false] at hv
           simp only [runReq, ModelIO.bind_ok] at hv
           obtain ⟨⟨R, T⟩, _, hT, hv⟩ := hv
-          obtain ⟨hR, hp, hT⟩ := workerTables_ok hT
+          obtain ⟨hR, hp, hT⟩ := workerTables_ok rfl hT
           exact ⟨C, S, _, rfl, rfl, checkCmpModuleG_accept (modTables_within hR hp hT) hv⟩
   · simp
 
@@ -548,8 +548,8 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
             Array.isEmpty_empty] at hc
           generalize (none : Option Nat).getD _ = j at hc
           simp only [runReq] at hc
-          obtain ⟨C, T, ⟨_, _, hC⟩, hall⟩ := checkModularG_accept hc
-          obtain ⟨rk, h1, h2, h3, h4, -⟩ := Graph.graphOf_ok hC
+          obtain ⟨C, T, ⟨_, _, hC⟩, hall⟩ := checkModularG_accept rfl hc
+          obtain ⟨rk, h1, h2, h3, h4, -⟩ := Graph.graphOf_ok rfl hC
           exact ⟨m, rfl, C.toList, rk, fun e he => (h1 e he).plain, h2 m (by simp), h3, h4, hall⟩
   · simp
 

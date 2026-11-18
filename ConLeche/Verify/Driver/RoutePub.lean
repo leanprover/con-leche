@@ -21,7 +21,7 @@ namespace ConLeche.Driver.Compose
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 /-- **A public path between two modules starts with an exported import of the first.** -/
-theorem _root_.ConLeche.Driver.PubReach.first {sp : SearchPath} {fs : FS} {a b : Name}
+theorem _root_.ConLeche.Driver.PubReach.first {sp : Roots} {fs : FS} {a b : Name}
     (h : PubReach sp fs a b) (hne : a ≠ b) :
     ∃ is i0, ModelIO.CanGive (moduleImports sp a) fs (.ok is) ∧ i0 ∈ is ∧
       i0.isExported = true ∧ PubReach sp fs i0.module b := by
@@ -36,7 +36,7 @@ theorem _root_.ConLeche.Driver.PubReach.first {sp : SearchPath} {fs : FS} {a b :
 
 namespace Run
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
 
 /-- **The importer's copy of a name is a copy of it on the snapshot.** -/
 theorem importerSpot_copyAt {M : Name} (hM : M ∈ R.names) {y : Name} {i : Nat} {s : Spot}

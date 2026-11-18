@@ -53,21 +53,21 @@ instance : LawfulBEq PartKey where
 /-! ## What the snapshot holds -/
 
 /-- **A part's files** on the snapshot. -/
-@[expose] def PartFiles (sp : SearchPath) (fs : FS) (k : PartKey) (f : ModFiles) : Prop :=
+@[expose] def PartFiles (sp : Roots) (fs : FS) (k : PartKey) (f : ModFiles) : Prop :=
   ModelIO.CanGive (readFiles sp k.mod k.level) fs (.ok f)
 
 /-- **A part's name table** on the snapshot. -/
-@[expose] def PartNames (sp : SearchPath) (fs : FS) (k : PartKey) (t : NamePositions) : Prop :=
+@[expose] def PartNames (sp : Roots) (fs : FS) (k : PartKey) (t : NamePositions) : Prop :=
   ModelIO.CanGive (readPartNames sp (k.mod, k.level)) fs (.ok t)
 
 /-- **A copy of a name**: a name position its part's name table holds on the snapshot. -/
-@[expose] def CopyAt (sp : SearchPath) (fs : FS) (s : Spot) : Prop :=
+@[expose] def CopyAt (sp : Roots) (fs : FS) (s : Spot) : Prop :=
   ∃ t, PartNames sp fs s.part t ∧ s.pos ∈ t.consts
 
 /-- **Module `h`'s view on the snapshot** (`viewOf`'s, by the specification): the parts of
 `viewKeys` over `h`'s header fixpoint, read from `h`'s private part's header, each part's name
 table the snapshot's, folded in order with the first copy of each name kept. -/
-@[expose] def HomeView (sp : SearchPath) (fs : FS) (h : Name) (v : Std.HashMap Name Spot) : Prop :=
+@[expose] def HomeView (sp : Roots) (fs : FS) (h : Name) (v : Std.HashMap Name Spot) : Prop :=
   ∃ (own : NamePositions) (ld : Loads) (ts : List NamePositions),
     PartNames sp fs ⟨h, .private⟩ own ∧
     ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule own.header.imports) fs
@@ -82,7 +82,7 @@ table the snapshot's, folded in order with the first copy of each name kept. -/
   ⟨⟨wr.loads.nameAt cp.mod, ((wr.loads.flags[cp.mod]?).getD default).level⟩, q⟩
 
 /-- **A part's region** on the snapshot. -/
-@[expose] def PartRegion (sp : SearchPath) (fs : FS) (k : PartKey) (r : Region) : Prop :=
+@[expose] def PartRegion (sp : Roots) (fs : FS) (k : PartKey) (r : Region) : Prop :=
   ∃ f a, PartFiles sp fs k f ∧ f.viewRegion k.level = some (r, a)
 
 /-- **The statement and kind at a location**, as the specification reads them off its
@@ -102,7 +102,7 @@ skeleton (a theorem's value is no part of it). -/
 position in the part's name table, the constant there an inductive type of block `all`, the
 block's members' and their constructors' positions, the part's recursors by their block's
 first member, the constants at those positions, and the group's record built from them. -/
-@[expose] def GroupRead (sp : SearchPath) (fs : FS) (k : PartKey) (n : Name) (d : Declaration) :
+@[expose] def GroupRead (sp : Roots) (fs : FS) (k : PartKey) (n : Name) (d : Declaration) :
     Prop :=
   ∃ (t : NamePositions) (q : NamePosition) (tE : CEntryF Name Expr) (np ni nn : Nat)
     (all cs : List Name) (ir iu irf : Bool) (mqs cqs : List NamePosition)
@@ -120,7 +120,7 @@ first member, the constants at those positions, and the group's record built fro
 
 /-- **Where a context record was read, and how** (see the module docstring): the record and
 its source module. -/
-inductive RecordFrom (sp : SearchPath) (fs : FS) : Declaration → Name → Prop
+inductive RecordFrom (sp : Roots) (fs : FS) : Declaration → Name → Prop
   /-- a copy's statement, at a part of its source: the skeleton's statement; a definition only
   at a private part (a completion's located copy); at a compiler-trust name only where the
   source's private part declares an opaque constant or an axiom of the copy's name -/
@@ -154,7 +154,7 @@ inductive RecordFrom (sp : SearchPath) (fs : FS) : Declaration → Name → Prop
 /-- **The reach's environment on the search path**: its reads are the search path's, and its
 name index holds each loaded module's part's table, a module's position in the load order
 naming it. -/
-structure EnvOk (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) : Prop where
+structure EnvOk (sp : Roots) (fs : FS) (env : ReachEnv ModelIO) : Prop where
   rd : env.rd = .ofPath sp
   parts : ∀ i t, env.wr.index.parts[i]? = some t →
     PartNames sp fs ⟨env.wr.loads.nameAt i, ((env.wr.loads.flags[i]?).getD default).level⟩ t
@@ -162,7 +162,7 @@ structure EnvOk (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) : Prop wher
 
 /-- **The reach's caches hold the snapshot's**: tables, lookups, regions with good memos,
 recursor maps, views' copies and located copies (the latter at private parts). -/
-structure CacheOk (sp : SearchPath) (fs : FS) (c : ReachCache) : Prop where
+structure CacheOk (sp : Roots) (fs : FS) (c : ReachCache) : Prop where
   tables : ∀ k t, c.tables[k]? = some t → PartNames sp fs k t
   looks : ∀ k l, c.looks[k]? = some l → ∃ t, PartNames sp fs k t ∧ l = lookTable t
   parts : ∀ k r st, c.parts[k]? = some (r, st) → PartRegion sp fs k r ∧ st.Good r
@@ -172,19 +172,19 @@ structure CacheOk (sp : SearchPath) (fs : FS) (c : ReachCache) : Prop where
     ∀ (y : Name) (s : Spot), v[y]? = some s → CopyAt sp fs s
   located : ∀ (y : Name) (s : Spot), c.located[y]? = some s → s.part.level = .private ∧ CopyAt sp fs s
 
-theorem CacheOk.searches {sp : SearchPath} {fs : FS} {c : ReachCache} (hc : CacheOk sp fs c) (n : Nat) :
+theorem CacheOk.searches {sp : Roots} {fs : FS} {c : ReachCache} (hc : CacheOk sp fs c) (n : Nat) :
     CacheOk sp fs { c with searches := n } :=
   ⟨hc.tables, hc.looks, hc.parts, hc.recBlocks, hc.views, hc.located⟩
 
-theorem CacheOk.pending {sp : SearchPath} {fs : FS} {c : ReachCache} (hc : CacheOk sp fs c)
+theorem CacheOk.pending {sp : Roots} {fs : FS} {c : ReachCache} (hc : CacheOk sp fs c)
     (p : Array (String × Name × ConstantVal)) : CacheOk sp fs { c with pending := p } :=
   ⟨hc.tables, hc.looks, hc.parts, hc.recBlocks, hc.views, hc.located⟩
 
-theorem CacheOk.partners {sp : SearchPath} {fs : FS} {c : ReachCache} (hc : CacheOk sp fs c)
+theorem CacheOk.partners {sp : Roots} {fs : FS} {c : ReachCache} (hc : CacheOk sp fs c)
     (p : Array (Name × Name)) : CacheOk sp fs { c with partners := p } :=
   ⟨hc.tables, hc.looks, hc.parts, hc.recBlocks, hc.views, hc.located⟩
 
-theorem CacheOk.empty (sp : SearchPath) (fs : FS) : CacheOk sp fs {} :=
+theorem CacheOk.empty (sp : Roots) (fs : FS) : CacheOk sp fs {} :=
   ⟨by simp, by simp, by simp, by simp, by simp, by simp⟩
 
 /-- **A skeleton's statement and the whole constant there**: one statement, one kind
@@ -232,7 +232,7 @@ theorem lookTable_spec (t : NamePositions) {n : Name} {q : NamePosition}
 /-! ## The parts -/
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem CacheOk.insert_tables {c : ReachCache} (hc : CacheOk sp fs c) {k : PartKey}
     {t : NamePositions} (ht : PartNames sp fs k t) :
@@ -1157,7 +1157,7 @@ theorem readRecord_ok (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp f
 /-! ## The worklist -/
 
 /-- **Every record of the worklist so far, read from its home**. -/
-@[expose] def FromInv (sp : SearchPath) (fs : FS) (L : ReachLog) : Prop :=
+@[expose] def FromInv (sp : Roots) (fs : FS) (L : ReachLog) : Prop :=
   L.ctx.size = L.homes.size ∧
     ∀ (i : Nat) (d : Declaration) (h : Name), L.ctx[i]? = some d → L.homes[i]? = some h →
       RecordFrom sp fs d h
@@ -1244,7 +1244,7 @@ theorem reachGo_from (he : EnvOk sp fs env) :
 /-- **What the reach read, from where**: at every accepting outcome of `reach` on the search
 path's reads, from a name index whose parts are the snapshot's tables, every context record
 is read from its home (`RecordFrom`). -/
-theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
+theorem reach_from {sp : Roots} {fs : FS} {m : Name} {wr : WorkerReads}
     {own : Std.HashSet Name} {roots : Array Name} {r : Reach}
     (hparts : ∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t)
