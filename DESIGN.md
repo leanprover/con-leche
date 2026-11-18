@@ -122492,3 +122492,58 @@ random rather than group elements, which does not change the sizes of the number
 
 Files (in `_tmp/601/bench/`): `Gf3Mul.lean`, `gen.py`, `gf3-mul-small.ndjson`,
 `gf3-mul-big.ndjson`; the run script `_tmp/601/bin/run.sh` and the logs `_tmp/601/logs/`.
+
+## TASK #605 — the scheduler on Anthropic's FLT development: stopped before the build (2026-11-18, agent/605-flt)
+
+**The task (maintainer).**  Run `--olean --schedule --jobs=16 --schedule-memory=40G` on
+https://github.com/anthropics/fermats-last-theorem (60 475 modules, Lean v4.33.1, Mathlib
+`db584cd6d`, root `FinalCheck`) and report on the scheduler; first check the reader against
+v4.33.1, and stop before a build of more than about 6 hours or 100 GB.
+
+**Stopped at step 2: the FLT build.**  The project has no build cache (no release assets; its
+README: "Lake fetches Mathlib from GitHub and compiles it from source, since no prebuilt Mathlib
+matches this toolchain" — the Mathlib pin is a v4.33.0 commit, the project is on v4.33.1).  Its
+sources are 1.17 GB of Lean (P2M 882 MB in 29 513 files, Theorems 276 MB in 29 511, Definitions
+13 MB in 1 450; the largest file 1.6 MB), about ten times Mathlib.  The README's own build: 5 h
+32 min at 96 jobs, about 5 GB per job (a few modules up to 36 GB), peak 153 GB; 67 GB under
+`.lake` plus about 220 GB of C files.  That is at most 531 CPU-hours.  Under this session's
+50 GiB cap (shared; 9 GiB anonymous memory held by others at the time) about 8 jobs fit, so the
+build takes about 66 h at full use of the 96-job run's CPU time, and still about 20 h if that run
+was only 30 % busy.  The disk peak is 67 GB plus the C files unless they are removed during the
+build.  Both are beyond the limits, so nothing was built.
+
+**The reader on v4.33.1.**  The header is format version 2 (`olean\x02`, version string
+`4.33.1`, githash `819816b2`), and `ModuleData`, `Expr`, `Level`, `Name` and the IR are the same
+sources as in v4.35.0 (`Declaration.lean` differs only in `deriving BEq`).  `--olean -- Init`:
+accepted, 63 936 declarations.
+
+But `--olean --schedule --jobs=16 --schedule-memory=8G -- Lean` (2 322 modules) rejects 245 of
+them, all for one reason, e.g.
+
+    module Lean.ResolveName: invalid: module Lean.ResolveName: the exported part: the exported
+    view of Lean.ResolveName.resolveNamespaceUsingScope?._unsafe_rec is not a refinement of its
+    private constant (definition (partial) / axiom)
+
+every one a `partial` definition's `_unsafe_rec`.  The same module from v4.35.0 and v4.36.0 is
+accepted.  Cause: lean4#14609 ("mark exported stubs of `partial` definitions as unsafe",
+2026-07-30, first in v4.34.0-rc1) changed `addDeclCore`'s stub from
+`isUnsafe := defn.safety == .unsafe` to `!= .safe`.  v4.33.1's source carries the fix (a
+backport), but its own library was compiled by stage0, which did not: the v4.33.1 `.olean`
+stores the stub as a safe axiom (read back with v4.33.1's `readModuleData`: `axiom
+unsafe=false`).  `expoOf`/`expoOfParts` (`Frontend/Olean/Module.lean`) accept only the
+post-#14609 stub.  Lean's own modules are in every Mathlib closure, so an FLT run would carry
+these 245 rejects.  For the maintainer to rule on (no code changed):
+* accept the pre-#14609 stub as `.hidden` (a `partial` definition, a safe axiom): `--olean` checks
+  the private view, where the constant is a `partial` definition, so the stub's flag is not used;
+  or
+* keep the reject (the file states two meanings for one name), and say in the message that it is
+  the pre-v4.34 stub of a `partial` definition.
+
+**The scheduler on Lean's closure (v4.33.1).**  2 322 modules, wall 24.7 s, 6 m 26 s of worker
+time; 15.6 workers running on average (97 % of 16 threads); 1.3 GiB in use and 1.4 GiB reserved
+on average of 8 GiB; no kill, no forced start; the peak per module 0.3 GiB.  Nothing odd at this
+scale; the run says nothing about big modules.
+
+Files (in `_tmp/605/`): `bin/con-leche` (modular 010604125), `guard.sh` (47 GiB session
+threshold), the FLT clone `flt/` (1.6 GB, sources only), `init.log`, `lean-sched.out`,
+`lean-sched.log`, `lean-fail-msgs.txt`, `probe/dump.lean`.
