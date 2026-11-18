@@ -132,6 +132,28 @@ theorem Run.ofCompare_w (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
   show (if hM : Cn ∈ C.map (·.1) ∧ Cn ≠ Cn then _ else if Cn = Cn then cr.w else dflt) = cr.w
   simp
 
+/-- The compared run's modules are the graph's. -/
+theorem Run.ofCompare_names (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
+    (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
+    (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
+    (inj : (C.map fun e => rk e.1).Nodup)
+    (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
+    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
+    (cjobs : Nat) (cr : CmpModuleRead) (hcr : CmpFacts sp fs Cn S cjobs cr) (dflt : WorkerRead) :
+    (Run.ofCompare Cn S C rk good edges inj plain acc cjobs cr hcr dflt).names = C.map (·.1) := by
+  rfl
+
+/-- The compared run's added imports: the solution's at the challenge. -/
+theorem Run.ofCompare_x (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
+    (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
+    (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
+    (inj : (C.map fun e => rk e.1).Nodup)
+    (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
+    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
+    (cjobs : Nat) (cr : CmpModuleRead) (hcr : CmpFacts sp fs Cn S cjobs cr) (dflt : WorkerRead) :
+    (Run.ofCompare Cn S C rk good edges inj plain acc cjobs cr hcr dflt).x = Graph.cmpExtra Cn S := by
+  rfl
+
 /-! ## Homes and the compared module's environment -/
 
 /-- **The home of a context name** in a reach: the home of the first record storing it (what
@@ -177,6 +199,31 @@ theorem dev_own {M : Name} (hM : M ∈ R.names) :
 theorem ownEnv_noOwn {M : Name} (h : (R.w M).own = #[]) :
     ownEnvOf sp fs M (R.w M) = streamEnv (R.w M).reach.ctx.toList := by
   simp [ownEnvOf, ownDeclsOf, h, streamEnv]
+
+/-- **The home rule, in the run**: every name the challenge's records read that the challenge
+imports is, in the compare worker's context, of the module the challenge's own view loads it
+from first. -/
+theorem cmp_home {Cn S : Name} {jobs : Nat} {c : CmpModuleRead} (hC : Cn ∈ R.names)
+    (hw : R.w Cn = c.w) (hcf : CmpFacts sp fs Cn S jobs c) :
+    ∀ y ∈ cmpImported c.w.home c.w.emitted, ∃ cp, c.view.index.first[y]? = some cp ∧
+      ctxHome c.w.reach y = c.view.loads.nameAt cp.mod := by
+  intro y hy
+  have h := hcf.imported y hy
+  unfold importedAt at h
+  split at h
+  · cases h
+  rename_i cp hcp
+  split at h
+  · cases h
+  rename_i k hk
+  simp only at h
+  split at h
+  · rename_i heq
+    refine ⟨cp, hcp, ?_⟩
+    have hk' : (ownerMap (R.w Cn).reach.ctx)[y]? = some k := by rw [hw]; exact hk
+    rw [← hw, ← R.homeIn_eq, R.homeIn_owner hC hk', hw]
+    exact (beq_iff_eq.1 heq).symm
+  · cases h
 
 end Run
 
