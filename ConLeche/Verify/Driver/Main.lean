@@ -256,6 +256,69 @@ theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS} {hs hs' :
     · exact ⟨_, _, _, hc⟩
   · simp
 
+/-- The arguments `--check-graph --compare --search-path=<dirs> -- <c> <s>`: those two modules,
+those directories, every other setting at its default. -/
+theorem parseArgs_graphCmp (dirs c s : String) :
+    parseArgs ["--check-graph", "--compare", "--search-path=" ++ dirs, "--", c, s] {} =
+      { checkGraph := true, compare := true, searchPath := searchPathOf dirs,
+        files := #[c, s] } := by
+  have hfst : parseArgs ["--check-graph", "--compare", "--search-path=" ++ dirs, "--", c, s] {} =
+      parseArgs ["--search-path=" ++ dirs, "--", c, s] { checkGraph := true, compare := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_natMax_searchPath, flagValue_other dirs (by decide) (by decide),
+    flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--check-graph --compare --search-path=<dirs> -- <c> <s>` ask for no help. -/
+theorem helpWanted_graphCmp (dirs c s : String) :
+    helpWanted ["--check-graph", "--compare", "--search-path=" ++ dirs, "--", c, s] = false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--check-graph --compare --search-path=<dirs> -- <c> <s>`, in the model**
+(task #608): every outcome that is an exit 0 is an exit 0 of the graph check of the challenge
+`C`'s closure with the solution `S` added to its header (`Graph.cmpExtra`), at some worker count. -/
+theorem runArgs_graphCmp_accept {dirs c s : String} {C S : Name} {fs : FS} {hs hs' : HS}
+    (hc : Frontend.Olean.parseModName c = some C) (hsol : Frontend.Olean.parseModName s = some S)
+    (h : (runArgs ["--check-graph", "--compare", "--search-path=" ++ dirs, "--", c, s] : ModelIO _)
+      fs hs (.ok 0) hs') :
+    ∃ jobs, ModelIO.CanGive (Graph.checkGraphG (searchPathOf dirs) [C] jobs (Graph.cmpExtra C S))
+      fs 0 := by
+  suffices H : ModelIO.AllOk (runArgs ["--check-graph", "--compare", "--search-path=" ++ dirs, "--",
+      c, s]) fs hs (fun v => v = 0 → ∃ jobs, ModelIO.CanGive
+        (Graph.checkGraphG (searchPathOf dirs) [C] jobs (Graph.cmpExtra C S)) fs 0) from
+    H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
+  · simp only [helpWanted_graphCmp, parseArgs_graphCmp, Bool.false_eq_true, ite_false, ite_true]
+    intro v _ hv h0
+    subst h0
+    have hf : (#[c, s].find? fun f => (Frontend.Olean.parseModName f).isNone) = none := by
+      simp [hc, hsol]
+    simp only [hf] at hv
+    have hm : (#[c, s].filterMap Frontend.Olean.parseModName).toList = [C, S] := by
+      simp [hc, hsol]
+    simp only [Bool.or_false, List.isEmpty_nil, Array.isEmpty_empty,
+      Bool.not_true, Bool.false_eq_true, ite_false] at hv
+    split at hv
+    · simp [eprintln] at hv
+    · simp only [List.filterMap_cons, hc, hsol, List.filterMap_nil, Array.toList_filterMap] at hv
+      split at hv
+      · simp [eprintln] at hv
+      · simp only [runReq] at hv
+        exact ⟨_, _, _, hv⟩
+  · simp
+
 /-- **`runArgs`, in the model** (task #450). -/
 theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
     (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
