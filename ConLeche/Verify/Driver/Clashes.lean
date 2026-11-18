@@ -794,7 +794,8 @@ theorem workerReads_open {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr
       wr.clashes = (clashCopies wr.index).map fun (n, cs) =>
         { name := n, copies := cs.filterMap fun c => (infos[c]?).map fun (s, k) => (c, s, k) }) ∧
     ∃ headTy, wr.clashes.toList.forM (clashOk wr.loads headTy) = .ok () := by
-  simp only [workerReads, ModelIO.bind_ok] at h
+  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
+    ModelIO.bind_ok] at h
   obtain ⟨a, _, -, h⟩ := h
   rcases a with e | own
   · simp at h
@@ -1098,7 +1099,8 @@ theorem workerReads_loads {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
     obtain ⟨q, hq, -⟩ := workerClash_stmt h hcl' (cp := x.1) (cv := x.2.1) (kd := x.2.2) hx
     exact ⟨q, hq⟩
   have hix := (workerReads_open h).1
-  simp only [workerReads, ModelIO.bind_ok] at h
+  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
+    ModelIO.bind_ok] at h
   obtain ⟨a, hs₀, ha, h⟩ := h
   rcases a with e | own
   · simp at h

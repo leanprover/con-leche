@@ -148,7 +148,8 @@ theorem workerReads_spec {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr
         ModelIO.CanGive (readPartNames sp x) fs (.ok t)) ∧
       wr.index = nameIndexOf parts.toArray) ∧
     freshOk m wr.loads wr.index wr.own = .ok () := by
-  simp only [workerReads, ModelIO.bind_ok] at h
+  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
+    ModelIO.bind_ok] at h
   obtain ⟨a, _, ha, h⟩ := h
   rcases a with e | own
   · simp at h

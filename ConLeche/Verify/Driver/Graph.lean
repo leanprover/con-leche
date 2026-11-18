@@ -23,12 +23,26 @@ namespace ConLeche.Driver.Graph
 
 open ConLeche ConLeche.Frontend.Olean
 
-variable {sp : SearchPath} {fs : FS}
+variable {sp : SearchPath} {fs : FS} {extra : Name → Array ImportRec}
 
-/-- **A header read that answers** is `moduleImports`' answer. -/
+/-- **A module of a closure, as the graph check reads it**: its imports are what its header read
+answers on the snapshot, followed by the imports the run adds to it (`extra`; a compared
+challenge's solution, task #608). -/
+@[expose] def NodeOk (sp : SearchPath) (fs : FS) (extra : Name → Array ImportRec) (e : Node) :
+    Prop :=
+  ∃ imps, ModelIO.CanGive (moduleImports sp e.1) fs (.ok imps) ∧ e.2 = imps ++ extra e.1
+
+/-- With no import added, a module's imports are its header's. -/
+theorem NodeOk.plain {e : Node} (h : NodeOk sp fs (fun _ => #[]) e) :
+    ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2) := by
+  obtain ⟨imps, h, he⟩ := h
+  rw [he, Array.append_empty]
+  exact h
+
+/-- **A header read that answers** is `moduleImports`' answer, with the run's imports added. -/
 theorem hdrOf_ok {T : Roots} {m : Name} {e : Node} {hs hs' : HS}
-    (h : (hdrOf T m : ModelIO _) fs hs (.ok (.ok e)) hs') :
-    e.1 = m ∧ ModelIO.CanGive (moduleImports T m) fs (.ok e.2) := by
+    (h : (hdrOf T extra m : ModelIO _) fs hs (.ok (.ok e)) hs') :
+    e.1 = m ∧ ∃ imps, ModelIO.CanGive (moduleImports T m) fs (.ok imps) ∧ e.2 = imps ++ extra m := by
   simp only [hdrOf, ModelIO.bind_ok] at h
   obtain ⟨x, hs₁, hx, h⟩ := h
   rcases x with err | imps
@@ -38,7 +52,7 @@ theorem hdrOf_ok {T : Roots} {m : Name} {e : Node} {hs hs' : HS}
   · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
     obtain ⟨h, -⟩ := h
     subst h
-    exact ⟨rfl, hs, hs₁, hx⟩
+    exact ⟨rfl, imps, ⟨hs, hs₁, hx⟩, rfl⟩
 
 theorem expand_mem : ∀ (rs : List Node) (seen : Std.HashSet Name) (out : Array Node)
     (next : Array Name), ∀ e ∈ (expand seen out next rs).2.1.toList, e ∈ out.toList ∨ e ∈ rs
@@ -54,22 +68,23 @@ theorem expand_mem : ∀ (rs : List Node) (seen : Std.HashSet Name) (out : Array
 
 /-- A header read through roots read off the snapshot is one on the search path. -/
 theorem hdrOf_sub {T : Roots} (hT : T.Ok fs) (hp : T.bare = sp) {m : Name} {e : Node} {hs hs' : HS}
-    (h : (hdrOf T m : ModelIO _) fs hs (.ok (.ok e)) hs') :
-    e.1 = m ∧ ModelIO.CanGive (moduleImports sp m) fs (.ok e.2) := by
-  obtain ⟨h1, h2⟩ := hdrOf_ok h
+    (h : (hdrOf T extra m : ModelIO _) fs hs (.ok (.ok e)) hs') :
+    e.1 = m ∧ NodeOk sp fs extra e := by
+  obtain ⟨h1, imps, h2, he⟩ := hdrOf_ok h
   have := (moduleImports_sub hT m).canGive h2
   rw [hp] at this
-  exact ⟨h1, this⟩
+  subst h1
+  exact ⟨rfl, imps, this, he⟩
 
 /-- **Every module the walk returns has the imports its header read answers**, and the roots
 it resolved are read off the snapshot. -/
 theorem closureLevels_good {jobs : Nat} :
     ∀ (fuel : Nat) (lvl : List Name) (seen : Std.HashSet Name) (out C : Array Node)
       (T T' : Roots), T.Ok fs → T.bare = sp →
-      (∀ e ∈ out.toList, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) →
-      ∀ {hs hs' : HS}, (closureLevels T jobs fuel lvl seen out : ModelIO _) fs hs
+      (∀ e ∈ out.toList, NodeOk sp fs extra e) →
+      ∀ {hs hs' : HS}, (closureLevels T extra jobs fuel lvl seen out : ModelIO _) fs hs
         (.ok (.ok (C, T'))) hs' →
-      (∀ e ∈ C.toList, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) ∧
+      (∀ e ∈ C.toList, NodeOk sp fs extra e) ∧
         T'.Ok fs ∧ T'.bare = sp
   | _, [], _, out, C, T, T', hT, hp, hout, _, _, h => by
     simp only [closureLevels, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
@@ -82,12 +97,12 @@ theorem closureLevels_good {jobs : Nat} :
     obtain ⟨hT₁ok, hT₁p⟩ := Roots.foldResolve_ok _ hT hT₁
     rcases r with err | rs
     · simp at h
-    · have hr' : (mapExcept (hdrOf T₁) (x :: xs) : ModelIO _) fs _ (.ok (.ok rs)) _ := hr
+    · have hr' : (mapExcept (hdrOf T₁ extra) (x :: xs) : ModelIO _) fs _ (.ok (.ok rs)) _ := hr
       obtain ⟨-, hrs⟩ := mapExcept_ok₂ (g := Prod.fst) (g' := id)
-        (Q := fun _ y => ModelIO.CanGive (moduleImports sp y.1) fs (.ok y.2))
+        (Q := fun _ y => NodeOk sp fs extra y)
         (fun m y _ _ hy => by
           obtain ⟨h1, h2⟩ := hdrOf_sub hT₁ok (hT₁p.trans hp) hy
-          exact ⟨h1, h1 ▸ h2⟩) hr'
+          exact ⟨h1, h2⟩) hr'
       refine closureLevels_good fuel _ _ _ C T₁ T' hT₁ok (hT₁p.trans hp) ?_ h
       intro e he
       rcases expand_mem rs seen out #[] e he with h1 | h1
@@ -203,9 +218,9 @@ function `rk` such that
 So `C` ordered by `rk` numbers the closure with each module after everything it imports, by
 edges of every kind; in particular the graph is acyclic. -/
 theorem graphOf_ok {roots : List Name} {jobs : Nat} {C : Array Node} {T : Roots}
-    {hs hs' : HS} (h : (graphOf sp roots jobs : ModelIO _) fs hs (.ok (.ok (C, T))) hs') :
+    {hs hs' : HS} (h : (graphOf sp roots jobs extra : ModelIO _) fs hs (.ok (.ok (C, T))) hs') :
     ∃ rk : Name → Nat,
-      (∀ e ∈ C.toList, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) ∧
+      (∀ e ∈ C.toList, NodeOk sp fs extra e) ∧
       (∀ r ∈ roots, r ∈ C.toList.map (·.1)) ∧
       (∀ e ∈ C.toList, ∀ i ∈ e.2, i.module ∈ C.toList.map (·.1) ∧ rk i.module < rk e.1) ∧
       (C.toList.map fun e => rk e.1).Nodup ∧ T.Ok fs ∧ T.bare = sp := by
@@ -236,6 +251,17 @@ inductive HdrClosure (sp : SearchPath) (fs : FS) (roots : List Name) : Name → 
   | root {r : Name} : r ∈ roots → HdrClosure sp fs roots r
   | step {m : Name} {is : Array ImportRec} {i : ImportRec} : HdrClosure sp fs roots m →
       ModelIO.CanGive (moduleImports sp m) fs (.ok is) → i ∈ is → HdrClosure sp fs roots i.module
+
+/-- **A node's import, of its header or added**: in the closure of roots that hold every added
+import's module. -/
+theorem HdrClosure.of_node {roots : List Name} {e : Node} (he : NodeOk sp fs extra e)
+    (hx : ∀ m, ∀ i ∈ extra m, i.module ∈ roots) (hm : HdrClosure sp fs roots e.1)
+    {i : ImportRec} (hi : i ∈ e.2) : HdrClosure sp fs roots i.module := by
+  obtain ⟨imps, h, he⟩ := he
+  rw [he, Array.mem_append] at hi
+  rcases hi with hi | hi
+  · exact .step hm h hi
+  · exact .root (hx _ i hi)
 
 theorem expand_next : ∀ (rs : List Node) (seen : Std.HashSet Name) (out : Array Node)
     (next : Array Name), ∀ x ∈ (expand seen out next rs).2.2.toList,
@@ -272,11 +298,12 @@ theorem expand_next : ∀ (rs : List Node) (seen : Std.HashSet Name) (out : Arra
       exact Or.inr ⟨e, List.mem_cons_of_mem _ he, i, hi, hx'⟩
 
 /-- **Every module the walk returns is in the roots' import closure.** -/
-theorem closureLevels_closure {jobs : Nat} {roots : List Name} :
+theorem closureLevels_closure {jobs : Nat} {roots : List Name}
+    (hx : ∀ m, ∀ i ∈ extra m, i.module ∈ roots) :
     ∀ (fuel : Nat) (lvl : List Name) (seen : Std.HashSet Name) (out C : Array Node)
       (T T' : Roots), T.Ok fs → T.bare = sp →
       (∀ x ∈ lvl, HdrClosure sp fs roots x) → (∀ e ∈ out.toList, HdrClosure sp fs roots e.1) →
-      ∀ {hs hs' : HS}, (closureLevels T jobs fuel lvl seen out : ModelIO _) fs hs
+      ∀ {hs hs' : HS}, (closureLevels T extra jobs fuel lvl seen out : ModelIO _) fs hs
         (.ok (.ok (C, T'))) hs' →
       ∀ e ∈ C.toList, HdrClosure sp fs roots e.1
   | _, [], _, out, C, _, _, _, _, _, hout, _, _, h => by
@@ -290,21 +317,21 @@ theorem closureLevels_closure {jobs : Nat} {roots : List Name} :
     obtain ⟨hT₁ok, hT₁p⟩ := Roots.foldResolve_ok _ hT hT₁
     rcases r with err | rs
     · simp at h
-    · have hr' : (mapExcept (hdrOf T₁) (x :: xs) : ModelIO _) fs _ (.ok (.ok rs)) _ := hr
+    · have hr' : (mapExcept (hdrOf T₁ extra) (x :: xs) : ModelIO _) fs _ (.ok (.ok rs)) _ := hr
       obtain ⟨-, hrs⟩ := mapExcept_ok₂ (g := Prod.fst) (g' := id)
-        (Q := fun m y => y.1 = m ∧ ModelIO.CanGive (moduleImports sp y.1) fs (.ok y.2))
+        (Q := fun m y => y.1 = m ∧ NodeOk sp fs extra y)
         (fun m y _ _ hy => by
           obtain ⟨h1, h2⟩ := hdrOf_sub hT₁ok (hT₁p.trans hp) hy
-          exact ⟨h1, h1, h1 ▸ h2⟩) hr'
+          exact ⟨h1, h1, h2⟩) hr'
       have hrsC : ∀ e ∈ rs, HdrClosure sp fs roots e.1 := fun e he => by
         obtain ⟨m, hm, h1, -⟩ := hrs e he
         rw [h1]; exact hlvl m hm
-      refine closureLevels_closure fuel _ _ _ C T₁ T' hT₁ok (hT₁p.trans hp) (fun y hy => ?_)
+      refine closureLevels_closure hx fuel _ _ _ C T₁ T' hT₁ok (hT₁p.trans hp) (fun y hy => ?_)
         (fun e he => ?_) h
       · rcases expand_next rs seen out #[] y hy with h1 | ⟨e, he, i, hi, rfl⟩
         · simp at h1
         · obtain ⟨_, -, -, hm⟩ := hrs e he
-          exact .step (hrsC e he) hm hi
+          exact HdrClosure.of_node hm hx (hrsC e he) hi
       · rcases expand_mem rs seen out #[] e he with h1 | h1
         · exact hout e h1
         · exact hrsC e h1
@@ -337,11 +364,12 @@ theorem dedup_mem {xs : List Name} : ∀ x ∈ (dedup xs).1, x ∈ xs := by
       · exact Or.inr (List.mem_cons_of_mem _ h')
 
 /-- **The graph check's closure is the roots' import closure by the headers.** -/
-theorem graphOf_closure {roots : List Name} {jobs : Nat} {C : Array Node} {T : Roots}
-    {hs hs' : HS} (h : (graphOf sp roots jobs : ModelIO _) fs hs (.ok (.ok (C, T))) hs') :
-    ∀ e ∈ C.toList, HdrClosure sp fs roots e.1 := by
+theorem graphOf_closure {roots roots' : List Name} {jobs : Nat} {C : Array Node} {T : Roots}
+    (hr : ∀ r ∈ roots, r ∈ roots') (hx : ∀ m, ∀ i ∈ extra m, i.module ∈ roots')
+    {hs hs' : HS} (h : (graphOf sp roots jobs extra : ModelIO _) fs hs (.ok (.ok (C, T))) hs') :
+    ∀ e ∈ C.toList, HdrClosure sp fs roots' e.1 := by
   simp only [graphOf, ModelIO.bind_ok] at h
-  obtain ⟨x, _, hx, h⟩ := h
+  obtain ⟨x, _, hx', h⟩ := h
   rcases x with err | ⟨C', T'⟩
   · simp at h
   · simp only at h
@@ -357,23 +385,24 @@ theorem graphOf_closure {roots : List Name} {jobs : Nat} {C : Array Node} {T : R
           simp only [hv, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
           exact h.1.1.symm
     subst hC
-    exact closureLevels_closure _ _ _ _ _ _ _ (Roots.ok_coe fs sp) rfl
-      (fun y hy => .root (dedup_mem y hy)) (by simp) hx
+    exact closureLevels_closure hx _ _ _ _ _ _ _ (Roots.ok_coe fs sp) rfl
+      (fun y hy => .root (hr _ (dedup_mem y hy))) (by simp) hx'
 
 /-- **An exit 0 of the graph check**: its closure, with `graphOf_ok`'s facts. -/
-theorem checkGraphG_ok {roots : List Name} {jobs : Nat}
-    {hs hs' : HS} (h : (checkGraphG sp roots jobs : ModelIO UInt8) fs hs (.ok 0) hs') :
+theorem checkGraphG_ok {roots roots' : List Name} {jobs : Nat}
+    (hr : ∀ r ∈ roots, r ∈ roots') (hxt : ∀ m, ∀ i ∈ extra m, i.module ∈ roots')
+    {hs hs' : HS} (h : (checkGraphG sp roots jobs extra : ModelIO UInt8) fs hs (.ok 0) hs') :
     ∃ C : List Node, ∃ rk : Name → Nat,
-      (∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) ∧
+      (∀ e ∈ C, NodeOk sp fs extra e) ∧
       (∀ r ∈ roots, r ∈ C.map (·.1)) ∧
       (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
-      (C.map fun e => rk e.1).Nodup ∧ (∀ e ∈ C, HdrClosure sp fs roots e.1) := by
-  suffices H : ModelIO.AllOk (checkGraphG sp roots jobs) fs hs (fun c => c = 0 →
+      (C.map fun e => rk e.1).Nodup ∧ (∀ e ∈ C, HdrClosure sp fs roots' e.1) := by
+  suffices H : ModelIO.AllOk (checkGraphG sp roots jobs extra) fs hs (fun c => c = 0 →
       ∃ C : List Node, ∃ rk : Name → Nat,
-        (∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)) ∧
+        (∀ e ∈ C, NodeOk sp fs extra e) ∧
         (∀ r ∈ roots, r ∈ C.map (·.1)) ∧
         (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
-        (C.map fun e => rk e.1).Nodup ∧ (∀ e ∈ C, HdrClosure sp fs roots e.1)) from H 0 hs' h rfl
+        (C.map fun e => rk e.1).Nodup ∧ (∀ e ∈ C, HdrClosure sp fs roots' e.1)) from H 0 hs' h rfl
   simp only [checkGraphG, ModelIO.allOk_bind]
   intro x _ hx
   rcases x with err | ⟨C, T⟩
@@ -381,13 +410,13 @@ theorem checkGraphG_ok {roots : List Name} {jobs : Nat}
     exact fun _ h0 => absurd h0 (CheckError.exitCode_ne_zero _)
   · simp only [outLine, ModelIO.allOk_liftIO_bind, ModelIO.allOk_pure]
     obtain ⟨rk, h1, h2, h3, h4, -⟩ := graphOf_ok hx
-    exact fun _ _ => ⟨C.toList, rk, h1, h2, h3, h4, graphOf_closure hx⟩
+    exact fun _ _ => ⟨C.toList, rk, h1, h2, h3, h4, graphOf_closure hr hxt hx⟩
 
 /-- **The closure by the specification is in `C`**: where every module of `C` has the imports
 its header read answers and every import of one is in `C`, every module of the roots' closure
 (`InClosure`: a root, or an import of the private view of a module of it) is a module of `C`. -/
 theorem checkGraphG_closure {roots : Array Name} {C : List Node}
-    (hgood : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
+    (hgood : ∀ e ∈ C, NodeOk sp fs extra e)
     (hroots : ∀ r ∈ roots.toList, r ∈ C.map (·.1))
     (hedges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1)) {m : Name}
     (h : InClosure sp fs roots m) : m ∈ C.map (·.1) := by
@@ -396,9 +425,10 @@ theorem checkGraphG_closure {roots : Array Name} {C : List Node}
   | @step m d i _ hv hi ih =>
     obtain ⟨e, he, rfl⟩ := List.mem_map.1 ih
     obtain ⟨_, _, hrv⟩ := readView_of_viewOf hv
-    have hg := (moduleImports_of_view hrv).eq (hgood e he)
-    have : d.imports = e.2 := by simpa using hg.symm
-    exact hedges e he i (this ▸ hi)
+    obtain ⟨imps, hgi, he2⟩ := hgood e he
+    have hg := (moduleImports_of_view hrv).eq hgi
+    have : d.imports = imps := by simpa using hg.symm
+    exact hedges e he i (by rw [he2]; exact Array.mem_append_left _ (this ▸ hi))
 
 
 end ConLeche.Driver.Graph

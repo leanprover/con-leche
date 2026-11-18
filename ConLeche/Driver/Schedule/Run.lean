@@ -603,12 +603,12 @@ def runAll (parse : String → Option Name) (args : Name → Nat → Array Strin
 /-- **The commands instead of a run** (`--schedule-commands`): `commandLines` of this binary on
 stdout, one per line, the modules in the queue's order (`shuffle`, or the graph's with
 `--schedule-order=graph`); no process started, nothing on stderr, exit 0. -/
-def printCommands (dirs : String) (root : Name) (mods : Array Name) (o : Opts)
-    (args : Name → Array String) : IO UInt8 := do
+def printCommands (dirs : String) (root : Name) (cmp : Option Name) (mods : Array Name)
+    (o : Opts) (args : Name → Array String) : IO UInt8 := do
   let app ← IO.appPath
   let order := if o.shuffled then shuffle spell mods.toList else mods.toList
   let out ← IO.getStdout
-  for l in commandLines app.toString dirs root order args do out.putStrLn l
+  for l in commandLines app.toString dirs root cmp order args do out.putStrLn l
   out.flush
   return 0
 

@@ -157,7 +157,8 @@ theorem workerReads_index {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w
     (∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t) ∧
     (∀ n i, wr.loads.index[n]? = some i → wr.loads.nameAt i = n) := by
-  simp only [workerReads, ModelIO.bind_ok] at h
+  simp only [workerReads, NamePositions.withImports, Array.isEmpty_empty, ↓reduceIte,
+    ModelIO.bind_ok] at h
   obtain ⟨a, _, -, h⟩ := h
   rcases a with e | own
   · simp at h

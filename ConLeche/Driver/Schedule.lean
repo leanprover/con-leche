@@ -56,7 +56,7 @@ def Schedule.declCount {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Nam
 /-- **The scheduler**, generic in the IO class (see the module docstring); `opts` the values of
 its `--schedule` flags, `jobsGiven` whether `--jobs` was given (the printed commands carry it only
 then). -/
-def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name)
+def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name) (cmp : Option Name)
     (opts : List String) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
     (jobsGiven : Bool) : μ UInt8 := do
   -- the heartbeat: `--progress=N` after N ms without a line (at least a second), `Ss` after S
@@ -72,19 +72,28 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name
     diagLine s!"con-leche: {msg}"
     return 3
   | .ok o =>
-    match ← Graph.graphOf ↑sp [root] jobs with
+    let extra := match cmp with
+      | some s => Graph.cmpExtra root s
+      | none => fun _ => #[]
+    match ← Graph.graphOf ↑sp [root] jobs extra with
     | .error e =>
       diagLine s!"con-leche: graph: {e}"
       return e.exitCode
     | .ok (C, _) =>
       let mods := C.map (·.1)
       let dirs := ":".intercalate (sp.map toString)
+      -- the challenge's worker is the compare worker (task #608)
+      let args (t : Option Nat) (m : Name) : Array String :=
+        match cmp with
+        | some s => if m == root then Schedule.cmpWorkerArgs mode dirs t root s
+          else Schedule.workerArgs mode maxNatSize dirs t m
+        | none => Schedule.workerArgs mode maxNatSize dirs t m
       if o.commands then
-        CheckerIO.liftIO (Schedule.printCommands dirs root mods o
-          (Schedule.workerArgs mode maxNatSize dirs (if jobsGiven then some jobs else none)))
+        CheckerIO.liftIO (Schedule.printCommands dirs root cmp mods o
+          (args (if jobsGiven then some jobs else none)))
       else
         CheckerIO.liftIO (Schedule.runAll parseModName
-          (fun m t => Schedule.workerArgs mode maxNatSize dirs (some t) m)
+          (fun m t => args (some t) m)
           (Schedule.declCount (μ := IO) ↑sp) mods o jobs (Schedule.modeTag mode))
 
 end ConLeche.Driver

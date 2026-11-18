@@ -280,7 +280,9 @@ theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r
       fs 0 := by
   rintro ⟨_, _, h⟩
   obtain ⟨jobs, _, _, hg⟩ := Driver.runArgs_graph_accept hr h
-  obtain ⟨C, rk, good, hroots, edges, inj, hhdr⟩ := Driver.Graph.checkGraphG_ok hg
+  obtain ⟨C, rk, good, hroots, edges, inj, hhdr⟩ :=
+    Driver.Graph.checkGraphG_ok (fun _ h => h) (fun _ _ h => by simp at h) hg
+  replace good := fun e he => (good e he).plain
   refine run_no_False V (maxNatSize := Cached.maxNatSizeDefault) C rk good edges inj
     (fun M hM => ?_)
     (Driver.Compose.hdrClosure_mem good hroots (fun e he i hi => (edges e he i hi).1) hcl)

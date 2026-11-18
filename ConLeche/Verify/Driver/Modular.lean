@@ -125,7 +125,7 @@ theorem checkModularG_accept {sp : SearchPath} {root : Name} {mode : CheckMode} 
     obtain ⟨_, _, -, h, -⟩ := h
     exact absurd h.symm (CheckError.exitCode_ne_zero _)
   obtain ⟨rk, hgood, -, -, -, hR, hp⟩ := Graph.graphOf_ok hx
-  have hT := tables_ok hR hp hgood (mapExcept_both hy).1
+  have hT := tables_ok hR hp (fun e he => (hgood e he).plain) (mapExcept_both hy).1
   simp only [ModelIO.bind_ok] at h
   obtain ⟨_, _, -, _, _, -, ⟨ss, res⟩, _, hz, h⟩ := h
   rcases res with e | rs

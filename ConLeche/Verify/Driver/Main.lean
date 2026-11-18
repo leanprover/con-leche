@@ -408,17 +408,19 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
           simp only [runReq] at hc
           obtain ⟨C, T, ⟨_, _, hC⟩, hall⟩ := checkModularG_accept hc
           obtain ⟨rk, h1, h2, h3, h4, -⟩ := Graph.graphOf_ok hC
-          exact ⟨m, rfl, C.toList, rk, h1, h2 m (by simp), h3, h4, hall⟩
+          exact ⟨m, rfl, C.toList, rk, fun e he => (h1 e he).plain, h2 m (by simp), h3, h4, hall⟩
   · simp
 
 /-- **`runArgs` on `--olean --compare` arguments, in the model**: at any arguments that ask for
-no help, parse without a usage error and ask for `--olean --compare` (not `--check-graph`),
-every outcome that is an exit 0 is one of `compareG` on the two module names the arguments give,
-at the arguments' lookups and `--constant` names. -/
+no help, parse without a usage error and ask for `--olean --compare` (not `--check-graph`,
+`--module`, `--modular` or `--schedule`), every outcome that is an exit 0 is one of `compareG` on
+the two module names the arguments give, at the arguments' lookups and `--constant` names. -/
 theorem runArgs_compares_accept {args : List String} {fs : FS} {hs hs' : HS}
     (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
     (ho : (parseArgs args {}).olean = true) (hcg : (parseArgs args {}).checkGraph = false)
     (hcmp : (parseArgs args {}).compare = true)
+    (hmod : ((parseArgs args {}).module || (parseArgs args {}).modular ||
+      (parseArgs args {}).scheduled) = false)
     (h : (runArgs args : ModelIO _) fs hs (.ok 0) hs') :
     ∃ C S jobs, (parseArgs args {}).files.toList.filterMap Olean.parseModName = [C, S] ∧
       ModelIO.CanGive (compareG ⟨C, S, (parseArgs args {}).trustedPath,
@@ -433,7 +435,7 @@ theorem runArgs_compares_accept {args : List String} {fs : FS} {hs hs' : HS}
           jobs) fs 0) from
     H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
-  · simp only [hh, hb, ho, hcg, hcmp, Bool.false_eq_true, ite_false, ite_true]
+  · simp only [hh, hb, ho, hcg, hcmp, hmod, Bool.false_eq_true, ite_false, ite_true]
     intro c hs₂ hc h0
     subst h0
     split at hc
@@ -448,9 +450,7 @@ theorem runArgs_compares_accept {args : List String} {fs : FS} {hs hs' : HS}
           simp only [hg] at hc
           generalize hl : List.filterMap Olean.parseModName (parseArgs args {}).files.toList = l
             at hc
-          generalize ((parseArgs args {}).module || (parseArgs args {}).modular ||
-            (parseArgs args {}).scheduled) = b at hc
-          rcases l with _ | ⟨C, _ | ⟨S, _ | ⟨_, _⟩⟩⟩ <;> cases b <;>
+          rcases l with _ | ⟨C, _ | ⟨S, _ | ⟨_, _⟩⟩⟩ <;>
             simp only [eprintln, ModelIO.bind_ok, ModelIO.liftIO_iff, ModelIO.pure_iff,
               Except.ok.injEq, exists_eq_left] at hc
           all_goals try (obtain ⟨_, _, h3, -⟩ := hc; cases h3)
@@ -533,7 +533,7 @@ theorem runArgs_compare_accept {T D c s : String} {C S : Name} {fs : FS} {hs hs'
           (Cached.fillDecl (fillOf r.solRoots fs rdS.values))) = .ok env := by
   have hp := parseArgs_compare T D c s
   obtain ⟨C', S', jobs, hf, _, _, hg⟩ := runArgs_compares_accept (helpWanted_compare T D c s)
-    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) h
+    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]; rfl) h
   rw [hp] at hf hg
   simp only [List.filterMap_cons, List.filterMap_nil, hc, hsol] at hf
   obtain ⟨rfl, rfl⟩ : C = C' ∧ S = S' := by simpa using hf

@@ -55,6 +55,14 @@ def workerArgs (mode : CheckMode) (maxNatSize : Nat) (dirs : String) (jobs : Opt
   #["--olean", "--module"] ++ (match jobs with | some t => #[s!"--jobs={t}"] | none => #[]) ++
     #[modeTag mode, s!"--max-nat-size={maxNatSize}", "--search-path=" ++ dirs, "--", spell m]
 
+/-- **The compare worker's arguments** at challenge `c` and solution `s` (task #608):
+`--olean --module --compare`, as `workerArgs`, then `--`, `spell c` and `spell s`. -/
+def cmpWorkerArgs (mode : CheckMode) (dirs : String) (jobs : Option Nat) (c s : Name) :
+    Array String :=
+  #["--olean", "--module", "--compare"] ++
+    (match jobs with | some t => #[s!"--jobs={t}"] | none => #[]) ++
+    #[modeTag mode, "--search-path=" ++ dirs, "--", spell c, spell s]
+
 /-- A word as a POSIX shell reads it back: as it is where it is not empty and holds only
 letters, digits and `_-./=:,+@%`, else in single quotes, a `'` in it as `'\''`. -/
 def shellQuote (s : String) : String :=
@@ -66,10 +74,13 @@ def shellQuote (s : String) : String :=
 /-- **The commands that check a closure** (`--schedule-commands`), one line each, shell-quoted:
 the graph check of `root` (`app --check-graph --search-path=dirs -- root`), then one worker per
 module of `mods`, in the order given (`workerArgs` at each). -/
-def commandLines (app : String) (dirs : String) (root : Name) (mods : List Name)
-    (args : Name → Array String) : List String :=
+def commandLines (app : String) (dirs : String) (root : Name) (cmp : Option Name)
+    (mods : List Name) (args : Name → Array String) : List String :=
   let line (ws : Array String) : String := " ".intercalate (ws.toList.map shellQuote)
-  line #[app, "--check-graph", "--search-path=" ++ dirs, "--", spell root] ::
+  line (match cmp with
+    | none => #[app, "--check-graph", "--search-path=" ++ dirs, "--", spell root]
+    | some s => #[app, "--check-graph", "--compare", "--search-path=" ++ dirs, "--", spell root,
+        spell s]) ::
     mods.map fun m => line (#[app] ++ args m)
 
 /-- The usual signals' names. -/
