@@ -123141,3 +123141,55 @@ says.
 route (a) of the cont. 3 record, called from `genRecStage` in place of the `sorry`; then the
 `Model` field (`ofEnvModelM` after `RuleEqsSound`), the docs, the gates and the landing.
 README lines to report: 69 and 73.
+
+## TASK #610 (cont. 5) — the generated rules' `RecRuleFit` proved; `Model.rule_eqs`; landed (2026-11-19, agent/610-model-eqs)
+
+On top of `228d2c6be`.  **State: the `sorry` in `genRecStage` is gone; `Model` has the field
+`rule_eqs : RuleEqsHold cval env` (fix (a)), proved in `Model.ofEnvModelM`; `lake build` and
+`lake test` warning-free, the axiom pins at the three standard axioms; the battery and the
+whitepaper gates pass.**
+
+**The generated rules' `RecRuleFit`** (`GenRecFinal.lean`, `genRecStage`, through
+`genRecFit_of`):
+* `Model/Inductives/GenRecFitBase.lean`: `RecRuleFit` at a generated rule with the reading
+  binders eliminated, at the constructors' environment — `GenPs` (the rule's parameters read at
+  the prefix: the prefix's own at a member class, the class's parameters `tgtOutDsa` at an
+  outside one), `GenLv` (the constructor's levels are the class's), `GenFit1` (conjunct (1)),
+  `GenFit2` (conjunct (2)'s fit).
+* `Model/Inductives/GenRecFit.lean`: `genRecFit_of` — the reduction (`blockRuleTVa_run`,
+  `blockRecDenote_cross`, `blockRecAcv_stored`, `genOutPinVal` for the pins, `recFireComparands`
+  for the levels) and the universe clause `blockRecFit_univ`: the stored type's inference
+  infers its conclusion after the major to the motive's sort (`storedMotive_sort`), the sort
+  the stage checked it at (`blockRecConcl_univ`).
+* `Model/Inductives/GenRecFit1.lean`: conjunct (1) **unconditionally**, at every class, by
+  the route the cont. 4 record sketched but without the fields' fit: the minor premise applies
+  the constructor to the class's parameters, `C.mk ds fields`, and its head `C.mk ds` mentions
+  no field, so it is inferred at the rule prefix (`inferTypeCore_depth_inv`);
+  `teleFitPA_of_inferSpine` (generic: an inferred application spine fits its head's
+  Π-telescope — each argument inhabits its inferred type, which the application rule's
+  comparison, eager or not, makes the binder's domain; `InferSemFull`, `DefEqSem` through the
+  bridge) reads it as the fit.  Fix (C)'s premise is therefore not needed by the generated
+  block (the basis rows and the consumer keep it; the field is unchanged).
+* `Model/Inductives/GenRecFit2.lean` (a sub-agent's): conjunct (2) by route (a) — one core
+  for both class kinds through `GenClsRd`: `genOut_typed` puts the constructor application in
+  the class's former at arguments fitting the former's telescope, the index pin makes them
+  `ps ++ is`, the parameters satisfy the class's frame, so the class is live, the tuple is in
+  the index set and the application in the carrier; `GenClsBack` gives the stored domains' fit.
+
+**The `Model` field.**  `ConLeche/Denotes.lean`: the rule equations' section (`motiveLevel?`,
+`iotaEq`, `ruleEqs`, `RuleEqsHold`) moved before `structure Model`, which gains
+`rule_eqs : RuleEqsHold cval env`.  `Model.ofEnvModelM` moved to the new
+`Model/OfEnvModelM.lean` (after `RuleEqsSound`), `eq_equality` factored as `eq_equality_of`
+(used by `ruleEqsHold_of` too); `cvalOf` is `@[expose]`.  `IotaEqTests.T_a_ne_T_b` reads the
+equations off `M.rule_eqs` (no hypothesis).
+
+**Imports.**  The shake gate's proposals applied where the build agreed; two measured
+fallbacks in `scripts/pub-import-plan.py` (`GenRecFit1` ← `GenClsSem`, `GenRecFitBase`), one
+allowlist line (`Model/Denotes.lean`'s `EnvModelM`, compensated); two helpers of
+`StreamRecsSem` and three of `GenRecFit1` made private.
+
+**Docs.**  The `Model` docstring, OVERVIEW §1 (the main theorem's model, the paragraph on
+definitional equalities), whitepaper §1 and §7; §6b is the fragment's, unchanged.  README is
+the maintainer's: lines 69 ("every constant … (and that `False` … `Eq` …)": now also
+definitions mean their values and recursor rules hold) and 73 ("it does not contain the delta
+and iota equations": it now does) are stale; only their links were re-pointed.
