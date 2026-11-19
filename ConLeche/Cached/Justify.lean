@@ -67,9 +67,13 @@ def sideRecords : Option Env → Array Declaration → Array Declaration
   | some _, ds => ds.map sideRecord
 
 /-- **The statement a record offers to a sidecar**: an axiom's, other than a built-in one (a
-record whose value uses a hole is an axiom by then, `sideRecord`). -/
+record whose value uses a hole is an axiom by then, `sideRecord`), and not at a name whose
+constant the checker computes with (a certified `Nat` operation, a compiler-trust operation):
+those are installed only by their own checks. -/
 def justifiable : Declaration → Option ConstantVal
-  | .axiomDecl cv => if builtinAxiomName cv.name then none else some cv
+  | .axiomDecl cv =>
+    if builtinAxiomName cv.name || natOpName cv.name || reduceOpNames.contains cv.name then none
+    else some cv
   | _ => none
 
 /-! ## The comparison -/
@@ -112,11 +116,13 @@ def copyB (ci' ci : ConstantInfo) : Bool :=
 
 /-- **The input's copy is the sidecar's**: a copy of it (`copyB`: the same, or at other
 level-parameter names), or a copy of the statement (an axiom of the same name and type) of a
-sidecar definition, theorem or axiom. -/
+sidecar definition, theorem or axiom — but not at a compiler-trust operation's name, whose
+constant the checker computes with and reads only as itself. -/
 def refinesB (ci ci' : ConstantInfo) : Bool :=
   copyB ci' ci ||
     match ci with
-    | .axiomInfo _ => ci'.isStmtKind && copyB (.axiomInfo ci'.toConstantVal) ci
+    | .axiomInfo _ => ci'.isStmtKind && !reduceOpNames.contains ci'.toConstantVal.name &&
+      copyB (.axiomInfo ci'.toConstantVal) ci
     | _ => false
 
 /-- **The sidecar, as the justification reads it**: its index, and the input's record mates
