@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Driver.CompareJson
-public import ConLeche.Verify.Driver.CompareRun
+import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Driver.Cli
 
 /-!

@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Model.Modular.Compare
+import ConLeche.Model.Modular.Compare
+public import ConLeche.Model.Copies
+public import ConLeche.Verify.Cached.Fill
 public import ConLeche.Verify.Driver.CompareJsonRun
-import ConLeche.Model.Modular.Main
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Prepare
 

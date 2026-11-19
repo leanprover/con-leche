@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Verify.Cached.MainC
-public import ConLeche.Denotes
+import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
@@ -9,7 +9,7 @@ import ConLeche.Model.Denotes
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
-public import ConLeche.Driver.Cli
+import ConLeche.Driver.Cli
 import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
 import ConLeche.Modular

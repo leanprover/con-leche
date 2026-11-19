@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Driver.Modular
 public import ConLeche.Driver.Schedule
-public import ConLeche.Driver.Compare
 public import ConLeche.Driver.CompareJson
 
 /-!
