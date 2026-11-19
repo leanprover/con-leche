@@ -865,6 +865,10 @@ theorem pin_reading_val {acval : Name → (Name → Nat) → Term}
 
 /-! ## 7. The equations hold -/
 
+theorem getD_of_lt {α : Type _} (L : List α) {i : Nat} {d : α} (h : i < L.length) :
+    L.getD i d = L[i] := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h, Option.getD_some]
+
 theorem Denotes_bvar_inv {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
     {ρ : Nat → V} {i : Nat} {X : V} (h : ConLeche.Denotes cval env φ ρ (.bvar i) X) : X = ρ i := by
   cases h; rfl
@@ -1132,6 +1136,61 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
   rw [← hxsI] at hxT'
   obtain ⟨mid, hmid⟩ := Rules.teleFitPA_of_teleFit xsT
     (by simpa using Rules.piChain_of_teleFit hxT') hxT'
+  -- the variables, read
+  have hgetD : ∀ (L : List V) (o : Nat), (∀ i (h : i < L.length), W[o + i]? = some L[i]) →
+      ∀ i (h : i < L.length),
+        interp V σ (((List.range L.length).map fun i => Term.bvar (o + i)).getD i default)
+          = L[i] := by
+    intro L o hL i h
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range h, Option.map_some,
+      Option.getD_some, interp_bvar]
+    exact hσ o L hL i h
+  have hxW : ∀ i (h : i < xs.length), W[0 + i]? = some xs[i] := fun i h => by
+    simp only [W, Nat.zero_add, List.append_assoc]
+    rw [List.getElem?_append_left h, List.getElem?_eq_getElem h]
+  have hpW : ∀ i (h : i < Ps.length), W[rP + i]? = some Ps[i] := fun i h => by
+    simp only [W, List.append_assoc]
+    rw [List.getElem?_append_right (by omega), hxl, Nat.add_sub_cancel_left,
+      List.getElem?_append_left h, List.getElem?_eq_getElem h]
+  -- the parameters read as the rule's
+  have hRPR : RuleParamsRead m.base2 φ cv rP cnP (cv.levelParams.map Level.param) rl σ xsT psT := by
+    refine ⟨by simp [psT, hPl], fun i hi => ?_⟩
+    have hpi : interp V σ (psT.getD i default) = Ps[i]'(by omega) :=
+      hgetD Ps rP hpW i (by omega)
+    have hPsi := hPsD i (by omega) (by omega)
+    split
+    · rename_i lvls pins hfire
+      intro vpa hvpa
+      rw [Expr.instantiateLevelParams_self] at hvpa
+      have hpins : ps = pins := by rw [← hps]; simp [RecRule.iotaParams, hfire]
+      subst hpins
+      obtain ⟨-, -, -, -, hnest⟩ := hwfR.2.2.2.2.2 cv mI rP isK rules rfl rl hrl
+      obtain ⟨-, -, hpw, -⟩ := hnest lvls ps hfire
+      have hmem : ps.getD i default ∈ ps := by
+        rw [getD_of_lt _ (by omega)]; exact List.getElem_mem _
+      obtain ⟨hpf, -, -, hpb⟩ := hpw _ hmem
+      rw [getD_of_lt _ (by omega)] at hvpa hpf hpb
+      rw [hpi, interp_instRevChain, hxsI]
+      exact (pin_reading_val hcl hpf hpb hxl hPsi hvpa σ).symm
+    all_goals
+      rename_i hfire
+      have hpsE : ps = (List.range (min cnP rP)).map fun i => Expr.bvar (rP - 1 - i) := by
+        rw [← hps]; unfold RecRule.iotaParams; split
+        · rename_i h; rw [h] at hfire; exact absurd hfire (by simp)
+        all_goals rfl
+      have hcr : cnP ≤ rP := by
+        have := hplen; rw [hpsE, List.length_map, List.length_range] at this; omega
+      subst hpsE
+      simp only [List.getElem_map, List.getElem_range] at hPsi
+      rw [hpi, Denotes_bvar_inv hPsi, consN_lt _ _ (by omega),
+        hgetD xs 0 hxW i (by omega)]
+      congr 1; omega
+  -- the field's first half: the parameters fit the constructor's parameter binders
+  have hF := hfit φ cv.name cv mI rP isK rules hfR rl hrl (cv.levelParams.map Level.param)
+    (by simp) TVa hTVa' cvj cnP cnF iT hc (rl.ctorLevels cvj.levelParams) hlenC
+    (substFn_ctorLevels φ rl cnP cv.levelParams cvj.levelParams rP) TVja hTVja' σ xsT psT mid
+    (by simp [xsT, hxl]) (hbvWD xsT 0 _ rfl) hmid (hbvWD psT rP _ rfl) hRPR
+  obtain ⟨⟨r, hr⟩, hF2⟩ := hF
   sorry
 
 end ConLeche.Model
