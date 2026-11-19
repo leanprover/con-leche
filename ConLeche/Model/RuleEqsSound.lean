@@ -589,6 +589,87 @@ theorem denote_peel {acval : Name → (Name → Nat) → Term} {env : Env} {φ :
       rw [show d + (k + 1) = d + 1 + k by omega, hc, Nat.zero_add,
         Expr.closeN_instantiate1 b₀ k hbb (fvarsBelow_foldr_body ds' hfb'.2)]
 
+/-- **A fit of an instantiated telescope is a fit of the source**, the instantiated variables
+holding the values' denotations. -/
+theorem Fits_instantiateLift_inv {vs : List Expr} {Ys : List V} {σ : Nat → V}
+    (hlen : Ys.length = vs.length)
+    (hvs : ∀ j (h : j < vs.length), ConLeche.Denotes cval env φ σ vs[j] (Ys[j]'(hlen ▸ h))) :
+    ∀ (ds : List Expr) (b : Expr) (fs : List V) (d : Nat) {ρ ρ' : Nat → V} {R : Expr},
+      (∀ i, ρ (i + d) = σ i) → fs.length = ds.length →
+      Fits cval env φ ρ ((ds.foldr .forallE b).instantiateLift vs d) fs ρ' R →
+      Fits cval env φ (insAt d Ys ρ) (ds.foldr .forallE b) fs (insAt (d + ds.length) Ys ρ') b ∧
+        ρ' = consN fs ρ ∧ R = b.instantiateLift vs (d + ds.length)
+  | [], b, fs, d, ρ, ρ', R, _, hl, h => by
+    obtain rfl : fs = [] := List.eq_nil_of_length_eq_zero hl
+    obtain ⟨rfl, rfl⟩ := h.nil_inv
+    exact ⟨.nil, rfl, rfl⟩
+  | x :: ds, b, fs, d, ρ, ρ', R, hσ, hl, h => by
+    match fs, hl with
+    | f :: fs, hl =>
+      simp only [List.foldr_cons, Expr.instantiateLift] at h
+      cases h with
+      | cons hA hx hr =>
+        obtain ⟨h1, h2, h3⟩ := Fits_instantiateLift_inv hlen hvs ds b fs (d + 1)
+          (fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i)
+          (by simpa using hl) hr
+        refine ⟨.cons (Denotes_instantiateLift_inv hlen hvs x hσ hA) hx ?_, ?_, ?_⟩
+        · rw [push_insAt]
+          simpa [show d + 1 + ds.length = d + (ds.length + 1) by omega] using h1
+        · rw [h2, consN_cons, push_eq_cons]
+        · rw [h3]; simp [show d + 1 + ds.length = d + (ds.length + 1) by omega]
+
+/-! ## 5. The equation's syntax -/
+
+/-- **An ι equation, taken apart**: the records it was built from and its pieces. -/
+theorem iotaEq_inv {find? : Name → Option ConstantInfo} {cv : ConstantVal} {mI rP : Nat}
+    {rl : RecRule} {e : Expr} (h : ConLeche.iotaEq find? cv mI rP rl = some e) :
+    ∃ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name) (pre idx pd fd : List Expr)
+      (rest body ctorBody concl : Expr) (u : Level),
+      find? rl.ctor = some (.ctorInfo cvj cnP cnF iT) ∧
+      cv.type.stripPis rP = some (pre, rest) ∧
+      rest.stripPis (mI - rP + 1) = some (idx, body) ∧
+      ConLeche.motiveLevel? pre (mI - rP) body = some u ∧
+      (cvj.type.instantiateLevelParams cvj.levelParams
+        (rl.ctorLevels cvj.levelParams)).stripPis cnP = some (pd, ctorBody) ∧
+      (ctorBody.instantiateLift (rl.iotaParams rP cnP).reverse).stripPis rl.nfields
+        = some (fd, concl) ∧
+      (rl.iotaParams rP cnP).length = cnP ∧ rP ≤ mI ∧
+      (concl.getAppArgs.drop cnP).length = mI - rP ∧
+      e = (pre ++ fd).foldr .forallE
+        (.app (.app (.app (.const ConLeche.eqName [u])
+          ((body.liftLooseBVars rl.nfields (mI - rP + 1)).instantiateLift
+            (Expr.mkAppN (.const rl.ctor (rl.ctorLevels cvj.levelParams))
+              ((rl.iotaParams rP cnP).map (·.liftLooseBVars rl.nfields 0) ++
+                (List.range rl.nfields).map fun j => Expr.bvar (rl.nfields - 1 - j))
+              :: (concl.getAppArgs.drop cnP).reverse)))
+          (Expr.mkAppN (.const cv.name (cv.levelParams.map .param))
+            ((List.range rP).map (fun i => Expr.bvar (rP + rl.nfields - 1 - i)) ++
+              concl.getAppArgs.drop cnP ++
+              [Expr.mkAppN (.const rl.ctor (rl.ctorLevels cvj.levelParams))
+                ((rl.iotaParams rP cnP).map (·.liftLooseBVars rl.nfields 0) ++
+                  (List.range rl.nfields).map fun j => Expr.bvar (rl.nfields - 1 - j))])))
+          (Expr.mkAppN rl.rhs ((List.range rP).map (fun i => Expr.bvar (rP + rl.nfields - 1 - i)) ++
+            (List.range rl.nfields).map fun j => Expr.bvar (rl.nfields - 1 - j)))) := by
+  unfold ConLeche.iotaEq at h
+  simp only [bind, Option.bind_eq_some_iff] at h
+  obtain ⟨ci, hc, h⟩ := h
+  · cases ci with
+    | ctorInfo cvj cnP cnF iT =>
+      simp only [Option.bind_eq_some_iff, pure, Option.some.injEq] at h
+      obtain ⟨⟨pre, rest⟩, hpre, h⟩ := h
+      obtain ⟨⟨idx, body⟩, hbody, h⟩ := h
+      obtain ⟨u, hu, h⟩ := h
+      obtain ⟨⟨pd, ctorBody⟩, hcb, h⟩ := h
+      obtain ⟨⟨fd, concl⟩, hfd, h⟩ := h
+      obtain ⟨_, hg, he⟩ := h
+      simp only [guard] at hg
+      split at hg
+      · rename_i hg'
+        exact ⟨cvj, cnP, cnF, iT, pre, idx, pd, fd, rest, body, ctorBody, concl, u, hc, hpre, hbody,
+          hu, hcb, hfd, hg'.1, hg'.2.1, hg'.2.2, he.symm⟩
+      · exact nomatch hg
+    | _ => exact nomatch h
+
 end Subst
 
 end ConLeche.Model

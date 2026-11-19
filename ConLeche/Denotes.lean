@@ -311,6 +311,13 @@ def motiveLevel? (pre : List Expr) (nIdx : Nat) (body : Expr) : Option Level :=
     else none
   | _ => none
 
+/-- The parameters a recursor rule applies its constructor to, in the rule prefix's context
+(`rP` binders): a nested rule's recorded pins, else the prefix's first `cnP` variables. -/
+def RecRule.iotaParams (rl : RecRule) (rP cnP : Nat) : List Expr :=
+  match rl.fire with
+  | .nested _ pins => pins
+  | _ => (List.range cnP).map fun i => .bvar (rP - 1 - i)
+
 /-- **A recursor rule's ι equation, as a proposition.**  For the
 recursor `n` (its record `cv`, major position `mI`, rule prefix `rP`)
 and its rule `rl` for the constructor `C`, at the recursor's own level
@@ -339,9 +346,7 @@ def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Na
   let u ← motiveLevel? pre nIdx body
   -- the constructor at the rule's levels, its parameters in the prefix context
   let lvls := rl.ctorLevels cvj.levelParams
-  let params : List Expr := match rl.fire with
-    | .nested _ pins => pins
-    | _ => (List.range cnP).map fun i => .bvar (rP - 1 - i)
+  let params := rl.iotaParams rP cnP
   let (_, ctorBody) ← (cvj.type.instantiateLevelParams cvj.levelParams lvls).stripPis cnP
   let (fieldDoms, concl) ← (ctorBody.instantiateLift params.reverse).stripPis nF
   let indices := concl.getAppArgs.drop cnP
