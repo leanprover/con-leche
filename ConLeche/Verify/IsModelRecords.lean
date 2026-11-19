@@ -10,6 +10,7 @@ import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Copies
+public import ConLeche.Verify.BasisBlock
 
 public section
 
@@ -478,5 +479,219 @@ theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {m
     show c.toConstantVal.name = ci.toConstantVal.name
     rw [hst.1]
   exact ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst⟩
+
+/-! ## The pinned blocks an accepted stream declares -/
+
+/-- **An accepted record passed the reserved names' check** (`basisNamesOk`, after the
+record's own checks). -/
+theorem checkDeclStepC_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
+    {d : Declaration} {s : CState} {r : FEnv × CState}
+    (h : checkDeclStepC mode pins fe d s = .ok r) : basisNamesOk d = true := by
+  have hY : Yields (checkDeclStepC mode pins fe d) (fun _ => basisNamesOk d = true) := by
+    unfold checkDeclStepC
+    ybind
+    unfold checkDeclC
+    ybind
+    by_cases hb : basisNamesOk d = true
+    · exact Yields.const hb
+    · simp only [hb, Bool.false_eq_true, ↓reduceIte]
+      exact Yields.ofThrowBind
+  exact hY s r.1 r.2 h
+
+/-- Every record of an accepting run passed the reserved names' check. -/
+theorem declsRun_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    ∀ d ∈ ds, basisNamesOk d = true := by
+  induction h with
+  | nil => intro _ h; exact nomatch h
+  | @cons pd ds p p₁ q hstep rest ih =>
+    intro d hd
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
+      exact checkDeclStepC_basisNamesOk hC
+    · exact ih d hd
+
+/-- The four pinned inductive blocks. -/
+@[expose] def pinnedKinds : List BasisKind := [.eqK, .natK, .emptyK, .falseK]
+
+/-- **A pinned block's name, stored by an accepted stream, is that block's**: the stream holds a
+block that is the pin up to its level-parameter names. -/
+theorem checkDecls_pinned {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
+    {kind : BasisKind} (hk : kind ∈ pinnedKinds) {n : Name} (hn : n ∈ kind.decls.map (·.name))
+    (hs : (env.find? n).isSome = true) :
+    ∃ block nP, Declaration.indDecl block nP ∈ ds.toList ∧
+      listBeqBy pinCopyOk block kind.decls = true := by
+  have henv := checkDecls_env h
+  obtain ⟨n', fe, run, -⟩ := checkDecls_run mode h
+  have hbn := declsRun_basisNamesOk run
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hs
+  have hcn : ci.name = n := Env.find?_name hci
+  have hmem := Env.find?_mem hci
+  rw [henv] at hmem
+  obtain ⟨d, hd, hcd⟩ | hnil := (Driver.mem_streamEnv_consts ds.toList _).1 hmem
+  case inr => exact absurd hnil List.not_mem_nil
+  have hb := hbn d hd
+  -- the name is reserved, and none of the quotient package's
+  have hres : reservedBasisNames.contains n = true := by
+    simp only [pinnedKinds, List.mem_cons, List.not_mem_nil, or_false] at hk
+    rcases hk with rfl | rfl | rfl | rfl <;>
+      simp only [BasisKind.decls, eqBasis, natBasis, emptyBasis, falseBasis, List.map_cons,
+        List.map_nil, List.mem_cons, List.not_mem_nil, or_false] at hn <;>
+      rcases hn with rfl | rfl | rfl | rfl <;> decide
+  have hnq : ∀ (k : QuotKind) (cv : ConstantVal), (quotAt k cv).name ≠ n := by
+    intro k cv hq
+    have hqn : (quotAt k cv).name = (quotPin k).name := by
+      unfold quotAt ConstantInfo.atLps
+      cases quotPin k <;> rfl
+    rw [hqn] at hq
+    subst hq
+    simp only [pinnedKinds, List.mem_cons, List.not_mem_nil, or_false] at hk
+    cases k <;> rcases hk with rfl | rfl | rfl | rfl <;> revert hn <;> decide
+  cases d with
+  | defnDecl cv v hint =>
+    obtain rfl := List.mem_singleton.mp hcd
+    simp only [basisNamesOk, Bool.not_eq_true'] at hb
+    rw [show cv.name = n from hcn, hres] at hb
+    exact nomatch hb
+  | thmDecl cv v =>
+    obtain rfl := List.mem_singleton.mp hcd
+    simp only [basisNamesOk, Bool.not_eq_true'] at hb
+    rw [show cv.name = n from hcn, hres] at hb
+    exact nomatch hb
+  | opaqueDecl cv v =>
+    obtain rfl := List.mem_singleton.mp hcd
+    simp only [basisNamesOk, Bool.not_eq_true'] at hb
+    rw [show cv.name = n from hcn, hres] at hb
+    exact nomatch hb
+  | quotDecl k cv =>
+    obtain rfl := List.mem_singleton.mp hcd
+    exact absurd hcn (hnq k cv)
+  | axiomDecl cv =>
+    simp only [declConstants] at hcd
+    split at hcd
+    · obtain rfl := List.mem_singleton.mp hcd
+      exact absurd hcn (hnq .sound cv)
+    split at hcd
+    · exact absurd hcd List.not_mem_nil
+    · next hsnd _ =>
+      obtain rfl := List.mem_singleton.mp hcd
+      simp only [basisNamesOk, Bool.or_eq_true, beq_iff_eq, Bool.not_eq_true'] at hb
+      rcases hb with hb | hb
+      · exact absurd hb hsnd
+      · rw [show cv.name = n from hcn, hres] at hb
+        exact nomatch hb
+  | indDecl block nP =>
+    refine ⟨block, nP, hd, ?_⟩
+    -- the name is one of the block's
+    have hnb : n ∈ block.map (·.name) := by
+      simp only [declConstants] at hcd
+      split at hcd
+      · next p hp =>
+        obtain ⟨hm, hc, hr⟩ := readBlock_names hp
+        have hcn' : ci.name ∈ (blockConstants p).map (·.name) := List.mem_map_of_mem hcd
+        rw [blockConstants_names] at hcn'
+        rw [← hcn]
+        rcases List.mem_append.mp hcn' with h1 | h1
+        · rcases List.mem_append.mp h1 with h2 | h2
+          · obtain ⟨ms, hms, he⟩ := List.mem_map.mp h2
+            obtain ⟨b, hb, hbn⟩ := hm ms hms
+            exact List.mem_map.mpr ⟨b, hb, hbn.trans he⟩
+          · obtain ⟨c, hc', he⟩ := List.mem_map.mp h2
+            obtain ⟨b, hb, hbn⟩ := hc c hc'
+            exact List.mem_map.mpr ⟨b, hb, hbn.trans he⟩
+        · obtain ⟨rc, hrc, he⟩ := List.mem_map.mp h1
+          obtain ⟨b, hb, hbn⟩ := hr rc hrc
+          exact List.mem_map.mpr ⟨b, hb, hbn.trans he⟩
+      · exact absurd hcd List.not_mem_nil
+    simp only [basisNamesOk] at hb
+    split at hb
+    · next kind' hhit =>
+      -- the block is the pinned block its names say, and the name says which
+      have hkn : kind'.decls.map (·.name) = block.map (·.name) := by
+        unfold basisNameHit at hhit
+        have := List.find?_some hhit
+        simpa using this
+      have hk' : kind' = kind := by
+        have hn' : n ∈ kind'.decls.map (·.name) := hkn ▸ hnb
+        have hk'm : kind' ∈ pinnedKinds := List.mem_of_find?_eq_some hhit
+        simp only [pinnedKinds, List.mem_cons, List.not_mem_nil, or_false] at hk hk'm
+        rcases hk with rfl | rfl | rfl | rfl <;>
+          simp only [BasisKind.decls, eqBasis, natBasis, emptyBasis, falseBasis, List.map_cons,
+            List.map_nil, List.mem_cons, List.not_mem_nil, or_false] at hn <;>
+          rcases hn with rfl | rfl | rfl | rfl <;>
+          rcases hk'm with rfl | rfl | rfl | rfl <;> revert hn' <;> decide
+      subst hk'
+      simp only [pinListOk, Bool.and_eq_true] at hb
+      exact hb.1
+    · obtain ⟨b, hb', hbn⟩ := List.mem_map.mp hnb
+      have := List.all_eq_true.mp hb b hb'
+      rw [hbn, hres] at this
+      exact nomatch this
+
+/-- A record the pin comparison passes has the pin's name and type at its own level-parameter
+names: distinct, as many as the pin's. -/
+theorem pinCopyOk_cv {c pin : ConstantInfo} (h : pinCopyOk c pin = true)
+    (hpin : pin.dropCaps = pin) :
+    c.toConstantVal = (pin.atLps c.toConstantVal.levelParams).toConstantVal ∧
+      Name.nodup c.toConstantVal.levelParams = true ∧
+      c.toConstantVal.levelParams.length = pin.toConstantVal.levelParams.length := by
+  have hd := pinCopyOk_dropCaps h hpin
+  simp only [pinCopyOk, Bool.and_eq_true, beq_iff_eq] at h
+  refine ⟨?_, h.1.1, h.1.2⟩
+  have : c.dropCaps.toConstantVal = c.toConstantVal := by cases c <;> rfl
+  exact this.symm.trans (by rw [hd])
+
+/-- A block's records carry its records' names, level parameters and types. -/
+theorem mem_blockRecords_cv {block : List ConstantInfo} {b : ConstantInfo} (hb : b ∈ block) :
+    ∃ c ∈ blockRecords block, c.toConstantVal = b.toConstantVal := by
+  refine ⟨_, List.mem_map_of_mem hb, ?_⟩
+  cases b <;> rfl
+
+/-- **An accepted stream that stores `False` declares the prelude's `False`.** -/
+theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
+    (hs : (env.find? falseName).isSome = true) : DeclaresFalse ds.toList := by
+  obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .falseK) (by decide)
+    (n := falseName) (by decide) hs
+  match block, hok with
+  | [b1, b2], hok =>
+    simp only [BasisKind.decls, falseBasis, listBeqBy, Bool.and_eq_true] at hok
+    obtain ⟨hcv, -, hl⟩ := pinCopyOk_cv hok.2.1 rfl
+    match hq : b2.toConstantVal.levelParams, hl with
+    | [p], _ =>
+      obtain ⟨c, hc, hcc⟩ := mem_blockRecords_cv (block := [b1, b2]) (b := b2) (by simp)
+      refine ⟨p, _, hmem, c, hc, ?_⟩
+      rw [hcc, hcv, hq]
+      rfl
+  | [], hok | [_], hok | _ :: _ :: _ :: _, hok =>
+    simp [BasisKind.decls, falseBasis, listBeqBy] at hok
+
+/-- **An accepted stream that stores `Eq` declares the prelude's `Eq`.** -/
+theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
+    (hs : (env.find? eqName).isSome = true) : DeclaresEq ds.toList := by
+  obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .eqK) (by decide)
+    (n := eqName) (by decide) hs
+  match block, hok with
+  | [b1, b2, b3], hok =>
+    simp only [BasisKind.decls, eqBasis, listBeqBy, Bool.and_eq_true] at hok
+    obtain ⟨hcv1, -, hl1⟩ := pinCopyOk_cv hok.1 rfl
+    obtain ⟨hcv2, -, hl2⟩ := pinCopyOk_cv hok.2.1 rfl
+    obtain ⟨hcv3, hnd3, hl3⟩ := pinCopyOk_cv hok.2.2.1 rfl
+    match hq1 : b1.toConstantVal.levelParams, hl1, hq2 : b2.toConstantVal.levelParams, hl2,
+      hq3 : b3.toConstantVal.levelParams, hl3, hnd3 with
+    | [p], _, [p'], _, [p₁, p₃], _, hnd =>
+      obtain ⟨c1, hc1, hcc1⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b1) (by simp)
+      obtain ⟨c2, hc2, hcc2⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b2) (by simp)
+      obtain ⟨c3, hc3, hcc3⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b3) (by simp)
+      refine ⟨⟨p, _, hmem, c1, hc1, ?_⟩, ⟨p', _, hmem, c2, hc2, ?_⟩,
+        ⟨p₁, p₃, ?_, _, hmem, c3, hc3, ?_⟩⟩
+      · rw [hcc1, hcv1, hq1]; rfl
+      · rw [hcc2, hcv2, hq2]; rfl
+      · simpa [Name.nodup] using hnd
+      · rw [hcc3, hcv3, hq3]; rfl
+  | [], hok | [_], hok | [_, _], hok | _ :: _ :: _ :: _ :: _, hok =>
+    simp [BasisKind.decls, eqBasis, listBeqBy] at hok
 
 end ConLeche.Cached

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.Decls
+public import ConLeche.IsModel
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
@@ -16,10 +17,14 @@ re-checks every one of them from scratch.  This module states the
 theorems the project exists to prove and leaves them `sorry`; the
 proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 
-> **Main theorem.**  If the checker accepts a stream, the environment
-> it built has a model in every set theory `V`: one set per constant
-> under which every constant — every theorem included — is a member
-> of its type, `False` is empty, and `Eq` is set equality.
+> **Main theorem.**  If the checker accepts a stream of declarations,
+> the stream has a model in every set theory `V`: one set per constant
+> and list of universe levels, under which every declaration holds —
+> every constant, every theorem included, is a member of what its type
+> denotes, every definition is what its value denotes, and every
+> recursor computes by its rules.  And a stream that declares `False`
+> or `Eq` at all declares the prelude's, so that in such a model
+> `False` is empty and `Eq` is equality.
 >
 > **Main corollary.**  Hence a file — the chunks the binary reads —
 > that declares a theorem of type `False` is rejected.
@@ -44,14 +49,14 @@ before the fold (the built-in prelude in front, the ground of the
 pinned `Nat` operations hoisted ahead of them) keeps every parsed
 record; a record declaring such a theorem is installed under its own
 name with its declared type and is never dropped, so it would leave a
-constant of type `False` behind; and `False` denotes the empty set,
-which has no members, so an accepted environment holds no such
-constant.  An accepted file is therefore not a proof of a
-contradiction, and more: every statement it proves is true in the
-model.  Definitional equalities need no clause of their own — a reader
-who cares that a definition unfolds as declared states that as a
-theorem proved by `rfl`, and `Model`'s `eq_equality` field, which says
-the built-in `Eq` denotes set equality, turns that theorem into the
+constant of type `False` behind; its type names `False`, so the stream
+declares `False`, as the prelude's; and in a model of such a stream
+`False` denotes the empty set, which has no members.  An accepted file
+is therefore not a proof of a contradiction, and more: every statement
+it proves is true in the model.  Definitional equalities need no
+clause of their own — a reader who cares that a definition unfolds as
+declared states that as a theorem proved by `rfl`, and `Eq`, declared
+as the prelude's, denotes equality, which turns that theorem into the
 equation of the two sides' denotations.
 
 * `checkDecls` is the shipped checking function — the one the
@@ -72,13 +77,20 @@ equation of the two sides' denotations.
   kernel does.  The statements hold at every `maxNatSize`.  The shipped
   binary runs the fold at the official default, 128 MiB, unless
   `--max-nat-size` sets another.
-* `Model V env` (`ConLeche/Denotes.lean`) is a model of `env` in `V`,
-  built on `Denotes`, the reading of a checker term as a set; that
-  file is the whole of what the main theorem's meaning rests on beyond
-  the checker's own data types.  It also proves `Denotes_functional`:
-  a term has at most one denotation, so where `Model` says a stored
-  constant is a member of *some* denotation of its type, it is saying
-  so of *the* denotation.
+* `IsModel V model ds` (`ConLeche/IsModel.lean`) says that `model` is
+  a model of the declarations `ds` in `V`: every record of every
+  declaration holds, its terms read by `Expr.eval`, a total function
+  from a checker term to a set.  `model : Name → List Nat → V` is the
+  set a constant denotes at the values of its universe levels, given
+  positionally.  That file is the whole of what the main theorem's
+  meaning rests on beyond the checker's own data types; it reads the
+  INPUT, nothing of the environment the checker builds.
+  `DeclaresName ds n` says a record of `ds` is named `n`;
+  `DeclaresFalse` and `DeclaresEq` say that `ds` declares the
+  prelude's `False` and `Eq` (their eliminators' and constructors'
+  types, at any level-parameter names), from which, in every model,
+  `False` is empty and `Eq` is equality
+  (`ConLeche/Semantics/IsModelBasis.lean`).
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
 * `chunks : List ByteArray` are the pieces the binary's read loop is
@@ -106,12 +118,14 @@ equation of the two sides' denotations.
   the fold's — so the chain is one `Except` `do` block, and the
   corollary's conclusion, `∃ e, … = .error e`, says it returns one of
   those errors: the binary rejected the file.
-* `False` is built in: the checker installs it from its own pin, and a
-  stream that declares `False` or `False.rec` differently is rejected,
-  so the conclusion needs no hypothesis about the input beyond its
-  shape — not even that the file fits in memory: the parser refuses an
-  input the machine word cannot address before reading it, which is an
-  error like any other.
+* `False` is pinned: a stream that declares `False` or `False.rec`
+  other than as the prelude's is rejected, so the conclusion needs no
+  hypothesis about the input beyond its shape — not even that the file
+  fits in memory: the parser refuses an input the machine word cannot
+  address before reading it, which is an error like any other.
+* The modular statements below are still over `Model V env`
+  (`ConLeche/Denotes.lean`), a model of the environment a module's
+  checks build, read by the relation `Denotes`.
 
 Both statements are about the checking function and the parse, not
 the process, and `--trusted` mode is outside both.  See README.md.
@@ -145,12 +159,15 @@ open ConLeche.Cached (checkDecls)
 
 universe w
 
-/-- **The main theorem.**  Every environment the checker accepts has a
-model in every set theory. -/
+/-- **The main theorem.**  Every stream the checker accepts has a
+model in every set theory, and declares `False` and `Eq`, where it
+declares them at all, as the prelude's. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    Nonempty (Model V env) :=
+    (∃ model, IsModel V model ds.toList) ∧
+      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
+      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) :=
   sorry
 
 open Frontend in

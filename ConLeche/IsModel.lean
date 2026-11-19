@@ -323,6 +323,10 @@ force `⟦@Eq A a b⟧ = eqv a b` (`IsModel.false_empty`, `IsModel.eq_eqv`,
 with, as a stream carries them (at any level-parameter names); the checker accepts a stream
 declaring `False` or `Eq` only with them. -/
 
+/-- `ds` has a record named `n`. -/
+def DeclaresName (ds : List Declaration) (n : Name) : Prop :=
+  ∃ d ∈ ds, ∃ c ∈ d.records, c.name = n
+
 /-- `ds` has a record declaring `n` at the level parameters `ps` with the type `T`. -/
 def HasRecord (ds : List Declaration) (n : Name) (ps : List LevelParam) (T : Expr) : Prop :=
   ∃ d ∈ ds, ∃ c ∈ d.records, c.toConstantVal = ⟨n, ps, T⟩
