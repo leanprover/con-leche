@@ -122,14 +122,14 @@ binary runs the fold at `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    (∃ model, IsModel V model ds.toList) ∧
-      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
-      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) := by
+    (∃ model, IsModel V model (recordsOf ds.toList)) ∧
+      (DeclaresName (recordsOf ds.toList) falseName → DeclaresFalse (recordsOf ds.toList)) ∧
+      (DeclaresName (recordsOf ds.toList) eqName → DeclaresEq (recordsOf ds.toList)) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
   have hrec := Cached.checkDecls_recordsStored accepted
-  have hstored : ∀ n, DeclaresName ds.toList n → (env.find? n).isSome = true := by
-    rintro n ⟨d, hd, c, hc, rfl⟩
-    obtain ⟨ci, hf, -⟩ := hrec d hd c hc
+  have hstored : ∀ n, DeclaresName (recordsOf ds.toList) n → (env.find? n).isSome = true := by
+    rintro n ⟨c, hc, rfl⟩
+    obtain ⟨ci, hf, -⟩ := hrec c hc
     rw [hf]; rfl
   exact ⟨⟨_, isModel_of_envModelM m hrec⟩,
     fun h => Cached.checkDecls_declaresFalse accepted (hstored _ h),
@@ -157,14 +157,14 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   have hmem' := Array.mem_toList_iff.mpr (Frontend.mem_preparePrelude (pre := pre) hmem)
   obtain ⟨⟨model, hM⟩, -, -⟩ := model_exists V pins maxNatSize _ env hcheck
   -- the theorem is a record of type `False`
-  have hrec : HasRecord (preparePrelude pre r.decls).toList cv.name cv.levelParams
-      (.const falseName []) := ⟨_, hmem', .thmInfo cv, List.mem_singleton_self _, by
+  have hrec : HasRecord (recordsOf (preparePrelude pre r.decls).toList) cv.name cv.levelParams
+      (.const falseName []) := ⟨.thmInfo cv, ⟨_, hmem', List.mem_singleton_self _⟩, by
         rw [← hty]; rfl⟩
   -- its type reads `False`, so the accepted environment stores it, as the prelude's
-  have hF : DeclaresFalse (preparePrelude pre r.decls).toList := by
+  have hF : DeclaresFalse (recordsOf (preparePrelude pre r.decls).toList) := by
     refine Cached.checkDecls_declaresFalse hcheck ?_
-    obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck _ hmem' (.thmInfo cv)
-      (List.mem_singleton_self _)
+    obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck (.thmInfo cv)
+      ⟨_, hmem', List.mem_singleton_self _⟩
     obtain ⟨-, -, hres, -⟩ := (Semantics.checkDecls_envWF hcheck).consts ci (Env.find?_mem hf)
     rw [hcv] at hres
     change Expr.constsResolve env cv.type = true at hres

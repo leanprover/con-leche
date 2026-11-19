@@ -77,16 +77,16 @@ equation of the two sides' denotations.
   kernel does.  The statements hold at every `maxNatSize`.  The shipped
   binary runs the fold at the official default, 128 MiB, unless
   `--max-nat-size` sets another.
-* `IsModel V model ds` (`ConLeche/IsModel.lean`) says that `model` is
-  a model of the declarations `ds` in `V`: every record of every
-  declaration holds, its terms read by `Expr.eval`, a total function
+* `IsModel V model R` (`ConLeche/IsModel.lean`) says that `model` is
+  a model of the records `R` in `V` — here `recordsOf ds`, every
+  record of every declaration of `ds` — : every record holds, its terms read by `Expr.eval`, a total function
   from a checker term to a set.  `model : Name → List Nat → V` is the
   set a constant denotes at the values of its universe levels, given
   positionally.  That file is the whole of what the main theorem's
   meaning rests on beyond the checker's own data types; it reads the
   INPUT, nothing of the environment the checker builds.
-  `DeclaresName ds n` says a record of `ds` is named `n`;
-  `DeclaresFalse` and `DeclaresEq` say that `ds` declares the
+  `DeclaresName R n` says a record of `R` is named `n`;
+  `DeclaresFalse` and `DeclaresEq` say that `R` declares the
   prelude's `False` and `Eq` (their eliminators' and constructors'
   types, at any level-parameter names), from which, in every model,
   `False` is empty and `Eq` is equality
@@ -165,9 +165,9 @@ declares them at all, as the prelude's. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    (∃ model, IsModel V model ds.toList) ∧
-      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
-      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) :=
+    (∃ model, IsModel V model (recordsOf ds.toList)) ∧
+      (DeclaresName (recordsOf ds.toList) falseName → DeclaresFalse (recordsOf ds.toList)) ∧
+      (DeclaresName (recordsOf ds.toList) eqName → DeclaresEq (recordsOf ds.toList)) :=
   sorry
 
 open Frontend in

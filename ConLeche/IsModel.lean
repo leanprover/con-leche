@@ -22,9 +22,12 @@ proved in `ConLeche/MainTheorem.lean`.
 ## The model
 
 A model is one function `model : Name → List Nat → V`: the set a constant denotes, given the
-values of its universe levels, positionally.  `IsModel V model ds` says: every record of every
-declaration of `ds` holds in `model`.  It is a conjunction over `ds` — the order of the
-declarations does not matter, and a name two declarations declare must satisfy both clauses.
+values of its universe levels, positionally.  `IsModel V model R` says: every record of `R`
+holds in `model`, where `R` is a set of records (`Records`, membership); of a stream `ds` it is
+`recordsOf ds`, every record of every declaration of `ds`.  It is a conjunction over the
+records — their order does not matter, a record listed twice is one, and a name two records
+declare must satisfy both clauses.  The `.olean` input is such a set too: the records of the
+constants of the closure's views (`ConLeche/OleanInput.lean`).
 
 ## The reading
 
@@ -278,40 +281,41 @@ def Declaration.records : Declaration → List ConstantInfo
 
 /-! ## The clauses -/
 
+/-- **A set of records**, as membership: what a model is a model of.  Only membership matters —
+no order, and a record listed twice is one record. -/
+abbrev Records := ConstantInfo → Prop
+
+/-- **The records of the declarations `ds`**: every record of every one of them. -/
+def recordsOf (ds : List Declaration) : Records := fun c => ∃ d ∈ ds, c ∈ d.records
+
 /-- **A recursor rule holds** at the level assignment `φ`: for every constructor record of
-`ds` the rule names, the rule's ι equation denotes an inhabited set (a true proposition). -/
-def RuleHolds (V : Type w) [SetTheory V] (model : Name → List Nat → V) (ds : List Declaration)
+`R` the rule names, the rule's ι equation denotes an inhabited set (a true proposition). -/
+def RuleHolds (V : Type w) [SetTheory V] (model : Name → List Nat → V) (R : Records)
     (φ : LevelParam → Nat) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
-  ∀ d ∈ ds, ∀ cvj cnP nF T, ConstantInfo.ctorInfo cvj cnP nF T ∈ d.records →
-    cvj.name = rl.ctor →
+  ∀ cvj cnP nF T, R (.ctorInfo cvj cnP nF T) → cvj.name = rl.ctor →
     ∀ e, iotaEqAt cvj cnP cv mI rP rl = some e → ∃ x, x ∈ˢ Expr.eval model φ ρ₀ e
 
-/-- **A record holds in `model`**: at every list of level values `vals`, one per level
-parameter, read through `φ := Level.assign ps vals`,
+/-- **A record holds in `model`** (of the records `R`, where its rules find their
+constructors): at every list of level values `vals`, one per level parameter, read through
+`φ := Level.assign ps vals`,
 
 * the constant is a member of what its type denotes;
 * a definition is what its value denotes;
 * every rule of a recursor holds (`RuleHolds`). -/
-def Satisfies (V : Type w) [SetTheory V] (model : Name → List Nat → V) (ds : List Declaration)
+def Satisfies (V : Type w) [SetTheory V] (model : Name → List Nat → V) (R : Records)
     (c : ConstantInfo) : Prop :=
   ∀ vals : List Nat, vals.length = c.toConstantVal.levelParams.length →
     let φ := Level.assign c.toConstantVal.levelParams vals
     model c.name vals ∈ˢ Expr.eval model φ ρ₀ c.toConstantVal.type ∧
     match c with
     | .defnInfo _ value _ => model c.name vals = Expr.eval model φ ρ₀ value
-    | .recInfo cv mI rP _ rules => ∀ rl ∈ rules, RuleHolds V model ds φ cv mI rP rl
+    | .recInfo cv mI rP _ rules => ∀ rl ∈ rules, RuleHolds V model R φ cv mI rP rl
     | _ => True
 
-/-- **`model` is a model of the declaration `d`** (of the stream `ds`, where its recursors
-find their constructors): every record of `d` holds. -/
-def IsModelOfDecl (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-    (ds : List Declaration) (d : Declaration) : Prop :=
-  ∀ c ∈ d.records, Satisfies V model ds c
-
-/-- **`model` is a model of the declarations `ds`**: of every one of them. -/
-def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-    (ds : List Declaration) : Prop :=
-  ∀ d ∈ ds, IsModelOfDecl V model ds d
+/-- **`model` is a model of the records `R`**: every one of them holds.  Of a declaration
+stream `ds`, it is a model of `recordsOf ds`. -/
+def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V) (R : Records) : Prop :=
+  ∀ c, R c → Satisfies V model R c
 
 /-! ## The prelude's `False` and `Eq`
 
@@ -323,13 +327,13 @@ force `⟦@Eq A a b⟧ = eqv a b` (`IsModel.false_empty`, `IsModel.eq_eqv`,
 with, as a stream carries them (at any level-parameter names); the checker accepts a stream
 declaring `False` or `Eq` only with them. -/
 
-/-- `ds` has a record named `n`. -/
-def DeclaresName (ds : List Declaration) (n : Name) : Prop :=
-  ∃ d ∈ ds, ∃ c ∈ d.records, c.name = n
+/-- `R` has a record named `n`. -/
+def DeclaresName (R : Records) (n : Name) : Prop :=
+  ∃ c, R c ∧ c.name = n
 
-/-- `ds` has a record declaring `n` at the level parameters `ps` with the type `T`. -/
-def HasRecord (ds : List Declaration) (n : Name) (ps : List LevelParam) (T : Expr) : Prop :=
-  ∃ d ∈ ds, ∃ c ∈ d.records, c.toConstantVal = ⟨n, ps, T⟩
+/-- `R` has a record declaring `n` at the level parameters `ps` with the type `T`. -/
+def HasRecord (R : Records) (n : Name) (ps : List LevelParam) (T : Expr) : Prop :=
+  ∃ c, R c ∧ c.toConstantVal = ⟨n, ps, T⟩
 
 /-- `False.rec.{u} : (motive : False → Sort u) → (t : False) → motive t`. -/
 def falseRecType (u : Level) : Expr :=
@@ -360,15 +364,15 @@ def eqRecType (u₁ u : Level) : Expr :=
   .forallE (eqApp u (.bvar 4) (.bvar 3) (.bvar 0)) <|
   .app (.app (.bvar 3) (.bvar 1)) (.bvar 0)
 
-/-- **`ds` declares the prelude's `False`**: its eliminator, at some level-parameter name. -/
-def DeclaresFalse (ds : List Declaration) : Prop :=
-  ∃ p, HasRecord ds (falseName.str "rec") [p] (falseRecType (.param p))
+/-- **`R` declares the prelude's `False`**: its eliminator, at some level-parameter name. -/
+def DeclaresFalse (R : Records) : Prop :=
+  ∃ p, HasRecord R (falseName.str "rec") [p] (falseRecType (.param p))
 
-/-- **`ds` declares the prelude's `Eq`**: the type former, `Eq.refl` and `Eq.rec`, each at
+/-- **`R` declares the prelude's `Eq`**: the type former, `Eq.refl` and `Eq.rec`, each at
 some (distinct) level-parameter names. -/
-def DeclaresEq (ds : List Declaration) : Prop :=
-  (∃ p, HasRecord ds eqName [p] (eqType (.param p))) ∧
-  (∃ p, HasRecord ds eqReflName [p] (eqReflType (.param p))) ∧
-  (∃ p₁ p, p₁ ≠ p ∧ HasRecord ds (eqName.str "rec") [p₁, p] (eqRecType (.param p₁) (.param p)))
+def DeclaresEq (R : Records) : Prop :=
+  (∃ p, HasRecord R eqName [p] (eqType (.param p))) ∧
+  (∃ p, HasRecord R eqReflName [p] (eqReflType (.param p))) ∧
+  (∃ p₁ p, p₁ ≠ p ∧ HasRecord R (eqName.str "rec") [p₁, p] (eqRecType (.param p₁) (.param p)))
 
 end ConLeche

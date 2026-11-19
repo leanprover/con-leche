@@ -49,11 +49,33 @@ a recursor with its rules (firing modes included), a constructor with its parame
   (∀ cvj cnP nF T, c = .ctorInfo cvj cnP nF T → ∃ nF' T', ci = .ctorInfo cvj cnP nF' T')
 
 /-- **Every record of the input is stored** under its name (`StoredAs`). -/
-@[expose] def RecordsStored (ds : List Declaration) (env : Env) : Prop :=
-  ∀ d ∈ ds, ∀ c ∈ d.records, ∃ ci, env.find? c.name = some ci ∧ StoredAs ci c
+@[expose] def RecordsStored (R : Records) (env : Env) : Prop :=
+  ∀ c, R c → ∃ ci, env.find? c.name = some ci ∧ StoredAs ci c
 
 theorem StoredAs.refl (c : ConstantInfo) : StoredAs c c :=
   ⟨rfl, fun _ _ _ _ => rfl, fun _ _ _ isK _ h => ⟨isK, h⟩, fun _ _ nF T h => ⟨nF, T, h⟩⟩
+
+theorem StoredAs.trans {a b c : ConstantInfo} (hab : StoredAs a b) (hbc : StoredAs b c) :
+    StoredAs a c := by
+  obtain ⟨a1, a2, a3, a4⟩ := hab
+  obtain ⟨b1, b2, b3, b4⟩ := hbc
+  refine ⟨a1.trans b1, fun cv v h hc => ?_, fun cv mI rP isK rules hc => ?_,
+    fun cvj cnP nF T hc => ?_⟩
+  · rw [a2 cv v h ((b2 cv v h hc).trans hc), b2 cv v h hc]
+  · obtain ⟨isK', hb⟩ := b3 cv mI rP isK rules hc
+    exact a3 cv mI rP isK' rules hb
+  · obtain ⟨nF', T', hb⟩ := b4 cvj cnP nF T hc
+    obtain ⟨nF'', T'', ha⟩ := a4 cvj cnP nF' T' hb
+    exact ⟨nF'', T'', ha⟩
+
+/-- Fewer records are stored where more are. -/
+theorem RecordsStored.mono {R R' : Records} {env : Env} (h : RecordsStored R' env)
+    (hsub : ∀ c, R c → ∃ c', R' c' ∧ StoredAs c' c) : RecordsStored R env := by
+  intro c hc
+  obtain ⟨c', hc', hst⟩ := hsub c hc
+  obtain ⟨ci, hf, hci⟩ := h c' hc'
+  have hn : c'.name = c.name := congrArg ConstantVal.name hst.1
+  exact ⟨ci, hn ▸ hf, hci.trans hst⟩
 
 /-! ## The block's records -/
 
@@ -463,14 +485,14 @@ theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
 /-- **An accepted stream stores its records** (`RecordsStored`). -/
 theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env) :
-    RecordsStored ds.toList env := by
+    RecordsStored (recordsOf ds.toList) env := by
   have henv := checkDecls_env h
   obtain ⟨n, fe, run, hfe⟩ := checkDecls_run mode h
   have hnd : NodupNames env := by
     rw [← hfe]
     exact (declsRun_chain mode run (PushChain.refl Env.empty)).2.2.1 List.nodup_nil
   have hb := declsRun_blockRead run
-  intro d hd c hc
+  rintro c ⟨d, hd, hc⟩
   obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
   have hmem : ci ∈ env.consts := by
     rw [henv]
@@ -651,7 +673,7 @@ theorem mem_blockRecords_cv {block : List ConstantInfo} {b : ConstantInfo} (hb :
 /-- **An accepted stream that stores `False` declares the prelude's `False`.** -/
 theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
-    (hs : (env.find? falseName).isSome = true) : DeclaresFalse ds.toList := by
+    (hs : (env.find? falseName).isSome = true) : DeclaresFalse (recordsOf ds.toList) := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .falseK) (by decide)
     (n := falseName) (by decide) hs
   match block, hok with
@@ -661,7 +683,7 @@ theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {m
     match hq : b2.toConstantVal.levelParams, hl with
     | [p], _ =>
       obtain ⟨c, hc, hcc⟩ := mem_blockRecords_cv (block := [b1, b2]) (b := b2) (by simp)
-      refine ⟨p, _, hmem, c, hc, ?_⟩
+      refine ⟨p, c, ⟨_, hmem, hc⟩, ?_⟩
       rw [hcc, hcv, hq]
       rfl
   | [], hok | [_], hok | _ :: _ :: _ :: _, hok =>
@@ -670,7 +692,7 @@ theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {m
 /-- **An accepted stream that stores `Eq` declares the prelude's `Eq`.** -/
 theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
-    (hs : (env.find? eqName).isSome = true) : DeclaresEq ds.toList := by
+    (hs : (env.find? eqName).isSome = true) : DeclaresEq (recordsOf ds.toList) := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .eqK) (by decide)
     (n := eqName) (by decide) hs
   match block, hok with
@@ -685,8 +707,8 @@ theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxN
       obtain ⟨c1, hc1, hcc1⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b1) (by simp)
       obtain ⟨c2, hc2, hcc2⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b2) (by simp)
       obtain ⟨c3, hc3, hcc3⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b3) (by simp)
-      refine ⟨⟨p, _, hmem, c1, hc1, ?_⟩, ⟨p', _, hmem, c2, hc2, ?_⟩,
-        ⟨p₁, p₃, ?_, _, hmem, c3, hc3, ?_⟩⟩
+      refine ⟨⟨p, c1, ⟨_, hmem, hc1⟩, ?_⟩, ⟨p', c2, ⟨_, hmem, hc2⟩, ?_⟩,
+        ⟨p₁, p₃, ?_, c3, ⟨_, hmem, hc3⟩, ?_⟩⟩
       · rw [hcc1, hcv1, hq1]; rfl
       · rw [hcc2, hcv2, hq2]; rfl
       · simpa [Name.nodup] using hnd

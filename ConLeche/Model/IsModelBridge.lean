@@ -14,7 +14,7 @@ public section
 # From a model of the checker's environment to a model of its input (task #617)
 
 The proofs' invariant `EnvModelM V env` carries a model of the environment the checker builds,
-read by the relation `Denotes` (`Model.ofEnvModelM`); `IsModel V model ds`
+read by the relation `Denotes` (`Model.ofEnvModelM`); `IsModel V model R`
 (`ConLeche/IsModel.lean`) is the public notion, over the input.  This module carries the first to
 the second.
 
@@ -274,14 +274,14 @@ theorem eval_eq {env : Env} (m : Model.EnvModelM V env) {φ : LevelParam → Nat
 
 /-- **The bridge**: the invariant's model is a model of the input, given that the records are
 stored. -/
-theorem isModel_of_envModelM {ds : List Declaration} {env : Env} (m : Model.EnvModelM V env)
-    (hrec : RecordsStored ds env) :
-    IsModel V (posModel (Model.cvalOf m.base2.acval) env) ds := by
+theorem isModel_of_envModelM {R : Records} {env : Env} (m : Model.EnvModelM V env)
+    (hrec : RecordsStored R env) :
+    IsModel V (posModel (Model.cvalOf m.base2.acval) env) R := by
   let M := Model.Model.ofEnvModelM m
   have hloc := cvalLocal_ofEnvModelM m
   rw [← Model.Model.ofEnvModelM_cval m] at hloc ⊢
-  intro d hd c hc vals hl
-  obtain ⟨ci, hf, hcv, hdef, hrc, -⟩ := hrec d hd c hc
+  intro c hc vals hl
+  obtain ⟨ci, hf, hcv, hdef, hrc, -⟩ := hrec c hc
   have hmem : ci ∈ env.consts := Env.find?_mem hf
   have hname : c.name = ci.name := (find?_name hf).symm
   have hval : posModel M.cval env c.name vals =
@@ -302,10 +302,10 @@ theorem isModel_of_envModelM {ds : List Declaration} {env : Env} (m : Model.EnvM
       exact hval
     | recInfo cv mI rP isK rules =>
       obtain ⟨isK', rfl⟩ := hrc cv mI rP isK rules rfl
-      intro rl hrl d' hd' cvj cnP nF T hcj hcn e he
+      intro rl hrl cvj cnP nF T hcj hcn e he
       rw [Model.Model.ofEnvModelM_cval m] at hloc ⊢
       generalize Level.assign _ vals = φ
-      obtain ⟨cj, hfj, -, -, -, hcjc⟩ := hrec d' hd' _ hcj
+      obtain ⟨cj, hfj, -, -, -, hcjc⟩ := hrec _ hcj
       obtain ⟨nF', T', rfl⟩ := hcjc cvj cnP nF T rfl
       have hnj : (ConstantInfo.ctorInfo cvj cnP nF T).name = cvj.name := rfl
       rw [hnj, hcn] at hfj
