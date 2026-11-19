@@ -5,7 +5,7 @@ public import ConLeche.Cached.Decls
 /-!
 # The records a fold with a sidecar checks
 
-`sideRecord` reads a definition whose value uses `sorryAx` as the axiom of its statement; doing so
+`sideRecord` reads a definition, theorem or opaque constant whose value uses `sorryAx` as the axiom of its statement; doing so
 twice is doing it once (`sideRecords_idem`), so the driver may hand the fold the records it
 already read so (`checkDeclsIO`'s premise).
 -/
@@ -18,7 +18,7 @@ open ConLeche
 
 theorem sideRecord_idem (d : Declaration) : sideRecord (sideRecord d) = sideRecord d := by
   cases d with
-  | defnDecl cv v h =>
+  | defnDecl cv v _ | thmDecl cv v | opaqueDecl cv v =>
     by_cases hc : (!builtinAxiomName cv.name && Expr.mentionsAnyConstC [sorryAxName] v) = true
     · simp only [sideRecord, hc, ↓reduceIte]
     · simp only [sideRecord, hc, Bool.false_eq_true, ↓reduceIte]

@@ -11,8 +11,8 @@ public import ConLeche.Cached.Needs
 A stream may declare more axioms than the standard ones when a **sidecar** justifies them: a
 second stream, checked as usual, whose environment holds a constant of the same name and the
 same type.  Holes and axioms are one concept: a definition, theorem or opaque constant whose
-value uses `sorryAx` is the axiom of its statement (`sideRecord` makes such a definition the
-axiom record, `justifiable` reads the statement of the others).
+value uses `sorryAx` is the axiom of its statement (`sideRecord` makes it the axiom record; the
+checker reads a theorem and an axiom alike, neither unfolds).
 
 **The rule** (`justifyWhy`).  An axiom `cv` of the input, at the input's index `fe`, is
 justified by the sidecar's index `J` when
@@ -23,8 +23,8 @@ justified by the sidecar's index `J` when
 * everything `cv`'s type reads is the same constant in both indices up to the names of its
   level parameters, closed under reads (`coneGo`): the input's copy is the sidecar's
   (`refinesB`: the sidecar's constant, or the statement of a sidecar definition, theorem or
-  axiom, each up to a positional renaming of the level parameters where no recursor rule reads
-  the constant, `copyB`), with the same projection table, and what that copy reads is again
+  axiom, each up to a positional renaming of a definition's, theorem's or axiom's level
+  parameters, `copyB`), with the same projection table, and what that copy reads is again
   shared — its
   type, a definition's value, a recursor's rules, a type former's block members and
   constructors and recursors, a pinned constant's fast-path names, a table's names
@@ -50,36 +50,27 @@ def builtinAxiomName (n : Name) : Bool :=
   n == propextName || n == choiceName || n == quotSoundName || n == sorryAxName ||
     n == trustCompilerName || n == ofReduceNatName || n == ofReduceBoolName
 
-/-- **A definition whose value uses a hole is the axiom of its statement**, where a sidecar may
-justify it (`IsModel` reads it so: `Declaration.records`).  A definition at a built-in axiom's
-name keeps its own check. -/
+/-- **A definition, theorem or opaque constant whose value uses a hole is the axiom of its
+statement**, where a sidecar may justify it (`IsModel` reads it so: `Declaration.records` reads
+such a definition, every theorem and every opaque constant by its statement).  A record at a
+built-in axiom's name keeps its own check. -/
 def sideRecord : Declaration → Declaration
-  | d@(.defnDecl cv v _) =>
+  | d@(.defnDecl cv v _) | d@(.thmDecl cv v) | d@(.opaqueDecl cv v) =>
     if !builtinAxiomName cv.name && Expr.mentionsAnyConstC [sorryAxName] v then .axiomDecl cv
     else d
   | d => d
 
-/-- **The records a fold checks**: the input's, and with a sidecar every definition whose value
+/-- **The records a fold checks**: the input's, and with a sidecar every record whose value
 uses a hole as the axiom of its statement (`sideRecord`). -/
 def sideRecords : Option Env → Array Declaration → Array Declaration
   | none, ds => ds
   | some _, ds => ds.map sideRecord
 
-/-- **The statement a record offers to a sidecar**: an axiom's, other than a built-in one, and
-a theorem's or opaque constant's whose value uses `sorryAx` (a definition's is an axiom by then,
-`sideRecord`). -/
+/-- **The statement a record offers to a sidecar**: an axiom's, other than a built-in one (a
+record whose value uses a hole is an axiom by then, `sideRecord`). -/
 def justifiable : Declaration → Option ConstantVal
   | .axiomDecl cv => if builtinAxiomName cv.name then none else some cv
-  | .thmDecl cv v | .opaqueDecl cv v =>
-    if Expr.mentionsAnyConstC [sorryAxName] v then some cv else none
   | _ => none
-
-/-- **The constant a justified record installs**: a theorem's statement as a theorem, any other
-statement as an axiom (`declConstants`). -/
-def justifiedInfo (pd : Declaration) (cv : ConstantVal) : ConstantInfo :=
-  match pd with
-  | .thmDecl .. => .thmInfo cv
-  | _ => .axiomInfo cv
 
 /-! ## The comparison -/
 
@@ -107,21 +98,15 @@ def tableBeqP : Option ProjTable → Option ProjTable → Bool
   | some a, some b => a.beqP b
   | _, _ => false
 
-/-- **A constant no recursor rule's equation reads**: neither a recursor nor a constructor (the
-model's `RuleFree`).  Only those may be copied at other level-parameter names: ι reads a
-recursor's rules and its constructors' records at their own names. -/
-def ruleFreeB : ConstantInfo → Bool
-  | .recInfo .. => false
-  | .ctorInfo .. => false
-  | _ => true
-
 /-- **The input's constant `ci` is a copy of the sidecar's `ci'`** (the model's `ConstCopy ci'
-ci`): the same, or, for a constant no rule reads (`ruleFreeB`), the sidecar's at the input's
-level-parameter names, as many, neither list with a repeat. -/
+ci`): the same, or, for a definition, theorem or axiom, the sidecar's at the input's
+level-parameter names, as many, neither list with a repeat.  A constant of an inductive block
+is copied as it is: ι reads a recursor's rules and its constructors at their own names, and a
+block's constants share its level-parameter names. -/
 def copyB (ci' ci : ConstantInfo) : Bool :=
   let ps := ci.toConstantVal.levelParams
   if ps == ci'.toConstantVal.levelParams then ci.beqP ci'
-  else ruleFreeB ci' && levelsRenaming ci'.toConstantVal.levelParams ps &&
+  else ci'.isStmtKind && levelsRenaming ci'.toConstantVal.levelParams ps &&
     (ci'.atLpsC ps).beqP ci
 
 /-- **The input's copy is the sidecar's**: a copy of it (`copyB`: the same, or at other
@@ -198,7 +183,7 @@ def checkRecordC (mode : CheckMode) (pins : List NatOpPinSet) (J : Option FEnv) 
     checkConstantValC mode fe cv
     unless basisNamesOk pd do
       throw (basisNamesError pd)
-    pure (fe.push (justifiedInfo pd cv))
+    pure (fe.push (.axiomInfo cv))
   | _, _ => checkDeclStepC mode pins fe pd
 
 end ConLeche.Cached

@@ -606,11 +606,6 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   ybind
   exact checkDeclC_push mode h pd
 
-/-- A justified record's constant is named by its statement. -/
-theorem justifiedInfo_name (pd : Declaration) (cv : ConstantVal) :
-    (justifiedInfo pd cv).name = cv.name := by
-  unfold justifiedInfo; split <;> rfl
-
 theorem checkRecordC_push (mode : CheckMode) (J : Option FEnv) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : Declaration) :
     Yields (checkRecordC mode pins J fe pd) (fun fe' => PushChain env fe') := by
@@ -623,7 +618,7 @@ theorem checkRecordC_push (mode : CheckMode) (J : Option FEnv) {env : Env} {fe :
     · exact Yields.ofThrowBind
     · refine Yields.bind' (checkConstantValC_fresh mode fe cv) fun _ hfr => ?_
       yields
-      all_goals (apply Yields.pure; exact h.push (by rw [justifiedInfo_name]; exact hfr))
+      all_goals (apply Yields.pure; exact h.push hfr)
   · exact checkDeclStepC_push mode h pd
 
 /-- **An accepting run is a fresh chain**: from a canonical index, it returns a canonical index

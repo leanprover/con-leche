@@ -81,7 +81,8 @@ def compareJsonG {μ : Type → Type} [CheckerIO μ] (r : JCmpReq) (mode : Check
   match vC with
   | .error e => verdictG modeTag rC.decls.size t0 recsC (.error e)
   | .ok _ =>
-    let holes := recsC.filter fun d => (Cached.justifiable d).isSome
+    -- the justified records, labelled as the challenge declares them
+    let holes := recsC₀.filter fun d => (Cached.justifiable (Cached.sideRecord d)).isSome
     outLine s!"con-leche: accepted {rC.decls.size} declarations, {holes.size} axioms justified \
       by the sidecar {r.solution} ({rS.decls.size} declarations accepted) ({modeTag})"
     for d in holes do

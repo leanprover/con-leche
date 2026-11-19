@@ -713,10 +713,10 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
 
 /-! ## The record check, with a sidecar -/
 
-/-- **A record that offers a statement installs it alone.** -/
+/-- **A record that offers a statement installs it alone, as an axiom.** -/
 theorem justifiable_constants {pd : Declaration} {cv : ConstantVal}
     (h : justifiable pd = some cv) :
-    declConstants pd = [justifiedInfo pd cv] ∧ declTables pd = [] := by
+    declConstants pd = [.axiomInfo cv] ∧ declTables pd = [] := by
   cases pd with
   | axiomDecl c =>
     simp only [justifiable] at h
@@ -726,21 +726,8 @@ theorem justifiable_constants {pd : Declaration} {cv : ConstantVal}
       obtain rfl := Option.some.inj h
       have h1 : c.name ≠ quotSoundName := fun e => hb (by simp [builtinAxiomName, e])
       have h2 : c.name ≠ sorryAxName := fun e => hb (by simp [builtinAxiomName, e])
-      simp [declConstants, declTables, justifiedInfo, h1, h2]
-  | defnDecl c v hint => simp [justifiable] at h
-  | thmDecl c v =>
-    simp only [justifiable] at h
-    split at h
-    · obtain rfl := Option.some.inj h
-      simp [declConstants, declTables, justifiedInfo]
-    · exact nomatch h
-  | opaqueDecl c v =>
-    simp only [justifiable] at h
-    split at h
-    · obtain rfl := Option.some.inj h
-      simp [declConstants, declTables, justifiedInfo]
-    · exact nomatch h
-  | quotDecl | indDecl => simp [justifiable] at h
+      simp [declConstants, declTables, h1, h2]
+  | _ => simp [justifiable] at h
 
 /-- **An accepting record check pushes what the declaration installs**, sidecar or not. -/
 theorem checkRecordC_pushes (mode : CheckMode) (J : Option FEnv) (fe : FEnv) (pd : Declaration) :
