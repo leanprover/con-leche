@@ -122648,3 +122648,131 @@ definition denotes its value" (reported, not edited).  Whitepaper: §2b's interp
 is about the fragment and needs nothing; the "statement over `Denotes`" paragraph of §7
 ("How the real proof differs") describes `Model` and would gain a sentence on the defining
 equations; §6b (modular) could say that agreement now transmits values, not only typings.
+
+## TASK #610 (spike 2) — the defining equations as propositions (2026-11-19, agent/610-model-eqs)
+
+A spike on top of spike 1 (2e83603ab): nothing lands.  Maintainer's ruling: state the
+defining equations as propositions built from the declarations, required to be inhabited in
+the model, the way `mem` works for theorems.
+
+**Recursor rules: `iotaEq`, `ruleEqs`, `RuleEqsHold`** (`ConLeche/Denotes.lean`, replacing
+spike 1's `appList`/`Fits`/`IndexPin`/`RecRulesHold` there; `RecRule.ctorLevels` kept):
+
+    def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Nat)
+        (rl : RecRule) : Option Expr
+    def ruleEqs (env : Env) : List Expr :=
+      env.consts.flatMap fun
+        | .recInfo cv mI rP _ rules => rules.filterMap (iotaEq env.find? cv mI rP)
+        | _ => []
+    def RuleEqsHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
+      ∀ e ∈ ruleEqs env, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+        ∃ P, Denotes cval env φ ρ e P ∧ ∃ x, x ∈ˢ P
+
+`iotaEq` builds `∀ (prefix : the recursor's first rP binders) (fields : C's fields),
+@Eq.{u} ty (rec.{lps} prefix indices (C.{lvls} params fields)) (rhs prefix fields)` with the
+stored records only: `stripPis rP` of the recursor type gives the prefix binders, `stripPis
+(nIdx+1)` the body; the constructor at `ctorLevels`, its parameters the prefix variables
+`bvar (rP-1-i)` (or a nested rule's pins, which are stored in the prefix context), peeled by
+`stripPis cnP`, instantiated at the parameters (`instantiateLift`), peeled by `stripPis nF` into
+the field binders and the conclusion; `indices` = the conclusion's arguments behind `cnP`;
+`ty` = the body with prefix variables lifted past the fields and the indices and the major
+instantiated (`instantiateLift`); `u` = the sort the motive's binder ends in (`motiveLevel?`:
+the body's head is a prefix variable).  The rhs is applied, not peeled.  No `IndexPin`: the
+indices are the constructor's own, instantiated.  Quotients need nothing extra: `Quot.lift` and
+`Quot.ind` are stored recursors (`.levels` rules), so `ruleEqs` holds
+`∀ α r β f h a, @Eq.{v} β (Quot.lift α r β f h (Quot.mk α r a)) (rhs α r β f h a)` and its
+`Quot.ind` twin.  `#guard`s (`tests/ConLecheTests/IotaEqTests.lean`) pin the output on the
+pinned `Eq.rec` (index `a` read off `Eq.refl`'s conclusion), `Quot.lift`, `Quot.ind` and a
+two-constructor `T`.
+
+Prior art: the pre-#207 `Kernel/Modeled.lean` (`git show e4dc22748^`) CHECKED supplied
+`T._model.iota_j` theorems of the same shape (`checkIotaThm`, `checkIotaThmN`): telescope
+`rP + nfields` binders, lhs head the recursor at its own levels applied to the prefix, the
+indices and the major `C (params ++ fields)` (nested: stored levels and pins in the prefix
+context), indices = the constructor result's arguments behind `cnP`, rhs = the rule rhs
+applied to all the variables.  Taken: that binder order, the index instantiation and the
+nested pins/levels.  Not available there: the `Eq` type slot and level came from the supplied
+theorem (checked by `checkIotaSidesTy`); here they are built (the body instantiated, the
+motive's sort).
+
+**Definitions: `defn_eq` kept.**  `@Eq.{u} T c v` needs `u`, the sort of the definition's
+type, which no record stores and no syntactic walk finds (a type can be a definition reducing to
+a sort); it would need type inference in the spec.  `defn_eq` (the value denotes the
+constant) has no level and is the simpler statement.  (A level-free uniform alternative,
+Leibniz `∀ P : T → Prop, P c → P v`, works semantically — the indicator of `{⟦c⟧}` is a
+member of `⟦T → Prop⟧` — but reads worse than both.)
+
+**Not a field yet**: `RuleEqsHold` is a definition; `Model` gains no field because
+`ofEnvModelM` cannot prove it yet.
+
+**Proved** (`ConLeche/Model/RecRulesHold.lean`, +230 lines, warning-free):
+* substitution over `Denotes`: `Denotes_liftLooseBVars` (via `skipAt`) and
+  `Denotes_instantiateLift` (via `insAt`), induction on the derivation, both literal arms by
+  closedness;
+* the telescope: `TeleOk` (each domain reads, at every fit of the earlier ones; at a full fit
+  the body is an inhabited truth value), `tele_inhabited`, `teleOk_eq` (in a `Model`, `ty ∈
+  univ u`, `lhs ∈ ty` and `⟦lhs⟧ = ⟦rhs⟧` make the `Eq` an inhabited truth value, by
+  `eq_equality`), `RuleEqsHold_of`;
+* spike 1's `recRule_of_envModelM_ne_pt` (the semantic equation off the point, given `Fits` of
+  the whole recursor telescope), with `appList`/`Fits` moved here as proof vocabulary.
+
+**The demonstration** (`IotaEqTests.T_a_ne_T_b`; the test file is 335 lines, the demonstration about 190): in every
+`Model` of an environment storing `inductive T | a | b` with `T.rec` and its two rules, where
+`RuleEqsHold` holds, `cval T.a ≠ cval T.b` (at the assignment `1`).  The motive `fun _ =>
+Prop`, minors `∅`/`{pt}`; the rule equations via `eq_equality`, `lhs ∈ ty` from `mem` of
+`T.rec`.  It reads only `Model`'s fields and `RuleEqsHold`.
+
+**What remains for `Model.rule_eqs` in `ofEnvModelM`** (via `RuleEqsHold_of`, at every fit
+`xs` of the prefix binders and `fs` of the field binders):
+1. Readability (each binder domain, `ty`, `lhs`, `rhs` denote): from the stored types' and
+   rhs's `denote` (`type_reads`, `rec_rules`' `Ra`) through `Denotes_of_denote`, the
+   substitution lemmas, and `Denotes` of a stored telescope's pieces off the domain (a
+   `Readable` predicate — constants resolve, tables, literal support — with "readable ⇒
+   denotes at every ρ", the classical choice of the `∀` fibres, and preservation by
+   `instantiateLift`).  150–250 lines.
+2. **Typing (the real gap).**  The proposition no longer needs `IndexPin`, but the proof must
+   show the constructor's indices and `C params fs` fit the recursor's index and major
+   binders at `xs`, which `RecRuleLaw` takes as a premise (`TeleFitPA` of the recursor type at
+   `xs ++ [major]`) and the ι step gets from the redex's typing.  In the model it follows from
+   `C ∈ ⟦C's type⟧` (`mem`) only if the prefix's parameter values fit C's PARAMETER domains,
+   which the invariant does not state (recursor and constructor parameter telescopes are equal
+   only up to the install's defeq); and the indices fit the family's index domains only by
+   inverting `app` on `⟦I⟧`'s graph (a value off the domain).  Needed: an install-time fact
+   carried in `EnvModelM` — "at every fit of the recursor's rule prefix, every fit of a
+   rule's constructor fields (at the rule's parameters) makes the constructor's indices and
+   application fit the recursor's index and major binders" — proved where `rec_rules` is
+   (the block install, `Model/Inductives/*`, the nested rules, the quotient pins).  Estimate:
+   300–600 lines, most in the inductive install proofs; this is the size-dominant item.
+3. The point case: with 2, `IotaIndexPin` holds by construction (the recursor's index
+   arguments ARE the conclusion's), so it is the residual-form lemma alone (`TeleFitPA`'s
+   residual of the constructor type's reading is the reading of the conclusion, `denote` of an
+   application spine): 100–200 lines — down from spike 1's 200–350 (no `IndexPin` conversion).
+4. `ty ∈ univ u` and `lhs ∈ ty`: `mem` of the recursor applied along the fit from 2 (`lhs ∈ ty`)
+   and the motive's membership in its domain (`ty ∈ univ u`, the motive's domain's telescope
+   fit again from 2): 80–120 lines.
+5. `Model.ofCopies` on `compare`: the field at renamed levels, as `defn_eq`: 60–100 lines.
+
+**Restriction, amalgamation, renaming**: unchanged from spike 1's finding — every public
+`Model` is `ofEnvModelM` of an `EnvModelM` and those three operations produce full
+`EnvModelM`s, so once item 2's fact is an `EnvModelM` field it must be carried through them
+like `rec_rules` (restriction and amalgamation: as `rec_rules`, the rules being the home's;
+renaming: the level renaming of the indices and the major, as `rec_rules`' own transport) —
+the rule-equation FIELD itself then needs nothing there.
+
+**Comparison with spike 1.**  Spike 1's statement: 62 spec lines, four new semantic
+definitions (`appList`, `Fits`, `IndexPin`, `RecRulesHold` with 13 binders and three
+hypotheses, one conditional on the point).  Spike 2: 86 spec lines, but a construction over
+the checker's existing `Expr` operations plus a 3-line field statement with `Denotes` as the
+only semantic vocabulary, and no point special case.  The proof debt moves: spike 1 assumed
+the typing (its `Fits` hypothesis) and paid for the point case; spike 2 pays for the typing
+(item 2) and gets the point case nearly free.
+
+**Documents (reported, not edited).**  README line 69 ("states that every constant … denotes
+a member of its type's denotation (and that `False` denotes the empty set and that `Eq`
+denotes set equality)") would add "that every definition denotes its value, and every
+recursor rule's equation is inhabited"; line 73 ("it does not contain the delta and iota
+equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`
+…") would go.  Whitepaper §7 "The statement over `Denotes`" (07-left-out.typ:151–156) would
+gain a sentence: `Model` also makes definitions denote their values and makes the recursor
+rules', quotients included, equations true, built from the records; §6b could note that
+agreement between modules now carries values and rule equations, not only typings.

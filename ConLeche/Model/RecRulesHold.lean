@@ -9,19 +9,27 @@ import ConLeche.Verify.Denote.Lemmas
 public section
 
 /-!
-# The recursor rules in the model the invariant carries (task #610 spike)
+# The recursor rules in the model the invariant carries (task #610 spikes)
 
-`ConLeche.RecRulesHold` (`ConLeche/Denotes.lean`) states the ι equations of every stored
-recursor over `Denotes`.  This module derives them, at the model `Model.ofEnvModelM` reads off
-the invariant, from the invariant's `rec_rules` field (`RecRuleLaw`'s fired equation):
+`ConLeche.RuleEqsHold` (`ConLeche/Denotes.lean`) states every stored recursor rule's ι equation
+as a proposition (`iotaEq`: `∀ prefix fields, @Eq (motive indices major) (rec prefix indices
+major) (rhs prefix fields)`) that must be inhabited.  This module holds what a derivation of it
+from the invariant has so far:
 
-* `teleFit_of_Fits`: a fit of sets against a stored type (`Fits`, over `Denotes`) is a fit
-  against the type's reading (`TeleFit`, over `interp`);
-* `TeleFit.transfer`: a fit against a closed reading holds under every variable environment;
-* `recRule_of_envModelM_ne_pt`: the ι equation where the major is not the point.
+* the semantic equation, from the invariant's `rec_rules` (`RecRuleLaw`'s fired equation), where
+  the major is not the point and the arguments fit the recursor's whole telescope
+  (`recRule_of_envModelM_ne_pt`, over `Fits`, the telescope fit over `Denotes`;
+  `teleFit_of_Fits` and `TeleFit.transfer` carry it to the readings);
+* substitution over `Denotes` (`Denotes_liftLooseBVars`, `Denotes_instantiateLift`): the
+  constructor's fields at the parameters, the indices and the equation's type are such
+  substitutions;
+* the telescope (`TeleOk`, `tele_inhabited`, `teleOk_eq`, `RuleEqsHold_of`): the equation
+  holds where, at every fit of the prefix and the fields, the type is a member of the motive's
+  universe and both sides denote the same member of it.
 
-What is not here: where the major is the point, the law needs `IotaIndexPin` on the reading
-of the constructor type's conclusion, from the spec's `IndexPin` on the conclusion itself.
+What is not here (task #610 spike 2 record in DESIGN.md): that the constructor's indices and
+the constructor application fit the recursor's index and major binders (typing), the point case
+of the law, and the readability of the pieces at every fit.
 -/
 
 namespace ConLeche.Model
@@ -29,12 +37,27 @@ namespace ConLeche.Model
 open ConLeche.Semantics ConLeche.SetModel ConLeche.Verify SetTheory
 open ConLeche.Term
 open ConLeche.Model.Rules (PiChain teleFitPA_of_teleFit)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule Fits appList)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule)
 open ConLeche.Expr (closeN)
 
 universe w
 
 variable {V : Type w} [SetTheory V]
+
+/-- A set applied to a list of sets, left to right. -/
+noncomputable def appList (F : V) (xs : List V) : V := xs.foldl app F
+
+/-- `Fits cval env φ ρ T xs ρ' R`: the sets `xs` fit the leading `∀`
+binders of `T` read at `ρ` — each a member of what its domain denotes,
+the domain read with the earlier sets pushed — and `R` is the rest of
+`T`, to be read at `ρ'`, which is `ρ` with `xs` pushed. -/
+inductive Fits (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name → Nat) :
+    (Nat → V) → Expr → List V → (Nat → V) → Expr → Prop
+  | nil {ρ : Nat → V} {T : Expr} : Fits cval env φ ρ T [] ρ T
+  | cons {ρ ρ' : Nat → V} {A B R : Expr} {A' x : V} {xs : List V}
+      (hA : ConLeche.Denotes cval env φ ρ A A') (hx : x ∈ˢ A')
+      (h : Fits cval env φ (ConLeche.push x ρ) B xs ρ' R) :
+      Fits cval env φ ρ (.forallE A B) (x :: xs) ρ' R
 
 /-- **A fit against a stored type is a fit against its reading.** -/
 theorem teleFit_of_Fits {acval : Name → (Name → Nat) → Term}
@@ -244,5 +267,241 @@ theorem recRule_of_envModelM_ne_pt {env : Env} (m : EnvModelM V env)
   obtain rfl := ConLeche.Denotes_functional hR hRd
   rw [interp_closed (V := V) (denote_closed hcl hrhs.1 hrhs.2.2.2.1 hRa) σ ρ] at heq
   exact heq
+
+/-! ### Reading the ι equations: substitution and telescopes over `Denotes` -/
+
+section Subst
+
+variable {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
+
+/-- The environment a lift by `k` at cutoff `c` reads its source in. -/
+def skipAt (c k : Nat) (ρ : Nat → V) : Nat → V := fun i => if i < c then ρ i else ρ (i + k)
+
+omit [SetTheory V] in
+theorem push_skipAt (x : V) (c k : Nat) (ρ : Nat → V) :
+    ConLeche.push x (skipAt c k ρ) = skipAt (c + 1) k (ConLeche.push x ρ) := by
+  funext i
+  cases i with
+  | zero => simp [skipAt, ConLeche.push]
+  | succ i =>
+    by_cases h : i < c
+    · have h' : i + 1 < c + 1 := by omega
+      simp [skipAt, ConLeche.push, h, h']
+    · have h' : ¬ i + 1 < c + 1 := by omega
+      simp [skipAt, ConLeche.push, h, h', show i + 1 + k = i + k + 1 by omega]
+
+theorem strLitToConstructor_looseBVarsBounded (s : String) (c : Nat) :
+    (ConLeche.strLitToConstructor s).looseBVarsBounded c = true := by
+  unfold ConLeche.strLitToConstructor
+  simp only [Expr.looseBVarsBounded, Bool.true_and]
+  induction s.toList with
+  | nil => simp [Expr.looseBVarsBounded]
+  | cons a l ih => simp [Expr.looseBVarsBounded, ih]
+
+theorem natLitToConstructor_looseBVarsBounded' (n c : Nat) :
+    (ConLeche.natLitToConstructor n).looseBVarsBounded c = true := by
+  cases n <;> simp [ConLeche.natLitToConstructor, Expr.looseBVarsBounded]
+
+/-- Instantiating variables no loose variable reaches is the identity. -/
+theorem instantiateLift_eq_self (vs : List Expr) :
+    ∀ {e : Expr} {d : Nat}, e.looseBVarsBounded d = true → e.instantiateLift vs d = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d hb
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
+    simp [Expr.instantiateLift, hb]
+  | _ =>
+    intro d hb
+    simp_all [Expr.looseBVarsBounded, Expr.instantiateLift]
+
+/-- **Lifting**: a term read where a lift by `k` at cutoff `c` skips `k`
+variables denotes what its lift denotes. -/
+theorem Denotes_liftLooseBVars {k : Nat} :
+    ∀ {σ : Nat → V} {e : Expr} {X : V}, ConLeche.Denotes cval env φ σ e X →
+    ∀ {c : Nat} {ρ : Nat → V}, σ = skipAt c k ρ →
+      ConLeche.Denotes cval env φ ρ (e.liftLooseBVars k c) X := by
+  intro σ e X h
+  induction h with
+  | bvar =>
+    rename_i i
+    intro c ρ hσ
+    subst hσ
+    by_cases hi : c ≤ i
+    · have hi' : ¬ i < c := Nat.not_lt.mpr hi
+      simp only [Expr.liftLooseBVars, skipAt, ge_iff_le, hi, hi', ↓reduceIte]
+      exact .bvar
+    · have hi' : i < c := Nat.lt_of_not_le hi
+      simp only [Expr.liftLooseBVars, skipAt, ge_iff_le, hi, hi', ↓reduceIte]
+      exact .bvar
+  | sort => intro c ρ _; exact .sort
+  | const hf hlen => intro c ρ _; exact .const hf hlen
+  | app _ _ ihf iha => intro c ρ hσ; exact .app (ihf hσ) (iha hσ)
+  | lam _ _ ihA ihF =>
+    intro c ρ hσ
+    subst hσ
+    exact .lam (ihA rfl) fun x hx => ihF x hx (push_skipAt x c k ρ)
+  | pi _ _ ihA ihB =>
+    intro c ρ hσ
+    subst hσ
+    exact .pi (ihA rfl) fun x hx => ihB x hx (push_skipAt x c k ρ)
+  | letE _ _ ihv ihb =>
+    intro c ρ hσ
+    subst hσ
+    exact .letE (ihv rfl) (ihb (push_skipAt _ c k ρ))
+  | proj_table ht _ ih => intro c ρ hσ; exact .proj_table ht (ih hσ)
+  | natLit _ ih =>
+    rename_i n _ _
+    intro c ρ hσ
+    have h := ih hσ
+    rw [Expr.liftLooseBVars_eq_self (natLitToConstructor_looseBVarsBounded' n c)] at h
+    exact .natLit h
+  | strLit _ ih =>
+    rename_i s _ _
+    intro c ρ hσ
+    have h := ih hσ
+    rw [Expr.liftLooseBVars_eq_self (strLitToConstructor_looseBVarsBounded s c)] at h
+    exact .strLit h
+
+/-- The environment an instantiation at depth `d` reads its source in:
+`ρ` below `d`, the values' denotations `Ys` next, `ρ` lowered above. -/
+def insAt (d : Nat) (Ys : List V) (ρ : Nat → V) : Nat → V := fun i =>
+  if i < d then ρ i else if h : i - d < Ys.length then Ys[i - d] else ρ (i - Ys.length)
+
+omit [SetTheory V] in
+theorem push_insAt (x : V) (d : Nat) (Ys : List V) (ρ : Nat → V) :
+    ConLeche.push x (insAt d Ys ρ) = insAt (d + 1) Ys (ConLeche.push x ρ) := by
+  funext i
+  cases i with
+  | zero => simp [insAt, ConLeche.push]
+  | succ i =>
+    by_cases h : i < d
+    · have h1 : i + 1 < d + 1 := by omega
+      simp [insAt, ConLeche.push, h, h1]
+    · have h1 : ¬ i + 1 < d + 1 := by omega
+      have h2 : i + 1 - (d + 1) = i - d := by omega
+      by_cases h' : i - d < Ys.length
+      · simp [insAt, ConLeche.push, h, h1, h2, h']
+      · have h3 : i + 1 - Ys.length = (i - Ys.length) + 1 := by omega
+        simp [insAt, ConLeche.push, h, h1, h2, h', h3]
+
+/-- **Instantiation**: substituting values for `bvar d, bvar (d+1), …`
+(`instantiateLift`, the values read at `σ`, the environment outside the
+`d` crossed binders) denotes what the term denotes with the values'
+denotations in their place. -/
+theorem Denotes_instantiateLift {vs : List Expr} {Ys : List V} {σ : Nat → V}
+    (hlen : Ys.length = vs.length)
+    (hvs : ∀ j (h : j < vs.length), ConLeche.Denotes cval env φ σ vs[j] (Ys[j]'(hlen ▸ h))) :
+    ∀ {τ : Nat → V} {e : Expr} {X : V}, ConLeche.Denotes cval env φ τ e X →
+    ∀ {d : Nat} {ρ : Nat → V}, τ = insAt d Ys ρ → (∀ i, ρ (i + d) = σ i) →
+      ConLeche.Denotes cval env φ ρ (e.instantiateLift vs d) X := by
+  intro τ e X h
+  induction h with
+  | bvar =>
+    rename_i i
+    intro d ρ hτ hσ
+    subst hτ
+    by_cases hi : i < d
+    · simp only [Expr.instantiateLift, insAt, hi, ↓reduceIte]
+      exact .bvar
+    · by_cases hj : i - d < vs.length
+      · have hj' : i - d < Ys.length := by rw [hlen]; exact hj
+        simp only [Expr.instantiateLift, insAt, hi, ↓reduceIte, hj, hj', dite_true]
+        refine Denotes_liftLooseBVars (hvs _ hj) ?_
+        funext q
+        simp [skipAt, ← hσ q]
+      · have hj' : ¬ i - d < Ys.length := by rw [hlen]; exact hj
+        simp only [Expr.instantiateLift, insAt, hi, ↓reduceIte, hj, dite_false, hlen]
+        exact .bvar
+  | sort => intro d ρ _ _; exact .sort
+  | const hf hl => intro d ρ _ _; exact .const hf hl
+  | app _ _ ihf iha => intro d ρ hτ hσ; exact .app (ihf hτ hσ) (iha hτ hσ)
+  | lam _ _ ihA ihF =>
+    intro d ρ hτ hσ
+    subst hτ
+    exact .lam (ihA rfl hσ) fun x hx => ihF x hx (push_insAt x d Ys ρ)
+      fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i
+  | pi _ _ ihA ihB =>
+    intro d ρ hτ hσ
+    subst hτ
+    exact .pi (ihA rfl hσ) fun x hx => ihB x hx (push_insAt x d Ys ρ)
+      fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i
+  | letE _ _ ihv ihb =>
+    intro d ρ hτ hσ
+    subst hτ
+    exact .letE (ihv rfl hσ) (ihb (push_insAt _ d Ys ρ)
+      fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i)
+  | proj_table ht _ ih => intro d ρ hτ hσ; exact .proj_table ht (ih hτ hσ)
+  | natLit _ ih =>
+    rename_i n _ _
+    intro d ρ hτ hσ
+    have h := ih hτ hσ
+    rw [instantiateLift_eq_self vs (natLitToConstructor_looseBVarsBounded' n d)] at h
+    exact .natLit h
+  | strLit _ ih =>
+    rename_i s _ _
+    intro d ρ hτ hσ
+    have h := ih hτ hσ
+    rw [instantiateLift_eq_self vs (strLitToConstructor_looseBVarsBounded s d)] at h
+    exact .strLit h
+
+/-- **A telescope over a truth value, inhabited at every fit**: the
+`∀`s read (each domain denotes, at every fit of the earlier ones), and
+at every fit of all of them the body denotes an inhabited truth value. -/
+def TeleOk (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name → Nat) :
+    (Nat → V) → List Expr → Expr → Prop
+  | ρ, [], body => ∃ Y, ConLeche.Denotes cval env φ ρ body Y ∧ Y ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ Y
+  | ρ, d :: ds, body => ∃ A, ConLeche.Denotes cval env φ ρ d A ∧
+      ∀ x, x ∈ˢ A → TeleOk cval env φ (ConLeche.push x ρ) ds body
+
+/-- **An inhabited telescope**: where `TeleOk` holds, the `∀`-telescope
+denotes an inhabited truth value. -/
+theorem tele_inhabited : ∀ (ds : List Expr) {ρ : Nat → V} {body : Expr},
+    TeleOk cval env φ ρ ds body →
+    ∃ P, ConLeche.Denotes cval env φ ρ (ds.foldr .forallE body) P ∧
+      P ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ P
+  | [], _, _, h => h
+  | d :: ds, ρ, body, ⟨A, hA, h⟩ => by
+    classical
+    have hc : ∀ x, x ∈ˢ A → ∃ P, ConLeche.Denotes cval env φ (ConLeche.push x ρ)
+        (ds.foldr .forallE body) P ∧ P ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ P :=
+      fun x hx => tele_inhabited ds (h x hx)
+    let B : V → V := fun x => if hx : x ∈ˢ A then Classical.choose (hc x hx) else empty
+    have hB : ∀ x (hx : x ∈ˢ A), B x = Classical.choose (hc x hx) := fun x hx => by
+      simp only [B, hx, dite_true]
+    have hz : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V) := fun x hx => by
+      rw [hB x hx]; exact (Classical.choose_spec (hc x hx)).2.1
+    refine ⟨piV A B, .pi hA fun x hx => ?_, ?_, ?_⟩
+    · rw [hB x hx]; exact (Classical.choose_spec (hc x hx)).1
+    · rw [piV_eq_zero hz]; exact piR_zero_mem_univZero
+    · refine (pt_mem_piV_iff fun x hx => Or.inl (hz x hx)).mpr fun x hx => ?_
+      rw [hB x hx]; exact (Classical.choose_spec (hc x hx)).2.2
+
+/-- **The equation at the end of the telescope**: in a model, where the
+type denotes a member of its universe and both sides denote the same
+member of it, the equation is an inhabited truth value. -/
+theorem teleOk_eq {env : Env} (M : ConLeche.Model V env) {φ : Name → Nat} {ρ : Nat → V}
+    {u : Level} {ty l r : Expr} {E T L : V}
+    (hE : ConLeche.Denotes M.cval env φ ρ (.const ConLeche.eqName [u]) E)
+    (hT : ConLeche.Denotes M.cval env φ ρ ty T) (hL : ConLeche.Denotes M.cval env φ ρ l L)
+    (hR : ConLeche.Denotes M.cval env φ ρ r L)
+    (hTu : T ∈ˢ (univ (Level.eval φ u) : V)) (hLm : L ∈ˢ T) :
+    TeleOk M.cval env φ ρ [] (.app (.app (.app (.const ConLeche.eqName [u]) ty) l) r) := by
+  refine ⟨_, .app (.app (.app hE hT) hL) hR, ?_, ?_⟩ <;>
+    rw [M.eq_equality u φ ρ E T L L hE hTu hLm hLm]
+  · exact eqv_mem_univZero L L
+  · exact pt_mem_eqv_self L
+
+/-- **The ι equations hold where their telescopes are inhabited.** -/
+theorem RuleEqsHold_of {cval : Name → (Name → Nat) → V} {env : Env}
+    (h : ∀ e ∈ ConLeche.ruleEqs env, ∃ ds body, e = ds.foldr .forallE body ∧
+      ∀ φ ρ, TeleOk cval env φ ρ ds body) :
+    ConLeche.RuleEqsHold cval env := by
+  intro e he φ ρ
+  obtain ⟨ds, body, rfl, hok⟩ := h e he
+  obtain ⟨P, hP, -, hpt⟩ := tele_inhabited ds (hok φ ρ)
+  exact ⟨P, hP, pt, hpt⟩
+
+end Subst
 
 end ConLeche.Model
