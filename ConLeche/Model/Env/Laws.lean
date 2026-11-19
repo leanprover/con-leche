@@ -731,10 +731,10 @@ established where `RecRuleLaw` is, at the installs. -/
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) (ps ++ fs)])
           restR ∧
         ∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
-          cv.type.stripPis rP = some (pre, rest) →
+          (cv.type.instantiateLevelParams cv.levelParams us).stripPis rP = some (pre, rest) →
           rest.stripPis (mI - rP + 1) = some (idx, body) →
           ConLeche.motiveLevel? pre (mI - rP) body = some u →
-          interp V ρ restR ∈ˢ (univ (Level.eval (Level.substFn φ cv.levelParams us) u) : V)
+          interp V ρ restR ∈ˢ (univ (Level.eval φ u) : V)
 
 /-- **One rule's fired modeled-iota contract at `interp`** (see the
 section note). -/

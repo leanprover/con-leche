@@ -1384,8 +1384,8 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
   obtain ⟨restR, hrestR, huniv⟩ := hF2 fsT isT restC (by simp [fsT, hfl, hnF])
     (by simp [isT, hIl]) (hbvWD fsT _ _ rfl) (hbvWD isT _ _ rfl) hrestC hpin
   rw [hψc] at hrestR
-  have hTu := huniv pre idx rest body u hpre hbody hu
-  rw [Level.substFn_param_self] at hTu
+  have hTu := huniv pre idx rest body u (by rw [Expr.instantiateLevelParams_self]; exact hpre)
+    hbody hu
   -- the residual is what the equation's type denotes
   have hvals : (xsT ++ isT ++ [majT]).map (interp V σ) = xs ++ Is ++ [(Ps ++ fs).foldl app
       (cvalOf m.base2.acval rl.ctor ψc)] := by
