@@ -369,6 +369,15 @@ inductive TeleFitPA (V : Type w) [SetTheory V] (ρ : Nat → V) :
       TeleFitPA V ρ (B.inst a) as rest →
       TeleFitPA V ρ (.pi A B) (a :: as) rest
 
+/-- A fit's residual is determined. -/
+theorem TeleFitPA.rest_unique {V : Type w} [SetTheory V] {ρ : Nat → V} :
+    ∀ {T : Term} {as : List Term} {r₁ r₂ : Term},
+      TeleFitPA V ρ T as r₁ → TeleFitPA V ρ T as r₂ → r₁ = r₂
+  | _, _, _, _, .nil, h₂ => by cases h₂; rfl
+  | _, _, _, _, .cons _ h₁, h₂ => by
+    cases h₂ with
+    | cons _ h₂ => exact TeleFitPA.rest_unique h₁ h₂
+
 /-- A fit's prefix fits, to some intermediate residual. -/
 theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
     ∀ {T rest : Term} {as : List Term}, TeleFitPA V ρ T as rest →
@@ -829,6 +838,7 @@ section note). -/
             (Term.mkAppN Ra
               (xs.take rP ++ ys.drop cnP))))
   ∧ RecRuleExtra m φ n cv mI rP isK rl
+  ∧ RecRuleFit m φ cv mI rP rl
 
 /-- The fired modeled-iota contract, keyed on every stored recursor. -/
 @[expose] def RecRules {V : Type w} [SetTheory V] {env : Env}

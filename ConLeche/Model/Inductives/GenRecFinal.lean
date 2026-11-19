@@ -326,7 +326,10 @@ theorem genRecStage {F : Nat}
     (genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov) (genRecHtower R)
     (fun m₃ hac φ j r hr _ ctor rhs _ _ => recStagePinsOk mpC h m₃ hac φ j r hr ctor rhs
       (fun _ _ hf' => R.fire_nestedRead hr hf'))
-    (fun m₃ hac => hextra _ m₃ hac) hdataS
+    (fun m₃ hac => hextra _ m₃ hac)
+    -- WIP (task #610): the generated rules' `RecRuleFit`, open — conjunct (1) at a nested rule
+    -- needs a ruling (DESIGN, "TASK #610 (cont. 3)")
+    (fun m₃ hac => sorry) hdataS
     (genRecTyZ R hg h mpC)
     (fun _ _ hr _ _ _ hctor hrhs _ _ hRa hℓ ρ =>
       genRuleRaZ R hg h mpC hfind hlenEs hr hctor hrhs hRa hℓ ρ)

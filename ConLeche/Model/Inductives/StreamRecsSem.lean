@@ -83,6 +83,13 @@ theorem TEqAt.interp_eq : ∀ {k : Nat} {ρ : Nat → V} {T T' : Term},
     rw [← hA]
     exact piV_congr fun x hx => (hB x hx).interp_eq
 
+/-- Agreement is symmetric. -/
+theorem TEqAt.symm : ∀ {k : Nat} {ρ : Nat → V} {T T' : Term}, TEqAt k ρ T T' → TEqAt k ρ T' T
+  | 0, _, _, _, h => Eq.symm h
+  | _ + 1, _, _, _, h => by
+    obtain ⟨A, B, A', B', rfl, rfl, hA, hB⟩ := h
+    exact ⟨A', B', A, B, rfl, rfl, hA.symm, fun x hx => (hB x (hA ▸ hx)).symm⟩
+
 /-- Agreement survives substituting a term for a variable. -/
 theorem TEqAt.inst : ∀ {k : Nat} {c : Nat} {ρ : Nat → V} {a T T' : Term},
     TEqAt k (instE c (interp V (shiftE c 0 ρ) a) ρ) T T' →
@@ -528,99 +535,34 @@ theorem storedRhs_sem {env : Env} (mp : EnvModelM V env) {F : Nat}
 
 /-! ## The ι contract, carried to the stored recursor -/
 
-/-- **The ι contract at the stored type and right-hand side** from the
-generated one's, at a carrier with the same leaves (`hac`), the same
-readings (`hde`), the same constructor lookups (`hctor`) and the same
-`Prop`-family test (`hnp`): the stored type's reading enters the law only
-as a fit premise (`hty`: a fit of at most `mI + 1` arguments at the
-stored reading is one at the generated), the right-hand side only through
-its reading's value and grading (`hrhs`). -/
-theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvModel V envS}
-    (hac : mS.acval = mG.acval)
-    (hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
-      denote mG.acval envS ψ d e = denote mG.acval envG ψ d e)
-    (hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
-      envS.find? c = some (.ctorInfo cvj cnP cnF iT) → envG.find? c = some (.ctorInfo cvj cnP cnF iT))
-    (hfam : ∀ cvj : ConstantVal,
-      ctorTypeFamily envS.find? cvj = ctorTypeFamily envG.find? cvj)
-    {φ : Name → Nat} {n : Name} {cvG : ConstantVal} {T : Expr} {mI rP : Nat} {rlG : RecRule}
-    {e : Expr}
-    (hty : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ TS : Term,
-      denote mG.acval envG φ 0 (T.instantiateLevelParams cvG.levelParams us) = some TS →
-      ∃ TG, denote mG.acval envG φ 0 (cvG.type.instantiateLevelParams cvG.levelParams us)
-          = some TG ∧
-        ∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
-          TeleFitPA V ρ TS xs rest → ∃ rest', TeleFitPA V ρ TG xs rest')
-    (hrhs : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ RaG : Term,
-      denote mG.acval envG φ 0 (rlG.rhs.instantiateLevelParams cvG.levelParams us) = some RaG →
-      ∃ RaS, denote mG.acval envG φ 0 (e.instantiateLevelParams cvG.levelParams us) = some RaS ∧
-        ∀ ρ : Nat → V, WellDenoted V ρ RaS ∧ interp V ρ RaS = interp V ρ RaG)
-    (h : RecRuleLaw mG φ n cvG mI rP isK rlG) :
-    RecRuleLaw mS φ n { cvG with type := T } mI rP isK { rlG with rhs := e } := by
-  have hnp : ∀ (cvj : ConstantVal) (us : List Level),
-      FamNZ (V := V) mG.acval envS φ cvj us = FamNZ (V := V) mG.acval envG φ cvj us :=
-    fun cvj us => propext
-      ⟨FamNZ.congr (hfam cvj) fun _ _ _ _ hta => by rw [hde]; exact hta,
-        FamNZ.congr (hfam cvj).symm fun _ _ _ _ hta => by rw [← hde]; exact hta⟩
-  unfold RecRuleLaw RecRuleExtra at h ⊢
-  simp only [hac, hde, hnp] at ⊢
-  obtain ⟨hrPle, hmain, hextra⟩ := h
-  -- the stored right-hand side's reading, at given levels
-  have hRa : ∀ us : List Level, us.length = cvG.levelParams.length →
-      ∃ RaG RaS, denote mG.acval envG φ 0
-          (rlG.rhs.instantiateLevelParams cvG.levelParams us) = some RaG ∧
-        denote mG.acval envG φ 0 (e.instantiateLevelParams cvG.levelParams us) = some RaS ∧
-        ∀ ρ : Nat → V, WellDenoted V ρ RaS ∧ interp V ρ RaS = interp V ρ RaG := by
-    intro us hlen
-    obtain ⟨RaG, hRaG, -⟩ := hmain us hlen
-    obtain ⟨RaS, hRaS, hS⟩ := hrhs us hlen RaG hRaG
-    exact ⟨RaG, RaS, hRaG, hRaS, hS⟩
-  refine ⟨hrPle, fun us hlen => ?_, fun us hlen TVa hTVa => ?_⟩
-  · obtain ⟨RaG, hRaG, -, hpins, hlaw⟩ := hmain us hlen
-    obtain ⟨RaS, hRaS, hS⟩ := hrhs us hlen RaG hRaG
-    refine ⟨RaS, hRaS, fun ρ => (hS ρ).1, fun lvls pins hfire i hi => ?_, ?_⟩
-    · obtain ⟨vpa, hvpa, hok⟩ := hpins lvls pins hfire i hi
-      refine ⟨vpa, hvpa, fun ρ zs TVa restR hzl hzw hTVa hfit => ?_⟩
-      obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
-      obtain ⟨r', hr'⟩ := hfitT ρ zs restR (by omega) hfit
-      exact hok ρ zs TG r' hzl hzw hTG hr'
-    · intro cvj cnP cnF iT hfc usj ρ xs ys TVa TVja restR restC hxl hyl hujl hψ hyw hpin hTVa
-        hTVja hfitR hfitC
-      obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
-      obtain ⟨r', hr'⟩ := hfitT ρ _ restR (by simp [hxl]) hfitR
-      obtain ⟨heq, hwd⟩ := hlaw cvj cnP cnF iT (hctor _ _ _ _ _ hfc) usj ρ xs ys TG TVja r' restC
-        hxl hyl hujl hψ hyw hpin hTG hTVja hr' hfitC
-      exact ⟨heq.trans (interp_mkAppN_head_congr _ (hS ρ).2.symm),
-        fun ha hb => wellDenoted_mkAppN_head_congr _ (hS ρ).1 (hS ρ).2.symm (hwd ha hb)⟩
-  · obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
-    obtain ⟨hK, hrest⟩ := hextra us hlen TG hTG
-    have fitN : ∀ {ρ : Nat → V} {xs : List Term} {a restR : Term}, xs.length = mI →
-        TeleFitPA V ρ TVa (xs ++ [a]) restR → ∃ r', TeleFitPA V ρ TG (xs ++ [a]) r' :=
-      fun hxl hfit => hfitT _ _ _ (by simp [hxl]) hfit
-    refine ⟨fun hk => ?_, fun cvj cnP cnF iT hfc => ?_⟩
-    · obtain ⟨hnf, hKl⟩ := hK hk
-      refine ⟨hnf, fun Ra hRaS ρ xs a restR hxl hfit hxw => ?_⟩
-      obtain ⟨RaG, RaS, hRaG, hRaS', hS⟩ := hRa us hlen
-      obtain rfl : Ra = RaS := Option.some.inj (hRaS.symm.trans hRaS')
-      obtain ⟨r', hr'⟩ := fitN hxl hfit
-      obtain ⟨heq, hwd⟩ := hKl RaG hRaG ρ xs a r' hxl hr' hxw
-      exact ⟨heq.trans (interp_mkAppN_head_congr _ (hS ρ).2.symm),
-        fun hw => wellDenoted_mkAppN_head_congr _ (hS ρ).1 (hS ρ).2.symm (hwd hw)⟩
-    · obtain ⟨har, hrest2⟩ := hrest cvj cnP cnF iT (hctor _ _ _ _ _ hfc)
-      refine ⟨har, fun hk => ?_⟩
-      obtain ⟨hSc, hTc, hPU⟩ := hrest2 hk
-      refine ⟨fun hn ρ xs a restR hxl hfit => ?_, fun hn usj hujl TVja hTVja ρ xs ys restR restC
-          hxl hyl hfit => ?_, fun usj hujl hψ TVja hTVja => ?_⟩
-      · obtain ⟨r', hr'⟩ := fitN hxl hfit
-        exact hSc hn ρ xs a r' hxl hr'
-      · obtain ⟨r', hr'⟩ := fitN hxl hfit
-        exact hTc hn usj hujl TVja hTVja ρ xs ys r' restC hxl hyl hr'
-      · obtain ⟨hP, hU⟩ := hPU usj hujl hψ TVja hTVja
-        refine ⟨fun ρ xs a restR hxl hfit => ?_, fun ρ xs ys restR restC hxl hyl hfit => ?_⟩
-        · obtain ⟨r', hr'⟩ := fitN hxl hfit
-          exact hP ρ xs a r' hxl hr'
-        · obtain ⟨r', hr'⟩ := fitN hxl hfit
-          exact hU ρ xs ys r' restC hxl hyl hr'
+/-- **The motive's level, under a level instantiation**: the instantiated telescope's motive
+level is the instantiated level of the uninstantiated one's. -/
+theorem motiveLevel?_instantiateLevelParams (ks : List Name) (us : List Level)
+    {pre : List Expr} {nIdx : Nat} {body : Expr} {u : Level}
+    (h : ConLeche.motiveLevel? (pre.map (·.instantiateLevelParams ks us)) nIdx
+      (body.instantiateLevelParams ks us) = some u) :
+    ∃ u₀, ConLeche.motiveLevel? pre nIdx body = some u₀ ∧ u = Level.subst ks us u₀ := by
+  unfold ConLeche.motiveLevel? at h ⊢
+  rw [Expr.getAppFn_instantiateLevelParams] at h
+  cases hb : body.getAppFn with
+  | bvar k =>
+    rw [hb] at h
+    simp only [Expr.instantiateLevelParams, List.length_map] at h ⊢
+    split at h
+    · rename_i hk
+      rw [ite_eq_left hk]
+      have hlt : pre.length - 1 - (k - (nIdx + 1)) < pre.length := by omega
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hlt,
+        Option.map_some, Option.getD_some, Expr.piResult_instantiateLevelParams] at h
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
+      cases hp : pre[pre.length - 1 - (k - (nIdx + 1))].piResult with
+      | sort u₀ =>
+        rw [hp] at h
+        simp only [Expr.instantiateLevelParams, Option.some.injEq] at h
+        exact ⟨u₀, rfl, h.symm⟩
+      | _ => rw [hp] at h; simp [Expr.instantiateLevelParams] at h
+    · exact nomatch h
+  | _ => rw [hb] at h; simp [Expr.instantiateLevelParams] at h
 
 /-- **The forward typing fact at the stored type** (`RecRuleFit`) from the generated one's, at
 a carrier with the same leaves (`hac`), readings (`hde`) and constructor lookups (`hctor`):
@@ -678,5 +620,121 @@ theorem recRuleFit_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
   obtain ⟨restS, hRS⟩ := hGS ρ _ restR (by omega) hR
   refine ⟨restS, by rw [hac]; exact hRS, ?_⟩
   exact hU ρ _ restS restR hwl hRS hR hUG
+
+/-- **The ι contract at the stored type and right-hand side** from the
+generated one's, at a carrier with the same leaves (`hac`), the same
+readings (`hde`), the same constructor lookups (`hctor`) and the same
+`Prop`-family test (`hnp`): the stored type's reading enters the law only
+as a fit premise (`hty`: a fit of at most `mI + 1` arguments at the
+stored reading is one at the generated), the right-hand side only through
+its reading's value and grading (`hrhs`). -/
+theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvModel V envS}
+    (hac : mS.acval = mG.acval)
+    (hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
+      denote mG.acval envS ψ d e = denote mG.acval envG ψ d e)
+    (hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+      envS.find? c = some (.ctorInfo cvj cnP cnF iT) → envG.find? c = some (.ctorInfo cvj cnP cnF iT))
+    (hfam : ∀ cvj : ConstantVal,
+      ctorTypeFamily envS.find? cvj = ctorTypeFamily envG.find? cvj)
+    {φ : Name → Nat} {n : Name} {cvG : ConstantVal} {T : Expr} {mI rP : Nat} {rlG : RecRule}
+    {e : Expr}
+    (hty : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ TS : Term,
+      denote mG.acval envG φ 0 (T.instantiateLevelParams cvG.levelParams us) = some TS →
+      ∃ TG, denote mG.acval envG φ 0 (cvG.type.instantiateLevelParams cvG.levelParams us)
+          = some TG ∧
+        (∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TS xs rest → ∃ rest', TeleFitPA V ρ TG xs rest') ∧
+        (∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TG xs rest → ∃ rest', TeleFitPA V ρ TS xs rest') ∧
+        ∀ (ρ : Nat → V) (ws : List Term) (restS restG : Term), ws.length = mI + 1 →
+          TeleFitPA V ρ TS ws restS → TeleFitPA V ρ TG ws restG →
+          (∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+            (cvG.type.instantiateLevelParams cvG.levelParams us).stripPis rP = some (pre, rest) →
+            rest.stripPis (mI - rP + 1) = some (idx, body) →
+            ConLeche.motiveLevel? pre (mI - rP) body = some u →
+            interp V ρ restG ∈ˢ (univ (Level.eval φ u) : V)) →
+          ∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+            (T.instantiateLevelParams cvG.levelParams us).stripPis rP = some (pre, rest) →
+            rest.stripPis (mI - rP + 1) = some (idx, body) →
+            ConLeche.motiveLevel? pre (mI - rP) body = some u →
+            interp V ρ restS ∈ˢ (univ (Level.eval φ u) : V))
+    (hrhs : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ RaG : Term,
+      denote mG.acval envG φ 0 (rlG.rhs.instantiateLevelParams cvG.levelParams us) = some RaG →
+      ∃ RaS, denote mG.acval envG φ 0 (e.instantiateLevelParams cvG.levelParams us) = some RaS ∧
+        ∀ ρ : Nat → V, WellDenoted V ρ RaS ∧ interp V ρ RaS = interp V ρ RaG)
+    (h : RecRuleLaw mG φ n cvG mI rP isK rlG) :
+    RecRuleLaw mS φ n { cvG with type := T } mI rP isK { rlG with rhs := e } := by
+  have hnp : ∀ (cvj : ConstantVal) (us : List Level),
+      FamNZ (V := V) mG.acval envS φ cvj us = FamNZ (V := V) mG.acval envG φ cvj us :=
+    fun cvj us => propext
+      ⟨FamNZ.congr (hfam cvj) fun _ _ _ _ hta => by rw [hde]; exact hta,
+        FamNZ.congr (hfam cvj).symm fun _ _ _ _ hta => by rw [← hde]; exact hta⟩
+  have hfitS := recRuleFit_stored (e := e) hac hde hctor h.1 hty h.2.2.2
+  replace hty : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ TS : Term,
+      denote mG.acval envG φ 0 (T.instantiateLevelParams cvG.levelParams us) = some TS →
+      ∃ TG, denote mG.acval envG φ 0 (cvG.type.instantiateLevelParams cvG.levelParams us)
+          = some TG ∧
+        ∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TS xs rest → ∃ rest', TeleFitPA V ρ TG xs rest' :=
+    fun us hus TS hTS => (hty us hus TS hTS).elim fun TG hTG => ⟨TG, hTG.1, hTG.2.1⟩
+  unfold RecRuleLaw RecRuleExtra at h ⊢
+  simp only [hac, hde, hnp] at ⊢
+  obtain ⟨hrPle, hmain, hextra, -⟩ := h
+  -- the stored right-hand side's reading, at given levels
+  have hRa : ∀ us : List Level, us.length = cvG.levelParams.length →
+      ∃ RaG RaS, denote mG.acval envG φ 0
+          (rlG.rhs.instantiateLevelParams cvG.levelParams us) = some RaG ∧
+        denote mG.acval envG φ 0 (e.instantiateLevelParams cvG.levelParams us) = some RaS ∧
+        ∀ ρ : Nat → V, WellDenoted V ρ RaS ∧ interp V ρ RaS = interp V ρ RaG := by
+    intro us hlen
+    obtain ⟨RaG, hRaG, -⟩ := hmain us hlen
+    obtain ⟨RaS, hRaS, hS⟩ := hrhs us hlen RaG hRaG
+    exact ⟨RaG, RaS, hRaG, hRaS, hS⟩
+  refine ⟨hrPle, fun us hlen => ?_, fun us hlen TVa hTVa => ?_, hfitS⟩
+  · obtain ⟨RaG, hRaG, -, hpins, hlaw⟩ := hmain us hlen
+    obtain ⟨RaS, hRaS, hS⟩ := hrhs us hlen RaG hRaG
+    refine ⟨RaS, hRaS, fun ρ => (hS ρ).1, fun lvls pins hfire i hi => ?_, ?_⟩
+    · obtain ⟨vpa, hvpa, hok⟩ := hpins lvls pins hfire i hi
+      refine ⟨vpa, hvpa, fun ρ zs TVa restR hzl hzw hTVa hfit => ?_⟩
+      obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
+      obtain ⟨r', hr'⟩ := hfitT ρ zs restR (by omega) hfit
+      exact hok ρ zs TG r' hzl hzw hTG hr'
+    · intro cvj cnP cnF iT hfc usj ρ xs ys TVa TVja restR restC hxl hyl hujl hψ hyw hpin hTVa
+        hTVja hfitR hfitC
+      obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
+      obtain ⟨r', hr'⟩ := hfitT ρ _ restR (by simp [hxl]) hfitR
+      obtain ⟨heq, hwd⟩ := hlaw cvj cnP cnF iT (hctor _ _ _ _ _ hfc) usj ρ xs ys TG TVja r' restC
+        hxl hyl hujl hψ hyw hpin hTG hTVja hr' hfitC
+      exact ⟨heq.trans (interp_mkAppN_head_congr _ (hS ρ).2.symm),
+        fun ha hb => wellDenoted_mkAppN_head_congr _ (hS ρ).1 (hS ρ).2.symm (hwd ha hb)⟩
+  · obtain ⟨TG, hTG, hfitT⟩ := hty us hlen TVa hTVa
+    obtain ⟨hK, hrest⟩ := hextra us hlen TG hTG
+    have fitN : ∀ {ρ : Nat → V} {xs : List Term} {a restR : Term}, xs.length = mI →
+        TeleFitPA V ρ TVa (xs ++ [a]) restR → ∃ r', TeleFitPA V ρ TG (xs ++ [a]) r' :=
+      fun hxl hfit => hfitT _ _ _ (by simp [hxl]) hfit
+    refine ⟨fun hk => ?_, fun cvj cnP cnF iT hfc => ?_⟩
+    · obtain ⟨hnf, hKl⟩ := hK hk
+      refine ⟨hnf, fun Ra hRaS ρ xs a restR hxl hfit hxw => ?_⟩
+      obtain ⟨RaG, RaS, hRaG, hRaS', hS⟩ := hRa us hlen
+      obtain rfl : Ra = RaS := Option.some.inj (hRaS.symm.trans hRaS')
+      obtain ⟨r', hr'⟩ := fitN hxl hfit
+      obtain ⟨heq, hwd⟩ := hKl RaG hRaG ρ xs a r' hxl hr' hxw
+      exact ⟨heq.trans (interp_mkAppN_head_congr _ (hS ρ).2.symm),
+        fun hw => wellDenoted_mkAppN_head_congr _ (hS ρ).1 (hS ρ).2.symm (hwd hw)⟩
+    · obtain ⟨har, hrest2⟩ := hrest cvj cnP cnF iT (hctor _ _ _ _ _ hfc)
+      refine ⟨har, fun hk => ?_⟩
+      obtain ⟨hSc, hTc, hPU⟩ := hrest2 hk
+      refine ⟨fun hn ρ xs a restR hxl hfit => ?_, fun hn usj hujl TVja hTVja ρ xs ys restR restC
+          hxl hyl hfit => ?_, fun usj hujl hψ TVja hTVja => ?_⟩
+      · obtain ⟨r', hr'⟩ := fitN hxl hfit
+        exact hSc hn ρ xs a r' hxl hr'
+      · obtain ⟨r', hr'⟩ := fitN hxl hfit
+        exact hTc hn usj hujl TVja hTVja ρ xs ys r' restC hxl hyl hr'
+      · obtain ⟨hP, hU⟩ := hPU usj hujl hψ TVja hTVja
+        refine ⟨fun ρ xs a restR hxl hfit => ?_, fun ρ xs ys restR restC hxl hyl hfit => ?_⟩
+        · obtain ⟨r', hr'⟩ := fitN hxl hfit
+          exact hP ρ xs a r' hxl hr'
+        · obtain ⟨r', hr'⟩ := fitN hxl hfit
+          exact hU ρ xs ys r' restC hxl hyl hr'
 
 end ConLeche.Model

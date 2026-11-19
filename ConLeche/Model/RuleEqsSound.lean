@@ -1007,14 +1007,6 @@ theorem piResult_foldr : ∀ (ds : List Expr) (b : Expr),
   | [], _ => rfl
   | _ :: ds, b => by simp only [List.foldr_cons, Expr.piResult, piResult_foldr ds b]
 
-theorem piResult_instantiateLevelParams (ks : List Name) (us : List Level) :
-    ∀ (e : Expr), (e.instantiateLevelParams ks us).piResult
-      = e.piResult.instantiateLevelParams ks us
-  | .forallE t b => by
-    simp only [Expr.instantiateLevelParams, Expr.piResult, piResult_instantiateLevelParams ks us b]
-  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ | .letE _ _ _ | .lit _
-  | .proj _ _ _ => by simp [Expr.instantiateLevelParams, Expr.piResult]
-
 theorem getD_of_lt {α : Type _} (L : List α) {i : Nat} {d : α} (h : i < L.length) :
     L.getD i d = L[i] := by
   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h, Option.getD_some]
@@ -1342,7 +1334,7 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
     (by simp [xsT, hxl]) (hbvWD xsT 0 _ rfl) hmid (hbvWD psT rP _ rfl) hRPR
   obtain ⟨⟨r, hr⟩, hF2⟩ := hF
   -- the constructor's telescope: its parameters, then its fields
-  obtain ⟨-, hmain, hextra⟩ := m.rec_rules φ cv.name cv mI rP isK rules hfR rl hrl
+  obtain ⟨-, hmain, hextra, -⟩ := m.rec_rules φ cv.name cv mI rP isK rules hfR rl hrl
   have harity := ((hextra (cv.levelParams.map Level.param) (by simp) TVa hTVa').2 cvj cnP cnF iT
     hc).1
   rw [hnF] at harity
@@ -1421,7 +1413,7 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
           (rl.ctorLevels cvj.levelParams)).piResult).getAppFn
           = (cvj.type.piResult.getAppFn).instantiateLevelParams cvj.levelParams
               (rl.ctorLevels cvj.levelParams) := by
-        rw [piResult_instantiateLevelParams, Expr.getAppFn_instantiateLevelParams]
+        rw [Expr.piResult_instantiateLevelParams, Expr.getAppFn_instantiateLevelParams]
       rw [hus, hTypeEq, piResult_foldr] at h1
       simp only [Expr.instantiateLevelParams] at h1
       have hpr : conclS.piResult = conclS := by

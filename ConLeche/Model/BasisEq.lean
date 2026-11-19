@@ -922,143 +922,6 @@ theorem eqRecExtra {m : EnvModel V env}
     exact ⟨rfl, fun h => (nomatch h)⟩
 
 set_option maxHeartbeats 1000000 in
-/-- **`Eq.rec`'s `RecRuleLaw` row.**  The rule is `.plain`, so both
-`.nested` conjuncts are `nomatch`; the fired equality is the minor
-premise on both sides (`eqRecRaTower_app₆` against `eqRecRa_app₄`),
-and the transport is four `WellDenoted_app_fibre` steps. -/
-theorem eqRecLaw {m : EnvModel V env}
-    (m₂ : EnvModel V ⟨eqRecA :: env.consts, env.tables⟩)
-    (hE : env.find? eqName = some eqI)
-    (hR : env.find? eqReflName = some eqReflA)
-    (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ)
-    (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ)
-    (hac : m₂.acval = acvalWith m.acval eqRecA.name eqRecValT)
-    (φ : Name → Nat) :
-    RecRuleLaw m₂ φ eqRecA.name eqRecA.toConstantVal 5 4 true
-      eqRecRule := by
-  refine ⟨by decide, fun us hus => ?_,
-    eqRecExtra (m := m) m₂ hE hR hEv hRv hac φ⟩
-  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
-      ψ = Level.substFn φ eqRecA.toConstantVal.levelParams us :=
-    ⟨_, rfl⟩
-  have hRa : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
-      (eqRecRule.rhs.instantiateLevelParams
-        eqRecA.toConstantVal.levelParams us)
-      = some (eqRecRa ψ) := by
-    rw [denote_instLevels m₂.acval_params φ, hac, hψ,
-      denote_eqRec_rhs (m := m) _ hE hR hEv hRv]
-  refine ⟨_, hRa, fun ρ => (eqRecRa_data ψ ρ).1, ?_, ?_⟩
-  · intro _ _ h
-    exact nomatch h
-  intro cvj cnP cnF iT hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
-    hlev _ hpin hTVa hTVja hfitR hfitC
-  have hR' : (⟨eqRecA :: env.consts, env.tables⟩ : Env).find? eqReflName
-      = some eqReflA := by
-    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR
-  rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
-  obtain ⟨rfl, rfl, rfl⟩ :
-      cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
-    injection Option.some.inj hfj with a1 a2 a3 _
-    exact ⟨a1.symm, a2.symm, a3.symm⟩
-  obtain ⟨x1, x2, x3, x4, x5, rfl⟩ :
-      ∃ p q r s t, xs = [p, q, r, s, t] := by
-    match xs, hxs with
-    | [p, q, r, s, t], _ => exact ⟨p, q, r, s, t, rfl⟩
-  obtain ⟨y1, y2, rfl⟩ : ∃ p q, ys = [p, q] := by
-    match ys, hys with
-    | [p, q], _ => exact ⟨p, q, rfl⟩
-  have hulev : Level.substFn φ eqReflA.toConstantVal.levelParams usj uN
-      = ψ uN := by
-    rw [congrFun hlev uN, hψ]
-    show Level.eval φ (Level.subst eqRecA.toConstantVal.levelParams
-      us (.param uN)) = _
-    rw [Level.subst, Level.eval_subst_go]
-  have hTyRead : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
-      (eqRecA.toConstantVal.type.instantiateLevelParams
-        eqRecA.toConstantVal.levelParams us)
-      = some (eqRecTy ψ) := by
-    rw [denote_instLevels m₂.acval_params φ, hac, hψ,
-      denote_eqRecA_type (m := m) _ hE hR hEv hRv]
-  obtain rfl : TVa = _ :=
-    (Option.some.inj (hTyRead.symm.trans hTVa)).symm
-  have hCtorRead : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
-      (eqReflA.toConstantVal.type.instantiateLevelParams
-        eqReflA.toConstantVal.levelParams usj)
-      = some (eqReflTy
-          (Level.substFn φ eqReflA.toConstantVal.levelParams usj)) := by
-    rw [denote_instLevels m₂.acval_params φ, hac,
-      denote_eqReflTy (m := m) _ (by decide) hE hEv]
-  obtain rfl : TVja = _ :=
-    (Option.some.inj (hCtorRead.symm.trans hTVja)).symm
-  rw [eqRecTy] at hfitR
-  cases hfitR with | cons f1 hfitR =>
-  cases hfitR with | cons f2 hfitR =>
-  cases hfitR with | cons f3 hfitR =>
-  cases hfitR with | cons f4 hfitR =>
-  cases hfitR with | cons f5 hfitR =>
-  cases hfitR with | cons f6 _ =>
-  rw [interp_sort] at f1
-  rw [interp_inst0] at f2
-  simp only [interp_bvar, cons] at f2
-  rw [interp_inst0, interp_inst_cons1,
-    (eqRecMotiveTy_data ρ f1 f2).1] at f3
-  rw [interp_inst0, interp_inst_cons1, interp_inst_cons2,
-    (eqRecMinorTy_data ρ f1 f2 f3).1] at f4
-  rw [interp_inst0, interp_inst_cons1, interp_inst_cons2,
-    interp_inst_cons3] at f5
-  simp only [interp_bvar, cons] at f5
-  rw [interp_inst0, interp_inst_cons1, interp_inst_cons2,
-    interp_inst_cons3, interp_inst_cons4,
-    (eqSpine_interp (ρ := cons (interp V ρ x5) (cons (interp V ρ x4)
-        (cons (interp V ρ x3) (cons (interp V ρ x2)
-          (cons (interp V ρ x1) ρ))))) (i := 4) (j := 3) (k := 0)
-      (by simp [cons]) (by simp [cons]) (by simp [cons])
-      f1 f2 f5).1] at f6
-  rw [eqReflTy] at hfitC
-  cases hfitC with | cons g1 hfitC =>
-  cases hfitC with | cons g2 _ =>
-  rw [hulev, interp_sort] at g1
-  rw [interp_inst0] at g2
-  simp only [interp_bvar, cons] at g2
-  have hrecL : m₂.acval eqRecA.name
-      (Level.substFn φ eqRecA.toConstantVal.levelParams us)
-      = eqRecValT ψ := by
-    rw [hac, acvalWith_self, hψ]
-  have hctorL : m₂.acval eqReflName
-      (Level.substFn φ eqReflA.toConstantVal.levelParams usj)
-      = eqReflValT
-        (Level.substFn φ eqReflA.toConstantVal.levelParams usj) := by
-    rw [hac, acvalWith_ne (by decide), hRv]
-  simp only [show RecRule.ctor eqRecRule = eqReflName from rfl,
-    Term.mkAppN_cons, Term.mkAppN_nil, interp_app, hctorL,
-    eqReflValT_interp, app_pt] at f6
-  refine ⟨?_, ?_⟩
-  · -- the fired equality
-    simp only [show RecRule.ctor eqRecRule = eqReflName from rfl,
-      List.take, List.drop, List.cons_append, List.nil_append,
-      List.append_nil, Term.mkAppN_cons, Term.mkAppN_nil, hrecL,
-      interp_app, hctorL, eqReflValT_interp, app_pt]
-    rw [← eqRecRaTower_eq ψ,
-      eqRecRaTower_app₆ ψ ρ f1 f2 f3 f4 f5 f6,
-      eqRecRa_app₄ ψ ρ f1 f2 f3 f4]
-  · -- the transport
-    intro hxsA _
-    simp only [
-      List.take, List.drop, List.append_nil,
-      Term.mkAppN_cons, Term.mkAppN_nil]
-    have hRm := (eqRecRa_data ψ ρ).2
-    rw [eqRecRaSpace] at hRm
-    have h1 := WellDenoted_app_fibre ((eqRecRa_data ψ ρ).1)
-      (hxsA x1 (by simp)) hRm f1
-      (IsTy_univ _)
-    have h2 := WellDenoted_app_fibre h1.1 (hxsA x2 (by simp)) h1.2 f2
-      (IsTy_of_mem_univ f1)
-    have h3 := WellDenoted_app_fibre h2.1 (hxsA x3 (by simp)) h2.2 f3
-      IsTy_piV
-    exact (WellDenoted_app_fibre h3.1 (hxsA x4 (by simp)) h3.2 f4
-      (IsTy_of_mem_univ (eqRecMinorTy_data ρ f1 f2 f3).2.2)).1
-
-set_option maxHeartbeats 1000000 in
 /-- **`Eq.rec`'s forward typing row** (task #610): the prefix `α a motive refl` fits, the
 parameters `α a` fit `Eq.refl`'s binders, the pinned index is `a` and the major `Eq.refl α a`
 (the point) lies in `Eq α a a`, and the motive at them is a type of `Sort u_1`. -/
@@ -1298,6 +1161,143 @@ theorem eqRecTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
   exact ⟨WellDenoted_pi_of (Aa := .sort (ψ uN)) trivial (IsTy_univ _)
     (fun Aset hA => h2 Aset (by rwa [interp_sort] at hA))
     (fun _ _ => IsTy_piV), IsTy_piV⟩
+
+set_option maxHeartbeats 1000000 in
+/-- **`Eq.rec`'s `RecRuleLaw` row.**  The rule is `.plain`, so both
+`.nested` conjuncts are `nomatch`; the fired equality is the minor
+premise on both sides (`eqRecRaTower_app₆` against `eqRecRa_app₄`),
+and the transport is four `WellDenoted_app_fibre` steps. -/
+theorem eqRecLaw {m : EnvModel V env}
+    (m₂ : EnvModel V ⟨eqRecA :: env.consts, env.tables⟩)
+    (hE : env.find? eqName = some eqI)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ)
+    (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ)
+    (hac : m₂.acval = acvalWith m.acval eqRecA.name eqRecValT)
+    (φ : Name → Nat) :
+    RecRuleLaw m₂ φ eqRecA.name eqRecA.toConstantVal 5 4 true
+      eqRecRule := by
+  refine ⟨by decide, fun us hus => ?_,
+    eqRecExtra (m := m) m₂ hE hR hEv hRv hac φ, eqRecFit (m := m) m₂ hE hR hEv hRv hac φ⟩
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ eqRecA.toConstantVal.levelParams us :=
+    ⟨_, rfl⟩
+  have hRa : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
+      (eqRecRule.rhs.instantiateLevelParams
+        eqRecA.toConstantVal.levelParams us)
+      = some (eqRecRa ψ) := by
+    rw [denote_instLevels m₂.acval_params φ, hac, hψ,
+      denote_eqRec_rhs (m := m) _ hE hR hEv hRv]
+  refine ⟨_, hRa, fun ρ => (eqRecRa_data ψ ρ).1, ?_, ?_⟩
+  · intro _ _ h
+    exact nomatch h
+  intro cvj cnP cnF iT hfj usj ρ xs ys TVa TVja restR restC hxs hys husj
+    hlev _ hpin hTVa hTVja hfitR hfitC
+  have hR' : (⟨eqRecA :: env.consts, env.tables⟩ : Env).find? eqReflName
+      = some eqReflA := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR
+  rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
+  obtain ⟨rfl, rfl, rfl⟩ :
+      cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
+    injection Option.some.inj hfj with a1 a2 a3 _
+    exact ⟨a1.symm, a2.symm, a3.symm⟩
+  obtain ⟨x1, x2, x3, x4, x5, rfl⟩ :
+      ∃ p q r s t, xs = [p, q, r, s, t] := by
+    match xs, hxs with
+    | [p, q, r, s, t], _ => exact ⟨p, q, r, s, t, rfl⟩
+  obtain ⟨y1, y2, rfl⟩ : ∃ p q, ys = [p, q] := by
+    match ys, hys with
+    | [p, q], _ => exact ⟨p, q, rfl⟩
+  have hulev : Level.substFn φ eqReflA.toConstantVal.levelParams usj uN
+      = ψ uN := by
+    rw [congrFun hlev uN, hψ]
+    show Level.eval φ (Level.subst eqRecA.toConstantVal.levelParams
+      us (.param uN)) = _
+    rw [Level.subst, Level.eval_subst_go]
+  have hTyRead : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
+      (eqRecA.toConstantVal.type.instantiateLevelParams
+        eqRecA.toConstantVal.levelParams us)
+      = some (eqRecTy ψ) := by
+    rw [denote_instLevels m₂.acval_params φ, hac, hψ,
+      denote_eqRecA_type (m := m) _ hE hR hEv hRv]
+  obtain rfl : TVa = _ :=
+    (Option.some.inj (hTyRead.symm.trans hTVa)).symm
+  have hCtorRead : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
+      (eqReflA.toConstantVal.type.instantiateLevelParams
+        eqReflA.toConstantVal.levelParams usj)
+      = some (eqReflTy
+          (Level.substFn φ eqReflA.toConstantVal.levelParams usj)) := by
+    rw [denote_instLevels m₂.acval_params φ, hac,
+      denote_eqReflTy (m := m) _ (by decide) hE hEv]
+  obtain rfl : TVja = _ :=
+    (Option.some.inj (hCtorRead.symm.trans hTVja)).symm
+  rw [eqRecTy] at hfitR
+  cases hfitR with | cons f1 hfitR =>
+  cases hfitR with | cons f2 hfitR =>
+  cases hfitR with | cons f3 hfitR =>
+  cases hfitR with | cons f4 hfitR =>
+  cases hfitR with | cons f5 hfitR =>
+  cases hfitR with | cons f6 _ =>
+  rw [interp_sort] at f1
+  rw [interp_inst0] at f2
+  simp only [interp_bvar, cons] at f2
+  rw [interp_inst0, interp_inst_cons1,
+    (eqRecMotiveTy_data ρ f1 f2).1] at f3
+  rw [interp_inst0, interp_inst_cons1, interp_inst_cons2,
+    (eqRecMinorTy_data ρ f1 f2 f3).1] at f4
+  rw [interp_inst0, interp_inst_cons1, interp_inst_cons2,
+    interp_inst_cons3] at f5
+  simp only [interp_bvar, cons] at f5
+  rw [interp_inst0, interp_inst_cons1, interp_inst_cons2,
+    interp_inst_cons3, interp_inst_cons4,
+    (eqSpine_interp (ρ := cons (interp V ρ x5) (cons (interp V ρ x4)
+        (cons (interp V ρ x3) (cons (interp V ρ x2)
+          (cons (interp V ρ x1) ρ))))) (i := 4) (j := 3) (k := 0)
+      (by simp [cons]) (by simp [cons]) (by simp [cons])
+      f1 f2 f5).1] at f6
+  rw [eqReflTy] at hfitC
+  cases hfitC with | cons g1 hfitC =>
+  cases hfitC with | cons g2 _ =>
+  rw [hulev, interp_sort] at g1
+  rw [interp_inst0] at g2
+  simp only [interp_bvar, cons] at g2
+  have hrecL : m₂.acval eqRecA.name
+      (Level.substFn φ eqRecA.toConstantVal.levelParams us)
+      = eqRecValT ψ := by
+    rw [hac, acvalWith_self, hψ]
+  have hctorL : m₂.acval eqReflName
+      (Level.substFn φ eqReflA.toConstantVal.levelParams usj)
+      = eqReflValT
+        (Level.substFn φ eqReflA.toConstantVal.levelParams usj) := by
+    rw [hac, acvalWith_ne (by decide), hRv]
+  simp only [show RecRule.ctor eqRecRule = eqReflName from rfl,
+    Term.mkAppN_cons, Term.mkAppN_nil, interp_app, hctorL,
+    eqReflValT_interp, app_pt] at f6
+  refine ⟨?_, ?_⟩
+  · -- the fired equality
+    simp only [show RecRule.ctor eqRecRule = eqReflName from rfl,
+      List.take, List.drop, List.cons_append, List.nil_append,
+      List.append_nil, Term.mkAppN_cons, Term.mkAppN_nil, hrecL,
+      interp_app, hctorL, eqReflValT_interp, app_pt]
+    rw [← eqRecRaTower_eq ψ,
+      eqRecRaTower_app₆ ψ ρ f1 f2 f3 f4 f5 f6,
+      eqRecRa_app₄ ψ ρ f1 f2 f3 f4]
+  · -- the transport
+    intro hxsA _
+    simp only [
+      List.take, List.drop, List.append_nil,
+      Term.mkAppN_cons, Term.mkAppN_nil]
+    have hRm := (eqRecRa_data ψ ρ).2
+    rw [eqRecRaSpace] at hRm
+    have h1 := WellDenoted_app_fibre ((eqRecRa_data ψ ρ).1)
+      (hxsA x1 (by simp)) hRm f1
+      (IsTy_univ _)
+    have h2 := WellDenoted_app_fibre h1.1 (hxsA x2 (by simp)) h1.2 f2
+      (IsTy_of_mem_univ f1)
+    have h3 := WellDenoted_app_fibre h2.1 (hxsA x3 (by simp)) h2.2 f3
+      IsTy_piV
+    exact (WellDenoted_app_fibre h3.1 (hxsA x4 (by simp)) h3.2 f4
+      (IsTy_of_mem_univ (eqRecMinorTy_data ρ f1 f2 f3).2.2)).1
 
 /-- **`Eq.rec`, installed at the P tier.** -/
 theorem extendEqRec (mp : EnvModelM V env)

@@ -915,6 +915,7 @@ theorem blockRecRuleLaw_run {mpC : EnvModelM V envC} {F : Nat}
     (hK : RecRuleKWit m₃ φ r.1.name r.1 (p.majorIdxAt j) (p.rulePrefixAt j) isK rl)
     (hNK : RecRuleExtraNK m₃ φ r.1.name r.1 (p.majorIdxAt j)
       (p.rulePrefixAt j) isK rl)
+    (hfit : RecRuleFit m₃ φ r.1 (p.majorIdxAt j) (p.rulePrefixAt j) rl)
     (hrhs : BlockRuleRhsOk (V := V) (pdoms0 := pdoms0) (fdoms0 := fdoms0) (es0 := es0)
       (ihs := ihs) (mk0 := mk0) (Rb0 := Rb0)
       (blockRecLeafAV mpC.base2.acval envC rs s
@@ -922,7 +923,7 @@ theorem blockRecRuleLaw_run {mpC : EnvModelM V envC} {F : Nat}
     RecRuleLaw m₃ φ r.1.name r.1 (p.majorIdxAt j)
       (p.rulePrefixAt j) isK rl :=
   blockRecRuleLaw_gen (blockRecHrPle h hj) hj
-    (blockRecHleaf hac hnd hr) (blockRecHiota hpre hj hi) hpins hK hNK fun us hus => by
+    (blockRecHleaf hac hnd hr) (blockRecHiota hpre hj hi) hpins hK hNK hfit fun us hus => by
       obtain ⟨Ra, hRa, hok, hsp⟩ := hrhs us hus
       exact ⟨Ra, hRa, hok, hsp⟩
 
@@ -949,6 +950,8 @@ theorem blockRecHnew_of {mpC : EnvModelM V envC} {F : Nat}
         RecRuleKWit m₃ φ r.1.name r.1 (p.majorIdxAt j) (p.rulePrefixAt j) (R j r).1 rl ∧
         RecRuleExtraNK m₃ φ r.1.name r.1 (p.majorIdxAt j)
           (p.rulePrefixAt j) (R j r).1 rl)
+    (hfit : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
+        RecRuleFit m₃ φ r.1 (p.majorIdxAt j) (p.rulePrefixAt j) rl)
     (hrhs : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r i _ _ rl =>
         BlockRuleRhsOk (V := V) (pdoms0 := pdoms0) (fdoms0 := fdoms0) (es0 := es0)
           (ihs := ihs) (mk0 := mk0) (Rb0 := Rb0)
@@ -965,7 +968,8 @@ theorem blockRecHnew_of {mpC : EnvModelM V envC} {F : Nat}
     omega
   obtain ⟨hK, hNK⟩ := hextra m₃ hac φ j r hr i ctor rhs hctor hrh
   exact blockRecRuleLaw_run h hnd hpre hac φ hr hj hi
-    (hpins m₃ hac φ j r hr i ctor rhs hctor hrh) hK hNK (hrhs m₃ hac φ j r hr i ctor rhs hctor hrh)
+    (hpins m₃ hac φ j r hr i ctor rhs hctor hrh) hK hNK (hfit m₃ hac φ j r hr i ctor rhs hctor hrh)
+    (hrhs m₃ hac φ j r hr i ctor rhs hctor hrh)
 
 /-! ## A.5c `BlockRuleRhsOk` at the BASE frame
 
@@ -2010,6 +2014,9 @@ theorem blockRecStaged_dataR {envC : Env}
         RecRuleKWit m₃ φ r.1.name r.1 (p.majorIdxAt j) (p.rulePrefixAt j) (R j r).1 rl ∧
         RecRuleExtraNK m₃ φ r.1.name r.1 (p.majorIdxAt j)
           (p.rulePrefixAt j) (R j r).1 rl)
+    -- the forward typing of every rule (`RecRuleFit`, task #610)
+    (hfit : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
+        RecRuleFit m₃ φ r.1 (p.majorIdxAt j) (p.rulePrefixAt j) rl)
     (hdataS : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun _ φ j r i ctor rhs rl =>
         BlockRuleDataB (V := V) mpC p (nPc j)
           (ConLeche.consBlockRecsR R p 0 rs envC) rs s nCt pdoms0 fdoms0 es0
@@ -2031,7 +2038,7 @@ theorem blockRecStaged_dataR {envC : Env}
     BlockRecStagedAt (V := V) envC (ConLeche.consBlockRecsR R p 0 rs envC) mpC := by
   have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
   refine blockRecStaged_runR mpC h hresR hnd hshape hnest hctorsIn hleaf
-    (blockRecHnew_of h hnd hpre hnCt hpins hextra ?_)
+    (blockRecHnew_of h hnd hpre hnCt hpins hextra hfit ?_)
   intro m₃ hac φ j r hr i ctor rhs hmem hrhs
   obtain ⟨iT, hcfind, hcb, hread⟩ := hctor j r hr i ctor hmem
   exact blockRuleRhsOk_base mpC h hresR hnd hleaf hac hr hrhs rfl rfl rfl hcfind

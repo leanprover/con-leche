@@ -300,8 +300,8 @@ theorem recRuleFit_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
 
 theorem recRuleLaw_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
     (hL : RecRuleLaw m φ n cv mI rP isK rl) : RecRuleLaw m' φ n cv' mI rP isK rl' := by
-  obtain ⟨hle, hmain, hX⟩ := hL
-  refine ⟨hle, fun us hus => ?_, recRuleExtra_ren r hX⟩
+  obtain ⟨hle, hmain, hX, hF⟩ := hL
+  refine ⟨hle, fun us hus => ?_, recRuleExtra_ren r hX, recRuleFit_ren r hF⟩
   have hus0 : us.length = cv.levelParams.length := hus.trans r.hlen
   obtain ⟨Ra, hRa, hok, hpins, hlaw⟩ := hmain us hus0
   refine ⟨Ra, by rw [r.hde, r.hrhs us hus0]; exact hRa, hok, fun lvls pins hfire i hi => ?_,
