@@ -17,6 +17,9 @@ import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
 import ConLeche.Model.Modular.Compare
 public import ConLeche.Verify.Driver.CompareRun
+public import ConLeche.Verify.Driver.CompareJsonRun
+public import ConLeche.Model.Copies
+import ConLeche.Model.Modular.CompareJson
 public import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Driver.Graph
@@ -407,5 +410,87 @@ theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S 
     exact h2
   · obtain ⟨cv, cS, hcv, -, hmem⟩ := h5 d hd hown hh
     exact ⟨cv, hcv, fun φ ρ => let ⟨Ty, hT, hm⟩ := hmem φ ρ; ⟨Ty, hT, _, hm⟩⟩
+
+/-! ## A challenge and its solution, as two lean4export files (task #612)
+
+`--compare -- <c> <s>` compares the challenge file `c` with the solution file `s`: every record of
+the challenge file is the challenge's own (an export has no modules), its holes the axioms but
+the standard ones and the declarations whose value uses `sorry` (`Driver.jsonHole`), every other
+record the solution's by content, up to the names of its level parameters; and the solution's
+file is checked in full.  The challenge's meaning is a function of its bytes alone: the theorem
+is stated over them. -/
+
+open Frontend in
+/-- **An accepted comparison of two lean4export files: the challenge has a solution.**  On a
+snapshot where the challenge file `c` has the bytes `bC` and the solution file `s` the bytes
+`bS`, every exit 0 of `runArgs` at `--compare -- <c> <s>` means: `bC` and `bS` each parse as one
+chunk; `checkDecls .verified` accepts the solution's records prepared with the built-in prelude;
+the challenge's environment (`Driver.jsonChallengeEnv`: the challenge's records, each hole as
+the axiom of its statement, at the challenge's own level-parameter names) embeds into the
+solution's: every constant of it is a copy of the solution's constant of that name, up to the
+names of its level parameters (`Model.ConstCopy`), or, for a hole, the axiom of such a copy of
+that constant's statement; and in every set theory `V` there are
+
+* a model `mC` of the challenge's environment and a model `mS` of the solution's, `mC` giving
+  every constant `mS`'s value read at the challenge's level-parameter names;
+* every hole of the challenge file is inhabited by the solution's constant: that constant's
+  value in `mS` is a member of what the hole's type denotes in `mC`. -/
+theorem main_compare_json_solves (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    {bC bS : ByteArray} (hbC : fs.file c = some bC) (hbS : fs.file s = some bS)
+    (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    ∃ pre rC rS, builtinPreludeE = .ok pre ∧ parseChunks [bC] = .ok rC ∧
+      parseChunks [bS] = .ok rS ∧
+      (∃ env, checkDecls .verified natOpPinSets Cached.maxNatSizeDefault
+        (preparePrelude pre rS.decls) = .ok env) ∧
+      (∀ n cC, (Driver.jsonChallengeEnv pre rC.decls).find? n = some cC →
+        ∃ cS, (streamEnv (preparePrelude pre rS.decls).toList).find? n = some cS ∧
+          (Model.ConstCopy cS cC ∨ Model.ConstCopy (.axiomInfo cS.toConstantVal) cC)) ∧
+      ∃ (mC : Model V (Driver.jsonChallengeEnv pre rC.decls))
+        (mS : Model V (streamEnv (preparePrelude pre rS.decls).toList)),
+        (∀ n cC, (Driver.jsonChallengeEnv pre rC.decls).find? n = some cC →
+          ∃ cS, (streamEnv (preparePrelude pre rS.decls).toList).find? n = some cS ∧
+            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+            ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+              (cC.toConstantVal.levelParams.map Level.param))) ∧
+        ∀ d ∈ rC.decls, Driver.jsonHole d = true →
+          ∃ cv cS, Driver.recCv? d = some cv ∧
+            (streamEnv (preparePrelude pre rS.decls).toList).find? cv.name = some cS ∧
+            ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.jsonChallengeEnv pre rC.decls) φ ρ cv.type Ty ∧
+              mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
+                (cv.levelParams.map Level.param)) ∈ˢ Ty := by
+  obtain ⟨_, _, h⟩ := h
+  obtain ⟨pre, bC', rC, bS', rS, ctx, filled, env, h1, h2, h3, h4, h5, h6, h7, h8⟩ :=
+    Driver.runArgs_compare_json_accept h
+  obtain rfl : bC = bC' := Option.some.inj (hbC.symm.trans h2)
+  obtain rfl : bS = bS' := Option.some.inj (hbS.symm.trans h4)
+  obtain ⟨hemb, mC, mS, hm, hh⟩ := Model.Compare.compare_json_solved V h6 h7 h8
+  exact ⟨pre, rC, rS, h1, h3, h5, ⟨env, h8⟩, hemb, mC, mS, hm, hh⟩
+
+open Frontend in
+/-- **A challenge file with a hole of type `False` has no solution.**  On a snapshot where the
+challenge file `c`'s bytes parse to records one of which is a hole (`Driver.jsonHole`: an axiom
+other than `propext`, `Classical.choice`, `Quot.sound` and `sorryAx`, or a definition, theorem
+or opaque constant whose value uses `sorryAx`) of type `False`, no outcome of `runArgs` at
+`--compare -- <c> <s>` is an exit 0, whatever the file `s` holds: the hole would be inhabited
+in a model, and `False` denotes the empty set. -/
+theorem main_compare_json_no_False (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    {bC : ByteArray} {rC : ParseResultD} {d : Declaration} {cv : ConstantVal}
+    (hbC : fs.file c = some bC) (hp : parseChunks [bC] = .ok rC) (hd : d ∈ rC.decls)
+    (hh : Driver.jsonHole d = true) (hcv : Driver.recCv? d = some cv)
+    (hty : cv.type = .const falseName []) :
+    ¬ ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0 := by
+  intro h
+  have h0 := h
+  obtain ⟨_, _, h'⟩ := h0
+  obtain ⟨-, -, -, bS, -, -, -, -, -, -, -, hbS, -⟩ := Driver.runArgs_compare_json_accept h'
+  obtain ⟨pre, rC', rS, -, hp', -, -, -, mC, mS, -, hholes⟩ :=
+    main_compare_json_solves V hbC hbS h
+  obtain rfl : rC = rC' := Except.ok.inj (hp.symm.trans hp')
+  obtain ⟨cv', cS, hcv', -, hmem⟩ := hholes d hd hh
+  obtain rfl : cv = cv' := Option.some.inj (hcv.symm.trans hcv')
+  obtain ⟨Ty, hT, hin⟩ := hmem (fun _ => 0) (fun _ => SetTheory.empty)
+  rw [hty] at hT
+  rw [mC.false_empty _ _ _ hT] at hin
+  exact SetTheory.not_mem_empty _ hin
 
 end ConLeche

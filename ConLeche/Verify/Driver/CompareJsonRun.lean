@@ -23,6 +23,13 @@ namespace ConLeche.Driver
 
 open ConLeche Frontend Cached
 
+/-- **The challenge's environment**, of a challenge file's records `ds`: its records
+(`jsonRecs`) installed in order, every hole as the axiom of its statement (`chalRecord`), at
+the challenge's own level-parameter names. -/
+@[expose] def jsonChallengeEnv (pre : PreludeIx) (ds : Array Declaration) : Env :=
+  streamEnv ((jsonRecs pre ds).toList.map
+    (chalRecord jsonOwn Declaration.usedConsts (jsonHomes (jsonRecs pre ds))))
+
 /-- **An exit 0 of a compared run of two lean4export files** (see the module docstring). -/
 theorem compareJsonG_accept {r : JCmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {hs hs' : HS}
