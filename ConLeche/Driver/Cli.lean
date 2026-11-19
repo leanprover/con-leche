@@ -384,7 +384,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
             --trusted-search-path only with --compare"
           eprintln tryHelp
           return 3
-        if a.files.isEmpty || a.searchPath.isEmpty then
+        if a.files.isEmpty || (a.searchPath.isEmpty && a.trustedPath.isEmpty) then
           eprintln "con-leche: --check-graph takes one or more module names and a \
             --search-path=DIRS"
           eprintln tryHelp

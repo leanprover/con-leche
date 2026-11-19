@@ -312,7 +312,7 @@ theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS} {hs hs' :
     simp only [hf] at hc
     have hm : (#[root].filterMap Frontend.Olean.parseModName).toList = [r] := by simp [hr]
     simp only [hm, Bool.or_false, List.isEmpty_nil, Array.isEmpty_empty,
-      Bool.not_true, runReq] at hc
+      Bool.not_true, Bool.and_true, runReq] at hc
     split at hc
     · simp [eprintln] at hc
     cases hE : (searchPathOf dirs).isEmpty
@@ -375,7 +375,7 @@ theorem runArgs_graphCmp_accept {dirs c s : String} {C S : Name} {fs : FS} {hs h
     have hm : (#[c, s].filterMap Frontend.Olean.parseModName).toList = [C, S] := by
       simp [hc, hsol]
     simp only [Bool.or_false, List.isEmpty_nil, Array.isEmpty_empty,
-      Bool.not_true] at hv
+      Bool.not_true, Bool.and_true] at hv
     split at hv
     · simp [eprintln] at hv
     · simp only [List.filterMap_cons, hc, hsol, List.filterMap_nil] at hv
@@ -896,14 +896,16 @@ theorem runArgs_graphCmpT_accept {T D c s : String} {C S : Name} {fs : FS} {hs h
       Bool.and_false, Bool.false_eq_true, ↓reduceIte] at hv
     simp only [List.filterMap_cons, hc, hsol, List.filterMap_nil] at hv
     simp only [runReq] at hv
-    cases hE : (searchPathOf D).isEmpty
+    cases hE : ((searchPathOf D).isEmpty && (searchPathOf T).isEmpty)
     · have h1 : (#[c, s] : Array String).isEmpty = false := rfl
-      simp only [hE, h1, Bool.or_false, Bool.false_eq_true, ↓reduceIte] at hv
+      simp only [hE, h1, Bool.false_or, Bool.false_eq_true, ↓reduceIte] at hv
       cases hCS : (C == S)
       · simp only [hCS, Bool.false_eq_true, ↓reduceIte] at hv
         exact ⟨_, checkGraphCmpG_accept ⟨_, _, hv⟩⟩
       · simp [hCS, eprintln] at hv
-    · simp [hE, eprintln] at hv
+    · have h1 : (#[c, s] : Array String).isEmpty = false := rfl
+      simp only [hE, h1, Bool.false_or, ↓reduceIte] at hv
+      simp [eprintln] at hv
   · simp
 
 /-- The arguments `--olean --module --trusted-search-path=<T> --search-path=<D> -- <root>`. -/

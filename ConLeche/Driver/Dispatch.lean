@@ -81,6 +81,6 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .cmpModule tp sp c s mode pace jobs => do
     let r : CmpReq := ⟨c, s, tp, sp, none⟩
     let (R, T) ← workerTables r.chalRoots c
-    checkCmpModuleG (T.reads R) (T.reads r.solRoots) c s mode pace jobs
+    checkCmpModuleG (T.reads R) (T.reads r.solRoots) c s (fallbackOnly r) mode pace jobs
 
 end ConLeche.Driver

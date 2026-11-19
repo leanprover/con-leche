@@ -254,9 +254,11 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rdC rd : OleanReads μ) (
                        hoisted := #[], values := {} },
                 view := wrC, filled })
 
-/-- **The compare worker** (see the module docstring), generic in the IO class. -/
+/-- **The compare worker** (see the module docstring), generic in the IO class; `offTrusted`, after
+a failed read, why: a module of the challenge's closure only the search path holds (exit 1, as in
+`--olean --compare`). -/
 def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rdC rd : OleanReads μ) (C S : Name)
-    (mode : CheckMode) (pace : Pace) (jobs : Nat) : μ UInt8 := do
+    (offTrusted : μ (Option String)) (mode : CheckMode) (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
     | .verified => "--verified"
@@ -264,6 +266,9 @@ def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rdC rd : OleanReads μ)
   CheckerIO.liftIO (readStarts pace s!"challenge {C}")
   match ← cmpModuleRead rdC rd C S pace t0 jobs with
   | .error e =>
+    if let some w := ← offTrusted then
+      diagLine s!"con-leche: challenge {C}: {w} ({modeTag})"
+      return 1
     let why := match e with
       | .notImplemented w => s!"declined: {w}"
       | .invalid w => w

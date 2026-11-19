@@ -172,19 +172,23 @@ challenge `C` and solution `S` over a snapshot `fs` that is an exit 0 is `CmpFac
 `--jobs` and pace, whatever the `liftIO` actions answered, for any reads that refine the search
 path's. -/
 theorem checkCmpModuleG_accept {rdC rd : OleanReads ModelIO} {spC sp : Roots} (hC : spC.Trims sp)
-    {C S : Name}
+    {C S : Name} {why : ModelIO (Option String)}
     {mode : CheckMode} {pace : Pace} {jobs : Nat} {fs : FS} (hrdC : OleanReads.Within fs rdC spC)
     (hrd : OleanReads.Within fs rd sp)
-    {hs hs' : HS} (h : (checkCmpModuleG rdC rd C S mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+    {hs hs' : HS} (h : (checkCmpModuleG rdC rd C S why mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ c, CmpFacts spC sp fs C S jobs c := by
-  suffices H : ModelIO.AllOk (checkCmpModuleG rdC rd C S mode pace jobs) fs hs
+  suffices H : ModelIO.AllOk (checkCmpModuleG rdC rd C S why mode pace jobs) fs hs
       (fun v => v = 0 → ∃ c, CmpFacts spC sp fs C S jobs c) from H 0 hs' h rfl
   simp only [checkCmpModuleG, clockMs, diagLine, outLine, ModelIO.allOk_bind, ModelIO.liftIO_iff]
   rintro t0 _ rfl - _ rfl x _ hx
   rcases x with e | c
-  · simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, ModelIO.allOk_pure]
-    rintro - _ rfl h0
-    exact absurd h0 (CheckError.exitCode_ne_zero _)
+  · simp only [ModelIO.allOk_bind]
+    rintro w _ -
+    rcases w with _ | w
+    · simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, ModelIO.allOk_pure]
+      rintro - _ rfl h0
+      exact absurd h0 (CheckError.exitCode_ne_zero _)
+    · simp [ModelIO.liftIO_iff]
   · intro v _ _ _
     exact ⟨c, cmpModuleRead_ok hC hrdC hrd hx⟩
 

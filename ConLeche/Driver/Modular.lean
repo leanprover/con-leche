@@ -71,7 +71,7 @@ def stepCode {μ : Type → Type} [CheckerIO μ] (spC sp : Roots) (TC T : ModTab
     (m : Name) : μ UInt8 :=
   match cmp with
   | some (C, S) =>
-    if m == C then checkCmpModuleG (TC.reads spC) (T.reads sp) C S mode .off 1
+    if m == C then checkCmpModuleG (TC.reads spC) (T.reads sp) C S (pure none) mode .off 1
     else if chal m then checkModuleG (TC.reads spC) spC m mode maxNatSize .off 1 false
     else checkModuleG (T.reads sp) sp m mode maxNatSize .off 1 false
   | none => checkModuleG (T.reads sp) sp m mode maxNatSize .off 1 false

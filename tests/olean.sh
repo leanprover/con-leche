@@ -1144,9 +1144,48 @@ case_ "modular compare: --check-graph with the module twice" 3 --check-graph --c
 case_ "modular compare: --module with one module" 3 --olean --module --compare --search-path=$MSP -- CmpChal
 case_ "modular compare: --modular and --module" 3 --olean --modular --module --compare --search-path=$MSP -- CmpChal CmpSol
 case_ "modular compare: --modular and --schedule" 3 --olean --modular --schedule --compare --search-path=$MSP -- CmpChal CmpSol
-case_ "modular compare: --trusted-search-path" 3 --olean --modular --compare --trusted-search-path=$MSP --search-path=$MSP -- CmpChal CmpSol
 case_ "modular compare: --module and --schedule" 3 --olean --module --schedule --compare --search-path=$MSP -- CmpChal CmpSol
 case_ "modular compare: --constant" 3 --olean --module --compare --constant=g --search-path=$MSP -- CmpChal CmpSol
+# the trusted path in the modular modes: the challenge's closure read through it alone, every other
+# module through it, then the search path (#607's rule, module by module)
+TRU="$TMPDIR/mcmp-trusted"; BAD="$TMPDIR/mcmp-bad"; TRU2="$TMPDIR/mcmp-trusted2"
+rm -rf "$TRU" "$BAD" "$TRU2"; mkdir -p "$TRU" "$BAD"
+for f in "$LIB"/*; do case $(basename "$f") in CmpHomeA.*) ;; *) ln -s "$PWD/$f" "$TRU/";; esac; done
+cp "$LIB"/CmpHomeA.* "$BAD/"; printf 'not an olean' > "$BAD/CmpHomeA.olean"
+cp "$LIB"/CmpHomeC3.* "$BAD/"; printf 'not an olean' > "$BAD/CmpHomeC3.olean"
+cp -r "$TRU" "$TRU2"; rm -f "$TRU2"/CmpHomeS3.*; ln -s "$PWD/$LIB"/CmpHomeA.* "$TRU2/"
+for m in "--check-graph --compare" "--olean --schedule --compare --jobs=2" \
+    "--olean --modular --compare --jobs=2" "--olean --module --compare"; do
+  case_grep "modular compare ($m): a challenge module only on the search path" 1 \
+    "the challenge's module CmpHomeA is not on the trusted path" \
+    $m --trusted-search-path=$TRU:$INIT --search-path=$LIB -- CmpHomeC3 CmpHomeS3
+  case_ "modular compare ($m): the solution read from the search path" 0 \
+    $m --trusted-search-path=$TRU2:$INIT --search-path=$LIB -- CmpHomeC3 CmpHomeS3
+  case_ "modular compare ($m): the trusted path shadows the search path" 0 \
+    $m --trusted-search-path=$LIB:$INIT --search-path=$BAD -- CmpHomeC3 CmpHomeS3
+  case_ "modular compare ($m): the verdict without the search path" 0 \
+    $m --trusted-search-path=$LIB:$INIT -- CmpHomeC3 CmpHomeS3
+done
+# the graph of an imported name redeclared is acyclic; the run refuses it, with or without the
+# corrupted search path
+for m in "--olean --schedule --compare --jobs=2" "--olean --modular --compare --jobs=2" \
+    "--olean --module --compare"; do
+  case_ "modular compare ($m): with a corrupted search path" 1 \
+    $m --trusted-search-path=$LIB:$INIT --search-path=$BAD -- CmpHomeC CmpHomeS1
+  case_ "modular compare ($m): …and without it" 1 \
+    $m --trusted-search-path=$LIB:$INIT -- CmpHomeC CmpHomeS1
+done
+case_grep "modular compare: the commands, a challenge module through the trusted path alone" 0 \
+  "module --verified --max-nat-size=[0-9]* --search-path=$TRU2:[^ ]* -- '«CmpHomeA»'" \
+  --olean --schedule-commands --compare --trusted-search-path=$TRU2:$INIT --search-path=$LIB -- CmpHomeC3 CmpHomeS3
+case_grep "modular compare: the commands, a solution module through both paths" 0 \
+  "module --verified --max-nat-size=[0-9]* --trusted-search-path=$TRU2:[^ ]* --search-path=$LIB -- '«CmpHomeS3»'" \
+  --olean --schedule-commands --compare --trusted-search-path=$TRU2:$INIT --search-path=$LIB -- CmpHomeC3 CmpHomeS3
+case_ "modular compare: a solution module's worker through both paths" 0 \
+  --olean --module --trusted-search-path=$TRU2:$INIT --search-path=$LIB -- CmpHomeS3
+case_ "--trusted-search-path with --modular alone" 3 --olean --modular --trusted-search-path=$MSP -- CmpChal
+case_ "--trusted-search-path with --check-graph alone" 3 --check-graph --trusted-search-path=$MSP -- CmpChal
+rm -rf "$TRU" "$BAD" "$TRU2"
 
 echo "olean gate: $ok/$total as expected"
 exit $fail
