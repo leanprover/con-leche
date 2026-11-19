@@ -121,16 +121,14 @@ theorem model_exists (V : Type w) [SetTheory V]
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
 
-/-- **The main theorem over the input, conditional** (task #617, in progress): an accepted
-stream that stores `Eq` has a model in the sense of `IsModel`. -/
-theorem isModel_exists_of (V : Type w) [SetTheory V]
+/-- **The main theorem over the input** (task #617, in progress): an accepted stream has a
+model in the sense of `IsModel`. -/
+theorem isModel_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins maxNatSize ds = .ok env)
-    (heq : (env.find? eqName).isSome = true) :
+    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
     ∃ model, IsModel V model ds.toList := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
-  exact ⟨_, isModel_of_model _ (cvalLocal_ofEnvModelM m) (Cached.checkDecls_recordsStored accepted)
-    (ruleEqsRead_ofEnvModelM m heq)⟩
+  exact ⟨_, isModel_of_envModelM m (Cached.checkDecls_recordsStored accepted)⟩
 
 open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`

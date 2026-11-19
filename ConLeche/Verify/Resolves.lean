@@ -253,11 +253,26 @@ where
     intro e
     induction e <;> simp_all [Expr.fvarsBelow, Expr.hasFvar]
 
-/-- **A recursor rule's ι equation resolves** where its ingredients do: the recursor's and the
-constructor's types, the rule's right-hand side and nested pins, and the three constants it is
-built from (the recursor at its own parameters, the constructor at the rule's levels, `Eq` at one
-level). -/
-theorem iotaEqAt_resolves {env : Env} {cvj : ConstantVal} {cnP : Nat} {cv : ConstantVal}
+/-- A telescope over an application determines its binders and the application. -/
+theorem foldr_forallE_app_inj : ∀ {ds ds' : List Expr} {f a f' a' : Expr},
+    ds.foldr Expr.forallE (Expr.app f a) = ds'.foldr Expr.forallE (Expr.app f' a') →
+    ds = ds' ∧ f = f' ∧ a = a'
+  | [], [], _, _, _, _, h => by
+    simp only [List.foldr_nil, Expr.app.injEq] at h
+    exact ⟨rfl, h⟩
+  | d :: ds, d' :: ds', _, _, _, _, h => by
+    simp only [List.foldr_cons, Expr.forallE.injEq] at h
+    obtain ⟨h1, h2⟩ := h
+    obtain ⟨h3, h4⟩ := foldr_forallE_app_inj h2
+    exact ⟨by rw [h1, h3], h4⟩
+  | [], _ :: _, _, _, _, _, h | _ :: _, [], _, _, _, _, h => by
+    simp at h
+
+/-- **A recursor rule's ι equation, in parts**: a telescope over `@Eq.{u} ty lhs rhs` whose
+binders and three sides resolve where the equation's ingredients do — the recursor's and the
+constructor's types, the rule's right-hand side and nested pins, the recursor at its own parameters
+and the constructor at the rule's levels.  (`Eq` itself need not be stored.) -/
+theorem iotaEqAt_parts {env : Env} {cvj : ConstantVal} {cnP : Nat} {cv : ConstantVal}
     {mI rP : Nat} {rl : RecRule} {e : Expr}
     (hcv : cv.type.Resolves env) (hcvj : cvj.type.Resolves env) (hrhs : rl.rhs.Resolves env)
     (hpins : ∀ lvls pins, rl.fire = .nested lvls pins → ∀ p ∈ pins, p.Resolves env)
@@ -265,8 +280,10 @@ theorem iotaEqAt_resolves {env : Env} {cvj : ConstantVal} {cnP : Nat} {cv : Cons
       cv.levelParams.length = ci.toConstantVal.levelParams.length)
     (hctor : ∃ ci, env.find? rl.ctor = some ci ∧
       (rl.ctorLevels cvj.levelParams).length = ci.toConstantVal.levelParams.length)
-    (heq : ∃ ci, env.find? eqName = some ci ∧ 1 = ci.toConstantVal.levelParams.length)
-    (he : iotaEqAt cvj cnP cv mI rP rl = some e) : e.Resolves env := by
+    (he : iotaEqAt cvj cnP cv mI rP rl = some e) :
+    ∃ (ds : List Expr) (u : Level) (ty lhs rhs : Expr),
+      e = ds.foldr .forallE (.app (.app (.app (.const eqName [u]) ty) lhs) rhs) ∧
+      (∀ d ∈ ds, d.Resolves env) ∧ ty.Resolves env ∧ lhs.Resolves env ∧ rhs.Resolves env := by
   unfold iotaEqAt at he
   simp only [bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at he
   obtain ⟨⟨pre, rest⟩, hpre, he⟩ := he
@@ -307,10 +324,8 @@ theorem iotaEqAt_resolves {env : Env} {cvj : ConstantVal} {cnP : Nat} {cv : Cons
     · obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
       exact (Expr.resolves_liftLooseBVars _ _ _).mpr (hparams p hp)
     · exact hbv _ _ a ha
-  rw [Expr.resolves_foldr_forallE]
-  refine ⟨fun x hx => (List.mem_append.mp hx).elim (hpreR x) (hfdR x), ?_⟩
-  simp only [Expr.Resolves]
-  refine ⟨⟨⟨heq, ?_⟩, ?_⟩, ?_⟩
+  refine ⟨pre ++ fd, u, _, _, _, rfl,
+    fun x hx => (List.mem_append.mp hx).elim (hpreR x) (hfdR x), ?_, ?_, ?_⟩
   · refine Expr.resolves_instantiateLift (fun v hv => ?_) _ 0
       ((Expr.resolves_liftLooseBVars _ _ _).mpr hbodyR)
     rcases List.mem_cons.mp hv with rfl | hv

@@ -1051,18 +1051,26 @@ theorem list_split3 {α : Type _} (L : List α) (a b : Nat) (h : L.length = a + 
       simp only [List.getElem_singleton]
       congr 1; omega
 
-/-- **The ι equations hold in the model the invariant carries**, given the rule facts at every
-stored rule and `Eq`'s law. -/
-theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
+/-- **The two sides of every stored ι equation**, at every fit of its telescope: an equation is a
+telescope over `@Eq.{u} ty lhs rhs`, and wherever the three denote, `ty` is a type of the universe
+`u` and `lhs` and `rhs` are one member of it.  This is what an equation holds by, whatever `Eq`
+denotes (`ruleEqsHold_of` reads it through `Eq`'s law); it needs no `Eq` stored. -/
+theorem ruleEq_sides {env : Env} (m : EnvModelM V env)
     (hfit : ∀ (φ : Name → Nat) (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool)
       (rules : List RecRule), env.find? n = some (.recInfo cv mI rP isK rules) →
       ∀ rl ∈ rules, RecRuleFit m.base2 φ cv mI rP rl)
-    (heq : ∀ (u : Level) (φ : Name → Nat) (ρ : Nat → V) (E A a b : V),
-      ConLeche.Denotes (cvalOf m.base2.acval) env φ ρ (.const ConLeche.eqName [u]) E →
-      A ∈ˢ (univ (Level.eval φ u) : V) → a ∈ˢ A → b ∈ˢ A →
-      app (app (app E A) a) b = eqv a b) :
-    ConLeche.RuleEqsHold (cvalOf (V := V) m.base2.acval) env := by
-  intro e he φ ρ P hP
+    {e : Expr} (he : e ∈ ConLeche.ruleEqs env) :
+    ∃ (ds : List Expr) (u : Level) (ty lhs rhs : Expr),
+      e = ds.foldr .forallE (.app (.app (.app (.const ConLeche.eqName [u]) ty) lhs) rhs) ∧
+      ∀ (φ : Name → Nat) (ρ : Nat → V) (vs : List V) (ρ' : Nat → V), vs.length = ds.length →
+        Fits (cvalOf m.base2.acval) env φ ρ
+          (ds.foldr .forallE (.app (.app (.app (.const ConLeche.eqName [u]) ty) lhs) rhs)) vs ρ'
+          (.app (.app (.app (.const ConLeche.eqName [u]) ty) lhs) rhs) →
+        ∀ T L R : V,
+          ConLeche.Denotes (cvalOf m.base2.acval) env φ ρ' ty T →
+          ConLeche.Denotes (cvalOf m.base2.acval) env φ ρ' lhs L →
+          ConLeche.Denotes (cvalOf m.base2.acval) env φ ρ' rhs R →
+          T ∈ˢ (univ (Level.eval φ u) : V) ∧ L ∈ˢ T ∧ R ∈ˢ T ∧ L = R := by
   -- the recursor and the rule the equation was built from
   simp only [ConLeche.ruleEqs, List.mem_flatMap] at he
   obtain ⟨c, hcmem, he⟩ := he
@@ -1093,7 +1101,7 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
   generalize hmaj : Expr.mkAppN (.const rl.ctor (rl.ctorLevels cvj.levelParams))
     (ps.map (·.liftLooseBVars nF 0) ++ fsB) = major at *
   -- the telescope
-  refine ⟨pt, (tele_inhabited_of _ hP fun vs ρ' Y hvl hvf hY => ?_).2⟩
+  refine ⟨pre ++ fd, u, _, _, _, rfl, fun φ ρ vs ρ' hvl hvf T L R hT hL hR => ?_⟩
   rw [List.length_append, hprel, hfdl] at hvl
   rw [← List.take_append_drop rP vs] at hvf
   obtain ⟨ρ₁, R₁, h1, h2⟩ := hvf.split
@@ -1109,13 +1117,6 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
   generalize vs.take rP = xs at hxl hxfit hρ' hffit
   generalize vs.drop rP = fs at hfl hρ' hffit
   subst hρ'
-  -- the equation's pieces
-  cases hY with
-  | @app _ _ _ Y3 R hY3 hR =>
-  cases hY3 with
-  | @app _ _ _ Y2 L hY2 hL =>
-  cases hY2 with
-  | @app _ _ _ E T hE hT =>
   -- the left-hand side's values: the prefix, the indices, the major
   obtain ⟨F, Xs, hF, hXl, hXs, rfl⟩ := Denotes_mkAppN_inv _ hL
   cases hF with
@@ -1636,9 +1637,32 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
     rw [← List.foldl_map (f := interp V σ) (g := app),
       ← List.foldl_map (f := interp V σ) (g := app), hvals, List.map_append, hxsI, hfsI] at heqn
     exact heqn
-  -- the equation is `Eq`'s truth value of an equality
   have hRm : (xs ++ fs).foldl app (interp V σ Ra) ∈ˢ interp V σ restR := hLR ▸ hmemL
-  rw [heq u φ _ E _ _ _ hE hTu hmemL hRm, ← hLR]
+  exact ⟨hTu, hmemL, hRm, hLR⟩
+
+/-- **The ι equations hold in the model the invariant carries**, given the rule facts at every
+stored rule and `Eq`'s law: at every fit the equation is `Eq`'s truth value of an equality of its
+two sides (`ruleEq_sides`). -/
+theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
+    (hfit : ∀ (φ : Name → Nat) (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool)
+      (rules : List RecRule), env.find? n = some (.recInfo cv mI rP isK rules) →
+      ∀ rl ∈ rules, RecRuleFit m.base2 φ cv mI rP rl)
+    (heq : ∀ (u : Level) (φ : Name → Nat) (ρ : Nat → V) (E A a b : V),
+      ConLeche.Denotes (cvalOf m.base2.acval) env φ ρ (.const ConLeche.eqName [u]) E →
+      A ∈ˢ (univ (Level.eval φ u) : V) → a ∈ˢ A → b ∈ˢ A →
+      app (app (app E A) a) b = eqv a b) :
+    ConLeche.RuleEqsHold (cvalOf (V := V) m.base2.acval) env := by
+  intro e he φ ρ P hP
+  obtain ⟨ds, u, ty, lhs, rhs, rfl, H⟩ := ruleEq_sides m hfit he
+  refine ⟨pt, (tele_inhabited_of _ hP fun vs ρ' Y hvl hvf hY => ?_).2⟩
+  cases hY with
+  | @app _ _ _ Y3 R hY3 hR =>
+  cases hY3 with
+  | @app _ _ _ Y2 L hY2 hL =>
+  cases hY2 with
+  | @app _ _ _ E T hE hT =>
+  obtain ⟨hTu, hLT, hRT, hLR⟩ := H φ ρ vs ρ' hvl hvf T L R hT hL hR
+  rw [heq u φ _ E _ _ _ hE hTu hLT hRT, ← hLR]
   exact ⟨eqv_mem_univZero _ _, pt_mem_eqv_self _⟩
 
 end ConLeche.Model
