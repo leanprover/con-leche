@@ -865,6 +865,19 @@ theorem pin_reading_val {acval : Name → (Name → Nat) → Term}
 
 /-! ## 7. The equations hold -/
 
+theorem piResult_foldr : ∀ (ds : List Expr) (b : Expr),
+    (ds.foldr .forallE b).piResult = b.piResult
+  | [], _ => rfl
+  | _ :: ds, b => by simp only [List.foldr_cons, Expr.piResult, piResult_foldr ds b]
+
+theorem piResult_instantiateLevelParams (ks : List Name) (us : List Level) :
+    ∀ (e : Expr), (e.instantiateLevelParams ks us).piResult
+      = e.piResult.instantiateLevelParams ks us
+  | .forallE t b => by
+    simp only [Expr.instantiateLevelParams, Expr.piResult, piResult_instantiateLevelParams ks us b]
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ | .letE _ _ _ | .lit _
+  | .proj _ _ _ => by simp [Expr.instantiateLevelParams, Expr.piResult]
+
 theorem getD_of_lt {α : Type _} (L : List α) {i : Nat} {d : α} (h : i < L.length) :
     L.getD i d = L[i] := by
   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h, Option.getD_some]
@@ -1191,6 +1204,63 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
     (substFn_ctorLevels φ rl cnP cv.levelParams cvj.levelParams rP) TVja hTVja' σ xsT psT mid
     (by simp [xsT, hxl]) (hbvWD xsT 0 _ rfl) hmid (hbvWD psT rP _ rfl) hRPR
   obtain ⟨⟨r, hr⟩, hF2⟩ := hF
+  -- the constructor's telescope: its parameters, then its fields
+  obtain ⟨-, hmain, hextra⟩ := m.rec_rules φ cv.name cv mI rP isK rules hfR rl hrl
+  have harity := ((hextra (cv.levelParams.map Level.param) (by simp) TVa hTVa').2 cvj cnP cnF iT
+    hc).1
+  rw [hnF] at harity
+  have harity' := Expr.stripPis_instantiateLevelParams_isSome cvj.levelParams
+    (rl.ctorLevels cvj.levelParams) _ harity
+  rw [hcbEq, ← hpdl, stripPis_foldr_add, Option.isSome_map] at harity'
+  obtain ⟨⟨fdS, conclS⟩, hS⟩ := Option.isSome_iff_exists.mp harity'
+  obtain ⟨hcbS, hfdSl⟩ := stripPis_eq_foldr nF hS
+  subst hcbS
+  obtain ⟨fd', hfd'l, hiL, -⟩ := instantiateLift_foldr ps.reverse fdS conclS 0
+  have hfdE : fd = fd' ∧ concl = conclS.instantiateLift ps.reverse nF := by
+    have h1 := stripPis_foldr fd' (conclS.instantiateLift ps.reverse (0 + fdS.length))
+    rw [← hiL, hfd'l, hfdSl, hfd] at h1
+    simp only [Option.some.injEq, Prod.mk.injEq, Nat.zero_add] at h1
+    exact ⟨h1.1, h1.2⟩
+  obtain ⟨rfl, rfl⟩ := hfdE
+  have hTypeEq : cvj.type.instantiateLevelParams cvj.levelParams (rl.ctorLevels cvj.levelParams)
+      = (pd ++ fdS).foldr .forallE conclS := by rw [hcbEq, List.foldr_append]
+  -- the parameters' fit, at the stored type
+  have hpc : Rules.PiChain psT.length TVja := by
+    simpa [psT, hPl] using Rules.piChain_of_stripPis cnP (by rw [hcb]; rfl) hTVja'
+  have hrT := Rules.teleFit_of_teleFitPA hpc hr
+  rw [hpsI] at hrT
+  have hrT' := hrT.transfer_rest (σ := consN xs ρ) hclC fun _ h => absurd h (Nat.not_lt_zero _)
+  obtain ⟨ρP, RP, hPF, -⟩ := Fits_of_teleFit hcl Ps 0 _ hTVja'
+    (fvarsBelow_zero_of_not_hasFvar hnfC) hlbC (by rw [hPl, hcb]; rfl) hrT'
+  rw [Expr.closeN_of_hasFvar _ 0 0 hnfC, hTypeEq, List.foldr_append] at hPF
+  obtain ⟨hRP, hρP, -⟩ := hPF.foldr_prefix pd _ rfl (by omega)
+  rw [hPl, ← hpdl, List.drop_length] at hRP
+  simp only [List.foldr_nil] at hRP
+  subst hRP hρP
+  -- the fields' fit, at the source of the instantiated fields
+  have hfF := hffit (conclS.instantiateLift ps.reverse (0 + fdS.length))
+  rw [← hiL] at hfF
+  have hlenR : Ps.reverse.length = ps.reverse.length := by simp [hPl, hplen]
+  obtain ⟨hfF', -, -⟩ := Fits_instantiateLift_inv (σ := consN xs ρ) hlenR (fun j h => by
+      simp only [List.length_reverse] at h
+      simp only [List.getElem_reverse]
+      have := hPsD (ps.length - 1 - j) (by omega) (by rw [hPl, ← hplen]; omega)
+      simpa [hPl, hplen] using this) fdS conclS fs 0
+    (fun i => rfl) (by rw [hfl, hfdSl]) hfF
+  rw [insAt_zero_reverse, Nat.zero_add] at hfF'
+  have hCF := hPF.append hfF'
+  rw [← List.foldr_append, ← hTypeEq, ← Expr.closeN_of_hasFvar _ 0 0 hnfC] at hCF
+  obtain ⟨_, hCT⟩ := teleFit_of_Fits hcl (Ps ++ fs) 0 _ hTVja'
+    (fvarsBelow_zero_of_not_hasFvar hnfC) hlbC hCF
+  have hCT' := hCT.transfer_rest (σ := σ) hclC fun _ h => absurd h (Nat.not_lt_zero _)
+  rw [← hpsI, ← hfsI, ← List.map_append] at hCT'
+  have hsAll : (cvj.type.instantiateLevelParams cvj.levelParams
+      (rl.ctorLevels cvj.levelParams)).stripPis (cnP + nF) = some (pd ++ fdS, conclS) := by
+    rw [hTypeEq, ← hpdl, ← hfdSl, ← List.length_append, stripPis_foldr]
+  have hpcC : Rules.PiChain (psT ++ fsT).length TVja := by
+    have := Rules.piChain_of_stripPis (cnP + nF) (by rw [hsAll]; rfl) hTVja'
+    simpa [psT, fsT, hPl, hfl] using this
+  obtain ⟨restC, hrestC⟩ := Rules.teleFitPA_of_teleFit _ hpcC hCT'
   sorry
 
 end ConLeche.Model
