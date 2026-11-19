@@ -124141,3 +124141,83 @@ declarations, axioms pinned: 84 theorems at the three standard axioms); plain-re
 allowlisted), trust-surface, binary-link, layering, shake (679/679, no demotable public
 import), overview-links, whitepaper links-gate (anchors repointed after re-reading),
 fragment-gate, quote-gate, challenge.sh, no-local-paths; whitepaper `build.sh`.
+
+## TASK #617 — `IsModel`: the main theorem over the input stream (2026-11-19, agent/617-ismodel; base `compare`)
+
+Started as a spike, widened by the maintainer to the full rewrite.  Rulings received during
+the lane: the model is called `model`; it takes level VALUES positionally
+(`model : Name → List Nat → V`); the public reading is a TOTAL function `Expr.eval`, not the
+relation `Denotes`; `False`/`Eq` lose their fields and are derived from the prelude's
+declarations' own clauses; a projection reads `field (i+1)` with no table; junk (an `fvar`,
+a projection of a non-structure, a wrong level count) is harmless because only closed,
+well-formed terms are stored.
+
+**Landed on the branch (builds warning-free, `lake build`):**
+
+* `ConLeche/IsModel.lean` (spec, imports `Kernel/Install`, `Verify/Level`, `SetModel/Ops`):
+  `Level.assign`, `natLitVal`/`strLitVal`, `Expr.eval`, `iotaEqAt` (the ι equation at an
+  explicit constructor record), `inputFire` (a recursor's firing mode read off its own type
+  against the block's formers: the install's `recFire` with `tgt < k` read as "the major's
+  head is a former of the block"), `blockRecords`, `Declaration.records` (axiom; definition, or
+  axiom when its value `usesSorry`; theorem/opaque as statements; `sorryAx` nothing; quotient
+  records and `Quot.sound` as `quotAt`), `RuleHolds`, `Satisfies`, `IsModelOfDecl`, `IsModel`,
+  and the prelude facts `HasRecord`, `falseRecType`, `eqType`, `eqReflType`, `eqRecType`,
+  `DeclaresFalse`, `DeclaresEq`.  `ConLeche/Denotes.lean` now imports it (shared `push`,
+  `field`, `motiveLevel?`, `RecRule.ctorLevels`/`iotaParams`); `iotaEq` is `iotaEqAt` at the
+  stored constructor (`iotaEq_inv` repaired with one `unfold`).
+* `ConLeche/Semantics/IsModelBasis.lean`: `IsModel.false_empty` (`DeclaresFalse ds →
+  model False [] = ∅`, via `False.rec` at the motive `fun _ => ∅`), `IsModel.eq_eqv`
+  (`DeclaresEq ds → A ∈ univ k → a b ∈ A → ⟦@Eq.{k} A a b⟧ = eqv a b`, via `Eq`'s clause,
+  `Eq.refl`, and `Eq.rec` at the motive `fun b _ => eqv a b` into `Prop`; needs the two level
+  names of `Eq.rec` distinct, which the pin check enforces), `IsModel.no_false_record`.  So
+  the built-in fields CAN be dropped: both follow from the declarations.
+* `ConLeche/Model/IsModelBridge.lean`: `posModel` (internal `cval` made positional through the
+  stored level parameters), `eval_of_Denotes` (wherever `Denotes` reads, `Expr.eval` agrees —
+  NO side condition on the regime choice; the only fact used is level locality, `CvalLocal`,
+  which the invariant has as `acval_params`: `cvalLocal_ofEnvModelM`), and
+  `isModel_of_model : Model V env → CvalLocal → RecordsStored ds env → CtorsStored ds env →
+  RuleEqsRead cval env → IsModel V (posModel cval env) ds`.
+* `MainTheorem.isModel_exists_of`: accepted + the three facts → `∃ model, IsModel V model
+  ds.toList`.
+
+**Total reading vs internal model:** no clash found.  `eval_of_Denotes` is a plain induction
+over `Denotes` (binders by `lamV_congr`/`piV_congr`, which only read the domain).  The cost of
+totality is elsewhere: `Model.rule_eqs` is a ∀-form ("wherever the equation denotes, it is
+inhabited"), while `Expr.eval` always gives a value, so the ι clause needs the stored ι
+equations to be READ (`RuleEqsRead`).
+
+**#617 cont. — what remains, with sizes (estimates):**
+
+1. `RecordsStored (streamEnv ds) ds.toList` for accepted `ds` (~300–450 lines): the fold
+   pushes `declConstants` (`checkDecls_env`); names are unique (`declsRun_chain` →
+   `NodupNames`), so `find?` returns the pushed record; per kind `records` vs
+   `declConstants` is immediate except blocks: `blockRecords block` vs `blockConstants p`
+   through `readBlock` — formers (`declared` = input), recursors (`recFire p rc =
+   inputFire formers …`), and constructors, where at `k ≥ 2` members a constructor in no group
+   is not installed: coverage needs the recursor check's "constructor grouping" pin (the
+   larger part).
+2. `CtorsStored` (~80 lines on top of 1; `readBlock` checks the input `nP`).
+3. `RuleEqsRead` (~500–900 lines): forward `Denotes` for every stored ι equation — the
+   readings of the recursor type and constructor type (`type_reads`, level crossing), the rule
+   rhs and nested pins (`RecRuleLaw`), and forward substitution lemmas for `Denotes`
+   (`instantiateLift`, `liftLooseBVars`); the inverse ones exist in `RuleEqsSound`.
+   Alternative: restate `rule_eqs` as `∃ P, Denotes … ∧ inhabited` and prove it there.
+4. `DeclaresFalse`/`DeclaresEq` for accepted streams declaring `False`/`Eq` (~120 lines:
+   `basisNamesOk` → `pinListOk` → the pins at the records' names; the pins' types at a
+   renamed parameter equal `falseRecType (.param p)` etc.), and "a stored theorem of type
+   `False` means `False` is declared" (~50, `constsResolve`).
+5. Then the public restatement (Challenge `model_exists`/`no_False_declaration`,
+   MainTheorem, OVERVIEW, whitepaper statement paragraph), `main_no_False` through
+   `IsModel.no_false_record`, the `T.a ≠ T.b` / `f := 3` demonstrations over `Expr.eval`
+   (cheap once 1–4 hold), the internal `Model`'s `false_empty`/`eq_equality` fields dropped
+   (the olean/modular/compare capstones still read them: keep until their follow-up lane),
+   tests (`IotaEqTests`, `LetDenotes` use `Denotes`), full gates, landing.
+
+`ds` in the restated theorem: the prepared stream (`preparePrelude pre r.decls`), since it is
+what `checkDecls` reads and the clauses are about the records checked; `DeclaresFalse`/
+`DeclaresEq` are then facts about its prelude part.
+
+Sidecar (`--compare`, not started): an axiom justified by a sidecar's constant would add one
+record kind whose clause is membership only, with the bridge obligation that the sidecar's
+model gives the constant's value; `IsModel` itself needs no change since clauses are per
+record.

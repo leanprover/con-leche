@@ -131,4 +131,13 @@ theorem IsModel.eq_eqv (h : IsModel V model ds) (hE : DeclaresEq ds) {k : Nat} {
     rw [hz', ← hr']
     exact hr
 
+/-- **No model of a stream declaring the prelude's `False` has a theorem of type `False`.** -/
+theorem IsModel.no_false_record (h : IsModel V model ds) (hF : DeclaresFalse ds) {t : Name}
+    (ht : HasRecord ds t [] (.const falseName [])) : False := by
+  have hm := h.mem_of_hasRecord ht [] rfl
+  have he : Expr.eval model (Level.assign [] []) ρ₀ (.const falseName []) = model falseName [] :=
+    rfl
+  rw [he, h.false_empty hF] at hm
+  exact not_mem_empty _ hm
+
 end ConLeche

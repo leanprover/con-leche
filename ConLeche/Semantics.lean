@@ -42,6 +42,7 @@ public import ConLeche.Semantics.Tower.BlockRecTower
 public import ConLeche.Semantics.Bridge.Decl
 public import ConLeche.Semantics.Bridge.DeclRun
 public import ConLeche.Semantics.Bridge.Sound
+public import ConLeche.Semantics.IsModelBasis
 
 @[expose] public section
 

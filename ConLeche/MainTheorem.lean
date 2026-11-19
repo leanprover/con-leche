@@ -2,6 +2,7 @@ module
 
 import ConLeche.Verify.Cached.MainC
 import ConLeche.Denotes
+public import ConLeche.Model.IsModelBridge
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
@@ -119,6 +120,18 @@ theorem model_exists (V : Type w) [SetTheory V]
     Nonempty (Model V env) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
+
+/-- **The main theorem over the input, conditional** (task #617, in progress): an accepted
+stream has a model in the sense of `IsModel`, given the three bridge facts still owed
+(`RecordsStored`, `CtorsStored`, `RuleEqsRead`; DESIGN "TASK #617"). -/
+theorem isModel_exists_of (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+    (accepted : checkDecls .verified pins maxNatSize ds = .ok env)
+    (hrec : RecordsStored ds.toList env) (hctor : CtorsStored ds.toList env)
+    (hread : ∀ m : Model.EnvModelM V env, RuleEqsRead (Model.Model.ofEnvModelM m).cval env) :
+    ∃ model, IsModel V model ds.toList := by
+  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
+  exact ⟨_, isModel_of_model _ (cvalLocal_ofEnvModelM m) hrec hctor (hread m)⟩
 
 open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`

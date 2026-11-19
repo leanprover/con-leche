@@ -151,6 +151,7 @@ public import ConLeche.Model.Modular.Valid
 public import ConLeche.Model.Modular.Restrict
 public import ConLeche.Model.Modular.Compare
 public import ConLeche.Model.Modular.CompareRun
+public import ConLeche.Model.IsModelBridge
 
 @[expose] public section
 
