@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.CopyStmt
 public import ConLeche.Verify.Cached.Cone
-public import ConLeche.Model.Modular.Read
+import ConLeche.Model.Modular.Read
 import ConLeche.Verify.Cached.DeclNames
 
 public section

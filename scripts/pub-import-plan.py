@@ -78,6 +78,15 @@ FALLBACK = {
     ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Driver.Reach'),
     ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.ModelIO'),
     ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.Olean.Sparse'),
+    # task #619: statements name `CheckerOps`, `CheckMode`, `FEnv` (`ViewCongr.lean:49`) and
+    # `EntryScoped` (`Scoped.lean:53`), `DeclQuotRun` (`:361`), `checkDeclKind` (`:306`),
+    # `ClassMajorRun` (`:571`) through these.  Each measured by demoting it alone (unknown
+    # identifier at the cited line).
+    ('ConLeche.Verify.Cached.ViewCongr', 'ConLeche.Cached.Justify'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Modular'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Semantics.DeclRun'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Verify.Inductives.GenRecRun'),
     # task #469 (measured in #463's merge): `Verify/Rules/Refine.lean`'s statements name
     # `inferTypeCoreIO`, `whnfTelescope`, `EnvRefines` through these (unknown identifier at
     # `Refine.lean:43`, `:68`, `:30` when each is demoted alone).

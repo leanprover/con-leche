@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Sidecar.Fold
-public import ConLeche.IsModel
+import ConLeche.IsModel
 import ConLeche.Model.Modular.Step
 import ConLeche.Model.Modular.Valid
 import ConLeche.Model.IsModelBridge

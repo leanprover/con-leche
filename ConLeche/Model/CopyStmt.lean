@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Copies
-public import ConLeche.Model.Inductives.RunEnv
+import ConLeche.Model.Inductives.RunEnv
 public import ConLeche.Model.Modular.Proofs
 import ConLeche.Model.BasisAtBlock
 import ConLeche.Model.Reading.Levels

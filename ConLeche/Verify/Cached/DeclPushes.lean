@@ -3,7 +3,6 @@ module
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
 import ConLeche.Verify.Cached.WalkersC
-import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.IndRecC
 
 public section

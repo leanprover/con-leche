@@ -1,9 +1,8 @@
 module
 
 public import ConLeche.Model.Sidecar.Rename
-public import ConLeche.Model.Modular.Restrict
+import ConLeche.Model.Modular.Restrict
 import ConLeche.Verify.Driver.Reach
-import ConLeche.Model.Modular.Proofs
 import ConLeche.Model.Modular.Valid
 
 public section

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Cached.DeclPushes
-public import ConLeche.Verify.Cached.Justify
 import ConLeche.Verify.Cached.DeclNames
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF

@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Sidecar.Shared
-public import ConLeche.Model.Harvest
-public import ConLeche.Model.Modular.Proofs
+import ConLeche.Model.Harvest
+import ConLeche.Model.Modular.Proofs
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Model.Modular.RestrictAgree
 public import ConLeche.Model.Levels

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Sidecar.Justified
-public import ConLeche.Model.DeclsRun
+import ConLeche.Model.DeclsRun
 public import ConLeche.Model.Modular.Scoped
 import ConLeche.Verify.Cached.JustifyBridge
 import ConLeche.Verify.Cached.PushChain
