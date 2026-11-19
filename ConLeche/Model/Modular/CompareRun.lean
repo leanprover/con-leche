@@ -194,8 +194,8 @@ theorem renamed_cv {cv cv' : ConstantVal} (hs : sameCvUpToLevels cv cv' = true) 
 
 /-- **Every hole of the challenge is a constant of the challenge's environment** with the hole's
 statement. -/
-theorem chal_hole {sp : Roots} {fs : FS} {C S : Name} {jobs : Nat} {c : CmpModuleRead}
-    (hc : CmpFacts sp fs C S jobs c) {d : Declaration} (hd : d ∈ c.w.emitted)
+theorem chal_hole {spC sp : Roots} {fs : FS} {C S : Name} {jobs : Nat} {c : CmpModuleRead}
+    (hc : CmpFacts spC sp fs C S jobs c) {d : Declaration} (hd : d ∈ c.w.emitted)
     (hh : isHole (ownUses c.w.home) d = true) :
     ∃ cv ci, recCv? d = some cv ∧ ci ∈ (chalEnvOf c).consts ∧ ci.toConstantVal = cv := by
   obtain ⟨k, hk, kindS, f, hcmp⟩ := hc.cmp d hd
@@ -256,14 +256,15 @@ challenge's environment as its home values it at the challenge's level-parameter
 hole of the challenge is inhabited. -/
 theorem run_models (V : Type w) [SetTheory V] {sp : Roots} {fs : FS} {maxNatSize : Nat}
     (R : Run sp fs maxNatSize) {Cn S : Name} {jobs : Nat} {c : CmpModuleRead}
-    (hC : Cn ∈ R.names) (hw : R.w Cn = c.w) (hcf : CmpFacts sp fs Cn S jobs c) :
-    ∃ (m : ∀ M, M ∈ R.names → ConLeche.Model V (ownEnvOf sp fs M (R.w M)))
+    {spC : Roots} (hC : Cn ∈ R.names) (hw : R.w Cn = c.w) (hcf : CmpFacts spC sp fs Cn S jobs c) :
+    ∃ (m : ∀ M, M ∈ R.names → ConLeche.Model V (ownEnvOf (R.look M) fs M (R.w M)))
       (mC : ConLeche.Model V (chalEnvOf c)),
       (∀ M (hM : M ∈ R.names) n, ((streamEnv (R.w M).reach.ctx.toList).find? n).isSome = true →
         ∃ hh : ctxHome (R.w M).reach n ∈ R.names, (m M hM).cval n = (m _ hh).cval n) ∧
       (∀ n cC, (chalEnvOf c).find? n = some cC →
         ∃ hh : ctxHome c.w.reach n ∈ R.names, R.x (ctxHome c.w.reach n) = #[] ∧
-          ∃ cS, (ownEnvOf sp fs (ctxHome c.w.reach n) (R.w (ctxHome c.w.reach n))).find? n =
+          ∃ cS, (ownEnvOf (R.look (ctxHome c.w.reach n)) fs (ctxHome c.w.reach n)
+            (R.w (ctxHome c.w.reach n))).find? n =
             some cS ∧
             cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
             ∀ φ, mC.cval n φ = (m _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
@@ -284,7 +285,7 @@ theorem run_models (V : Type w) [SetTheory V] {sp : Roots} {fs : FS} {maxNatSize
   have hmp : ∀ j hj n, ((R.dev j).own.find? n).isSome = true →
       (mp j hj).base2.acval n = (mm j hj).1 n := fun j hj => Classical.choose_spec (hex j hj)
   have hb : ∀ M, M ∈ R.names → R.rk M < i + 1 := fun M hM => Nat.lt_succ_of_le (hle M hM)
-  let m : ∀ M, M ∈ R.names → ConLeche.Model V (ownEnvOf sp fs M (R.w M)) := fun M hM =>
+  let m : ∀ M, M ∈ R.names → ConLeche.Model V (ownEnvOf (R.look M) fs M (R.w M)) := fun M hM =>
     cast (congrArg (ConLeche.Model V) (R.dev_own hM)) (Model.ofEnvModelM (mp (R.rk M) (hb M hM)))
   have hm : ∀ M hM, (m M hM).cval = cvalOf (mp (R.rk M) (hb M hM)).base2.acval := fun M hM => by
     show (cast (congrArg (ConLeche.Model V) (R.dev_own hM))

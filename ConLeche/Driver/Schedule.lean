@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.Graph
 public import ConLeche.Driver.Schedule.Run
+public import ConLeche.Driver.Compare
 
 @[expose] public section
 
@@ -56,7 +57,7 @@ def Schedule.declCount {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Nam
 /-- **The scheduler**, generic in the IO class (see the module docstring); `opts` the values of
 its `--schedule` flags, `jobsGiven` whether `--jobs` was given (the printed commands carry it only
 then). -/
-def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name) (cmp : Option Name)
+def scheduleG {μ : Type → Type} [CheckerIO μ] (tp sp : SearchPath) (root : Name) (cmp : Option Name)
     (opts : List String) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
     (jobsGiven : Bool) : μ UInt8 := do
   -- the heartbeat: `--progress=N` after N ms without a line (at least a second), `Ss` after S
@@ -75,25 +76,45 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name
     let extra := match cmp with
       | some s => Graph.cmpExtra root s
       | none => fun _ => #[]
-    match ← Graph.graphOf ↑sp [root] jobs extra with
+    -- a compared run (task #608): the challenge's closure through the trusted path alone, the
+    -- rest through it, then the search path
+    let r : CmpReq := ⟨root, cmp.getD root, tp, sp, none⟩
+    match ← Graph.graphOf r.solRoots [root] jobs extra with
     | .error e =>
       diagLine s!"con-leche: graph: {e}"
       return e.exitCode
     | .ok (C, _) =>
+      let chal ← match cmp with
+        | some _ =>
+          if tp.isEmpty then pure (some {}) else do
+          match ← Graph.graphOf r.chalRoots [root] jobs with
+          | .ok (CC, _) => pure (some (Graph.namesOf CC.toList))
+          | .error e =>
+            if let some why := ← fallbackOnly r then
+              diagLine s!"con-leche: graph: {why}"
+            else diagLine s!"con-leche: graph: {e}"
+            pure none
+        | none => pure (some {})
+      let some chal := chal | return 1
       let mods := C.map (·.1)
       let dirs := ":".intercalate (sp.map toString)
-      -- the challenge's worker is the compare worker (task #608)
+      let tdirs := ":".intercalate (tp.map toString)
+      let paths := Schedule.pathArgs (if cmp.isSome then tdirs else "") dirs
+      -- the challenge's worker is the compare worker (task #608); a module of the challenge's
+      -- closure reads through the trusted path alone
       let args (t : Option Nat) (m : Name) : Array String :=
         match cmp with
-        | some s => if m == root then Schedule.cmpWorkerArgs mode dirs t root s
-          else Schedule.workerArgs mode maxNatSize dirs t m
-        | none => Schedule.workerArgs mode maxNatSize dirs t m
+        | some s => if m == root then Schedule.cmpWorkerArgs mode paths t root s
+          else if chal.contains m then Schedule.workerArgs mode maxNatSize
+            (Schedule.pathArgs "" (if tp.isEmpty then dirs else tdirs)) t m
+          else Schedule.workerArgs mode maxNatSize paths t m
+        | none => Schedule.workerArgs mode maxNatSize paths t m
       if o.commands then
-        CheckerIO.liftIO (Schedule.printCommands dirs root cmp mods o
+        CheckerIO.liftIO (Schedule.printCommands paths root cmp mods o
           (args (if jobsGiven then some jobs else none)))
       else
         CheckerIO.liftIO (Schedule.runAll parseModName
           (fun m t => args (some t) m)
-          (Schedule.declCount (μ := IO) ↑sp) mods o jobs (Schedule.modeTag mode))
+          (Schedule.declCount (μ := IO) r.solRoots) mods o jobs (Schedule.modeTag mode))
 
 end ConLeche.Driver

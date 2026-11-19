@@ -77,15 +77,18 @@ theorem cmp_plain {Cn S : Name} {C : List Graph.Node} {rk : Name → Nat}
   omega
 
 open Classical in
-/-- **The run of a compared closure** (see the module docstring); `dflt` the read of a name
-outside the closure. -/
-noncomputable def Run.ofCompare (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
+/-- **The run of a compared closure** (see the module docstring); `look` each module's lookup
+(the challenge's own the solution's), `dflt` the read of a name outside the closure. -/
+@[expose] noncomputable def Run.ofCompare (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
+    (look : Name → Roots) (trims : ∀ M, (look M).Trims sp) (hlook : look Cn = sp)
     (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
     (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
-    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
-    (cjobs : Nat) (cr : CmpModuleRead) (hcr : CmpFacts sp fs Cn S cjobs cr) (dflt : WorkerRead) :
+    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs,
+      WorkerAccepted .verified maxNatSize (look M) fs M jobs)
+    (cjobs : Nat) (cr : CmpModuleRead) {spC : Roots} (hcr : CmpFacts spC sp fs Cn S cjobs cr)
+    (dflt : WorkerRead) :
     Run sp fs maxNatSize where
   C := C
   rk := rk
@@ -94,6 +97,8 @@ noncomputable def Run.ofCompare (Cn S : Name) (C : List Graph.Node) (rk : Name �
   edges := edges
   inj := inj
   plain := plain
+  look := look
+  trims := trims
   w M := if hM : M ∈ C.map (·.1) ∧ M ≠ Cn then (acc M hM.1 hM.2).choose_spec.choose
     else if M = Cn then cr.w else dflt
   jobs M := if hM : M ∈ C.map (·.1) ∧ M ≠ Cn then (acc M hM.1 hM.2).choose else cjobs
@@ -101,7 +106,7 @@ noncomputable def Run.ofCompare (Cn S : Name) (C : List Graph.Node) (rk : Name �
     by_cases hc : M = Cn
     · subst hc
       simp only [ne_eq, not_true_eq_false, and_false, ↓reduceDIte, ↓reduceIte]
-      rw [cmpExtra_self]
+      rw [cmpExtra_self, hlook]
       exact hcr.facts
     · have hm : M ∈ C.map (·.1) ∧ M ≠ Cn := ⟨hM, hc⟩
       rw [dite_eq_left hm, dite_eq_left hm, cmpExtra_other hc]
@@ -119,39 +124,65 @@ noncomputable def Run.ofCompare (Cn S : Name) (C : List Graph.Node) (rk : Name �
       rw [dite_eq_left hm]
       exact (acc M hM hc).choose_spec.choose_spec.2
 
+open Classical in
+/-- **A compared run's lookups**: a module of the challenge's closure, but the challenge, reads
+through the challenge's lookup `spC`; every other module, the compare worker too, through the
+solution's `sp`. -/
+@[expose] noncomputable def cmpLook (spC sp : Roots) (fs : FS) (Cn m : Name) : Roots :=
+  if m ≠ Cn ∧ Graph.HdrClosure spC fs [Cn] m then spC else sp
+
+theorem cmpLook_self (spC sp : Roots) (fs : FS) (Cn : Name) : cmpLook spC sp fs Cn Cn = sp := by
+  simp [cmpLook]
+
+theorem cmpLook_trims {spC sp : Roots} (h : spC.Trims sp) (fs : FS) (Cn m : Name) :
+    (cmpLook spC sp fs Cn m).Trims sp := by
+  unfold cmpLook
+  split
+  · exact h
+  · exact Roots.Trims.refl sp
+
 /-- The compared run's module at the challenge is the compare worker's read. -/
 theorem Run.ofCompare_w (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
+    (look : Name → Roots) (trims : ∀ M, (look M).Trims sp) (hlook : look Cn = sp)
     (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
     (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
-    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
-    (cjobs : Nat) (cr : CmpModuleRead) (hcr : CmpFacts sp fs Cn S cjobs cr) (dflt : WorkerRead) :
-    (Run.ofCompare Cn S C rk good edges inj plain acc cjobs cr hcr dflt).w Cn = cr.w := by
+    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs,
+      WorkerAccepted .verified maxNatSize (look M) fs M jobs)
+    (cjobs : Nat) (cr : CmpModuleRead) {spC : Roots} (hcr : CmpFacts spC sp fs Cn S cjobs cr)
+    (dflt : WorkerRead) :
+    (Run.ofCompare Cn S C rk look trims hlook good edges inj plain acc cjobs cr hcr dflt).w Cn = cr.w := by
   classical
   show (if hM : Cn ∈ C.map (·.1) ∧ Cn ≠ Cn then _ else if Cn = Cn then cr.w else dflt) = cr.w
   simp
 
 /-- The compared run's modules are the graph's. -/
 theorem Run.ofCompare_names (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
+    (look : Name → Roots) (trims : ∀ M, (look M).Trims sp) (hlook : look Cn = sp)
     (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
     (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
-    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
-    (cjobs : Nat) (cr : CmpModuleRead) (hcr : CmpFacts sp fs Cn S cjobs cr) (dflt : WorkerRead) :
-    (Run.ofCompare Cn S C rk good edges inj plain acc cjobs cr hcr dflt).names = C.map (·.1) := by
+    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs,
+      WorkerAccepted .verified maxNatSize (look M) fs M jobs)
+    (cjobs : Nat) (cr : CmpModuleRead) {spC : Roots} (hcr : CmpFacts spC sp fs Cn S cjobs cr)
+    (dflt : WorkerRead) :
+    (Run.ofCompare Cn S C rk look trims hlook good edges inj plain acc cjobs cr hcr dflt).names = C.map (·.1) := by
   rfl
 
 /-- The compared run's added imports: the solution's at the challenge. -/
 theorem Run.ofCompare_x (Cn S : Name) (C : List Graph.Node) (rk : Name → Nat)
+    (look : Name → Roots) (trims : ∀ M, (look M).Trims sp) (hlook : look Cn = sp)
     (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
     (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
-    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
-    (cjobs : Nat) (cr : CmpModuleRead) (hcr : CmpFacts sp fs Cn S cjobs cr) (dflt : WorkerRead) :
-    (Run.ofCompare Cn S C rk good edges inj plain acc cjobs cr hcr dflt).x = Graph.cmpExtra Cn S := by
+    (acc : ∀ M ∈ C.map (·.1), M ≠ Cn → ∃ jobs,
+      WorkerAccepted .verified maxNatSize (look M) fs M jobs)
+    (cjobs : Nat) (cr : CmpModuleRead) {spC : Roots} (hcr : CmpFacts spC sp fs Cn S cjobs cr)
+    (dflt : WorkerRead) :
+    (Run.ofCompare Cn S C rk look trims hlook good edges inj plain acc cjobs cr hcr dflt).x = Graph.cmpExtra Cn S := by
   rfl
 
 /-! ## Homes and the compared module's environment -/
@@ -192,19 +223,19 @@ theorem homeIn_owner {M : Name} (hM : M ∈ R.names) {y : Name} {k : Nat}
 
 /-- **A module's own environment is its worker's** (`ownEnvOf`). -/
 theorem dev_own {M : Name} (hM : M ∈ R.names) :
-    (R.dev (R.rk M)).own = ownEnvOf sp fs M (R.w M) := by
+    (R.dev (R.rk M)).own = ownEnvOf (R.look M) fs M (R.w M) := by
   rw [R.dev_rk hM]; rfl
 
 /-- **A module with no own record**: its own environment is its context. -/
 theorem ownEnv_noOwn {M : Name} (h : (R.w M).own = #[]) :
-    ownEnvOf sp fs M (R.w M) = streamEnv (R.w M).reach.ctx.toList := by
+    ownEnvOf (R.look M) fs M (R.w M) = streamEnv (R.w M).reach.ctx.toList := by
   simp [ownEnvOf, ownDeclsOf, h, streamEnv]
 
 /-- **The home rule, in the run**: every name the challenge's records read that the challenge
 imports is, in the compare worker's context, of the module the challenge's own view loads it
 from first. -/
 theorem cmp_home {Cn S : Name} {jobs : Nat} {c : CmpModuleRead} (hC : Cn ∈ R.names)
-    (hw : R.w Cn = c.w) (hcf : CmpFacts sp fs Cn S jobs c) :
+    {spC : Roots} (hw : R.w Cn = c.w) (hcf : CmpFacts spC sp fs Cn S jobs c) :
     ∀ y ∈ cmpImported c.w.home c.w.emitted, ∃ cp, c.view.index.first[y]? = some cp ∧
       ctxHome c.w.reach y = c.view.loads.nameAt cp.mod := by
   intro y hy

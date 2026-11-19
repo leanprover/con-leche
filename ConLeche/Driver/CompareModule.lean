@@ -10,13 +10,15 @@ import ConLeche.Verify.Cached.DeclNames
 /-!
 # The compare worker: a challenge as one more module of a modular run (task #608)
 
-`con-leche --olean --module --compare --search-path=DIRS -- C S` is the worker of the challenge
-`C` in a modular run over the closures of `C` and of its solution `S` (`--check-graph --compare`,
-`--schedule --compare`).  The challenge is one more module of the run: its records are not
+`con-leche --olean --module --compare [--trusted-search-path=T] --search-path=DIRS -- C S` is the
+worker of the challenge `C` in a modular run over the closures of `C` and of its solution `S`
+(`--check-graph --compare`, `--schedule --compare`).  It reads `C`'s files and `C`'s own view
+through the challenge's lookup (`rdC`: the trusted path alone), everything else through the
+solution's (`rd`: the trusted path, then the search path), as `--olean --compare` does.  The challenge is one more module of the run: its records are not
 checked, its own names are read from the solution, and what it imports is read from the module
 that declares it, as every worker reads it.
 
-1. **The home** (`homeOf`): `C`'s private view loaded and its parts checked against each other,
+1. **The home** (`homeOf`, through `rdC`): `C`'s private view loaded and its parts checked against each other,
    as the worker's; its records emitted (`ownRecords`).
 2. **The reads** (`workerReads` with `import all S` added to `C`'s header,
    `NamePositions.withImports`): the header fixpoint of `C`'s imports and of the solution with
@@ -29,8 +31,8 @@ that declares it, as every worker reads it.
    its own, so that each of `C`'s names is read from the module of `S`'s closure that declares
    it.
 4. **The homes** (`importedAt`): every name `C`'s records read that `C` imports is, in the
-   context, the constant of the module `C`'s own view (the reads at `C`'s own header) loads it
-   from first.  So a name the
+   context, the constant of the module `C`'s own view (the reads at `C`'s own header, through
+   `rdC`) loads it from first.  So a name the
    challenge imports is its home's constant: a solution declaring one of them itself is refused
    here, or by the clash rule before.
 5. **The comparison** (`cmpCtxRecord`), each record of `C` against the context's record of its
@@ -205,12 +207,12 @@ def cmpAll {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ)
 /-- **The compare worker's phases** (see the module docstring): what was read and compared, or
 why not (a comparison that positively detects what con-leche cannot fill: `notImplemented`, its
 reason without `declined`'s prefix). -/
-def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S : Name) (pace : Pace)
-    (t0 jobs : Nat) : μ (Except CheckError CmpModuleRead) := do
+def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rdC rd : OleanReads μ) (C S : Name)
+    (pace : Pace) (t0 jobs : Nat) : μ (Except CheckError CmpModuleRead) := do
   let fail (e : CheckError) : Except CheckError CmpModuleRead := .error e
   let unsolved (why : String) : Except CheckError CmpModuleRead :=
     .error (.invalid s!"{S} does not solve {C}: {why}")
-  match ← rd.files C .private with
+  match ← rdC.files C .private with
   | .error e => pure (fail e)
   | .ok f =>
   match homeOf C f with
@@ -237,7 +239,7 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
   workerSay pace t0 s!"reach: {r.ctx.size} records"
   let owner := ownerMap r.ctx
   -- the challenge's own view, for the homes of what it imports
-  match ← workerReads rd C jobs with
+  match ← workerReads rdC C jobs with
   | .error e => pure (fail e)
   | .ok wrC =>
   match (cmpImported l ds).toList.findSome? (importedAt wrC r owner) with
@@ -253,14 +255,14 @@ def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S 
                 view := wrC, filled })
 
 /-- **The compare worker** (see the module docstring), generic in the IO class. -/
-def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C S : Name)
+def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rdC rd : OleanReads μ) (C S : Name)
     (mode : CheckMode) (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
     | .verified => "--verified"
     | .trusted => "--trusted"
   CheckerIO.liftIO (readStarts pace s!"challenge {C}")
-  match ← cmpModuleRead rd C S pace t0 jobs with
+  match ← cmpModuleRead rdC rd C S pace t0 jobs with
   | .error e =>
     let why := match e with
       | .notImplemented w => s!"declined: {w}"
@@ -275,5 +277,26 @@ def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (C 
     for f in w.filled do
       outLine s!"con-leche: hole {f.name} ({f.hole}) filled by {f.home}'s {f.filler}"
     return 0
+
+/-- **The graph check of a compared run** (`--check-graph --compare`), generic in the IO class:
+with a trusted path, the challenge's closure first, through the challenge's lookup alone (a module
+of it only the search path holds is invalid input, as in `--olean --compare`: `fallbackOnly`);
+then the graph of both closures through the solution's lookup, the solution added to the
+challenge's header (`Graph.checkGraphG`). -/
+def checkGraphCmpG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (jobs : Nat) : μ UInt8 := do
+  if r.trusted.isEmpty then
+    Graph.checkGraphG r.solRoots [r.challenge] jobs (Graph.cmpExtra r.challenge r.solution)
+  else
+    match ← Graph.graphOf r.chalRoots [r.challenge] jobs with
+    | .error e =>
+      match ← fallbackOnly r with
+      | some why =>
+        diagLine s!"con-leche: graph: {why}"
+        pure 1
+      | none =>
+        diagLine s!"con-leche: graph: {e}"
+        pure e.exitCode
+    | .ok _ =>
+      Graph.checkGraphG r.solRoots [r.challenge] jobs (Graph.cmpExtra r.challenge r.solution)
 
 end ConLeche.Driver

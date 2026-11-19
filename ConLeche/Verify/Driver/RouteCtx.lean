@@ -516,14 +516,14 @@ variable {sp : Roots} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
 theorem own_basis {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : Declaration} (hp : p ∈ (R.w h).emitted) :
     basisNamesOk p = true := by
   have := declsRun_basis (R.run h hh) _
-    (List.mem_map_of_mem (f := fillDecl (fillOf sp fs #[⟨h, (R.w h).home.frontier⟩]))
+    (List.mem_map_of_mem (f := fillDecl (fillOf (R.look h) fs #[⟨h, (R.w h).home.frontier⟩]))
       (emitted_own (R.facts₀ hh hx) hp))
   cases p <;> exact this
 
 /-- **A name an own constant's type reads, loaded at the module, is in its context**: the
 constant is an own record's or a context record's, and either's reads are stored there. -/
 theorem stored_of_own_const {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {ci : ConstantInfo}
-    (hci : ci ∈ (ownEnvOf sp fs h (R.w h)).consts) {y : Name}
+    (hci : ci ∈ (ownEnvOf (R.look h) fs h (R.w h)).consts) {y : Name}
     (hy : y ∈ ci.toConstantVal.type.needs)
     (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
     ((R.dev (R.rk h)).context.find? y).isSome = true := by
@@ -628,7 +628,7 @@ theorem emitted_ownNames {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p :
 /-- **A name an own environment stores, loaded at the module, is in its context**: an own
 record's names are the module's own, which no load holds. -/
 theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {y : Name}
-    (hy : ((ownEnvOf sp fs h (R.w h)).find? y).isSome = true)
+    (hy : ((ownEnvOf (R.look h) fs h (R.w h)).find? y).isSome = true)
     (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
     ((R.dev (R.rk h)).context.find? y).isSome = true := by
   have hw := R.facts₀ hh hx
@@ -653,10 +653,10 @@ theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {y
 reads. -/
 theorem copyOf_facts {M : Name} (hM : M ∈ R.names) {y : Name} {s : Spot}
     (hs : copyOf (R.envOf M) (R.cap M).1 y = some s) :
-    CopyAt sp fs s ∧ s.part.level ≠ .server ∧ s.pos.name = y := by
+    CopyAt (R.look M) fs s ∧ s.part.level ≠ .server ∧ s.pos.name = y := by
   obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
   obtain ⟨hparts, hindex⟩ := workerReads_index hrd
-  have he : EnvOk sp fs (R.envOf M) := ⟨rfl, hparts, hindex⟩
+  have he : EnvOk (R.look M) fs (R.envOf M) := ⟨rfl, hparts, hindex⟩
   obtain ⟨-, -, -, -, -, hloc, -⟩ := R.cap_facts hM
   unfold copyOf at hs
   split at hs
@@ -683,10 +683,10 @@ tolerated axiom's. -/
 theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) {s : Spot}
     (hs : copyOf (R.envOf M) (R.cap M).1 y = some s) {r : Region} {cv : ConstantVal}
-    {k : CKindF Name Unit} (hr : PartRegion sp fs s.part r) (hst : StmtSkel r s.pos.loc cv k)
+    {k : CKindF Name Unit} (hr : PartRegion (R.look M) fs s.part r) (hst : StmtSkel r s.pos.loc cv k)
     (hk : k.tag < 4) :
     ∃ ci, (R.dev (R.rk M)).context.find? y = some ci ∧ ci.toConstantVal = cv ∧
-      ci.isStmtKind = true ∧ CopyAt sp fs s ∧ s.part.level ≠ .server ∧
+      ci.isStmtKind = true ∧ CopyAt (R.look M) fs s ∧ s.part.level ≠ .server ∧
       s.pos.skipped = false ∧ cv.name = y ∧ y ≠ sorryAxName ∧ s.part.mod ∈ R.names ∧
       R.x s.part.mod = #[] := by
   have hw := R.facts M hM
@@ -698,11 +698,13 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
   cases hs''
   obtain ⟨hhm, -, hxm⟩ := R.home_rank hM hh
   have hwm := R.facts₀ hhm hxm
-  have hrun : OwnRun .verified maxNatSize sp fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
+  have hrun : OwnRun .verified maxNatSize (R.look hm) fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
   obtain ⟨f, r0, a, sk, skels, hf, -⟩ := home_records hwm
-  have hf' : ModelIO.CanGive (readFiles sp s.part.mod .private) fs (.ok f) := by
+  have hf' : ModelIO.CanGive (readFiles (R.look hm) s.part.mod .private) fs (.ok f) := by
     rw [hmod]; exact hf
   obtain ⟨hcp, hlv, hnm⟩ := R.copyOf_facts hM hs
+  have hcpH := R.copy_own' (R.trims M) hhm hmod hcp
+  have hrH := R.region_own (R.trims M) hhm hmod hr
   have hdm : d ∈ (R.w M).reach.ctx.toList :=
     Array.mem_toList_iff.2 (Array.mem_of_getElem? hk0)
   have hfind : ∀ ci ∈ declConstants d, (R.dev (R.rk M)).context.find? ci.name = some ci := by
@@ -713,7 +715,8 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
   have hcvn : cv.name = s.pos.name := copyAt_stmt_name hcp hr hst
   have hcvy : cv.name = y := hcvn.trans hnm
   have hpr : ∃ p ∈ (R.w hm).emitted, Presents d p := by
-    have := hra.recordFrom; rw [hmod'] at this; exact recordFrom_presents this hwm
+    have := hra.recordFrom; rw [hmod'] at this
+    exact recordFrom_presents (R.from_own (R.trims M) hhm this) hwm
   have hres : quotSoundName ∈ reservedBasisNames := by simp [reservedBasisNames]
   have hsq : sorryAxName ≠ quotSoundName := by decide
   cases hra with
@@ -722,7 +725,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     subst x
     rw [hs] at hs'
     cases hs'
-    obtain ⟨h1, h2⟩ := stmtSkel_unique (partRegion_unique hf' hr1 hr ▸ hst1) hst
+    obtain ⟨h1, h2⟩ := stmtSkel_unique (partRegion_unique hf' (R.region_own (R.trims M) hhm hmod hr1) hrH ▸ hst1) hst
     subst cv1 k1
     have hsy : cv.name ≠ sorryAxName := by
       intro he
@@ -752,8 +755,8 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
           | quotDecl k c => simp [stmtOf] at he
           | indDecl b nP => simp [stmtOf] at he
       have hfO := find?_of_nodup (ownEnv_nodup hwm hrun)
-        (own_mem_ownEnv (sp := sp) (fs := fs) (M := hm) (emitted_own hwm hp) hqmem)
-      obtain ⟨ci', hci', hcv', hks', -⟩ := copy_own hwm hrun hmod hcp hlv hr hst hsk1 hk hsy
+        (own_mem_ownEnv (sp := R.look hm) (fs := fs) (M := hm) (emitted_own hwm hp) hqmem)
+      obtain ⟨ci', hci', hcv', hks', -⟩ := copy_own hwm hrun hmod hcpH hlv hrH hst hsk1 hk hsy
       rw [← hyq, ← hcvy, hci'] at hfO
       cases hfO
       refine ⟨quotAt .sound cv, ?_, hcv', hks', hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm, hmod ▸ hxm⟩
@@ -763,9 +766,10 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
       have := hfind (.axiomInfo cv) (by simp [declConstants, hqs, hsy])
       rwa [show (ConstantInfo.axiomInfo cv).name = y from hcvy] at this
   | @entry s1 r1 r₀ e d1 cv1 k1 hs1 hl1 hr1 he hr₀ hst₀ hk1 hsk1 hd1 =>
-    have hf'' : ModelIO.CanGive (readFiles sp s'.part.mod .private) fs (.ok f) := by
+    have hf'' : ModelIO.CanGive (readFiles (R.look hm) s'.part.mod .private) fs (.ok f) := by
       rw [hmod']; exact hf
-    rw [partRegion_unique hf'' hr1 hr₀] at he
+    rw [partRegion_unique hf'' (R.region_own (R.trims M) hhm hmod' hr1)
+      (R.region_own (R.trims M) hhm hmod' hr₀)] at he
     have htag : (CEntry.ofF e).kind.tag = 1 := by
       rw [show (CEntry.ofF e).kind = e.kind from rfl, (StmtSkel.entry hst₀ he).2, hk1]
     obtain ⟨v, hh', rfl⟩ := entryDecl_defn (recordOfEntry_eq hd1) htag
@@ -774,7 +778,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     subst x
     rw [hs] at hs'
     cases hs'
-    obtain ⟨h1, h2⟩ := stmtSkel_unique (partRegion_unique hf' hr₀ hr ▸ hst₀) hst
+    obtain ⟨h1, h2⟩ := stmtSkel_unique (partRegion_unique hf' (R.region_own (R.trims M) hhm hmod hr₀) hrH ▸ hst₀) hst
     subst cv1 k1
     have hecv : (⟨(CEntry.ofF e).name, (CEntry.ofF e).levelParams, (CEntry.ofF e).type⟩ :
         ConstantVal) = cv := (StmtSkel.entry hst₀ he).1
@@ -794,7 +798,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     subst x
     rw [hs] at hs'
     cases hs'
-    obtain ⟨-, rfl⟩ := stmtSkel_unique (partRegion_unique hf' hr1 hr ▸ hst1) hst
+    obtain ⟨-, rfl⟩ := stmtSkel_unique (partRegion_unique hf' (R.region_own (R.trims M) hhm hmod hr1) hrH ▸ hst1) hst
     simp [CKindF.tag] at hk
   | group hg =>
     -- a group read from the home's private part: its names are no statement's there
@@ -821,7 +825,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     have hcm := (mergedOfList_spec _).2.1 _ _ hc
     obtain ⟨q₁, hq₁, hq₁n, hq₁t⟩ :=
       home_const_pos hwm (Array.mem_toList_iff.1 (List.mem_filter.1 hcm).1)
-    obtain ⟨q₂, hq₂, hq₂n, hq₂t⟩ := copy_private_pos hwm hmod hcp hlv hr hst hk
+    obtain ⟨q₂, hq₂, hq₂n, hq₂t⟩ := copy_private_pos hwm hmod hcpH hlv hrH hst hk
     have := own_pos_unique hwm hq₁ hq₂ (by rw [hq₁n, hq₂n, hnm, hcn]; exact hcin)
     subst this
     have := htc hns
@@ -902,27 +906,29 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
     obtain ⟨⟨x, -, s, -, hmod, hra⟩, -⟩ := hrec k d h hd hh
     have hrf := hra.recordFrom
     rw [hmod] at hrf
-    obtain ⟨p, hp, hpr⟩ := recordFrom_presents hrf hwh
+    obtain ⟨p, hp, hpr⟩ := recordFrom_presents (R.from_own (R.trims M) hhN hrf) hwh
     rw [R.dev_rk hhN]
     exact own_reads_ctx hwh hp (presents_reads hpr (R.own_basis hhN hxN hp) hy) hno (by simp [hlc])
   · -- an `agreeCheck` partner read: a name of the statement of a copy of `h`
     obtain ⟨hcp, hlv, -⟩ := homeView_copy hv hs₂
+    have hcpH := R.copy_own' (R.trims M) hhN hmod2.symm hcp
+    have hrgH := R.region_own (R.trims M) hhN hmod2.symm hrg
     have hyn' : y ∈ cv₂.type.needs := by
       rcases needsGo_sound _ _ _ _ hyn with h0 | h0
       · simp at h0
       · exact h0
     by_cases hsy : cv₂.name = sorryAxName
     · -- the tolerated axiom: its home checked its statement, which no context record reads
-      obtain ⟨e₁, p, hp, hpe, -, ht₁, hcv, -⟩ := copy_entry hwh hmod2.symm hcp hlv hrg hst hsk2 htag
+      obtain ⟨e₁, p, hp, hpe, -, ht₁, hcv, -⟩ := copy_entry hwh hmod2.symm hcpH hlv hrgH hst hsk2 htag
       have hq : e₁.name ≠ quotSoundName := by
         rw [show e₁.name = cv₂.name from congrArg ConstantVal.name hcv, hsy]; decide
-      have hrec := entryDecl_stmtRecord hpe ht₁ hq (fillOf sp fs #[⟨h, (R.w h).home.frontier⟩])
+      have hrec := entryDecl_stmtRecord hpe ht₁ hq (fillOf (R.look h) fs #[⟨h, (R.w h).home.frontier⟩])
       rw [hcv] at hrec
       have hst' := own_type_stored ⟨_, R.run h hhN⟩
         (List.mem_map.2 ⟨_, emitted_own hwh hp, rfl⟩) hrec y
         (by rw [← needs_eq_readNames]; exact hyn')
       exact R.stored_of_own_find hhN hxN hst' hl
-    · obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own hwh ⟨_, R.run h hhN⟩ hmod2.symm hcp hlv hrg hst
+    · obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own hwh ⟨_, R.run h hhN⟩ hmod2.symm hcpH hlv hrgH hst
         hsk2 htag hsy
       exact R.stored_of_own_const hhN hxN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl
   · -- a clash partner read: a copy, at `h`, of a clash's name the context stores
@@ -933,7 +939,7 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
     have hmodq : (spotOf (R.w M).reads cp q).part.mod = h := by
       show (R.w M).reads.loads.nameAt cp.mod = h
       rw [← hk1]; exact hz1.symm
-    obtain ⟨hgm, hwg⟩ : ∃ f, ModelIO.CanGive (readFiles sp (spotOf (R.w M).reads cp q).part.mod
+    obtain ⟨hgm, hwg⟩ : ∃ f, ModelIO.CanGive (readFiles (R.look h) (spotOf (R.w M).reads cp q).part.mod
         .private) fs (.ok f) := by
       obtain ⟨f, -, -, -, -, hf, -⟩ := home_records hwh
       exact ⟨f, by rw [hmodq]; exact hf⟩
@@ -967,7 +973,8 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
       · exact workerClash_complete hrd hc hq hq₀ (hqn.trans hcln) hq₀n
     obtain ⟨q', hq', -, ⟨rg', hrg', hstq'⟩, -⟩ := workerClash_stmt hrd hcl' he'
     rw [hq] at hq'; cases hq'
-    obtain ⟨rfl, rfl⟩ := stmtSkel_unique hstq (partRegion_unique hwg hrg' hrg ▸ hstq')
+    obtain ⟨rfl, rfl⟩ := stmtSkel_unique hstq (partRegion_unique hwg (R.region_own (R.trims M) hhN hmodq hrg')
+      (R.region_own (R.trims M) hhN hmodq hrg) ▸ hstq')
     obtain ⟨q₀', hq₀', hcp₀, ⟨rg₀, hrg₀, hst₀⟩, -⟩ := workerClash_stmt hrd hcl' he₀
     rw [hq₀] at hq₀'; cases hq₀'
     obtain ⟨-, ht₀⟩ := workerClash_kinds hrd hcl' he₀ he₀
@@ -979,8 +986,8 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
       change kd.skipped = false
       rw [show kd.skipped = kd₀.skipped from hsk, ← (copyAt_kind hcp₀ hrg₀ hst₀).2]
       exact hsk₀
-    obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own hwh ⟨_, R.run h hhN⟩ hmodq hcpq
-      (spotOf_level _ _ _) hrg hstq hskq (by rcases ht with h0 | h0 <;> rw [h0] <;> decide)
+    obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own hwh ⟨_, R.run h hhN⟩ hmodq (R.copy_own' (R.trims M) hhN hmodq hcpq)
+      (spotOf_level _ _ _) (R.region_own (R.trims M) hhN hmodq hrg) hstq hskq (by rcases ht with h0 | h0 <;> rw [h0] <;> decide)
       (by rw [hcvn, hcln]; exact hnsy)
     have hyn' : y ∈ kc.2.type.needs := by
       rcases needsGo_sound _ _ _ _ hz2 with h0 | h0

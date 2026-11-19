@@ -120,24 +120,27 @@ namespace Run
 variable {sp : Roots} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
 
 /-- The own records' run is an `OwnRun`. -/
-theorem ownRun {M : Name} (hM : M ∈ R.names) : OwnRun .verified maxNatSize sp fs M (R.w M) :=
+theorem ownRun {M : Name} (hM : M ∈ R.names) :
+    OwnRun .verified maxNatSize (R.look M) fs M (R.w M) :=
   ⟨_, R.run M hM⟩
 
 /-- **A copy whose proof status is `.yes` is a theorem of its module's own environment**, of the
 copy's statement. -/
-theorem thm_of_status {y T : Name} (hT : T ∈ R.names) (hxT : R.x T = #[])
-    {s : Spot} (hmod : s.part.mod = T) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
-    {r : Region} {cv : ConstantVal} {k : CKindF Name Unit} (hr : PartRegion sp fs s.part r)
+theorem thm_of_status {a : Roots} (ha : a.Trims sp) {y T : Name} (hT : T ∈ R.names)
+    (hxT : R.x T = #[])
+    {s : Spot} (hmod : s.part.mod = T) (hs : CopyAt a fs s) (hl : s.part.level ≠ .server)
+    {r : Region} {cv : ConstantVal} {k : CKindF Name Unit} (hr : PartRegion a fs s.part r)
     (hst : StmtSkel r s.pos.loc cv k) (hsk : s.pos.skipped = false) (hy : cv.name = y)
-    (hsy : y ≠ sorryAxName) (hp : StatusOk sp fs s k .yes) :
+    (hsy : y ≠ sorryAxName) (hp : StatusOk a fs s k .yes) :
     (R.dev (R.rk T)).own.find? y = some (.thmInfo cv) := by
   have htag := hp.1 (fun h => nomatch h)
-  obtain ⟨ci, hci, hcv, -, hthm, -⟩ := copy_own (R.facts₀ hT hxT) (R.ownRun hT) hmod hs hl hr hst hsk
+  obtain ⟨ci, hci, hcv, -, hthm, -⟩ := copy_own (R.facts₀ hT hxT) (R.ownRun hT) hmod
+    (R.copy_own' ha hT hmod hs) hl (R.region_own ha hT hmod hr) hst hsk
     htag (by rw [hy]; exact hsy)
   obtain ⟨cv', rfl⟩ := hthm (by
-    rcases hp.2.1 rfl with h2 | ⟨h0, -, q, hq⟩
+    rcases hp.2.1 rfl with h2 | ⟨h0, -, q, hq, hqp, hqn, hqt⟩
     · exact .inl h2
-    · exact .inr ⟨q, by rw [← hmod]; exact hq⟩)
+    · exact .inr ⟨q, R.copy_own' ha hT (by rw [hqp, hmod]) hq, by rw [hqp, hmod], hqn, hqt⟩)
   obtain rfl : cv' = cv := hcv
   rw [R.dev_rk hT, ← hy]
   exact hci
@@ -195,8 +198,9 @@ theorem agree_loaded {h : Name} (hh : h ∈ R.names) (ih : R.AgreeAll h) {y : Na
   have hT := (R.reached_rank hh (.loaded (at_mod_lt hsize hq))).1
   have hxT := (R.reached_rank hh (.loaded (at_mod_lt hsize hq))).2.2
   have hcvy : cv₀.name = y := hcvn.trans hcln
-  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts₀ hT hxT) (R.ownRun hT) rfl hc
-    (spotOf_level _ _ _) hrg hst hskip ht (by rw [hcvy]; exact hsy)
+  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts₀ hT hxT) (R.ownRun hT) rfl
+    (R.copy_own' (R.trims h) hT rfl hc)
+    (spotOf_level _ _ _) (R.region_own (R.trims h) hT rfl hrg) hst hskip ht (by rw [hcvy]; exact hsy)
   rw [hcvy] at hci'
   replace hci' : (R.dev (R.rk ((R.w h).reads.loads.nameAt cp.mod))).own.find? y = some ci' := by
     rw [R.dev_rk hT]; exact hci'
@@ -230,7 +234,7 @@ theorem agree_loaded {h : Name} (hh : h ∈ R.names) (ih : R.AgreeAll h) {y : Na
         ← (copyAt_kind hc₀ hr₀ hst₀).2, hsk₀]
     obtain ⟨hU, hUlt, hxU⟩ := R.reached_rank hh (.loaded (at_mod_lt hsize hqx))
     have hxs : x.2.1 = cv₀ := SameStmt.eq (workerClash_same hr hcl hx' he)
-    have hthm := R.thm_of_status hU hxU rfl hcx (spotOf_level _ _ _) hrgx hstx hskipx
+    have hthm := R.thm_of_status (R.trims h) hU hxU rfl hcx (spotOf_level _ _ _) hrgx hstx hskipx
       (hcvnx.trans hcln) hsy hyes
     exact .thm hci hci' (hcv'.trans hcicv.symm) hcik hk' (hnames _ he) hres hUlt hthm
       (by rw [hxs, hcicv]) (hnames _ hx')
@@ -245,13 +249,14 @@ theorem proofAt_of {M : Name} (hM : M ∈ R.names) {y : Name}
     (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) {s₁ : Spot}
     (hs₁ : copyOf (R.envOf M) (R.cap M).1 y = some s₁) {T : Name} (hT : T ∈ R.names)
     (hxT : R.x T = #[]) (hTM : R.rk T < R.rk M) {s₂ : Spot}
-    (hmod₂ : s₂.part.mod = T) (hc₂ : CopyAt sp fs s₂) (hl₂ : s₂.part.level ≠ .server)
+    (hmod₂ : s₂.part.mod = T) (hc₂ : CopyAt (R.look M) fs s₂) (hl₂ : s₂.part.level ≠ .server)
     {r₁ : Region} {cv₁ : ConstantVal} {k₁ : CKindF Name Unit} {r₂ : Region} {cv₂ : ConstantVal}
     {k₂ : CKindF Name Unit} {p₁ p₂ : ProofStatus}
-    (hr₁ : PartRegion sp fs s₁.part r₁) (hst₁ : StmtSkel r₁ s₁.pos.loc cv₁ k₁)
-    (hr₂ : PartRegion sp fs s₂.part r₂) (hst₂ : StmtSkel r₂ s₂.pos.loc cv₂ k₂)
+    (hr₁ : PartRegion (R.look M) fs s₁.part r₁) (hst₁ : StmtSkel r₁ s₁.pos.loc cv₁ k₁)
+    (hr₂ : PartRegion (R.look M) fs s₂.part r₂) (hst₂ : StmtSkel r₂ s₂.pos.loc cv₂ k₂)
     (hsk₂ : s₂.pos.skipped = false) (hlp : cv₁.levelParams = cv₂.levelParams)
-    (hty : cv₁.type = cv₂.type) (hs1 : StatusOk sp fs s₁ k₁ p₁) (hs2 : StatusOk sp fs s₂ k₂ p₂)
+    (hty : cv₁.type = cv₂.type) (hs1 : StatusOk (R.look M) fs s₁ k₁ p₁)
+    (hs2 : StatusOk (R.look M) fs s₂ k₂ p₂)
     (hn1 : p₁ ≠ .no) (hn2 : p₂ ≠ .no)
     (hpart : ∀ c ∈ (needsGo {} #[] cv₂.type).2, (s₂.part.mod, c) ∈ (R.cap M).2.2)
     (hpend : p₁ = .yes ∨ p₂ = .yes ∨ ∃ w, (w, y, cv₁) ∈ (R.cap M).2.1)
@@ -260,8 +265,8 @@ theorem proofAt_of {M : Name} (hM : M ∈ R.names) {y : Name}
   obtain ⟨ci, hci, hcicv, hcik, hc₁, hl₁, hsk₁, hcv1y, hsy, hM1, hxM1⟩ :=
     R.ctx_stmt hM hy hs₁ hr₁ hst₁ (hs1.1 hn1)
   obtain rfl : cv₂ = cv₁ := SameStmt.eq ⟨hname₂.trans hcv1y.symm, hty.symm, hlp.symm⟩
-  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts₀ hT hxT) (R.ownRun hT) hmod₂ hc₂ hl₂
-    hr₂ hst₂ hsk₂ (hs2.1 hn2) (by rw [hcv1y]; exact hsy)
+  obtain ⟨ci', hci', hcv', hk', -, hfresh⟩ := copy_own (R.facts₀ hT hxT) (R.ownRun hT) hmod₂
+    (R.copy_own' (R.trims M) hT hmod₂ hc₂) hl₂ (R.region_own (R.trims M) hT hmod₂ hr₂) hst₂ hsk₂ (hs2.1 hn2) (by rw [hcv1y]; exact hsy)
   rw [hcv1y] at hci'
   have hname : ∀ c ∈ ci.toConstantVal.type.readNames, (R.dev (R.rk M)).rank c < (R.dev (R.rk M)).rank y ∧
       ((R.dev (R.rk M)).context.find? c).isSome = true := fun c hc => by
@@ -273,10 +278,10 @@ theorem proofAt_of {M : Name} (hM : M ∈ R.names) {y : Name}
   rcases hpend with h2 | h2 | ⟨w, hw⟩
   · -- the context's copy is a theorem of its module, whose names are its record's reads
     obtain ⟨-, hlt, hrd⟩ := R.ctx_reads hM hci hs₁
-    exact .inr ⟨_, cv₂, hlt, R.thm_of_status hM1 hxM1 rfl hc₁ hl₁ hr₁ hst₁ hsk₁ hcv1y hsy (h2 ▸ hs1),
+    exact .inr ⟨_, cv₂, hlt, R.thm_of_status (R.trims M) hM1 hxM1 rfl hc₁ hl₁ hr₁ hst₁ hsk₁ hcv1y hsy (h2 ▸ hs1),
       hcicv.symm, fun c hc => ⟨hrd c hc, hname c hc⟩⟩
   · -- the view's copy is a theorem of its module
-    exact .inr ⟨_, cv₂, hTM, R.thm_of_status hT hxT hmod₂ hc₂ hl₂ hr₂ hst₂ hsk₂
+    exact .inr ⟨_, cv₂, hTM, R.thm_of_status (R.trims M) hT hxT hmod₂ hc₂ hl₂ hr₂ hst₂ hsk₂
       (hname₂) hsy (h2 ▸ hs2), hcicv.symm, fun c hc => ⟨⟨T, rfl,
         hmod₂ ▸ hpart c (readNames_needsGo (by rw [← hcicv]; exact hc))⟩, hname c hc⟩⟩
   · -- neither: the statement, inferred over the part below the name
@@ -300,7 +305,7 @@ theorem route {M : Name} (hM : M ∈ R.names)
     rw [hcpm] at hag
     exact ⟨R.rk s₁.part.mod, .inr ⟨hctx, hlt, hag⟩, .inl hsrc.symm⟩
   obtain ⟨hc₂, hl₂, hnm₂⟩ := homeView_copy hv hv2
-  have hidx := (homeView_index hwh (fun _ _ a b => headerFixpoint_unique a b) hv y).1 s₂ hv2
+  have hidx := (homeView_index (R.trims M) (R.trims h) hwh (fun _ _ a b => headerFixpoint_unique a b) hv y).1 s₂ hv2
   obtain ⟨_, _, hr⟩ := hwh.reads
   obtain ⟨-, -, -, -, hsize, -⟩ := workerReads_loads hr
   -- an importer copy at the reader: a module of smaller rank, read from where the reader stores it

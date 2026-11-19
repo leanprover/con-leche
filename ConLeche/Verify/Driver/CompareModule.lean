@@ -39,10 +39,13 @@ the home's private part names). -/
     cmpCtxRecord uses d (r.ctx.getD k default) (r.homes.getD k .anonymous) kindS = .ok f
 
 /-- **What an exit 0 of the compare worker establishes** (see the module docstring). -/
-structure CmpFacts (sp : Roots) (fs : FS) (C S : Name) (jobs : Nat) (c : CmpModuleRead) :
+structure CmpFacts (spC sp : Roots) (fs : FS) (C S : Name) (jobs : Nat) (c : CmpModuleRead) :
     Prop where
   facts : WorkerFacts sp fs C jobs c.w #[Graph.solutionImport S]
-  view : ModelIO.CanGive (workerReads (.ofPath sp) C jobs) fs (.ok c.view)
+  /-- the home, read through the challenge's lookup -/
+  home : ∃ f, ModelIO.CanGive (readFiles spC C .private) fs (.ok f) ∧
+    homeOf C f = .ok (c.w.home, c.w.expo)
+  view : ModelIO.CanGive (workerReads (.ofPath spC) C jobs) fs (.ok c.view)
   imported : ∀ y ∈ cmpImported c.w.home c.w.emitted,
     importedAt c.view c.w.reach (ownerMap c.w.reach.ctx) y = none
   cmp : ∀ d ∈ c.w.emitted, CmpAt (ownUses c.w.home) c.w.reach (ownerMap c.w.reach.ctx) d
@@ -98,17 +101,19 @@ theorem findSome?_none {α β : Type} {f : α → Option β} :
 
 /-- **The compare worker's accept** is `CmpFacts`, whatever the heartbeat answered, for any reads
 `rd` that refine the search path's. -/
-theorem cmpModuleRead_ok {rd : OleanReads ModelIO} {sp : Roots} {C S : Name} {pace : Pace}
-    {t0 jobs : Nat} {fs : FS} {c : CmpModuleRead} (hrd : OleanReads.Within fs rd sp)
-    {hs hs' : HS} (h : (cmpModuleRead rd C S pace t0 jobs : ModelIO _) fs hs (.ok (.ok c)) hs') :
-    CmpFacts sp fs C S jobs c := by
+theorem cmpModuleRead_ok {rdC rd : OleanReads ModelIO} {spC sp : Roots} (hC : spC.Trims sp)
+    {C S : Name} {pace : Pace}
+    {t0 jobs : Nat} {fs : FS} {c : CmpModuleRead} (hrdC : OleanReads.Within fs rdC spC)
+    (hrd : OleanReads.Within fs rd sp)
+    {hs hs' : HS} (h : (cmpModuleRead rdC rd C S pace t0 jobs : ModelIO _) fs hs (.ok (.ok c)) hs') :
+    CmpFacts spC sp fs C S jobs c := by
   unfold cmpModuleRead at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨x, _, hx, h⟩ := h
   rcases x with e | f
   · simp at h
-  have hf : ModelIO.CanGive (readFiles sp C .private) fs (.ok f) :=
-    (hrd.files C .private).canGive ⟨_, _, hx⟩
+  have hf : ModelIO.CanGive (readFiles spC C .private) fs (.ok f) :=
+    (hrdC.files C .private).canGive ⟨_, _, hx⟩
   simp only at h
   cases hh : homeOf C f with
   | error e => simp [hh] at h
@@ -156,9 +161,9 @@ theorem cmpModuleRead_ok {rd : OleanReads ModelIO} {sp : Roots} {C S : Name} {pa
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
   subst h
-  refine ⟨⟨⟨f, hf, hh⟩, (workerReads_within hrd C jobs _).canGive ⟨_, _, hy⟩, hds,
+  refine ⟨⟨⟨f, readFiles_trims hC hf, hh⟩, (workerReads_within hrd C jobs _).canGive ⟨_, _, hy⟩, hds,
     (reach_within hrd C wr _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl,
-    cacheOK_empty⟩, (workerReads_within hrd C jobs #[]).canGive ⟨_, _, hv⟩,
+    cacheOK_empty⟩, ⟨f, hf, hh⟩, (workerReads_within hrdC C jobs #[]).canGive ⟨_, _, hv⟩,
     fun y hy => findSome?_none hi y (Array.mem_toList_iff.2 hy),
     fun d hd => cmpAll_ok _ _ hu d (Array.mem_toList_iff.2 hd)⟩
 
@@ -166,12 +171,14 @@ theorem cmpModuleRead_ok {rd : OleanReads ModelIO} {sp : Roots} {C S : Name} {pa
 challenge `C` and solution `S` over a snapshot `fs` that is an exit 0 is `CmpFacts`, at any
 `--jobs` and pace, whatever the `liftIO` actions answered, for any reads that refine the search
 path's. -/
-theorem checkCmpModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {C S : Name}
-    {mode : CheckMode} {pace : Pace} {jobs : Nat} {fs : FS} (hrd : OleanReads.Within fs rd sp)
-    {hs hs' : HS} (h : (checkCmpModuleG rd C S mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
-    ∃ c, CmpFacts sp fs C S jobs c := by
-  suffices H : ModelIO.AllOk (checkCmpModuleG rd C S mode pace jobs) fs hs
-      (fun v => v = 0 → ∃ c, CmpFacts sp fs C S jobs c) from H 0 hs' h rfl
+theorem checkCmpModuleG_accept {rdC rd : OleanReads ModelIO} {spC sp : Roots} (hC : spC.Trims sp)
+    {C S : Name}
+    {mode : CheckMode} {pace : Pace} {jobs : Nat} {fs : FS} (hrdC : OleanReads.Within fs rdC spC)
+    (hrd : OleanReads.Within fs rd sp)
+    {hs hs' : HS} (h : (checkCmpModuleG rdC rd C S mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+    ∃ c, CmpFacts spC sp fs C S jobs c := by
+  suffices H : ModelIO.AllOk (checkCmpModuleG rdC rd C S mode pace jobs) fs hs
+      (fun v => v = 0 → ∃ c, CmpFacts spC sp fs C S jobs c) from H 0 hs' h rfl
   simp only [checkCmpModuleG, clockMs, diagLine, outLine, ModelIO.allOk_bind, ModelIO.liftIO_iff]
   rintro t0 _ rfl - _ rfl x _ hx
   rcases x with e | c
@@ -179,7 +186,7 @@ theorem checkCmpModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {C S : Nam
     rintro - _ rfl h0
     exact absurd h0 (CheckError.exitCode_ne_zero _)
   · intro v _ _ _
-    exact ⟨c, cmpModuleRead_ok hrd hx⟩
+    exact ⟨c, cmpModuleRead_ok hC hrdC hrd hx⟩
 
 /-! ## The challenge's environment -/
 

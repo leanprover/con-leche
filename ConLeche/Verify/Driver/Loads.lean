@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Frontend.ModelIO
+public import ConLeche.Verify.Frontend.Olean.Roots
 import ConLeche.Verify.Frontend.Olean.Files
 import Std.Data.HashSet.Lemmas
 import ConLeche.Verify.Frontend.Olean.Engine
@@ -781,6 +782,77 @@ theorem levelsGo_unique {sp : Roots} {fs : FS} {gPriv : Bool} :
           · simp at h₂
           obtain rfl := moduleImports_unique hr₁ hr₂
           exact levelsGo_unique fuel _ _ h₁ h₂
+
+/-! ## Through a lookup and its trimmed copy (task #608) -/
+
+/-- **The worklist through a trimmed lookup, accepted, is the full lookup's**, from the same
+handles: every header it read, the full lookup reads alike. -/
+theorem levelsGo_trims {a L : Roots} (ha : a.Trims L) {fs : FS} {gPriv : Bool} :
+    ∀ (fuel : Nat) (ws : List LvWork) (st : LvState) {hs hs' : HS} {r : LvState},
+      (levelsGo (moduleImports a) gPriv fuel ws st : ModelIO _) fs hs (.ok (.ok r)) hs' →
+      (levelsGo (moduleImports L) gPriv fuel ws st : ModelIO _) fs hs (.ok (.ok r)) hs'
+  | _, [], st, _, _, _, h => by
+    simpa only [levelsGo] using h
+  | 0, _ :: _, _, _, _, _, h => by simp [levelsGo] at h
+  | fuel + 1, .done m fl :: rest, st, _, _, _, h => by
+    simp only [levelsGo] at h ⊢
+    exact levelsGo_trims ha fuel _ _ h
+  | fuel + 1, .imp pf i :: rest, st, _, _, _, h => by
+    rw [levelsGo] at h ⊢
+    split at h
+    · rename_i hc
+      simp only [hc, ↓reduceIte]
+      exact levelsGo_trims ha fuel _ _ h
+    · rename_i hc
+      simp only [hc, Bool.false_eq_true, ↓reduceIte]
+      dsimp only at h ⊢
+      cases hold : st.flags[i.module]? with
+      | some old =>
+        simp only [hold] at h ⊢
+        split at h
+        · rename_i hf
+          simp only [hf, ↓reduceIte]
+          exact levelsGo_trims ha fuel _ _ h
+        · rename_i hf
+          simp only [hf, Bool.false_eq_true, ↓reduceIte]
+          exact levelsGo_trims ha fuel _ _ h
+      | none =>
+        simp only [hold] at h ⊢
+        split at h
+        · simp at h
+        · rename_i ho
+          simp only [ho, Bool.false_eq_true, ↓reduceIte]
+          simp only [ModelIO.bind_ok] at h ⊢
+          obtain ⟨r₁, hs₁, hr₁, h⟩ := h
+          rcases r₁ with e | is₁
+          · simp at h
+          exact ⟨_, hs₁, atModule_trims (k := fun loc => readImportsAt loc i.module) ha hr₁,
+            levelsGo_trims ha fuel _ _ h⟩
+
+/-- **The header fixpoint through a trimmed lookup, accepted, is the full lookup's.** -/
+theorem headerFixpoint_trims {a L : Roots} (ha : a.Trims L) {fs : FS} {isM : Bool}
+    {imps0 : Array ImportRec} {ld : Loads}
+    (h : ModelIO.CanGive (headerFixpoint (moduleImports a) isM imps0) fs (.ok ld)) :
+    ModelIO.CanGive (headerFixpoint (moduleImports L) isM imps0) fs (.ok ld) := by
+  obtain ⟨hs, hs', h⟩ := h
+  refine ⟨hs, hs', ?_⟩
+  simp only [headerFixpoint, ModelIO.bind_ok] at h ⊢
+  obtain ⟨r₁, hs₁, hr₁, h⟩ := h
+  rcases r₁ with e | st
+  · simp at h
+  exact ⟨_, hs₁, levelsGo_trims ha _ _ _ hr₁, h⟩
+
+theorem ImpReach.trims {a L : Roots} (ha : a.Trims L) {fs : FS} {imps0 : Array ImportRec}
+    {m : Name} (h : ImpReach a fs imps0 m) : ImpReach L fs imps0 m := by
+  induction h with
+  | root hi => exact .root hi
+  | step _ hc hi ih => exact .step ih (moduleImports_trims ha hc) hi
+
+theorem PubReach.trims {a L : Roots} (ha : a.Trims L) {fs : FS} {x m : Name}
+    (h : PubReach a fs x m) : PubReach L fs x m := by
+  induction h with
+  | refl => exact .refl
+  | step _ hc hi he ih => exact .step ih (moduleImports_trims ha hc) hi he
 
 /-- **The header fixpoint is determined on a snapshot.** -/
 theorem headerFixpoint_unique {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}

@@ -46,7 +46,7 @@ variable (R : Run sp fs maxNatSize)
 
 /-- The reach's environment at module `M`'s worker. -/
 @[expose] def envOf (M : Name) : ReachEnv ModelIO :=
-  { rd := .ofPath sp, mod := M, wr := (R.w M).reads, own := ownOf (R.x M) (R.w M),
+  { rd := .ofPath (R.look M), mod := M, wr := (R.w M).reads, own := ownOf (R.x M) (R.w M),
     copies := clashCopiesOf (R.w M).reads }
 
 /-- **The capture facts of module `M`'s worker** over completions `loc`, inferences `pend` and
@@ -58,17 +58,17 @@ passed reads `P` (`Run.capture`'s statement). -/
   let r := (R.w M).reach
   r.ctx.size = r.homes.size ∧
   (∀ (k : Nat) (d : Declaration) (hm : Name), r.ctx[k]? = some d → r.homes[k]? = some hm →
-    (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt sp fs d s) ∧
+    (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt (R.look M) fs d s) ∧
     (∀ n ∈ declNames d, ∃ s, copyOf env loc n = some s ∧ s.part.mod = hm) ∧
     (∀ y ∈ recordReads d, (hm, y) ∈ P) ∧
     (∀ n ∈ declNames d, ∀ cs, env.copies[n]? = some cs → ∀ kc ∈ cs,
       ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
-  (∀ x ∈ P, Passed sp fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
-  (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
+  (∀ x ∈ P, Passed (R.look M) fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
+  (∀ cl ∈ wr.clashes, ClashOk (R.look M) fs wr (· ∈ pend) cl) ∧
   inferFlags r.ctx.toList pend = .ok () ∧
   (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
-    s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod ∧ s.pos.name = y) ∧
-  (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x)
+    s.part.level = .private ∧ CopyAt (R.look M) fs s ∧ Reached (R.look M) fs wr s.part.mod ∧ s.pos.name = y) ∧
+  (∀ x ∈ P, Reached (R.look M) fs wr x.1 ∧ Origin (R.look M) fs env r.ctx r.homes x)
 
 theorem capFacts_exists {M : Name} (hM : M ∈ R.names) :
     ∃ loc pend P, R.CapFacts M loc pend P := R.capture hM
@@ -202,14 +202,15 @@ theorem iface_presented {M : Name} (hM : M ∈ R.names) :
   have hd : R.dev (R.rk M) = R.modOf M := R.dev_rk hM
   have hw := R.facts M hM
   refine ⟨?_, fun d hdm n hn => ?_⟩
-  · have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (M' : Name) (jM : Nat) (wM : WorkerRead)
-        (xM : Array ImportRec) (i : Nat), WorkerFacts sp fs M' jM wM xM ∧
-          wM.reach.ctx[i]? = some e ∧ wM.reach.homes[i]? = some M := fun e he => by
+  · have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (a : Roots) (M' : Name) (jM : Nat)
+        (wM : WorkerRead) (xM : Array ImportRec) (i : Nat), a.Trims sp ∧
+          WorkerFacts a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+          wM.reach.homes[i]? = some M := fun e he => by
       rw [hd] at he
       obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
-      exact ⟨M', R.jobs M', R.w M', R.x M', i, R.facts M' hM', h1, h2⟩
+      exact ⟨R.look M', M', R.jobs M', R.w M', R.x M', i, R.trims M', R.facts M' hM', h1, h2⟩
     by_cases hx : R.x M = #[]
-    · exact interfaceOk_of_workers (R.facts₀ hM hx) R.dev (R.rk M) (by rw [hd]; rfl) hiface
+    · exact interfaceOk_of_workers (R.trims M) (R.facts₀ hM hx) R.dev (R.rk M) (by rw [hd]; rfl) hiface
     · refine ⟨fun e he => ?_⟩
       rw [hd] at he
       obtain ⟨M'', hM'', i', -, h2'⟩ := (R.mem_ifaceOf).1 he
@@ -270,9 +271,9 @@ theorem passed_open {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) �
     (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) :
     h ∈ R.names ∧ R.rk h < R.rk M ∧ R.x h = #[] ∧ ∃ s₁, copyOf (R.envOf M) (R.cap M).1 y = some s₁ ∧
       (R.dev (R.rk M)).src y = R.rk s₁.part.mod ∧
-      (s₁.part.mod = h ∨ PubRoute sp fs (R.envOf M) h y s₁ ∨
-        ∃ v s₂, HomeView sp fs h v ∧ v[y]? = some s₂ ∧
-          AgreeOk sp fs (· ∈ (R.cap M).2.1) (· ∈ (R.cap M).2.2) y s₁ s₂) := by
+      (s₁.part.mod = h ∨ PubRoute (R.look M) fs (R.envOf M) h y s₁ ∨
+        ∃ v s₂, HomeView (R.look M) fs h v ∧ v[y]? = some s₂ ∧
+          AgreeOk (R.look M) fs (· ∈ (R.cap M).2.1) (· ∈ (R.cap M).2.2) y s₁ s₂) := by
   obtain ⟨-, -, hpass, -, -, -, hreach⟩ := R.cap_facts hM
   obtain ⟨hhn, hhr⟩ := R.reached_rank hM (hreach _ hP).1
   obtain ⟨s₁, hs₁, hb⟩ := hpass _ hP

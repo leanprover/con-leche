@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.Reach
 public import ConLeche.Verify.Frontend.ModelIO
+public import ConLeche.Verify.Frontend.Olean.Roots
 import ConLeche.Verify.Frontend.Olean.Present
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Olean.Reads
@@ -148,6 +149,78 @@ inductive RecordFrom (sp : Roots) (fs : FS) : Declaration → Name → Prop
   /-- an inductive group, read from the source's private part -/
   | group {h n : Name} {d : Declaration} (hg : GroupRead sp fs ⟨h, .private⟩ n d) :
       RecordFrom sp fs d h
+
+/-! ## Moving reads of one module between two lookups (task #608)
+
+A compared modular run reads some modules through a lookup and others through it without its
+fallback (`Roots.Trims`).  What one lookup read of a module's files, the other reads alike
+wherever it finds the module (`readPartNames_move`, …). -/
+
+section Move
+
+variable {a b L : Roots} {fs : FS} {lb : Located}
+
+theorem PartNames.move (ha : a.Trims L) (hb : b.Trims L) {k : PartKey} {t : NamePositions}
+    (hfb : ModelIO.CanGive (findModule b k.mod) fs (.ok lb)) (h : PartNames a fs k t) :
+    PartNames b fs k t :=
+  readPartNames_move (x := (k.mod, k.level)) ha hb hfb h
+
+theorem PartNames.trims (ha : a.Trims L) {k : PartKey} {t : NamePositions}
+    (h : PartNames a fs k t) : PartNames L fs k t :=
+  readPartNames_trims (x := (k.mod, k.level)) ha h
+
+theorem PartFiles.move (ha : a.Trims L) (hb : b.Trims L) {k : PartKey} {f : ModFiles}
+    (hfb : ModelIO.CanGive (findModule b k.mod) fs (.ok lb)) (h : PartFiles a fs k f) :
+    PartFiles b fs k f :=
+  readFiles_move ha hb hfb h
+
+theorem CopyAt.move (ha : a.Trims L) (hb : b.Trims L) {s : Spot}
+    (hfb : ModelIO.CanGive (findModule b s.part.mod) fs (.ok lb)) (h : CopyAt a fs s) :
+    CopyAt b fs s :=
+  let ⟨t, ht, hq⟩ := h
+  ⟨t, ht.move ha hb hfb, hq⟩
+
+theorem PartRegion.move (ha : a.Trims L) (hb : b.Trims L) {k : PartKey} {r : Region}
+    (hfb : ModelIO.CanGive (findModule b k.mod) fs (.ok lb)) (h : PartRegion a fs k r) :
+    PartRegion b fs k r :=
+  let ⟨f, x, hf, hr⟩ := h
+  ⟨f, x, hf.move ha hb hfb, hr⟩
+
+theorem GroupRead.move (ha : a.Trims L) (hb : b.Trims L) {k : PartKey} {n : Name}
+    {d : Declaration} (hfb : ModelIO.CanGive (findModule b k.mod) fs (.ok lb))
+    (h : GroupRead a fs k n d) : GroupRead b fs k n d := by
+  obtain ⟨t, q, tE, np, ni, nn, all, cs, ir, iu, irf, mqs, cqs, tys, rest, t', rb, r₁, r₂, r₃, r₄,
+    h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩ := h
+  exact ⟨t, q, tE, np, ni, nn, all, cs, ir, iu, irf, mqs, cqs, tys, rest, t', rb, r₁, r₂, r₃, r₄,
+    h1.move ha hb hfb, h2, h3.move ha hb hfb, h4, h5, h6, h7.move ha hb hfb, h8, h9,
+    h10.move ha hb hfb, h11.move ha hb hfb, h12, h13.move ha hb hfb, h14, h15⟩
+
+/-- A part whose table a lookup reads, it finds the module of. -/
+theorem PartNames.found {k : PartKey} {t : NamePositions} (h : PartNames a fs k t) :
+    ∃ loc, ModelIO.CanGive (findModule a k.mod) fs (.ok loc) := by
+  obtain ⟨hs, hs', h⟩ := h
+  simp only [readPartNames, ModelIO.bind_ok] at h
+  obtain ⟨x, hs₁, hx, hk⟩ := h
+  rcases x with e | loc
+  · simp at hk
+  exact ⟨loc, hs, hs₁, hx⟩
+
+/-- **A record read from module `h` through one lookup is read alike through the other**, where
+that one finds `h`. -/
+theorem RecordFrom.move (ha : a.Trims L) (hb : b.Trims L) {d : Declaration} {h : Name}
+    (hfb : ModelIO.CanGive (findModule b h) fs (.ok lb)) (hd : RecordFrom a fs d h) :
+    RecordFrom b fs d h := by
+  cases hd with
+  | stmt hs hl hr hst hsk hg hq hd hred =>
+    exact .stmt (hs.move ha hb hfb) hl (hr.move ha hb hfb) hst hsk hg hq hd fun hc =>
+      let ⟨q, hq, hp, hn, ht⟩ := hred hc
+      ⟨q, hq.move ha hb (by rw [hp]; exact hfb), hp, hn, ht⟩
+  | entry hs hl hr he hr₀ hst hk hsk hd =>
+    exact .entry (hs.move ha hb hfb) hl (hr.move ha hb hfb) he (hr₀.move ha hb hfb) hst hk hsk hd
+  | quot hs hl hr hst hd => exact .quot (hs.move ha hb hfb) hl (hr.move ha hb hfb) hst hd
+  | group hg => exact .group (hg.move ha hb hfb)
+
+end Move
 
 /-! ## The reach's environment and caches -/
 

@@ -52,6 +52,13 @@ theorem CmpReq.solRoots_bare (r : CmpReq) : r.solRoots.bare = r.solRoots := by
   unfold CmpReq.solRoots
   split <;> rfl
 
+/-- **The challenge's lookup is the solution's without its fallback** (task #608). -/
+theorem CmpReq.chal_trims (r : CmpReq) : r.chalRoots.Trims r.solRoots := by
+  unfold CmpReq.chalRoots CmpReq.solRoots
+  split
+  · exact Roots.Trims.refl _
+  · exact Or.inr ⟨rfl, rfl⟩
+
 /-- A failed read's verdict is no exit 0. -/
 theorem readFailed_ne {modeTag label : String} {x : CheckError × Nat} {fs : FS} {hs : HS} :
     ModelIO.AllOk (readFailed modeTag label x) fs hs (fun c => c ≠ 0) := by

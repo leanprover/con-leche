@@ -167,7 +167,10 @@ def helpText : String := String.intercalate "\n" [
   "  --trusted-search-path=DIRS",
   "                      With --compare: CHALLENGE and all it imports are read",
   "                      from DIRS only; SOLUTION's modules from DIRS first,",
-  "                      then --search-path. Colon-separated; repeatable",
+  "                      then --search-path (with --schedule, the commands",
+  "                      read so too). With --module alone: MODULE's closure",
+  "                      read from DIRS first, then --search-path.",
+  "                      Colon-separated; repeatable",
   "  --check-graph       Check only that the modules' import graph is acyclic",
   "                      and that every import is on the search path",
   "  --module            Check MODULE's own declarations alone, against what",
@@ -376,8 +379,9 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
       if a.checkGraph then
         -- `--check-graph`: the arguments are root modules; only their closure's import graph
         -- is read and checked (`Graph.checkGraphG`)
-        if a.olean || a.module || !a.constants.isEmpty || !a.trustedPath.isEmpty then
-          eprintln "con-leche: --check-graph takes none of --olean, --module, --constant and --trusted-search-path"
+        if a.olean || a.module || !a.constants.isEmpty || (!a.trustedPath.isEmpty && !a.compare) then
+          eprintln "con-leche: --check-graph takes none of --olean, --module and --constant, and \
+            --trusted-search-path only with --compare"
           eprintln tryHelp
           return 3
         if a.files.isEmpty || a.searchPath.isEmpty then
@@ -401,13 +405,13 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
                 its solution"
               eprintln tryHelp
               return 3
-            return ← runReq (.graph a.searchPath [c] jobs (some s))
+            return ← runReq (.graph a.trustedPath a.searchPath [c] jobs (some s))
           | _ =>
             eprintln "con-leche: --check-graph --compare takes two module names, a challenge \
               and its solution"
             eprintln tryHelp
             return 3
-        return ← runReq (.graph a.searchPath
+        return ← runReq (.graph [] a.searchPath
           (a.files.filterMap Frontend.Olean.parseModName).toList jobs none)
       if a.olean then
         -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
@@ -441,19 +445,19 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
               eprintln tryHelp
               return 3
             if a.module || a.modular || a.scheduled then
-              if !a.constants.isEmpty || !a.trustedPath.isEmpty ||
+              if !a.constants.isEmpty ||
                   (a.module && a.scheduled) || (a.modular && (a.module || a.scheduled)) then
                 eprintln "con-leche: --compare with --module, --modular or --schedule takes \
-                  one of them, and neither --constant nor --trusted-search-path"
+                  one of them, and no --constant"
                 eprintln tryHelp
                 return 3
               if a.module then
-                return ← runReq (.cmpModule a.searchPath c s a.mode a.progress jobs)
+                return ← runReq (.cmpModule a.trustedPath a.searchPath c s a.mode a.progress jobs)
               if a.modular then
-                return ← runReq (.modular a.searchPath c (some s) a.mode a.maxNatSize a.progress
-                  jobs)
-              return ← runReq (.schedule a.searchPath c (some s) a.schedule.toList a.mode
-                a.maxNatSize a.progress jobs a.jobs.isSome)
+                return ← runReq (.modular a.trustedPath a.searchPath c (some s) a.mode
+                  a.maxNatSize a.progress jobs)
+              return ← runReq (.schedule a.trustedPath a.searchPath c (some s) a.schedule.toList
+                a.mode a.maxNatSize a.progress jobs a.jobs.isSome)
             return ← runReq (.compare ⟨c, s, a.trustedPath, a.searchPath, a.rootConstants⟩
               a.mode a.maxNatSize a.progress jobs)
           | _ =>
@@ -461,8 +465,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
               solution"
             eprintln tryHelp
             return 3
-        if !a.trustedPath.isEmpty then
-          eprintln "con-leche: --trusted-search-path takes --compare"
+        if !a.trustedPath.isEmpty && (!a.module || a.modular || a.scheduled) then
+          eprintln "con-leche: --trusted-search-path takes --compare or --module"
           eprintln tryHelp
           return 3
         if a.scheduled then
@@ -470,8 +474,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
               a.module || a.modular with
           | [m], true, false =>
-            return ← runReq (.schedule a.searchPath m none a.schedule.toList a.mode a.maxNatSize
-              a.progress jobs a.jobs.isSome)
+            return ← runReq (.schedule [] a.searchPath m none a.schedule.toList a.mode
+              a.maxNatSize a.progress jobs a.jobs.isSome)
           | _, _, _ =>
             eprintln "con-leche: --schedule takes one module name, and none of --constant, \
               --module and --modular"
@@ -482,7 +486,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
               a.module with
           | [m], true, false =>
-            return ← runReq (.modular a.searchPath m none a.mode a.maxNatSize a.progress jobs)
+            return ← runReq (.modular [] a.searchPath m none a.mode a.maxNatSize a.progress jobs)
           | _, _, _ =>
             eprintln "con-leche: --modular takes one module name, and neither --constant nor \
               --module"
@@ -492,7 +496,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           -- `--module`: one module, checked alone (`checkModuleG`)
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty with
           | [m], true =>
-            return ← runReq (.module a.searchPath m a.mode a.maxNatSize a.progress jobs)
+            return ← runReq (.module a.trustedPath a.searchPath m a.mode a.maxNatSize a.progress
+              jobs)
           | _, _ =>
             eprintln "con-leche: --module takes one module name and no --constant"
             eprintln tryHelp

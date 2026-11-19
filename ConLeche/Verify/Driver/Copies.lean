@@ -8,6 +8,7 @@ import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Driver.Provenance
+import ConLeche.Verify.Driver.Loads
 public import ConLeche.Verify.Driver.ReachFrom
 public import ConLeche.Verify.Driver.Worker
 
@@ -688,13 +689,14 @@ no loaded module's (freshness), or the view's copy is the home's importer copy, 
 index's first copy at the part its module is loaded at (`importerSpot`'s spot); a name the view
 does not hold no loaded module holds.  Header-fixpoint determinism is a hypothesis
 (`hdet`, `Loads.lean`'s). -/
-theorem homeView_index {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
+theorem homeView_index {sp a L : Roots} (ha : a.Trims L) (hsL : sp.Trims L) {fs : FS} {M : Name}
+    {jobs : Nat} {w : WorkerRead}
     (hw : WorkerFacts sp fs M jobs w)
-    (hdet : ∀ ld ld', ModelIO.CanGive (headerFixpoint (moduleImports sp)
+    (hdet : ∀ ld ld', ModelIO.CanGive (headerFixpoint (moduleImports L)
         w.reads.own.header.isModule w.reads.own.header.imports) fs (.ok ld) →
-      ModelIO.CanGive (headerFixpoint (moduleImports sp)
+      ModelIO.CanGive (headerFixpoint (moduleImports L)
         w.reads.own.header.isModule w.reads.own.header.imports) fs (.ok ld') → ld = ld')
-    {v : Std.HashMap Name Spot} (hv : HomeView sp fs M v) (y : Name) :
+    {v : Std.HashMap Name Spot} (hv : HomeView a fs M v) (y : Name) :
     (∀ s, v[y]? = some s →
       (s.part = ⟨M, .private⟩ ∧ w.reads.index.first[y]? = none) ∨
       ∃ cp q, w.reads.index.first[y]? = some cp ∧ w.reads.index.at cp = some q ∧
@@ -706,8 +708,8 @@ theorem homeView_index {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worke
   obtain ⟨⟨own, hown, hwo⟩, hld, ⟨parts, hplen, hparts, hix⟩, hfresh⟩ := workerReads_spec hr
   rw [NamePositions.withImports_empty] at hwo
   rw [← hwo] at hown
-  obtain rfl := partNames_eq hown' hown
-  obtain rfl := hdet _ _ hld' hld
+  obtain rfl := partNames_eq (hown'.trims ha) (hown.trims hsL)
+  obtain rfl := hdet _ _ (headerFixpoint_trims ha hld') (headerFixpoint_trims hsL hld)
   generalize hK : ((w.reads.loads.order.zip w.reads.loads.flags).toList.map
     fun (x : Name × LoadFlags) => (⟨x.1, x.2.level⟩ : PartKey)) = K
   have hvk : viewKeys M w.reads.loads = ⟨M, .private⟩ :: K := by rw [← hK]; rfl
@@ -715,7 +717,7 @@ theorem homeView_index {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worke
   cases ts with
   | nil => simp at hlen
   | cons t0 ts' =>
-  obtain rfl : t0 = w.reads.own := partNames_eq (hts _ _ (by simp)) hown
+  obtain rfl : t0 = w.reads.own := partNames_eq ((hts _ _ (by simp)).trims ha) (hown.trims hsL)
   simp only [List.length_cons, Nat.add_right_cancel_iff] at hlen
   have hKlen : K.length = parts.length := by rw [hplen, ← hK]; simp
   have hts' : ts' = parts := by
@@ -731,7 +733,7 @@ theorem homeView_index {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worke
       rw [List.getElem?_eq_getElem (by simpa using hKi)] at hx
       exact (Option.some.inj hx).symm
     subst hxK
-    exact partNames_eq hpt hxr
+    exact partNames_eq (hpt.trims ha) (PartNames.trims hsL hxr)
   subst hts'
   rw [viewFold_get, List.zip_cons_cons]
   simp only [Std.HashMap.getElem?_empty, Option.none_or, firstIn]

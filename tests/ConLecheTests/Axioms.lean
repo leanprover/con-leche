@@ -190,6 +190,18 @@ info: 'ConLeche.main_compare_modular_one_solves' depends on axioms: [propext, Cl
 #print axioms ConLeche.main_compare_modular_one_solves
 
 /--
+info: 'ConLeche.main_compare_modular_trusted_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_modular_trusted_solves
+
+/--
+info: 'ConLeche.main_compare_modular_one_trusted_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_modular_one_trusted_solves
+
+/--
 info: 'ConLeche.Frontend.Olean.challenge_local' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in

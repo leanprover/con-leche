@@ -253,20 +253,32 @@ def memLog : String :=
 #guard shellQuote "$HOME" = "'$HOME'"
 
 -- the commands: the graph check first, then a worker per module, in the order given
-#guard commandLines "/bin/con-leche" "/l:/i" (nm "R") none [nm "B", nm "R"]
-    (workerArgs .verified 99 "/l:/i" none) =
+#guard commandLines "/bin/con-leche" (pathArgs "" "/l:/i") (nm "R") none [nm "B", nm "R"]
+    (workerArgs .verified 99 (pathArgs "" "/l:/i") none) =
   ["/bin/con-leche --check-graph --search-path=/l:/i -- '«R»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«B»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«R»'"]
 -- a compared challenge (task #608): the graph with the solution added, the compare worker at it
-#guard commandLines "/bin/con-leche" "/l:/i" (nm "C") (some (nm "S")) [nm "S", nm "C"]
-    (fun m => if m == nm "C" then cmpWorkerArgs .verified "/l:/i" none (nm "C") (nm "S")
-      else workerArgs .verified 99 "/l:/i" none m) =
+#guard commandLines "/bin/con-leche" (pathArgs "" "/l:/i") (nm "C") (some (nm "S")) [nm "S", nm "C"]
+    (fun m => if m == nm "C" then cmpWorkerArgs .verified (pathArgs "" "/l:/i") none (nm "C") (nm "S")
+      else workerArgs .verified 99 (pathArgs "" "/l:/i") none m) =
   ["/bin/con-leche --check-graph --compare --search-path=/l:/i -- '«C»' '«S»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«S»'",
    "/bin/con-leche --olean --module --compare --verified --search-path=/l:/i -- '«C»' '«S»'"]
+-- with a trusted path: the challenge's closure through it alone, the rest through it, then the
+-- search path
+#guard commandLines "/bin/con-leche" (pathArgs "/t" "/l") (nm "C") (some (nm "S")) [nm "A", nm "S", nm "C"]
+    (fun m => if m == nm "C" then cmpWorkerArgs .verified (pathArgs "/t" "/l") none (nm "C") (nm "S")
+      else if m == nm "A" then workerArgs .verified 99 (pathArgs "" "/t") none m
+      else workerArgs .verified 99 (pathArgs "/t" "/l") none m) =
+  ["/bin/con-leche --check-graph --compare --trusted-search-path=/t --search-path=/l -- '«C»' '«S»'",
+   "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/t -- '«A»'",
+   "/bin/con-leche --olean --module --verified --max-nat-size=99 --trusted-search-path=/t \
+--search-path=/l -- '«S»'",
+   "/bin/con-leche --olean --module --compare --verified --trusted-search-path=/t --search-path=/l \
+-- '«C»' '«S»'"]
 -- `--jobs=N` only where given; the scheduler's own workers get their share
-#guard workerArgs .trusted 7 "d" (some 4) (nm "M") =
+#guard workerArgs .trusted 7 (pathArgs "" "d") (some 4) (nm "M") =
   #["--olean", "--module", "--jobs=4", "--trusted", "--max-nat-size=7", "--search-path=d", "--",
     "«M»"]
 

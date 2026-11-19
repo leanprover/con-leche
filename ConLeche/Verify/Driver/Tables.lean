@@ -39,6 +39,12 @@ open ConLeche ConLeche.Frontend.Olean
       ModelIO.CanGive (readPartNamesAt t.loc (t.name, .exported)) fs (.ok p)) ∧
     (∀ f, t.files = some f → ModelIO.CanGive (readFilesAt t.loc t.name .private) fs (.ok f))
 
+/-- Tables read through a lookup without its fallback are read alike through the full one. -/
+theorem TablesOk.trims {fs : FS} {a L : Roots} (h : a.Trims L) {T : ModTables}
+    (hT : TablesOk fs a T) : TablesOk fs L T := fun t ht =>
+  let ⟨h1, h2, h3, h4, h5⟩ := hT t ht
+  ⟨findModule_trims' h h1, fun is hi => moduleImports_trims h (h2 is hi), h3, h4, h5⟩
+
 theorem ModTables.find_mem {T : ModTables} {m : Name} {t : ModTable} (h : T.find m = some t) :
     t ∈ T.mods ∧ t.name = m := by
   simp only [ModTables.find] at h

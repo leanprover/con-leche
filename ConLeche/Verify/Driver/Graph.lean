@@ -134,6 +134,28 @@ theorem namesOf_contains {C : List Node} {a : Name} (h : (namesOf C).contains a 
   · exact h
   · simp at h
 
+theorem namesOf_mono_go {a : Name} :
+    ∀ (C : List Node) (s : Std.HashSet Name), s.contains a = true →
+      (C.foldl (fun s e => s.insert e.1) s).contains a = true
+  | [], _, h => h
+  | _ :: C, s, h => namesOf_mono_go C _ (by simp [Std.HashSet.contains_insert, h])
+
+/-- Every module of a closure is in its names' set. -/
+theorem namesOf_of_mem {C : List Node} {a : Name} (h : a ∈ C.map (·.1)) :
+    (namesOf C).contains a = true := by
+  unfold namesOf
+  suffices H : ∀ (C : List Node) (s : Std.HashSet Name), a ∈ C.map (·.1) →
+      (C.foldl (fun s e => s.insert e.1) s).contains a = true from H C {} h
+  intro C
+  induction C with
+  | nil => intro s h; simp at h
+  | cons e C ih =>
+    intro s h
+    simp only [List.map_cons, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact namesOf_mono_go C _ (by simp)
+    · exact ih _ h
+
 /-- **What a verdict of none says**: the numbering is topological on the closure. -/
 theorem verdict_none {roots : List Name} {C : List Node} {rk : Name → Option Nat}
     (h : verdict roots C rk = none) :
