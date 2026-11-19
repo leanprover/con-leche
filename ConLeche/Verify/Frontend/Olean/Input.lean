@@ -7,6 +7,7 @@ import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Driver.Provenance
+public import ConLeche.Verify.Cached.Fill
 
 /-!
 # The reader's records cover the input
@@ -633,4 +634,57 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
     exact StoredAs.refl _
   | _ => rw [hk] at ht; simp [CKindF.tag] at ht
 
+/-! ## The closure's records -/
+
+/-- **Every record of the closure is stored by a record the reader read** (where that record
+passes the reserved names' check). -/
+theorem readOleansAt_covers {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name} {jobs : Nat}
+    {pace : Pace} {lenient homes : Bool} {fs : FS} {rd : OleanRead} {hs hs' : HS}
+    (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
+    {r : ConstantInfo} (hr : ClosureRecords sp fs roots r) : CoveredBy rd.decls r := by
+  obtain ⟨mg, F, hentry⟩ := readOleansAt_entry hsp h
+  obtain ⟨m, d, c, hcl, hv, hc, hrc⟩ := hr
+  obtain ⟨e', he, hst⟩ := hentry hcl hv hc
+  by_cases ht : c.kind.tag < 5
+  · exact covers_entry F he hst ht hrc
+  · have hec : e'.toCEntryF = c := by
+      rcases hst with hec | ⟨-, -, hc2⟩
+      · exact hec
+      · exfalso; apply ht
+        rcases hc2 with hc2 | hc2 <;> rw [hc2] <;> decide
+    subst hec
+    obtain ⟨d', hd', c', hc', hst'⟩ := covers_block F he (by omega) hrc
+    exact ⟨d', hd', fun _ => ⟨c', hc', hst'⟩⟩
+
+/-- **An accepted read of a closure stores its input**: the fold accepted the reader's records,
+prepared with a prelude and with the theorems' values in place, so every record of every
+constant of the closure's views is stored as `StoredAs` says, and so is every record of the
+prelude declarations the preparation added. -/
+theorem checkDecls_inputStored {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
+    {jobs : Nat} {pace : Pace} {lenient homes : Bool} {fs : FS} {rd : OleanRead} {hs hs' : HS}
+    (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
+    {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat} {pre : PreludeIx}
+    {used : Declaration → Array Name} {F : Expr → Expr} {env : Env}
+    (hc : Cached.checkDecls mode pins maxNatSize
+      ((prepareD pre rd.decls used).decls.map (Cached.fillDecl F)) = .ok env) :
+    ∃ extra, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+      RecordsStored (InputRecords sp fs roots extra) env := by
+  have hst := Cached.checkDecls_recordsStored hc
+  obtain ⟨n, fe, run, -⟩ := Cached.checkDecls_run mode hc
+  have hb := Cached.declsRun_basisNamesOk run
+  have hrec : ∀ d, (Cached.fillDecl F d).records = d.records := by intro d; cases d <;> rfl
+  have hbn : ∀ d, basisNamesOk (Cached.fillDecl F d) = basisNamesOk d := by
+    intro d; cases d <;> rfl
+  have hmem : ∀ {d}, d ∈ (prepareD pre rd.decls used).decls →
+      Cached.fillDecl F d ∈ ((prepareD pre rd.decls used).decls.map (Cached.fillDecl F)).toList :=
+    fun hd => Array.mem_toList_iff.mpr (Array.mem_map_of_mem hd)
+  obtain ⟨extra, hextra, hperm⟩ := prepareD_perm pre rd.decls used
+  refine ⟨extra, hextra, hst.mono fun r hr => ?_⟩
+  rcases hr with hr | ⟨d, hd, hrd⟩
+  · obtain ⟨d, hd, hcov⟩ := readOleansAt_covers hsp h hr
+    have hd' := hmem (Frontend.mem_prepareD (used := used) (pre := pre) hd)
+    obtain ⟨c', hc', hs⟩ := hcov (hbn d ▸ hb _ hd')
+    exact ⟨c', ⟨_, hd', (hrec d).symm ▸ hc'⟩, hs⟩
+  · have hd' := hmem (Array.mem_toList_iff.mp (hperm.mem_iff.mpr (List.mem_append_right _ hd)))
+    exact ⟨r, ⟨_, hd', (hrec d).symm ▸ hrd⟩, StoredAs.refl r⟩
 end ConLeche.Frontend.Olean

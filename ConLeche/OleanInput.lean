@@ -23,8 +23,8 @@ notions of `ConLeche/Verify/Frontend/Olean/Files.lean`, which records that input
   leaves them out.  A recursor's rules fire as its own type says against its block's type
   formers, the names its `all` lists (`inputFire`);
 * **the input** (`InputRecords`): every record of every constant of every module of the closure,
-  and the records of each prelude declaration the closure does not declare (the preparation
-  synthesises those; `ConLeche/Frontend/Prepare.lean`).
+  and the records of the prelude declarations the preparation adds
+  (`ConLeche/Frontend/Prepare.lean`: the prelude declarations the stream does not declare).
 
 There is no order and no merge here.  A name two modules store is one of Lean's: Lean's import
 keeps one copy, and refuses the closure unless the two copies are one constant, or proofs of
@@ -80,15 +80,11 @@ module of the closure of `roots`. -/
 def ClosureRecords (sp : Roots) (fs : FS) (roots : Array Name) : Records := fun r =>
   ∃ m d c, InClosure sp fs roots m ∧ ViewOf sp fs m d ∧ c ∈ d.constants ∧ r ∈ entryRecords c
 
-/-- The closure of `roots` stores a constant named `n`. -/
-def ClosureStores (sp : Roots) (fs : FS) (roots : Array Name) (n : Name) : Prop :=
-  ∃ m d c, InClosure sp fs roots m ∧ ViewOf sp fs m d ∧ c ∈ d.constants ∧ c.name = n
-
-/-- **The input of `--olean`**: the closure's records, and the records of every declaration of
-the prelude `pre` the closure does not declare (`preludeKey`: a block's first type former, the
-constant otherwise). -/
-def InputRecords (pre : PreludeIx) (sp : Roots) (fs : FS) (roots : Array Name) : Records :=
-  fun r => ClosureRecords sp fs roots r ∨
-    ∃ p ∈ pre.decls, ¬ ClosureStores sp fs roots (preludeKey p) ∧ r ∈ p.records
+/-- **The input of `--olean`, prepared with the prelude declarations `extra`**: the closure's
+records and theirs.  The preparation (`ConLeche/Frontend/Prepare.lean`) adds the prelude's
+declarations the stream does not declare, and nothing else. -/
+def InputRecords (sp : Roots) (fs : FS) (roots : Array Name) (extra : List Declaration) :
+    Records :=
+  fun r => ClosureRecords sp fs roots r ∨ recordsOf extra r
 
 end ConLeche.Frontend.Olean

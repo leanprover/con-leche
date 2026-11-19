@@ -28,6 +28,8 @@ import ConLeche.Verify.Driver.CompareLocal
 import ConLeche.Semantics.DeclWF
 import ConLeche.Semantics.IsModelBasis
 import ConLeche.Model.IsModelBridge
+import ConLeche.Model.IsModelOlean
+public import ConLeche.OleanInput
 
 public section
 
@@ -202,6 +204,18 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
   obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets Cached.maxNatSizeDefault [b] hF
   simp [hp, hr, hc, bind, Except.bind] at he
+
+open Frontend in
+/-- **The main theorem, on `.olean` files.**  Every exit 0 of `runArgs` at the arguments
+`--olean --search-path=<dirs> -- <root>` has a model of its input (`Olean.InputRecords`,
+`ConLeche/OleanInput.lean`): every record of every constant of the private views of the modules
+of the closure of `root`, and of the built-in prelude's declarations the preparation added. -/
+theorem main_oleans (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0) :
+    ∃ pre, builtinPreludeE = .ok pre ∧ ∃ extra, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+      ∃ model, IsModel V model (Olean.InputRecords (Driver.searchPathOf dirs) fs #[r] extra) :=
+  oleans_isModel V hr h
 
 open Frontend in
 /-- **The main corollary, on `.olean` files.**  On a snapshot where the private view of a module
