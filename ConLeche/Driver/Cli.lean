@@ -117,6 +117,7 @@ def maxNatSizeArg (v : String) : Except String Nat :=
 def synopsis : String := String.intercalate "\n" [
   "Usage:",
   "  con-leche [OPTIONS] [--] FILE.ndjson",
+  "  con-leche [OPTIONS] --compare [--] CHALLENGE.ndjson SOLUTION.ndjson",
   "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE...",
   "  con-leche [OPTIONS] --check-graph --search-path=DIRS [--] MODULE...",
   "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE",
@@ -144,6 +145,18 @@ def helpText : String := String.intercalate "\n" [
   "                      (default 1), P% of each phase, or Ss seconds",
   "  --help              Print this help and exit",
   "  --                  End of options",
+  "",
+  "lean4export input:",
+  "  --compare           CHALLENGE.ndjson SOLUTION.ndjson: check that the export",
+  "                      SOLUTION solves the export CHALLENGE: each hole of",
+  "                      CHALLENGE (its axioms but propext, Classical.choice and",
+  "                      Quot.sound, and its declarations whose value uses",
+  "                      sorry) is SOLUTION's constant of that name and type, up",
+  "                      to the names of level parameters; every other",
+  "                      declaration of CHALLENGE is SOLUTION's, up to those",
+  "                      names; and SOLUTION is accepted. Prints the holes and",
+  "                      what fills each. Export both files with the same",
+  "                      selection: what the exporter writes is what is compared",
   "",
   ".olean input:",
   "  --olean             Read modules and their import closure from .olean files",
@@ -253,8 +266,8 @@ structure Args where
   schedule : Array String := #[]
   /-- some `--schedule` flag was given -/
   scheduled : Bool := false
-  /-- `--compare`: with `--olean`, the two module names are a challenge and its solution
-  (`compareG`) -/
+  /-- `--compare`: the two arguments are a challenge and its solution: with `--olean` module
+  names (`compareG`), without it lean4export files (`compareJsonG`) -/
   compare : Bool := false
   /-- `--trusted-search-path=DIR:DIR…`: with `--compare`, where the challenge is read, and
   where the solution is read first -/
@@ -464,10 +477,35 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
             return 3
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
           a.rootConstants a.mode a.maxNatSize a.progress jobs)
+      if a.compare then
+        -- `--compare` on two lean4export files: a challenge and its solution (`compareJsonG`);
+        -- the exporter's selection is the file, so no `--constant`
+        if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular ||
+            a.scheduled || !a.trustedPath.isEmpty then
+          eprintln "con-leche: --compare on two lean4export files takes none of --search-path, \
+            --trusted-search-path, --constant, --module, --modular and --schedule (they take \
+            --olean)"
+          eprintln tryHelp
+          return 3
+        match a.files.toList with
+        | [c, s] =>
+          if c == s then
+            eprintln "con-leche: --compare takes two different files, a challenge and its \
+              solution"
+            eprintln tryHelp
+            return 3
+          let jobs := a.jobs.getD
+            (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+             if hw = 0 then 1 else hw)
+          return ← runReq (.compareJson ⟨c, s⟩ a.mode a.maxNatSize a.progress jobs)
+        | _ =>
+          eprintln "con-leche: --compare takes two files, a challenge and its solution"
+          eprintln tryHelp
+          return 3
       if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular ||
-          a.scheduled || a.compare || !a.trustedPath.isEmpty then
+          a.scheduled || !a.trustedPath.isEmpty then
         eprintln "con-leche: --search-path, --trusted-search-path, --constant, --module, \
-          --modular, --schedule and --compare take --olean"
+          --modular and --schedule take --olean"
         eprintln tryHelp
         return 3
       match a.files.toList with
