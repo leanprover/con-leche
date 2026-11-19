@@ -363,17 +363,18 @@ def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Na
 
 /-- **The ι equations of an environment**: every stored recursor rule's
 `iotaEq` (the quotient eliminators' among them: `Quot.lift` and
-`Quot.ind` are stored recursors with one rule each). -/
+`Quot.ind` are stored recursors with one rule each).  A recursor is read
+the way `Denotes` reads a constant, through its name. -/
 def ruleEqs (env : Env) : List Expr :=
-  env.consts.flatMap fun
-    | .recInfo cv mI rP _ rules => rules.filterMap (iotaEq env.find? cv mI rP)
+  env.consts.flatMap fun c => match env.find? c.name with
+    | some (.recInfo cv mI rP _ rules) => rules.filterMap (iotaEq env.find? cv mI rP)
     | _ => []
 
-/-- **The ι equations hold** in `cval`: each is inhabited, at every level
-assignment (the equation is closed; its level parameters are the
-recursor's). -/
+/-- **The ι equations hold** in `cval`: wherever one denotes, what it
+denotes is inhabited, at every level assignment (the equation is closed;
+its level parameters are the recursor's). -/
 def RuleEqsHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
-  ∀ e ∈ ruleEqs env, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-    ∃ P, Denotes cval env φ ρ e P ∧ ∃ x, x ∈ˢ P
+  ∀ e ∈ ruleEqs env, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (P : V),
+    Denotes cval env φ ρ e P → ∃ x, x ∈ˢ P
 
 end ConLeche

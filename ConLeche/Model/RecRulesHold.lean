@@ -492,16 +492,6 @@ theorem teleOk_eq {env : Env} (M : ConLeche.Model V env) {φ : Name → Nat} {ρ
   · exact eqv_mem_univZero L L
   · exact pt_mem_eqv_self L
 
-/-- **The ι equations hold where their telescopes are inhabited.** -/
-theorem RuleEqsHold_of {cval : Name → (Name → Nat) → V} {env : Env}
-    (h : ∀ e ∈ ConLeche.ruleEqs env, ∃ ds body, e = ds.foldr .forallE body ∧
-      ∀ φ ρ, TeleOk cval env φ ρ ds body) :
-    ConLeche.RuleEqsHold cval env := by
-  intro e he φ ρ
-  obtain ⟨ds, body, rfl, hok⟩ := h e he
-  obtain ⟨P, hP, -, hpt⟩ := tele_inhabited ds (hok φ ρ)
-  exact ⟨P, hP, pt, hpt⟩
-
 end Subst
 
 end ConLeche.Model

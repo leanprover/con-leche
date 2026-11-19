@@ -670,6 +670,249 @@ theorem iotaEq_inv {find? : Name → Option ConstantInfo} {cv : ConstantVal} {mI
       · exact nomatch hg
     | _ => exact nomatch h
 
+/-! ## 6. Environments -/
+
+omit [SetTheory V] in
+theorem consN_append : ∀ (L₁ L₂ : List V) (ρ : Nat → V),
+    consN (L₁ ++ L₂) ρ = consN L₂ (consN L₁ ρ)
+  | [], _, _ => rfl
+  | x :: L₁, L₂, ρ => by simp only [List.cons_append, consN_cons, consN_append L₁ L₂]
+
+omit [SetTheory V] in
+theorem consN_lt (L : List V) (ρ : Nat → V) {j : Nat} (hj : j < L.length) :
+    consN L ρ j = L[L.length - 1 - j] := by
+  have h := consN_getElem? L ρ j hj
+  rw [List.getElem?_eq_getElem (by omega)] at h
+  exact (Option.some.inj h).symm
+
+omit [SetTheory V] in
+theorem consN_ge (L : List V) (ρ : Nat → V) {j : Nat} (hj : L.length ≤ j) :
+    consN L ρ j = ρ (j - L.length) := by
+  have := consN_shift L ρ (j - L.length)
+  rwa [Nat.sub_add_cancel hj] at this
+
+omit [SetTheory V] in
+/-- Instantiating at the outermost variables is pushing the values, the last innermost. -/
+theorem insAt_zero_reverse (L : List V) (ρ : Nat → V) : insAt 0 L.reverse ρ = consN L ρ := by
+  funext i
+  simp only [insAt, Nat.not_lt_zero, ↓reduceIte, Nat.sub_zero, List.length_reverse]
+  by_cases h : i < L.length
+  · simp only [h, ↓reduceDIte]; rw [consN_lt L ρ h, List.getElem_reverse]
+  · simp only [h, ↓reduceDIte]; rw [consN_ge L ρ (by omega)]
+
+/-- **An application along a fit lands in its residual.** -/
+theorem TeleFit.app_mem {ρ : Nat → V} {T : Term} {vs : List V} {rest : V}
+    (h : TeleFit V ρ T vs rest) {f : V} (hf : f ∈ˢ interp V ρ T) : vs.foldl app f ∈ˢ rest := by
+  induction h generalizing f with
+  | nil => exact hf
+  | cons hm _ ih =>
+    rw [interp_pi] at hf
+    exact ih (app_mem_piV hf hm)
+
+/-- A telescope's peel past its binders is its body's. -/
+theorem stripPis_foldr_add : ∀ (ds : List Expr) (b : Expr) (k : Nat),
+    (ds.foldr .forallE b).stripPis (ds.length + k) = (b.stripPis k).map fun p => (ds ++ p.1, p.2)
+  | [], b, k => by simp
+  | d :: ds, b, k => by
+    rw [List.length_cons, show ds.length + 1 + k = (ds.length + k) + 1 by omega]
+    simp only [List.foldr_cons, Expr.stripPis, stripPis_foldr_add ds b k, Option.map_map]
+    rfl
+
 end Subst
+
+end ConLeche.Model
+
+namespace ConLeche.Model
+
+open ConLeche.Semantics ConLeche.SetModel ConLeche.Verify SetTheory
+open ConLeche.Term
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule)
+open ConLeche.Expr (closeN)
+
+variable {V : Type w} [SetTheory V]
+
+/-! ## 7. The equations hold -/
+
+theorem Denotes_bvar_inv {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
+    {ρ : Nat → V} {i : Nat} {X : V} (h : ConLeche.Denotes cval env φ ρ (.bvar i) X) : X = ρ i := by
+  cases h; rfl
+
+theorem list_split3 {α : Type _} (L : List α) (a b : Nat) (h : L.length = a + b + 1) :
+    L = L.take a ++ (L.drop a).take b ++ [L[a + b]'(by omega)] := by
+  apply List.ext_getElem (by simp [List.length_take, List.length_drop]; omega)
+  intro i h1 h2
+  by_cases hi : i < a
+  · rw [List.getElem_append_left (by simp [List.length_take, List.length_drop]; omega),
+      List.getElem_append_left (by simp [List.length_take]; omega), List.getElem_take]
+  · by_cases hj : i < a + b
+    · rw [List.getElem_append_left (by simp [List.length_take, List.length_drop]; omega),
+        List.getElem_append_right (by simp [List.length_take]; omega)]
+      simp only [List.getElem_take, List.getElem_drop, List.length_take]
+      congr 1; omega
+    · rw [List.getElem_append_right (by simp [List.length_take, List.length_drop]; omega)]
+      simp only [List.getElem_singleton]
+      congr 1; omega
+
+/-- **The ι equations hold in the model the invariant carries**, given the rule facts at every
+stored rule and `Eq`'s law. -/
+theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
+    (hfit : ∀ (φ : Name → Nat) (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool)
+      (rules : List RecRule), env.find? n = some (.recInfo cv mI rP isK rules) →
+      ∀ rl ∈ rules, RecRuleFit m.base2 φ cv mI rP rl)
+    (heq : ∀ (u : Level) (φ : Name → Nat) (ρ : Nat → V) (E A a b : V),
+      ConLeche.Denotes (cvalOf m.base2.acval) env φ ρ (.const ConLeche.eqName [u]) E →
+      A ∈ˢ (univ (Level.eval φ u) : V) → a ∈ˢ A → b ∈ˢ A →
+      app (app (app E A) a) b = eqv a b) :
+    ConLeche.RuleEqsHold (cvalOf (V := V) m.base2.acval) env := by
+  intro e he φ ρ P hP
+  -- the recursor and the rule the equation was built from
+  simp only [ConLeche.ruleEqs, List.mem_flatMap] at he
+  obtain ⟨c, hcmem, he⟩ := he
+  split at he
+  rotate_left
+  · exact absurd he (List.not_mem_nil)
+  rename_i cv mI rP isK rules hf
+  obtain ⟨rl, hrl, hiota⟩ := List.mem_filterMap.mp he
+  obtain ⟨cvj, cnP, cnF, iT, pre, idx, pd, fd, rest, body, ctorBody, concl, u, hc, hpre, hbody,
+    hu, hcb, hfd, hplen, hrPmI, hidx, rfl⟩ := iotaEq_inv hiota
+  have hcl := m.base2.cval_closed
+  have hnm : cv.name = c.name := by
+    have := ConLeche.Env.find?_name hf
+    simpa [ConLeche.ConstantInfo.name, ConstantInfo.toConstantVal] using this
+  have hfR : env.find? cv.name = some (.recInfo cv mI rP isK rules) := by rw [hnm]; exact hf
+  -- the syntax of the records
+  obtain ⟨hpreEq, hprel⟩ := stripPis_eq_foldr rP hpre
+  obtain ⟨hrestEq, hidxl⟩ := stripPis_eq_foldr _ hbody
+  obtain ⟨hcbEq, hpdl⟩ := stripPis_eq_foldr cnP hcb
+  obtain ⟨hfdEq, hfdl⟩ := stripPis_eq_foldr _ hfd
+  -- names for the pieces
+  clear he
+  generalize hnF : rl.nfields = nF at *
+  generalize hps : rl.iotaParams rP cnP = ps at *
+  generalize hind : List.drop cnP concl.getAppArgs = ind at *
+  generalize hfsB : (List.range nF).map (fun j => Expr.bvar (nF - 1 - j)) = fsB at *
+  generalize hxsB : (List.range rP).map (fun i => Expr.bvar (rP + nF - 1 - i)) = xsB at *
+  generalize hmaj : Expr.mkAppN (.const rl.ctor (rl.ctorLevels cvj.levelParams))
+    (ps.map (·.liftLooseBVars nF 0) ++ fsB) = major at *
+  -- the telescope
+  refine ⟨pt, (tele_inhabited_of _ hP fun vs ρ' Y hvl hvf hY => ?_).2⟩
+  rw [List.length_append, hprel, hfdl] at hvl
+  rw [← List.take_append_drop rP vs] at hvf
+  obtain ⟨ρ₁, R₁, h1, h2⟩ := hvf.split
+  obtain ⟨hR₁, hρ₁, hxfit⟩ := h1.foldr_prefix (pre ++ fd) _ rfl
+    (by rw [List.length_take, List.length_append, hprel]; omega)
+  have hxl : (vs.take rP).length = rP := by rw [List.length_take]; omega
+  rw [hxl, List.drop_left' hprel] at hR₁
+  rw [hxl, List.take_left' hprel] at hxfit
+  subst hR₁ hρ₁
+  obtain ⟨-, hρ', hffit⟩ := h2.foldr_prefix fd _ rfl (by rw [List.length_drop, hfdl]; omega)
+  have hfl : (vs.drop rP).length = nF := by rw [List.length_drop]; omega
+  rw [hfl, ← hfdl, List.take_length] at hffit
+  generalize vs.take rP = xs at hxl hxfit hρ' hffit
+  generalize vs.drop rP = fs at hfl hρ' hffit
+  subst hρ'
+  -- the equation's pieces
+  cases hY with
+  | @app _ _ _ Y3 R hY3 hR =>
+  cases hY3 with
+  | @app _ _ _ Y2 L hY2 hL =>
+  cases hY2 with
+  | @app _ _ _ E T hE hT =>
+  -- the left-hand side's values: the prefix, the indices, the major
+  obtain ⟨F, Xs, hF, hXl, hXs, rfl⟩ := Denotes_mkAppN_inv _ hL
+  cases hF with
+  | const hfF hlenF =>
+  rw [hfR] at hfF
+  cases hfF
+  simp only [ConstantInfo.toConstantVal, Level.substFn_param_self] at hlenF ⊢
+  have hxBl : xsB.length = rP := by rw [← hxsB]; simp
+  have hXl' : Xs.length = rP + (mI - rP) + 1 := by
+    rw [hXl, List.length_append, List.length_append, hxBl, hidx]; rfl
+  have hXsplit := list_split3 Xs rP (mI - rP) hXl'
+  generalize hIs : (Xs.drop rP).take (mI - rP) = Is at hXsplit
+  generalize hMaj : Xs[rP + (mI - rP)]'(by omega) = Maj at hXsplit
+  have hIl : Is.length = mI - rP := by rw [← hIs]; simp [List.length_take, List.length_drop]; omega
+  -- the prefix's values are the fit's
+  have hxs : Xs.take rP = xs := by
+    apply List.ext_getElem (by rw [List.length_take]; omega)
+    intro i h1 h2
+    have hD := hXs i (by rw [List.length_append, List.length_append, hxBl]; rw [List.length_take] at h1; omega)
+      (by rw [List.length_take] at h1; omega)
+    rw [List.getElem_append_left (by rw [List.length_append, hxBl]; rw [List.length_take] at h1; omega),
+      List.getElem_append_left (by rw [hxBl]; rw [List.length_take] at h1; omega)] at hD
+    simp only [← hxsB, List.getElem_map, List.getElem_range] at hD
+    rw [List.getElem_take, Denotes_bvar_inv hD, consN_ge _ _ (by rw [hfl]; omega), hfl, consN_lt _ _ (by omega)]
+    congr 1; omega
+  rw [hxs] at hXsplit
+  subst hXsplit
+  have hxl' : xsB.length + ind.length = rP + (mI - rP) := by rw [hxBl, hidx]
+  have hIsD : ∀ i (h : i < ind.length) (h' : i < Is.length),
+      ConLeche.Denotes (cvalOf m.base2.acval) env φ (consN fs (consN xs ρ)) ind[i] Is[i] := by
+    intro i h h'
+    have hD := hXs (rP + i) (by simp [hxBl]; omega) (by simp [hxl, hIl]; omega)
+    rw [List.getElem_append_left (by simp [hxBl]; omega),
+      List.getElem_append_right (by simp [hxBl]),
+      List.getElem_append_left (by simp [hxl]; omega),
+      List.getElem_append_right (by simp [hxl])] at hD
+    simpa [hxBl, hxl] using hD
+  have hMajD : ConLeche.Denotes (cvalOf m.base2.acval) env φ (consN fs (consN xs ρ)) major Maj := by
+    have hD := hXs (rP + (mI - rP)) (by simp [hxBl, hidx]) (by simp [hxl, hIl])
+    rw [List.getElem_append_right (by simp [hxBl, hidx]),
+      List.getElem_append_right (by simp [hxl, hIl])] at hD
+    simpa [hxBl, hidx, hxl, hIl] using hD
+  clear hXs
+  -- the major's values: the constructor at its levels, the parameters, the fields
+  rw [← hmaj] at hMajD
+  obtain ⟨Cv, Ms, hCv, hMl, hMs, rfl⟩ := Denotes_mkAppN_inv _ hMajD
+  have hfBl : fsB.length = nF := by rw [← hfsB]; simp
+  have hskip : skipAt 0 nF (consN fs (consN xs ρ)) = consN xs ρ := by
+    funext i; simp only [skipAt, Nat.not_lt_zero, ↓reduceIte]
+    rw [consN_ge _ _ (by omega), hfl, Nat.add_sub_cancel]
+  generalize hPs : Ms.take cnP = Ps
+  have hPl : Ps.length = cnP := by
+    rw [← hPs, List.length_take, hMl, List.length_append, List.length_map, hplen]; omega
+  have hPsD : ∀ i (h : i < ps.length) (h' : i < Ps.length),
+      ConLeche.Denotes (cvalOf m.base2.acval) env φ (consN xs ρ) ps[i] Ps[i] := by
+    intro i h h'
+    have hD := hMs i (by simp; omega) (by rw [hMl]; simp; omega)
+    rw [List.getElem_append_left (by simp; omega)] at hD
+    simp only [List.getElem_map] at hD
+    have := Denotes_liftLooseBVars_inv _ hD
+    rw [hskip] at this
+    simpa [← hPs, List.getElem_take] using this
+  have hMfs : Ms.drop cnP = fs := by
+    apply List.ext_getElem (by rw [List.length_drop, hMl]; simp [hplen, hfBl, hfl])
+    intro j h1 h2
+    have hD := hMs (cnP + j) (by simp [hplen, hfBl]; rw [List.length_drop, hMl] at h1; simp [hplen, hfBl] at h1; omega)
+      (by rw [List.length_drop] at h1; omega)
+    rw [List.getElem_append_right (by simp [hplen])] at hD
+    simp only [List.length_map, hplen, Nat.add_sub_cancel_left, ← hfsB, List.getElem_map,
+      List.getElem_range] at hD
+    rw [List.getElem_drop, Denotes_bvar_inv hD, consN_lt _ _ (by omega)]
+    congr 1; omega
+  have hMsplit : Ms = Ps ++ fs := by rw [← hPs, ← hMfs, List.take_append_drop]
+  subst hMsplit
+  clear hMs hMfs
+  -- the right-hand side's values: the rule's right-hand side, the prefix, the fields
+  obtain ⟨Rv, Rs, hRv, hRl, hRs, rfl⟩ := Denotes_mkAppN_inv _ hR
+  have hRs' : Rs = xs ++ fs := by
+    apply List.ext_getElem (by rw [hRl]; simp [hxBl, hfBl, hxl, hfl])
+    intro j h1 h2
+    have hD := hRs j (by rw [← hRl]; exact h1) h1
+    have hj2 : j < rP + nF := by simpa [hxl, hfl] using h2
+    by_cases hj : j < rP
+    · rw [List.getElem_append_left (by simp [hxBl]; omega)] at hD
+      simp only [← hxsB, List.getElem_map, List.getElem_range] at hD
+      rw [Denotes_bvar_inv hD, List.getElem_append_left (by omega),
+        consN_ge _ _ (by rw [hfl]; omega), hfl, consN_lt _ _ (by omega)]
+      congr 1; omega
+    · rw [List.getElem_append_right (by simp [hxBl]; omega)] at hD
+      simp only [hxBl, ← hfsB, List.getElem_map, List.getElem_range] at hD
+      rw [Denotes_bvar_inv hD, List.getElem_append_right (by omega),
+        consN_lt _ _ (by rw [hfl]; omega)]
+      congr 1; rw [hfl, hxl]; omega
+  subst hRs'
+  clear hRs hRl
+  sorry
 
 end ConLeche.Model
