@@ -122890,9 +122890,9 @@ mode.  PLAN.md: item 7b of the order of presentation.
 
 ## TASK #608 — `--compare` in the modular modes: the challenge as one more module (2026-11-18, agent/608-modular-compare; lands on `compare`)
 
-**Status: first session — the code, the CLI and the fixtures done (olean gate 470/470); the
-theory designed, not yet written; nothing landed.**  The state is "State after the first session"
-at the end of this record.
+**Status: done (third session); landed on `compare`.**  The final state is "Third session
+(#608 cont.)" at the end of this record; the sections before it are the earlier sessions' states,
+kept as history.
 
 **CLI** (`Driver/Cli.lean`, `Driver/CompareModule.lean`, `Driver/Graph.lean`, `Driver/Schedule*`):
 * `con-leche --olean --module --compare --search-path=DIRS -- C S`: **the compare worker**, the
@@ -123188,3 +123188,69 @@ to `C`'s closure and both paths to the rest; (c) item 4 through a two-snapshot `
 `_within` composite unchanged in proof; `OleanReads.Within2 fs₁ fs₂ (.ofPath {T}) {T}` from
 #607's `Local.lean` leaves on `FS.AgreeUnder T`), then the corollary as `main_compare_trusted`;
 (d) the finishing list.
+
+### Third session (#608 cont.): the trusted path, T1, the finishing
+
+**The coordinator's rulings** (2026-11-18): item 3 by option (ii), per-module lookups in the run;
+item 4 by refinement across two snapshots, with #607's `Local.lean` at the leaves, and a corollary
+in the shape of `main_compare_trusted`; T2's home clause stays the meaningful part (a `Model`
+constrains types only), said in the docstring and in OVERVIEW.
+
+**Per-module lookups** (ec9c92ab6).
+* `Roots.Trims a L` (`Verify/Frontend/Olean/Roots.lean`): `a` is `L`, or `L` (resolving no root)
+  without its fallback.  `findModule_trims`: what `a` finds, `L` finds at the same place, from the
+  same handles (a missing root on the path is `rootAt [] r`, which is `.missing`, `rootAt_nil`);
+  `findModule_move`: between two such lookups, wherever the target finds the module.  So every
+  positive read fact moves: `moduleImports/readFiles/readPartNames_trims/_move`,
+  `PartNames/PartFiles/CopyAt/PartRegion/GroupRead/RecordFrom.move` (`ReachFrom.lean`),
+  `levelsGo_trims`, `headerFixpoint_trims`, `ImpReach/PubReach.trims` (`Loads.lean`),
+  `TablesOk.trims`, `HdrClosure.trims`.
+* `Compose.Run sp` gains `look : Name → Roots` with `trims : ∀ M, (look M).Trims sp`; every
+  module's `facts`/`run` are at its own lookup, the graph's `good` at `sp`.  The cross-module
+  steps move the reader's facts to the home's lookup (`Run.found`, `names_own`, `region_own`,
+  `copy_own'`, `from_own`) or to `sp` (`impReach_rank`, `fixpoint_rank`, `rootImports` take any
+  `a.Trims sp`); `worker_presented`, `interfaceOk_of_workers`, `presented_of_worker`,
+  `homeView_index`, `thm_of_status` take two lookups.  No uniqueness lemma needed a two-lookup
+  version: both sides move to one lookup first.  About 25 sites in `Compose`, `ComposeReads`,
+  `RoutePub`, `RouteCtx`, `Routes`, `Groups`, `Copies`.
+* `CmpFacts spC sp`: the compare worker reads `C`'s files and own view through `spC` (`rdC`),
+  the rest through `sp`; `CmpFacts.home` is the `spC` read (for T1), `facts.home` its `sp` copy.
+* `Run.ofCompare` takes `look` with `look Cn = sp` (`@[expose]`, so `R.look` is `look`);
+  `Compose.cmpLook spC sp fs Cn m` is the theorems' lookup: `spC` at a module of
+  `HdrClosure spC fs [Cn]` but `Cn`, else `sp`.
+* `checkModularG spC sp root sol why`: the challenge's closure walked through `spC`
+  (`chalGraph`), its tables read there (`TC`), a module of it stepped over `TC.reads spC`;
+  `checkModularG_accept` gives `CC` and the lookup `if namesOf CC contains m then spC else sp`.
+
+**Code and CLI.**  `--trusted-search-path` with `--check-graph --compare` (`checkGraphCmpG`: the
+challenge's closure through `T` first, #607's `fallbackOnly` message, exit 1), `--olean --module
+[--compare]`, `--modular --compare`, `--schedule[-commands] --compare` (chal-closure workers get
+`--search-path=T`, the rest and the compare worker both flags: `Schedule.pathArgs`).  The compare
+worker alone names a challenge module only the search path holds (exit 1).  `--trusted-search-path`
+with `--olean --module` alone reads through `T`, then `D` (a solution-side worker); with
+`--modular`/`--schedule`/plain `--olean` without `--compare` it stays a usage error.
+`--check-graph --compare` takes a trusted path alone (as `--olean --compare` does).  `--constant`
+in the modular modes stays a usage error (documented in OVERVIEW).  Fixtures: the #607 trusted
+cases in all four modular forms, the commands' flags, the solution-side worker; olean gate 535/535.
+
+**Theorems** (`ConLeche/MainTheorem.lean`; axioms pinned: `propext`, `Classical.choice`,
+`Quot.sound`):
+* `compare_closure_solves` (the core) over any `look` with `look C = sp`;
+* `main_compare_modular_solves`, `main_compare_modular_one_solves` (no trusted path; statement as
+  before, `CmpFacts sp sp`);
+* `main_compare_modular_trusted_solves`, `main_compare_modular_one_trusted_solves`: hypothesis
+  `(searchPathOf T).isEmpty = false`; the workers' commands by `HdrClosure r.chalRoots fs [C] m`
+  (`--search-path=T` there, both flags elsewhere); facts and own environments at `cmpLook`;
+* `main_compare_modular_trusted` (T1): a model `mC` with every hole inhabited and, on every `fs'`
+  with `FS.AgreeUnder (searchPathOf T) fs fs'`, `C`'s home read giving the same records, `C`'s own
+  view the same, and `WorkerFacts r.chalRoots fs' m` for every module of `C`'s closure.
+  Through `ModelIO.Within fs₁ fs₂` (refinement across two snapshots: every combinator and every
+  composite `_within` unchanged in proof, the leaves on one snapshot, `Within.of_same`) and
+  `OleanReads.Within.local` from #607's `_local` lemmas (`Verify/Driver/CompareLocal.lean`:
+  `WorkerFacts.local`, `CmpFacts.chal_local`).
+
+**Gates at 55d4a3d29:** `lake build`, `lake test` warning-free; olean gate 535/535; layering,
+trust-surface, binary-link, plain-reach, shake (two minimization moves allowlisted with their
+measured breakage, one dot-notation fallback `ReachFrom`→`Roots`), overview-links (line moves
+only), quote-gate; whitepaper `build.sh`, `fragment-gate.sh`, `links-gate.sh`.
+
