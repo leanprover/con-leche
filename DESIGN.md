@@ -124563,3 +124563,13 @@ untouched).
 as checking with a sidecar (their specs from #618), their capstones over `IsModel`; delete the old
 machinery (list above); drop the `Model` fields once the modular theorem is over `IsModel`
 (move `CompareAttack`/`IotaEqTests`); whitepaper §8; full gates; land on `compare` with `--no-ff`.
+
+**Gates run on the final tree of this session:** `lake build`, `lake test` (warning-free);
+`tests/arena.sh` in full under guard.sh (arena tutorial, every e2e fixture incl. the 18
+`--compare` rows unchanged, the trusted sweep, the `--jobs=4` sweep, the self-check — all pass;
+its two failures, whitepaper links and shake, fixed after it and re-run alone);
+`tests/{shake,layering,plain-reach,binary-link,trust-surface,challenge,quote-gate,
+no-local-paths,overview-links}.sh` and `whitepaper/links-gate.sh` pass.  Whitepaper: citations
+repointed, the lean4export paragraph of §8 states the sidecar rule; the module-comparison text of
+§8 is unchanged (the olean mode is).  Shake: imports of the new modules minimized (subagent),
+five fallback pairs added to `scripts/pub-import-plan.py`'s `FALLBACK` table.
