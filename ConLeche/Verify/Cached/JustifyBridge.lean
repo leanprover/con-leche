@@ -26,7 +26,7 @@ open ConLeche ConLeche.Semantics
 variable {pins : List NatOpPinSet}
 
 /-- **A justified record's check, run.** -/
-theorem checkRecordC_justified_run {env : Env} (henv : EnvWF env) {J : FEnv} {pd : Declaration}
+theorem checkRecordC_justified_run {env : Env} (henv : EnvWF env) {J : Sidecar} {pd : Declaration}
     {cv : ConstantVal} (hj : justifiable pd = some cv) {s₀ : CState} (hres : CSOKF s₀)
     {fe' : FEnv} {s' : CState}
     (h : checkRecordC .verified pins (some J) (mkFEnv env) pd s₀ = .ok (fe', s')) :

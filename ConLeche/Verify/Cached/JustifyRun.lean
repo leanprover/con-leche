@@ -23,7 +23,7 @@ namespace ConLeche.Cached
 open ConLeche
 
 /-- **A justified record passed the justification.** -/
-theorem checkRecordC_justified (mode : CheckMode) (pins : List NatOpPinSet) {J fe : FEnv}
+theorem checkRecordC_justified (mode : CheckMode) (pins : List NatOpPinSet) {J : Sidecar} {fe : FEnv}
     {pd : Declaration} {cv : ConstantVal} (hj : justifiable pd = some cv) :
     Yields (checkRecordC mode pins (some J) fe pd) (fun _ => justifyWhy J fe cv = none) := by
   unfold checkRecordC
@@ -36,7 +36,7 @@ theorem checkRecordC_justified (mode : CheckMode) (pins : List NatOpPinSet) {J f
 /-- **Along an accepting run, every justified record passed the justification**, at the index
 the run had reached. -/
 theorem declsRun_justified {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {J : FEnv} {ds : List Declaration} {p q : Nat × FEnv}
+    {J : Sidecar} {ds : List Declaration} {p q : Nat × FEnv}
     (h : DeclsRun mode pins maxNatSize (some J) ds p q) {pd : Declaration} {cv : ConstantVal}
     (hpd : pd ∈ ds) (hj : justifiable pd = some cv) : ∃ fe, justifyWhy J fe cv = none := by
   induction h with
@@ -49,8 +49,8 @@ theorem declsRun_justified {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
 
 /-- **A justified statement is a sidecar constant's**, up to the names of its level
 parameters. -/
-theorem justifyWhy_none {J fe : FEnv} {cv : ConstantVal} (h : justifyWhy J fe cv = none) :
-    ∃ cS, J.find? cv.name = some cS ∧ sameCvUpToLevels cv cS.toConstantVal = true := by
+theorem justifyWhy_none {J : Sidecar} {fe : FEnv} {cv : ConstantVal} (h : justifyWhy J fe cv = none) :
+    ∃ cS, J.idx.find? cv.name = some cS ∧ sameCvUpToLevels cv cS.toConstantVal = true := by
   unfold justifyWhy at h
   split at h
   · exact nomatch h

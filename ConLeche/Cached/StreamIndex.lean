@@ -94,7 +94,7 @@ def FrozenIndex.view (F : FrozenIndex) (k : Nat) : FEnv :=
 
 /-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view, with
 the sidecar's index `J`, if any. -/
-def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option FEnv)
+def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Sidecar)
     (F : FrozenIndex) (k : Nat) (pd : Declaration) : Except CheckError Unit :=
   if andPinOk pd then
     match checkRecordC mode pins J (F.view k) pd { maxNatSize := maxNatSize } with

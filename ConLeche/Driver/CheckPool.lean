@@ -51,8 +51,8 @@ the check phase reads. -/
 structure Jobs (ds : Array Declaration) (justify : Option ConLeche.Env := none) where
   I : ConLeche.Cached.FrozenIndex
   hI : I = (ConLeche.Cached.buildIndex ds).freeze
-  side : Option ConLeche.FEnv
-  hside : side = justify.map ConLeche.mkFEnv
+  side : Option ConLeche.Cached.Sidecar
+  hside : side = ConLeche.Cached.sidecarOf justify ds
 
 /-- **The step between the read and the check**: the frozen index of the records, built here, and
 the records and the index marked PERSISTENT.  Both are read-only from here on.  The check phase runs
@@ -70,7 +70,7 @@ def Jobs.build (ds : Array Declaration) (justify : Option ConLeche.Env := none) 
     IO (Jobs ds justify) := do
   let _ ← unsafe Runtime.markPersistent ds
   let J : Jobs ds justify := ⟨(ConLeche.Cached.buildIndex ds).freeze, rfl,
-    justify.map ConLeche.mkFEnv, rfl⟩
+    ConLeche.Cached.sidecarOf justify ds, rfl⟩
   let _ ← unsafe Runtime.markPersistent J
   return J
 

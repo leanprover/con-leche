@@ -99,15 +99,16 @@ def tableBeqP : Option ProjTable → Option ProjTable → Bool
   | _, _ => false
 
 /-- **The input's constant `ci` is a copy of the sidecar's `ci'`** (the model's `ConstCopy ci'
-ci`): the same, or, for a definition, theorem or axiom, the sidecar's at the input's
-level-parameter names, as many, neither list with a repeat.  A constant of an inductive block
+ci`): the same, or, for a definition, theorem or axiom at a name no pin reserves, the sidecar's
+at the input's level-parameter names, as many, neither list with a repeat (a pinned constant is
+read at its pin's names).  A constant of an inductive block
 is copied as it is: ι reads a recursor's rules and its constructors at their own names, and a
 block's constants share its level-parameter names. -/
 def copyB (ci' ci : ConstantInfo) : Bool :=
   let ps := ci.toConstantVal.levelParams
   if ps == ci'.toConstantVal.levelParams then ci.beqP ci'
-  else ci'.isStmtKind && levelsRenaming ci'.toConstantVal.levelParams ps &&
-    (ci'.atLpsC ps).beqP ci
+  else ci'.isStmtKind && !reservedBasisNames.contains ci'.toConstantVal.name &&
+    levelsRenaming ci'.toConstantVal.levelParams ps && (ci'.atLpsC ps).beqP ci
 
 /-- **The input's copy is the sidecar's**: a copy of it (`copyB`: the same, or at other
 level-parameter names), or a copy of the statement (an axiom of the same name and type) of a
@@ -118,15 +119,37 @@ def refinesB (ci ci' : ConstantInfo) : Bool :=
     | .axiomInfo _ => ci'.isStmtKind && copyB (.axiomInfo ci'.toConstantVal) ci
     | _ => false
 
+/-- **The sidecar, as the justification reads it**: its index, and the input's record mates
+(`recordMates`): for each name an inductive block of the input declares, every name that block
+declares. -/
+structure Sidecar where
+  idx : FEnv
+  mates : Std.HashMap Name (Array Name)
+
+/-- **The input's record mates**: each name an inductive block declares, mapped to the names of
+every block that declares it. -/
+def recordMates (ds : Array Declaration) : Std.HashMap Name (Array Name) :=
+  ds.foldl (fun m d => match d with
+    | .indDecl block _ =>
+      let ns := (block.map (·.name)).toArray
+      block.foldl (fun m b => m.insert b.name (m.getD b.name #[] ++ ns)) m
+    | _ => m) {}
+
+/-- **The sidecar of a fold over `ds`**, from the sidecar's environment. -/
+def sidecarOf (justify : Option Env) (ds : Array Declaration) : Option Sidecar :=
+  justify.map fun e => ⟨mkFEnv e, recordMates ds⟩
+
 /-- **What the justification follows from a constant**: its laws' names (`NeedsSt.const`), a
 type former's constructors and its block's recursors (`T.rec` at every member, the names
-`blockRecNameSetOk` gives them), and the names of its projection table.  So a block is shared
-whole or not at all: every constant of it reads a former, and a former reads the rest. -/
-def entryNeeds (findT : Name → Option ProjTable) (ci : ConstantInfo) : Array Name :=
+`blockRecNameSetOk` gives them), the names of its projection table, and its record's mates
+(`recordMates`).  So a block is shared whole or not at all. -/
+def entryNeeds (mates : Std.HashMap Name (Array Name)) (findT : Name → Option ProjTable)
+    (ci : ConstantInfo) : Array Name :=
   let x := NeedsSt.const ({}, #[]) ci
   let x := match ci with
     | .indInfo _ caps => x.names (caps.ctors ++ caps.all.map (fun m : Name => m.str "rec"))
     | _ => x
+  let x := x.names (mates.getD ci.toConstantVal.name #[]).toList
   match findT ci.toConstantVal.name with
   | some t => (x.table t).2
   | none => x.2
@@ -136,7 +159,7 @@ the input's index (its lookups `find`, `findT`) and the sidecar's `J` (`refinesB
 table); `none`, or the first name that is not.  Each name is compared once (`seen`); `fuel`
 bounds the names compared, and the sidecar's name count bounds those (every compared name is
 the sidecar's). -/
-def coneGo (J : FEnv) (find : Name → Option ConstantInfo) (findT : Name → Option ProjTable)
+def coneGo (J : Sidecar) (find : Name → Option ConstantInfo) (findT : Name → Option ProjTable)
     (fuel : Nat) (seen : Std.HashSet Name) (work : List Name) : Option Name :=
   match work with
   | [] => none
@@ -145,24 +168,24 @@ def coneGo (J : FEnv) (find : Name → Option ConstantInfo) (findT : Name → Op
     else match fuel with
       | 0 => some n
       | fuel + 1 =>
-        match find n, J.find? n with
+        match find n, J.idx.find? n with
         | some ci, some ci' =>
-          if refinesB ci ci' && tableBeqP (findT n) (J.findTable? n) then
-            coneGo J find findT fuel (seen.insert n) ((entryNeeds findT ci).toList ++ work)
+          if refinesB ci ci' && tableBeqP (findT n) (J.idx.findTable? n) then
+            coneGo J find findT fuel (seen.insert n) ((entryNeeds J.mates findT ci).toList ++ work)
           else some n
         | _, _ => some n
 termination_by (fuel, work.length)
 
 /-- **Is the statement `cv` justified by the sidecar `J`**, at the input's index `fe`: `none`,
 or why not. -/
-def justifyWhy (J fe : FEnv) (cv : ConstantVal) : Option String :=
-  match J.find? cv.name with
+def justifyWhy (J : Sidecar) (fe : FEnv) (cv : ConstantVal) : Option String :=
+  match J.idx.find? cv.name with
   | none => some s!"the sidecar has no constant {cv.name}"
   | some cS =>
     if !sameCvUpToLevels cv cS.toConstantVal then
       some s!"the sidecar's {cv.name} has another type"
     else
-      match coneGo J fe.find? fe.findTable? (J.idx.size + 1) {} (needsGo {} #[] cv.type).2.toList with
+      match coneGo J fe.find? fe.findTable? (J.idx.idx.size + 1) {} (needsGo {} #[] cv.type).2.toList with
       | none => none
       | some n => some s!"its type reads {n}, which the sidecar does not declare alike"
 
@@ -173,7 +196,7 @@ statement (`justifiable`) takes the justification route where there is a sidecar
 statement justified (`justifyWhy`), its type checked (`checkConstantValC`), the reserved names'
 check, and its constant installed.  Every other record, and every record without a sidecar,
 takes its own check (`checkDeclStepC`). -/
-def checkRecordC (mode : CheckMode) (pins : List NatOpPinSet) (J : Option FEnv) (fe : FEnv)
+def checkRecordC (mode : CheckMode) (pins : List NatOpPinSet) (J : Option Sidecar) (fe : FEnv)
     (pd : Declaration) : CheckCM FEnv :=
   match J, justifiable pd with
   | some J, some cv => do
