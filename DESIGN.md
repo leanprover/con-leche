@@ -124016,3 +124016,67 @@ definitional equalities), whitepaper §1 and §7; §6b is the fragment's, unchan
 the maintainer's: lines 69 ("every constant … (and that `False` … `Eq` …)": now also
 definitions mean their values and recursor rules hold) and 73 ("it does not contain the delta
 and iota equations": it now does) are stale; only their links were re-pointed.
+
+## TASK #613 — the compare capstones say what acceptance means semantically (2026-11-19, agent/613-restate; lands on `compare`)
+
+**Status: done; landed on `compare`.**  On top of `compare` (f3732d84c) with `modular`
+(ccfb88910, task #610's tight `Model`) merged in.
+
+**`Model.ofCopies` owes `defn_eq` and `rule_eqs`** (`Model/Copies.lean`):
+* `defn_eq` (~25 lines, as #610 estimated): `denote_copy_value` — a copied definition's value
+  reads, through `denote_ren` and `denote_instLevels`, as the original's at the renamed
+  assignment; then `defn_reads` and the bridge, as `ofEnvModelM`'s arm.
+* `rule_eqs`: `iotaEq` reads a recursor's rules and its constructors' records, and a renamed
+  copy of either would not carry its equations (a `.plain` rule is at its constructor's own level
+  names; `RecRuleFire.atLps` leaves `.nested` pins unrenamed).  The comparison never renames
+  them (an inductive block and a quotient record are compared exactly, `sameRecord`), so
+  `ConstCopy`'s renamed case now requires `RuleFree c` (neither `recInfo` nor `ctorInfo`).
+  Then `ruleEqs_copies` (a copy's equations are the original's, `iotaEq_copies`), the generic
+  `Denotes_transport` (a reading moves between environments storing each name alike, same
+  projection tables) and `Denotes_of_copies` reduce the field to `ofEnvModelM`'s.  Callers of
+  the copy lemmas (`sameUpTo_copy`, `copy_of_renaming`) take `RuleFree` (`trivial` at every
+  site: definitions, theorems, axioms, opaque constants).
+
+**The restatements** (`ConLeche/MainTheorem.lean`):
+* `main_compare_solves`: the homes clause is gone; the hole clause (which selected `C`'s own
+  records by `rdC.homes[recKey d]?`) is replaced by the stronger, table-free "every constant of
+  the challenge's environment is inhabited in `mC` by the solution's constant's value" (from
+  the value clause and `Model.mem`; holes are axioms there).  `main_compare_trusted`: the
+  challenge's view on `fs'` gives an environment with `Nonempty (Model V …)` (a model inhabits
+  every stored constant, holes included).  `compare_homes` stays as a lemma; the home rule stays
+  in the code.
+* Modular (`compare_closure_solves`, `main_compare_modular_solves`, `…_one_solves`,
+  `…_trusted_solves`, `…_one_trusted_solves`): the `cmpImported`/`cr.view.index.first` clause
+  is gone.  What remains is the compatible family over closure(C) ∪ closure(S) (a context name
+  valued as its home, `ctxHome` of the reach, the run's `src`), `mC` valuing every name as its
+  home's model at `C`'s level names, and every hole inhabited.  `main_compare_modular_trusted`
+  now carries the family and both compatibility clauses too (before: only `mC` with the holes,
+  which a model of the context alone satisfies when `f` is read as its statement).
+* JSON: unchanged statements; the docstring says why `f := 3`/`t : f = 5` has no solution.
+  `main_compare_json_no_False` goes through unchanged.
+
+**Demonstration** (`tests/ConLecheTests/CompareAttack.lean`, model-level plus its lift):
+`no_model` — no `Model` of an environment storing `inductive T | a | b` with its recursor,
+`Eq`, `def f : T := T.a` and the hole `t : f = T.b` as an axiom (`defn_eq` makes `f` denote
+`T.a`, `eq_equality` makes the hole's type `eqv ⟦T.a⟧ ⟦T.b⟧`, `T_a_ne_T_b` from #610 makes it
+empty); `compare_attack_rejected` — on any snapshot whose challenge reads all give such an
+environment, `--olean --compare` has no exit 0, whatever the solution (from the restated
+`main_compare_solves`).  Deviation: the fixtures' `f : Nat := 3`, `t : f = 5` need `3 ≠ 5` in
+every model, from `Nat.rec`'s rule equations (a motive into `Type` with `succ ↦ {ih}`); not
+written, the enumeration has the least to read off.  `IotaEqTests.taCV`/`tbCV` exposed for it.
+Both pinned at the three standard axioms.
+
+**Docs:** the docstrings of the merged, modular and JSON capstones (the old "a model
+constrains types only, so the home clause is the meaningful part" removed), OVERVIEW's theorem
+paragraphs, whitepaper §8 (`06c-compare.typ`: the merged and modular paragraphs).
+
+**Gates (final tree):** `lake build` and `lake test` warning-free; `tests/arena.sh` in full under
+the guard, exit 0 (olean gate 535/535, arena tutorial 90/92 as on `compare`, e2e 634/634,
+trusted and `--jobs` sweeps without divergence, self-check accepted 61 501 declarations, axioms
+pinned: 84 theorems at `propext`, `Classical.choice`, `Quot.sound`); plain-reach (639 reached,
+all allowlisted), trust-surface, binary-link, layering, shake (679/679 allowlisted, no
+demotable public import), overview-links and the whitepaper's links-gate (anchors repointed
+after re-reading: moves, plus the restated statements), quote-gate, challenge.sh,
+no-local-paths; whitepaper `build.sh` and `fragment-gate.sh`.  The merge of `modular`
+conflicted in DESIGN (both kept), `tests/shake-allowlist.txt` (both lines kept) and whitepaper
+§1's citation of `Denotes.lean` (modular's anchor).
