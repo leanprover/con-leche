@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Denotes
 public import ConLeche.Model.OfEnvModelM
+public import ConLeche.Verify.IsModelRecords
 
 public section
 
@@ -18,8 +19,8 @@ This module carries the first to the second.
   `Expr.eval` at `posModel` agrees with it.  The one fact this needs of `cval` is that a
   constant reads only its own level parameters (`CvalLocal`; the invariant's `acval_params`).
 * `isModel_of_model`: the clauses, from `Model`'s fields, given what the checker establishes
-  about the records (`RecordsStored`, `CtorsStored`) and that every stored ι equation is read
-  (`RuleEqsRead`).
+  about the records (`RecordsStored`, `ConLeche/Verify/IsModelRecords.lean`) and that every
+  stored ι equation is read (`RuleEqsRead`).
 -/
 
 namespace ConLeche
@@ -116,21 +117,6 @@ theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
 
 /-! ## The clauses -/
 
-/-- **Every record of the input is stored**, under its name: with its level parameters and
-type, a definition with its value, a recursor with its rules (firing modes included). -/
-def RecordsStored (ds : List Declaration) (env : Env) : Prop :=
-  ∀ d ∈ ds, ∀ c ∈ d.records, ∃ ci, ci ∈ env.consts ∧ env.find? c.name = some ci ∧
-    ci.toConstantVal = c.toConstantVal ∧
-    (∀ cv v h, c = .defnInfo cv v h → ci = c) ∧
-    (∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
-      ∃ isK', ci = .recInfo cv mI rP isK' rules)
-
-/-- **Every constructor record of the input is stored** as a constructor with its parameter
-count. -/
-def CtorsStored (ds : List Declaration) (env : Env) : Prop :=
-  ∀ d ∈ ds, ∀ cvj cnP nF T, ConstantInfo.ctorInfo cvj cnP nF T ∈ d.records →
-    ∃ nF' T', env.find? cvj.name = some (.ctorInfo cvj cnP nF' T')
-
 /-- **Every stored ι equation is read** by `Denotes`, at every level assignment. -/
 def RuleEqsRead (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
   ∀ e ∈ ruleEqs env, ∀ φ (ρ : BVarIdx → V), ∃ P, Denotes cval env φ ρ e P
@@ -143,11 +129,12 @@ theorem find?_name {env : Env} {n : Name} {ci : ConstantInfo} (h : env.find? n =
 /-- **The bridge**: a model of the stored environment, local in its levels, is a model of the
 input, given that the records are stored and the stored ι equations are read. -/
 theorem isModel_of_model {ds : List Declaration} {env : Env} (M : Model V env)
-    (hloc : CvalLocal M.cval env) (hrec : RecordsStored ds env) (hctor : CtorsStored ds env)
+    (hloc : CvalLocal M.cval env) (hrec : RecordsStored ds env)
     (hread : RuleEqsRead M.cval env) :
     IsModel V (posModel M.cval env) ds := by
   intro d hd c hc vals hl
-  obtain ⟨ci, hmem, hf, hcv, hdef, hrc⟩ := hrec d hd c hc
+  obtain ⟨ci, hf, hcv, hdef, hrc, -⟩ := hrec d hd c hc
+  have hmem : ci ∈ env.consts := Env.find?_mem hf
   have hname : c.name = ci.name := (find?_name hf).symm
   have hval : posModel M.cval env c.name vals =
       M.cval c.name (Level.assign c.toConstantVal.levelParams vals) := by
@@ -168,7 +155,10 @@ theorem isModel_of_model {ds : List Declaration} {env : Env} (M : Model V env)
     | recInfo cv mI rP isK rules =>
       obtain ⟨isK', rfl⟩ := hrc cv mI rP isK rules rfl
       intro rl hrl d' hd' cvj cnP nF T hcj hcn e he
-      obtain ⟨nF', T', hfj⟩ := hctor d' hd' cvj cnP nF T hcj
+      obtain ⟨cj, hfj, hcjv, -, -, hcjc⟩ := hrec d' hd' _ hcj
+      obtain ⟨nF', T', rfl⟩ := hcjc cvj cnP nF T rfl
+      have hnj : (ConstantInfo.ctorInfo cvj cnP nF T).name = cvj.name := rfl
+      rw [hnj] at hfj
       have hiota : iotaEq env.find? cv mI rP rl = some e := by
         unfold iotaEq
         rw [← hcn, hfj]

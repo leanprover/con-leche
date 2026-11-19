@@ -234,15 +234,19 @@ def inputFire (formers : List Name) (cv : ConstantVal) (mI rP : Nat) : RecRuleFi
 
 /-! ## The records of a declaration -/
 
+/-- The names of a block's type formers. -/
+def blockFormerNames (block : List ConstantInfo) : List Name :=
+  block.filterMap fun
+    | .indInfo cv _ => some cv.name
+    | _ => none
+
 /-- The block's records, its recursors' rules with their firing mode (`inputFire`, read off
 the recursor's type against the block's type formers). -/
 def blockRecords (block : List ConstantInfo) : List ConstantInfo :=
-  let formers := block.filterMap fun
-    | .indInfo cv _ => some cv.name
-    | _ => none
   block.map fun
     | .recInfo cv mI rP isK rules =>
-      .recInfo cv mI rP isK (rules.map ({ · with fire := inputFire formers cv mI rP }))
+      .recInfo cv mI rP isK
+        (rules.map ({ · with fire := inputFire (blockFormerNames block) cv mI rP }))
     | c => c
 
 /-- Does a value use a hole (`sorryAx`)? -/
