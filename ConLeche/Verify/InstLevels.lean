@@ -85,6 +85,15 @@ theorem getAppArgs_instantiateLevelParams (ks : List Name)
       List.map_append, List.map_cons, List.map_nil]
   | _ => simp [Expr.instantiateLevelParams, Expr.getAppArgs]
 
+/-- Level instantiation commutes with taking a telescope's result. -/
+theorem piResult_instantiateLevelParams (ks : List Name) (us : List Level) :
+    ∀ (e : Expr), (e.instantiateLevelParams ks us).piResult
+      = e.piResult.instantiateLevelParams ks us
+  | .forallE t b => by
+    simp only [Expr.instantiateLevelParams, Expr.piResult, piResult_instantiateLevelParams ks us b]
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ | .letE _ _ _ | .lit _
+  | .proj _ _ _ => by simp [Expr.instantiateLevelParams, Expr.piResult]
+
 /-- Level instantiation preserves the head shape. -/
 theorem getAppFn_instantiateLevelParams (ks : List Name)
     (us : List Level) :

@@ -8,6 +8,7 @@ import ConLeche.Model.Modular.Main
 import ConLeche.Verify.Driver.ComposeReads
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Model.Modular.Proofs
+import ConLeche.Model.OfEnvModelM
 
 public section
 
@@ -76,27 +77,28 @@ theorem sameCv_copy {cv cv' : ConstantVal} (h : sameCvUpToLevels cv cv' = true) 
     exact .inr ⟨cv.levelParams, (ConstantVal.eq_of_beqP h.2).symm, h.1.1.2, h.1.1.1.symm⟩
 
 /-- **A constant, the solution's up to level names**: a copy of it. -/
-theorem sameUpTo_copy {c c' : ConstantInfo} (h : sameUpToLevels c c' = true) : ConstCopy c' c := by
+theorem sameUpTo_copy {c c' : ConstantInfo} (h : sameUpToLevels c c' = true)
+    (hr : RuleFree c') : ConstCopy c' c := by
   unfold sameUpToLevels at h
   dsimp only at h
   split at h
   · exact .inl (ConstantInfo.eq_of_beqP h)
   · simp only [levelsRenaming, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h
-    exact .inr ⟨_, (ConstantInfo.eq_of_beqP h.2).symm, h.1.1.2, h.1.1.1.symm⟩
+    exact .inr ⟨_, (ConstantInfo.eq_of_beqP h.2).symm, h.1.1.2, h.1.1.1.symm, hr⟩
 
 theorem copy_axiom {cv cv' : ConstantVal}
     (h : cv = cv' ∨ ∃ ps, cv = cv'.atLps ps ∧ ps.Nodup ∧ cv'.levelParams.length = ps.length) :
     ConstCopy (.axiomInfo cv') (.axiomInfo cv) := by
   rcases h with rfl | ⟨ps, rfl, hnd, hl⟩
   · exact .inl rfl
-  · exact .inr ⟨ps, rfl, hnd, hl⟩
+  · exact .inr ⟨ps, rfl, hnd, hl, trivial⟩
 
 theorem copy_thm {cv cv' : ConstantVal}
     (h : cv = cv' ∨ ∃ ps, cv = cv'.atLps ps ∧ ps.Nodup ∧ cv'.levelParams.length = ps.length) :
     ConstCopy (.thmInfo cv') (.thmInfo cv) := by
   rcases h with rfl | ⟨ps, rfl, hnd, hl⟩
   · exact .inl rfl
-  · exact .inr ⟨ps, rfl, hnd, hl⟩
+  · exact .inr ⟨ps, rfl, hnd, hl, trivial⟩
 
 theorem cv_name {cv cv' : ConstantVal}
     (h : cv = cv' ∨ ∃ ps, cv = cv'.atLps ps ∧ ps.Nodup ∧ cv'.levelParams.length = ps.length) :
@@ -128,15 +130,15 @@ theorem sameRecordUpTo_copy {dC dS : Declaration} (h : sameRecordUpToLevels dC d
     RecCopy dS dC := by
   unfold sameRecordUpToLevels at h
   split at h
-  · exact recCopy_single (sameUpTo_copy h) rfl rfl rfl
+  · exact recCopy_single (sameUpTo_copy h trivial) rfl rfl rfl
   · exact recCopy_single (copy_thm (sameCv_copy h)) rfl rfl rfl
   · rename_i cv v cv' v'
-    have hc := sameUpTo_copy h
+    have hc := sameUpTo_copy h trivial
     refine recCopy_single (c := .axiomInfo cv') (c' := .axiomInfo cv) ?_ rfl rfl rfl
-    rcases hc with he | ⟨ps, he, hnd, hl⟩
+    rcases hc with he | ⟨ps, he, hnd, hl, -⟩
     · cases he; exact .inl rfl
     · simp only [ConstantInfo.atLps, ConstantInfo.defnInfo.injEq] at he
-      exact .inr ⟨ps, by rw [he.1]; rfl, hnd, hl⟩
+      exact .inr ⟨ps, by rw [he.1]; rfl, hnd, hl, trivial⟩
   · exact RecCopy.of_same h
 
 theorem declConstants_fill (F : Expr → Expr) (d : Declaration) :
@@ -685,7 +687,7 @@ theorem compare_models (V : Type w) [SetTheory V] {pins : List NatOpPinSet} {max
       rw [hal.cv]
     refine ⟨cS, hS, ?_, fun φ => ?_⟩
     · rw [hlps]
-      rcases hr with rfl | ⟨ps, rfl, -, hl⟩
+      rcases hr with rfl | ⟨ps, rfl, -, hl, -⟩
       · rfl
       · rw [atLps_cv]; exact hl
     · refine (Model.ofCopies_cval mp1 hcp h1 h2 φ).trans ?_

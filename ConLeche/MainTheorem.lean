@@ -5,7 +5,7 @@ import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
-import ConLeche.Model.Denotes
+import ConLeche.Model.OfEnvModelM
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
@@ -344,11 +344,16 @@ solution's through `T`, then `D`, and in every set theory `V` there are
   solution's (`Driver.solutionEnv`), such that
 * every constant of the challenge's environment is the solution's constant of that name, with as
   many level parameters, and `mC` gives it `mS`'s value read at the challenge's names;
-* every hole of `C` is inhabited by the solution's constant: that constant's value in `mS` is a
-  member of what the hole's type denotes in `mC`;
-* every declaration `C` imports (its home, the first module of the challenge's closure storing
-  it, is not `C`), but a theorem, which Lean keys by its statement, has the same home in the
-  solution's closure: it is that module's constant, not one the solution declares itself. -/
+* every constant of the challenge's environment, every hole of `C` among them, is inhabited by
+  the solution's constant: that constant's value in `mS` is a member of what the challenge's
+  type denotes in `mC`.
+
+The challenge's environment holds what `C` imports with its bodies (the merged read), and a model
+makes every definition denote its value and every recursor rule hold (`Model.defn_eq`,
+`Model.rule_eqs`).  So a challenge that imports `def f : Nat := 3` and has a hole `t : f = 5` has
+no accepted solution: in `mC`, `f` is `3`, and `f = 5` denotes the empty set.  Which module a
+solution's constant comes from (the comparison's home rule) is the code's business; the
+statement needs only the models. -/
 theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
@@ -366,24 +371,23 @@ theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S :
             cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
             ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
               (cC.toConstantVal.levelParams.map Level.param))) ∧
-        (∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
-          Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
-          ∃ cv cS, Driver.recCv? d = some cv ∧
-            (Driver.solutionEnv pre r.solRoots fs rdS).find? cv.name = some cS ∧
-            ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
-              mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
-                (cv.levelParams.map Level.param)) ∈ˢ Ty) ∧
-        ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? ≠ some C →
-          (∀ cv v, d ≠ .thmDecl cv v) →
-          rdS.homes[Driver.recKey d]? = rdC.homes[Driver.recKey d]? := by
+        ∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+          ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+            ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ
+              cC.toConstantVal.type Ty ∧
+              mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+                (cC.toConstantVal.levelParams.map Level.param)) ∈ˢ Ty := by
   intro r
   obtain ⟨_, _, h⟩ := h
   obtain ⟨pre, rdC, rdS, ctx, filled, env, h1, h2, h3, h4, h5, h6⟩ :=
     Driver.runArgs_compare_accept hc hs h
-  obtain ⟨mC, mS, h7, h8⟩ := Model.Compare.compare_solved V h4 h5 h6
-  refine ⟨pre, rdC, rdS, h1, h2, h3, mC, mS, h7, h8, fun d hd hne hthm => ?_⟩
-  obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem hd
-  exact Model.Compare.compare_homes h4 k hk hne hthm
+  obtain ⟨mC, mS, h7, -⟩ := Model.Compare.compare_solved V h4 h5 h6
+  refine ⟨pre, rdC, rdS, h1, h2, h3, mC, mS, h7, fun n cC hf => ?_⟩
+  obtain ⟨cS, hS, -, he⟩ := h7 n cC hf
+  refine ⟨cS, hS, fun φ ρ => ?_⟩
+  obtain ⟨Ty, hTy, hm⟩ := mC.mem cC (Env.find?_mem hf) φ ρ
+  rw [Env.find?_name hf, he φ] at hm
+  exact ⟨Ty, hTy, hm⟩
 
 open Frontend in
 /-- **An accepted comparison is a property of the trusted files alone** (T1 and T2).  Every exit
@@ -391,8 +395,10 @@ open Frontend in
 a snapshot `fs` says of every snapshot `fs'` that agrees with `fs` on the paths the reader forms
 under the challenge's directories (`T`, or `D` where `T` names none): the challenge's read on
 `fs'` (`Olean.challengeView`) can give records whose environment, every hole of `C` the axiom of
-its statement, has a model in every set theory `V`, in which every hole is inhabited.  What the
-solution's files hold, and the search path's, is not in the statement. -/
+its statement, has a model in every set theory `V`.  A model inhabits the type of every constant
+of its environment, so every hole is inhabited, in a model where every definition the challenge
+reads denotes its value.  What the solution's files hold, and the search path's, is not in the
+statement. -/
 theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
     {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
@@ -401,22 +407,15 @@ theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S 
     ∀ fs', FS.AgreeUnder r.chalRoots.path fs fs' →
       ∃ pre rdC, builtinPreludeE = .ok pre ∧
         Olean.challengeView r.chalRoots.path C none fs' (.ok (.ok rdC)) ∧
-        ∃ mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC),
-          ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
-            Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
-            ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-              Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
-              ∃ v, v ∈ˢ Ty := by
+        Nonempty (Model V (Driver.challengeEnv pre C r.chalRoots rdC)) := by
   intro r fs' hag
-  obtain ⟨pre, rdC, rdS, h1, h2, -, mC, mS, -, h5, -⟩ := main_compare_solves V hc hs h
-  refine ⟨pre, rdC, h1, ?_, mC, fun d hd hown hh => ?_⟩
+  obtain ⟨pre, rdC, rdS, h1, h2, -, mC, -⟩ := main_compare_solves V hc hs h
+  refine ⟨pre, rdC, h1, ?_, ⟨mC⟩⟩
   · rw [← Olean.challenge_local hag]
     obtain ⟨hs₁, hs₂, h2⟩ := h2
     refine ⟨hs₁, hs₂, ?_⟩
     rw [← r.chalRoots_eta]
     exact h2
-  · obtain ⟨cv, cS, hcv, -, hmem⟩ := h5 d hd hown hh
-    exact ⟨cv, hcv, fun φ ρ => let ⟨Ty, hT, hm⟩ := hmem φ ρ; ⟨Ty, hT, _, hm⟩⟩
 
 /-! ## A challenge and its solution, module by module (task #608)
 
@@ -460,12 +459,9 @@ theorem compare_closure_solves (V : Type w) [SetTheory V] {spC sp : Frontend.Ole
             cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
             ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
               (cC.toConstantVal.levelParams.map Level.param))) ∧
-        (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+        ∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
           ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
-        ∀ y ∈ Driver.cmpImported cr.w.home cr.w.emitted, ∃ cp,
-          cr.view.index.first[y]? = some cp ∧
-          Driver.Compose.ctxHome cr.w.reach y = cr.view.loads.nameAt cp.mod := by
+            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty := by
   intro InC
   have plain := Driver.Compose.cmp_plain good hC edges hhdr
   have hnames : ∀ m, InC m → m ∈ Cg.map (·.1) := fun m hm =>
@@ -489,7 +485,7 @@ theorem compare_closure_solves (V : Type w) [SetTheory V] {spC sp : Frontend.Ole
     simp at hx
   refine ⟨R.w, R.jobs, cr, cj, hcr, hw, fun M hM hne => R.facts₀ (hnames M hM)
     (by rw [hRx]; exact Driver.Compose.cmpExtra_other hne), fun M hM => m M (hnames M hM), mC,
-    fun M hM n hn => ?_, fun n cC hfC => ?_, h3, R.cmp_home hC hw hcr⟩
+    fun M hM n hn => ?_, fun n cC hfC => ?_, h3⟩
   · obtain ⟨hh, he⟩ := h1 M (hnames M hM) n hn
     exact ⟨hInC _ hh, he⟩
   · obtain ⟨hh, hxh, cS, hS, hl, he⟩ := h2 n cC hfC
@@ -509,14 +505,15 @@ theory `V`,
 * a model `mC` of the challenge's environment (`Driver.chalEnvOf`: the compare worker's context,
   every record of one of `C`'s names at `C`'s level-parameter names), in which every name is
   valued as its home, a module of the closure other than `C`, values it, at `C`'s names;
-* every hole of `C` (an axiom of `C`, or a declaration of `C` using `sorryAx`) inhabited in `mC`;
-* every name `C`'s records read that `C` imports has as its home the module `C`'s own view
-  (the reads at `C`'s own header) loads it from: it is that module's constant, not one the
-  solution declares itself.
+* every hole of `C` (an axiom of `C`, or a declaration of `C` using `sorryAx`) inhabited in `mC`.
 
-A model constrains the constants' types, not the definitions' values, so the last clause is the
-one that says which constants they are: the challenge's `f` is the constant `f` of the module the
-challenge imports it from, so whatever holds of that `f` there (`f = 3`, by `rfl`) holds of it. -/
+A model makes every definition of its environment denote its value and every recursor rule hold
+(`Model.defn_eq`, `Model.rule_eqs`), and a module's own environment holds its definitions with
+their bodies.  So where the challenge imports `def f : Nat := 3` from `A` and has a hole
+`t : f = 5`, its `f` is `A`'s, `3` in `mM A`, hence `3` in `mC`, and `f = 5` denotes the empty
+set: no implementation that proves this statement accepts any solution.  Which module the
+compare worker's context reads a name from (the comparison's home rule) is the code's business;
+the statement needs only the family of models. -/
 theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : String} {C S : Name}
     {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
@@ -544,12 +541,9 @@ theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : Strin
             cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
             ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
               (cC.toConstantVal.levelParams.map Level.param))) ∧
-        (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+        ∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
           ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
-        ∀ y ∈ Driver.cmpImported cr.w.home cr.w.emitted, ∃ cp,
-          cr.view.index.first[y]? = some cp ∧
-          Driver.Compose.ctxHome cr.w.reach y = cr.view.loads.nameAt cp.mod := by
+            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty := by
   intro sp InC
   obtain ⟨_, _, hg⟩ := hgraph
   obtain ⟨gj, _, _, hg⟩ := Driver.runArgs_graphCmp_accept hc hs hg
@@ -600,12 +594,9 @@ theorem main_compare_modular_one_solves (V : Type w) [SetTheory V] {dirs c s : S
             cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
             ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
               (cC.toConstantVal.levelParams.map Level.param))) ∧
-        (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+        ∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
           ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
-        ∀ y ∈ Driver.cmpImported cr.w.home cr.w.emitted, ∃ cp,
-          cr.view.index.first[y]? = some cp ∧
-          Driver.Compose.ctxHome cr.w.reach y = cr.view.loads.nameAt cp.mod := by
+            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty := by
   intro sp InC
   obtain ⟨_, _, h⟩ := h
   obtain ⟨C', S', hc', hs', jobs, Cg, T, ⟨_, _, hg⟩, hall, cr, hcr⟩ :=
@@ -668,12 +659,9 @@ theorem main_compare_modular_trusted_solves (V : Type w) [SetTheory V] {T D c s 
             cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
             ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
               (cC.toConstantVal.levelParams.map Level.param))) ∧
-        (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+        ∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
           ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
-        ∀ y ∈ Driver.cmpImported cr.w.home cr.w.emitted, ∃ cp,
-          cr.view.index.first[y]? = some cp ∧
-          Driver.Compose.ctxHome cr.w.reach y = cr.view.loads.nameAt cp.mod := by
+            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty := by
   intro r InC
   have hchal : r.chalRoots = (Driver.searchPathOf T : Olean.Roots) := by
     simp [r, Driver.CmpReq.chalRoots, hT]
@@ -747,12 +735,9 @@ theorem main_compare_modular_one_trusted_solves (V : Type w) [SetTheory V] {T D 
             cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
             ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
               (cC.toConstantVal.levelParams.map Level.param))) ∧
-        (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+        ∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
           ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
-        ∀ y ∈ Driver.cmpImported cr.w.home cr.w.emitted, ∃ cp,
-          cr.view.index.first[y]? = some cp ∧
-          Driver.Compose.ctxHome cr.w.reach y = cr.view.loads.nameAt cp.mod := by
+            Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty := by
   intro r InC
   obtain ⟨_, _, h⟩ := h
   obtain ⟨C', S', hc', hs', jobs, Cg, Tg, ⟨_, _, hg⟩, CC, RC, ⟨_, _, hgC⟩, hall, cr, hcr⟩ :=
@@ -811,8 +796,9 @@ theorem main_compare_modular_one_trusted_solves (V : Type w) [SetTheory V] {T D 
 open Frontend Classical in
 /-- **An accepted modular comparison with a trusted path is a property of the trusted files**
 (T1, with T2 of `main_compare_modular_trusted_solves`).  From the same commands' exits 0 on a
-snapshot `fs`: in every set theory `V`, the challenge's environment has a model `mC` in which
-every hole of `C` is inhabited; and on every snapshot `fs'` that agrees with `fs` on the paths
+snapshot `fs`: in every set theory `V`, the modules of the closure have compatible models `mM`
+and the challenge's environment a model `mC` that values every name as its home's model does and
+in which every hole of `C` is inhabited; and on every snapshot `fs'` that agrees with `fs` on the paths
 the reader forms under `T`, the challenge's files give the same records (`cr.w.home`, whose
 emission are the holes), the challenge's own view (which fixes the homes of what it imports) is
 the same, and every worker of a module of the challenge's closure reads and checks alike.  What
@@ -835,27 +821,38 @@ theorem main_compare_modular_trusted (V : Type w) [SetTheory V] {T D c s : Strin
     (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
       "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
     let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+    let InC := Driver.Graph.HdrClosure r.solRoots fs [C, S]
     ∃ (w : Name → Driver.WorkerRead) (jobs : Name → Nat) (cr : Driver.CmpModuleRead) (cj : Nat)
+      (mM : ∀ m, InC m → Model V (Driver.ownEnvOf (Driver.Compose.cmpLook r.chalRoots r.solRoots fs C m) fs m (w m)))
       (mC : Model V (Driver.chalEnvOf cr)),
+      (∀ m (hm : InC m) n, ((streamEnv (w m).reach.ctx.toList).find? n).isSome = true →
+        ∃ hh : InC (Driver.Compose.ctxHome (w m).reach n),
+          (mM m hm).cval n = (mM _ hh).cval n) ∧
+      (∀ n cC, (Driver.chalEnvOf cr).find? n = some cC →
+        ∃ hh : InC (Driver.Compose.ctxHome cr.w.reach n), Driver.Compose.ctxHome cr.w.reach n ≠ C ∧
+          ∃ cS, (Driver.ownEnvOf (Driver.Compose.cmpLook r.chalRoots r.solRoots fs C (Driver.Compose.ctxHome cr.w.reach n)) fs
+            (Driver.Compose.ctxHome cr.w.reach n)
+            (w (Driver.Compose.ctxHome cr.w.reach n))).find? n = some cS ∧
+          cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+          ∀ φ, mC.cval n φ = (mM _ hh).cval n (Level.substFn φ cS.toConstantVal.levelParams
+            (cC.toConstantVal.levelParams.map Level.param))) ∧
       (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
         ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-          Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ ∃ v, v ∈ˢ Ty) ∧
+          Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ mC.cval cv.name φ ∈ˢ Ty) ∧
       ∀ fs', FS.AgreeUnder (Driver.searchPathOf T) fs fs' →
         (∃ f, ModelIO.CanGive (Olean.readFiles r.chalRoots C .private) fs' (.ok f) ∧
           Olean.homeOf C f = .ok (cr.w.home, cr.w.expo)) ∧
         ModelIO.CanGive (Olean.workerReads (.ofPath r.chalRoots) C cj) fs' (.ok cr.view) ∧
         ∀ m, Driver.Graph.HdrClosure r.chalRoots fs [C] m → m ≠ C →
           Driver.WorkerFacts r.chalRoots fs' m (jobs m) (w m) := by
-  intro r
+  intro r InC
   have hchal : r.chalRoots = (Driver.searchPathOf T : Olean.Roots) := by
     simp [r, Driver.CmpReq.chalRoots, hT]
   have hR : Olean.RootsIn (Driver.searchPathOf T) r.chalRoots := by
     rw [hchal]; exact ⟨fun _ h => h, fun _ h => by simp at h, fun _ _ h => by simp at h⟩
-  obtain ⟨w, jobs, cr, cj, hcr, -, hwf, -, mC, -, -, h3, -⟩ :=
+  obtain ⟨w, jobs, cr, cj, hcr, -, hwf, mM, mC, h1, h2, h3⟩ :=
     main_compare_modular_trusted_solves V hT hc hs hgraph hwork hcmp
-  refine ⟨w, jobs, cr, cj, mC, fun d hd hh => ?_, fun fs' hag => ?_⟩
-  · obtain ⟨cv, hcv, hmem⟩ := h3 d hd hh
-    exact ⟨cv, hcv, fun φ ρ => let ⟨Ty, hT, hm⟩ := hmem φ ρ; ⟨Ty, hT, _, hm⟩⟩
+  refine ⟨w, jobs, cr, cj, mM, mC, h1, h2, h3, fun fs' hag => ?_⟩
   obtain ⟨h1, h2⟩ := hcr.chal_local hR hag
   refine ⟨h1, h2, fun m hm hne => ?_⟩
   have hin : Driver.Graph.HdrClosure r.solRoots fs [C, S] m := by
@@ -896,7 +893,11 @@ that constant's statement; and in every set theory `V` there are
 * a model `mC` of the challenge's environment and a model `mS` of the solution's, `mC` giving
   every constant `mS`'s value read at the challenge's level-parameter names;
 * every hole of the challenge file is inhabited by the solution's constant: that constant's
-  value in `mS` is a member of what the hole's type denotes in `mC`. -/
+  value in `mS` is a member of what the hole's type denotes in `mC`.
+
+A model makes every definition denote its value and every recursor rule hold (`Model.defn_eq`,
+`Model.rule_eqs`), and the challenge's environment holds its definitions with their bodies: a
+challenge file with `def f : Nat := 3` and a hole `t : f = 5` has no solution. -/
 theorem main_compare_json_solves (V : Type w) [SetTheory V] {c s : String} {fs : FS}
     {bC bS : ByteArray} (hbC : fs.file c = some bC) (hbS : fs.file s = some bS)
     (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :

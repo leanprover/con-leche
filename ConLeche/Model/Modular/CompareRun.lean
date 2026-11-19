@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Driver.ComposeCompare
 import ConLeche.Model.Modular.Main
+import ConLeche.Model.OfEnvModelM
 public import ConLeche.Model.Modular.Compare
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Routes
@@ -41,7 +42,8 @@ theorem levelsRenaming_spec {ps lps : List Name} (h : levelsRenaming ps lps = tr
 
 /-- A renamed constant is a copy. -/
 theorem copy_of_renaming {ps? : Option (List Name)} {ps : List Name} {c : ConstantInfo}
-    (h : renamingTo ps? c.toConstantVal.levelParams = some ps) : ConstCopy c (c.atLps ps) := by
+    (h : renamingTo ps? c.toConstantVal.levelParams = some ps) (hf : RuleFree c) :
+    ConstCopy c (c.atLps ps) := by
   unfold renamingTo at h
   obtain ⟨ps', -, h⟩ := Option.bind_eq_some_iff.1 h
   split at h
@@ -49,7 +51,7 @@ theorem copy_of_renaming {ps? : Option (List Name)} {ps : List Name} {c : Consta
     cases h
     simp only [Bool.and_eq_true] at hr
     obtain ⟨hnd, hl⟩ := levelsRenaming_spec hr.2
-    exact .inr ⟨_, rfl, hnd, hl⟩
+    exact .inr ⟨_, rfl, hnd, hl, hf⟩
   · cases h
 
 /-- **A context record at the challenge's names installs copies of its constants.** -/
@@ -61,7 +63,7 @@ theorem recCopy_chalRec (f : Name → Option (List Name)) : ∀ d, RecCopy d (ch
     · rename_i hq
       split
       · rename_i ps hps
-        have hc := copy_of_renaming (c := .axiomInfo cv) hps
+        have hc := copy_of_renaming (c := .axiomInfo cv) hps trivial
         refine ⟨?_, rfl⟩
         simp only [declConstants, hq, ↓reduceIte]
         have hn : (cv.atLps ps).name = cv.name := rfl
@@ -74,19 +76,19 @@ theorem recCopy_chalRec (f : Name → Option (List Name)) : ∀ d, RecCopy d (ch
     simp only [chalRec]
     split
     · rename_i ps hps
-      exact recCopy_single (copy_of_renaming (c := .defnInfo cv v h) hps) rfl rfl rfl
+      exact recCopy_single (copy_of_renaming (c := .defnInfo cv v h) hps trivial) rfl rfl rfl
     · exact RecCopy.refl _
   | .thmDecl cv v => by
     simp only [chalRec]
     split
     · rename_i ps hps
-      exact recCopy_single (copy_of_renaming (c := .thmInfo cv) hps) rfl rfl rfl
+      exact recCopy_single (copy_of_renaming (c := .thmInfo cv) hps trivial) rfl rfl rfl
     · exact RecCopy.refl _
   | .opaqueDecl cv v => by
     simp only [chalRec]
     split
     · rename_i ps hps
-      exact recCopy_single (copy_of_renaming (c := .axiomInfo cv) hps) rfl rfl rfl
+      exact recCopy_single (copy_of_renaming (c := .axiomInfo cv) hps trivial) rfl rfl rfl
     · exact RecCopy.refl _
   | .quotDecl .. => RecCopy.refl _
   | .indDecl .. => RecCopy.refl _
@@ -342,7 +344,7 @@ theorem run_models (V : Type w) [SetTheory V] {sp : Roots} {fs : FS} {maxNatSize
     intro hh he hx hS
     refine ⟨hh, hx, cS, hS, ?_, fun φ => ?_⟩
     · rw [hlps]
-      rcases hr with rfl | ⟨ps, rfl, -, hl⟩
+      rcases hr with rfl | ⟨ps, rfl, -, hl, -⟩
       · rfl
       · rw [atLps_cv]; exact hl
     · rw [Model.ofCopies_cval mp₀ hcp h1 h2 φ, hm _ hh, hlps]

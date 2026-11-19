@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.MainTheorem
+public import ConLecheTests.CompareAttack
 public import ConLeche.Verify.Frontend.Olean.Files
 public import ConLeche.Verify.Frontend.Olean.Local
 public import ConLeche.Verify.Frontend.Olean.View
@@ -634,5 +635,17 @@ info: 'ConLeche.Expr.decEq_eq_decEqPtr' depends on axioms: [propext, Classical.c
 -/
 #guard_msgs in
 #print axioms ConLeche.Expr.decEq_eq_decEqPtr
+
+/--
+info: 'ConLeche.CompareAttackTest.no_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.CompareAttackTest.no_model
+
+/--
+info: 'ConLeche.CompareAttackTest.compare_attack_rejected' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.CompareAttackTest.compare_attack_rejected
 
 end ConLecheTests.Axioms

@@ -190,8 +190,9 @@ the binary reads. The main theorem,
 > with the environment `env`, then `env` has a model in `V` — one set
 > per stored constant and universe assignment under which every stored
 > constant is a member of what its type denotes, whatever the built-in
-> `False` denotes is the empty set, and whatever the built-in `Eq`
-> denotes is set equality.
+> `False` denotes is the empty set, whatever the built-in `Eq`
+> denotes is set equality, every stored definition denotes what its
+> value denotes, and every stored recursor rule's ι equation holds.
 
 `pins` is the fold's second argument: the list of pinned
 `Nat.div`/`Nat.mod` variants its install gate tries (the bullet on
@@ -216,15 +217,21 @@ chain, a constant its set, an application the function's graph, a
 denotes a truth value at every value of its domain, a `λ` the graph of
 its body, or the proof point where its body denotes the proof point at
 every value of its domain — and the structure
-[`Model` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L248-L268).
+[`Model` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L346-L379).
 So every theorem the stream proves is true in the model.
-Definitional equalities need no clause of their own, because the field
-`eq_equality` covers them all: a definition's unfolding or an iota
-rule, stated as a theorem proved by `rfl`, is a stored constant whose
-type is `a = b`, `mem` puts that constant inside what the type
-denotes, `eq_equality` says that set is the truth value of `⟦a⟧ = ⟦b⟧`,
-and a truth value with a member is `{pt}`. So the two sides of every
-accepted equation denote the same set.
+The model also means what the declarations say where no theorem states
+it: `defn_eq` makes every stored definition denote its value, and
+`rule_eqs` makes every stored recursor rule's ι equation hold — the
+equation, `iotaEq` in the same file, is the closed `@Eq` between the
+recursor applied to a constructor and the rule's right-hand side, and
+`rule_eqs` says what it denotes is inhabited. A constant whose
+definition or recursor sits behind an import is thereby still fixed
+(two constructors of an enumeration denote different sets, `T.a ≠ T.b`
+in the test library's `IotaEqTests`). Any other definitional equality
+is covered by `eq_equality`: stated as a theorem proved by `rfl`, it is
+a stored constant whose type is `a = b`, `mem` puts that constant
+inside what the type denotes, `eq_equality` says that set is the truth
+value of `⟦a⟧ = ⟦b⟧`, and a truth value with a member is `{pt}`.
 
 The main corollary,
 [`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L130-L137):
@@ -377,15 +384,23 @@ same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
 
 **A challenge and its solution** have their own theorems, about the comparison
 `--olean --compare` makes (§2).
-[`main_compare_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L352-L378):
+[`main_compare_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L357-L379):
 every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` read
 the challenge `C` through `T` alone and the solution `S` through `T`, then `D`, and in every set
 theory there is a model of the challenge's environment, at its own level-parameter names and with
 each hole of `C` the axiom of its statement, and a model of the solution's environment, such that
 every constant of the challenge's is the solution's constant of that name and takes the solution
-model's value; every hole is inhabited by the solution's constant; and every declaration `C`
-imports, but a theorem, has the same home module in the solution's closure, so that it is that
-module's constant and not one the solution declares itself. The challenge's read depends on the
+model's value, and every constant of the challenge's, every hole among them, is inhabited by the
+solution's constant. The challenge's environment holds what `C` imports with its bodies, and a
+model makes every definition denote its value and every recursor rule hold, so the statement
+excludes the attacks by itself: a challenge that imports `def f : Nat := 3` and has a hole
+`t : f = 5` has no model with `t` inhabited, and where the challenge has `inductive T | a | b`, its
+constructors denote different sets, so a hole `T.a = T.b` cannot be inhabited, whatever `T` the
+solution declares. `tests/ConLecheTests/CompareAttack.lean` derives from the theorem that a
+challenge reading `def f : T := T.a` and with a hole `t : f = T.b` has no accepted solution at
+all. Which module a
+solution's constant comes from (the comparison's home rule) is a rule of the code, not part of
+the statement. The challenge's read depends on the
 files under the trusted directories and on nothing else
 ([`challenge_local` in `ConLeche/Verify/Frontend/Olean/Local.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Olean/Local.lean#L469-L471)):
 on two snapshots that agree on every path the reader forms under them, it has the same outcomes,
@@ -394,17 +409,16 @@ trusted files alone: on every snapshot that agrees with the run's under the trus
 the challenge's read gives an environment that has a model with every hole inhabited.
 
 The same question **module by module** has its own theorems.
-[`main_compare_modular_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L520-L528):
+[`main_compare_modular_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L517-L525):
 on a snapshot where `--check-graph --compare -- <c> <s>`, `--olean --module` at every module of
 the headers' closure of `C` and `S` but `C`, and the compare worker `--olean --module --compare
 -- <c> <s>` exit 0, every module of the closure has a model of its own environment, a context name
 valued as the module that declares it values it, and the challenge's environment (the compare
 worker's context, `C`'s names at `C`'s level-parameter names) has a model in which every name is
-valued as its home values it and every hole of `C` is inhabited; and every name `C`'s records read
-that `C` imports has as its home the module `C`'s own view loads it from. A model constrains the
-constants' types, not the definitions' values, so the last clause is the one that says which
-constants they are: the challenge's `f` is the `f` of the module it imports, and whatever holds of
-that `f` (`f = 3`, by `rfl`) holds of it. `main_compare_modular_one_solves` says the same of
+valued as its home values it and every hole of `C` is inhabited. A module's own environment holds
+its definitions with their bodies and its model makes each denote its value, so the challenge's
+`f`, valued as the `f` of the module it is read from, is `3` there and in the challenge's model,
+and a hole `t : f = 5` cannot be inhabited. `main_compare_modular_one_solves` says the same of
 `--olean --modular --compare`. With a trusted path (`main_compare_modular_trusted_solves`,
 `main_compare_modular_one_trusted_solves`) every module of the challenge's closure is read through
 `T` alone (its worker run with `--search-path=<T>`) and every other module through `T`, then `D`;
@@ -420,7 +434,8 @@ own level-parameter names) embeds into the solution's: every constant of it is a
 solution's constant of that name up to the names of its level parameters, or, for a hole, the
 axiom of such a copy of that constant's statement; and in every set theory there are models of
 the two, the challenge's reading every name as the solution's does, in which every hole is
-inhabited by the solution's constant. The challenge's side is a function of its file's bytes,
+inhabited by the solution's constant; the challenge's definitions denote their values there, so
+`f := 3` with a hole `t : f = 5` has no solution. The challenge's side is a function of its file's bytes,
 so there is no trusted path to state locality over. `main_compare_json_no_False`: if `bC` parses
 to records one of which is a hole of type `False` (an axiom other than the standard ones, or a
 declaration whose value uses `sorry`), no run at those arguments exits 0, whatever `s` holds.
@@ -429,7 +444,7 @@ declaration whose value uses `sorry`), no run at those arguments exits 0, whatev
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L112-L116)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L113-L117)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -661,7 +676,7 @@ Read from the outside in:
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L137-L143)).
    The main theorem's model is the invariant's own, read through the
    statement's relation
-   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L340-L341)).
+   ([definition `Model.ofEnvModelM` in `ConLeche/Model/OfEnvModelM.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/OfEnvModelM.lean#L65-L66)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**
@@ -1229,7 +1244,7 @@ relation on the checker's own terms. The two agree wherever the
 reading of a term is defined: `interp` of the reading is a
 `Denotes`-denotation of the term, since both read a binder's regime off
 the values
-([theorem `Denotes_of_denote` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L202-L208)).
+([theorem `Denotes_of_denote` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L194-L200)).
 The relation reads a binder's body under the binder with de Bruijn
 indices while the checker opens it with a fresh free variable; a small
 closing operation translates between the two.

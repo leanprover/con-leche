@@ -231,45 +231,6 @@ theorem inferTypeCore_openPis_dom_sort {envK : Env} {F : Nat}
     obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body k' hA hinf
     exact inferTypeCore_forallE_dom_sort hbt
 
-/-- **An application spine inferred to a sort applies a head whose type
-ends in a sort after `m` binders to exactly `m` arguments.** -/
-theorem inferTypeCore_mkAppN_endsInSort_len {envK : Env} {F d : Nat} {s : Level} :
-    ∀ (as : List Expr) {f T t : Expr} {m : Nat} {u : Level},
-      ConLeche.inferTypeCore .verified false envK F d f = .ok T → ConLeche.EndsInSort m s T →
-      ConLeche.inferTypeCore .verified false envK F d (Expr.mkAppN f as) = .ok t →
-      ConLeche.whnf .verified false envK F d t = .ok (.sort u) → as.length = m
-  | [], f, T, t, m, u, hf, hT, h, hw => by
-    have hTt : T = t := Except.ok.inj (hf.symm.trans h)
-    rw [← hTt] at hw
-    cases m with
-    | zero => rfl
-    | succ m =>
-      match T, hT, hw with
-      | .forallE A b, _, hw =>
-        have := ConLeche.whnf_forallE_eq hw
-        exact nomatch this
-  | a :: as, f, T, t, m, u, hf, hT, h, hw => by
-    obtain ⟨tfa, hfa⟩ := Model.inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-    obtain ⟨tf, ty', body', hf', hwf, rfl, -⟩ := ConLeche.inferTypeCore_app_inv' hfa
-    have hTf : tf = T := Except.ok.inj (hf'.symm.trans hf)
-    rw [hTf] at hwf
-    cases m with
-    | zero =>
-      simp only [ConLeche.EndsInSort] at hT
-      subst hT
-      have := Model.whnf_sort_eq hwf
-      exact nomatch this
-    | succ m =>
-      match T, hT, hwf with
-      | .forallE A b, hT, hwf =>
-        obtain ⟨rfl, rfl⟩ : A = ty' ∧ b = body' := by
-          have := ConLeche.whnf_forallE_eq hwf
-          injection this with h1 h2
-          exact ⟨h1.symm, h2.symm⟩
-        have := inferTypeCore_mkAppN_endsInSort_len as (f := .app f a) hfa
-          (EndsInSort.instantiate1' m 0 hT) h hw
-        simp [this]
-
 /-- **A graded frame of openers** at depth `D`: positional variables,
 scoped and bounded, their types reading as the frame's domains, which are
 graded along their fitting spines. -/

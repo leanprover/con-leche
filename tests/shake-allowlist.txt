@@ -719,3 +719,4 @@ ConLeche/Verify/Driver/Loads.lean	public import ConLeche.Frontend.Olean	# the in
 ConLeche/Driver/Tables.lean	public import ConLeche.Frontend.Olean	# the interface of the olean tree (tests/layering.sh); shake proposes its module Levels instead (task #509)
 ConLeche/MainTheorem.lean	public import ConLeche.Model.Modular.CompareRun	# measured: removing it breaks the module's statements (unknown Driver.CmpFacts, Driver.chalEnvOf, Driver.Graph.HdrClosure; task #608); a minimization move with compensating adds
 ConLeche/Verify/Driver/ComposeCompare.lean	public import ConLeche.Verify.Driver.Routes	# measured: removing it breaks the module (unknown Graph.NodeOk, R.dev_rk, ownEnvOf; task #608); a minimization move with compensating adds
+ConLeche/Model/Denotes.lean	public import ConLeche.Model.Env.EnvModelM	# compensated: +public import ConLeche.Verify.Denote.VClosed, ConLeche.Semantics.Interp, ConLeche.Verify.Denote in ConLeche/Model/Denotes.lean (+3 more)

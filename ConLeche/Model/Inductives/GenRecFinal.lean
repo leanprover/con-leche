@@ -22,6 +22,9 @@ import ConLeche.Model.Inductives.GenClsData
 import ConLeche.Model.Inductives.GenRecExtra
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Inductives.NestNfScope
+import ConLeche.Model.Inductives.GenRecFit
+import ConLeche.Model.Inductives.GenRecFit1
+import ConLeche.Model.Inductives.GenRecFit2
 
 public section
 
@@ -34,8 +37,9 @@ from the GENERATED stage's run, through the generic stage
 (`GenRecAssembly.lean`), its obligations discharged by the GENREC lanes:
 the stage record (`recStage_of_gen`), the rule side (`GenRecRules.lean`),
 the family premise (`genRecPre_run`) with its class side
-(`genClsSem_run`, `genCls_minor`, `genClassInd`) and the rule frame's
-grading (`genCls_frameV`).
+(`genClsSem_run`, `genCls_minor`, `genClassInd`), the rule frame's
+grading (`genCls_frameV`) and the rules' forward fit (`genRecFit_of`,
+`genRecFit1`, `genRecFit2`).
 -/
 
 namespace ConLeche.Model
@@ -326,7 +330,9 @@ theorem genRecStage {F : Nat}
     (genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov) (genRecHtower R)
     (fun m₃ hac φ j r hr _ ctor rhs _ _ => recStagePinsOk mpC h m₃ hac φ j r hr ctor rhs
       (fun _ _ hf' => R.fire_nestedRead hr hf'))
-    (fun m₃ hac => hextra _ m₃ hac) hdataS
+    (fun m₃ hac => hextra _ m₃ hac)
+    (genRecFit_of R h hrdAll hseam (genRecFit1 R hg hcov h hfind hseam hdRe hrdAll)
+      (genRecFit2 R h hcov hdRe (fun ψ ρ => (hcsem ψ ρ).2.1) hrdAll hseam)) hdataS
     (genRecTyZ R hg h mpC)
     (fun _ _ hr _ _ _ hctor hrhs _ _ hRa hℓ ρ =>
       genRuleRaZ R hg h mpC hfind hlenEs hr hctor hrhs hRa hℓ ρ)
