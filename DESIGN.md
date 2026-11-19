@@ -124315,5 +124315,8 @@ its union over `InClosure`), and for `--olean --modular`/`--check-graph`: every 
 (`Run.homeIn`) on every context name.  The agreement is over the worker's context (a reader
 table); a spec reading of "read from" (`RecordFrom`, `Driver/ReachFrom.lean`) is the candidate.
 Not done: docs (OVERVIEW §theorems, whitepaper §7), axiom pins for `main_oleans`, gates, landing.
-The internal `Model`'s `false_empty`/`eq_equality`: still read by `main_compare_json_no_False`
-and `modular_no_False` (via `Model.no_constant_of_False`), so they stay; note for #619.
+The internal `Model`'s `false_empty`/`eq_equality`: after this lane still read by
+`main_compare_json_no_False` (MainTheorem) and the tests `CompareAttack`/`IotaEqTests` — all on
+#619's side (the compare capstones).  **Note for whichever of #618/#619 lands second:** once those
+are restated over `IsModel`, drop the two fields (`ConLeche/Denotes.lean`) and their proofs
+(`Model/OfEnvModelM.lean`, `Model/Copies.lean`).
