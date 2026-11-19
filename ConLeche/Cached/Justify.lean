@@ -20,10 +20,12 @@ justified by the sidecar's index `J` when
 * `J` stores a constant of `cv`'s name whose statement is `cv` up to a positional renaming of
   the level parameters (`sameCvUpToLevels`: as many names, neither list with a repeat, the
   sidecar's at the input's names equal to `cv`), of any kind; and
-* everything `cv`'s type reads is the same constant in both indices, closed under reads
-  (`coneGo`): the input's copy is the sidecar's (`refinesB`: the same constant, or the statement
-  of a sidecar definition, theorem or axiom of the same statement, level-parameter names
-  included), with the same projection table, and what that copy reads is again shared — its
+* everything `cv`'s type reads is the same constant in both indices up to the names of its
+  level parameters, closed under reads (`coneGo`): the input's copy is the sidecar's
+  (`refinesB`: the sidecar's constant, or the statement of a sidecar definition, theorem or
+  axiom, each up to a positional renaming of the level parameters where no recursor rule reads
+  the constant, `copyB`), with the same projection table, and what that copy reads is again
+  shared — its
   type, a definition's value, a recursor's rules, a type former's block members and
   constructors and recursors, a pinned constant's fast-path names, a table's names
   (`entryNeeds`).
@@ -105,12 +107,30 @@ def tableBeqP : Option ProjTable → Option ProjTable → Bool
   | some a, some b => a.beqP b
   | _, _ => false
 
-/-- **The input's copy is the sidecar's**: the same constant, or the statement (an axiom of the
-same name, level parameters and type) of a sidecar definition, theorem or axiom. -/
+/-- **A constant no recursor rule's equation reads**: neither a recursor nor a constructor (the
+model's `RuleFree`).  Only those may be copied at other level-parameter names: ι reads a
+recursor's rules and its constructors' records at their own names. -/
+def ruleFreeB : ConstantInfo → Bool
+  | .recInfo .. => false
+  | .ctorInfo .. => false
+  | _ => true
+
+/-- **The input's constant `ci` is a copy of the sidecar's `ci'`** (the model's `ConstCopy ci'
+ci`): the same, or, for a constant no rule reads (`ruleFreeB`), the sidecar's at the input's
+level-parameter names, as many, neither list with a repeat. -/
+def copyB (ci' ci : ConstantInfo) : Bool :=
+  let ps := ci.toConstantVal.levelParams
+  if ps == ci'.toConstantVal.levelParams then ci.beqP ci'
+  else ruleFreeB ci' && levelsRenaming ci'.toConstantVal.levelParams ps &&
+    (ci'.atLpsC ps).beqP ci
+
+/-- **The input's copy is the sidecar's**: a copy of it (`copyB`: the same, or at other
+level-parameter names), or a copy of the statement (an axiom of the same name and type) of a
+sidecar definition, theorem or axiom. -/
 def refinesB (ci ci' : ConstantInfo) : Bool :=
-  ci.beqP ci' ||
+  copyB ci' ci ||
     match ci with
-    | .axiomInfo cv => ci'.isStmtKind && cv.beqP ci'.toConstantVal
+    | .axiomInfo _ => ci'.isStmtKind && copyB (.axiomInfo ci'.toConstantVal) ci
     | _ => false
 
 /-- **What the justification follows from a constant**: its laws' names (`NeedsSt.const`), a

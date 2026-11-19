@@ -3514,7 +3514,8 @@
 # solution's file is checked in full; the challenge's too, its axioms other than the built-in
 # ones and its declarations whose value uses sorry justified by the solution's constant of the
 # same name and type (up to level-parameter names), everything the type reads being the same
-# constant in both (level-parameter names included); an axiom not so justified rejects (1).
+# constant in both up to level-parameter names (a recursor or constructor at its own names, so an
+# inductive block only at the same names); an axiom not so justified rejects (1).
 # cmp_hole: a definition, a theorem and an axiom hole, justified (0).
 0 --compare -- cmp_hole_c.ndjson cmp_hole_s.ndjson
 # cmp_kind: holes justified by other kinds (an opaque constant, a definition), 0; the
@@ -3522,10 +3523,12 @@
 # does not matter (0; 1 under the #612 comparison).
 0 --compare -- cmp_kind_c.ndjson cmp_kind_s.ndjson
 0 --compare -- cmp_kind_c.ndjson cmp_kind_bad_s.ndjson
-# cmp_lv: the hole's statement up to level-parameter names, but the definition `idd` it reads
-# at other level-parameter names in the solution: not the same constant (1; 0 under the #612
-# comparison, which renamed every compared record; leanprover/comparator rejects it too).
-1 --compare -- cmp_lv_c.ndjson cmp_lv_s.ndjson
+# cmp_lv: the hole's statement, and the definition `idd` its type reads, at other
+# level-parameter names in the solution: copies of the solution's constants (0).
+0 --compare -- cmp_lv_c.ndjson cmp_lv_s.ndjson
+# cmp_lvind: the hole's type reads an inductive block the solution declares at other
+# level-parameter names: a constructor or recursor is matched only at its own (1).
+1 --compare -- cmp_lvind_c.ndjson cmp_lvind_s.ndjson
 # cmp_def: a definition the hole reads, differing in the solution (1).
 1 --compare -- cmp_def_c.ndjson cmp_def_s.ndjson
 # cmp_stmt: a hole stated differently in the solution (1); justified from a non-standard
