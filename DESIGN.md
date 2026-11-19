@@ -123193,3 +123193,55 @@ definitional equalities), whitepaper §1 and §7; §6b is the fragment's, unchan
 the maintainer's: lines 69 ("every constant … (and that `False` … `Eq` …)": now also
 definitions mean their values and recursor rules hold) and 73 ("it does not contain the delta
 and iota equations": it now does) are stale; only their links were re-pointed.
+
+## TASK #606 — the scheduler on AxiomMath's Stacks development: 75 627 modules accepted (2026-11-19, agent/606-stacks)
+
+**The task (maintainer).**  Build https://github.com/AxiomMath/Stacks (Lean v4.35.0, Mathlib
+`v4.35.0`, module system headers; 64 213 Stacks modules, StacksCore 445 and StacksFrontier
+63 768, under the root `Stacks`) and run `--olean --schedule --jobs=16 --schedule-memory=40G`
+on it; report on the scheduler and every non-zero verdict.  Binary: `modular` at 010604125
+(the commits up to ccfb88910 change no checker code).
+
+**The build.**  No Stacks cache exists (no release, nothing in the repository); Mathlib's came
+from `lake exe cache get`.  Lake has no job option; `LEAN_NUM_THREADS` bounds its parallelism.
+Five runs, 8.1 h wall in all: 16 threads (the first 1 000 modules), 32 (stopped when the session
+cgroup reached 45 GiB with the other sessions), 20 and 14 (each stopped or ended after the guard
+killed the running `lean` processes at 42 GB of resident sets: four times, 67 modules redone),
+and 8 for the rest.  125 h of elaboration over the 64 216 Stacks modules; most `lean` processes
+under 1 GB, but StacksFrontier's algebraic geometry has many of 5 to 12 GB and a few up to
+25 GB (peak `VmHWM` 25.4 GB).  Disk: 358 GB, of which `.lake/build/ir` 308 GB (C files and
+Lake's `*.setup.json`, up to 17 MB each, which grow with the import depth), `build/lib` 42.5 GB,
+the packages 7.4 GB.  `ir` was deleted at the maintainer's request (the reader opens only
+`.olean`, `.olean.server`, `.olean.private` on the search path, all under `lib`); the checkout
+is 51 GB now.
+
+**The run.**  `LEAN_STACK_SIZE_KB=8388608 con-leche --olean --schedule --jobs=16
+--schedule-memory=40G --progress=60s`, under the 47 GiB guard: exit 0, all 75 627 modules of the
+closure accepted (Init 653, Std 494, Lean 1 227, Batteries 195, Aesop 132, Mathlib 8 625,
+StacksCore 446, StacksFrontier 63 769; 2 180 347 declarations).  Wall 2 h 28 min; worker time
+39.7 h, 15.9 workers on average (99 % of 16 threads).  Memory: 6.5 GiB in use and 11.2 GiB
+reserved on average of 40, peak 12.9 GiB of the running workers; peak per module 3.1 GiB
+(`…WeilCohomology.Concrete.FundamentalClassMotive`, against up to 25 GB for Lean's elaboration),
+mean 0.6.  No kill, no over-reserved line, no `reserve` line, no head-slot start beyond the
+room, no heartbeat (a module finished at least every few seconds), no `memory`, `stack`,
+`signal` or `oom-kill` verdict.  The estimate was within 1 %: 2 h 14 min at 10 % (892 s in),
+for an end at 8 930 s against 8 880.  Three workers had more than one thread, all in the
+first second, when the typical peak is still limit ÷ jobs (2.5 GiB) and `cap` above 1.
+
+**What it shows.**
+* The scheduler had nothing to do: memory never kept a start back, so admission, kills and the
+  head slot were not exercised.  At a typical peak of 0.6 GiB, 40 GiB holds about 60 workers;
+  the machine's 96 cores stood 80 idle by `--jobs=16`.  Proposal: the statistics could say
+  when no start ever waited for room ("memory never limited the starts; at the typical peak
+  the limit holds N workers"), so a user knows `--jobs` was the limit.
+* The worker time is reading, not checking: parse 32.9 h, check 2.0 h, the rest 4.8 h.  The
+  median StacksFrontier module takes 1.85 s, of it 0.2 s checking; each worker reads its
+  module's context from the closure's `.olean` files on its own.  That cost per module, not
+  the kernel, is what a faster modular run has to cut.
+* No checker bug: no non-zero verdict.
+
+Files (in `_tmp/606/`): `stacks.log` (the schedule log), `sched1.out`, `sched1.err` (status lines,
+statistics), `build{1..5}.log`, `.samples`, `.big` (the Lake runs, the per-minute `lean`
+resident sets, the processes above 3 GB), `guard.sh`, `sample.sh`, `big.sh`, `leanpath.txt`,
+`bin/con-leche`, the checkout `stacks/` (51 GB, rebuilt `lib` only; a `lake build` there would
+probably redo the C files).
