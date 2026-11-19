@@ -52,6 +52,13 @@ theorem CmpReq.solRoots_bare (r : CmpReq) : r.solRoots.bare = r.solRoots := by
   unfold CmpReq.solRoots
   split <;> rfl
 
+/-- **The challenge's lookup is the solution's without its fallback** (task #608). -/
+theorem CmpReq.chal_trims (r : CmpReq) : r.chalRoots.Trims r.solRoots := by
+  unfold CmpReq.chalRoots CmpReq.solRoots
+  split
+  · exact Roots.Trims.refl _
+  · exact Or.inr ⟨rfl, rfl⟩
+
 /-- A failed read's verdict is no exit 0. -/
 theorem readFailed_ne {modeTag label : String} {x : CheckError × Nat} {fs : FS} {hs : HS} :
     ModelIO.AllOk (readFailed modeTag label x) fs hs (fun c => c ≠ 0) := by
@@ -116,6 +123,10 @@ theorem compareG_accept {r : CmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace
     rcases x with e | rdS
     · exact fun c hs4 hc h0 => (readFailed_ne c hs4 hc h0).elim
     simp only
+    cases hin : rdS.values.any (·.name == r.challenge) with
+    | true => simp
+    | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
     cases hcmp : compareRecords r.challenge (usedOf (some (r.chalRoots.path, rdC))) rdC.homes
       rdS.homes (cmpRecs pre' r.solRoots rdS) (recIndex (cmpRecs pre' r.solRoots rdS))
       (cmpRecs pre' r.chalRoots rdC) with

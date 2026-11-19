@@ -168,16 +168,25 @@ def clashCopies (ix : NameIndex) : Array (Name × Array Copy) :=
       | some a => some (a.push c)) {}
   m.toArray
 
+/-- **A worker's own part with imports added** (a compared challenge's, task #608): the
+header's imports followed by `x`, and no constant of its own, so that none of its names is
+checked fresh.  Without imports to add, the part itself. -/
+def NamePositions.withImports (own : NamePositions) (x : Array ImportRec) : NamePositions :=
+  if x.isEmpty then own
+  else { header := { own.header with imports := own.header.imports ++ x }, consts := #[] }
+
 /-- **Phases 1 and 2 of a worker at module `m`** (DESIGN #460 §3): its own part's header
 and names; the header fixpoint; each loaded module's public-import closure; the name
 index of the loaded parts (read in parallel, at most `jobs` modules at once); Lean's
 refusal of a classic import from a module, the clash rule over every loaded name and
-freshness, each a reject (exit 1) naming what it found. -/
-def workerReads {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (jobs : Nat := 1) :
-    μ (Except CheckError WorkerReads) := do
+freshness, each a reject (exit 1) naming what it found.  `x`: imports added to the header
+(`NamePositions.withImports`; a compared challenge's solution, task #608). -/
+def workerReads {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (jobs : Nat := 1)
+    (x : Array ImportRec := #[]) : μ (Except CheckError WorkerReads) := do
   match ← rd.names (m, .private) with
   | .error e => pure (.error e)
   | .ok own =>
+    let own := own.withImports x
     match ← headerFixpoint rd.imports own.header.isModule own.header.imports with
     | .error e => pure (.error e)
     | .ok ld =>

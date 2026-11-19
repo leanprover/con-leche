@@ -445,6 +445,171 @@ theorem readFiles_rev {fs : FS} {R : Roots} (hR : R.Ok fs) {m : Name} {level : O
   · simp at h
   exact ⟨_, hs₁, findModule_rev hR hx, h⟩
 
+/-! ## A lookup and its trimmed copy (task #608)
+
+A compared modular run with a trusted path reads the challenge's closure through the trusted
+path alone and the rest through it and the search path after it.  The first lookup is the
+second without its fallback (`Roots.Trims`); a module the first finds, the second finds at the
+same place (`findModule_trims`), because the path comes first.  So every read through the first
+that gives a value gives it through the second, and two reads of one module through two such
+lookups that both give a value agree. -/
+
+/-- **`a` is `L`, or `L` without its fallback**, `L` resolving no root yet. -/
+@[expose] def Roots.Trims (a L : Roots) : Prop := a = L ∨ (L.bare = L ∧ a = { path := L.path })
+
+theorem Roots.Trims.refl (L : Roots) : L.Trims L := Or.inl rfl
+
+/-- A lookup with no root resolved, without its fallback, trims it. -/
+theorem Roots.Trims.path {L : Roots} (hL : L.bare = L) : Roots.Trims { path := L.path } L :=
+  Or.inr ⟨hL, rfl⟩
+
+/-- No directory to look on: no root there. -/
+theorem rootAt_nil {r : Name} {fs : FS} {hs hs' : HS} {a : RootAt}
+    (h : (rootAt [] r : ModelIO RootAt) fs hs (.ok a) hs') : a = .missing := by
+  simp only [rootAt, ModelIO.tryCatch_ok] at h
+  rcases h with h | ⟨e, _, h, -⟩
+  · simp only [rootHits, List.mapM_nil, ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at h
+    obtain ⟨_, _, ⟨rfl, rfl⟩, h⟩ := h
+    simp only [List.filter_nil, List.map_nil, ModelIO.pure_iff, Except.ok.injEq] at h
+    exact h.1
+  · simp only [rootHits, List.mapM_nil] at h
+    rcases h with ⟨_, _, h1, h⟩ | ⟨_, h1, h⟩
+    · simp only [ModelIO.pure_iff, Except.ok.injEq] at h1
+      obtain ⟨rfl, rfl⟩ := h1
+      simp at h
+    · simp at h
+
+/-- **A module the trimmed lookup finds, the full one finds at the same place**, from the same
+handles. -/
+theorem findModule_trims {a L : Roots} (h : a.Trims L) {m : Name} {fs : FS} {hs hs' : HS}
+    {loc : Located} (hf : (findModule a m : ModelIO _) fs hs (.ok (.ok loc)) hs') :
+    (findModule L m : ModelIO _) fs hs (.ok (.ok loc)) hs' := by
+  rcases h with rfl | ⟨hL, rfl⟩
+  · exact hf
+  simp only [findModule, ModelIO.map_ok] at hf ⊢
+  obtain ⟨x, hx, hl⟩ := hf
+  have hx' := locatedOf_ok hl
+  subst hx'
+  refine ⟨.dir loc.dir, ?_, hl⟩
+  have hmap : L.map = {} := by rw [← hL]; rfl
+  simp only [Roots.rootOf, Std.HashMap.getElem?_empty, hmap] at hx ⊢
+  simp only [lookAt, ModelIO.bind_ok] at hx ⊢
+  obtain ⟨b, hs₁, hb, hn⟩ := hx
+  refine ⟨b, hs₁, hb, ?_⟩
+  cases b with
+  | missing =>
+    simp only [lookNext] at hn
+    cases rootAt_nil hn
+  | _ =>
+    simp only [lookNext] at hn ⊢
+    exact hn
+
+/-- A read at a module's location: through the trimmed lookup a value, through the full one
+the same, from the same handles. -/
+theorem atModule_trims {α : Type} {a L : Roots} (h : a.Trims L) {m : Name}
+    {k : Located → ModelIO (Except CheckError α)} {fs : FS} {hs hs' : HS} {v : α}
+    (hx : ((do match ← findModule a m with
+      | .error e => pure (.error e)
+      | .ok loc => k loc) : ModelIO _) fs hs (.ok (.ok v)) hs') :
+    ((do match ← findModule L m with
+      | .error e => pure (.error e)
+      | .ok loc => k loc) : ModelIO _) fs hs (.ok (.ok v)) hs' := by
+  simp only [ModelIO.bind_ok] at hx ⊢
+  obtain ⟨x, hs₁, hx, hk⟩ := hx
+  rcases x with e | loc
+  · simp at hk
+  exact ⟨_, hs₁, findModule_trims h hx, hk⟩
+
+theorem moduleImports_trims {a L : Roots} (h : a.Trims L) {m : Name} {fs : FS}
+    {v : Array ImportRec} (hx : ModelIO.CanGive (moduleImports a m) fs (.ok v)) :
+    ModelIO.CanGive (moduleImports L m) fs (.ok v) :=
+  let ⟨hs, hs', hx⟩ := hx
+  ⟨hs, hs', atModule_trims (k := fun loc => readImportsAt loc m) h hx⟩
+
+theorem readFiles_trims {a L : Roots} (h : a.Trims L) {m : Name} {level : OLeanLevel} {fs : FS}
+    {v : ModFiles} (hx : ModelIO.CanGive (readFiles a m level) fs (.ok v)) :
+    ModelIO.CanGive (readFiles L m level) fs (.ok v) :=
+  let ⟨hs, hs', hx⟩ := hx
+  ⟨hs, hs', atModule_trims (k := fun loc => readFilesAt loc m level) h hx⟩
+
+theorem readPartNames_trims {a L : Roots} (h : a.Trims L) {x : Name × OLeanLevel} {fs : FS}
+    {v : NamePositions} (hx : ModelIO.CanGive (readPartNames a x) fs (.ok v)) :
+    ModelIO.CanGive (readPartNames L x) fs (.ok v) :=
+  let ⟨hs, hs', hx⟩ := hx
+  ⟨hs, hs', atModule_trims (k := fun loc => readPartNamesAt loc x) h hx⟩
+
+theorem findModule_trims' {a L : Roots} (h : a.Trims L) {m : Name} {fs : FS} {loc : Located}
+    (hx : ModelIO.CanGive (findModule a m) fs (.ok loc)) :
+    ModelIO.CanGive (findModule L m) fs (.ok loc) :=
+  let ⟨hs, hs', hx⟩ := hx
+  ⟨hs, hs', findModule_trims h hx⟩
+
+/-- **A module two such lookups find, they find at one place**: a value outcome through one is
+an outcome through the other wherever that one finds the module, from the same handles. -/
+theorem findModule_move {a b L : Roots} (ha : a.Trims L) (hb : b.Trims L) {m : Name} {fs : FS}
+    {lb : Located} (hfb : ModelIO.CanGive (findModule b m) fs (.ok lb)) {hs hs' : HS}
+    {loc : Located} (h : (findModule a m : ModelIO _) fs hs (.ok (.ok loc)) hs') :
+    (findModule b m : ModelIO _) fs hs (.ok (.ok loc)) hs' := by
+  obtain ⟨_, _, hfb'⟩ := hfb
+  have hLb := findModule_ok (findModule_trims hb hfb')
+  obtain rfl : loc = lb := Except.ok.inj (hLb.ok (findModule_trims ha h))
+  have hh : hs' = hs := (((findModule_noHandles a m) fs hs _ hs').1 h).2
+  subst hh
+  obtain ⟨hs₁, h1⟩ := findModule_ok hfb' hs'
+  have h2 : (findModule b m : ModelIO _) fs hs' (.ok (.ok loc)) hs₁ := by
+    rw [h1]; exact ⟨rfl, rfl⟩
+  have hh : hs₁ = hs' := (((findModule_noHandles b m) fs hs' _ hs₁).1 h2).2
+  rw [hh] at h2
+  exact h2
+
+/-- A read at a module's location moves between two such lookups, where the second finds it. -/
+theorem atModule_move {α : Type} {a b L : Roots} (ha : a.Trims L) (hb : b.Trims L) {m : Name}
+    {lb : Located} {fs : FS} (hfb : ModelIO.CanGive (findModule b m) fs (.ok lb))
+    {k : Located → ModelIO (Except CheckError α)} {hs hs' : HS} {v : α}
+    (hx : ((do match ← findModule a m with
+      | .error e => pure (.error e)
+      | .ok loc => k loc) : ModelIO _) fs hs (.ok (.ok v)) hs') :
+    ((do match ← findModule b m with
+      | .error e => pure (.error e)
+      | .ok loc => k loc) : ModelIO _) fs hs (.ok (.ok v)) hs' := by
+  simp only [ModelIO.bind_ok] at hx ⊢
+  obtain ⟨x, hs₁, hx, hk⟩ := hx
+  rcases x with e | loc
+  · simp at hk
+  exact ⟨_, hs₁, findModule_move ha hb hfb hx, hk⟩
+
+theorem moduleImports_move {a b L : Roots} (ha : a.Trims L) (hb : b.Trims L) {m : Name}
+    {lb : Located} {fs : FS} (hfb : ModelIO.CanGive (findModule b m) fs (.ok lb))
+    {v : Array ImportRec} (hx : ModelIO.CanGive (moduleImports a m) fs (.ok v)) :
+    ModelIO.CanGive (moduleImports b m) fs (.ok v) :=
+  let ⟨hs, hs', hx⟩ := hx
+  ⟨hs, hs', atModule_move (k := fun loc => readImportsAt loc m) ha hb hfb hx⟩
+
+theorem readFiles_move {a b L : Roots} (ha : a.Trims L) (hb : b.Trims L) {m : Name}
+    {lb : Located} {fs : FS} (hfb : ModelIO.CanGive (findModule b m) fs (.ok lb))
+    {level : OLeanLevel} {v : ModFiles} (hx : ModelIO.CanGive (readFiles a m level) fs (.ok v)) :
+    ModelIO.CanGive (readFiles b m level) fs (.ok v) :=
+  let ⟨hs, hs', hx⟩ := hx
+  ⟨hs, hs', atModule_move (k := fun loc => readFilesAt loc m level) ha hb hfb hx⟩
+
+theorem readPartNames_move {a b L : Roots} (ha : a.Trims L) (hb : b.Trims L) {x : Name × OLeanLevel}
+    {lb : Located} {fs : FS} (hfb : ModelIO.CanGive (findModule b x.1) fs (.ok lb))
+    {v : NamePositions} (hx : ModelIO.CanGive (readPartNames a x) fs (.ok v)) :
+    ModelIO.CanGive (readPartNames b x) fs (.ok v) :=
+  let ⟨hs, hs', hx⟩ := hx
+  ⟨hs, hs', atModule_move (k := fun loc => readPartNamesAt loc x) ha hb hfb hx⟩
+
+/-- A module whose files a lookup reads, it finds. -/
+theorem readFiles_found {a : Roots} {m : Name} {level : OLeanLevel} {fs : FS} {v : ModFiles}
+    (hx : ModelIO.CanGive (readFiles a m level) fs (.ok v)) :
+    ∃ loc, ModelIO.CanGive (findModule a m) fs (.ok loc) := by
+  obtain ⟨hs, hs', hx⟩ := hx
+  simp only [readFiles, ModelIO.bind_ok] at hx
+  obtain ⟨x, hs₁, hx, hk⟩ := hx
+  rcases x with e | loc
+  · simp at hk
+  exact ⟨loc, hs, hs₁, hx⟩
+
 end Frontend.Olean
 
 end ConLeche

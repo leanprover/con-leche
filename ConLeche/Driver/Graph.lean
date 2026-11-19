@@ -35,6 +35,16 @@ abbrev Node := Name × Array ImportRec
 
 /-! ## The closure -/
 
+/-- **The import a compared run adds to the challenge's header**: the solution, `import all`. -/
+def solutionImport (S : Name) : ImportRec :=
+  { module := S, importAll := true, isExported := false, isMeta := false }
+
+/-- **The imports a modular run adds to a header** (task #608): the solution to the challenge's,
+none to any other module's. -/
+def cmpExtra (C S : Name) (m : Name) : Array ImportRec :=
+  if m == C then #[solutionImport S] else #[]
+
+
 /-- Whether the search path has none of `m`'s files: no directory of it holds `m`'s root, or
 the one that does holds none of `m`'s three files (a copy in another directory is not
 looked at, as in Lean). -/
@@ -47,12 +57,13 @@ def missingOn {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) : μ B
     return !(← CheckerIO.pathExists (modFile d m "olean.private"))
   | _ => pure false
 
-/-- **A module's imports**, read off its header (`moduleImports`); a module the search path
+/-- **A module's imports**, read off its header (`moduleImports`), followed by the imports the
+run adds to it (`extra`: a compared challenge's solution, task #608); a module the search path
 does not have is invalid input (an import that does not resolve, `missingOn`). -/
-def hdrOf {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
-    μ (Except CheckError Node) := do
+def hdrOf {μ : Type → Type} [CheckerIO μ] (sp : Roots) (extra : Name → Array ImportRec)
+    (m : Name) : μ (Except CheckError Node) := do
   match ← moduleImports sp m with
-  | .ok imps => pure (.ok (m, imps))
+  | .ok imps => pure (.ok (m, imps ++ extra m))
   | .error e =>
     if ← missingOn sp m then
       pure (.error (.invalid s!"module {m}: no .olean on the search path"))
@@ -72,17 +83,18 @@ def expand (seen : Std.HashSet Name) (out : Array Node) (next : Array Name) :
 then the headers read on `jobs` threads (`CheckerIO.parMapExcept`, the sequential map in
 meaning), the modules first met there the next level.  `fuel` bounds the levels, an internal
 error when spent.  Beside the closure, the search path with its roots resolved. -/
-def closureLevels {μ : Type → Type} [CheckerIO μ] (sp : Roots) (jobs : Nat) :
+def closureLevels {μ : Type → Type} [CheckerIO μ] (sp : Roots) (extra : Name → Array ImportRec)
+    (jobs : Nat) :
     Nat → List Name → Std.HashSet Name → Array Node → μ (Except CheckError (Array Node × Roots))
   | _, [], _, out => pure (.ok (out, sp))
   | 0, _ :: _, _, _ => pure (.error (.internal "the closure's walk ran out of steps"))
   | fuel + 1, lvl@(_ :: _), seen, out => do
     let sp ← lvl.foldlM Roots.resolve sp
-    match ← CheckerIO.parMapExcept jobs (hdrOf sp) lvl with
+    match ← CheckerIO.parMapExcept jobs (hdrOf sp extra) lvl with
     | .error e => pure (.error e)
     | .ok rs =>
       let (seen, out, next) := expand seen out #[] rs
-      closureLevels sp jobs fuel next.toList seen out
+      closureLevels sp extra jobs fuel next.toList seen out
 
 /-- The walk's level bound: far beyond any closure. -/
 def levelFuel : Nat := 1 <<< 40
@@ -207,11 +219,13 @@ def cycleMsg (C : Array Node) (cyc : List Nat) : String :=
 
 /-- **The roots' closure, its graph checked**, generic in the IO class: walk the closure's
 headers, compute an order, validate it; the closure, or the first thing wrong (an import cycle
-named by its modules). -/
+named by its modules).  `extra`: the imports the run adds to a module's header (a compared
+challenge's solution, task #608). -/
 def graphOf {μ : Type → Type} [CheckerIO μ] (sp : Roots) (roots : List Name)
-    (jobs : Nat) : μ (Except CheckError (Array Node × Roots)) := do
+    (jobs : Nat) (extra : Name → Array ImportRec := fun _ => #[]) :
+    μ (Except CheckError (Array Node × Roots)) := do
   let (lvl, seen) := dedup roots
-  match ← closureLevels sp jobs levelFuel lvl seen #[] with
+  match ← closureLevels sp extra jobs levelFuel lvl seen #[] with
   | .error e => pure (.error e)
   | .ok (C, sp) =>
     let idx := indexOf C
@@ -226,8 +240,8 @@ def graphOf {μ : Type → Type} [CheckerIO μ] (sp : Roots) (roots : List Name)
 /-- **The graph check**, generic in the IO class: the closure's graph checked (`graphOf`); the
 exit code. -/
 def checkGraphG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (roots : List Name)
-    (jobs : Nat) : μ UInt8 := do
-  match ← graphOf sp roots jobs with
+    (jobs : Nat) (extra : Name → Array ImportRec := fun _ => #[]) : μ UInt8 := do
+  match ← graphOf sp roots jobs extra with
   | .error e =>
     diagLine s!"con-leche: graph: {e}"
     return e.exitCode

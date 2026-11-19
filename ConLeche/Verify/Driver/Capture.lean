@@ -43,7 +43,7 @@ open ConLeche ConLeche.Modular ConLeche.Frontend.Olean
 
 /-- **The modules the reach reads from**: the loaded ones, and those of a reached module's
 view. -/
-inductive Reached (sp : SearchPath) (fs : FS) (wr : WorkerReads) : Name → Prop
+inductive Reached (sp : Roots) (fs : FS) (wr : WorkerReads) : Name → Prop
   | loaded {j : Nat} (hj : j < wr.loads.order.size) : Reached sp fs wr (wr.loads.nameAt j)
   | view {h : Name} {v : Std.HashMap Name Spot} {y : Name} {s : Spot} :
       Reached sp fs wr h → HomeView sp fs h v → v[y]? = some s → Reached sp fs wr s.part.mod
@@ -51,7 +51,7 @@ inductive Reached (sp : SearchPath) (fs : FS) (wr : WorkerReads) : Name → Prop
 /-- **`proofStatus`'s meaning** at a copy `s` of kind `k`: a theorem, or an exported axiom
 whose module's private part has a theorem there, is a proof outright; a definition, opaque
 constant or axiom is one by inference; any other kind is none. -/
-@[expose] def StatusOk (sp : SearchPath) (fs : FS) (s : Spot) (k : CKindF Name Unit)
+@[expose] def StatusOk (sp : Roots) (fs : FS) (s : Spot) (k : CKindF Name Unit)
     (p : ProofStatus) : Prop :=
   (p ≠ .no → k.tag < 4) ∧
   (p = .yes → k.tag = 2 ∨ (k.tag = 0 ∧ s.part.level ≠ .private ∧ ∃ q : Spot, CopyAt sp fs q ∧
@@ -61,7 +61,7 @@ constant or axiom is one by inference; any other kind is none. -/
 /-- **The public-import route** of a read of `y` by a record of home `h`, the context's copy
 `s₁`: the importer's copy, of a module of `h`'s public-import closure whose exported part
 holds `y`. -/
-@[expose] def PubRoute (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (h y : Name)
+@[expose] def PubRoute (sp : Roots) (fs : FS) (env : ReachEnv ModelIO) (h y : Name)
     (s₁ : Spot) : Prop :=
   ∃ i hi, importerSpot env y = some (i, s₁) ∧ env.wr.loads.index[h]? = some hi ∧
     ((env.wr.pub[hi]?).map (·.has i)).getD false = true ∧
@@ -72,7 +72,7 @@ holds `y`. -/
 module, or both proofs of one statement, `s₂` neither unsafe nor partial, the names of `s₂`'s
 statement read as reads of its module (`P`), one of them a theorem or else an inference recorded
 (`pend`). -/
-@[expose] def AgreeOk (sp : SearchPath) (fs : FS) (pend : String × Name × ConstantVal → Prop)
+@[expose] def AgreeOk (sp : Roots) (fs : FS) (pend : String × Name × ConstantVal → Prop)
     (P : Name × Name → Prop) (y : Name) (s₁ s₂ : Spot) : Prop :=
   s₁.part.mod = s₂.part.mod ∨
     ∃ (r₁ : Region) (cv₁ : ConstantVal) (k₁ : CKindF Name Unit) (r₂ : Region) (cv₂ : ConstantVal)
@@ -86,7 +86,7 @@ statement read as reads of its module (`P`), one of them a theorem or else an in
 
 /-- **The read of `y` by a record of home `h` passed** (`captureOne`; see the module
 docstring), over the completions `loc`, the recorded inferences `pend` and the reads `P`. -/
-@[expose] def Passed (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO)
+@[expose] def Passed (sp : Roots) (fs : FS) (env : ReachEnv ModelIO)
     (loc : Std.HashMap Name Spot) (pend : String × Name × ConstantVal → Prop)
     (P : Name × Name → Prop) (h y : Name) : Prop :=
   ∃ s₁, copyOf env loc y = some s₁ ∧
@@ -104,7 +104,7 @@ theorem copyOf_mono {env : ReachEnv ModelIO} {a b : Std.HashMap Name Spot} (hab 
   · exact h
   · exact hab y s h
 
-theorem AgreeOk.mono {sp : SearchPath} {fs : FS} {pend pend' : String × Name × ConstantVal → Prop}
+theorem AgreeOk.mono {sp : Roots} {fs : FS} {pend pend' : String × Name × ConstantVal → Prop}
     {P P' : Name × Name → Prop} (hp : ∀ x, pend x → pend' x) (hP : ∀ x, P x → P' x)
     {y : Name} {s₁ s₂ : Spot} (h : AgreeOk sp fs pend P y s₁ s₂) : AgreeOk sp fs pend' P' y s₁ s₂ := by
   rcases h with h | ⟨r₁, cv₁, k₁, r₂, cv₂, k₂, p₁, p₂, a1, a2, a3, a4, a0, a5, a6, a7, a8, a9,
@@ -113,7 +113,7 @@ theorem AgreeOk.mono {sp : SearchPath} {fs : FS} {pend pend' : String × Name ×
   · exact .inr ⟨r₁, cv₁, k₁, r₂, cv₂, k₂, p₁, p₂, a1, a2, a3, a4, a0, a5, a6, a7, a8, a9, a10,
       fun c hc => hP _ (a11 c hc), a12.imp id (Or.imp id fun ⟨w, h⟩ => ⟨w, hp _ h⟩)⟩
 
-theorem Passed.mono {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO}
+theorem Passed.mono {sp : Roots} {fs : FS} {env : ReachEnv ModelIO}
     {loc loc' : Std.HashMap Name Spot} {pend pend' : String × Name × ConstantVal → Prop}
     {P P' : Name × Name → Prop} (hl : LocSub loc loc') (hp : ∀ x, pend x → pend' x)
     (hP : ∀ x, P x → P' x) {h y : Name} (H : Passed sp fs env loc pend P h y) :
@@ -128,7 +128,7 @@ theorem Passed.mono {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO}
 /-! ## How the caches change -/
 
 /-- **A home's views in the cache are the snapshot's.** -/
-@[expose] def VOk (sp : SearchPath) (fs : FS) (c : ReachCache) : Prop :=
+@[expose] def VOk (sp : Roots) (fs : FS) (c : ReachCache) : Prop :=
   ∀ h v, c.views[h]? = some v → HomeView sp fs h v
 
 /-- **A read that leaves the completions, inferences, partner reads and views alone.** -/
@@ -143,7 +143,7 @@ theorem Fr.trans {a b c : ReachCache} (h₁ : Fr a b) (h₂ : Fr b c) : Fr a c :
 
 /-- **A step of the check**: the completions kept and the new ones `NL`'s, the inferences
 kept, the partner reads kept and the new ones `NP`'s, the views kept the snapshot's. -/
-structure Step (sp : SearchPath) (fs : FS) (NL : Name → Spot → Prop) (NP : Name × Name → Prop)
+structure Step (sp : Roots) (fs : FS) (NL : Name → Spot → Prop) (NP : Name × Name → Prop)
     (c c' : ReachCache) : Prop where
   loc_keep : LocSub c.located c'.located
   loc_new : ∀ y s, c'.located[y]? = some s → c.located[y]? = some s ∨ NL y s
@@ -152,16 +152,16 @@ structure Step (sp : SearchPath) (fs : FS) (NL : Name → Spot → Prop) (NP : N
   part_new : ∀ x ∈ c'.partners, x ∈ c.partners ∨ NP x
   views : VOk sp fs c → VOk sp fs c'
 
-theorem Step.ofFr {sp : SearchPath} {fs : FS} {NL : Name → Spot → Prop} {NP : Name × Name → Prop}
+theorem Step.ofFr {sp : Roots} {fs : FS} {NL : Name → Spot → Prop} {NP : Name × Name → Prop}
     {c c' : ReachCache} (h : Fr c c') : Step sp fs NL NP c c' := by
   obtain ⟨h1, h2, h3, h4⟩ := h
   refine ⟨fun y s hs => by rw [h1]; exact hs, fun y s hs => .inl (h1 ▸ hs), fun x hx => h2 ▸ hx,
     fun x hx => h3 ▸ hx, fun x hx => .inl (h3 ▸ hx), fun hv h v hh => hv h v (h4 ▸ hh)⟩
 
-theorem Step.rfl {sp : SearchPath} {fs : FS} {NL : Name → Spot → Prop} {NP : Name × Name → Prop}
+theorem Step.rfl {sp : Roots} {fs : FS} {NL : Name → Spot → Prop} {NP : Name × Name → Prop}
     {c : ReachCache} : Step sp fs NL NP c c := Step.ofFr Fr.rfl
 
-theorem Step.trans {sp : SearchPath} {fs : FS} {NL : Name → Spot → Prop} {NP : Name × Name → Prop}
+theorem Step.trans {sp : Roots} {fs : FS} {NL : Name → Spot → Prop} {NP : Name × Name → Prop}
     {a b c : ReachCache} (h₁ : Step sp fs NL NP a b) (h₂ : Step sp fs NL NP b c) :
     Step sp fs NL NP a c where
   loc_keep y s h := h₂.loc_keep y s (h₁.loc_keep y s h)
@@ -171,7 +171,7 @@ theorem Step.trans {sp : SearchPath} {fs : FS} {NL : Name → Spot → Prop} {NP
   part_new x h := (h₂.part_new x h).elim (fun h => h₁.part_new x h) .inr
   views h := h₂.views (h₁.views h)
 
-theorem Step.mono {sp : SearchPath} {fs : FS} {NL NL' : Name → Spot → Prop}
+theorem Step.mono {sp : Roots} {fs : FS} {NL NL' : Name → Spot → Prop}
     {NP NP' : Name × Name → Prop} {c c' : ReachCache} (h : Step sp fs NL NP c c')
     (hl : ∀ y s, NL y s → NL' y s) (hp : ∀ x, NP x → NP' x) : Step sp fs NL' NP' c c' where
   loc_keep := h.loc_keep
@@ -190,7 +190,7 @@ theorem ModelIO.AllOk.and {α : Type} {x : ModelIO α} {fs : FS} {hs : HS} {P Q 
 /-! ## The reads that change none of it -/
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem tableOf_fr (c : ReachCache) (k : PartKey) :
     ModelIO.AllOk (tableOf env c k) fs ho fun p => Fr c p.1 := by
@@ -387,7 +387,7 @@ end
 /-- **A context record read at a copy `s`** (`RecordFrom`'s arms, the copy named): its
 statement, the definition there whole, the quotient constant there, or the group of `s`'s
 module's private part. -/
-inductive ReadAt (sp : SearchPath) (fs : FS) : Declaration → Spot → Prop
+inductive ReadAt (sp : Roots) (fs : FS) : Declaration → Spot → Prop
   | stmt {x : Name} {s : Spot} {r : Region} {cv : ConstantVal} {k : CKindF Name Unit}
       (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server) (hr : PartRegion sp fs s.part r)
       (hst : StmtSkel r s.pos.loc cv k) (hsk : s.pos.skipped = false)
@@ -410,7 +410,7 @@ inductive ReadAt (sp : SearchPath) (fs : FS) : Declaration → Spot → Prop
   | group {s : Spot} {n : Name} {d : Declaration} (hg : GroupRead sp fs ⟨s.part.mod, .private⟩ n d) :
       ReadAt sp fs d s
 
-theorem ReadAt.recordFrom {sp : SearchPath} {fs : FS} {d : Declaration} {s : Spot}
+theorem ReadAt.recordFrom {sp : Roots} {fs : FS} {d : Declaration} {s : Spot}
     (h : ReadAt sp fs d s) : RecordFrom sp fs d s.part.mod := by
   cases h with
   | stmt hs hl hr hst hsk hg hq hd hred => exact .stmt hs hl hr hst hsk hg hq hd hred
@@ -419,7 +419,7 @@ theorem ReadAt.recordFrom {sp : SearchPath} {fs : FS} {d : Declaration} {s : Spo
   | group hg => exact .group hg
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 /-- **A record read at the copy of `x`**: the context's copy (`copyOf`), whose module is the
 record's home. -/
@@ -534,7 +534,7 @@ end
 /-! ## A home's view, and the statuses -/
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem viewAdd_hv (he : EnvOk sp fs env) :
     ∀ (c : ReachCache) (v₀ : Std.HashMap Name Spot) (ks : List PartKey), CacheOk sp fs c →
@@ -709,7 +709,7 @@ end
 
 /-- **A partner read `agreeCheck` records**: a name of the statement of the copy `s₂`, as a read
 of `s₂`'s module. -/
-@[expose] def AgreeNew (sp : SearchPath) (fs : FS) (s₂ : Spot) (x : Name × Name) : Prop :=
+@[expose] def AgreeNew (sp : Roots) (fs : FS) (s₂ : Spot) (x : Name × Name) : Prop :=
   x.1 = s₂.part.mod ∧ s₂.pos.skipped = false ∧ ∃ rg cv₂ k₂, PartRegion sp fs s₂.part rg ∧
     StmtSkel rg s₂.pos.loc cv₂ k₂ ∧ k₂.tag < 4 ∧ x.2 ∈ (needsGo {} #[] cv₂.type).2
 
@@ -723,7 +723,7 @@ theorem ps_yes {p₁ p₂ : ProofStatus} (h : (p₁ == .yes || p₂ == .yes) = t
   cases p₁ <;> cases p₂ <;> first | exact absurd h (by decide) | exact .inl rfl | exact .inr rfl
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem Step.partners_append {NL : Name → Spot → Prop} {NP : Name × Name → Prop} {c : ReachCache}
     {a : Array (Name × Name)} (ha : ∀ x ∈ a, NP x) :
@@ -854,7 +854,7 @@ theorem viewStep_name {v : Std.HashMap Name Spot} {k : PartKey} {t : NamePositio
       · exact hv y s hs
 
 /-- **A view's copy of a name is of that name.** -/
-theorem homeView_name {sp : SearchPath} {fs : FS} {h : Name} {v : Std.HashMap Name Spot} (hv : HomeView sp fs h v) {y : Name}
+theorem homeView_name {sp : Roots} {fs : FS} {h : Name} {v : Std.HashMap Name Spot} (hv : HomeView sp fs h v) {y : Name}
     {s : Spot} (hs : v[y]? = some s) : s.pos.name = y := by
   obtain ⟨-, ld, ts, -, -, -, -, rfl⟩ := hv
   have key : ∀ (l : List (PartKey × NamePositions)) (v : Std.HashMap Name Spot),
@@ -869,19 +869,19 @@ theorem homeView_name {sp : SearchPath} {fs : FS} {h : Name} {v : Std.HashMap Na
 
 /-- **A completion `captureOne` makes** at a read of home `h`: a name with no importer copy, at
 the private part of the module of `h`'s view's copy. -/
-@[expose] def CapNL (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (h y : Name) (s : Spot) :
+@[expose] def CapNL (sp : Roots) (fs : FS) (env : ReachEnv ModelIO) (h y : Name) (s : Spot) :
     Prop :=
   importerSpot env y = none ∧
     ∃ v t, HomeView sp fs h v ∧ v[y]? = some t ∧ s.part = ⟨t.part.mod, .private⟩ ∧ s.pos.name = y
 
 /-- **A partner read `captureOne` records** at a read of home `h`: `agreeCheck`'s, at a copy of
 `h`'s view. -/
-@[expose] def CapNP (sp : SearchPath) (fs : FS) (h : Name) (x : Name × Name) : Prop :=
+@[expose] def CapNP (sp : Roots) (fs : FS) (h : Name) (x : Name × Name) : Prop :=
   ∃ (v : Std.HashMap Name Spot) (y : Name) (s₂ : Spot), HomeView sp fs h v ∧ v[y]? = some s₂ ∧
     AgreeNew sp fs s₂ x
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem inExported_st (he : EnvOk sp fs env) {c : ReachCache} (hc : CacheOk sp fs c) (m : Name)
     (level : OLeanLevel) (y : Name) :
@@ -1099,7 +1099,7 @@ part. -/
 /-- **The clash rule passed at a clash** (`clashAgree`): every loaded copy has a status other
 than `.no`, and where there is one, a copy is a theorem or else an inference of a copy's statement
 is recorded. -/
-@[expose] def ClashOk (sp : SearchPath) (fs : FS) (wr : WorkerReads)
+@[expose] def ClashOk (sp : Roots) (fs : FS) (wr : WorkerReads)
     (pend : String × Name × ConstantVal → Prop) (cl : Clash) : Prop :=
   (∀ x ∈ cl.copies, ∀ q, wr.index.at x.1 = some q →
     ∃ p, StatusOk sp fs (spotOf wr x.1 q) x.2.2 p ∧ p ≠ .no) ∧
@@ -1107,13 +1107,13 @@ is recorded. -/
     (∃ x ∈ cl.copies, ∃ q, wr.index.at x.1 = some q ∧ StatusOk sp fs (spotOf wr x.1 q) x.2.2 .yes) ∨
       ∃ w cv', pend (w, cl.name, cv') ∧ ∃ x' ∈ cl.copies, x'.2.1 = cv')
 
-theorem ClashOk.mono {sp : SearchPath} {fs : FS} {wr : WorkerReads}
+theorem ClashOk.mono {sp : Roots} {fs : FS} {wr : WorkerReads}
     {pend pend' : String × Name × ConstantVal → Prop} (hp : ∀ x, pend x → pend' x) {cl : Clash}
     (h : ClashOk sp fs wr pend cl) : ClashOk sp fs wr pend' cl :=
   ⟨h.1, fun hx => (h.2 hx).imp id fun ⟨w, cv', h1, h2⟩ => ⟨w, cv', hp _ h1, h2⟩⟩
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem captureAll_st (he : EnvOk sp fs env) (h : Name) :
     ∀ (c : ReachCache) (ys : List Name), CacheOk sp fs c → VOk sp fs c → ∀ {hs₀ : HS},
@@ -1394,7 +1394,7 @@ end
 /-- **Where a checked read comes from**: a record's read (its home the reader), a partner read
 of `agreeCheck` at a copy of a reader's view, or a partner read of a clash name a record
 stores. -/
-@[expose] def Origin (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (ctx : Array Declaration)
+@[expose] def Origin (sp : Roots) (fs : FS) (env : ReachEnv ModelIO) (ctx : Array Declaration)
     (homes : Array Name) (z : Name × Name) : Prop :=
   (∃ (k : Nat) (d : Declaration), ctx[k]? = some d ∧ homes[k]? = some z.1 ∧ z.2 ∈ recordReads d) ∨
   (∃ h, CapNP sp fs h z) ∨
@@ -1402,7 +1402,7 @@ stores. -/
     ∃ kc ∈ cs, z.1 = kc.1 ∧ z.2 ∈ (needsGo {} #[] kc.2.type).2)
 
 /-- **The worklist's invariant** (see the module docstring), `D` the reads checked so far. -/
-structure CapInv (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (L : ReachLog)
+structure CapInv (sp : Roots) (fs : FS) (env : ReachEnv ModelIO) (L : ReachLog)
     (c : ReachCache) (D : List (Name × Name)) : Prop where
   cache : CacheOk sp fs c
   views : VOk sp fs c
@@ -1421,7 +1421,7 @@ structure CapInv (sp : SearchPath) (fs : FS) (env : ReachEnv ModelIO) (L : Reach
   clashes : ∀ cl ∈ env.wr.clashes, ClashOk sp fs env.wr (· ∈ c.pending) cl
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem importerSpot_reached (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
     {y : Name} {i : Nat} {s : Spot} (h : importerSpot env y = some (i, s)) :
@@ -1542,7 +1542,7 @@ theorem Origin.push {ctx : Array Declaration} {homes : Array Name} (hsz : ctx.si
 end
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO} {ho : HS}
 
 theorem copies_reached (hcop : env.copies = clashCopiesOf env.wr)
     (hcm : ∀ cl ∈ env.wr.clashes, ∀ x ∈ cl.copies, x.1.mod < env.wr.loads.order.size)
@@ -1693,7 +1693,7 @@ theorem CapInv.add (hsize : env.wr.index.parts.size ≤ env.wr.loads.order.size)
 end
 
 section
-variable {sp : SearchPath} {fs : FS} {env : ReachEnv ModelIO}
+variable {sp : Roots} {fs : FS} {env : ReachEnv ModelIO}
 
 /-- **The worklist keeps the capture invariant**, and ends with every partner read checked. -/
 theorem reachGo_capture (he : EnvOk sp fs env)
@@ -1791,7 +1791,7 @@ copies' statements are read as their modules read them (C4); the clash rule pass
 inferences hold at the context (C6); every completion is a private copy of a reached module
 with no importer copy (C7); and every checked read is a reached module's, from a record's read, a
 partner copy of a reached module's view, or a clash name's copy (C8). -/
-theorem reach_capture {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
+theorem reach_capture {sp : Roots} {fs : FS} {m : Name} {wr : WorkerReads}
     {own : Std.HashSet Name} {roots : Array Name} {r : Reach}
     (hparts : ∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t)

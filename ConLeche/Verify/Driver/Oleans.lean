@@ -56,6 +56,14 @@ def CacheOK (sp : Roots) (fs : FS) (values : Array ModRef) (c : ValueCache) : Pr
 theorem cacheOK_empty {sp : Roots} {fs : FS} {values : Array ModRef} :
     CacheOK sp fs values {} := fun r h => by simp at h
 
+/-- A kept region moves to another snapshot where the private files read alike (task #608). -/
+theorem CacheOK.of_files {sp : Roots} {fs₁ fs₂ : FS} {values : Array ModRef} {c : ValueCache}
+    (h : ∀ m f, ModelIO.CanGive (readFiles sp m .private) fs₁ (.ok f) →
+      ModelIO.CanGive (readFiles sp m .private) fs₂ (.ok f))
+    (hc : CacheOK sp fs₁ values c) : CacheOK sp fs₂ values c := fun r hr =>
+  let ⟨md, f, a, hmd, hf, hreg⟩ := hc r hr
+  ⟨md, f, a, hmd, h _ _ hf, hreg⟩
+
 /-- **The values through roots read off the snapshot are the search path's.** -/
 theorem fillOf_roots {fs : FS} {R : Roots} (hR : R.Ok fs) (values : Array ModRef) :
     fillOf R fs values = fillOf R.bare fs values := by

@@ -19,7 +19,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
 
 /-- A presentation installs the names it presents. -/
 theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n ∈ declNames d) :
@@ -46,7 +46,7 @@ variable (R : Run sp fs maxNatSize)
 
 /-- The reach's environment at module `M`'s worker. -/
 @[expose] def envOf (M : Name) : ReachEnv ModelIO :=
-  { rd := .ofPath sp, mod := M, wr := (R.w M).reads, own := ownNames (R.w M).home,
+  { rd := .ofPath (R.look M), mod := M, wr := (R.w M).reads, own := ownOf (R.x M) (R.w M),
     copies := clashCopiesOf (R.w M).reads }
 
 /-- **The capture facts of module `M`'s worker** over completions `loc`, inferences `pend` and
@@ -58,17 +58,17 @@ passed reads `P` (`Run.capture`'s statement). -/
   let r := (R.w M).reach
   r.ctx.size = r.homes.size ∧
   (∀ (k : Nat) (d : Declaration) (hm : Name), r.ctx[k]? = some d → r.homes[k]? = some hm →
-    (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt sp fs d s) ∧
+    (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt (R.look M) fs d s) ∧
     (∀ n ∈ declNames d, ∃ s, copyOf env loc n = some s ∧ s.part.mod = hm) ∧
     (∀ y ∈ recordReads d, (hm, y) ∈ P) ∧
     (∀ n ∈ declNames d, ∀ cs, env.copies[n]? = some cs → ∀ kc ∈ cs,
       ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
-  (∀ x ∈ P, Passed sp fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
-  (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
+  (∀ x ∈ P, Passed (R.look M) fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
+  (∀ cl ∈ wr.clashes, ClashOk (R.look M) fs wr (· ∈ pend) cl) ∧
   inferFlags r.ctx.toList pend = .ok () ∧
   (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
-    s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod ∧ s.pos.name = y) ∧
-  (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x)
+    s.part.level = .private ∧ CopyAt (R.look M) fs s ∧ Reached (R.look M) fs wr s.part.mod ∧ s.pos.name = y) ∧
+  (∀ x ∈ P, Reached (R.look M) fs wr x.1 ∧ Origin (R.look M) fs env r.ctx r.homes x)
 
 theorem capFacts_exists {M : Name} (hM : M ∈ R.names) :
     ∃ loc pend P, R.CapFacts M loc pend P := R.capture hM
@@ -201,11 +201,20 @@ theorem iface_presented {M : Name} (hM : M ∈ R.names) :
       d ∈ (R.dev ((R.dev (R.rk M)).src n)).iface := by
   have hd : R.dev (R.rk M) = R.modOf M := R.dev_rk hM
   have hw := R.facts M hM
-  refine ⟨interfaceOk_of_workers hw R.dev (R.rk M) (by rw [hd]; rfl) fun e he => ?_,
-    fun d hdm n hn => ?_⟩
-  · rw [hd] at he
-    obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
-    exact ⟨M', R.jobs M', R.w M', i, R.facts M' hM', h1, h2⟩
+  refine ⟨?_, fun d hdm n hn => ?_⟩
+  · have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (a : Roots) (M' : Name) (jM : Nat)
+        (wM : WorkerRead) (xM : Array ImportRec) (i : Nat), a.Trims sp ∧
+          WorkerFacts a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+          wM.reach.homes[i]? = some M := fun e he => by
+      rw [hd] at he
+      obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
+      exact ⟨R.look M', M', R.jobs M', R.w M', R.x M', i, R.trims M', R.facts M' hM', h1, h2⟩
+    by_cases hx : R.x M = #[]
+    · exact interfaceOk_of_workers (R.trims M) (R.facts₀ hM hx) R.dev (R.rk M) (by rw [hd]; rfl) hiface
+    · refine ⟨fun e he => ?_⟩
+      rw [hd] at he
+      obtain ⟨M'', hM'', i', -, h2'⟩ := (R.mem_ifaceOf).1 he
+      exact absurd (R.home_rank hM'' h2').2.2 hx
   · rw [hd] at hdm ⊢
     obtain ⟨i, h, hi, hh⟩ := worker_home hw hdm
     show d ∈ (R.dev (R.rk (R.homeIn M n))).iface
@@ -260,24 +269,24 @@ the context's copy `s₁`, whose module the name is read from, and the branch of
 passed it. -/
 theorem passed_open {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈ (R.cap M).2.2)
     (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) :
-    h ∈ R.names ∧ R.rk h < R.rk M ∧ ∃ s₁, copyOf (R.envOf M) (R.cap M).1 y = some s₁ ∧
+    h ∈ R.names ∧ R.rk h < R.rk M ∧ R.x h = #[] ∧ ∃ s₁, copyOf (R.envOf M) (R.cap M).1 y = some s₁ ∧
       (R.dev (R.rk M)).src y = R.rk s₁.part.mod ∧
-      (s₁.part.mod = h ∨ PubRoute sp fs (R.envOf M) h y s₁ ∨
-        ∃ v s₂, HomeView sp fs h v ∧ v[y]? = some s₂ ∧
-          AgreeOk sp fs (· ∈ (R.cap M).2.1) (· ∈ (R.cap M).2.2) y s₁ s₂) := by
+      (s₁.part.mod = h ∨ PubRoute (R.look M) fs (R.envOf M) h y s₁ ∨
+        ∃ v s₂, HomeView (R.look M) fs h v ∧ v[y]? = some s₂ ∧
+          AgreeOk (R.look M) fs (· ∈ (R.cap M).2.1) (· ∈ (R.cap M).2.2) y s₁ s₂) := by
   obtain ⟨-, -, hpass, -, -, -, hreach⟩ := R.cap_facts hM
   obtain ⟨hhn, hhr⟩ := R.reached_rank hM (hreach _ hP).1
   obtain ⟨s₁, hs₁, hb⟩ := hpass _ hP
   obtain ⟨s, hs, hsrc⟩ := R.src_copy hM hy
   obtain rfl : s₁ = s := Option.some.inj (hs₁.symm.trans hs)
-  exact ⟨hhn, hhr, s₁, hs, hsrc, hb⟩
+  exact ⟨hhn, hhr.1, hhr.2, s₁, hs, hsrc, hb⟩
 
 /-- **The route of a read whose copy is its reader's own** (`Agree.same`). -/
 theorem route_same {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈ (R.cap M).2.2)
     (hy : ((R.dev (R.rk M)).context.find? y).isSome = true) {s₁ : Spot}
     (hs₁ : copyOf (R.envOf M) (R.cap M).1 y = some s₁) (hmod : s₁.part.mod = h) :
     Route R.dev (R.rk M) (R.Pr M) (R.rk h) y := by
-  obtain ⟨-, -, s, hs, hsrc, -⟩ := R.passed_open hM hP hy
+  obtain ⟨-, -, -, s, hs, hsrc, -⟩ := R.passed_open hM hP hy
   obtain rfl : s₁ = s := Option.some.inj (hs₁.symm.trans hs)
   exact ⟨R.rk h, .inl rfl, .inl (by rw [hsrc, hmod])⟩
 
@@ -292,7 +301,7 @@ theorem reads_of_routes
       RecordScoped (readsAlike R.dev (R.rk M) ((R.dev (R.rk M)).src n)) d := by
   refine R.reads_of_agree (R.agree_all fun M hM ih b y hPr hy => ?_)
   obtain ⟨h, rfl, hP⟩ := hPr
-  obtain ⟨-, -, s₁, hs₁, -, -⟩ := R.passed_open hM hP hy
+  obtain ⟨-, -, -, s₁, hs₁, -, -⟩ := R.passed_open hM hP hy
   by_cases hmod : s₁.part.mod = h
   · exact R.route_same hM hP hy hs₁ hmod
   · exact hroute M hM ih h y hP hy s₁ hs₁ hmod

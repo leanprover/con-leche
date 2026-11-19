@@ -53,7 +53,7 @@ theorem readNames_needsGo {e : Expr} {n : Name} (h : n ∈ e.readNames) :
   have hi : NeedsInv (({} : Std.HashSet Expr), (#[] : Array Name)) := fun e he => by simp at he
   exact (needsGo_spec e {} #[] hi).2.2 n (by rw [needs_eq_readNames]; exact h)
 
-variable {sp : SearchPath} {fs : FS}
+variable {sp : Roots} {fs : FS}
 
 theorem ownNames_foldl (n : Name) : ∀ (l : List CEntry) (s : Std.HashSet Name),
     (l.foldl (fun s c => s.insert c.name) s).contains n = true →
@@ -102,7 +102,8 @@ theorem first_none_of_ownNames {M : Name} {jobs : Nat} {w : WorkerRead}
   exact Option.not_isSome_iff_eq_none.1 (by simpa using h)
 
 /-- **A copy the name index records makes its name loaded.** -/
-theorem first_of_at {M : Name} {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w)
+theorem first_of_at {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs M jobs w x)
     {cp : Copy} {q : NamePosition} (hq : w.reads.index.at cp = some q) :
     (w.reads.index.first[q.name]?).isSome = true := by
   obtain ⟨_, _, hr⟩ := hw.reads
@@ -220,8 +221,8 @@ theorem length_filterMap_all {α β : Type} {f : α → Option β} :
       length_filterMap_all fun z hz => h z (List.mem_cons_of_mem _ hz)]
 
 /-- **A clash lists two copies or more.** -/
-theorem workerClash_two {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr : WorkerReads}
-    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+theorem workerClash_two {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads}
+    {hs hs' : HS} (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) : 2 ≤ cl.copies.toList.length := by
   obtain ⟨-, ⟨infos, hinf, hcls⟩, -⟩ := workerReads_open h
   obtain ⟨-, hcomp⟩ := readInfos_ok hinf
@@ -241,8 +242,8 @@ theorem workerClash_two {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {wr 
 
 /-- **A clash's copies are theorems or axioms, all unsafe or none**: Lean's merge rule
 (`subsumesF`) passed on it. -/
-theorem workerClash_kinds {m : Name} {jobs : Nat} {wr : WorkerReads} {hs hs' : HS}
-    (h : (workerReads (.ofPath sp) m jobs : ModelIO _) fs hs (.ok (.ok wr)) hs')
+theorem workerClash_kinds {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : WorkerReads} {hs hs' : HS}
+    (h : (workerReads (.ofPath sp) m jobs x : ModelIO _) fs hs (.ok (.ok wr)) hs')
     {cl : Clash} (hcl : cl ∈ wr.clashes.toList) {e₁ e₂ : Copy × ConstantVal × CKindF Name Unit}
     (h₁ : e₁ ∈ cl.copies.toList) (h₂ : e₂ ∈ cl.copies.toList) :
     e₁.2.2.skipped = e₂.2.2.skipped ∧ (e₁.2.2.tag = 0 ∨ e₁.2.2.tag = 2) := by

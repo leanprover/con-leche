@@ -320,6 +320,11 @@ def compareG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (mode : CheckMode)
       (homes := true) with
   | .error e => readFailed modeTag (toString r.solution) e
   | .ok rdS =>
+  -- a solution importing its challenge is no solution (task #608: as the modular run's cycle)
+  if rdS.values.any (·.name == r.challenge) then
+    diagLine s!"con-leche: {r.solution} does not solve {r.challenge}: the solution's closure \
+      holds the challenge ({modeTag})"
+    return 1
   let ⟨recsC, _, _⟩ := Frontend.prepareD prelude rdC.decls (usedOf (some (r.chalRoots.path, rdC)))
   let ⟨recsS, _, hoisted⟩ := Frontend.prepareD prelude rdS.decls
     (usedOf (some (r.solRoots.path, rdS)))
