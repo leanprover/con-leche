@@ -103,8 +103,8 @@ theorem findSome?_none {α β : Type} {f : α → Option β} :
 `rd` that refine the search path's. -/
 theorem cmpModuleRead_ok {rdC rd : OleanReads ModelIO} {spC sp : Roots} (hC : spC.Trims sp)
     {C S : Name} {pace : Pace}
-    {t0 jobs : Nat} {fs : FS} {c : CmpModuleRead} (hrdC : OleanReads.Within fs rdC spC)
-    (hrd : OleanReads.Within fs rd sp)
+    {t0 jobs : Nat} {fs : FS} {c : CmpModuleRead} (hrdC : OleanReads.Within fs fs rdC spC)
+    (hrd : OleanReads.Within fs fs rd sp)
     {hs hs' : HS} (h : (cmpModuleRead rdC rd C S pace t0 jobs : ModelIO _) fs hs (.ok (.ok c)) hs') :
     CmpFacts spC sp fs C S jobs c := by
   unfold cmpModuleRead at h
@@ -173,8 +173,8 @@ challenge `C` and solution `S` over a snapshot `fs` that is an exit 0 is `CmpFac
 path's. -/
 theorem checkCmpModuleG_accept {rdC rd : OleanReads ModelIO} {spC sp : Roots} (hC : spC.Trims sp)
     {C S : Name} {why : ModelIO (Option String)}
-    {mode : CheckMode} {pace : Pace} {jobs : Nat} {fs : FS} (hrdC : OleanReads.Within fs rdC spC)
-    (hrd : OleanReads.Within fs rd sp)
+    {mode : CheckMode} {pace : Pace} {jobs : Nat} {fs : FS} (hrdC : OleanReads.Within fs fs rdC spC)
+    (hrd : OleanReads.Within fs fs rd sp)
     {hs hs' : HS} (h : (checkCmpModuleG rdC rd C S why mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ c, CmpFacts spC sp fs C S jobs c := by
   suffices H : ModelIO.AllOk (checkCmpModuleG rdC rd C S why mode pace jobs) fs hs

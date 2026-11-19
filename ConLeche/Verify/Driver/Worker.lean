@@ -129,7 +129,7 @@ structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : Worker
 
 /-- **`workerRead`'s accept** is `WorkerFacts`, whatever the heartbeat answered. -/
 theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : Pace}
-    {t0 jobs : Nat} {fs : FS} {w : WorkerRead} (hrd : OleanReads.Within fs rd sp) {hs hs' : HS}
+    {t0 jobs : Nat} {fs : FS} {w : WorkerRead} (hrd : OleanReads.Within fs fs rd sp) {hs hs' : HS}
     (h : (workerRead rd m pace t0 jobs : ModelIO _) fs hs (.ok (.ok w)) hs') :
     WorkerFacts sp fs m jobs w := by
   unfold workerRead at h
@@ -255,7 +255,7 @@ the `liftIO` actions answered, for any reads `rd` that refine the search path's 
 path's own, `OleanReads.Within.ofPath`, or the one-process mode's tables). -/
 theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {R : Roots} {m : Name}
     {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {jobs : Nat} {alone : Bool} {fs : FS}
-    (hrd : OleanReads.Within fs rd sp) (hR : R.Ok fs) (hRp : R.bare = sp) {hs hs' : HS}
+    (hrd : OleanReads.Within fs fs rd sp) (hR : R.Ok fs) (hRp : R.bare = sp) {hs hs' : HS}
     (h : (checkModuleG rd R m mode maxNatSize pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
     WorkerAccepted mode maxNatSize sp fs m jobs := by
   suffices H : ModelIO.AllOk (checkModuleG rd R m mode maxNatSize pace jobs alone) fs hs

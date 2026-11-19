@@ -21,6 +21,7 @@ public import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Model.Modular.CompareRun
+import ConLeche.Verify.Driver.CompareLocal
 public section
 
 /-!
@@ -802,5 +803,70 @@ theorem main_compare_modular_one_trusted_solves (V : Type w) [SetTheory V] {T D 
       · rfl
     rw [hl]
     exact this
+
+open Frontend Classical in
+/-- **An accepted modular comparison with a trusted path is a property of the trusted files**
+(T1, with T2 of `main_compare_modular_trusted_solves`).  From the same commands' exits 0 on a
+snapshot `fs`: in every set theory `V`, the challenge's environment has a model `mC` in which
+every hole of `C` is inhabited; and on every snapshot `fs'` that agrees with `fs` on the paths
+the reader forms under `T`, the challenge's files give the same records (`cr.w.home`, whose
+emission are the holes), the challenge's own view (which fixes the homes of what it imports) is
+the same, and every worker of a module of the challenge's closure reads and checks alike.  What
+the solution's files hold, and the search path's, is not in the statement about `fs'`. -/
+theorem main_compare_modular_trusted (V : Type w) [SetTheory V] {T D c s : String}
+    {C S : Name} {fs : FS} (hT : (Driver.searchPathOf T).isEmpty = false)
+    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+    (hwork : ∀ m, Driver.Graph.HdrClosure
+        (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+        [C, S] m → m ≠ C →
+      ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+        (if Driver.Graph.HdrClosure
+            (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).chalRoots
+            fs [C] m
+          then ["--olean", "--module", "--search-path=" ++ T, "--", root']
+          else ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+            root'])) fs 0)
+    (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+    let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+    ∃ (w : Name → Driver.WorkerRead) (jobs : Name → Nat) (cr : Driver.CmpModuleRead) (cj : Nat)
+      (mC : Model V (Driver.chalEnvOf cr)),
+      (∀ d ∈ cr.w.emitted, Driver.isHole (Driver.ownUses cr.w.home) d = true →
+        ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
+          Denotes mC.cval (Driver.chalEnvOf cr) φ ρ cv.type Ty ∧ ∃ v, v ∈ˢ Ty) ∧
+      ∀ fs', FS.AgreeUnder (Driver.searchPathOf T) fs fs' →
+        (∃ f, ModelIO.CanGive (Olean.readFiles r.chalRoots C .private) fs' (.ok f) ∧
+          Olean.homeOf C f = .ok (cr.w.home, cr.w.expo)) ∧
+        ModelIO.CanGive (Olean.workerReads (.ofPath r.chalRoots) C cj) fs' (.ok cr.view) ∧
+        ∀ m, Driver.Graph.HdrClosure r.chalRoots fs [C] m → m ≠ C →
+          Driver.WorkerFacts r.chalRoots fs' m (jobs m) (w m) := by
+  intro r
+  have hchal : r.chalRoots = (Driver.searchPathOf T : Olean.Roots) := by
+    simp [r, Driver.CmpReq.chalRoots, hT]
+  have hR : Olean.RootsIn (Driver.searchPathOf T) r.chalRoots := by
+    rw [hchal]; exact ⟨fun _ h => h, fun _ h => by simp at h, fun _ _ h => by simp at h⟩
+  obtain ⟨w, jobs, cr, cj, hcr, -, hwf, -, mC, -, -, h3, -⟩ :=
+    main_compare_modular_trusted_solves V hT hc hs hgraph hwork hcmp
+  refine ⟨w, jobs, cr, cj, mC, fun d hd hh => ?_, fun fs' hag => ?_⟩
+  · obtain ⟨cv, hcv, hmem⟩ := h3 d hd hh
+    exact ⟨cv, hcv, fun φ ρ => let ⟨Ty, hT, hm⟩ := hmem φ ρ; ⟨Ty, hT, _, hm⟩⟩
+  obtain ⟨h1, h2⟩ := hcr.chal_local hR hag
+  refine ⟨h1, h2, fun m hm hne => ?_⟩
+  have hin : Driver.Graph.HdrClosure r.solRoots fs [C, S] m := by
+    have := Driver.Graph.HdrClosure.trims r.chal_trims hm
+    clear hm hwork hne
+    induction this with
+    | root hr => exact .root (by simp at hr; simp [hr])
+    | step _ hc' hi ih => exact .step ih hc' hi
+  have hl : Driver.Compose.cmpLook r.chalRoots r.solRoots fs C m = r.chalRoots := by
+    unfold Driver.Compose.cmpLook
+    split
+    · rfl
+    · rename_i hn; exact absurd ⟨hne, hm⟩ hn
+  have := hwf m hin hne
+  rw [hl] at this
+  exact Driver.WorkerFacts.local hR hag this
 
 end ConLeche

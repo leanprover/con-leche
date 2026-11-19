@@ -61,7 +61,7 @@ theorem ModTables.find_mem {T : ModTables} {m : Name} {t : ModTable} (h : T.find
 
 /-- A value a table holds is one the read it stands for gives, from any open handles. -/
 theorem ModelIO.Within.of_table {α : Type} {fs : FS} {a : ModelIO α} {v : α}
-    (ha : ModelIO.Within fs a a) (hv : ModelIO.CanGive a fs v) : ModelIO.Within fs (pure v) a := by
+    (ha : ModelIO.Within fs fs a a) (hv : ModelIO.CanGive a fs v) : ModelIO.Within fs fs (pure v) a := by
   intro _ o _ ho hs₀
   simp only [ModelIO.pure_iff] at ho
   obtain ⟨rfl, -⟩ := ho
@@ -72,8 +72,8 @@ theorem ModelIO.Within.of_table {α : Type} {fs : FS} {a : ModelIO α} {v : α}
 search path, from any open handles. -/
 theorem ModelIO.Within.at_loc {α : Type} {fs : FS} {sp : Roots} {m : Name} {loc : Located}
     {a : Located → ModelIO (Except CheckError α)} (hloc : ModelIO.CanGive (findModule sp m) fs (.ok loc))
-    (ha : ModelIO.Within fs (a loc) (a loc)) :
-    ModelIO.Within fs (a loc) (do
+    (ha : ModelIO.Within fs fs (a loc) (a loc)) :
+    ModelIO.Within fs fs (a loc) (do
       match ← findModule sp m with
       | .error e => pure (.error e)
       | .ok loc => a loc) := by
@@ -84,7 +84,7 @@ theorem ModelIO.Within.at_loc {α : Type} {fs : FS} {sp : Roots} {m : Name} {loc
   exact ⟨hs₁, Or.inl ⟨_, hs₂, hf, hr⟩⟩
 
 theorem readPartNamesAt_within (fs : FS) (loc : Located) (x : Name × OLeanLevel) :
-    ModelIO.Within fs (readPartNamesAt loc x) (readPartNamesAt loc x) := by
+    ModelIO.Within fs fs (readPartNamesAt loc x) (readPartNamesAt loc x) := by
   simp only [readPartNamesAt]
   exact ModelIO.Within.bind (readFilesAt_within fs _ _ _) fun r => by
     rcases r with e | f
@@ -95,7 +95,7 @@ theorem readPartNamesAt_within (fs : FS) (loc : Located) (x : Name × OLeanLevel
 through roots read off the snapshot. -/
 theorem modTables_within {fs : FS} {sp : Roots} {R : Roots} {T : ModTables}
     (hR : R.Ok fs) (hp : R.bare = sp) (hT : TablesOk fs sp T) :
-    OleanReads.Within fs (T.reads R) sp := by
+    OleanReads.Within fs fs (T.reads R) sp := by
   refine ⟨fun m => ?_, fun m level => ?_, fun x => ?_⟩
   · simp only [ModTables.reads]
     split
@@ -111,7 +111,7 @@ theorem modTables_within {fs : FS} {sp : Roots} {R : Roots} {T : ModTables}
     split
     · rename_i t ht
       obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
-      have hat : ∀ level, ModelIO.Within fs (readFilesAt t.loc t.name level)
+      have hat : ∀ level, ModelIO.Within fs fs (readFilesAt t.loc t.name level)
           (readFiles (sp : Roots) t.name level) := fun level =>
         ModelIO.Within.at_loc (a := fun loc => readFilesAt loc t.name level) (hT t hm).1
           (readFilesAt_within fs _ _ _)
@@ -126,7 +126,7 @@ theorem modTables_within {fs : FS} {sp : Roots} {R : Roots} {T : ModTables}
     split
     · rename_i t ht
       obtain ⟨hm, rfl⟩ := ModTables.find_mem ht
-      have hat : ∀ level, ModelIO.Within fs (readPartNamesAt t.loc (t.name, level))
+      have hat : ∀ level, ModelIO.Within fs fs (readPartNamesAt t.loc (t.name, level))
           (readPartNames (sp : Roots) (t.name, level)) := fun level =>
         ModelIO.Within.at_loc (a := fun loc => readPartNamesAt loc (t.name, level)) (hT t hm).1
           (readPartNamesAt_within fs _ _)
