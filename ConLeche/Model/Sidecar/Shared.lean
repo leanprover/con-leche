@@ -68,7 +68,8 @@ private theorem entryNeeds_spec (mates : Std.HashMap Name (Array Name)) (findT :
     Driver.ConstCovered (entryNeeds mates findT ci) ci ∧
     (∀ t, findT ci.toConstantVal.name = some t →
       Driver.TableCovered (entryNeeds mates findT ci) t) ∧
-    (∀ cv caps, ci = .indInfo cv caps → ∀ x ∈ caps.ctors, x ∈ entryNeeds mates findT ci) := by
+    (∀ cv caps, ci = .indInfo cv caps → ∀ x ∈ caps.ctors, x ∈ entryNeeds mates findT ci) ∧
+    (∀ x ∈ mates.getD ci.toConstantVal.name #[], x ∈ entryNeeds mates findT ci) := by
   have h0 : Driver.NeedsInv (({} : Std.HashSet Expr), (#[] : Array Name)) := fun k hk => by
     simp at hk
   obtain ⟨⟨h1, -⟩, hc⟩ := NeedsSt.const_spec h0 ci
@@ -87,7 +88,7 @@ private theorem entryNeeds_spec (mates : Std.HashMap Name (Array Name)) (findT :
       cases he
       exact c x (List.mem_append_left _ hx)
     | _ => exact ⟨_, rfl, h1, fun _ h => h, fun _ _ he => nomatch he⟩
-  obtain ⟨hi3, hg3, -⟩ := NeedsSt.names_spec hi2 (mates.getD ci.toConstantVal.name #[]).toList
+  obtain ⟨hi3, hg3, hm3⟩ := NeedsSt.names_spec hi2 (mates.getD ci.toConstantVal.name #[]).toList
   have hdef : entryNeeds mates findT ci =
       (match findT ci.toConstantVal.name with
         | some t => ((x2.names (mates.getD ci.toConstantVal.name #[]).toList).table t).2
@@ -102,7 +103,8 @@ private theorem entryNeeds_spec (mates : Std.HashMap Name (Array Name)) (findT :
     · exact hn
   have hall : ∀ n ∈ (NeedsSt.const ({}, #[]) ci).2, n ∈ entryNeeds mates findT ci :=
     fun n hn => hgrow n (hg3 n (hg2 n hn))
-  refine ⟨hc.mono hall, fun t ht => ?_, fun cv caps he x hx => hgrow x (hg3 x (hct cv caps he x hx))⟩
+  refine ⟨hc.mono hall, fun t ht => ?_, fun cv caps he x hx => hgrow x (hg3 x (hct cv caps he x hx)),
+    fun x hx => hgrow x (hm3 x (Array.mem_toList_iff.mpr hx))⟩
   rw [hdef, ht]
   exact (NeedsSt.table_spec hi3 t).2
 
@@ -110,7 +112,7 @@ private theorem entryNeeds_spec (mates : Std.HashMap Name (Array Name)) (findT :
 theorem entryScoped_needs (mates : Std.HashMap Name (Array Name)) {C : Env} {n : Name}
     {ci : ConstantInfo} (hn : ci.toConstantVal.name = n) :
     EntryScopedP (fun d => d ∈ entryNeeds mates C.findTable? ci) C n ci := by
-  obtain ⟨⟨c1, c2, c3, c4, c5⟩, ht, -⟩ := entryNeeds_spec mates C.findTable? ci
+  obtain ⟨⟨c1, c2, c3, c4, c5⟩, ht, -, -⟩ := entryNeeds_spec mates C.findTable? ci
   refine ⟨covers_all c1, fun cv v hh he => covers_all (c2 cv v hh he),
     fun cv mI rP isK rules he r hr => ?_, fun cv caps he => ⟨c4 cv caps he, fun t htt => ?_⟩,
     fun d hd => c5 d (hn ▸ hd)⟩
@@ -123,7 +125,13 @@ theorem entryScoped_needs (mates : Std.HashMap Name (Array Name)) {C : Env} {n :
 theorem entryNeeds_ctor (mates : Std.HashMap Name (Array Name)) (findT : Name → Option ProjTable)
     {cv : ConstantVal} {caps : IndCaps} {x : Name} (hx : x ∈ caps.ctors) :
     x ∈ entryNeeds mates findT (.indInfo cv caps) :=
-  (entryNeeds_spec mates findT _).2.2 cv caps rfl x hx
+  (entryNeeds_spec mates findT _).2.2.1 cv caps rfl x hx
+
+/-- A constant's record mates are among what it follows. -/
+theorem entryNeeds_mates (mates : Std.HashMap Name (Array Name)) (findT : Name → Option ProjTable)
+    {ci : ConstantInfo} {x : Name} (hx : x ∈ mates.getD ci.toConstantVal.name #[]) :
+    x ∈ entryNeeds mates findT ci :=
+  (entryNeeds_spec mates findT ci).2.2.2 x hx
 
 theorem tableBeqP_eq {a b : Option ProjTable} (h : tableBeqP a b = true) : a = b := by
   cases a <;> cases b <;> simp_all [tableBeqP]
