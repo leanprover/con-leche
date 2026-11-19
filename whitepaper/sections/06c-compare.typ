@@ -218,15 +218,26 @@ these must come from a source the reader trusts.
   carried across the renaming by
   #src("ConLeche/Model/Copies.lean", 292, 293)[a model of a renamed copy].
   The capstone
-  #src("ConLeche/MainTheorem.lean", 342, 368)[states] @thm:cmp
+  #src("ConLeche/MainTheorem.lean", 345, 371)[states] @thm:cmp
   for an exit 0 of the run: the challenge's model gives every name the
   solution's value, every hole is inhabited, and every name the
   challenge imports, a theorem aside, has the same home in the
   solution's closure. Together with locality,
-  #src("ConLeche/MainTheorem.lean", 386, 399)[an accepted comparison is a property of the trusted files]:
+  #src("ConLeche/MainTheorem.lean", 389, 402)[an accepted comparison is a property of the trusted files]:
   on every file system that agrees with the run's under the trusted
   directories, the challenge's read gives an environment with a model
   in which every hole is inhabited.
+
+  Con-leche also compares two `lean4export` files, the input
+  comparator works on,
+  `con-leche --compare CHALLENGE.ndjson SOLUTION.ndjson`. An export
+  has no modules and so no homes: every declaration of the challenge
+  file is the challenge's own and is compared by its content, so the
+  solution's `f := 5` does not meet a challenge file's `f := 3`, and
+  the solution's file is checked in full.
+  #src("ConLeche/MainTheorem.lean", 438, 460)[Its capstone] states the
+  same conclusion over the challenge file's bytes, which are all the
+  challenge's meaning depends on.
 
   The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
   different rule. A theorem must be a theorem on both sides, and a

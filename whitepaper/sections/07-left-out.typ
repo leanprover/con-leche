@@ -172,13 +172,13 @@ records, a context being a list of the records its imports present, in
 an order in which every record reads only itself and earlier records, and
 carries #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 202, 209)[the modular
+models gives #src("ConLeche/MainTheorem.lean", 205, 212)[the modular
 theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
 module's own records against it, one module per run, and
 #src("ConLeche/Verify/Driver/Routes.lean", 340, 341)[the runs at every module
 of an import closure together give the local checks]. Hence
-#src("ConLeche/MainTheorem.lean", 270, 280)[no module of the closure holds a
+#src("ConLeche/MainTheorem.lean", 273, 283)[no module of the closure holds a
 theorem of type `False`] where the graph check and every module's run exit 0
 on one snapshot.
 
