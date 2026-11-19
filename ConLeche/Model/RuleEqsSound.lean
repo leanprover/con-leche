@@ -865,6 +865,17 @@ theorem pin_reading_val {acval : Name → (Name → Nat) → Term}
 
 /-! ## 7. The equations hold -/
 
+theorem fvarsBelow_getAppArgs {d : Nat} : ∀ (e : Expr), Expr.fvarsBelow d e →
+    ∀ x ∈ e.getAppArgs, Expr.fvarsBelow d x
+  | .app f a, h, x, hx => by
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    rcases hx with hx | rfl
+    · exact fvarsBelow_getAppArgs f h.1 x hx
+    · exact h.2
+  | .bvar _, _, _, hx | .fvar _ _, _, _, hx | .sort _, _, _, hx | .const _ _, _, _, hx
+  | .lam _ _, _, _, hx | .forallE _ _, _, _, hx | .letE _ _ _, _, _, hx | .lit _, _, _, hx
+  | .proj _ _ _, _, _, hx => by simp [Expr.getAppArgs] at hx
+
 theorem piResult_foldr : ∀ (ds : List Expr) (b : Expr),
     (ds.foldr .forallE b).piResult = b.piResult
   | [], _ => rfl
@@ -1261,6 +1272,114 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
     have := Rules.piChain_of_stripPis (cnP + nF) (by rw [hsAll]; rfl) hTVja'
     simpa [psT, fsT, hPl, hfl] using this
   obtain ⟨restC, hrestC⟩ := Rules.teleFitPA_of_teleFit _ hpcC hCT'
+  -- the residual's index arguments are the equation's indices
+  have hxisW : ∀ i (h : i < Is.length), W[rP + cnP + nF + i]? = some Is[i] := fun i h => by
+    simp only [W, List.append_assoc]
+    rw [List.getElem?_append_right (by omega), hxl,
+      List.getElem?_append_right (by omega), hPl,
+      List.getElem?_append_right (by omega), hfl,
+      show rP + cnP + nF + i - rP - cnP - nF = i by omega, List.getElem?_eq_getElem h]
+  have hpin : IotaIndexPin (V := V) σ restC cnP mI rP (xsT ++ isT) := by
+    by_cases h0 : mI - rP = 0
+    · exact ⟨restC, [], rfl, Or.inl (by omega), fun i hi => absurd hi (by omega)⟩
+    have hnfS : conclS.hasFvar = false := by
+      rw [hTypeEq] at hnfC; exact hasFvar_foldr_body _ hnfC
+    have hlbS : conclS.looseBVarsBounded (cnP + nF) = true := by
+      rw [hTypeEq] at hlbC
+      have := looseBVarsBounded_foldr_body _ hlbC
+      simpa [hpdl, hfdSl] using this
+    -- the conclusion's head is a constant
+    have hhead : ∃ n us, conclS.getAppFn = .const n us := by
+      obtain ⟨us, hus⟩ := m.base2.wf.ctors _ hmemC cvj cnP cnF iT rfl
+      have h1 : ((cvj.type.instantiateLevelParams cvj.levelParams
+          (rl.ctorLevels cvj.levelParams)).piResult).getAppFn
+          = (cvj.type.piResult.getAppFn).instantiateLevelParams cvj.levelParams
+              (rl.ctorLevels cvj.levelParams) := by
+        rw [piResult_instantiateLevelParams, Expr.getAppFn_instantiateLevelParams]
+      rw [hus, hTypeEq, piResult_foldr] at h1
+      simp only [Expr.instantiateLevelParams] at h1
+      have hpr : conclS.piResult = conclS := by
+        cases hcs : conclS with
+        | forallE t b =>
+          exfalso
+          rw [hcs] at hind
+          simp [Expr.instantiateLift, Expr.getAppArgs] at hind
+          subst hind; simp at hidx; omega
+        | _ => rfl
+      rw [hpr] at h1
+      exact ⟨iT, _, h1⟩
+    -- the reading of the conclusion
+    obtain ⟨Γ, Rc, b', hPT, hRc, hcl', hfb', hlb'⟩ := denote_peel (cnP + nF) hTVja' hsAll
+      (fvarsBelow_zero_of_not_hasFvar hnfC) hlbC
+    rw [Nat.zero_add] at hfb'
+    rw [Expr.closeN_of_hasFvar _ 0 _ hnfS, Nat.zero_add] at hcl'
+    rw [Nat.zero_add, ← Expr.mkAppN_getApp b'] at hRc
+    obtain ⟨fa, vsR, -, hsp, rfl⟩ := denote_mkAppN_inv hRc
+    have hargs : b'.getAppArgs.map (closeN (cnP + nF) · 0) = conclS.getAppArgs := by
+      rw [← getAppArgs_closeN, hcl']
+    have hrest := teleFitPA_rest_eq (cnP + nF) hPT (by simp [psT, fsT, hPl, hfl]) hrestC
+    rw [instSeqAV_mkAppN] at hrest
+    have hindE : ind = (conclS.getAppArgs.map (·.instantiateLift ps.reverse nF)).drop cnP := by
+      rw [← hind, getAppArgs_instantiateLift _ _ _ hhead]
+    have hvl : vsR.length = conclS.getAppArgs.length := by
+      rw [← hsp.length, ← hargs, List.length_map]
+    have hcl0 : conclS.getAppArgs.length = cnP + (mI - rP) := by
+      have := hidx; rw [hindE, List.length_drop, List.length_map] at this; omega
+    refine ⟨_, _, hrest, Or.inr (by rw [List.length_map, hvl, hcl0]), fun i hi => ?_⟩
+    -- the index argument's reading
+    have hj : cnP + i < b'.getAppArgs.length := by
+      rw [← List.length_map (f := (closeN (cnP + nF) · 0)), hargs]; omega
+    have hjv : cnP + i < vsR.length := by omega
+    have hws : (psT ++ fsT).map (interp V σ) = Ps ++ fs := by rw [List.map_append, hpsI, hfsI]
+    have hlen1 : cnP + nF - 1 = (psT ++ fsT).length - 1 := by simp [psT, fsT, hPl, hfl]
+    rw [getD_of_lt _ (by simp; omega), List.getElem_map, hlen1, interp_instSeq, chain, hws]
+    have hsp' := hsp.getD default (cnP + i) hj
+    rw [getD_of_lt _ hj, getD_of_lt _ hjv] at hsp'
+    have hD1 := Denotes_of_denote (V := V) hcl (cnP + nF) _ hsp'
+      (fvarsBelow_getAppArgs _ hfb' _ (List.getElem_mem hj))
+      (looseBVarsBounded_getAppArgs hlb' _ (List.getElem_mem hj))
+      (consN (Ps ++ fs) σ)
+    have hcA : closeN (cnP + nF) (b'.getAppArgs[cnP + i])
+        = conclS.getAppArgs[cnP + i]'(by omega) := by
+      have := congrArg (fun l => l[cnP + i]?) hargs
+      simp only [List.getElem?_map, List.getElem?_eq_getElem hj,
+        List.getElem?_eq_getElem (show cnP + i < conclS.getAppArgs.length by omega),
+        Option.map_some, Option.some.injEq] at this
+      exact this
+    rw [hcA] at hD1
+    -- the equation's index, at the source of its instantiation
+    have hIi := hIsD i (by rw [hindE]; simp; omega) (by omega)
+    have hIi' : ind[i]'(by rw [hindE]; simp; omega)
+        = (conclS.getAppArgs[cnP + i]'(by omega)).instantiateLift ps.reverse nF := by
+      simp [hindE]
+    rw [hIi'] at hIi
+    have hlenR : Ps.reverse.length = ps.reverse.length := by simp [hPl, hplen]
+    have hIi2 := Denotes_instantiateLift_inv (σ := consN xs ρ) hlenR (fun j h => by
+      simp only [List.length_reverse] at h
+      simp only [List.getElem_reverse]
+      have := hPsD (ps.length - 1 - j) (by omega) (by rw [hPl, ← hplen]; omega)
+      simpa [hPl, hplen] using this) _ (d := nF)
+      (fun j => by rw [consN_ge _ _ (by rw [hfl]; omega), hfl, Nat.add_sub_cancel]) hIi
+    have hbA : (conclS.getAppArgs[cnP + i]'(by omega)).looseBVarsBounded (cnP + nF) = true :=
+      looseBVarsBounded_getAppArgs hlbS _ (List.getElem_mem _)
+    have hag : ∀ j, j < cnP + nF → insAt nF Ps.reverse (consN fs (consN xs ρ)) j
+        = consN (Ps ++ fs) σ j := by
+      intro j hj
+      rw [consN_lt _ _ (by simp [hPl, hfl]; omega)]
+      simp only [insAt]
+      by_cases hjn : j < nF
+      · simp only [hjn, ↓reduceIte]
+        rw [consN_lt _ _ (by omega), List.getElem_append_right (by simp [hPl]; omega)]
+        congr 1; simp [hPl, hfl]; omega
+      · have hjP : j - nF < Ps.reverse.length := by simp [hPl]; omega
+        simp only [hjn, ↓reduceIte, hjP, ↓reduceDIte]
+        rw [List.getElem_reverse, List.getElem_append_left (by simp [hPl]; omega)]
+        congr 1; simp [hPl, hfl]; omega
+    have hIi3 := Denotes_congr_below hIi2 hbA hag
+    have hgi : (xsT ++ isT).getD (rP + i) default = isT.getD i default := by
+      simp [List.getD_eq_getElem?_getD, List.getElem?_append_right, xsT, hxl]
+    rw [ConLeche.Denotes_functional hD1 hIi3, hgi]
+    exact (hgetD Is (rP + cnP + nF) hxisW i (by omega)).symm
   sorry
 
 end ConLeche.Model
