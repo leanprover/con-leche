@@ -218,15 +218,24 @@ these must come from a source the reader trusts.
   carried across the renaming by
   #src("ConLeche/Model/Copies.lean", 292, 293)[a model of a renamed copy].
   The capstone
-  #src("ConLeche/MainTheorem.lean", 342, 368)[states] @thm:cmp
+  #src("ConLeche/MainTheorem.lean", 349, 375)[states] @thm:cmp
   for an exit 0 of the run: the challenge's model gives every name the
   solution's value, every hole is inhabited, and every name the
   challenge imports, a theorem aside, has the same home in the
   solution's closure. Together with locality,
-  #src("ConLeche/MainTheorem.lean", 386, 399)[an accepted comparison is a property of the trusted files]:
+  #src("ConLeche/MainTheorem.lean", 393, 406)[an accepted comparison is a property of the trusted files]:
   on every file system that agrees with the run's under the trusted
   directories, the challenge's read gives an environment with a model
   in which every hole is inhabited.
+
+  The same comparison also runs module by module, with `--module`,
+  `--modular` or `--schedule`: the challenge is
+  #src("ConLeche/Driver/CompareModule.lean", 210, 211)[one more module of a modular run]
+  over both closures, its names read from the modules of the
+  solution's closure that declare them, and each module of the
+  challenge's closure is read from the trusted directories alone.
+  #src("ConLeche/MainTheorem.lean", 517, 525)[The modular capstones]
+  state the same for an exit 0 of every command of such a run.
 
   The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
   different rule. A theorem must be a theorem on both sides, and a

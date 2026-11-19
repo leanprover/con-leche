@@ -123,7 +123,12 @@ def synopsis : String := String.intercalate "\n" [
   "  con-leche [OPTIONS] --olean --modular --search-path=DIRS [--] MODULE",
   "  con-leche [OPTIONS] --olean --schedule[-OPT=V] --search-path=DIRS [--] MODULE",
   "  con-leche [OPTIONS] --olean --compare [--trusted-search-path=DIRS]",
-  "            --search-path=DIRS [--] CHALLENGE SOLUTION"]
+  "            --search-path=DIRS [--] CHALLENGE SOLUTION",
+  "  con-leche [OPTIONS] --check-graph --compare [--trusted-search-path=DIRS]",
+  "            --search-path=DIRS [--] CHALLENGE SOLUTION",
+  "  con-leche [OPTIONS] --olean --module|--modular|--schedule[-OPT=V]",
+  "            --compare [--trusted-search-path=DIRS] --search-path=DIRS",
+  "            [--] CHALLENGE SOLUTION"]
 
 /-- The line after a usage error. -/
 def tryHelp : String := "Try 'con-leche --help' for more information."
