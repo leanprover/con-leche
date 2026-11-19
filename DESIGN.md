@@ -122776,3 +122776,64 @@ equations – but since they can easily be added as an explicit `theorem : lhs =
 gain a sentence: `Model` also makes definitions denote their values and makes the recursor
 rules', quotients included, equations true, built from the records; §6b could note that
 agreement between modules now carries values and rule equations, not only typings.
+
+## TASK #610 (lane, stopped) — `Model.rule_eqs` needs a spec change first (2026-11-19, agent/610-model-eqs)
+
+On top of spike 2 (0c490799f); no code change.  The lane stopped before writing proofs, on the
+two stop conditions of its brief: the statement as drafted cannot be proved, and item 2 is
+larger than twice the spike's figure.
+
+**The statement is false for environments without `Eq`.**  `RuleEqsHold` asks, for every
+`e ∈ ruleEqs env`, for `∃ P, Denotes cval env φ ρ e P ∧ ∃ x, x ∈ˢ P`.  Every `iotaEq` mentions
+`.const eqName [u]`, and `Denotes.const` needs `env.find? eqName = some _`.  Nothing makes a
+recursor with rules come after `Eq`: `checkDeclsPure` folds from `Env.empty`, `checkDecl` adds
+only `basisNamesOk`, no inductive install consults `eqName` (only `propext`, the reduce axioms and
+the div/mod guard do), and `Challenge.model_exists` quantifies over every accepted `ds`, prelude
+or not.  So `ds = [inductive T | a | b]` is accepted, its environment stores `T.rec` with two
+rules and no `Eq`, its `ruleEqs` are non-empty and denote nothing, and no `Model` of it has the
+field.  (The driver always prepends the prelude, so no CLI run shows it; the theorem's `ds` is
+arbitrary.)  Two fixes, both spec changes, for the maintainer:
+* the house style of `false_empty`/`eq_equality` ("stated of whatever the stored constant
+  denotes, so it says nothing when nothing is stored"):
+  `∀ e ∈ ruleEqs env, ∀ φ ρ P, Denotes cval env φ ρ e P → ∃ x, x ∈ˢ P`.  Where `Eq` is stored
+  every equation reads (item 1), so nothing is lost there; the `T_a_ne_T_b` demonstration
+  then builds the equation's denotation itself (it has the pieces: about 30–60 more lines);
+* or `ruleEqs` empty unless `Eq` is stored.
+
+**Item 2 (the typing fact) surveyed, not started.**  The install has the forward fact in its own
+vocabulary for the generated block: `genRow_hrule` (`Model/Inductives/GenRecPre.lean`, used at
+the ι equations' grading) gives, at a `SpineFit` of the rule data `pdoms ++ fdoms`, the
+`SpineFit` of the whole recursor type at `xs ++ es ++ [mk]`; `piConcl_univ`
+(`BlockRecPreRun.lean`) puts the conclusion in the motive's universe.  What is not there is the
+link from the stored records' syntax to that rule data in this direction (`BlockRuleFit.lean`
+proves the converse, from the major's fit): the constructor's parameter fit at the recursor's
+prefix (`LfpCtorReads`' parameter clause and `prefixDoms_agree`), C's field domains at the
+parameters against `tgtFdomsAV`, the conclusion's index readings against `tgtEsAV`.  Sites
+that establish the fact: the generated block (plain and nested rules), the stream swap
+(`StreamRecsSwap`, by `TEqAt.fit` as `recRuleLaw_stored` does), `Eq.rec` (`BasisEq`), `Nat.rec`'s
+two rules (`BasisBlocks`), `Quot.lift`, `Quot.ind` (`BasisQuot`); transports: `EnvModelM.empty`,
+`declStep_preserves_of_cons`' callers (`Harvest` ×4, `IndCons`, `BasisStep`, `TableInstall`),
+`RecRulesCons` (fresh and prefix), `BlockRecLaw` §1, `Swap`, `BasisRename`, `Modular/RestrictRules`.
+Estimate from the analogous `RecRuleLaw` code (transports 20–100 lines each, basis rows
+100–250 each): 1200–2000 lines, against the spike's 300–600.
+
+**The universe premise must be in the field.**  `ty ∈ univ u` cannot be derived in the model
+from the recursor's grading: if the motive's first domain reads empty, the motive is `pt`
+(`piV` over an empty domain is a truth value), `app pt _ = pt ∉ univ u`, and nothing in the
+model ties the motive's domains to the recursor's index and major binders (they agree only up
+to the install's defeq).  So the field carries `interp restR ∈ˢ univ (Level.eval φ u)` for the
+stored `motiveLevel?`.
+
+**The field drafted** (Term-level, beside `RecRuleLaw`, at the recursor's own levels):
+for a rule of constructor `C` (`TVa`, `TVja` the readings of the recursor type and of C's type
+at `rl.ctorLevels`), at every `ρ`, prefix `xs` (`TeleFitPA TVa xs _`, graded) and parameters
+`ps` reading as the rule's (`.plain`/`.levels`: `xs[i]`; `.nested`: the pins' `instRevChain`,
+the law's spelling): (1) `∃ r, TeleFitPA TVja ps r`; (2) for fields `fs` and index terms
+`is` with `TeleFitPA TVja (ps ++ fs) restC` and `IotaIndexPin ρ restC cnP mI rP (xs ++ is)`,
+`∃ restR, TeleFitPA TVa (xs ++ is ++ [C (ps ++ fs)]) restR` and the universe clause above.
+Reusing `IotaIndexPin` lets the consumer prove the pin once, for the field and for the law's
+point case.  Consumer tools found: `teleFit_of_teleFitPA`/`teleFitPA_of_teleFit`
+(`Rules/RedSoundKit`), `teleFitPA_rest_eq` (`IndPointKit`, the residual's form), spike 2's
+`Denotes_instantiateLift`/`Denotes_liftLooseBVars`, spike 1's `teleFit_of_Fits`.
+
+Nothing of spike 1/2 was removed; the branch is as spike 2 left it plus this record.
