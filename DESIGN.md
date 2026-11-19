@@ -122896,17 +122896,22 @@ sides.  Not yet a conjunct of `RecRuleLaw`.
 **Next, in order.**
 1. **The stream swap** (`recRuleLaw_stored`, `Model/Inductives/StreamRecsSem.lean:406`, used by
    `StreamRecsSwap.lean:414,429`).  Case `htyE` (stored type syntactically the generated) is a
-   rewrite.  Case `htyC` (`storedTy_sem`: `TEqAt (mI+1) ρ TS TG`): the fits move both ways
-   (`TEqAt` is symmetric; a `fit_rest` variant gives equal residual `interp`s), but the
-   universe clause is at the STORED type's `motiveLevel?` `u_S`, the generated proves it at
-   `u_G`.  Plan: from `interp A_S = interp A_G` for the motive's domain (TEqAt's domain
-   equality) conclude `univ (eval u_S) = univ (eval u_G)` where the motive's index/major
-   domain is non-empty (a set of graphs determines its graphs' domain and their value range;
-   the field's own fit makes the major's domain non-empty only for the RECURSOR's binders, so
-   the argument must go through the motive's own domain telescope: check whether
-   `recTyCheck_inv`'s `hdoms` gives the binder domains pairwise, which makes the motive domain's
-   telescope `TEqAt` too).  If that fails, stop and report: the alternative is a spec change
-   (Leibniz form, no level; rejected in spike 2 for readability).
+   rewrite.  Case `htyC` (`storedTy_sem`: `TEqAt (mI+1) ρ TS TG`; `recTyOpened` checks the
+   binder domains pairwise and the body after the major): the fits move both ways (`TEqAt` is
+   symmetric; a `fit_rest` variant gives equal residual `interp`s), but the universe clause is at
+   the STORED type's `motiveLevel?` `u_S`, the generated proves it at `u_G`, and the motive's
+   domain is checked only as a whole (`interp A_S = interp A_G` at the prefix).  The clause is
+   TRUE (the motive value applied to the indices and the major is a type of `univ u_G`; the
+   claim is that it is one of `univ u_S`), but the proof is a set-theoretic tower argument: two
+   Π-towers over `Sort u_S` (depth `j`, the stored domain's syntactic binders) and `Sort u_G`
+   (depth `mI - rP + 1`) with equal readings, the second inhabited along the indices and the
+   major, have equal fibre universes — a set of graphs determines its graphs' domain, the
+   fibres are recovered from constant graphs, and a depth mismatch is refuted by `∅ ∈ univ n`
+   (a truth value) against a set of graphs over a non-empty domain.  Needed from the generated
+   side: the motive domain's telescope is inhabited at the indices and the major (in the
+   generated recursor the motive's binders are the index and major binders, shifted: a fact to
+   state next to the generated install's universe clause).  Estimate 200–300 lines.  This is the
+   one place where the field may need help: if the inhabitation fact cannot be had, report.
 2. **The installs** (producers): `Eq.rec` (`Model/BasisEq.lean:936`, next to its `RecRuleLaw`
    row), `Nat.rec`'s two rules (`Model/BasisBlocks.lean:1099,1159`), `Quot.lift`/`Quot.ind`
    (`Model/BasisQuot.lean`), the generated block's plain and nested rules
