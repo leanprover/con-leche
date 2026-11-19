@@ -124252,3 +124252,43 @@ Sidecar (`--compare`, not started): an axiom justified by a sidecar's constant w
 record kind whose clause is membership only, with the bridge obligation that the sidecar's
 model gives the constant's value; `IsModel` itself needs no change since clauses are per
 record.
+
+## TASK #618 — the main theorems over `IsModel`, the `.olean` input as records (2026-11-19, agent/618-views-ismodel; base `compare`)
+
+**#618 cont. — state of the lane (in progress, not landed).**
+
+Done and committed on the branch (each builds warning-free at its module):
+
+1. **`IsModel` over a set of records** (`ConLeche/IsModel.lean`): `Records := ConstantInfo → Prop`,
+   `recordsOf ds` (every record of every declaration of `ds`); `RuleHolds`/`Satisfies`/`IsModel`
+   take `R : Records`; `IsModelOfDecl` is gone; `DeclaresName`/`HasRecord`/`DeclaresFalse`/
+   `DeclaresEq` over `R`.  `model_exists` (Challenge = MainTheorem) reads `IsModel V model
+   (recordsOf ds.toList)`.  `RecordsStored R env` over a record set, `StoredAs.trans`,
+   `RecordsStored.mono` (a record stored by a record that is stored is stored).
+2. **The `.olean` input as a spec** (`ConLeche/OleanInput.lean`): `entryRecords c` (a view
+   constant's records: `declOfEntry` for a non-block constant, one `indInfo`/`ctorInfo`/`recInfo`
+   for a block member, the recursor's rules firing as `inputFire all`, its own `all` being the
+   block's formers; unsafe/partial none), `ClosureRecords sp fs roots` (every record of every
+   constant of every `ViewOf` of every `InClosure` module — no order, no merge),
+   `InputRecords sp fs roots extra` (and the records of the prelude declarations `extra` the
+   preparation added).
+3. **The reader covers the spec** (`ConLeche/Verify/Frontend/Olean/Input.lean`):
+   `readOleansAt_entry` (a view constant's merged copy is it, or a theorem of its statement:
+   `EntryStands`), `declOfF_ind_records` (what a block record holds; constructor lookup through
+   `ctorAt`'s index map), `covers_entry`/`covers_block`, `readOleansAt_covers`,
+   `checkDecls_inputStored` (`∃ extra ⊆ pre.decls, RecordsStored (InputRecords …) env`; a theorem
+   standing for the axiom `Quot.sound` is excluded by `basisNamesOk`).
+4. **`main_oleans`** (MainTheorem, one line; proof `oleans_isModel` in
+   `ConLeche/Model/IsModelOlean.lean`): exit 0 of `--olean --search-path=<dirs> -- <root>` →
+   `∃ pre, builtinPreludeE = .ok pre ∧ ∃ extra ⊆ pre.decls, ∃ model, IsModel V model
+   (InputRecords (searchPathOf dirs) fs #[r] extra)`.
+
+Spec choice taken for the prelude: "the prelude, prepared" is stated as preparePrelude's own spec
+(the stream plus SOME prelude declarations, nothing missing), not as "the prelude declarations the
+closure does not store": the latter needs every module the reader loads to be in `InClosure` with a
+full `ViewOf`, which is false off an accept (the reader loads theorem values lazily; a corrupt
+value decodes only in the check) — provable under exit 0 but at the cost of a whole-view decode
+proof.  `main_oleans_no_False` keeps its route (`readOleansAt_thm`).
+
+Not started: item 3 of the brief (modular over `IsModel`), docs (OVERVIEW §theorems, whitepaper
+§7), axiom pins for `main_oleans`, the gates, the landing.
