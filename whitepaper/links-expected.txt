@@ -7059,115 +7059,106 @@
    177    else if sameRecordUpToLevels dC dS then .ok (dS, none)
    178    else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC}"
 
-== ConLeche/Model/Modular/Compare.lean#L569-L571
-   569  @[expose] def cmpDev (ds ctx : List Declaration) : Nat → Modular.Module
-   570    | 0 => { imports := [], ctx := [], decls := ds, src := fun _ => 0, iface := ctx }
-   571    | _ => { imports := [0], ctx := ctx, decls := [], src := fun _ => 0, iface := [] }
+== ConLeche/Model/Modular/Compare.lean#L571-L573
+   571  @[expose] def cmpDev (ds ctx : List Declaration) : Nat → Modular.Module
+   572    | 0 => { imports := [], ctx := [], decls := ds, src := fun _ => 0, iface := ctx }
+   573    | _ => { imports := [0], ctx := ctx, decls := [], src := fun _ => 0, iface := [] }
 
-== ConLeche/Model/Modular/Compare.lean#L650-L663
-   650  theorem compare_models (V : Type w) [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
-   651      {F : Expr → Expr} {C : Name} {uses : Declaration → Array Name}
-   652      {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
-   653      {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
-   654      {env : Env}
-   655      (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled))
-   656      (hsc : ctxScoped ctx = none)
-   657      (hchk : Cached.checkDecls .verified pins maxNatSize (recsS.map (Cached.fillDecl F)) = .ok env) :
-   658      ∃ (mC : ConLeche.Model V (streamEnv (recsC.toList.map (chalRecord C uses homesC))))
-   659        (mS : ConLeche.Model V (streamEnv (recsS.map (Cached.fillDecl F)).toList)),
-   660        ∀ n cC, (streamEnv (recsC.toList.map (chalRecord C uses homesC))).find? n = some cC →
-   661          ∃ cS, (streamEnv (recsS.map (Cached.fillDecl F)).toList).find? n = some cS ∧
-   662            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
-   663            ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+== ConLeche/Model/Modular/Compare.lean#L652-L665
+   652  theorem compare_models (V : Type w) [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
+   653      {F : Expr → Expr} {C : Name} {uses : Declaration → Array Name}
+   654      {homesC homesS : Std.HashMap Name Name} {recsS : Array Declaration}
+   655      {idxS : Std.HashMap Name Nat} {recsC ctx : Array Declaration} {filled : Array Filled}
+   656      {env : Env}
+   657      (hcmp : compareRecords C uses homesC homesS recsS idxS recsC = .ok (ctx, filled))
+   658      (hsc : ctxScoped ctx = none)
+   659      (hchk : Cached.checkDecls .verified pins maxNatSize (recsS.map (Cached.fillDecl F)) = .ok env) :
+   660      ∃ (mC : ConLeche.Model V (streamEnv (recsC.toList.map (chalRecord C uses homesC))))
+   661        (mS : ConLeche.Model V (streamEnv (recsS.map (Cached.fillDecl F)).toList)),
+   662        ∀ n cC, (streamEnv (recsC.toList.map (chalRecord C uses homesC))).find? n = some cC →
+   663          ∃ cS, (streamEnv (recsS.map (Cached.fillDecl F)).toList).find? n = some cS ∧
+   664            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+   665            ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
 
-== ConLeche/Model/Copies.lean#L292-L293
-   292  noncomputable def Model.ofCopies {env env' : Env} (m : EnvModelM V env)
-   293      (h : CopiesEnv env env') : ConLeche.Model V env' where
+== ConLeche/Model/Copies.lean#L421-L422
+   421  noncomputable def Model.ofCopies {env env' : Env} (m : EnvModelM V env)
+   422      (h : CopiesEnv env env') : ConLeche.Model V env' where
 
-== ConLeche/MainTheorem.lean#L352-L378
-   352  theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
-   353      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   354      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-   355        "--search-path=" ++ D, "--", c, s]) fs 0) :
-   356      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
-   357      ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
-   358        ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
-   359          (homes := true)) fs (.ok rdC) ∧
-   360        ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
-   361          (homes := true)) fs (.ok rdS) ∧
-   362        ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
-   363          (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
-   364          (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
-   365            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
-   366              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
-   367              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
-   368                (cC.toConstantVal.levelParams.map Level.param))) ∧
-   369          (∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
-   370            Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
-   371            ∃ cv cS, Driver.recCv? d = some cv ∧
-   372              (Driver.solutionEnv pre r.solRoots fs rdS).find? cv.name = some cS ∧
-   373              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
-   374                mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
-   375                  (cv.levelParams.map Level.param)) ∈ˢ Ty) ∧
-   376          ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? ≠ some C →
-   377            (∀ cv v, d ≠ .thmDecl cv v) →
-   378            rdS.homes[Driver.recKey d]? = rdC.homes[Driver.recKey d]? := by
+== ConLeche/MainTheorem.lean#L357-L379
+   357  theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+   358      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   359      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+   360        "--search-path=" ++ D, "--", c, s]) fs 0) :
+   361      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+   362      ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
+   363        ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
+   364          (homes := true)) fs (.ok rdC) ∧
+   365        ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
+   366          (homes := true)) fs (.ok rdS) ∧
+   367        ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
+   368          (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
+   369          (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+   370            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+   371              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+   372              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+   373                (cC.toConstantVal.levelParams.map Level.param))) ∧
+   374          ∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+   375            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+   376              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ
+   377                cC.toConstantVal.type Ty ∧
+   378                mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+   379                  (cC.toConstantVal.levelParams.map Level.param)) ∈ˢ Ty := by
 
-== ConLeche/MainTheorem.lean#L396-L409
-   396  theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   397      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   398      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-   399        "--search-path=" ++ D, "--", c, s]) fs 0) :
-   400      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
-   401      ∀ fs', FS.AgreeUnder r.chalRoots.path fs fs' →
-   402        ∃ pre rdC, builtinPreludeE = .ok pre ∧
-   403          Olean.challengeView r.chalRoots.path C none fs' (.ok (.ok rdC)) ∧
-   404          ∃ mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC),
-   405            ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
-   406              Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
-   407              ∃ cv, Driver.recCv? d = some cv ∧ ∀ φ ρ, ∃ Ty,
-   408                Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
-   409                ∃ v, v ∈ˢ Ty := by
+== ConLeche/MainTheorem.lean#L402-L410
+   402  theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   403      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   404      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+   405        "--search-path=" ++ D, "--", c, s]) fs 0) :
+   406      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+   407      ∀ fs', FS.AgreeUnder r.chalRoots.path fs fs' →
+   408        ∃ pre rdC, builtinPreludeE = .ok pre ∧
+   409          Olean.challengeView r.chalRoots.path C none fs' (.ok (.ok rdC)) ∧
+   410          Nonempty (Model V (Driver.challengeEnv pre C r.chalRoots rdC)) := by
 
 == ConLeche/Driver/CompareModule.lean#L210-L211
    210  def cmpModuleRead {μ : Type → Type} [CheckerIO μ] (rdC rd : OleanReads μ) (C S : Name)
    211      (pace : Pace) (t0 jobs : Nat) : μ (Except CheckError CmpModuleRead) := do
 
-== ConLeche/MainTheorem.lean#L520-L528
-   520  theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : String} {C S : Name}
-   521      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   522      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   523        "--search-path=" ++ dirs, "--", c, s]) fs 0)
-   524      (hwork : ∀ m, Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [C, S] m → m ≠ C →
-   525        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive
-   526          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0)
-   527      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   528        "--search-path=" ++ dirs, "--", c, s]) fs 0) :
+== ConLeche/MainTheorem.lean#L517-L525
+   517  theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : String} {C S : Name}
+   518      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   519      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   520        "--search-path=" ++ dirs, "--", c, s]) fs 0)
+   521      (hwork : ∀ m, Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [C, S] m → m ≠ C →
+   522        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive
+   523          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0)
+   524      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   525        "--search-path=" ++ dirs, "--", c, s]) fs 0) :
 
-== ConLeche/MainTheorem.lean#L900-L922
-   900  theorem main_compare_json_solves (V : Type w) [SetTheory V] {c s : String} {fs : FS}
-   901      {bC bS : ByteArray} (hbC : fs.file c = some bC) (hbS : fs.file s = some bS)
-   902      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
-   903      ∃ pre rC rS, builtinPreludeE = .ok pre ∧ parseChunks [bC] = .ok rC ∧
-   904        parseChunks [bS] = .ok rS ∧
-   905        (∃ env, checkDecls .verified natOpPinSets Cached.maxNatSizeDefault
-   906          (preparePrelude pre rS.decls) = .ok env) ∧
-   907        (∀ n cC, (Driver.jsonChallengeEnv pre rC.decls).find? n = some cC →
-   908          ∃ cS, (streamEnv (preparePrelude pre rS.decls).toList).find? n = some cS ∧
-   909            (Model.ConstCopy cS cC ∨ Model.ConstCopy (.axiomInfo cS.toConstantVal) cC)) ∧
-   910        ∃ (mC : Model V (Driver.jsonChallengeEnv pre rC.decls))
-   911          (mS : Model V (streamEnv (preparePrelude pre rS.decls).toList)),
-   912          (∀ n cC, (Driver.jsonChallengeEnv pre rC.decls).find? n = some cC →
-   913            ∃ cS, (streamEnv (preparePrelude pre rS.decls).toList).find? n = some cS ∧
-   914              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
-   915              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
-   916                (cC.toConstantVal.levelParams.map Level.param))) ∧
-   917          ∀ d ∈ rC.decls, Driver.jsonHole d = true →
-   918            ∃ cv cS, Driver.recCv? d = some cv ∧
-   919              (streamEnv (preparePrelude pre rS.decls).toList).find? cv.name = some cS ∧
-   920              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.jsonChallengeEnv pre rC.decls) φ ρ cv.type Ty ∧
-   921                mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
-   922                  (cv.levelParams.map Level.param)) ∈ˢ Ty := by
+== ConLeche/MainTheorem.lean#L901-L923
+   901  theorem main_compare_json_solves (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+   902      {bC bS : ByteArray} (hbC : fs.file c = some bC) (hbS : fs.file s = some bS)
+   903      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+   904      ∃ pre rC rS, builtinPreludeE = .ok pre ∧ parseChunks [bC] = .ok rC ∧
+   905        parseChunks [bS] = .ok rS ∧
+   906        (∃ env, checkDecls .verified natOpPinSets Cached.maxNatSizeDefault
+   907          (preparePrelude pre rS.decls) = .ok env) ∧
+   908        (∀ n cC, (Driver.jsonChallengeEnv pre rC.decls).find? n = some cC →
+   909          ∃ cS, (streamEnv (preparePrelude pre rS.decls).toList).find? n = some cS ∧
+   910            (Model.ConstCopy cS cC ∨ Model.ConstCopy (.axiomInfo cS.toConstantVal) cC)) ∧
+   911        ∃ (mC : Model V (Driver.jsonChallengeEnv pre rC.decls))
+   912          (mS : Model V (streamEnv (preparePrelude pre rS.decls).toList)),
+   913          (∀ n cC, (Driver.jsonChallengeEnv pre rC.decls).find? n = some cC →
+   914            ∃ cS, (streamEnv (preparePrelude pre rS.decls).toList).find? n = some cS ∧
+   915              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+   916              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+   917                (cC.toConstantVal.levelParams.map Level.param))) ∧
+   918          ∀ d ∈ rC.decls, Driver.jsonHole d = true →
+   919            ∃ cv cS, Driver.recCv? d = some cv ∧
+   920              (streamEnv (preparePrelude pre rS.decls).toList).find? cv.name = some cS ∧
+   921              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.jsonChallengeEnv pre rC.decls) φ ρ cv.type Ty ∧
+   922                mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
+   923                  (cv.levelParams.map Level.param)) ∈ˢ Ty := by
 
 >>> whitepaper/sections/07-left-out.typ
 

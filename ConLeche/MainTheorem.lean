@@ -893,7 +893,11 @@ that constant's statement; and in every set theory `V` there are
 * a model `mC` of the challenge's environment and a model `mS` of the solution's, `mC` giving
   every constant `mS`'s value read at the challenge's level-parameter names;
 * every hole of the challenge file is inhabited by the solution's constant: that constant's
-  value in `mS` is a member of what the hole's type denotes in `mC`. -/
+  value in `mS` is a member of what the hole's type denotes in `mC`.
+
+A model makes every definition denote its value and every recursor rule hold (`Model.defn_eq`,
+`Model.rule_eqs`), and the challenge's environment holds its definitions with their bodies: a
+challenge file with `def f : Nat := 3` and a hole `t : f = 5` has no solution. -/
 theorem main_compare_json_solves (V : Type w) [SetTheory V] {c s : String} {fs : FS}
     {bC bS : ByteArray} (hbC : fs.file c = some bC) (hbS : fs.file s = some bS)
     (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
