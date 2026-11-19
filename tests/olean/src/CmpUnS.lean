@@ -1,7 +1,7 @@
 -- Task #611: a solution to CmpUnC that does not import CmpBase (`f` is no constant of its
--- closure).  The merged comparison compares every record of the challenge's closure: exit 1
--- ("f: the solution has no constant of this name").  The modular one compares the records the
--- challenge's own records read: exit 0.
+-- closure).  Every mode compares the challenge's own records and what they read, and `easy`
+-- reads nothing of CmpBase (task #614): exit 0, in the merged mode as in the modular ones
+-- (task #611 found the merged comparison rejecting it, "f: no constant of this name").
 module
 prelude
 public import Init.Prelude

@@ -92,43 +92,20 @@ def jsonMentioned (recs : Array Declaration) : Std.HashSet Name :=
     let own := recKey d :: Modular.declNames d
     s.insertMany ((jsonMentions d).filter (!own.contains ·))
 
-/-- The worklist of `jsonNeeded`: record positions, each pushed once (`seen` marks it), so that
-`fuel = recs.size + 1` steps empty it. -/
-def jsonReachGo (recs : Array Declaration) (idx : Std.HashMap Name Nat) :
-    Nat → List Nat → Array Bool → Array Bool
-  | 0, _, seen => seen
-  | _, [], seen => seen
-  | fuel + 1, i :: rest, seen =>
-    match recs[i]? with
-    | none => jsonReachGo recs idx fuel rest seen
-    | some d =>
-      let form := if jsonHole d then Modular.stmtOf d else d
-      let (stack, seen) := (recordReads form).foldl (init := (rest, seen)) fun (st, seen) y =>
-        match idx[y]? with
-        | some j => if seen[j]?.getD true then (st, seen) else (j :: st, seen.set! j true)
-        | none => (st, seen)
-      jsonReachGo recs idx fuel stack seen
-
-/-- **What the challenge's environment needs**: the positions reached from the top-level records
-(`jsonMentioned`) and the holes, through what each reads with the holes as their statements
-(`recordReads`, which never reads a theorem's value).  A record only a hole's value or a
-theorem's proof mentions is not needed: the `sorryAx` an export holds for a `sorry` and what its
-tag mentions, a lemma one proof uses. -/
-def jsonNeeded (recs : Array Declaration) : Array Bool :=
-  let mentioned := jsonMentioned recs
-  let roots := (List.range recs.size).filter fun i => match recs[i]? with
-    | some d => jsonHole d || (recKey d :: Modular.declNames d).all (!mentioned.contains ·)
-    | none => false
-  let seen := roots.foldl (fun seen i => seen.set! i true) (Array.replicate recs.size false)
-  jsonReachGo recs (recIndex recs) (recs.size + 1) roots seen
+/-- **A root of a challenge file's comparison**: a hole, or a top-level record (one none of
+whose names another record mentions, `jsonMentioned`). -/
+def jsonRoot (mentioned : Std.HashSet Name) (d : Declaration) : Bool :=
+  jsonHole d || (recKey d :: Modular.declNames d).all (!mentioned.contains ·)
 
 /-- **The challenge's records**: the file's records prepared with the built-in prelude, as a
-plain run prepares them, those the challenge's environment needs (`jsonNeeded`), in their
-order; every hole is one of them. -/
+plain run prepares them, those the challenge's environment needs: the roots (`jsonRoot`) and what
+they read, closed under reads with the holes as their statements (`readCone`), in their order.
+A record only a hole's value or a theorem's proof mentions is not needed: the `sorryAx` an export
+holds for a `sorry` and what its tag mentions, a lemma one proof uses. -/
 def jsonRecs (pre : Frontend.PreludeIx) (ds : Array Declaration) : Array Declaration :=
   let recs := (Frontend.prepareD pre ds).decls
-  let need := jsonNeeded recs
-  (recs.zipIdx.filter fun (d, i) => jsonHole d || need[i]?.getD false).map (·.1)
+  readCone (jsonRoot (jsonMentioned recs)) (fun d => if jsonHole d then Modular.stmtOf d else d)
+    recs
 
 /-- **Every challenge record is the challenge's own**, but a standard axiom's. -/
 def jsonHomes (recs : Array Declaration) : Std.HashMap Name Name :=

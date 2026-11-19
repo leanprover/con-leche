@@ -822,7 +822,8 @@ theorem helpWanted_compare (T D c s : String) :
 /-- **`runArgs` on `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`,
 in the model**: every outcome that is an exit 0 read the challenge `C` (`c`) through `T` alone
 and the solution `S` (`s`) through `T`, then `D`, every constant of the challenge's closure; the
-comparison and its order check passed; and `checkDecls .verified` accepts the solution's records
+comparison of the challenge's own records and what they read (`chalCmpRecs`) and its order check
+passed; and `checkDecls .verified` accepts the solution's records
 prepared with the built-in prelude, with the theorems' values in place. -/
 theorem runArgs_compare_accept {T D c s : String} {C S : Name} {fs : FS} {hs hs' : HS}
     (hc : Olean.parseModName c = some C) (hsol : Olean.parseModName s = some S)
@@ -836,7 +837,7 @@ theorem runArgs_compare_accept {T D c s : String} {C S : Name} {fs : FS} {hs hs'
         (homes := true)) fs (.ok rdS) ∧
       compareRecords C (usedOf (some (r.chalRoots.path, rdC))) rdC.homes rdS.homes
         (cmpRecs pre r.solRoots rdS) (recIndex (cmpRecs pre r.solRoots rdS))
-        (cmpRecs pre r.chalRoots rdC) = .ok (ctx, filled) ∧
+        (chalCmpRecs pre C none r.chalRoots rdC) = .ok (ctx, filled) ∧
       ctxScoped ctx = none ∧
       Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault
         ((cmpRecs pre r.solRoots rdS).map
