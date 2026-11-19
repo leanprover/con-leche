@@ -122885,3 +122885,104 @@ and the lemma justifies the reduction; con-leche carries models across it (`Mode
 untouched); `lake build` unaffected (only `whitepaper/` changed; the fragment is no default target).
 NOTES.md entry 40: the home rule as agreement, and what that would simplify in con-leche's merged
 mode.  PLAN.md: item 7b of the order of presentation.
+
+
+## TASK #612 — `--compare` on two lean4export files (2026-11-19, agent/612-json-compare; lands on `compare`)
+
+**Status: done.**  T2-json and its `False` corollary proved, no sorry, no new axiom; fixtures,
+docs and gates done; landed on `compare`.
+
+**CLI** (`ConLeche/Driver/Cli.lean`, `Driver/CompareJson.lean`, `Dispatch.lean`'s
+`Req.compareJson`): `con-leche [OPTIONS] --compare [--] CHALLENGE.ndjson SOLUTION.ndjson`, the
+`--compare` flag without `--olean`.  Usage errors (exit 3): any of `--search-path`,
+`--trusted-search-path`, `--constant`, `--module`, `--modular`, `--schedule` (they take
+`--olean`; maintainer ruling: no `--constant` on JSON, the exporter's selection is the file),
+not exactly two files, the same file twice.  `--verified`/`--trusted`, `--jobs`, `--progress`,
+`--max-nat-size` as for a plain stream.  Output as `--olean --compare`'s, a hole's line ending
+"filled by the solution's KIND".
+
+**The rule** (`compareJsonG`): both files parsed (`parseStreamG`), both prepared with the
+built-in prelude; the comparison is #607's `compareRecords`, unchanged, with every challenge
+record the challenge's own (`jsonHomes`: every key mapped to the sentinel `jsonOwn`) but a
+standard axiom's (`propext`, `Classical.choice`, `Quot.sound`: no home on either side, so
+`cmpRecord` compares them exactly, `sameRecord`); the solution's side has no homes.  So:
+* holes (`jsonHole`): the axioms but the standard ones and the placeholder `sorryAx`, and the
+  definitions, theorems and opaque constants whose value uses `sorryAx`; met as in #607, with
+  its declines (a hole filled by an inductive's constant, a compiler-trust name filled by a
+  definition or theorem; `Quot.sound`/`sorryAx` holes cannot arise);
+* every other compared record: the solution's by content up to a level renaming
+  (`sameRecordUpToLevels`); no home rule.  A solution redeclaring a challenge constant with the
+  same content meets it; `f := 5` against the challenge file's `f := 3` does not.
+* **What is compared** (`jsonRecs`; a design point the brief did not settle, decided here): an
+  export of a challenge holds `sorryAx` and the whole cone of the `sorry`'s tag (the elaborator's
+  unique-sorry `Lean.Name` literal: `String`, `List`, `Char`, `UInt32`, `BitVec`, …, 10 000
+  lines on a one-theorem challenge), and every lemma a challenge theorem's proof uses; the
+  solution's export of the same targets holds none of them.  Comparing every record therefore
+  rejects every honest pair.  The compared records are the holes and what the challenge's
+  environment needs: the records none of whose names another record of the file mentions
+  (`jsonMentioned`: `recordReads` plus a theorem's or opaque constant's value, literals' support
+  constants included, since lean4export emits `String.ofList`/`Char.ofNat` for a string
+  literal), i.e. the exporter's selection, and what they read with the holes as their statements
+  (`jsonReachGo`, a worklist over positions, each pushed once, fuel `recs.size + 1`).  A record
+  that only a hole's value or a theorem's proof mentions is not compared; consequently neither
+  is a definition that only a sorried definition's value uses.  A needed record the solution
+  lacks is a missing constant, exit 1 (`cmp_missing`).  Soundness does not depend on the reach
+  being complete: `ctxScoped` rejects a compared record reading a name no earlier compared record
+  installs.  leanprover/comparator's walk is the same idea, from its targets' statements.
+* The solution's file is checked in full (`checkDeclsIO`, as `checkMainG` checks a stream),
+  after the comparison.  The challenge is compared, not checked.
+
+**Theorems** (`ConLeche/MainTheorem.lean`):
+* `main_compare_json_solves` (T2-json): on a snapshot with `fs.file c = some bC` and
+  `fs.file s = some bS`, an exit 0 of `runArgs ["--compare", "--", c, s]` gives `bC`, `bS`
+  parsing as one chunk to `rC`, `rS`; `checkDecls .verified` accepting the solution's prepared
+  records; the embedding — every constant `cC` of `Driver.jsonChallengeEnv pre rC.decls` (the
+  compared records, holes as statements, at the challenge's level names) has the solution's
+  constant `cS` of its name with `ConstCopy cS cC ∨ ConstCopy (.axiomInfo cS.toConstantVal) cC`
+  (the second only for a constant installed as an axiom, a hole's statement among them); and
+  models `mC`, `mS` with `mC.cval n φ = mS.cval n (substFn φ cS.lps (cC.lps.map param))`, every
+  `d ∈ rC.decls` with `jsonHole d` inhabited by the solution's constant.  Locality is the
+  statement's shape: the challenge's side is a function of `bC` alone.
+* `main_compare_json_no_False` (maintainer addition): `fs.file c = some bC`, `parseChunks [bC]
+  = .ok rC`, `d ∈ rC.decls`, `jsonHole d`, `recCv? d = some cv`, `cv.type = False` give no exit
+  0 at `--compare -- <c> <s>`, whatever `s` holds; from T2-json and `Model.false_empty`.
+* Proof pieces: `Verify/Driver/CompareJsonRun.lean` (`compareJsonG_accept`,
+  `runArgs_compare_json_accept`, `jsonChallengeEnv`); `Model/Modular/CompareJson.lean`
+  (`cmpRecord_eq`; `compare_embeds`, generic over #607's comparison: the context record a name
+  comes from is the solution's record or its statement, then `agree_alike` and the solution's
+  own names distinct (`ImportOk.chain`); `jsonHomes_own`, `mem_jsonRecs`,
+  `compare_json_solved`).  Axioms pinned (`propext`, `Classical.choice`, `Quot.sound`).
+* **#610 will tighten `Model`** (defining equations); then T2-json's model clause (and
+  `main_compare_solves`') is restated over the tightened `Model`.
+* **Not done:** the olean analogue `main_compare_no_False`.  A hypothesis on the snapshot
+  (`ViewOf`/`InClosure` of the challenge module, as `main_oleans_no_False`) needs that the
+  entry's prepared record has home `C` in `rdC.homes` (no lemma about `homesOf` of a view's
+  entry yet) and, for a sorried theorem, that the load's `uses` contain `sorryAx`; not cheap,
+  left for #608's restatement of the olean theorems.
+
+**Fixtures** (`tests/e2e/cmp_*.ndjson` from `tests/e2e/src/cmp_*.lean` by
+`scripts/mk_cmp_fixtures.sh`, with the toolchain's `lean` and `leanexport`, each pair exported at
+the same `--#export` names; `tests/arena.sh`'s e2e half takes a row `<exp> --<arguments>`, every
+`.ndjson` among them a fixture): holes filled (definition, theorem, axiom) 0; holes filled by an
+opaque constant and a definition 0, a non-hole theorem as a definition 1; level renaming 0; a
+differing definition 1; a hole stated differently 1; a missing constant 1; a solution's
+non-standard axiom 2; an identical redeclaration 0; the `f := 3` / `t : f = 5` attack 1; the
+inductive attack (`T | a | b` against `| a`) 1; `axiom x : False` with the solution's own axiom
+2 and with another statement 1; usage: `--constant` 3, one file 3, the same file twice 3,
+`--search-path` 3.  21 rows.
+
+**Docs:** the usage text (`synopsis`, a "lean4export input" section of `helpText`), OVERVIEW
+(§0 synopsis, the theorems paragraph, "Two lean4export files" after the `.olean` comparison, the
+module map), whitepaper §8 (one paragraph; `build.sh` in `nix develop ./whitepaper`,
+`fragment-gate.sh`, `links-gate.sh --update` after re-reading: only moves and the new
+citation).
+
+**Gates (final tree):** `lake build` and `lake test` warning-free; `tests/arena.sh` in full under
+the guard, exit 0: arena tutorial 90/92 (as on `compare`), e2e 634/634 (21 new rows), olean gate
+388/388, trusted and `--jobs=1`/`--jobs=4` sweeps without divergence, self-check accepted 60 606
+declarations, axioms pinned (77 theorems); plain-reach (639 reached, all allowlisted: the JSON
+comparison imports `Verify/Cached/DeclNames` for the `declNames`/`declConstants` twins),
+trust-surface, binary-link, layering, shake (imports as the per-module criterion computed
+them), overview-links (anchors repointed after re-reading: moves only), quote-gate,
+no-local-paths, whitepaper `build.sh`, `fragment-gate.sh`, `links-gate.sh`.  `compare` had not
+moved since the lane's base (36053b2d2), so the merge into the lane was empty.
