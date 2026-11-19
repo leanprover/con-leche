@@ -6,6 +6,7 @@ public import ConLeche.Verify.Frontend.Olean.GroupSame
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
+import ConLeche.Verify.Driver.Provenance
 
 /-!
 # The reader's records cover the input
@@ -379,5 +380,257 @@ theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : N
     have hfz' : ConstantInfo.ctorInfo y.cv ct.numParams ct.numFields x.name = z := hfz
     rw [hfz']
     exact List.mem_append_left _ (List.mem_append_right _ hz)
+
+/-! ## A merged constant's records among the declarations -/
+
+/-- **`r` is stored by a record of a declaration of `ds`** (`StoredAs`), where that declaration
+passes the reserved names' check. -/
+@[expose] def CoveredBy (ds : Array Declaration) (r : ConstantInfo) : Prop :=
+  ∃ d ∈ ds, basisNamesOk d = true → ∃ c' ∈ d.records, StoredAs c' r
+
+/-- A constant that is no part of a block has its declaration's records. -/
+theorem entryRecords_low {c : CEntryF Name Expr} (ht : c.kind.tag < 5) :
+    entryRecords c = ((declOfEntry c).map Declaration.records).getD [] := by
+  rcases c with ⟨n, l, t, k⟩
+  cases k <;> first | rfl | (simp [CKindF.tag] at ht)
+
+/-- A constant with a declaration is safe. -/
+theorem declOfEntry_safe {c : CEntryF Name Expr} {d : Declaration} (h : declOfEntry c = some d) :
+    c.kind.skipped = false := by
+  unfold declOfEntry at h
+  split at h <;> simp_all [CKindF.skipped]
+
+/-- The emitted declaration of a safe constant is its declaration. -/
+theorem entryDecl_safe {c : CEntry} (hsk : c.skipped = false) :
+    entryDecl c = declOfEntry c.toCEntryF := by
+  rcases c with ⟨⟨n, l, t, k⟩, u⟩
+  unfold CEntry.skipped at hsk
+  cases k with
+  | ax b => cases b <;> simp_all [entryDecl, declOfEntry, CKindF.skipped, CEntryF.cv]
+  | opaq v b => cases b <;> simp_all [entryDecl, declOfEntry, CKindF.skipped, CEntryF.cv]
+  | defn v h s =>
+    simp only [CKindF.skipped, bne_eq_false_iff_eq] at hsk
+    subst hsk
+    cases h <;> rfl
+  | quot q =>
+    simp only [entryDecl, declOfEntry, CEntryF.cv]
+    split <;> simp_all
+  | _ => rfl
+
+/-- A statement record is stored by a theorem of its statement. -/
+theorem stmt_storedAs {cv : ConstantVal} {r : ConstantInfo}
+    (h : r = .thmInfo cv ∨ r = .axiomInfo cv) : StoredAs (.thmInfo cv) r := by
+  unfold StoredAs
+  rcases h with rfl | rfl <;> refine ⟨rfl, ?_, ?_, ?_⟩ <;> intros <;> contradiction
+
+/-- **A constant that is no part of a block has its records among the declarations'**, the
+merged copy's: the constant's own, or a theorem's of its statement. -/
+theorem covers_entry {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg ds) {e' : CEntry}
+    {c : CEntryF Name Expr} (he : mg.map[c.name]? = some e') (hst : EntryStands e' c)
+    (ht : c.kind.tag < 5) {r : ConstantInfo} (hr : r ∈ entryRecords c) : CoveredBy ds r := by
+  rw [entryRecords_low ht] at hr
+  cases hdc : declOfEntry c with
+  | none => rw [hdc] at hr; cases hr
+  | some dc =>
+  rw [hdc] at hr
+  simp only [Option.map_some, Option.getD_some] at hr
+  have hsafe := declOfEntry_safe hdc
+  have hmo : c.name ∈ mg.order := (F.order _).2 (contains_of_getElem he)
+  rcases hst with hec | ⟨hcv, he2, hc2⟩
+  · have hsk : e'.skipped = false := by
+      unfold CEntry.skipped; rw [hec]; exact hsafe
+    have ht' : e'.kind.tag < 5 := by
+      have : e'.kind = c.kind := by rw [← hec]
+      rw [this]; exact ht
+    obtain ⟨p, hp, hpd⟩ := Driver.declsOf_entry F.names F.order F.decls F.blocks hmo he hsk ht'
+    rw [entryDecl_safe hsk, hec, hdc] at hp
+    cases hp
+    exact ⟨dc, hpd, fun _ => ⟨r, hr, StoredAs.refl r⟩⟩
+  · cases hk : e'.kind with
+    | thm v a =>
+      have hsk : e'.skipped = false := by
+        unfold CEntry.skipped; rw [hk]; rfl
+      obtain ⟨p, hp, hpd⟩ := Driver.declsOf_entry F.names F.order F.decls F.blocks hmo he hsk
+        (by rw [hk]; simp [CKindF.tag])
+      rw [entryDecl_safe hsk] at hp
+      have hp' : declOfEntry e'.toCEntryF = some (.thmDecl e'.toCEntryF.cv v) := by
+        simp only [declOfEntry, hk]
+      rw [hp'] at hp
+      cases hp
+      refine ⟨_, hpd, fun hb => ⟨.thmInfo e'.toCEntryF.cv, List.mem_singleton_self _, ?_⟩⟩
+      rw [hcv]
+      apply stmt_storedAs
+      rcases c with ⟨n, l, t, k⟩
+      simp only at hc2
+      rcases hc2 with hc2 | rfl
+      · cases k with
+        | thm v' a' =>
+          simp only [declOfEntry, Option.some.injEq] at hdc
+          subst hdc
+          simp only [Declaration.records, List.mem_singleton] at hr
+          exact .inl hr
+        | _ => simp [CKindF.tag] at hc2
+      · simp only [declOfEntry, Option.some.injEq] at hdc
+        subst hdc
+        simp only [basisNamesOk, Bool.not_eq_eq_eq_not, Bool.not_true,
+          List.contains_eq_mem, decide_eq_false_iff_not] at hb
+        have hn : n = e'.toCEntryF.cv.name := by
+          rw [hcv]; rfl
+        simp only [Declaration.records, CEntryF.cv] at hr
+        by_cases hq : n = quotSoundName
+        · exfalso; apply hb
+          rw [← hn, hq]
+          simp [reservedBasisNames]
+        · by_cases hs : n = sorryAxName
+          · exfalso
+            rw [hs] at hr
+            simp only [show sorryAxName ≠ quotSoundName by decide, ↓reduceIte,
+              List.not_mem_nil] at hr
+          · simp only [hq, hs, ↓reduceIte, List.mem_singleton] at hr
+            exact .inr hr
+    | _ => rw [hk] at he2; simp [CKindF.tag] at he2
+
+/-- A constructor the merge's blocks take is stored under its name. -/
+theorem mem_blockCtors_stored {mg : Merged} (hN : ∀ (n : Name) (c : CEntry), mg.map[n]? = some c → c.name = n)
+    {tys : List CEntry} {z : CEntry} (hz : z ∈ blockCtors mg tys) : mg.map[z.name]? = some z := by
+  obtain ⟨t, -, hz⟩ := List.mem_flatMap.mp hz
+  split at hz
+  · obtain ⟨w, -, hw⟩ := List.mem_filterMap.mp hz
+    rw [hN w z hw]; exact hw
+  · cases hz
+
+/-- The type formers a block's names list are those names. -/
+theorem blockTys_names {mg : Merged} (hN : ∀ (n : Name) (c : CEntry), mg.map[n]? = some c → c.name = n) :
+    ∀ {l : List Name}, (∀ x ∈ l, ∃ m, mg.map[x]? = some m ∧ m.kind.tag = 5) →
+      (((l.filterMap (mg.map[·]?)).filter (·.kind.tag == 5)).map (·.toCEntryF)).map (·.name) = l
+  | [], _ => rfl
+  | x :: l, h => by
+    obtain ⟨m, hm, ht⟩ := h x List.mem_cons_self
+    simp only [List.filterMap_cons, hm, List.filter_cons, ht, beq_self_eq_true, ↓reduceIte,
+      List.map_cons]
+    rw [blockTys_names hN (fun y hy => h y (List.mem_cons_of_mem _ hy))]
+    rw [show m.toCEntryF.name = x from hN x m hm]
+
+/-- **A block member's record is in its block's record**: a type former as `indInfo`, a
+constructor at its parameter count, a recursor with its rules firing against the block's type
+formers, which are its `all`. -/
+theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg ds) {e' : CEntry}
+    (he : mg.map[e'.name]? = some e') (ht : 5 ≤ e'.kind.tag) {r : ConstantInfo}
+    (hr : r ∈ entryRecords e'.toCEntryF) : ∃ d ∈ ds, ∃ c' ∈ d.records, StoredAs c' r := by
+  have hG := blocksOk_good F.blocks F.order
+  -- a member of a block's record has its record in the block's records
+  have inRecs : ∀ {block nP c}, c ∈ block → (∀ cv mI rP isK rules, c ≠ .recInfo cv mI rP isK rules) →
+      c ∈ (Declaration.indDecl block nP).records := by
+    intro block nP c hc hnr
+    refine List.mem_map.mpr ⟨c, hc, ?_⟩
+    cases c with
+    | recInfo cv mI rP isK rules => exact absurd rfl (hnr cv mI rP isK rules)
+    | _ => rfl
+  have tysMem : ∀ {all : List Name} {x : Name} {m : CEntry}, x ∈ all → mg.map[x]? = some m →
+      m.kind.tag = 5 → m.toCEntryF ∈ ((blockTys mg all).filter (·.kind.tag == 5)).map (·.toCEntryF) :=
+    fun hx hm ht5 => List.mem_map_of_mem (List.mem_filter.mpr
+      ⟨List.mem_filterMap.mpr ⟨_, hx, hm⟩, by simp [ht5]⟩)
+  cases hk : e'.kind with
+  | induct np ni all cs nn ir iu irf =>
+    cases iu
+    rotate_left
+    · simp [entryRecords, hk, declOfEntry] at hr
+    have hsk : e'.skipped = false := by unfold CEntry.skipped; rw [hk]; rfl
+    have hI : IsInd e' all cs := ⟨np, ni, nn, ir, false, irf, hk⟩
+    obtain ⟨p, hp, ts, cts, rs, hdp, h1, h2, h3⟩ :=
+      home_group hG F.names F.order F.nodup F.decls he hI hsk
+    obtain ⟨block, nP, rfl, hT, -, -, -⟩ :=
+      declOfF_ind_records hdp (tys_res h1) (ctors_res h2) (recs_res h3)
+    have hr' : r = .indInfo e'.toCEntryF.cv {} := by
+      simpa [entryRecords, hk] using hr
+    subst hr'
+    refine ⟨_, hp, _, inRecs (hT _ (tysMem (hG.ind he hI).1 he (by rw [hk]; rfl)))
+      (fun _ _ _ _ _ h => nomatch h), StoredAs.refl _⟩
+  | ctor ind cidx np nf iu =>
+    cases iu
+    rotate_left
+    · simp [entryRecords, hk, declOfEntry] at hr
+    have hr' : r = .ctorInfo e'.toCEntryF.cv np nf ind := by
+      simpa [entryRecords, hk] using hr
+    subst hr'
+    obtain ⟨m, all, cs, hm, hmI, hncs⟩ := hG.ctor he ⟨cidx, np, nf, false, hk⟩
+    obtain ⟨hind, -, hcsm⟩ := hG.ind hm hmI
+    obtain ⟨m', hm', -, hsm⟩ := hcsm _ hncs
+    rw [he] at hm'; cases hm'
+    have hsk : m.skipped = false := by
+      rw [← hsm]; unfold CEntry.skipped; rw [hk]; rfl
+    obtain ⟨p, hp, ts, cts, rs, hdp, h1, h2, h3⟩ :=
+      home_group hG F.names F.order F.nodup F.decls hm hmI hsk
+    obtain ⟨block, nP, rfl, -, -, -, hC⟩ :=
+      declOfF_ind_records hdp (tys_res h1) (ctors_res h2) (recs_res h3)
+    obtain ⟨mnp, mni, mnn, mir, miu, mirf, hmk⟩ := hmI
+    have hmT : m.toCEntryF ∈ ((blockTys mg all).filter (·.kind.tag == 5)).map (·.toCEntryF) :=
+      tysMem hind hm (by rw [hmk]; rfl)
+    have heC : e' ∈ blockCtors mg (blockTys mg all) := by
+      refine List.mem_flatMap.mpr ⟨m, List.mem_filterMap.mpr ⟨_, hind, hm⟩, ?_⟩
+      simp only [hmk]
+      exact List.mem_filterMap.mpr ⟨_, hncs, he⟩
+    have heL : e'.name ∈ (((blockCtors mg (blockTys mg all)).filter (·.kind.tag == 6)).map
+        (·.toCEntryF)).map (·.name) :=
+      List.mem_map.mpr ⟨e'.toCEntryF, List.mem_map_of_mem (List.mem_filter.mpr
+        ⟨heC, by simp [hk, CKindF.tag]⟩), rfl⟩
+    obtain ⟨y, hy, hyn, ind', cidx', np', nf', iu', hyk, T, hyb⟩ :=
+      hC _ hmT mnp mni all cs mnn mir miu mirf hmk e'.name hncs heL
+    obtain ⟨z, hz, rfl⟩ := List.mem_map.mp hy
+    have hzs := mem_blockCtors_stored F.names (List.mem_filter.mp hz).1
+    have hzn : z.name = e'.name := hyn
+    rw [hzn, he] at hzs
+    cases hzs
+    rw [hk] at hyk
+    obtain ⟨-, -, rfl, rfl, -⟩ := CKindF.ctor.inj hyk
+    refine ⟨_, hp, _, inRecs hyb (fun _ _ _ _ _ h => nomatch h), ?_⟩
+    unfold StoredAs
+    refine ⟨rfl, ?_, ?_, fun cvj cnP nF T' h => by cases h; exact ⟨_, _, rfl⟩⟩ <;> intros <;>
+      contradiction
+  | recur all np ni nmo nmi rules k iu =>
+    cases iu
+    rotate_left
+    · simp [entryRecords, hk, declOfEntry] at hr
+    obtain ⟨t, rest, m, cs, hall, hm, hmI, hsm⟩ := hG.recur he ⟨np, ni, nmo, nmi, rules, k, false, hk⟩
+    have hsk : m.skipped = false := by
+      rw [hsm]; unfold CEntry.skipped; rw [hk]; rfl
+    obtain ⟨p, hp, ts, cts, rs, hdp, h1, h2, h3⟩ :=
+      home_group hG F.names F.order F.nodup F.decls hm hmI hsk
+    obtain ⟨block, nP, rfl, -, hnames, hR, -⟩ :=
+      declOfF_ind_records hdp (tys_res h1) (ctors_res h2) (recs_res h3)
+    have heR : e' ∈ blockRecs mg (recMapOf mg) t := by
+      rw [blockRecs_order mg F.nodup t]
+      refine List.mem_filterMap.mpr ⟨e'.name, List.mem_filter.mpr ⟨?_, ?_⟩, he⟩
+      · exact Array.mem_toList_iff.mpr ((F.order _).2 (contains_of_getElem he))
+      · simp [he, recUnder, hk, hall]
+    have hrb := hR e'.toCEntryF (List.mem_map_of_mem (List.mem_filter.mpr
+      ⟨heR, by simp [hk, CKindF.tag]⟩)) all np ni nmo nmi rules k false hk
+    have hformers : blockFormerNames block = all := by
+      rw [hnames]
+      refine blockTys_names F.names (fun x hx => ?_)
+      obtain ⟨m', cs', hm', hI', -⟩ := (hG.ind hm hmI).2.1 x hx
+      obtain ⟨_, _, _, _, _, _, hk'⟩ := hI'
+      exact ⟨m', hm', by rw [hk']; rfl⟩
+    refine ⟨_, hp, _, List.mem_map_of_mem hrb, ?_⟩
+    have hr' : r = .recInfo e'.toCEntryF.cv (np + nmo + nmi + ni) (np + nmo + nmi) k
+        (rules.map fun (cn, nf, rhs) =>
+          { ctor := cn, nfields := nf,
+            fire := inputFire all e'.toCEntryF.cv (np + nmo + nmi + ni) (np + nmo + nmi), rhs }) := by
+      simpa [entryRecords, hk] using hr
+    subst hr'
+    have hrules : (rules.map fun r => (⟨r.1, r.2.1, .plain, r.2.2⟩ : RecRule)).map
+        (fun rl => { rl with fire := (inputFire (blockFormerNames block) e'.toCEntryF.cv
+          (np + nmo + nmi + ni) (np + nmo + nmi)) }) =
+        rules.map fun (cn, nf, rhs) =>
+          { ctor := cn, nfields := nf,
+            fire := inputFire all e'.toCEntryF.cv (np + nmo + nmi + ni) (np + nmo + nmi), rhs } := by
+      rw [hformers, List.map_map]
+      apply List.map_congr_left
+      rintro ⟨cn, nf, rhs⟩ -
+      rfl
+    show StoredAs (.recInfo _ _ _ _ ((rules.map _).map _)) _
+    rw [hrules]
+    exact StoredAs.refl _
+  | _ => rw [hk] at ht; simp [CKindF.tag] at ht
 
 end ConLeche.Frontend.Olean
