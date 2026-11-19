@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.IsModel
-public import ConLeche.Cached.Decls
+import ConLeche.Cached.Decls
 public import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.WalkersC

@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Denotes
-public import ConLeche.Model.OfEnvModelM
+import ConLeche.Denotes
 public import ConLeche.Model.RuleEqsSound
+import ConLeche.Model.OfEnvModelM
 public import ConLeche.Verify.IsModelRecords
 public import ConLeche.Verify.Resolves
 import ConLeche.Verify.EnvGuards

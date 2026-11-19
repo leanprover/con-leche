@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.Close
-public import ConLeche.Kernel.Install
 public import ConLeche.IsModel
 import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Verify.Shift

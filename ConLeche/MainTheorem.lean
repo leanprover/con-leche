@@ -2,7 +2,6 @@ module
 
 import ConLeche.Verify.Cached.MainC
 import ConLeche.Denotes
-public import ConLeche.Model.IsModelBridge
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
@@ -28,6 +27,7 @@ public import ConLeche.Model.Modular.CompareRun
 import ConLeche.Verify.Driver.CompareLocal
 import ConLeche.Semantics.DeclWF
 import ConLeche.Semantics.IsModelBasis
+import ConLeche.Model.IsModelBridge
 
 public section
 
