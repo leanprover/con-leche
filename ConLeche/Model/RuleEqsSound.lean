@@ -802,7 +802,8 @@ theorem iotaEq_inv {find? : Name → Option ConstantInfo} {cv : ConstantVal} {mI
   obtain ⟨ci, hc, h⟩ := h
   · cases ci with
     | ctorInfo cvj cnP cnF iT =>
-      simp only [Option.bind_eq_some_iff, pure, Option.some.injEq] at h
+      unfold ConLeche.iotaEqAt at h
+      simp only [bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at h
       obtain ⟨⟨pre, rest⟩, hpre, h⟩ := h
       obtain ⟨⟨idx, body⟩, hbody, h⟩ := h
       obtain ⟨u, hu, h⟩ := h
