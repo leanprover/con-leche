@@ -12,7 +12,8 @@ import ConLeche.Verify.Cached.DeclNames
 `con-leche --olean --compare [--trusted-search-path=DIRS] --search-path=DIRS -- C S` says
 whether the module `S` solves the challenge `C`: every hole of `C` (an axiom of `C` itself, or a
 declaration of `C` whose value uses `sorry`) is met by `S`'s constant of the same name and type,
-every other constant `C` reads is `S`'s, and `S`'s closure is accepted.
+every other constant of `C` and every constant they read is `S`'s, and `S`'s closure is
+accepted.
 
 **The two reads.**  A challenge and its solution declare the same names (that is the point), so
 there is no one merged environment: the challenge's closure is read (`readOleansAt`) through the
@@ -21,8 +22,15 @@ TRUSTED lookup alone, the solution's through the trusted path first and the sear
 of the challenge is checked: its records are compared, and the solution's are checked as an
 `--olean` run checks a closure.  A module both closures hold is checked once, in the solution.
 
+**What is compared** (`chalRecs`): the challenge module's own records and what they read,
+closed under reads, every hole as its statement (`readCone`, which the comparison of two
+lean4export files shares): what only a hole's value or a theorem's proof reads is not compared,
+nor a module `C` imports and never reads from, which cannot change what its holes say.  Under
+`--constant` the roots are the records of the named declarations (the challenge's read holds
+their cone).  The modular compare worker compares the same records.
+
 **The comparison** (`cmpRecord`), record by record in the challenge's prepared order, each
-challenge record against the solution's record of its key (`recKey`):
+compared challenge record against the solution's record of its key (`recKey`):
 
 * a record of a module `C` imports (its key's home is not `C`, `Olean.homesOf`): the solution's
   record has the same home — for a theorem, the same statement, Lean's key for a proof — and is
@@ -189,6 +197,47 @@ def recIndex (recs : Array Declaration) : Std.HashMap Name Nat :=
   recs.foldl (init := ({}, 0)) (fun (m, i) d =>
     ((m.insert (recKey d) i).insertMany ((Modular.declNames d).map (·, i)), i + 1)) |>.1
 
+/-- The worklist of `readCone`: record positions, each pushed once (`seen` marks it), so that
+`fuel = recs.size + 1` steps empty it. -/
+def readConeGo (form : Declaration → Declaration) (recs : Array Declaration)
+    (idx : Std.HashMap Name Nat) : Nat → List Nat → Array Bool → Array Bool
+  | 0, _, seen => seen
+  | _, [], seen => seen
+  | fuel + 1, i :: rest, seen =>
+    match recs[i]? with
+    | none => readConeGo form recs idx fuel rest seen
+    | some d =>
+      let next := (recordReads (form d)).foldl (init := (rest, seen)) fun (st, seen) y =>
+        match idx[y]? with
+        | some j => if seen[j]?.getD true then (st, seen) else (j :: st, seen.set! j true)
+        | none => (st, seen)
+      readConeGo form recs idx fuel next.1 next.2
+
+/-- **The records a challenge's environment needs**: those `root` names, and what they read,
+closed under reads, each record read as `form` gives it (a hole as its statement): what only a
+hole's value or a theorem's proof reads is not needed (`recordReads` never reads a theorem's
+value).  In their order, so that every record follows what it reads. -/
+def readCone (root : Declaration → Bool) (form : Declaration → Declaration)
+    (recs : Array Declaration) : Array Declaration :=
+  let roots := (List.range recs.size).filter fun i => (recs[i]?.map root).getD false
+  let seen := roots.foldl (fun seen i => seen.set! i true) (Array.replicate recs.size false)
+  let need := readConeGo form recs (recIndex recs) (recs.size + 1) roots seen
+  (recs.zipIdx.filter fun (_, i) => need[i]?.getD false).map (·.1)
+
+/-- **A root of the challenge's comparison**: a record of the challenge module `C` itself, and,
+under `--constant`, one that installs a name it gives. -/
+def chalRoot (C : Name) (homesC : Std.HashMap Name Name) (constants : Option (Array Name))
+    (d : Declaration) : Bool :=
+  homesC[recKey d]? == some C &&
+    constants.all fun cs => (recKey d :: Modular.declNames d).any cs.contains
+
+/-- **The challenge's records that are compared**: the roots (`chalRoot`) and what they read,
+closed under reads, every hole of `C` as its statement (`readCone`).  A module `C` imports and
+never reads from cannot change what its holes say, and is not compared. -/
+def chalRecs (C : Name) (uses : Declaration → Array Name) (homesC : Std.HashMap Name Name)
+    (constants : Option (Array Name)) (recs : Array Declaration) : Array Declaration :=
+  readCone (chalRoot C homesC constants) (chalRecord C uses homesC) recs
+
 /-- **What the challenge's records stand for**, in order, and the holes filled, or the first
 record the solution does not meet.  `idxS` finds the solution's prepared record of a key. -/
 def compareRecords (C : Name) (uses : Declaration → Array Name) (homesC homesS : Std.HashMap Name Name)
@@ -314,8 +363,12 @@ def compareG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (mode : CheckMode)
   if let some why := foreignConstant r rdC.homes then
     diagLine s!"con-leche: {why} ({modeTag})"
     return 1
-  -- the solution, from the constants the challenge's records need, or all of it
-  let need := r.constants.map fun _ => rdC.decls.map recKey
+  -- the challenge's records that are compared: its own and what they read
+  let usesC := usedOf (some (r.chalRoots.path, rdC))
+  let recsC := chalRecs r.challenge usesC rdC.homes r.constants
+    (Frontend.prepareD prelude rdC.decls usesC).decls
+  -- the solution, from the constants the compared records need, or all of it
+  let need := r.constants.map fun _ => recsC.map recKey
   match ← readOleansAt r.solRoots #[r.solution] need jobs pace (lenient := true)
       (homes := true) with
   | .error e => readFailed modeTag (toString r.solution) e
@@ -325,11 +378,9 @@ def compareG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (mode : CheckMode)
     diagLine s!"con-leche: {r.solution} does not solve {r.challenge}: the solution's closure \
       holds the challenge ({modeTag})"
     return 1
-  let ⟨recsC, _, _⟩ := Frontend.prepareD prelude rdC.decls (usedOf (some (r.chalRoots.path, rdC)))
   let ⟨recsS, _, hoisted⟩ := Frontend.prepareD prelude rdS.decls
     (usedOf (some (r.solRoots.path, rdS)))
-  match compareRecords r.challenge (usedOf (some (r.chalRoots.path, rdC))) rdC.homes rdS.homes
-      recsS (recIndex recsS) recsC with
+  match compareRecords r.challenge usesC rdC.homes rdS.homes recsS (recIndex recsS) recsC with
   | .error why =>
     if declined.isPrefixOf why then
       diagLine s!"con-leche: {why} ({modeTag})"

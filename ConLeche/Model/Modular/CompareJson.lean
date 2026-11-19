@@ -151,15 +151,83 @@ theorem jsonHomes_own {recs : Array Declaration} {d : Declaration} (hd : d ∈ r
           · rfl
           · exact h
 
+/-- Marking a position keeps every mark. -/
+theorem set_true_keeps {seen : Array Bool} {j : Nat} (i : Nat) (h : seen[j]? = some true) :
+    (seen.set! i true)[j]? = some true := by
+  have hj := (Array.getElem?_eq_some_iff.mp h).1
+  rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds]
+  split <;> simp_all
+
+/-- A fold whose every step keeps a mark keeps it. -/
+theorem foldl_keeps {α : Type} {j : Nat} (f : List Nat × Array Bool → α → List Nat × Array Bool)
+    (hf : ∀ acc y, acc.2[j]? = some true → (f acc y).2[j]? = some true) (xs : Array α)
+    (acc : List Nat × Array Bool) (h : acc.2[j]? = some true) :
+    (xs.foldl f acc).2[j]? = some true :=
+  Array.foldl_induction (motive := fun _ acc => acc.2[j]? = some true) h
+    (fun _ acc hacc => hf acc _ hacc)
+
+/-- **`readCone`'s worklist keeps every mark.** -/
+theorem readConeGo_keeps {form : Declaration → Declaration} {recs : Array Declaration}
+    {idx : Std.HashMap Name Nat} {j : Nat} :
+    ∀ fuel stack seen, seen[j]? = some true →
+      (readConeGo form recs idx fuel stack seen)[j]? = some true := by
+  intro fuel
+  induction fuel with
+  | zero => intro _ _ h; simpa [readConeGo] using h
+  | succ fuel ih =>
+    intro stack seen h
+    match stack with
+    | [] => simpa [readConeGo] using h
+    | i :: rest =>
+      simp only [readConeGo]
+      split
+      · exact ih _ _ h
+      · refine ih _ _ (foldl_keeps _ (fun acc y hacc => ?_) _ _ h)
+        obtain ⟨st, seen⟩ := acc
+        dsimp only
+        split
+        · split
+          · exact hacc
+          · exact set_true_keeps _ hacc
+        · exact hacc
+
+/-- **A root is one of `readCone`'s records.** -/
+theorem mem_readCone {root : Declaration → Bool} {form : Declaration → Declaration}
+    {recs : Array Declaration} {d : Declaration} (hd : d ∈ recs) (hr : root d = true) :
+    d ∈ readCone root form recs := by
+  obtain ⟨i, hi, rfl⟩ := Array.getElem_of_mem hd
+  unfold readCone
+  refine Array.mem_map.mpr ⟨(recs[i], i), Array.mem_filter.mpr ⟨?_, ?_⟩, rfl⟩
+  · rw [Array.mem_iff_getElem]
+    exact ⟨i, by simpa using hi, by simp⟩
+  · have hroot : i ∈ (List.range recs.size).filter fun i => (recs[i]?.map root).getD false := by
+      simp [hi, hr]
+    suffices H : ∀ (l : List Nat) (seen : Array Bool), seen.size = recs.size →
+        (i ∈ l ∨ seen[i]? = some true) →
+        (l.foldl (fun seen i => seen.set! i true) seen)[i]? = some true by
+      simp only
+      rw [readConeGo_keeps _ _ _ (H _ _ (by simp) (.inl hroot))]
+      rfl
+    intro l
+    induction l with
+    | nil => intro seen _ h; simpa using h
+    | cons k l ih =>
+      intro seen hsz h
+      simp only [List.foldl_cons]
+      refine ih _ (by simp [hsz]) ?_
+      rcases h with h | h
+      · rcases List.mem_cons.mp h with rfl | h
+        · right
+          rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds]
+          simp [hsz, hi]
+        · exact .inl h
+      · exact .inr (set_true_keeps _ h)
+
 /-- **Every hole of a challenge file is one of the challenge's records.** -/
 theorem mem_jsonRecs {pre : Frontend.PreludeIx} {ds : Array Declaration} {d : Declaration}
-    (hd : d ∈ ds) (hh : jsonHole d = true) : d ∈ jsonRecs pre ds := by
-  unfold jsonRecs
-  obtain ⟨i, hi, he⟩ := Array.getElem_of_mem (Frontend.mem_prepareD (pre := pre)
-    (used := Declaration.usedConsts) hd)
-  refine Array.mem_map.mpr ⟨(d, i), Array.mem_filter.mpr ⟨?_, by simp [hh]⟩, rfl⟩
-  rw [Array.mem_iff_getElem]
-  exact ⟨i, by simpa using hi, by simp [he]⟩
+    (hd : d ∈ ds) (hh : jsonHole d = true) : d ∈ jsonRecs pre ds :=
+  mem_readCone (Frontend.mem_prepareD (pre := pre) (used := Declaration.usedConsts) hd)
+    (by simp [jsonRoot, hh])
 
 theorem map_fillDecl_id (ds : Array Declaration) : ds.map (Cached.fillDecl id) = ds := by
   have : Cached.fillDecl id = id := funext fun d => by cases d <;> rfl

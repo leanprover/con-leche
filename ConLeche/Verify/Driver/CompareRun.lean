@@ -9,8 +9,9 @@ public import ConLeche.Verify.Driver.Oleans
 `compareG_accept`: every outcome of `compareG` that is an exit 0 read the challenge's closure
 through the challenge's lookup (`CmpReq.chalRoots`, the trusted path alone) and the solution's
 through the solution's (`CmpReq.solRoots`, the trusted path, then the search path); every
-`--constant` name is a declaration of the challenge module; the comparison of the two sets of
-prepared records (`cmpRecs`) passed, with what each challenge record stands for (`ctx`); those
+`--constant` name is a declaration of the challenge module; the comparison of the challenge's
+compared records (`chalCmpRecs`: its own and what they read) with the solution's prepared records
+(`cmpRecs`) passed, with what each challenge record stands for (`ctx`); those
 read only what the records before them install (`ctxScoped`); and `checkDecls` accepts the
 solution's prepared records with its theorems' values in place.  The model-tier half is
 `Model.Compare.compare_models`; the two together are `ConLeche.compare_solves`
@@ -28,12 +29,21 @@ open ConLeche Frontend.Olean Cached
     Array Declaration :=
   (Frontend.prepareD pre rd.decls (usedOf (some (R.path, rd)))).decls
 
-/-- **The challenge's environment**: its prepared records installed in order, every hole of the
-challenge module `C` (`isHole`) as the axiom of its statement (`chalRecord`), at the challenge's
+/-- **A challenge read's compared records** (`chalRecs`): its prepared records of the challenge
+module `C` itself (under `--constant`, those of the names `cs` gives) and what they read,
+closed under reads, every hole as its statement. -/
+@[expose] def chalCmpRecs (pre : Frontend.PreludeIx) (C : Name) (cs : Option (Array Name))
+    (R : Roots) (rd : OleanRead) : Array Declaration :=
+  chalRecs C (usedOf (some (R.path, rd))) rd.homes cs (cmpRecs pre R rd)
+
+/-- **The challenge's environment**: the compared records of the challenge module `C`
+(`chalCmpRecs`: its own records and what they read, closed under reads) installed in order,
+every hole of `C` (`isHole`) as the axiom of its statement (`chalRecord`), at the challenge's
 own level-parameter names. -/
 @[expose] def challengeEnv (pre : Frontend.PreludeIx) (C : Name) (R : Roots) (rd : OleanRead) :
     Env :=
-  streamEnv ((cmpRecs pre R rd).toList.map (chalRecord C (usedOf (some (R.path, rd))) rd.homes))
+  streamEnv ((chalCmpRecs pre C none R rd).toList.map
+    (chalRecord C (usedOf (some (R.path, rd))) rd.homes))
 
 /-- **The solution's environment**: its prepared records, its theorems' values in place. -/
 @[expose] noncomputable def solutionEnv (pre : Frontend.PreludeIx) (R : Roots) (fs : FS)
@@ -85,11 +95,11 @@ theorem compareG_accept {r : CmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace
         (homes := true)) fs (.ok rdC) ∧
       (∀ cs, r.constants = some cs → ∀ c ∈ cs, rdC.homes[c]? = some r.challenge) ∧
       ModelIO.CanGive (readOleansAt r.solRoots #[r.solution]
-        (r.constants.map fun _ => rdC.decls.map recKey) (lenient := true) (homes := true)) fs
-        (.ok rdS) ∧
+        (r.constants.map fun _ => (chalCmpRecs pre r.challenge r.constants r.chalRoots rdC).map
+          recKey) (lenient := true) (homes := true)) fs (.ok rdS) ∧
       compareRecords r.challenge (usedOf (some (r.chalRoots.path, rdC))) rdC.homes rdS.homes
         (cmpRecs pre r.solRoots rdS) (recIndex (cmpRecs pre r.solRoots rdS))
-        (cmpRecs pre r.chalRoots rdC) = .ok (ctx, filled) ∧
+        (chalCmpRecs pre r.challenge r.constants r.chalRoots rdC) = .ok (ctx, filled) ∧
       ctxScoped ctx = none ∧
       checkDecls mode natOpPinSets maxNatSize
         ((cmpRecs pre r.solRoots rdS).map (fillDecl (fillOf r.solRoots fs rdS.values)))
@@ -129,16 +139,16 @@ theorem compareG_accept {r : CmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace
     simp only [Bool.false_eq_true, ↓reduceIte]
     cases hcmp : compareRecords r.challenge (usedOf (some (r.chalRoots.path, rdC))) rdC.homes
       rdS.homes (cmpRecs pre' r.solRoots rdS) (recIndex (cmpRecs pre' r.solRoots rdS))
-      (cmpRecs pre' r.chalRoots rdC) with
+      (chalCmpRecs pre' r.challenge r.constants r.chalRoots rdC) with
     | error why =>
-      simp only [cmpRecs] at hcmp
+      simp only [cmpRecs, chalCmpRecs] at hcmp
       rw [hcmp]
       simp only
       split <;> simp
     | ok p =>
       obtain ⟨ctx, filled⟩ := p
       have hcmp' := hcmp
-      simp only [cmpRecs] at hcmp'
+      simp only [cmpRecs, chalCmpRecs] at hcmp'
       rw [hcmp']
       simp only
       cases hsc : ctxScoped ctx with
@@ -150,7 +160,8 @@ theorem compareG_accept {r : CmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace
       · exact fun c hs6 hc h0 => absurd (verdictG_ok hc h0) (by simp)
       intro _ _ _ _
       have hy' : (readOleansAt r.solRoots #[r.solution]
-          (r.constants.map fun _ => rdC.decls.map recKey) (lenient := true) (homes := true) :
+          (r.constants.map fun _ => (chalCmpRecs pre' r.challenge r.constants r.chalRoots
+            rdC).map recKey) (lenient := true) (homes := true) :
             ModelIO _) fs hs2 (.ok (.ok rdS)) hs3 := hy
       obtain ⟨-, -, -, -, ⟨T, -, hrT, hT, hTp⟩, -⟩ := readOleansAt_ok r.solRoots_bare hy'
       have hgood : ∀ md ∈ rdS.values, ∃ f r a,

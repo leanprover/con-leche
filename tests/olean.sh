@@ -1036,14 +1036,21 @@ cmp_case "upstream def-hole-kind-mismatch" 2 UpDefHole UpDefHoleKindSol
 cmp_grep "upstream def-hole-type-mismatch" 1 "n: the solution's definition is not of the hole's type" UpDefHoleTy UpDefHoleTySol
 cmp_grep "upstream numeric-namespace" 0 "hole «123».foo" 'UpNum.«12.34».«5»' UpNumSol
 cmp_case "upstream opaque-value" 2 UpBoom UpBoomOpqSol
-# (the solution imports less of Init than the challenge: a constant it lacks)
-cmp_grep "upstream primitive-issue" 1 "the solution has no constant of this name" UpGcd UpGcdSol
+# (the challenge's `boom : False` reads nothing of its import Init.Data.Nat.Gcd, so `Nat.gcd` is
+# not compared (task #614); the solution's own check then declines its `Nat.gcd := 0`, as
+# `--olean UpGcdSol` does.  Upstream rejects on `Nat.gcd`; the modular modes below reject by the
+# clash rule, their graph holding both closures)
+cmp_grep "upstream primitive-issue" 2 "unsupported Nat.div/mod spelling" UpGcd UpGcdSol
 cmp_grep "upstream proj_trick" 1 "S: the solution's inductive type differs" UpProj UpProjSol
 cmp_case "upstream quot_mismatch" 1 UpQuot UpQuotSol
 cmp_grep "upstream theorem_hole_issue" 0 "hole hw (theorem := sorry) filled by UpThmHoleSol's theorem" UpThmHole UpThmHoleSol
 cmp_grep "upstream check-multi as a comparison" 1 "a_thm: the solution has no constant of this name" UpMultiA UpMultiB
 # a solution importing its challenge is invalid input, as the modular run's cycle (task #608)
 cmp_grep "a solution importing its challenge" 1 "the solution's closure holds the challenge" CmpChal CmpImpS
+# the challenge imports CmpBase, whose `f` its record does not read, and the solution's closure
+# lacks CmpBase: only the challenge's own records and what they read are compared (task #614),
+# so the merged mode accepts, as the modular ones below (task #611 found it rejecting)
+cmp_grep "an unread import the solution lacks" 0 "hole easy (theorem := sorry) filled by CmpUnS's theorem" CmpUnC CmpUnS
 # --constant: declarations of the challenge module itself; the cone alone compared
 case_grep "compare: --constant at a challenge declaration" 0 "hole foo (theorem := sorry)" \
   --olean --compare --constant=foo --search-path=$MSP -- UpDefHole UpDefHoleSol
@@ -1117,6 +1124,8 @@ mcmp "an imported name declared by the solution" 1 1 "modules CmpHomeA and CmpHo
 mcmp "an imported name redeclared with its body" 1 1 "modules CmpHomeA and CmpHomeS2 store different constants named f" CmpHomeC3 CmpHomeS2
 mcmp "an imported name read from its home" 0 0 "hole t (theorem := sorry) filled by CmpHomeS3's theorem" CmpHomeC3 CmpHomeS3
 mcmp "a solution importing its challenge" 1 1 "the solution's closure holds the challenge" CmpChal CmpImpS
+# (task #611: the merged comparison above agrees since task #614)
+mcmp "an unread import the solution lacks" 0 0 "hole easy (theorem := sorry) filled by CmpUnS's theorem" CmpUnC CmpUnS
 mcmp "upstream simple-match" 0 0 "hole comm (theorem := sorry) filled by UpCommSol's theorem" UpComm UpCommSol
 mcmp "upstream simple-axiom-issue" 2 0 "hole comm (theorem := sorry) filled by UpCommAxSol's theorem" UpComm UpCommAxSol
 mcmp "upstream simple-mismatch" 1 1 "comm: the solution's axiom is not of the hole's type" UpComm UpCommMisSol

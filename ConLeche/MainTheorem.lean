@@ -339,21 +339,21 @@ open Frontend in
 module `C` and `s` the module `S`, read the challenge's closure through `T` alone and the
 solution's through `T`, then `D`, and in every set theory `V` there are
 
-* a model `mC` of the challenge's environment (`Driver.challengeEnv`: its records at their own
-  level-parameter names, every hole of `C` the axiom of its statement) and a model `mS` of the
-  solution's (`Driver.solutionEnv`), such that
+* a model `mC` of the challenge's environment (`Driver.challengeEnv`: the records of `C` and
+  what they read, closed under reads, at their own level-parameter names, every hole of `C` the
+  axiom of its statement) and a model `mS` of the solution's (`Driver.solutionEnv`), such that
 * every constant of the challenge's environment is the solution's constant of that name, with as
   many level parameters, and `mC` gives it `mS`'s value read at the challenge's names;
 * every constant of the challenge's environment, every hole of `C` among them, is inhabited by
   the solution's constant: that constant's value in `mS` is a member of what the challenge's
   type denotes in `mC`.
 
-The challenge's environment holds what `C` imports with its bodies (the merged read), and a model
-makes every definition denote its value and every recursor rule hold (`Model.defn_eq`,
+The challenge's environment holds what `C`'s records read, with the bodies (the merged read), and
+a model makes every definition denote its value and every recursor rule hold (`Model.defn_eq`,
 `Model.rule_eqs`).  So a challenge that imports `def f : Nat := 3` and has a hole `t : f = 5` has
-no accepted solution: in `mC`, `f` is `3`, and `f = 5` denotes the empty set.  Which module a
-solution's constant comes from (the comparison's home rule) is the code's business; the
-statement needs only the models. -/
+no accepted solution: `t` reads `f`, so in `mC` `f` is `3`, and `f = 5` denotes the empty set.
+Which module a solution's constant comes from (the comparison's home rule) is the code's
+business; the statement needs only the models. -/
 theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
