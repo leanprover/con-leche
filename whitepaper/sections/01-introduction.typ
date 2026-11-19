@@ -11,8 +11,8 @@ stream, checking what the official kernel checks (on a few features
 it declines instead; @sec:left-out). It comes with a proof, written in
 Lean itself, of what an acceptance means: every stream the
 checker accepts
-#src("ConLeche/MainTheorem.lean", 122, 128)[has a model in set theory].
-#src("ConLeche/IsModel.lean", 312, 313)[Each constant is assigned a set], each type denotes a set, and every
+#src("ConLeche/MainTheorem.lean", 123, 129)[has a model in set theory].
+#src("ConLeche/IsModel.lean", 309, 310)[Each constant is assigned a set], each type denotes a set, and every
 constant is a member of the set its type denotes. The prelude's `False`
 denotes the empty set, and its `Eq` denotes equality, so every
 equation the checker accepts is an equality of sets. Every definition

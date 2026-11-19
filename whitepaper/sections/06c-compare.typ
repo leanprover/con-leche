@@ -194,7 +194,7 @@ these must come from a source the reader trusts.
   Con-leche compares compiled modules,
   `con-leche --olean --compare CHALLENGE SOLUTION`. The challenge and
   everything it imports are read from the trusted directories
-  (#src("ConLeche/Driver/Compare.lean", 285, 291)[the challenge's lookup]),
+  (#src("ConLeche/Driver/Compare.lean", 287, 293)[the challenge's lookup]),
   the solution's closure from those directories first and from the
   search path after them; a module the trusted directories hold is
   read from there on both sides. The challenge's read
@@ -202,14 +202,14 @@ these must come from a source the reader trusts.
   on two file systems that agree on every path the reader forms there,
   it has the same outcomes, failure included.
 
-  A hole is #src("ConLeche/Driver/Compare.lean", 122, 128)[an axiom of the challenge module, or a declaration whose value uses `sorry`].
+  A hole is #src("ConLeche/Driver/Compare.lean", 124, 130)[an axiom of the challenge module, or a declaration whose value uses `sorry`].
   What is compared is
-  #src("ConLeche/Driver/Compare.lean", 234, 239)[the challenge's own declarations and what they read],
+  #src("ConLeche/Driver/Compare.lean", 236, 241)[the challenge's own declarations and what they read],
   closed under reads, each hole read as its statement; what only a
   hole's value or a proof reads is not compared, nor a module the
   challenge imports and never reads from, which cannot change what its
   holes say. The rule is the same in every mode below.
-  #src("ConLeche/Driver/Compare.lean", 144, 186)[The comparison] fills
+  #src("ConLeche/Driver/Compare.lean", 146, 188)[The comparison] fills
   a hole with the solution's definition, theorem, opaque constant or
   axiom of the same type, after renaming the solution's level
   parameters to the challenge's; it compares every other compared
@@ -218,13 +218,13 @@ these must come from a source the reader trusts.
   stores it, or, for a theorem, by its statement. The solution's closure is then
   checked as any closure is. The compared run is a development of two
   modules,
-  #src("ConLeche/Model/Modular/Compare.lean", 571, 573)[the solution and the challenge],
+  #src("ConLeche/Model/Modular/Compare.lean", 572, 574)[the solution and the challenge],
   and the modular theorem
-  #src("ConLeche/Model/Modular/Compare.lean", 652, 665)[reads the challenge's model off the solution's],
+  #src("ConLeche/Model/Modular/Compare.lean", 653, 666)[reads the challenge's model off the solution's],
   carried across the renaming by
   #src("ConLeche/Model/Copies.lean", 421, 422)[a model of a renamed copy].
   The capstone
-  #src("ConLeche/MainTheorem.lean", 388, 410)[states] @thm:cmp
+  #src("ConLeche/MainTheorem.lean", 403, 425)[states] @thm:cmp
   for an exit 0 of the run: the challenge's model gives every name the
   solution's value, and every hole is inhabited. The challenge's
   environment holds what its declarations read, with the bodies, and a model makes
@@ -235,18 +235,18 @@ these must come from a source the reader trusts.
   `inductive T | a | b` denote different sets, whatever the solution's
   `T` is. The home rule is a rule of the comparison, not part of the
   statement. Together with locality,
-  #src("ConLeche/MainTheorem.lean", 433, 441)[an accepted comparison is a property of the trusted files]:
+  #src("ConLeche/MainTheorem.lean", 448, 456)[an accepted comparison is a property of the trusted files]:
   on every file system that agrees with the run's under the trusted
   directories, the challenge's read gives an environment with a model
   in which every hole is inhabited.
 
   The same comparison also runs module by module, with `--module`,
   `--modular` or `--schedule`: the challenge is
-  #src("ConLeche/Driver/CompareModule.lean", 210, 211)[one more module of a modular run]
+  #src("ConLeche/Driver/CompareModule.lean", 212, 213)[one more module of a modular run]
   over both closures, its names read from the modules of the
   solution's closure that declare them, and each module of the
   challenge's closure is read from the trusted directories alone.
-  #src("ConLeche/MainTheorem.lean", 548, 556)[The modular capstones]
+  #src("ConLeche/MainTheorem.lean", 563, 571)[The modular capstones]
   state the same for an exit 0 of every command of such a run: every
   module has a model of its own environment, a name a module reads from
   another means the same in both models, and the challenge's model
@@ -256,13 +256,18 @@ these must come from a source the reader trusts.
   Con-leche also compares two `lean4export` files, the input
   comparator works on,
   `con-leche --compare CHALLENGE.ndjson SOLUTION.ndjson`. An export
-  has no modules and so no homes: every declaration of the challenge
-  file is the challenge's own and is compared by its content, so the
-  solution's `f := 5` does not meet a challenge file's `f := 3`, and
-  the solution's file is checked in full.
-  #src("ConLeche/MainTheorem.lean", 932, 954)[Its capstone] states the
-  same conclusion over the challenge file's bytes, which are all the
-  challenge's meaning depends on.
+  has no modules and so no homes; there the solution's file is checked
+  in full, and the challenge's file is then checked like any stream,
+  with the solution's environment as its _sidecar_: a hole is accepted
+  as an axiom of its statement when the sidecar holds a constant of
+  that name and statement, and everything the statement reads is the
+  same constant in both, whole records at a time. So the solution's
+  `f := 5` does not justify a hole that reads a challenge file's
+  `f := 3`. The model of the challenge then takes, at each hole, the
+  sidecar model's value, which inhabits the hole's statement because
+  the two models agree on everything it reads;
+  #src("ConLeche/MainTheorem.lean", 958, 972)[its capstone] states that
+  the challenge file's records have a model.
 
   The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
   different rule. A theorem must be a theorem on both sides, and a
