@@ -122547,3 +122547,104 @@ scale; the run says nothing about big modules.
 Files (in `_tmp/605/`): `bin/con-leche` (modular 010604125), `guard.sh` (47 GiB session
 threshold), the FLT clone `flt/` (1.6 GB, sources only), `init.log`, `lean-sched.out`,
 `lean-sched.log`, `lean-fail-msgs.txt`, `probe/dump.lean`.
+
+## TASK #610 (spike) — `Model` holds the defining equations (2026-11-19, agent/610-model-eqs)
+
+Base `modular` dcbb8265e.  A spike: nothing lands.  Goal (maintainer): the public `Model`
+(`ConLeche/Denotes.lean`) constrains only types, so in the modular theorem a hidden
+`def f : Nat := 3` may denote 5 and `inductive T | a | b` a one-element set (task #607/#608's
+`CmpHomeA/C/S1` attack).  The plan: "M ⊨ E" — every declaration's defining equations hold,
+read off the environment's own data and stated with `Denotes` only.
+
+**Definitions: done, a field.**  `Model.defn_eq`:
+
+    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+      ConstantInfo.defnInfo cv value hint ∈ env.consts →
+      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+
+At the definition's own level parameters, every assignment (an instance `c.{us}` is the same
+equation at the assignment `us` induces).  Spec choice: definitions only.  A theorem record
+stores no value (`thmInfo cv`), and its value is a proof anyway; an opaque's value is never
+unfolded by the kernel, so it stays free (a challenge cannot prove `o = 3` by `rfl` either).
+Proof in `Model.ofEnvModelM` (12 lines): `defn_reads` (`AcvalDefnInst`), `Denotes_of_denote`,
+and `LeafReads`' proof arm (`.prf` interprets as `pt`).  Corollary `Model.cval_of_defn`: in
+every model, whatever the value denotes is what the constant denotes — the demonstration (d)
+for `def f : Nat := 3` is this at `value = .lit (.natVal 3)`.
+
+**(b) and (c) are free for this field.**  Every public `Model` on `modular` is
+`Model.ofEnvModelM` of an `EnvModelM` (the main theorem, and each module's model in
+`modular_model_exists`, which takes the `EnvModelM` the `MMod` carries for the module's OWN
+environment).  The restriction to a view, the amalgamation (`ctxModel`) and the level renaming
+(`EnvModelM.rename`) all already produce a full `EnvModelM`, `defn_reads` and `rec_rules`
+included, so nothing in `Model/Modular/*` or `Model/BasisRename.lean` changes.  A definition
+presented as its statement (`stmtOf`) is an axiom in the importer's context, so the importer's
+`EnvModelM` owes no equation for it; the home's does, and agreement carries the home's value.
+The capstones `main_no_False`, `main_oleans_no_False`, `main_modular_no_False`,
+`main_modular_one_no_False` do not mention `Model`; `Challenge.lean`'s `model_exists` and
+`modular_model_exists` do and get the stronger statement with no text change
+(`tests/challenge.sh` OK).  On `compare` (not touched), `Model.ofCopies`
+(`Model/Copies.lean`) builds a `Model` directly and owes the field: the value of a copy is the
+original's at other level names, so it is `defn_reads` + `denote_ren`/`denote_instLevels`, as its
+`mem` arm — about 25 lines.
+
+**Recursor rules: stated, derived where the major is not the point.**  `RecRulesHold cval env`
+(`ConLeche/Denotes.lean`, a definition, not yet a field), with the spec helpers `appList`,
+`Fits` (sets fitting a `∀`-telescope over `Denotes`, with the residual and its environment),
+`RecRule.ctorLevels` (the rule's recorded levels, or the constructor's own parameters for a
+plain rule) and `IndexPin`:
+
+    ∀ n cv mI rP isK rules, env.find? n = some (.recInfo cv mI rP isK rules) → ∀ rl ∈ rules,
+    ∀ cvj cnP cnF iT, env.find? rl.ctor = some (.ctorInfo cvj cnP cnF iT) →
+    ∀ φ ρ C R xs ys ρr ρc Tr Tc,
+      Denotes cval env φ ρ (.const rl.ctor (rl.ctorLevels cvj.levelParams)) C →
+      Denotes cval env φ ρ rl.rhs R →
+      xs.length = mI → ys.length = cnP + rl.nfields →
+      Fits cval env φ ρ cv.type (xs ++ [appList C ys]) ρr Tr →
+      Fits cval env φ ρ (cvj.type.instantiateLevelParams cvj.levelParams
+        (rl.ctorLevels cvj.levelParams)) ys ρc Tc →
+      (appList C ys = pt → IndexPin cval env φ ρc Tc cnP (xs.drop rP)) →
+      appList (cval n φ) (xs ++ [appList C ys]) = appList R (xs.take rP ++ ys.drop cnP)
+
+The shape is `RecRuleLaw`'s fired equation (`Model/Env/Laws.lean`): the rhs is applied, not
+peeled, to the first `rP` recursor arguments (parameters, motives, minors) and the fields
+(`ys.drop cnP`); the constructor's own parameters are not compared (the law does not need it
+off the point); where the major is the point (a proposition's constructor application forgets
+its indices), the constructor's conclusion must carry the recursor's indices — without that
+guard the equation is false (`Acc.rec` at `Acc.intro x' h` against index `x ≠ x'`, both
+majors `pt`).  Quotients: `Quot.lift`/`Quot.ind` are pinned basis constants whose ι is the
+checker's own quotient step, not a stored recursor; the field above does not cover them.  The
+pinned leaves already satisfy it, so a third field `quot_lift` (stated like `eq_equality`, over
+`Denotes` of `Quot.lift`/`Quot.mk`) would come with the basis install; not written.
+
+Proved (`ConLeche/Model/RecRulesHold.lean`, 250 lines, builds warning-free):
+`teleFit_of_Fits` (a `Fits` against a stored type is a `TeleFit` against its reading),
+`TeleFit.transfer` (closed readings fit under every environment), `substFn_ctorLevels` (the
+spec's constructor levels are `recFireComparands`' at the recursor's own levels), and
+`recRule_of_envModelM_ne_pt`: the equation in `Model.ofEnvModelM m`'s `cval` for every rule,
+given `appList C ys ≠ pt`.  The arguments are passed to `RecRuleLaw` as bound variables over
+an environment holding them; the fits go through `teleFitPA_of_teleFit`.
+
+**What remains for the rule field**, estimated:
+1. The point case: from `IndexPin` on the Expr-level conclusion to `IotaIndexPin` on the
+   `TeleFitPA` residual of the constructor type's reading.  Needs: the residual's form
+   (`teleFitPA_rest_eq`, a `PiTeleAV` of the reading), `denote` of an application spine
+   (`denote_mkAppN_of`), `Term.inst` over `mkAppN`, and the residual environment `ρc` against
+   the bound-variable environment (agreement below the telescope's depth).  200–350 lines, one
+   file.  Then `RecRulesHold` becomes `Model.rec_rules`, proved in `ofEnvModelM` from the two
+   theorems (20 lines).
+2. `Model.ofCopies` on `compare`: the rule field at renamed levels — the same derivation at
+   `renAcval`, or (simpler) prove `RecRulesHold` once for any `cval` that is `cvalOf` of an
+   `EnvModelM`'s leaves read through a level renaming: 60–100 lines.
+3. The demonstration `T.a ≠ T.b`: with the field, apply it twice with the motive
+   `lamV ⟦T⟧ (fun _ => univ 0)` and minors `{pt}`, `∅`.  The stored `T.rec` type and rules
+   must be hypotheses (the exact `Expr`s Lean generates), and the `Fits` built by hand
+   (`lamV ∈ piV`, `univ 0 ∈ univ 1`).  100–150 lines.  The major `T.a` is not the point only
+   by the model's grading, which the public `Model` does not state; with the full field (the
+   pin is trivial: no indices) the demo does not need it.
+
+**Documents.**  `Denotes.lean`'s `Model` docstring rewritten (same line count, anchors kept).
+README line 69 says `Model` states membership, `False` and `Eq` only: it would need "and every
+definition denotes its value" (reported, not edited).  Whitepaper: §2b's interpretation section
+is about the fragment and needs nothing; the "statement over `Denotes`" paragraph of §7
+("How the real proof differs") describes `Model` and would gain a sentence on the defining
+equations; §6b (modular) could say that agreement now transmits values, not only typings.

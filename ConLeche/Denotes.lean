@@ -236,15 +236,15 @@ last two fields are facts about the checker's own constants, not
 hypotheses about the input; each is stated of whatever the stored
 constant denotes, so it says nothing when nothing is stored.
 
-The model says nothing about *definitional* equalities — a
-definition's unfolding, an inductive type's iota rules, η — because it
-does not have to, and `eq_equality` is what discharges that debt: any
-such equality a reader cares about can be stated as a theorem `h : a = b`
-and proved by `rfl`; the checker accepts it; `mem` puts `cval h φ` in
-what `Eq A a b` denotes, which by `eq_equality` is `eqv ⟦a⟧ ⟦b⟧`; and
-`eqv x y` is inhabited only when `x = y` (`SetTheory.eq_of_mem_eqv`).  So the
-two sides of every accepted equation denote the same set.  Types are
-the whole statement; values are the checker's business. -/
+A model is also a model in the logician's sense for definitions:
+`defn_eq` makes every stored definition's defining equation hold, read
+off the environment's own data, so that a definition hidden behind an
+import still means its value.  Any other definitional equality a reader
+cares about can be stated as a theorem `h : a = b` proved by `rfl`;
+`mem` puts `cval h φ` in what `Eq A a b` denotes, which by
+`eq_equality` is `eqv ⟦a⟧ ⟦b⟧`, inhabited only when `⟦a⟧ = ⟦b⟧`
+(`SetTheory.eq_of_mem_eqv`).  The recursors' rules (`RecRulesHold`
+below) are task #610's next field. -/
 structure Model (V : Type w) [SetTheory V] (env : Env) where
   /-- the set a constant denotes, per level assignment -/
   cval : Name → (LevelParam → Nat) → V
@@ -266,5 +266,85 @@ structure Model (V : Type w) [SetTheory V] (env : Env) where
     Denotes cval env φ ρ (.const eqName [u]) E →
     A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
     app (app (app E A) a) b = eqv a b
+  /-- **a stored definition means its value**: at every level
+  assignment, the value denotes what the constant does.  The value is
+  read at the definition's own level parameters (an instance `c.{us}`
+  is the same equation at the assignment `us` induces).  Definitions
+  only: a theorem is stored by its statement (its record carries no
+  value), and an opaque constant's value is never unfolded, so it stays
+  free -/
+  defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+    ConstantInfo.defnInfo cv value hint ∈ env.consts →
+    ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+
+/-- **A stored definition's value fixes the constant**: in every model,
+whatever the value denotes is what the constant denotes. -/
+theorem Model.cval_of_defn {V : Type w} [SetTheory V] {env : Env} (M : Model V env)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (h : ConstantInfo.defnInfo cv value hint ∈ env.consts)
+    {φ : LevelParam → Nat} {ρ : BVarIdx → V} {X : V}
+    (hX : Denotes M.cval env φ ρ value X) : M.cval cv.name φ = X :=
+  Denotes_functional (M.defn_eq cv value hint h φ ρ) hX
+
+/-! ### The recursor rules (task #610 spike: stated, not yet a `Model` field) -/
+
+/-- A set applied to a list of sets, left to right. -/
+noncomputable def appList (F : V) (xs : List V) : V := xs.foldl app F
+
+/-- `Fits cval env φ ρ T xs ρ' R`: the sets `xs` fit the leading `∀`
+binders of `T` read at `ρ` — each a member of what its domain denotes,
+the domain read with the earlier sets pushed — and `R` is the rest of
+`T`, to be read at `ρ'`, which is `ρ` with `xs` pushed. -/
+inductive Fits (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
+    (BVarIdx → V) → Expr → List V → (BVarIdx → V) → Expr → Prop
+  | nil {ρ : BVarIdx → V} {T : Expr} : Fits cval env φ ρ T [] ρ T
+  | cons {ρ ρ' : BVarIdx → V} {A B R : Expr} {A' x : V} {xs : List V}
+      (hA : Denotes cval env φ ρ A A') (hx : x ∈ˢ A')
+      (h : Fits cval env φ (push x ρ) B xs ρ' R) :
+      Fits cval env φ ρ (.forallE A B) (x :: xs) ρ' R
+
+/-- The levels a recursor rule's constructor is used at, over the
+recursor's own level parameters: the rule's recorded levels where it
+records them (a nested or level-carrying rule), else the constructor's
+own parameters, which are the recursor's. -/
+def RecRule.ctorLevels (rl : RecRule) (ctorLps : List Name) : List Level :=
+  match rl.fire with
+  | .nested lvls _ => lvls
+  | .levels lvls => lvls
+  | .plain => ctorLps.map .param
+
+/-- **The index pin**: the constructor type's conclusion `R`, read at
+`ρ'`, is the family applied to `nP` parameters and then to indices that
+denote `idx`. -/
+def IndexPin (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat)
+    (ρ' : BVarIdx → V) (R : Expr) (nP : Nat) (idx : List V) : Prop :=
+  R.getAppArgs.length = nP + idx.length ∧
+  ∀ i (h : i < idx.length), Denotes cval env φ ρ' (R.getAppArgs.getD (nP + i) default) idx[i]
+
+/-- **A recursor's rules hold** in `cval`: at every level assignment,
+the recursor applied to `mI` arguments (parameters, motives, minors,
+indices) and a constructor application whose arguments fit the
+constructor's type is what the rule's right-hand side applied to the
+recursor's first `rP` arguments and the constructor's fields is —
+provided the arguments fit the recursor's type, and, where the major
+is a proof (a proposition's constructor application is the point,
+which forgets the constructor's indices), the constructor's conclusion
+has the recursor's indices. -/
+def RecRulesHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rules : List RecRule),
+    env.find? n = some (.recInfo cv mI rP isK rules) → ∀ rl ∈ rules,
+  ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+    env.find? rl.ctor = some (.ctorInfo cvj cnP cnF iT) →
+  ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (C R : V) (xs ys : List V)
+    (ρr ρc : BVarIdx → V) (Tr Tc : Expr),
+    Denotes cval env φ ρ (.const rl.ctor (rl.ctorLevels cvj.levelParams)) C →
+    Denotes cval env φ ρ rl.rhs R →
+    xs.length = mI → ys.length = cnP + rl.nfields →
+    Fits cval env φ ρ cv.type (xs ++ [appList C ys]) ρr Tr →
+    Fits cval env φ ρ
+      (cvj.type.instantiateLevelParams cvj.levelParams (rl.ctorLevels cvj.levelParams))
+      ys ρc Tc →
+    (appList C ys = pt → IndexPin cval env φ ρc Tc cnP (xs.drop rP)) →
+    appList (cval n φ) (xs ++ [appList C ys]) = appList R (xs.take rP ++ ys.drop cnP)
 
 end ConLeche

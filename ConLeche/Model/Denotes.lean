@@ -191,7 +191,7 @@ theorem Denotes_strLitToConstructor {acval : Name → (Name → Nat) → Term}
 /-! ### The bridge -/
 
 /-- A term with no `fvar` is scoped below every depth. -/
-private theorem fvarsBelow_zero_of_not_hasFvar :
+theorem fvarsBelow_zero_of_not_hasFvar :
     ∀ {e : Expr}, e.hasFvar = false → Expr.fvarsBelow 0 e := by
   intro e
   induction e <;> simp_all [Expr.fvarsBelow, Expr.hasFvar]
@@ -382,6 +382,19 @@ noncomputable def Model.ofEnvModelM {env : Env}
         (by rw [hψ]; exact hA) ha hb
       rw [interp_cvalOf m.base2.cval_closed] at hlaw
       exact hlaw
+  defn_eq := by
+    intro cv value hint hmem φ ρ
+    obtain ⟨t, ht, hl⟩ := m.defn_reads φ cv value ⟨hint, hmem⟩
+    obtain ⟨-, -, -, -, hv, -⟩ := m.base2.wf.consts _ hmem
+    obtain ⟨hnf, -, -, hlb⟩ := hv cv value hint rfl
+    have hbr := Denotes_of_denote (V := V) m.base2.cval_closed 0 value ht
+      (fvarsBelow_zero_of_not_hasFvar hnf) hlb ρ
+    rw [Expr.closeN_of_hasFvar _ 0 0 hnf] at hbr
+    suffices hs : interp V ρ t = cvalOf m.base2.acval cv.name φ by rwa [hs] at hbr
+    rw [← interp_cvalOf m.base2.cval_closed cv.name φ ρ]
+    rcases hl with rfl | ⟨hp, hpt⟩
+    · rfl
+    · rw [hp, (hpt ρ).2, interp_prf]
 
 
 /-- The model's values are the invariant's leaves'. -/
