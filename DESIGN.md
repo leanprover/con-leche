@@ -124141,3 +124141,114 @@ declarations, axioms pinned: 84 theorems at the three standard axioms); plain-re
 allowlisted), trust-surface, binary-link, layering, shake (679/679, no demotable public
 import), overview-links, whitepaper links-gate (anchors repointed after re-reading),
 fragment-gate, quote-gate, challenge.sh, no-local-paths; whitepaper `build.sh`.
+
+## TASK #617 — `IsModel`: the main theorem over the input stream (2026-11-19, agent/617-ismodel; base `compare`)
+
+Started as a spike, widened by the maintainer to the full rewrite.  Rulings received during
+the lane: the model is called `model`; it takes level VALUES positionally
+(`model : Name → List Nat → V`); the public reading is a TOTAL function `Expr.eval`, not the
+relation `Denotes`; `False`/`Eq` lose their fields and are derived from the prelude's
+declarations' own clauses; a projection reads `field (i+1)` with no table; junk (an `fvar`,
+a projection of a non-structure, a wrong level count) is harmless because only closed,
+well-formed terms are stored.
+
+**Landed on the branch (builds warning-free, `lake build`):**
+
+* `ConLeche/IsModel.lean` (spec, imports `Kernel/Install`, `Verify/Level`, `SetModel/Ops`):
+  `Level.assign`, `natLitVal`/`strLitVal`, `Expr.eval`, `iotaEqAt` (the ι equation at an
+  explicit constructor record), `inputFire` (a recursor's firing mode read off its own type
+  against the block's formers: the install's `recFire` with `tgt < k` read as "the major's
+  head is a former of the block"), `blockRecords`, `Declaration.records` (axiom; definition, or
+  axiom when its value `usesSorry`; theorem/opaque as statements; `sorryAx` nothing; quotient
+  records and `Quot.sound` as `quotAt`), `RuleHolds`, `Satisfies`, `IsModelOfDecl`, `IsModel`,
+  and the prelude facts `HasRecord`, `falseRecType`, `eqType`, `eqReflType`, `eqRecType`,
+  `DeclaresFalse`, `DeclaresEq`.  `ConLeche/Denotes.lean` now imports it (shared `push`,
+  `field`, `motiveLevel?`, `RecRule.ctorLevels`/`iotaParams`); `iotaEq` is `iotaEqAt` at the
+  stored constructor (`iotaEq_inv` repaired with one `unfold`).
+* `ConLeche/Semantics/IsModelBasis.lean`: `IsModel.false_empty` (`DeclaresFalse ds →
+  model False [] = ∅`, via `False.rec` at the motive `fun _ => ∅`), `IsModel.eq_eqv`
+  (`DeclaresEq ds → A ∈ univ k → a b ∈ A → ⟦@Eq.{k} A a b⟧ = eqv a b`, via `Eq`'s clause,
+  `Eq.refl`, and `Eq.rec` at the motive `fun b _ => eqv a b` into `Prop`; needs the two level
+  names of `Eq.rec` distinct, which the pin check enforces), `IsModel.no_false_record`.  So
+  the built-in fields CAN be dropped: both follow from the declarations.
+* `ConLeche/Model/IsModelBridge.lean`: `posModel` (internal `cval` made positional through the
+  stored level parameters), `eval_of_Denotes` (wherever `Denotes` reads, `Expr.eval` agrees —
+  NO side condition on the regime choice; the only fact used is level locality, `CvalLocal`,
+  which the invariant has as `acval_params`: `cvalLocal_ofEnvModelM`), and
+  `isModel_of_model : Model V env → CvalLocal → RecordsStored ds env → CtorsStored ds env →
+  RuleEqsRead cval env → IsModel V (posModel cval env) ds`.
+* `MainTheorem.isModel_exists_of`: accepted + the three facts → `∃ model, IsModel V model
+  ds.toList`.
+
+**Total reading vs internal model:** no clash found.  `eval_of_Denotes` is a plain induction
+over `Denotes` (binders by `lamV_congr`/`piV_congr`, which only read the domain).  The cost of
+totality is elsewhere: `Model.rule_eqs` is a ∀-form ("wherever the equation denotes, it is
+inhabited"), while `Expr.eval` always gives a value, so the ι clause needs the stored ι
+equations to be READ (`RuleEqsRead`).
+
+**#617 cont. — done (2026-11-19).**  The five items of the handover, as they landed:
+
+1. **`RecordsStored`** (`ConLeche/Verify/IsModelRecords.lean`, model-free): every record of an
+   accepted stream is found under its name as `StoredAs` says (type and level parameters, a
+   definition with its value, a recursor with its rules and firing modes, a constructor with its
+   parameter count — the old `CtorsStored` is its fourth clause).  Blocks go through `readBlock`
+   (`readBlock_inv`): formers as declared, recursors with `recFire = inputFire`
+   (`recFire_eq_inputFire`: the member index of the major's head is in range exactly when the head
+   is a former), constructors in their member's group, covered at `k ≥ 2` by the recursor
+   check's grouping pin, read off an accepted step by a `Yields` walk
+   (`checkDeclStepC_blockRead` → `checkBlockKS_grouping` → `genRecCheckC_grouping`).
+   `IsModel.lean` names `blockFormerNames` (the `inputFire` formers) so the two sides meet.
+2. **`CtorsStored`**: folded into 1.
+3. **The ι clause — neither of the two routes the handover named.**  Both "build `Denotes`
+   forward" and "restate `Model.rule_eqs` as ∃P, Denotes ∧ inhabited" need `Eq` STORED: the
+   equation's head is `.const eqName [u]`, and `Denotes` reads only stored constants.  A stream
+   need not declare `Eq` (the raw `checkDecls` statement quantifies over every stream), and the
+   prepared stream's `Eq` comes from the built-in prelude, whose content no proof can read
+   (`builtinPreludeE` is a run-time parse; `decide +kernel` gets stuck in `parseExportD`).  So
+   the source fact is split one level lower: `Model.ruleEq_sides` (`RuleEqsSound.lean`, the old
+   body of `ruleEqsHold_of`) gives, at every fit of a stored equation's telescope, the type in
+   the motive's universe and the two sides ONE member of it — no `Eq` involved;
+   `ruleEqsHold_of` is now three lines on top of it plus `Eq`'s law.  The bridge
+   (`isModel_of_envModelM`) reads the equation's parts through `Expr.Resolves`
+   (`ConLeche/Verify/Resolves.lean`: every part reads — constants at their level count,
+   projections with a table, literal constants, no fvar; a resolving term denotes at every ρ,
+   `Denotes_of_resolves`; what `denote` reads resolves, `resolves_of_denote`;
+   `iotaEqAt_parts`), and `Eq` as equality: a stored `Eq` by its law (`eq_equality_of`), an
+   undeclared one by the model's own choice — `posModel` sends the unstored name `Eq` to
+   `eqRel` (`lamV (univ k) fun A => lamV A fun a => lamV A fun b => eqv a b`).  `RuleEqsRead`,
+   `isModel_of_model` (generic in `Model`) and `ruleEqsRead_ofEnvModelM` are gone.
+   **The one missing invariant:** a rule's constructor takes the rule's levels.  Nothing
+   carried it (a nested rule's levels are the major's container's, its constructor is the
+   container's — a fact only the generated stage's class reading has, `GenClsRd.hul`/`.hctor`).
+   It is now `RecRuleLevels env rl`, the first conjunct of `RecRuleFit` (`Model/Env/Laws.lean`),
+   established where the fit is: plain rules by `RecRuleLevels.of_plain`, the quotient rules at
+   `Quot.mk`, the generated rules in `genRecFit_of`, carried by the six transports.
+4. **`DeclaresFalse`/`DeclaresEq`** (`IsModelRecords.lean`): `checkDecls_pinned` — a pinned
+   block's name stored by an accepted stream belongs to a block that is the pin up to its
+   level-parameter names (`basisNamesOk` of every accepted record, `declsRun_basisNamesOk`;
+   `checkDeclStepC_basisNamesOk` moved here from `Model/Modular/Valid.lean`);
+   `checkDecls_declaresFalse`/`checkDecls_declaresEq` read the records' types off the pins
+   (`pinCopyOk_cv`).  Conditional on the name being stored: an UNCONDITIONAL "the prepared stream
+   declares `False`/`Eq`" needs the prelude's content (see 3) and is not stated.
+5. **The public restatement.**  `model_exists` (Challenge = MainTheorem, comparator-identical):
+   `(∃ model, IsModel V model ds.toList) ∧ (DeclaresName ds.toList falseName → DeclaresFalse
+   ds.toList) ∧ (DeclaresName ds.toList eqName → DeclaresEq ds.toList)` for every accepted `ds`
+   (`DeclaresName`: a record of `ds` is named `n`).  `no_False_declaration` (hence
+   `main_no_False`) goes through `IsModel.no_false_record` (now at any level parameters): the
+   theorem's type `.const False []` resolves (`checkDecls_envWF`), so `False` is stored, so the
+   stream declares the prelude's.  Demonstrations over `IsModel`:
+   `tests/ConLecheTests/IsModelTests.lean` (`T_a_ne_T_b`, `no_model` for `f := T.a`, hole
+   `t : f = T.b`), read with `Expr.eval` off the stream's records.  The `Model`-based ones stay
+   for `compare_attack_rejected` until the compare capstones are restated.  The internal
+   `Model` keeps `false_empty`/`eq_equality`: `main_compare_json_no_False` (MainTheorem) and the
+   two `Model`-based tests read them.  OVERVIEW §1 and the module map, whitepaper §1/§7
+   ("The statement over `Expr.eval`") updated; README quote re-synced, three rotted links
+   repointed, prose left (lines listed in the merge summary).
+
+Still on `Model`: the modular, olean and compare capstones (`modular_model_exists`,
+`main_oleans_no_False` via `no_False_theorem_accepted`, `main_compare_*`) — follow-up lanes.
+
+Sidecar (`--compare`, not started): an axiom justified by a sidecar's constant would add one
+record kind whose clause is membership only, with the bridge obligation that the sidecar's
+model gives the constant's value; `IsModel` itself needs no change since clauses are per
+record.

@@ -274,17 +274,22 @@ theorem recRuleFit_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × List 
     intro ψ d e hcb ea h
     rw [hac]
     exact denote_consBlockRecsR_mono hfr hag ψ d e hcb h
-  intro us hlen TVa hTVa cvj cnP cnF iT hfcj usj hujl hψ TVja hTVja ρ xs ps mid hxl hxw hmid
-    hpw hps
-  obtain ⟨-, -, -, -, -, hrec'⟩ := mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
-  obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
-  have hfcjE : envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) := by
+  have hback : ∀ cvj cnP cnF iT, (consBlockRecsR R q 0 rs envC).find? (RecRule.ctor rl)
+      = some (.ctorInfo cvj cnP cnF iT) →
+      envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) := by
+    intro cvj cnP cnF iT hfcj
     obtain ⟨cvj', cnP', cnF', iT', h0⟩ :=
       mpC.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
     have heq := Option.some.inj
       ((find?_consBlockRecsR_keep (R := R) (q := q) hfr _ _ h0).symm.trans hfcj)
     rw [← heq]
     exact h0
+  refine ⟨fun cvj cnP cnF iT hfcj => hF.1 cvj cnP cnF iT (hback _ _ _ _ hfcj), ?_⟩
+  intro us hlen TVa hTVa cvj cnP cnF iT hfcj usj hujl hψ TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
+  obtain ⟨-, -, -, -, -, hrec'⟩ := mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
+  obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
+  have hfcjE := hback cvj cnP cnF iT hfcj
   have hacvC : m₃.acval (RecRule.ctor rl) = mpC.base2.acval (RecRule.ctor rl) :=
     hacvAt _ (by rw [hfcjE]; rfl)
   obtain ⟨TVa', hTVa', -, -⟩ := mpC.constType 0 n _ us hfE (by exact hlen)
@@ -306,7 +311,7 @@ theorem recRuleFit_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × List 
       · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
         rfl⟩) id hps
   rw [hacvC]
-  exact hF us hlen TVa' hTVa' cvj cnP cnF iT hfcjE usj hujl hψ TVja' hTVja' ρ xs ps mid hxl hxw
+  exact hF.2 us hlen TVa' hTVa' cvj cnP cnF iT hfcjE usj hujl hψ TVja' hTVja' ρ xs ps mid hxl hxw
     hmid hpw hps'
 
 /-- **A stored recursor's law crosses the recursors' cons.** -/

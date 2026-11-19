@@ -712,8 +712,24 @@ theorem RuleParamsRead.transport {V : Type w} [SetTheory V] {env env' : Env}
     | nested lvls pins => exact absurd hf' (hn' lvls pins)
     | plain | levels _ => rw [hf'] at h'; exact h'
 
+/-- **A rule's constructor takes the rule's levels** (task #617): the constructor stored under
+the rule's name has as many level parameters as the rule gives it (`recFireLevelCount`: the
+constructor's own at a plain rule, the recorded levels at a nested or a quotient rule), so the
+rule's ι equation reads its constructor at every level assignment. -/
+@[expose] def RecRuleLevels (env : Env) (rl : RecRule) : Prop :=
+  ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
+    ConLeche.recFireLevelCount rl cvj.levelParams = cvj.levelParams.length
+
+/-- A plain rule takes its constructor's own levels. -/
+theorem RecRuleLevels.of_plain {env : Env} {rl : RecRule} (h : RecRule.fire rl = .plain) :
+    RecRuleLevels env rl := by
+  intro cvj _ _ _ _
+  simp [ConLeche.recFireLevelCount, h]
+
 /-- **One rule's typing, forward** (task #610): the facts that make a rule's
-ι equation (`ConLeche.iotaEq`) typed in the model.  At the recursor's levels
+ι equation (`ConLeche.iotaEq`) typed in the model.  First, the constructor takes the rule's
+levels (`RecRuleLevels`); then, at the recursor's levels
 `us` and the constructor's comparand levels, wherever `xs` fits the
 recursor's rule prefix (its first `rP` binders) and `ps` reads as the rule's
 parameters there:
@@ -737,6 +753,7 @@ established where `RecRuleLaw` is, at the installs. -/
 @[expose] def RecRuleFit {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
     (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
+  RecRuleLevels env rl ∧
   ∀ us : List Level, us.length = cv.levelParams.length →
   ∀ TVa : Term,
     denote m.acval env φ 0 (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →

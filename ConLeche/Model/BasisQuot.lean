@@ -1022,6 +1022,14 @@ theorem quotIndFit {m : EnvModel V env}
       (fun ψ => Term.const .quotInd [ψ uN]))
     (φ : Name → Nat) :
     RecRuleFit m₂ φ quotIndA.toConstantVal 4 4 quotIndRule := by
+  have hM' : (⟨quotIndA :: env.consts, env.tables⟩ : Env).find? quotMkName
+      = some (quotMkA.atLps [x]) := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM
+  refine ⟨fun cvj cnP cnF iT hfj => ?_, ?_⟩
+  · rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hM'] at hfj
+    injection Option.some.inj hfj with a1
+    subst a1
+    rfl
   intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
     hpw hps
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -2462,6 +2470,14 @@ theorem quotLiftFit {m : EnvModel V env}
       (fun ψ => Term.const .quotLift [ψ uN, ψ vN]))
     (φ : Name → Nat) :
     RecRuleFit m₂ φ quotLiftA.toConstantVal 5 5 quotLiftRule := by
+  have hM' : (⟨quotLiftA :: env.consts, env.tables⟩ : Env).find? quotMkName
+      = some (quotMkA.atLps [x]) := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM
+  refine ⟨fun cvj cnP cnF iT hfj => ?_, ?_⟩
+  · rw [show RecRule.ctor quotLiftRule = quotMkName from rfl, hM'] at hfj
+    injection Option.some.inj hfj with a1
+    subst a1
+    rfl
   intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
     hpw hps
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,

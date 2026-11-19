@@ -25,6 +25,9 @@ import ConLeche.Verify.Driver.Routes
 import ConLeche.Verify.Driver.Graph
 public import ConLeche.Model.Modular.CompareRun
 import ConLeche.Verify.Driver.CompareLocal
+import ConLeche.Semantics.DeclWF
+import ConLeche.Semantics.IsModelBasis
+import ConLeche.Model.IsModelBridge
 
 public section
 
@@ -45,13 +48,13 @@ with the prelude — return an error.  The steps between are imported:
 the parser reads such chunks into records holding a theorem record of
 type `False` (`Frontend.parseChunks_jsonWithTheoremFalse`), the
 preparation keeps every parsed record (`Frontend.mem_preparePrelude`),
-and a stream holding such a record is never accepted
-(`no_False_theorem_accepted`: the record is installed under its own
-name with its declared type, and in the model of the main theorem that
-type is the empty set).  The statements, with a plain-words account of
-every name in them, are in `ConLeche/Challenge.lean`; the reading of
-terms and the notion of model — and `Denotes_functional`, which says a
-term has at most one denotation — in `ConLeche/Denotes.lean`.
+and a stream holding such a record is never accepted: its type names
+`False`, so the accepted stream declares the prelude's `False`
+(`Cached.checkDecls_declaresFalse`), and no model of such a stream has
+a theorem of type `False` (`IsModel.no_false_record`).  The statements,
+with a plain-words account of every name in them, are in
+`ConLeche/Challenge.lean`; the reading of terms and the notion of
+model in `ConLeche/IsModel.lean`.
 
 * `checkDecls` (`ConLeche/Cached/Decls.lean`) is the declaration
   fold: it checks every parsed declaration in order, each against the
@@ -79,8 +82,10 @@ term has at most one denotation — in `ConLeche/Denotes.lean`.
   JSON file declaring a theorem of type `False`, as a whole-file
   template over the chunks' concatenation — not every proof of `False`,
   one shape of one.
-* `False` and `Eq` are built in: the checker installs them from its own
-  pins, and a stream that declares them differently is rejected.
+* `False` and `Eq` are pinned: a stream that declares them other than
+  as the prelude's is rejected, so where a stream declares them it
+  declares the prelude's (`DeclaresFalse`, `DeclaresEq`), whose own
+  clauses make `False` empty and `Eq` equality in every model.
 * `pins` is the list of `Nat.div`/`Nat.mod` pin variants the fold's
   install gate tries (task #304).  Both statements are for EVERY list:
   consistency does not depend on it — under the empty list every
@@ -107,18 +112,28 @@ open ConLeche.Cached (checkDecls)
 
 universe w
 
-/-- **The main theorem.**  Every environment the checker accepts has a
-model in every set theory — at every `Nat.div`/`Nat.mod` pin list, so
-consistency does not depend on which variants the install gate is
-handed (the empty list included: under it every stream that declares
-`Nat.div` declines).  The shipped binary runs the fold at
-`natOpPinSets`. -/
+/-- **The main theorem.**  Every stream the checker accepts has a
+model in every set theory (`IsModel`, `ConLeche/IsModel.lean`), and a
+stream that declares `False` or `Eq` at all declares the prelude's —
+at every `Nat.div`/`Nat.mod` pin list, so consistency does not depend
+on which variants the install gate is handed (the empty list included:
+under it every stream that declares `Nat.div` declines).  The shipped
+binary runs the fold at `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    Nonempty (Model V env) := by
+    (∃ model, IsModel V model ds.toList) ∧
+      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
+      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) := by
   obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
-  exact ⟨Model.Model.ofEnvModelM m⟩
+  have hrec := Cached.checkDecls_recordsStored accepted
+  have hstored : ∀ n, DeclaresName ds.toList n → (env.find? n).isSome = true := by
+    rintro n ⟨d, hd, c, hc, rfl⟩
+    obtain ⟨ci, hf, -⟩ := hrec d hd c hc
+    rw [hf]; rfl
+  exact ⟨⟨_, isModel_of_envModelM m hrec⟩,
+    fun h => Cached.checkDecls_declaresFalse accepted (hstored _ h),
+    fun h => Cached.checkDecls_declaresEq accepted (hstored _ h)⟩
 
 open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`
@@ -139,7 +154,23 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   obtain ⟨pre, -, hacc⟩ := exceptBind_ok hacc
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
-  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+  have hmem' := Array.mem_toList_iff.mpr (Frontend.mem_preparePrelude (pre := pre) hmem)
+  obtain ⟨⟨model, hM⟩, -, -⟩ := model_exists V pins maxNatSize _ env hcheck
+  -- the theorem is a record of type `False`
+  have hrec : HasRecord (preparePrelude pre r.decls).toList cv.name cv.levelParams
+      (.const falseName []) := ⟨_, hmem', .thmInfo cv, List.mem_singleton_self _, by
+        rw [← hty]; rfl⟩
+  -- its type reads `False`, so the accepted environment stores it, as the prelude's
+  have hF : DeclaresFalse (preparePrelude pre r.decls).toList := by
+    refine Cached.checkDecls_declaresFalse hcheck ?_
+    obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck _ hmem' (.thmInfo cv)
+      (List.mem_singleton_self _)
+    obtain ⟨-, -, hres, -⟩ := (Semantics.checkDecls_envWF hcheck).consts ci (Env.find?_mem hf)
+    rw [hcv] at hres
+    change Expr.constsResolve env cv.type = true at hres
+    rw [hty] at hres
+    exact hres
+  exact IsModel.no_false_record hM hF hrec
 
 /-! ## `runArgs`, all of `main` but its plumbing, in the IO model (tasks #424, #450)
 

@@ -1,9 +1,6 @@
 module
 
-public import ConLeche.Kernel.Core
-public import ConLeche.Verify.Level
-public import ConLeche.SetModel.Ops
-public import ConLeche.SetTheory.Derive.Sigma
+public import ConLeche.IsModel
 
 @[expose] public section
 
@@ -98,25 +95,7 @@ open SetTheory ConLeche.SetModel
 
 universe w
 
-/-- A universe parameter: a name. -/
-abbrev LevelParam := Name
-
-/-- A de Bruijn index: the number of binders between a variable's
-occurrence and its binder. -/
-abbrev BVarIdx := Nat
-
 variable {V : Type w} [SetTheory V]
-
-/-- Extend a variable environment: the innermost binder gets `x`, every
-other index moves up by one. -/
-def push (x : V) (ρ : BVarIdx → V) : BVarIdx → V
-  | 0 => x
-  | i + 1 => ρ i
-
-/-- Component `i` of a right-nested pair chain `⟨x₀, ⟨x₁, ⟨x₂, …⟩⟩⟩`. -/
-noncomputable def field : Nat → V → V
-  | 0, p => sfst p
-  | i + 1, p => field i (ssnd p)
 
 /-- `Denotes cval env φ ρ e v`: the term `e` denotes the set `v`.  See
 the module docstring. -/
@@ -218,79 +197,12 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
 
 /-! ### The recursor rules as propositions -/
 
-/-- The levels a recursor rule's constructor is used at, over the
-recursor's own level parameters: the rule's recorded levels where it
-records them (a nested or a quotient rule), else the constructor's
-own parameters, which are the recursor's. -/
-def RecRule.ctorLevels (rl : RecRule) (ctorLps : List Name) : List Level :=
-  match rl.fire with
-  | .nested lvls _ => lvls
-  | .levels lvls => lvls
-  | .plain => ctorLps.map .param
-
-/-- The sort level of a recursor's motive: the motive application `body`
-(under the rule prefix `pre`, the `nIdx` indices and the major) has a
-prefix variable as its head, and that binder's domain ends in `Sort u`. -/
-def motiveLevel? (pre : List Expr) (nIdx : Nat) (body : Expr) : Option Level :=
-  match body.getAppFn with
-  | .bvar k =>
-    if nIdx + 1 ≤ k ∧ k < nIdx + 1 + pre.length then
-      match (pre.getD (pre.length - 1 - (k - (nIdx + 1))) default).piResult with
-      | .sort u => some u
-      | _ => none
-    else none
-  | _ => none
-
-/-- The parameters a recursor rule applies its constructor to, in the rule prefix's context
-(`rP` binders): a nested rule's recorded pins, else the prefix's first `cnP` variables (as many
-as the prefix has: `iotaEq` asks for `cnP` of them). -/
-def RecRule.iotaParams (rl : RecRule) (rP cnP : Nat) : List Expr :=
-  match rl.fire with
-  | .nested _ pins => pins
-  | _ => (List.range (min cnP rP)).map fun i => .bvar (rP - 1 - i)
-
-/-- **A recursor rule's ι equation, as a proposition.**  For the
-recursor `n` (its record `cv`, major position `mI`, rule prefix `rP`)
-and its rule `rl` for the constructor `C`, at the recursor's own level
-parameters:
-
-    ∀ (prefix : the recursor's first rP binders) (fields : C's fields),
-      @Eq.{u} (motive indices (C params fields))
-        (n prefix indices (C params fields)) (rl.rhs prefix fields)
-
-`params` are the constructor's parameters in the prefix context: the
-recursor's leading arguments, or a nested rule's recorded instantiations;
-the field binders are the constructor's, at those parameters; `indices`
-are the arguments of the constructor type's conclusion behind its
-parameters, so they come from the constructor's typing, not from a
-binder.  The equation's type is the recursor type's body at the indices
-and the major, and `u` the sort of the motive it applies.  `none` where
-the records do not have this shape. -/
+/-- **A stored recursor rule's ι equation** (`iotaEqAt`, `ConLeche/IsModel.lean`), at the
+constructor record the environment stores under the rule's constructor name. -/
 def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Nat)
     (rl : RecRule) : Option Expr := do
   let .ctorInfo cvj cnP _ _ ← find? rl.ctor | none
-  let nF := rl.nfields
-  let nIdx := mI - rP
-  -- the recursor's telescope: the rule prefix, the indices and the major, the body
-  let (pre, rest) ← cv.type.stripPis rP
-  let (_, body) ← rest.stripPis (nIdx + 1)
-  let u ← motiveLevel? pre nIdx body
-  -- the constructor at the rule's levels, its parameters in the prefix context
-  let lvls := rl.ctorLevels cvj.levelParams
-  let params := rl.iotaParams rP cnP
-  let (_, ctorBody) ← (cvj.type.instantiateLevelParams cvj.levelParams lvls).stripPis cnP
-  let (fieldDoms, concl) ← (ctorBody.instantiateLift params.reverse).stripPis nF
-  let indices := concl.getAppArgs.drop cnP
-  guard (params.length = cnP ∧ rP ≤ mI ∧ indices.length = nIdx)
-  -- under the prefix and the fields
-  let xs := (List.range rP).map fun i => Expr.bvar (rP + nF - 1 - i)
-  let fs := (List.range nF).map fun j => Expr.bvar (nF - 1 - j)
-  let major := Expr.mkAppN (.const rl.ctor lvls) (params.map (·.liftLooseBVars nF 0) ++ fs)
-  let lhs := Expr.mkAppN (.const cv.name (cv.levelParams.map .param)) (xs ++ indices ++ [major])
-  let rhs := Expr.mkAppN rl.rhs (xs ++ fs)
-  let ty := (body.liftLooseBVars nF (nIdx + 1)).instantiateLift (major :: indices.reverse)
-  pure <| (pre ++ fieldDoms).foldr .forallE
-    (.app (.app (.app (.const eqName [u]) ty) lhs) rhs)
+  iotaEqAt cvj cnP cv mI rP rl
 
 /-- **The ι equations of an environment**: every stored recursor rule's
 `iotaEq` (the quotient eliminators' among them: `Quot.lift` and

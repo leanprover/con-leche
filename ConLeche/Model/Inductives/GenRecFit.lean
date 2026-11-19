@@ -155,6 +155,34 @@ theorem genRecFit_of
       (ConLeche.tgtFireOf pp (ConLeche.tgtMajorsOf out))
       fun m₃ φ j r _ _ _ rl => RecRuleFit m₃ φ r.1 (pp.majorIdxAt j) (pp.rulePrefixAt j) rl := by
   intro m₃ hac φ j r hr i ctor rhs hctor _
+  refine ⟨fun cvj cnP cnF iT hfc => ?_, ?_⟩
+  · -- the constructor takes the rule's levels: its own at a member, the class's at a container
+    obtain ⟨iT0, hfind0, -, -⟩ := hseam j r hr i ctor hctor
+    have hkeep := find?_consBlockRecsR_keep
+      (R := ConLeche.tgtRulesR pp (ConLeche.tgtMajorsOf out))
+      (q := pp) (fun r' hr' => recStage_cvFacts h r' hr') ctor.1.name _ hfind0
+    have hfc' := hfc
+    change (ConLeche.consBlockRecsR _ pp 0 (tgtRs out) envC).find? ctor.1.name = _ at hfc'
+    rw [hkeep] at hfc'
+    obtain rfl : ctor.1 = cvj := by
+      injection hfc' with h'; injection h'
+    have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+    obtain ⟨-, cvI, Rd⟩ := hrdAll j hj
+    have hcAM : (tgtMajor out j).ctors[i]? = some ctor := by rw [← tgtRs_ctors hr]; exact hctor
+    obtain ⟨-, -, hlpC, -⟩ := Rd.hctor i ctor hcAM
+    show ConLeche.recFireLevelCount
+      { ctor := ctor.1.name, nfields := ctor.2,
+        fire := ConLeche.tgtFireOf pp (ConLeche.tgtMajorsOf out) j r, rhs := rhs }
+      ctor.1.levelParams = ctor.1.levelParams.length
+    cases hmb : (tgtMajor out j).member with
+    | some t =>
+      have hmb' : (ConLeche.tgtMajorsOf out j).member = some t := hmb
+      simp only [ConLeche.recFireLevelCount, ConLeche.tgtFireOf, hmb']
+    | none =>
+      have hmb' : (ConLeche.tgtMajorsOf out j).member = none := hmb
+      simp only [ConLeche.recFireLevelCount, ConLeche.tgtFireOf_of_out (q := pp) r hmb']
+      show (tgtMajor out j).lvls.length = _
+      rw [Rd.hul, hlpC]
   intro us hus TVa hTVa cvj cnP cnF iT hfc usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw
     hps
   have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1

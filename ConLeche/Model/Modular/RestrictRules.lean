@@ -112,6 +112,7 @@ theorem recRuleExtra_ag (r : RuleAg m m' φ n cv rP rl)
 
 theorem recRuleFit_ag (r : RuleAg m m' φ n cv rP rl)
     (hF : RecRuleFit m φ cv mI rP rl) : RecRuleFit m' φ cv mI rP rl := by
+  refine ⟨fun cvj cnP cnF iT hfc => hF.1 cvj cnP cnF iT (r.hctor cvj cnP cnF iT hfc), ?_⟩
   intro us hus TVa hTVa cvj cnP cnF iT hfc usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw hps
   have hfcj := r.hctor cvj cnP cnF iT hfc
   rw [r.hty us] at hTVa
@@ -120,7 +121,7 @@ theorem recRuleFit_ag (r : RuleAg m m' φ n cv rP rl)
     RuleParamsRead.transport (fun lvls pins hfire => ⟨lvls, pins, hfire, fun i vpa hvpa => by
       rw [r.hpins lvls pins hfire i us]; exact hvpa⟩) id hps
   rw [r.hcleaf]
-  exact hF us hus TVa hTVa cvj cnP cnF iT hfcj usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw hps'
+  exact hF.2 us hus TVa hTVa cvj cnP cnF iT hfcj usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw hps'
 
 theorem recRuleLaw_ag (r : RuleAg m m' φ n cv rP rl)
     (hL : RecRuleLaw m φ n cv mI rP isK rl) : RecRuleLaw m' φ n cv mI rP isK rl := by

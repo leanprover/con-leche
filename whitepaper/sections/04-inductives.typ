@@ -830,7 +830,7 @@ and #src("ConLeche/Model/Rules/IotaSound.lean", 646)[the law] gives the rest.
   Every rule of the recursor of an accepted block
   #src("whitepaper/Fragment/InstallIota.lean", 807, 813)[satisfies its $iota$ law] in the model of @sec:ind-model.
   (Via #src("whitepaper/Fragment/IndRec.lean", 280, 290)[the equation on the semantic recursor]\; in con-leche,
-  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 935, 941)[the graph's equation], lifted to the law of @def:iota-law.)
+  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 940, 946)[the graph's equation], lifted to the law of @def:iota-law.)
 ] <thm:iota>
 
 #proof[
@@ -991,7 +991,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 62, 79)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 116, 119)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 122, 128)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[

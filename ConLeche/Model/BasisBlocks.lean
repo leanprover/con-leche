@@ -1151,6 +1151,7 @@ theorem natRecZeroFit {m : EnvModel V env}
       (fun ψ => Term.const .natRec [ψ uN]))
     (φ : Name → Nat) :
     RecRuleFit m₂ φ natRecA.toConstantVal 3 3 natRecZeroRule := by
+  refine ⟨RecRuleLevels.of_plain rfl, ?_⟩
   intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
     hpw hps
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -1191,6 +1192,7 @@ theorem natRecSuccFit {m : EnvModel V env}
       (fun ψ => Term.const .natRec [ψ uN]))
     (φ : Name → Nat) :
     RecRuleFit m₂ φ natRecA.toConstantVal 3 3 natRecSuccRule := by
+  refine ⟨RecRuleLevels.of_plain rfl, ?_⟩
   intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
     hpw hps
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,

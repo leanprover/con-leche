@@ -224,7 +224,7 @@ these must come from a source the reader trusts.
   carried across the renaming by
   #src("ConLeche/Model/Copies.lean", 421, 422)[a model of a renamed copy].
   The capstone
-  #src("ConLeche/MainTheorem.lean", 357, 379)[states] @thm:cmp
+  #src("ConLeche/MainTheorem.lean", 388, 410)[states] @thm:cmp
   for an exit 0 of the run: the challenge's model gives every name the
   solution's value, and every hole is inhabited. The challenge's
   environment holds what its declarations read, with the bodies, and a model makes
@@ -235,7 +235,7 @@ these must come from a source the reader trusts.
   `inductive T | a | b` denote different sets, whatever the solution's
   `T` is. The home rule is a rule of the comparison, not part of the
   statement. Together with locality,
-  #src("ConLeche/MainTheorem.lean", 402, 410)[an accepted comparison is a property of the trusted files]:
+  #src("ConLeche/MainTheorem.lean", 433, 441)[an accepted comparison is a property of the trusted files]:
   on every file system that agrees with the run's under the trusted
   directories, the challenge's read gives an environment with a model
   in which every hole is inhabited.
@@ -246,7 +246,7 @@ these must come from a source the reader trusts.
   over both closures, its names read from the modules of the
   solution's closure that declare them, and each module of the
   challenge's closure is read from the trusted directories alone.
-  #src("ConLeche/MainTheorem.lean", 517, 525)[The modular capstones]
+  #src("ConLeche/MainTheorem.lean", 548, 556)[The modular capstones]
   state the same for an exit 0 of every command of such a run: every
   module has a model of its own environment, a name a module reads from
   another means the same in both models, and the challenge's model
@@ -260,7 +260,7 @@ these must come from a source the reader trusts.
   file is the challenge's own and is compared by its content, so the
   solution's `f := 5` does not meet a challenge file's `f := 3`, and
   the solution's file is checked in full.
-  #src("ConLeche/MainTheorem.lean", 901, 923)[Its capstone] states the
+  #src("ConLeche/MainTheorem.lean", 932, 954)[Its capstone] states the
   same conclusion over the challenge file's bytes, which are all the
   challenge's meaning depends on.
 

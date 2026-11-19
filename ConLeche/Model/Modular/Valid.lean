@@ -6,6 +6,7 @@ public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.StreamIndex
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Model.StreamConsts
+import ConLeche.Verify.IsModelRecords
 
 public section
 
@@ -192,22 +193,6 @@ theorem streamEnv_findTable? {L : List Declaration} (h : NodupNames (streamEnv L
   cases (declTables e).find? (·.structName == c.name) <;> rfl
 
 /-! ## What an accepting run says of its records -/
-
-/-- **An accepted record passed the reserved names' check** (`basisNamesOk`, after the
-record's own checks). -/
-theorem checkDeclStepC_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
-    {d : Declaration} {s : CState} {r : FEnv × CState}
-    (h : checkDeclStepC mode pins fe d s = .ok r) : basisNamesOk d = true := by
-  have hY : Yields (checkDeclStepC mode pins fe d) (fun _ => basisNamesOk d = true) := by
-    unfold checkDeclStepC
-    ybind
-    unfold checkDeclC
-    ybind
-    by_cases hb : basisNamesOk d = true
-    · exact Yields.const hb
-    · simp only [hb, Bool.false_eq_true, ↓reduceIte]
-      exact Yields.ofThrowBind
-  exact hY s r.1 r.2 h
 
 /-- **An accepted value-kind record is at an unreserved name.** -/
 theorem checkDeclStepC_unreserved {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
