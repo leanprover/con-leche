@@ -9,15 +9,15 @@ environment, the _stream_: every definition, theorem and inductive
 type, in the official kernel's own terms. It accepts or rejects the
 stream, checking what the official kernel checks (on a few features
 it declines instead; @sec:left-out). It comes with a proof, written in
-Lean itself, of what an acceptance means: every environment the
+Lean itself, of what an acceptance means: every stream the
 checker accepts
-#src("ConLeche/MainTheorem.lean", 116, 119)[has a model in set theory].
-#src("ConLeche/Denotes.lean", 346, 379)[Each constant is assigned a set], each type denotes a set, and every stored
-constant is a member of the set its type denotes. The constant `False`
-denotes the empty set, and `Eq` denotes set equality, so every
+#src("ConLeche/MainTheorem.lean", 122, 128)[has a model in set theory].
+#src("ConLeche/IsModel.lean", 312, 313)[Each constant is assigned a set], each type denotes a set, and every
+constant is a member of the set its type denotes. The prelude's `False`
+denotes the empty set, and its `Eq` denotes equality, so every
 equation the checker accepts is an equality of sets. Every definition
 denotes its value and every recursor computes by its rules. Hence no accepted
-environment holds a proof of `False`, and every accepted theorem is
+stream holds a proof of `False`, and every accepted theorem is
 true in the model.
 
 == The shape of the argument
