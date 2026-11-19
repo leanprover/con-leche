@@ -84,6 +84,25 @@ theorem teleFit_of_Fits {acval : Name → (Name → Nat) → Term}
         exact ⟨rest, .cons hx hr⟩
     | _ => cases hfit
 
+/-- A peeled telescope's body is scoped by the binders peeled. -/
+theorem PiTeleAV.bvarsBelow_rest : ∀ {n : Nat} {T : Term} {Γ : List Term} {R : Term},
+    PiTeleAV n T Γ R → ∀ {k : Nat}, Term.bvarsBelow k T → Term.bvarsBelow (k + n) R
+  | _, _, _, _, .nil, _, h => h
+  | _, _, _, _, @PiTeleAV.cons n _ _ _ _ h', k, h => by
+    have := PiTeleAV.bvarsBelow_rest h' (k := k + 1) h.2
+    rwa [show k + 1 + n = k + (n + 1) by omega] at this
+
+/-- **A fit of a peeled telescope's body, the peeled binders' values pushed**, is a fit past
+them (`TeleSkipFit`). -/
+theorem teleSkipFit_of_piTele : ∀ {n : Nat} {T : Term} {Γ : List Term} {R : Term},
+    PiTeleAV n T Γ R → ∀ {ps fs : List V} {ρ : Nat → V} {rest : V}, ps.length = n →
+      TeleFit V (consN ps ρ) R fs rest → TeleSkipFit V ρ T ps fs rest
+  | _, _, _, _, .nil, ps, _, _, _, hl, h => by
+    obtain rfl : ps = [] := List.eq_nil_of_length_eq_zero hl
+    exact .fit h
+  | _, _, _, _, .cons h', p :: ps, _, _, _, hl, h =>
+    .skip (teleSkipFit_of_piTele h' (by simpa using hl) h)
+
 /-- Levels read alike at `φ` give one composed assignment. -/
 theorem substFn_map_subst_self (φ : Name → Nat) (lps : List Name) :
     ∀ (ks : List Name) (vs : List Level),
@@ -1327,12 +1346,12 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
       rw [hpi, Denotes_bvar_inv hPsi, consN_lt _ _ (by omega),
         hgetD xs 0 hxW i (by omega)]
       congr 1; omega
-  -- the field's first half: the parameters fit the constructor's parameter binders
+  -- the field: its first half, the parameters' fit where the fields fit; its second, the whole fit
   have hF := hfit φ cv.name cv mI rP isK rules hfR rl hrl (cv.levelParams.map Level.param)
     (by simp) TVa hTVa' cvj cnP cnF iT hc (rl.ctorLevels cvj.levelParams) hlenC
     (substFn_ctorLevels φ rl cnP cv.levelParams cvj.levelParams rP) TVja hTVja' σ xsT psT mid
     (by simp [xsT, hxl]) (hbvWD xsT 0 _ rfl) hmid (hbvWD psT rP _ rfl) hRPR
-  obtain ⟨⟨r, hr⟩, hF2⟩ := hF
+  obtain ⟨hF1, hF2⟩ := hF
   -- the constructor's telescope: its parameters, then its fields
   obtain ⟨-, hmain, hextra, -⟩ := m.rec_rules φ cv.name cv mI rP isK rules hfR rl hrl
   have harity := ((hextra (cv.levelParams.map Level.param) (by simp) TVa hTVa').2 cvj cnP cnF iT
@@ -1353,6 +1372,37 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
   obtain ⟨rfl, rfl⟩ := hfdE
   have hTypeEq : cvj.type.instantiateLevelParams cvj.levelParams (rl.ctorLevels cvj.levelParams)
       = (pd ++ fdS).foldr .forallE conclS := by rw [hcbEq, List.foldr_append]
+  -- the fields' fit, at the source of the instantiated fields
+  have hfF := hffit (conclS.instantiateLift ps.reverse (0 + fdS.length))
+  rw [← hiL] at hfF
+  have hlenR : Ps.reverse.length = ps.reverse.length := by simp [hPl, hplen]
+  obtain ⟨hfF', -, -⟩ := Fits_instantiateLift_inv (σ := consN xs ρ) hlenR (fun j h => by
+      simp only [List.length_reverse] at h
+      simp only [List.getElem_reverse]
+      have := hPsD (ps.length - 1 - j) (by omega) (by rw [hPl, ← hplen]; omega)
+      simpa [hPl, hplen] using this) fdS conclS fs 0
+    (fun i => rfl) (by rw [hfl, hfdSl]) hfF
+  rw [insAt_zero_reverse, Nat.zero_add] at hfF'
+  -- the fields fit past the parameters' values, so the parameters fit (the field's first half)
+  have hsCB : (cvj.type.instantiateLevelParams cvj.levelParams
+      (rl.ctorLevels cvj.levelParams)).stripPis cnP = some (pd, fdS.foldr .forallE conclS) := by
+    rw [hTypeEq, ← hpdl, List.foldr_append, stripPis_foldr]
+  obtain ⟨Γ, RB, b', hPT, hRB, hcb', hfb', hlb'⟩ := denote_peelStrip cnP hTVja' hsCB
+    (fvarsBelow_zero_of_not_hasFvar hnfC) hlbC
+  have hnfB : (fdS.foldr Expr.forallE conclS).hasFvar = false := by
+    rw [hTypeEq, List.foldr_append] at hnfC
+    exact hasFvar_foldr_body _ hnfC
+  rw [Expr.closeN_of_hasFvar _ 0 cnP hnfB, Nat.zero_add] at hcb'
+  rw [Nat.zero_add] at hRB hfb'
+  have hfF'' := hfF'
+  rw [← hcb'] at hfF''
+  obtain ⟨restF, hRF⟩ := teleFit_of_Fits hcl fs cnP b' hRB hfb' hlb' hfF''
+  have hRFσ : TeleFit V (consN Ps σ) RB fs restF := by
+    refine hRF.transfer_rest (k := cnP)
+      (by simpa using PiTeleAV.bvarsBelow_rest hPT (k := 0) hclC) fun i hi => ?_
+    rw [consN_lt _ _ (by omega), consN_lt _ _ (by omega)]
+  obtain ⟨r, hr⟩ := hF1 fs restF (by rw [hnF]; exact hfl) (by
+    rw [hpsI]; exact teleSkipFit_of_piTele hPT hPl hRFσ)
   -- the parameters' fit, at the stored type
   have hpc : Rules.PiChain psT.length TVja := by
     simpa [psT, hPl] using Rules.piChain_of_stripPis cnP (by rw [hcb]; rfl) hTVja'
@@ -1366,17 +1416,6 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
   rw [hPl, ← hpdl, List.drop_length] at hRP
   simp only [List.foldr_nil] at hRP
   subst hRP hρP
-  -- the fields' fit, at the source of the instantiated fields
-  have hfF := hffit (conclS.instantiateLift ps.reverse (0 + fdS.length))
-  rw [← hiL] at hfF
-  have hlenR : Ps.reverse.length = ps.reverse.length := by simp [hPl, hplen]
-  obtain ⟨hfF', -, -⟩ := Fits_instantiateLift_inv (σ := consN xs ρ) hlenR (fun j h => by
-      simp only [List.length_reverse] at h
-      simp only [List.getElem_reverse]
-      have := hPsD (ps.length - 1 - j) (by omega) (by rw [hPl, ← hplen]; omega)
-      simpa [hPl, hplen] using this) fdS conclS fs 0
-    (fun i => rfl) (by rw [hfl, hfdSl]) hfF
-  rw [insAt_zero_reverse, Nat.zero_add] at hfF'
   have hCF := hPF.append hfF'
   rw [← List.foldr_append, ← hTypeEq, ← Expr.closeN_of_hasFvar _ 0 0 hnfC] at hCF
   obtain ⟨_, hCT⟩ := teleFit_of_Fits hcl (Ps ++ fs) 0 _ hTVja'

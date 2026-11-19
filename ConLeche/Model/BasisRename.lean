@@ -291,7 +291,8 @@ theorem recRuleFit_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
       (fun hn lvls pins h => hn lvls pins ((r.hfire lvls pins).mp h)) hps
   obtain ⟨h1, h2⟩ := hF us hus0 TVa hTVa cvj cnP cnF iT hfcj usj hlj0 hsj' TVja hTVja ρ xs ps mid
     hxl hxw hmid hpw hps'
-  refine ⟨h1, fun fs is restC hfl hil hfw hiw hfit hpin => ?_⟩
+  refine ⟨fun fs restF hfl => h1 fs restF (by rw [← r.hnf]; exact hfl),
+    fun fs is restC hfl hil hfw hiw hfit hpin => ?_⟩
   rw [r.hnf] at hfl
   obtain ⟨restR, hR, hU⟩ := h2 fs is restC hfl hil hfw hiw hfit hpin
   refine ⟨restR, by rw [r.hctor, hlfj usj hlj0]; exact hR, fun pre idx rest body u hpre => ?_⟩

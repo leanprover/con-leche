@@ -980,7 +980,7 @@ theorem eqRecFit {m : EnvModel V env}
   simp only [interp_bvar, cons] at f2
   rw [(eqRecMotiveTy_data ρ f1 f2).1] at f3
   rw [(eqRecMinorTy_data ρ f1 f2 f3).1] at f4
-  refine ⟨?_, fun fs is restC hfl hil _ _ hfit hpin => ?_⟩
+  refine ⟨fun _ _ _ _ => ?_, fun fs is restC hfl hil _ _ hfit hpin => ?_⟩
   · -- the parameters fit `Eq.refl`'s binders
     have hfit : TeleFit V ρ (eqReflTy (Level.substFn φ eqReflA.toConstantVal.levelParams usj))
         ([p1, p2].map (interp V ρ)) (interp V (cons (interp V ρ p2) (cons (interp V ρ p1) ρ))

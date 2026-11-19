@@ -123083,3 +123083,61 @@ the carrier fibre gives `GenClsBack`'s premises.  Hypotheses `genRecFit` needs: 
 **Next, after the ruling:** the fix; `genRecFit` (new file `GenRecFit.lean`, called from
 `genRecStage` in place of the `sorry`); then cont. 2's items 4 (the `Model` field, with
 `ofEnvModelM` moved after `RuleEqsSound`), 7 (docs), the gates and the landing.
+
+## TASK #610 (cont. 4) — fix (C) in `RecRuleFit`; the generated block's route for it (2026-11-19, agent/610-model-eqs)
+
+On top of `475e58de8`, on the coordinator's ruling: **fix (C)**, not (A), not (B).  **State: not
+landed.  The tree builds as at `4144d2a2c`: warning-free except the one marked `sorry` in
+`genRecStage` (`GenRecFinal.lean`, the generated rules' `RecRuleFit`); `lake test` fails only
+on the axiom pins.**  Item 1 of the ruling's list is done; items 2–6 are open.
+
+**Fix (C) (done).**  Conjunct (1) of `RecRuleFit` (`Model/Env/Laws.lean`) is now conditional:
+`∀ fs restF, fs.length = rl.nfields → TeleSkipFit V ρ TVja (ps.map (interp V ρ)) fs restF →
+∃ r, TeleFitPA V ρ TVja ps r`.  `TeleSkipFit` (new, `Laws.lean`, after `TeleFit`): the values
+`ps` pushed past the leading binders, their memberships not asked, then a `TeleFit` of `fs`.
+The public `RuleEqsHold` statement does not change.  Sites:
+* the basis rows (`eqRecFit`, `natRecZeroFit`, `natRecSuccFit`, `quotIndFit`, `quotLiftFit`)
+  ignore the new premises;
+* the transports (`recRuleFit_ext`, `_ag`, `_ren`, `_consBlockRecsR_prefix`, `recRuleFit_stored`)
+  pass the conjunct through unchanged (the constructor's reading is the same on both sides);
+* the consumer (`ruleEqsHold_of`, `RuleEqsSound.lean`): the fields' fit (from the equation's
+  `Denotes` derivation, `Fits_instantiateLift_inv`) now comes first; `denote_peelStrip` at
+  `cnP` peels the constructor's reading to its fields' body `RB`, `teleFit_of_Fits` at depth
+  `cnP` gives the fields' `TeleFit` there, `teleSkipFit_of_piTele` (new, §0) turns it into the
+  skip fit, and conjunct (1) then gives the parameters' fit as before.  New in §0 also
+  `PiTeleAV.bvarsBelow_rest`.
+
+**The generated block's (1) under (C): the route.**  The cont. 3 record's phrase "where the
+fields fit, the class is live" is right, but not through the class records: every typing fact
+the model records about the container's constructor is guarded by its parameters' fit
+(`LfpCtorReads`, `mem_type` at `TVja`), and the container's tower equality (`FormerRead`) says
+nothing where the index telescope at the pins is empty.  The fact comes from the GENERATED
+type's own inference, at the rule frame (the prefix and the fields, without the induction
+hypotheses), at the minor premise's major `mk = C.mk (ds ++ fieldFvs)` (an outside class):
+1. the skip fit at the pins' values → `SpineFit (consList xs ρ) (tgtFdomsAV … c j) fs` (the
+   generated minor's field domains read as the container constructor's fields at the pins;
+   the same rule-data link route (a) needs for (2));
+2. `genMinorOpen` gives the minor's conclusion's inference (`hinfR`); its last argument `mk`
+   infers at depth `pre + nF` (`inferTypeCore_mkAppN_args`, `inferTypeCore_depth_inv`, as in
+   `genArgs_graded`); `genFieldFrame` is the graded frame there;
+3. `Rules.infer_sound` → `InferSemFull` at that frame (as in `graded_of_infer_openers`): the
+   inferred type's reading is a graded type and holds `mk`'s.  The inferred type is the
+   constructor's conclusion at `ds` and the fields (`inferTypeCore_app_inv'` per argument,
+   `whnf_forallE_eq`, the stored conclusion shape `LfpCaps`' second clause): a former
+   application `C ds es`, a type, so not the point; `spineFit_of_wellDenoted_mkAppN_pi` with
+   `member_mem_tower` (the pattern of `genOut_typed`) makes the pins' and `es`' values fit
+   `D.pars ++ D.ids` — the parameters' `Sat` at the key frame (and the class's liveness);
+4. `LfpCtorReads`' parameter clause: the pins fit the constructor's first `nPc` binders, i.e.
+   `TeleFitPA TVja ps` by `teleFitPA_of_teleFit`.
+(An alternative to step 3: `inferTypeCore_app_inv'` gives each pin's inferred type
+definitionally equal to the constructor's domain; with the defeq claims' soundness at the
+frame that is the fit directly.)  Not a `WellDenoted` argument: `hargs`' grading of `mk` is
+useless at a `Prop` container (`Or.inl … : Or …`, `corner_nest_or_prop` is accepted), whose
+constructor values are the point.  Member classes: (1) holds unconditionally, from the prefix
+fit through the block's parameters (`genParams_fit_run`, `hparamsC`), as the cont. 3 record
+says.
+
+**Next:** `genRecFit` (new `Model/Inductives/GenRecFit.lean`): (1) by the route above, (2) by
+route (a) of the cont. 3 record, called from `genRecStage` in place of the `sorry`; then the
+`Model` field (`ofEnvModelM` after `RuleEqsSound`), the docs, the gates and the landing.
+README lines to report: 69 and 73.

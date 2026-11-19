@@ -1165,7 +1165,7 @@ theorem natRecZeroFit {m : EnvModel V env}
   obtain rfl : TVa = _ := (Option.some.inj
     ((natRecTyRead (m := m) m₂ hN hZ hS hac φ us hψ).symm.trans hTVa)).symm
   obtain rfl : ps = [] := List.eq_nil_of_length_eq_zero hps.1
-  refine ⟨⟨TVja, .nil⟩, fun fs is restC hfl hil _ _ _ _ => ?_⟩
+  refine ⟨fun _ _ _ _ => ⟨TVja, .nil⟩, fun fs is restC hfl hil _ _ _ _ => ?_⟩
   obtain rfl : fs = [] := List.eq_nil_of_length_eq_zero hfl
   obtain rfl : is = [] := List.eq_nil_of_length_eq_zero hil
   have hctorL : m₂.acval (RecRule.ctor natRecZeroRule) (Level.substFn φ cvj.levelParams usj)
@@ -1210,7 +1210,7 @@ theorem natRecSuccFit {m : EnvModel V env}
     exact (Option.some.inj hTVja).symm
   subst hTVja'
   obtain rfl : ps = [] := List.eq_nil_of_length_eq_zero hps.1
-  refine ⟨⟨_, .nil⟩, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
+  refine ⟨fun _ _ _ _ => ⟨_, .nil⟩, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
   obtain ⟨n, rfl⟩ : ∃ a, fs = [a] := by
     match fs, hfl with
     | [a], _ => exact ⟨a, rfl⟩

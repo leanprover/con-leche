@@ -225,6 +225,16 @@ theorem TeleFit.rest_unique {ρ : Nat → V} {T : Term} {vs : List V} {r₁ r₂
 
 end
 
+/-- **A fit past unchecked leading arguments**: `TeleSkipFit ρ T ps fs rest` — the values `ps`
+are pushed past `T`'s leading binders, their memberships not asked, and `fs` fits the rest
+(`TeleFit`) under the extended environment. -/
+inductive TeleSkipFit (V : Type w) [SetTheory V] :
+    (Nat → V) → Term → List V → List V → V → Prop where
+  | fit {ρ : Nat → V} {T : Term} {fs : List V} {rest : V} :
+      TeleFit V ρ T fs rest → TeleSkipFit V ρ T [] fs rest
+  | skip {ρ : Nat → V} {A B : Term} {p : V} {ps fs : List V} {rest : V} :
+      TeleSkipFit V (cons p ρ) B ps fs rest → TeleSkipFit V ρ (.pi A B) (p :: ps) fs rest
+
 /-- **A graded spine at a family's leaf**: the values `ts` are a spine of terms whose
 application to the leaf `L` is graded and not the point.  What the η laws ask
 of the parameters; it reads no type, and at a recorded block it gives the fit of the
@@ -708,7 +718,10 @@ theorem RuleParamsRead.transport {V : Type w} [SetTheory V] {env env' : Env}
 recursor's rule prefix (its first `rP` binders) and `ps` reads as the rule's
 parameters there:
 
-* the parameters fit the constructor's parameter binders;
+* where some fields fit the constructor's field binders at the parameters (`TeleSkipFit`: the
+  parameters pushed, their memberships not asked), the parameters fit the constructor's
+  parameter binders — where no fields fit, the rule's equation has no instances, and nothing is
+  asked;
 * at fields `fs` completing that fit and index arguments `is` pinned to the
   constructor's conclusion (`IotaIndexPin`: the residual's index arguments
   read as `is`), the prefix, the indices and the constructor application fit
@@ -738,7 +751,9 @@ established where `RecRuleLaw` is, at the installs. -/
   ∀ (ρ : Nat → V) (xs ps : List Term) (mid : Term),
     xs.length = rP → (∀ x ∈ xs, WellDenoted V ρ x) → TeleFitPA V ρ TVa xs mid →
     (∀ p ∈ ps, WellDenoted V ρ p) → RuleParamsRead m φ cv rP cnP us rl ρ xs ps →
-    (∃ r, TeleFitPA V ρ TVja ps r) ∧
+    (∀ (fs : List V) (restF : V), fs.length = RecRule.nfields rl →
+      TeleSkipFit V ρ TVja (ps.map (interp V ρ)) fs restF →
+      ∃ r, TeleFitPA V ρ TVja ps r) ∧
     ∀ (fs is : List Term) (restC : Term),
       fs.length = RecRule.nfields rl → is.length = mI - rP →
       (∀ f ∈ fs, WellDenoted V ρ f) → (∀ i ∈ is, WellDenoted V ρ i) →

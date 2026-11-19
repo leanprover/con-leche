@@ -1077,7 +1077,7 @@ theorem quotIndFit {m : EnvModel V env}
     rw [quotIndMotiveTy, interp_pi, (quotApp_data (by simp [cons]) (by simp [cons]) f1' f2').2]
       at f3
     exact f3
-  refine ⟨?_, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
+  refine ⟨fun _ _ _ _ => ?_, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
   · -- the parameters fit `Quot.mk`'s binders
     have hfit : TeleFit V ρ (quotMkTy (ψ uN)) ([p1, p2].map (interp V ρ))
         (interp V (cons (interp V ρ p2) (cons (interp V ρ p1) ρ))
@@ -2517,7 +2517,7 @@ theorem quotLiftFit {m : EnvModel V env}
   have f2' : interp V ρ x2 ∈ˢ relSpace V (interp V ρ x1) := by
     rwa [quotRelTy_interp] at f2
   have f3' : interp V ρ x3 ∈ˢ (univ (ψ vN) : V) := by rwa [interp_sort] at f3
-  refine ⟨?_, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
+  refine ⟨fun _ _ _ _ => ?_, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
   · have hfit : TeleFit V ρ (quotMkTy (ψ uN)) ([p1, p2].map (interp V ρ))
         (interp V (cons (interp V ρ p2) (cons (interp V ρ p1) ρ))
           (.pi (.bvar 1) (.app (.app (.const .quot [ψ uN]) (.bvar 2)) (.bvar 1)))) := by
