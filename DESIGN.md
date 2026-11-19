@@ -124290,5 +124290,30 @@ full `ViewOf`, which is false off an accept (the reader loads theorem values laz
 value decodes only in the check) — provable under exit 0 but at the cost of a whole-view decode
 proof.  `main_oleans_no_False` keeps its route (`readOleansAt_thm`).
 
-Not started: item 3 of the brief (modular over `IsModel`), docs (OVERVIEW §theorems, whitepaper
-§7), axiom pins for `main_oleans`, the gates, the landing.
+5. **`modular_model_exists` over `IsModel`** (Challenge = MainTheorem = `Modular.lean`'s quote;
+   proof `Model.Modular.modular_isModel`, `ConLeche/Model/Modular/IsModel.lean`):
+   `∃ model : Nat → Name → List Nat → V, (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls))
+   ∧ ∀ j ≤ i, ∀ n, context stores n → src n ≤ i ∧ model j n = model (src n) n`.  The models are
+   the compatible family's, read positionally (`posModel_of_find`); a module's own records are
+   stored in its own environment (`own_recordsStored`, from `LocalOk`'s accepting run); a context
+   name's two copies are `Alike` (`agree_alike`), so one level-parameter list.
+   **Spec choice:** the per-module record set is the module's OWN records, not context ++ own.
+   The context records are presentations (`Presents`: a permutation of the home record's installed
+   constants, or its statement), installed by `streamEnv` and never checked as blocks at the
+   importer, so `RecordsStored` for an inductive context record needs `BlockRead` of a record
+   nobody reads as a block there; their meaning reaches the importer through the agreement with
+   the home's model instead.  Needs the maintainer's eye if context ++ own is wanted.
+
+**Next (the olean-level modular statements):** the worker's own records are `ownRecords w.home`
+= `blocksOk` + `declsOf (emitAll mg mg.order)` over `mg := mergedOfList (home constants, unsafe
+filtered)` (`WorkerFacts.emitted`, `Driver/Worker.lean`), so `covers_entry`/`covers_block` apply
+once a `MergeFacts mg w.emitted` is shown for that merge (`mergedOfList_spec`/`_names`, order nodup)
+and a view constant of `M` is matched to its merged copy (`worker_thm`'s first half:
+`skels_name_inj`).  Then: `ViewRecords sp fs M` (one module's view records; `ClosureRecords` =
+its union over `InClosure`), and for `--olean --modular`/`--check-graph`: every module of
+`HdrClosure` has a model of `ViewRecords` of itself, agreeing with the home's model
+(`Run.homeIn`) on every context name.  The agreement is over the worker's context (a reader
+table); a spec reading of "read from" (`RecordFrom`, `Driver/ReachFrom.lean`) is the candidate.
+Not done: docs (OVERVIEW §theorems, whitepaper §7), axiom pins for `main_oleans`, gates, landing.
+The internal `Model`'s `false_empty`/`eq_equality`: still read by `main_compare_json_no_False`
+and `modular_no_False` (via `Model.no_constant_of_False`), so they stay; note for #619.
