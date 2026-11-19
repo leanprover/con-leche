@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.OpenedCtx
+import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRecTyping
@@ -851,61 +852,7 @@ end Run
 
 /-! ## 38. A Π-tower's inferred sort follows its CONCLUSION's sort
 
-Facts about the check's ∀ clause: the checker-side runs the
-elimination level is read from.
-
-Two steps:
-
-* `inferTypeCore_forallE_peel` — one ∀ binder of a successful
-  inference: the codomain's sort `v` and the node's own sort
-  `imax u v`.
-
-Both take the conclusion's inference at a SECOND fuel `G ≥ F`:
-the check runs it twice — once inside the tower's own recursion, at
-the fuel left after the peel, and once on its own
-(`targetRecTy`) — and fuel monotonicity (`inferTypeCore_mono`,
-`Verify/Mono.lean`) is what identifies the two. -/
-
-section BitsLaw
-
-/-- A successful inference at fuel `0` is impossible. -/
-theorem inferTypeCore_pos {envK : Env} {d : Nat} {e r : Expr} {F : Nat}
-    (h : ConLeche.inferTypeCore .verified false envK F d e = .ok r) : 1 ≤ F := by
-  cases F with
-  | zero =>
-    rw [ConLeche.inferTypeCore_zero] at h
-    simp [throw, throwThe, MonadExceptOf.throw] at h
-  | succ _ => omega
-
-/-- **One ∀ binder of a successful inference, peeled.**  The ∀ clause's
-own witnesses: the codomain's sort `v` and
-the node's own sort. -/
-theorem inferTypeCore_forallE_peel {envK : Env}
-    {d F : Nat} {ty bd s : Expr}
-    (h : ConLeche.inferTypeCore .verified false envK F d (.forallE ty bd) = .ok s) :
-    ∃ (F₀ : Nat) (udom v : Level) (bt₁ : Expr),
-      F = F₀ + 1 ∧ 1 ≤ F₀ ∧
-      ConLeche.inferTypeCore .verified false envK F₀ (d + 1) (bd.instantiate1 (.fvar d ty)) = .ok bt₁ ∧
-      ConLeche.ensureSortCore .verified false envK F₀ (d + 1) bt₁ = .ok v ∧
-      s = .sort (.imax udom v) := by
-  cases F with
-  | zero =>
-    rw [ConLeche.inferTypeCore_zero] at h
-    simp [throw, throwThe, MonadExceptOf.throw] at h
-  | succ F₀ =>
-    rw [ConLeche.inferTypeCore_forallE_eq] at h
-    obtain ⟨tty, htty, h⟩ := ConLeche.exceptBind_ok h
-    obtain ⟨w0, hw0, h⟩ := ConLeche.exceptBind_ok h
-    clear htty hw0
-    cases w0 with
-    | sort udom =>
-      obtain ⟨bt₁, hbt₁, h⟩ := ConLeche.exceptBind_ok h
-      obtain ⟨v, hv, h⟩ := ConLeche.exceptBind_ok h
-      refine ⟨F₀, udom, v, bt₁, rfl, inferTypeCore_pos hbt₁, hbt₁, hv, ?_⟩
-      simpa [pure, Except.pure] using h.symm
-    | _ => simp [throw, throwThe, MonadExceptOf.throw] at h
-
-end BitsLaw
+The ∀ clause's peel (`inferTypeCore_forallE_peel`) is in `StructFrameKit`. -/
 
 /-! ### 38.1 The run: stage (b)'s two CONCLUSION runs
 

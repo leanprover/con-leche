@@ -432,7 +432,7 @@ theorem storedSwap_sem {envC : Env}
         · rw [htyE] at hTS
           exact ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩⟩
         · rw [denote_instLevels hp] at hTS ⊢
-          obtain ⟨TS', TG, hTS', hTG, -, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw
+          obtain ⟨TS', TG, hTS', hTG, -, hEq, -⟩ := storedTy_sem mpG htyC hGb hGr hGw
             (Level.substFn φ g.1.levelParams us)
           obtain rfl := Option.some.inj (hTS.symm.trans hTS')
           refine ⟨TG, hTG, fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ) ?_⟩
@@ -466,7 +466,7 @@ theorem storedSwap_sem {envC : Env}
       · rw [htyE]
         obtain ⟨TG, hTG⟩ := hGr ψ
         exact ⟨TG, hTG, hGw ψ TG hTG, hGm ψ TG hTG⟩
-      · obtain ⟨TS, TG, hTS, hTG, hw, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw ψ
+      · obtain ⟨TS, TG, hTS, hTG, hw, hEq, -⟩ := storedTy_sem mpG htyC hGb hGr hGw ψ
         exact ⟨TS, hTS, hw, fun ρ => by rw [(hEq ρ).interp_eq]; exact hGm ψ TG hTG ρ⟩
     refine ⟨fun ψ => ?_, fun ψ ta hta ρ => ?_, fun ψ ta hta ρ => ?_⟩
     · obtain ⟨TS, hTS, -, -⟩ := key ψ
