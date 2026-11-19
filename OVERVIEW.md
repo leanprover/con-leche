@@ -387,12 +387,13 @@ same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
 [`main_compare_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L357-L379):
 every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` read
 the challenge `C` through `T` alone and the solution `S` through `T`, then `D`, and in every set
-theory there is a model of the challenge's environment, at its own level-parameter names and with
+theory there is a model of the challenge's environment (the records of `C` and what they read,
+closed under reads), at its own level-parameter names and with
 each hole of `C` the axiom of its statement, and a model of the solution's environment, such that
 every constant of the challenge's is the solution's constant of that name and takes the solution
 model's value, and every constant of the challenge's, every hole among them, is inhabited by the
-solution's constant. The challenge's environment holds what `C` imports with its bodies, and a
-model makes every definition denote its value and every recursor rule hold, so the statement
+solution's constant. The challenge's environment holds what `C`'s records read, with the bodies,
+and a model makes every definition denote its value and every recursor rule hold, so the statement
 excludes the attacks by itself: a challenge that imports `def f : Nat := 3` and has a hole
 `t : f = 5` has no model with `t` inhabited, and where the challenge has `inductive T | a | b`, its
 constructors denote different sets, so a hole `T.a = T.b` cannot be inhabited, whatever `T` the
@@ -940,10 +941,17 @@ path where none is given), the solution's through the trusted directories first 
 path after them, a root the trusted directories hold shadowing any other copy and each of the two
 holding each root once. A challenge module only the search path holds is a reject that says where
 it is; that message is looked for only after the challenge's read failed, and the read itself
-never looks at the search path. With `--constant`, each name must be a declaration of `C` itself,
-the challenge is read from those names and the solution from every name the challenge's records
-have. Nothing of the challenge is checked. Its prepared records are compared one by one with the
-solution's record of the same name (`compareRecords`):
+never looks at the search path. Nothing of the challenge is checked.
+
+What is compared is the same in every mode (this one, module by module and two lean4export files,
+below): the challenge's own records and what they read, closed under reads, each hole read as its
+statement (`chalRecs`, over `readCone`, which the lean4export comparison shares). What only a
+hole's value or a theorem's proof reads is not compared, nor a module `C` imports and never reads
+from: it cannot change what the holes say. leanprover/comparator walks from its targets'
+statements the same way. With `--constant`, each name must be a declaration of `C` itself, the
+challenge is read from those names, the comparison starts from their records instead of all of
+`C`'s, and the solution is read from the compared records' names. Each compared record is set
+against the solution's record of the same name (`compareRecords`):
 
 * a name `C` imports is identified by its home, the first module of the closure's order storing
   it: the solution's constant of that name has the same home and is the same record, a theorem
@@ -1017,11 +1025,11 @@ comparison as above. The holes are the challenge's axioms but `propext`, `Classi
 environment needs is the solution's up to the names of its level parameters, so a solution that
 declares a challenge constant with the same content meets it (identical content is the same
 constant), and one whose `f := 5` meets a challenge's `f := 3` does not: the home rule of the
-`.olean` mode is needed only where a view lacks bodies. What the challenge's environment needs
-is the holes and the records no other record of the file mentions (the exporter's selection),
-and what they read with the holes as their statements; a record that only a hole's value or a
-theorem's proof mentions (the `sorryAx` an export of a challenge holds, the cone of its tag, a
-lemma one proof uses) is not compared. A needed record the solution's file lacks is a reject.
+`.olean` mode is needed only where a view lacks bodies. The challenge's own records, where the
+comparison starts, are the holes and the records no other record of the file mentions (the
+exporter's selection); what they read is compared with them, as above, so a record that only a
+hole's value or a theorem's proof mentions (the `sorryAx` an export of a challenge holds, the cone
+of its tag, a lemma one proof uses) is not compared. A needed record the solution's file lacks is a reject.
 The solution's file is checked in full, as a plain run checks a stream, after the comparison.
 There is no `--constant` and no `--trusted-search-path`: the exporter's own selection (its
 `--` names) decides what each file holds, and both files are given. The fixtures are

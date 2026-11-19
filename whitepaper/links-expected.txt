@@ -6991,73 +6991,81 @@
    161            ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
    162              (m ((dev c).src n) h).M n (ls.map (Level.eval φ)) ∈ˢ
 
-== ConLeche/Driver/Compare.lean#L236-L242
-   236  /-- **The challenge's lookup**: the trusted path, never anything else. -/
-   237  def CmpReq.chalRoots (r : CmpReq) : Roots :=
-   238    if r.trusted.isEmpty then { path := r.path } else { path := r.trusted }
-   239  
-   240  /-- **The solution's lookup**: the trusted path first, then the search path. -/
-   241  def CmpReq.solRoots (r : CmpReq) : Roots :=
-   242    if r.trusted.isEmpty then { path := r.path } else { path := r.trusted, fallback := r.path }
+== ConLeche/Driver/Compare.lean#L285-L291
+   285  /-- **The challenge's lookup**: the trusted path, never anything else. -/
+   286  def CmpReq.chalRoots (r : CmpReq) : Roots :=
+   287    if r.trusted.isEmpty then { path := r.path } else { path := r.trusted }
+   288  
+   289  /-- **The solution's lookup**: the trusted path first, then the search path. -/
+   290  def CmpReq.solRoots (r : CmpReq) : Roots :=
+   291    if r.trusted.isEmpty then { path := r.path } else { path := r.trusted, fallback := r.path }
 
 == ConLeche/Verify/Frontend/Olean/Local.lean#L469-L471
    469  theorem challenge_local {dirs : SearchPath} {C : Name} {cs : Option (Array Name)} {fs₁ fs₂ : FS}
    470      (h : FS.AgreeUnder dirs fs₁ fs₂) :
    471      challengeView dirs C cs fs₁ = challengeView dirs C cs fs₂ := by
 
-== ConLeche/Driver/Compare.lean#L114-L120
-   114  /-- **A hole of the challenge** (of `C`'s own records): an axiom, or a definition, theorem or
-   115  opaque constant whose value uses `sorryAx`; a theorem's value is read off its file (`uses`). -/
-   116  def isHole (uses : Declaration → Array Name) : Declaration → Bool
-   117    | .axiomDecl _ => true
-   118    | .defnDecl _ v _ | .opaqueDecl _ v => (Frontend.usedConstsGo {} #[] v).2.contains sorryAxName
-   119    | d@(.thmDecl _ _) => (uses d).contains sorryAxName
-   120    | _ => false
+== ConLeche/Driver/Compare.lean#L122-L128
+   122  /-- **A hole of the challenge** (of `C`'s own records): an axiom, or a definition, theorem or
+   123  opaque constant whose value uses `sorryAx`; a theorem's value is read off its file (`uses`). -/
+   124  def isHole (uses : Declaration → Array Name) : Declaration → Bool
+   125    | .axiomDecl _ => true
+   126    | .defnDecl _ v _ | .opaqueDecl _ v => (Frontend.usedConstsGo {} #[] v).2.contains sorryAxName
+   127    | d@(.thmDecl _ _) => (uses d).contains sorryAxName
+   128    | _ => false
 
-== ConLeche/Driver/Compare.lean#L136-L178
-   136  def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
-   137      (homeC homeS : Option Name) (dC dS : Declaration) :
-   138      Except String (Declaration × Option Filled) :=
-   139    let n := recKey dC
-   140    let homeName (h : Option Name) : String := (h.map toString).getD "the built-in prelude"
-   141    if !own then
-   142      let proofKey := match dC with
-   143        | .thmDecl .. => true
-   144        | _ => false
-   145      if !proofKey && homeC != homeS then
-   146        .error s!"{n}: the challenge reads it from {homeName homeC}, the solution's is \
-   147          {homeName homeS}'s; a name the challenge imports must be its home's constant"
-   148      else if sameRecord dC dS then .ok (dS, none)
-   149      else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC} \
-   150        of {homeName homeC}"
-   151    else if isHole uses dC then
-   152      let label := match dC with
-   153        | .axiomDecl _ => "axiom"
-   154        | d => s!"{recKind d} := sorry"
-   155      let filled : Except String (Declaration × Option Filled) :=
-   156        match recCv? dC, recCv? dS with
-   157        | some cv, some cv' =>
-   158          if sameCvUpToLevels cv cv' then
-   159            .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
-   160          else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
-   161        | _, _ => .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
-   162      if n == quotSoundName || n == sorryAxName then
-   163        .error s!"{declined}{n}: a hole at {if n == quotSoundName then "the quotient's axiom"
-   164          else "the placeholder axiom"}, which installs no axiom of its own; con-leche cannot \
-   165          fill it"
-   166      else
-   167      match dS with
-   168      | .axiomDecl _ | .opaqueDecl .. => filled
-   169      | .defnDecl .. | .thmDecl .. =>
-   170        if reduceOpNames.contains n then
-   171          .error s!"{declined}{n}: the solution fills this hole at a compiler-trust name with a \
-   172            {recKind dS}; con-leche can fill it only with an opaque constant or an axiom"
-   173        else filled
-   174      | _ => .error s!"{declined}{n}: the solution fills this hole with an {recKind dS}; \
-   175          con-leche can fill a hole only with a definition, a theorem, an opaque constant or an \
-   176          axiom at the moment"
-   177    else if sameRecordUpToLevels dC dS then .ok (dS, none)
-   178    else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC}"
+== ConLeche/Driver/Compare.lean#L234-L239
+   234  /-- **The challenge's records that are compared**: the roots (`chalRoot`) and what they read,
+   235  closed under reads, every hole of `C` as its statement (`readCone`).  A module `C` imports and
+   236  never reads from cannot change what its holes say, and is not compared. -/
+   237  def chalRecs (C : Name) (uses : Declaration → Array Name) (homesC : Std.HashMap Name Name)
+   238      (constants : Option (Array Name)) (recs : Array Declaration) : Array Declaration :=
+   239    readCone (chalRoot C homesC constants) (chalRecord C uses homesC) recs
+
+== ConLeche/Driver/Compare.lean#L144-L186
+   144  def cmpRecord (C : Name) (uses : Declaration → Array Name) (own : Bool)
+   145      (homeC homeS : Option Name) (dC dS : Declaration) :
+   146      Except String (Declaration × Option Filled) :=
+   147    let n := recKey dC
+   148    let homeName (h : Option Name) : String := (h.map toString).getD "the built-in prelude"
+   149    if !own then
+   150      let proofKey := match dC with
+   151        | .thmDecl .. => true
+   152        | _ => false
+   153      if !proofKey && homeC != homeS then
+   154        .error s!"{n}: the challenge reads it from {homeName homeC}, the solution's is \
+   155          {homeName homeS}'s; a name the challenge imports must be its home's constant"
+   156      else if sameRecord dC dS then .ok (dS, none)
+   157      else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC} \
+   158        of {homeName homeC}"
+   159    else if isHole uses dC then
+   160      let label := match dC with
+   161        | .axiomDecl _ => "axiom"
+   162        | d => s!"{recKind d} := sorry"
+   163      let filled : Except String (Declaration × Option Filled) :=
+   164        match recCv? dC, recCv? dS with
+   165        | some cv, some cv' =>
+   166          if sameCvUpToLevels cv cv' then
+   167            .ok (Modular.stmtOf dS, some ⟨n, label, recKind dS, (homeS.getD C)⟩)
+   168          else .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
+   169        | _, _ => .error s!"{n}: the solution's {recKind dS} is not of the hole's type"
+   170      if n == quotSoundName || n == sorryAxName then
+   171        .error s!"{declined}{n}: a hole at {if n == quotSoundName then "the quotient's axiom"
+   172          else "the placeholder axiom"}, which installs no axiom of its own; con-leche cannot \
+   173          fill it"
+   174      else
+   175      match dS with
+   176      | .axiomDecl _ | .opaqueDecl .. => filled
+   177      | .defnDecl .. | .thmDecl .. =>
+   178        if reduceOpNames.contains n then
+   179          .error s!"{declined}{n}: the solution fills this hole at a compiler-trust name with a \
+   180            {recKind dS}; con-leche can fill it only with an opaque constant or an axiom"
+   181        else filled
+   182      | _ => .error s!"{declined}{n}: the solution fills this hole with an {recKind dS}; \
+   183          con-leche can fill a hole only with a definition, a theorem, an opaque constant or an \
+   184          axiom at the moment"
+   185    else if sameRecordUpToLevels dC dS then .ok (dS, none)
+   186    else .error s!"{n}: the solution's {recKind dS} differs from the challenge's {recKind dC}"
 
 == ConLeche/Model/Modular/Compare.lean#L571-L573
    571  @[expose] def cmpDev (ds ctx : List Declaration) : Nat → Modular.Module

@@ -194,7 +194,7 @@ these must come from a source the reader trusts.
   Con-leche compares compiled modules,
   `con-leche --olean --compare CHALLENGE SOLUTION`. The challenge and
   everything it imports are read from the trusted directories
-  (#src("ConLeche/Driver/Compare.lean", 236, 242)[the challenge's lookup]),
+  (#src("ConLeche/Driver/Compare.lean", 285, 291)[the challenge's lookup]),
   the solution's closure from those directories first and from the
   search path after them; a module the trusted directories hold is
   read from there on both sides. The challenge's read
@@ -202,14 +202,20 @@ these must come from a source the reader trusts.
   on two file systems that agree on every path the reader forms there,
   it has the same outcomes, failure included.
 
-  A hole is #src("ConLeche/Driver/Compare.lean", 114, 120)[an axiom of the challenge module, or a declaration whose value uses `sorry`].
-  #src("ConLeche/Driver/Compare.lean", 136, 178)[The comparison] fills
-  it with the solution's definition, theorem, opaque constant or
+  A hole is #src("ConLeche/Driver/Compare.lean", 122, 128)[an axiom of the challenge module, or a declaration whose value uses `sorry`].
+  What is compared is
+  #src("ConLeche/Driver/Compare.lean", 234, 239)[the challenge's own declarations and what they read],
+  closed under reads, each hole read as its statement; what only a
+  hole's value or a proof reads is not compared, nor a module the
+  challenge imports and never reads from, which cannot change what its
+  holes say. The rule is the same in every mode below.
+  #src("ConLeche/Driver/Compare.lean", 144, 186)[The comparison] fills
+  a hole with the solution's definition, theorem, opaque constant or
   axiom of the same type, after renaming the solution's level
-  parameters to the challenge's; it compares every other declaration
-  of the challenge the same way, and identifies an imported name by
-  its home, the first module of the challenge's closure that stores it,
-  or, for a theorem, by its statement. The solution's closure is then
+  parameters to the challenge's; it compares every other compared
+  declaration of the challenge the same way, and identifies an imported
+  name by its home, the first module of the challenge's closure that
+  stores it, or, for a theorem, by its statement. The solution's closure is then
   checked as any closure is. The compared run is a development of two
   modules,
   #src("ConLeche/Model/Modular/Compare.lean", 571, 573)[the solution and the challenge],
@@ -221,11 +227,11 @@ these must come from a source the reader trusts.
   #src("ConLeche/MainTheorem.lean", 357, 379)[states] @thm:cmp
   for an exit 0 of the run: the challenge's model gives every name the
   solution's value, and every hole is inhabited. The challenge's
-  environment holds what it imports with the bodies, and a model makes
+  environment holds what its declarations read, with the bodies, and a model makes
   every definition denote its value and every recursor rule hold, so
   the statement alone excludes the attacks: a challenge that imports
-  `def f : Nat := 3` and has a hole `t : f = 5` has no model with `t`
-  inhabited, and the constructors of a challenge's
+  `def f : Nat := 3` and has a hole `t : f = 5`, which reads `f`, has
+  no model with `t` inhabited, and the constructors of a challenge's
   `inductive T | a | b` denote different sets, whatever the solution's
   `T` is. The home rule is a rule of the comparison, not part of the
   statement. Together with locality,

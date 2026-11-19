@@ -1036,8 +1036,11 @@ cmp_case "upstream def-hole-kind-mismatch" 2 UpDefHole UpDefHoleKindSol
 cmp_grep "upstream def-hole-type-mismatch" 1 "n: the solution's definition is not of the hole's type" UpDefHoleTy UpDefHoleTySol
 cmp_grep "upstream numeric-namespace" 0 "hole «123».foo" 'UpNum.«12.34».«5»' UpNumSol
 cmp_case "upstream opaque-value" 2 UpBoom UpBoomOpqSol
-# (the solution imports less of Init than the challenge: a constant it lacks)
-cmp_grep "upstream primitive-issue" 1 "the solution has no constant of this name" UpGcd UpGcdSol
+# (the challenge's `boom : False` reads nothing of its import Init.Data.Nat.Gcd, so `Nat.gcd` is
+# not compared (task #614); the solution's own check then declines its `Nat.gcd := 0`, as
+# `--olean UpGcdSol` does.  Upstream rejects on `Nat.gcd`; the modular modes below reject by the
+# clash rule, their graph holding both closures)
+cmp_grep "upstream primitive-issue" 2 "unsupported Nat.div/mod spelling" UpGcd UpGcdSol
 cmp_grep "upstream proj_trick" 1 "S: the solution's inductive type differs" UpProj UpProjSol
 cmp_case "upstream quot_mismatch" 1 UpQuot UpQuotSol
 cmp_grep "upstream theorem_hole_issue" 0 "hole hw (theorem := sorry) filled by UpThmHoleSol's theorem" UpThmHole UpThmHoleSol

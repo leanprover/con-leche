@@ -348,13 +348,12 @@ solution's through `T`, then `D`, and in every set theory `V` there are
   the solution's constant: that constant's value in `mS` is a member of what the challenge's
   type denotes in `mC`.
 
-The challenge's environment holds what `C`'s records read, with the bodies (the merged read),
-and a model makes every definition denote its value and every recursor rule hold
-(`Model.defn_eq`, `Model.rule_eqs`).  So a challenge that imports `def f : Nat := 3` and has a
-hole `t : f = 5` has no accepted solution: the hole reads `f`, so `f`'s definition is in the
-challenge's environment, in `mC` `f` is `3`, and `f = 5` denotes the empty set.  Which module a
-solution's constant comes from (the comparison's home rule) is the code's business; the
-statement needs only the models. -/
+The challenge's environment holds what `C`'s records read, with the bodies (the merged read), and
+a model makes every definition denote its value and every recursor rule hold (`Model.defn_eq`,
+`Model.rule_eqs`).  So a challenge that imports `def f : Nat := 3` and has a hole `t : f = 5` has
+no accepted solution: `t` reads `f`, so in `mC` `f` is `3`, and `f = 5` denotes the empty set.
+Which module a solution's constant comes from (the comparison's home rule) is the code's
+business; the statement needs only the models. -/
 theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
