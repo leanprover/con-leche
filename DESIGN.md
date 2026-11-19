@@ -123252,5 +123252,17 @@ cases in all four modular forms, the commands' flags, the solution-side worker; 
 **Gates at 55d4a3d29:** `lake build`, `lake test` warning-free; olean gate 535/535; layering,
 trust-surface, binary-link, plain-reach, shake (two minimization moves allowlisted with their
 measured breakage, one dot-notation fallback `ReachFrom`→`Roots`), overview-links (line moves
-only), quote-gate; whitepaper `build.sh`, `fragment-gate.sh`, `links-gate.sh`.
+only), quote-gate; whitepaper `build.sh`, `fragment-gate.sh`, `links-gate.sh`.  `tests/arena.sh` in full under the guard: exit 0 (arena tutorial 90/92 good accepted as pinned,
+e2e 617/617, olean gate 535/535, sweeps clean, peak 4.6 GiB).
+
+**Measurement** (one run, `perf stat -e instructions:u`, workers included):
+`--olean --schedule --compare --jobs=8 --search-path=.lake/build/lib/lean:<toolchain lib> --
+ConLeche.Challenge ConLeche.MainTheorem` accepted 3067 modules, 6.45 T instructions:u, peak
+1.8 GiB of the running workers.
+
+**Deviations:** the T1 statement covers the challenge side as read through `T` (its records, its
+own view, every worker of its closure) and the model's holes from the run's snapshot, not a
+model rebuilt on `fs'` (the challenge's environment holds the solution's context records, read
+through `D`).  The trusted theorems assume a non-empty trusted path (`hT`); without one the
+untrusted theorems apply.
 
