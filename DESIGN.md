@@ -124331,3 +124331,41 @@ driver: parse/prepare/check S, then C with `Jobs.build (sideRecords (some envS) 
 envS)`), its accept lemma, `main_compare_json_*` restated; delete the old JSON comparison
 (`Driver/CompareJson`'s `compareRecords` path, `Model/Modular/CompareJson`,
 `Verify/Driver/CompareJsonRun`); then olean and modular after #618; fixtures, docs, gates.
+
+### #619 cont. — state at the end of the first session (2026-11-19)
+
+**Commits on `agent/619-sidecar`** (each `lake build` green; `lake test` and the other gates NOT
+yet run): a5b9ef45a (the core code), f83dad70e (this record), f374e2758 (JSON mode).
+
+**JSON `--compare` is the sidecar check** (`Driver/CompareJson.lean`, rewritten): parse both,
+check the solution's prepared records (`Jobs.build recsS`, `checkDeclsIO`), `envS := streamEnv
+recsS.toList`, then the challenge's `sideRecords (some envS) recsC` with `Jobs.build … (some envS)`
+(premise `sideRecords_idem`, `Verify/Cached/Justify.lean`, with `checkDecls_sideRecords`).  Output:
+`accepted N declarations, K axioms justified by the sidecar S (M declarations accepted)`, then one
+line per justified record.  `compareJsonG_accept`/`runArgs_compare_json_accept`
+(`Verify/Driver/CompareJsonRun.lean`) restated: `checkDecls … (preparePrelude pre rS.decls) =
+.ok (streamEnv …)` and `checkDecls … (preparePrelude pre rC.decls) (some (streamEnv …)) = .ok env`.
+Deleted: `Model/Modular/CompareJson.lean`, `main_compare_json_solves`, `main_compare_json_no_False`
+(and their axiom pins).  The rest of the old machinery (olean/modular compare: `Driver/Compare*`,
+`Model/Copies`, `Model/Modular/Compare{,Run}`, `Verify/Driver/Compare{Run,Local,Module}`,
+`ComposeCompare`, the `main_compare_*` olean/modular capstones, `OleanCompare.lean`,
+`tests/ConLecheTests/{CompareAttack,CondCompare}.lean`) still builds unchanged.
+
+**e2e verdict changes so far** (`tests/e2e-expected.txt` updated, comments say why):
+cmp_kind_c/cmp_kind_bad_s 1 → 0 and cmp_missing 1 → 0 (the challenge's own declarations are
+checked by the challenge); cmp_lv 0 → 1 (`idd_eq`'s type reads `idd`, declared at other
+level-parameter names in the solution: not the same record; comparator rejects this too).  The
+e2e battery itself was not run beyond the `--compare` lines.
+
+**Next, in order:**
+1. `main_compare_json_no_False` needs NO model: an accepted `checkDecls … (some envS)` whose
+   records hold a non-built-in axiom `x : False` went through `checkRecordC`'s justification arm
+   (the only arm that pushes such an axiom: `checkDeclStepC` rejects it), so `justifyWhy = none`,
+   so `envS.find? x = some cS` with `sameCvUpToLevels` (renaming `.const False []` is itself), so
+   `no_proof_of_False_cached` on the sidecar's accept.  Lemma to write: `checkRecordC` ok on a
+   `justifiable` record with `some J` → `justifyWhy J fe cv = none` ∧ checkConstantValC passed.
+2. The sidecar model theorem (plan in the record above), then `sidecar_model_exists` in
+   `MainTheorem.lean`/`Challenge.lean` and the JSON capstone over `IsModel`.
+3. Olean (`--olean --compare`) as checking with a sidecar, trusted path for the challenge, T1 —
+   after #618 lands; then the modular modes; delete the old machinery; fixtures; docs (OVERVIEW,
+   whitepaper §8, usage text); gates; landing.
