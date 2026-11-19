@@ -275,7 +275,7 @@ section Subst
 variable {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
 
 /-- The environment a lift by `k` at cutoff `c` reads its source in. -/
-def skipAt (c k : Nat) (ρ : Nat → V) : Nat → V := fun i => if i < c then ρ i else ρ (i + k)
+@[expose] def skipAt (c k : Nat) (ρ : Nat → V) : Nat → V := fun i => if i < c then ρ i else ρ (i + k)
 
 omit [SetTheory V] in
 theorem push_skipAt (x : V) (c k : Nat) (ρ : Nat → V) :
@@ -365,7 +365,7 @@ theorem Denotes_liftLooseBVars {k : Nat} :
 
 /-- The environment an instantiation at depth `d` reads its source in:
 `ρ` below `d`, the values' denotations `Ys` next, `ρ` lowered above. -/
-def insAt (d : Nat) (Ys : List V) (ρ : Nat → V) : Nat → V := fun i =>
+@[expose] def insAt (d : Nat) (Ys : List V) (ρ : Nat → V) : Nat → V := fun i =>
   if i < d then ρ i else if h : i - d < Ys.length then Ys[i - d] else ρ (i - Ys.length)
 
 omit [SetTheory V] in

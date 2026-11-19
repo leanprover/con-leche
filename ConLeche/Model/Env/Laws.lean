@@ -5,6 +5,7 @@ public import ConLeche.Semantics.DivModEval
 public import ConLeche.Verify.ProjTele
 public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.EnvGuards
+public import ConLeche.Denotes
 
 public section
 
@@ -633,6 +634,74 @@ recursor's levels:
         interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
           IotaIndexPin (V := V) ρ restC cnP mI rP xs))
+
+/-- **A rule's parameters, read in the rule prefix's context**: `ps` reads as
+the parameters the rule applies its constructor to — the prefix's leading
+arguments `xs`, or, at a nested rule, its pins chained over `xs`
+(`recFireComparands`' second component, read). -/
+@[expose] def RuleParamsRead {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) (cv : ConstantVal) (rP cnP : Nat)
+    (us : List Level) (rl : RecRule) (ρ : Nat → V) (xs ps : List Term) : Prop :=
+  ps.length = cnP ∧ ∀ i, i < cnP →
+    match RecRule.fire rl with
+    | .nested _ pins => ∀ vpa : Term,
+        denote m.acval env φ rP
+          (ConLeche.Verify.openRev 0 rP
+            ((pins.getD i default).instantiateLevelParams cv.levelParams us)) = some vpa →
+        interp V ρ (ps.getD i default) = interp V ρ (Term.instRevChain xs vpa)
+    | _ => interp V ρ (ps.getD i default) = interp V ρ (xs.getD i default)
+
+/-- **One rule's typing, forward** (task #610): the facts that make a rule's
+ι equation (`ConLeche.iotaEq`) typed in the model.  At the recursor's levels
+`us` and the constructor's comparand levels, wherever `xs` fits the
+recursor's rule prefix (its first `rP` binders) and `ps` reads as the rule's
+parameters there:
+
+* the parameters fit the constructor's parameter binders;
+* at fields `fs` completing that fit and index arguments `is` pinned to the
+  constructor's conclusion (`IotaIndexPin`: the residual's index arguments
+  read as `is`), the prefix, the indices and the constructor application fit
+  the recursor's whole telescope, and the residual — the motive at the
+  indices and the major — is a type of the motive's universe.
+
+The universe clause is a separate fact, not a consequence of the fit: the
+motive's domain and the recursor's index and major binders agree only up to
+the install's definitional equality, and over an empty domain a motive is
+the point, not a family of types.  This is the converse direction of what
+the ι step's soundness needs (`RecRuleLaw` takes the fit as a premise); it is
+established where `RecRuleLaw` is, at the installs. -/
+@[expose] def RecRuleFit {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat)
+    (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
+  ∀ us : List Level, us.length = cv.levelParams.length →
+  ∀ TVa : Term,
+    denote m.acval env φ 0 (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
+  ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
+  ∀ (usj : List Level), usj.length = cvj.levelParams.length →
+    Level.substFn φ cvj.levelParams usj
+      = Level.substFn φ cvj.levelParams
+          (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
+  ∀ TVja : Term,
+    denote m.acval env φ 0 (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
+  ∀ (ρ : Nat → V) (xs ps : List Term) (mid : Term),
+    xs.length = rP → (∀ x ∈ xs, WellDenoted V ρ x) → TeleFitPA V ρ TVa xs mid →
+    (∀ p ∈ ps, WellDenoted V ρ p) → RuleParamsRead m φ cv rP cnP us rl ρ xs ps →
+    (∃ r, TeleFitPA V ρ TVja ps r) ∧
+    ∀ (fs is : List Term) (restC : Term),
+      fs.length = RecRule.nfields rl → is.length = mI - rP →
+      (∀ f ∈ fs, WellDenoted V ρ f) → (∀ i ∈ is, WellDenoted V ρ i) →
+      TeleFitPA V ρ TVja (ps ++ fs) restC →
+      IotaIndexPin (V := V) ρ restC cnP mI rP (xs ++ is) →
+      ∃ restR, TeleFitPA V ρ TVa
+          (xs ++ is ++ [Term.mkAppN
+            (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) (ps ++ fs)])
+          restR ∧
+        ∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+          cv.type.stripPis rP = some (pre, rest) →
+          rest.stripPis (mI - rP + 1) = some (idx, body) →
+          ConLeche.motiveLevel? pre (mI - rP) body = some u →
+          interp V ρ restR ∈ˢ (univ (Level.eval (Level.substFn φ cv.levelParams us) u) : V)
 
 /-- **One rule's fired modeled-iota contract at `interp`** (see the
 section note). -/
