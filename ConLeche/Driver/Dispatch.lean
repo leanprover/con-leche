@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Driver.Modular
 public import ConLeche.Driver.Schedule
-import ConLeche.Driver.Compare
+public import ConLeche.Driver.CompareJson
 
 /-!
 # What a run does, by its request, generic in the IO class (task #424)
@@ -48,6 +48,9 @@ inductive Req where
   /-- a challenge and its solution, compared, and the solution's closure checked
   (`compareG`) -/
   | compare (r : CmpReq) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
+  /-- two lean4export files, a challenge and its solution, compared, and the solution's file
+  checked (`compareJsonG`) -/
+  | compareJson (r : JCmpReq) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- one module against its context (`checkModuleG`), read through the trusted path, then the
   search path (`trusted` none: the search path alone) -/
   | module (trusted searchPath : List System.FilePath) (m : Name) (mode : CheckMode)
@@ -74,6 +77,7 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .schedule tp sp root cmp opts mode maxNatSize pace jobs jobsGiven =>
     scheduleG tp sp root cmp opts mode maxNatSize pace jobs jobsGiven
   | .compare r mode maxNatSize pace jobs => compareG r mode maxNatSize pace jobs
+  | .compareJson r mode maxNatSize pace jobs => compareJsonG r mode maxNatSize pace jobs
   | .module tp sp m mode maxNatSize pace jobs => do
     let (R, T) ← workerTables (⟨m, m, tp, sp, none⟩ : CmpReq).solRoots m
     checkModuleG (T.reads R) R m mode maxNatSize pace jobs
