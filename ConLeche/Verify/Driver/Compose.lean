@@ -7,7 +7,7 @@ public import ConLeche.Verify.Driver.Capture
 import ConLeche.Verify.Cached.Fill
 import ConLeche.Verify.Driver.Clashes
 import ConLeche.Verify.Driver.Groups
-public import ConLeche.Driver.Graph
+import ConLeche.Driver.Graph
 public import ConLeche.Verify.Driver.Graph
 
 /-!

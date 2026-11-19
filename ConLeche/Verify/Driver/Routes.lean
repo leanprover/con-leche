@@ -7,7 +7,7 @@ import ConLeche.Verify.Driver.RouteWorker
 public import ConLeche.Verify.Driver.Copies
 public import ConLeche.Verify.Driver.Clashes
 import ConLeche.Verify.Driver.PropPart
-public import ConLeche.Verify.Driver.Graph
+import ConLeche.Verify.Driver.Graph
 
 /-!
 # The routes of the capture check's pairs, and the local checks of a run

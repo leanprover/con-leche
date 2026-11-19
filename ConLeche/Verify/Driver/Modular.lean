@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Driver.Modular
-public import ConLeche.Verify.Driver.Worker
 public import ConLeche.Verify.Driver.Tables
 public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.CompareModule

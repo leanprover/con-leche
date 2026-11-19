@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Frontend.ModelIO
+import ConLeche.Verify.Frontend.ModelIO
 public import ConLeche.Verify.Frontend.Olean.Roots
 import ConLeche.Verify.Frontend.Olean.Files
 import Std.Data.HashSet.Lemmas

@@ -16,11 +16,11 @@
 == ConLeche/Kernel/Name.lean#L236
    236  def render (n : Name) : String :=
 
-== ConLeche/MainTheorem.lean#L111-L114
-   111  theorem model_exists (V : Type w) [SetTheory V]
-   112      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-   113      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-   114      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L113-L116
+   113  theorem model_exists (V : Type w) [SetTheory V]
+   114      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   115      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   116      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L123-L124
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -49,15 +49,15 @@
    267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    268      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L125-L132
-   125  theorem no_False_declaration (V : Type w) [SetTheory V]
-   126      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
-   127      (h : jsonWithTheoremFalse chunks) :
-   128      ∃ e, (do
-   129        let pre ← builtinPreludeE
-   130        let r ← parseChunks chunks
-   131        let ds := preparePrelude pre r.decls
-   132        checkDecls .verified pins maxNatSize ds) = .error e := by
+== ConLeche/MainTheorem.lean#L127-L134
+   127  theorem no_False_declaration (V : Type w) [SetTheory V]
+   128      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
+   129      (h : jsonWithTheoremFalse chunks) :
+   130      ∃ e, (do
+   131        let pre ← builtinPreludeE
+   132        let r ← parseChunks chunks
+   133        let ds := preparePrelude pre r.decls
+   134        checkDecls .verified pins maxNatSize ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -72,10 +72,10 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/MainTheorem.lean#L161-L163
-   161  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   162      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   163      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L163-L165
+   163  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   164      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   165      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == ConLeche/Verify/Cached/StreamThm.lean#L103-L106
    103  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -113,44 +113,44 @@
     89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) :
     90      Except (CheckError × Nat) Env := do
 
-== ConLeche/MainTheorem.lean#L202-L209
-   202  theorem modular_model_exists (V : Type w) [SetTheory V]
-   203      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
-   204      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
-   205      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   206        (∀ j hj n, ((dev j).context.find? n).isSome = true →
-   207          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-   208        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-   209          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L204-L211
+   204  theorem modular_model_exists (V : Type w) [SetTheory V]
+   205      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+   206      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
+   207      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   208        (∀ j hj n, ((dev j).context.find? n).isSome = true →
+   209          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+   210        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
+   211          (m j hj).cval n = fun _ => pt := by
 
-== ConLeche/MainTheorem.lean#L342-L368
-   342  theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
-   343      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   344      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-   345        "--search-path=" ++ D, "--", c, s]) fs 0) :
-   346      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
-   347      ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
-   348        ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
-   349          (homes := true)) fs (.ok rdC) ∧
-   350        ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
-   351          (homes := true)) fs (.ok rdS) ∧
-   352        ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
-   353          (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
-   354          (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
-   355            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
-   356              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
-   357              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
-   358                (cC.toConstantVal.levelParams.map Level.param))) ∧
-   359          (∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
-   360            Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
-   361            ∃ cv cS, Driver.recCv? d = some cv ∧
-   362              (Driver.solutionEnv pre r.solRoots fs rdS).find? cv.name = some cS ∧
-   363              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
-   364                mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
-   365                  (cv.levelParams.map Level.param)) ∈ˢ Ty) ∧
-   366          ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? ≠ some C →
-   367            (∀ cv v, d ≠ .thmDecl cv v) →
-   368            rdS.homes[Driver.recKey d]? = rdC.homes[Driver.recKey d]? := by
+== ConLeche/MainTheorem.lean#L349-L375
+   349  theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+   350      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   351      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+   352        "--search-path=" ++ D, "--", c, s]) fs 0) :
+   353      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+   354      ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
+   355        ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
+   356          (homes := true)) fs (.ok rdC) ∧
+   357        ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
+   358          (homes := true)) fs (.ok rdS) ∧
+   359        ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
+   360          (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
+   361          (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+   362            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+   363              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+   364              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+   365                (cC.toConstantVal.levelParams.map Level.param))) ∧
+   366          (∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? = some C →
+   367            Driver.isHole (Driver.usedOf (some (r.chalRoots.path, rdC))) d = true →
+   368            ∃ cv cS, Driver.recCv? d = some cv ∧
+   369              (Driver.solutionEnv pre r.solRoots fs rdS).find? cv.name = some cS ∧
+   370              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ cv.type Ty ∧
+   371                mS.cval cv.name (Level.substFn φ cS.toConstantVal.levelParams
+   372                  (cv.levelParams.map Level.param)) ∈ˢ Ty) ∧
+   373          ∀ d ∈ Driver.cmpRecs pre r.chalRoots rdC, rdC.homes[Driver.recKey d]? ≠ some C →
+   374            (∀ cv v, d ≠ .thmDecl cv v) →
+   375            rdS.homes[Driver.recKey d]? = rdC.homes[Driver.recKey d]? := by
 
 == ConLeche/Verify/Frontend/Olean/Local.lean#L469-L471
    469  theorem challenge_local {dirs : SearchPath} {C : Name} {cs : Option (Array Name)} {fs₁ fs₂ : FS}
@@ -164,9 +164,9 @@
    115  #guard_msgs in
    116  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Dispatch.lean#L53-L54
-    53    | .oleans sp roots cs mode maxNatSize pace jobs =>
-    54      checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
+== ConLeche/Driver/Dispatch.lean#L63-L64
+    63    | .oleans sp roots cs mode maxNatSize pace jobs =>
+    64      checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
 
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -174,12 +174,12 @@
 == ConLeche/Frontend/CheckerIO.lean#L310
    310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L259-L263
-   259  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
-   260      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
-   261      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   262        parseChunks [b] = .ok r ∧
-   263        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L394-L398
+   394  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
+   395      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
+   396      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   397        parseChunks [b] = .ok r ∧
+   398        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -1389,15 +1389,15 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
-== ConLeche/MainTheorem.lean#L125-L132
-   125  theorem no_False_declaration (V : Type w) [SetTheory V]
-   126      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
-   127      (h : jsonWithTheoremFalse chunks) :
-   128      ∃ e, (do
-   129        let pre ← builtinPreludeE
-   130        let r ← parseChunks chunks
-   131        let ds := preparePrelude pre r.decls
-   132        checkDecls .verified pins maxNatSize ds) = .error e := by
+== ConLeche/MainTheorem.lean#L127-L134
+   127  theorem no_False_declaration (V : Type w) [SetTheory V]
+   128      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
+   129      (h : jsonWithTheoremFalse chunks) :
+   130      ∃ e, (do
+   131        let pre ← builtinPreludeE
+   132        let r ← parseChunks chunks
+   133        let ds := preparePrelude pre r.decls
+   134        checkDecls .verified pins maxNatSize ds) = .error e := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1456,8 +1456,8 @@
    224        c.toConstantVal.levelParams = cv.levelParams ∧
    225        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Driver/Cli.lean#L357
-   357  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L365
+   365  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -1471,16 +1471,16 @@
 == ConLeche/Frontend/CheckerIO.lean#L310
    310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/MainTheorem.lean#L161-L163
-   161  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   162      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   163      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L163-L165
+   163  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   164      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   165      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L357
-   357  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L365
+   365  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == Main.lean#L28
     28  def enableAbortOnNonlinear : IO Unit := do

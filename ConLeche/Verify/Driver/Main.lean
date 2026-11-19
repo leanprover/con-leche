@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Driver.Cli
-public import ConLeche.Verify.Driver.Worker
+import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Driver.Modular
 import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.CompareRun

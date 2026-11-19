@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Verify.Cached.MainC
-public import ConLeche.Denotes
+import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
@@ -19,9 +19,10 @@ import ConLeche.Model.Modular.Compare
 public import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Routes
-public import ConLeche.Verify.Driver.Graph
+import ConLeche.Verify.Driver.Graph
 public import ConLeche.Model.Modular.CompareRun
 import ConLeche.Verify.Driver.CompareLocal
+
 public section
 
 /-!

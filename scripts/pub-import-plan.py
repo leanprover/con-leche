@@ -54,6 +54,9 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #608: `ReachFrom.lean`'s statements reach `Roots.Trims` by dot-notation (`a.Trims L`).
+    # Measured by demoting it alone (invalid field `Trims`, `ReachFrom.lean:163`).
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.Olean.Roots'),
     # task #607: `Verify/Frontend/Olean/Local.lean`'s statements name `modDir`/`modFile`, `FS`,
     # `ModelIO`, `Roots` and `readOleansAt` through this.  Measured by demoting it alone (unknown
     # identifier `Frontend.Olean.modDir`, `Local.lean:34`; `FS`, `:38`).

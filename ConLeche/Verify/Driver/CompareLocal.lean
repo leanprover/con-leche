@@ -3,7 +3,6 @@ module
 public import ConLeche.Verify.Driver.CompareModule
 public import ConLeche.Verify.Frontend.Olean.Local
 public import ConLeche.Verify.Driver.Graph
-import ConLeche.Verify.Driver.Shared
 
 /-!
 # The challenge's side of a compared modular run is local to the trusted directories (task #608)

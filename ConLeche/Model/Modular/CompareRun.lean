@@ -1,10 +1,8 @@
 module
 
-public import ConLeche.Model.Copies
 public import ConLeche.Verify.Driver.ComposeCompare
 import ConLeche.Model.Modular.Main
 public import ConLeche.Model.Modular.Compare
-public import ConLeche.Model.Modular.Instance
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Routes
 

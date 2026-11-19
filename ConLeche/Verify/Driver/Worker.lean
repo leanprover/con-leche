@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Driver.Worker
+import ConLeche.Driver.Worker
 public import ConLeche.Driver.CompareModule
 public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.EnvWF

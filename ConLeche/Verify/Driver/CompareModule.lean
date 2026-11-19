@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Driver.Worker
-import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Olean.Emit
 import ConLeche.Verify.Frontend.Olean.Group
 

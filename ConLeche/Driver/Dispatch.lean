@@ -2,8 +2,7 @@ module
 
 public import ConLeche.Driver.Modular
 public import ConLeche.Driver.Schedule
-public import ConLeche.Driver.Compare
-public import ConLeche.Driver.CompareModule
+import ConLeche.Driver.Compare
 
 /-!
 # What a run does, by its request, generic in the IO class (task #424)
