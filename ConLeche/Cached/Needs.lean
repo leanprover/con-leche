@@ -98,10 +98,6 @@ def NeedsSt.const (x : NeedsSt) (ci : ConstantInfo) : NeedsSt :=
 def NeedsSt.table (x : NeedsSt) (t : ProjTable) : NeedsSt :=
   t.bodies.toList.foldl NeedsSt.expr (x.names [t.structName, t.ctor])
 
-/-- **What a record reads**: its constants' laws' names and its tables', each expression's
-DAG walked once (`RecordScoped`'s names, `recordReads_scoped`). -/
-def recordReads (d : Declaration) : Array Name :=
-  ((declTables d).foldl NeedsSt.table ((declConstants d).foldl NeedsSt.const ({}, #[]))).2
 
 
 end ConLeche.Cached

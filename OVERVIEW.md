@@ -182,7 +182,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L122-L128):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L123-L129):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins`, every maximum `Nat` size `maxNatSize`
@@ -220,7 +220,7 @@ where its body denotes a truth value at every value of its domain, a
 `λ` the graph of its body, or the proof point where its body denotes
 the proof point at every value of its domain, a projection a component
 of a pair chain. A model is
-[`IsModel` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L312-L313):
+[`IsModel` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L309-L310):
 every record of every declaration of `ds` holds (`Satisfies`). So every
 theorem the stream proves is true in the model. A definition is what
 its value denotes, and a recursor computes by its rules: each rule's
@@ -238,7 +238,7 @@ record whose type is `a = b`, and its membership clause makes that the
 truth value of `⟦a⟧ = ⟦b⟧` with a member.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L145-L152):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L160-L167):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -283,7 +283,7 @@ default mode, which is the verified one, and the default worker count;
 nothing is said about `--help` or the other flags. On a snapshot where
 the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
 `runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L197-L199)).
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L212-L214)).
 This is a theorem about the outcomes of `runArgs` in the model; that a
 run of the binary that exits 0 is one of those outcomes is assumed, not
 proved, and §2 states what the assumption is.
@@ -357,7 +357,7 @@ way.
 
 **Modular checking** has its own theorem, about a development of
 modules rather than one stream,
-[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L238-L245):
+[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L253-L260):
 if every module passes the local checks of `ConLeche/Modular.lean`
 (its interface presents its own records; as an importer, its context
 is made of presented records read as their homes read them, and its
@@ -388,7 +388,7 @@ same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
 
 **A challenge and its solution** have their own theorems, about the comparison
 `--olean --compare` makes (§2).
-[`main_compare_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L388-L410):
+[`main_compare_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L403-L425):
 every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` read
 the challenge `C` through `T` alone and the solution `S` through `T`, then `D`, and in every set
 theory there is a model of the challenge's environment (the records of `C` and what they read,
@@ -414,7 +414,7 @@ trusted files alone: on every snapshot that agrees with the run's under the trus
 the challenge's read gives an environment that has a model with every hole inhabited.
 
 The same question **module by module** has its own theorems.
-[`main_compare_modular_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L548-L556):
+[`main_compare_modular_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L563-L571):
 on a snapshot where `--check-graph --compare -- <c> <s>`, `--olean --module` at every module of
 the headers' closure of `C` and `S` but `C`, and the compare worker `--olean --module --compare
 -- <c> <s>` exit 0, every module of the closure has a model of its own environment, a context name
@@ -447,7 +447,7 @@ declaration whose value uses `sorry`), no run at those arguments exits 0, whatev
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L113-L117)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L115-L119)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -581,9 +581,9 @@ Read from the outside in:
    quotient record as its slot's pin, and every inductive block, the
    pinned basis blocks among them, as the block says: every constant and table read off the block's
    records, nothing generated
-   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L84-L96)).
+   ([function `declConstants` in `ConLeche/Kernel/Install.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L87-L99)).
    What a check pushes is what its record says, at any index and any mode
-   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L698-L699)).
+   ([theorem `checkDeclC_pushes` in `ConLeche/Verify/Cached/DeclPushes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/DeclPushes.lean#L699-L700)).
 
    The driver runs those checks in any order. Before any of them it builds
    one index of the whole stream from the records alone

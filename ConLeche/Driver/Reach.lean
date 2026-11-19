@@ -84,6 +84,16 @@ checked against, as a list of records, and its validation.
 names, and each step pops one or checks the partners' reads recorded so far.
 -/
 
+namespace ConLeche.Cached
+
+/-- **What a record reads**: its constants' laws' names and its tables', each expression's
+DAG walked once (`RecordScoped`'s names, `recordReads_scoped`).  Compiled here, where the record's
+constants and tables run as their cached twins (`Verify/Cached/DeclNames.lean`'s `csimp`). -/
+def recordReads (d : Declaration) : Array Name :=
+  ((declTables d).foldl NeedsSt.table ((declConstants d).foldl NeedsSt.const ({}, #[]))).2
+
+end ConLeche.Cached
+
 namespace ConLeche.Driver
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
