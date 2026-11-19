@@ -245,10 +245,11 @@ theorem recRuleFit_ext (mp : EnvModelM V env) {env' : Env}
     (hfE : env.find? n = some (.recInfo cv mI rP isK rules))
     {rl : RecRule} (hmem : rl ∈ rules) (hF : RecRuleFit mp.base2 φ cv mI rP rl) :
     RecRuleFit m₂ φ cv mI rP rl := by
-  intro us hlen TVa hTVa cvj cnP cnF iT hfcj usj hujl hψ TVja hTVja ρ xs ps mid hxl hxw hmid
-    hpw hps
   obtain ⟨cvj', cnP', cnF', iT', hst⟩ :=
     mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
+  refine ⟨fun cvj cnP cnF iT hfcj => hF.1 cvj cnP cnF iT (hx.back (by rw [hst]; rfl) hfcj), ?_⟩
+  intro us hlen TVa hTVa cvj cnP cnF iT hfcj usj hujl hψ TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
   have hfcjE : env.find? (RecRule.ctor rl)
       = some (.ctorInfo cvj cnP cnF iT) := hx.back (by rw [hst]; rfl) hfcj
   obtain ⟨TVa', hTVa', -, -⟩ := mp.constType 0 n _ us hfE (by exact hlen)
@@ -277,7 +278,7 @@ theorem recRuleFit_ext (mp : EnvModelM V env) {env' : Env}
         rw [ConLeche.Expr.constsResolve_instantiateLevelParams]
         exact hpinCR)) 0 rP) hvpa⟩) id hps
   rw [hx.leafOf hst]
-  exact hF us hlen TVa' hTVa' cvj cnP cnF iT hfcjE usj hujl hψ TVja' hTVja' ρ xs ps mid hxl hxw
+  exact hF.2 us hlen TVa' hTVa' cvj cnP cnF iT hfcjE usj hujl hψ TVja' hTVja' ρ xs ps mid hxl hxw
     hmid hpw hps'
 
 /-- **The fired iota contract survives a fresh cons that is

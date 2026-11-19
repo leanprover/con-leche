@@ -934,6 +934,7 @@ theorem eqRecFit {m : EnvModel V env}
     (hac : m₂.acval = acvalWith m.acval eqRecA.name eqRecValT)
     (φ : Name → Nat) :
     RecRuleFit m₂ φ eqRecA.toConstantVal 5 4 eqRecRule := by
+  refine ⟨RecRuleLevels.of_plain rfl, ?_⟩
   intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
     hpw hps
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,

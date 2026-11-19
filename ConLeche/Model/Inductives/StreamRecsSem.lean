@@ -600,6 +600,7 @@ theorem recRuleFit_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
             interp V ρ restS ∈ˢ (univ (Level.eval φ u) : V))
     (h : RecRuleFit mG φ cvG mI rP rlG) :
     RecRuleFit mS φ { cvG with type := T } mI rP { rlG with rhs := e } := by
+  refine ⟨fun cvj cnP cnF iT hfc => h.1 cvj cnP cnF iT (hctor _ _ _ _ _ hfc), ?_⟩
   intro us hus TVa hTVa cvj cnP cnF iT hfc usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw
     hps
   rw [hac, hde] at hTVa hTVja
@@ -610,7 +611,7 @@ theorem recRuleFit_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
       (rl' := { rlG with rhs := e })
       (fun lvls pins hf => ⟨lvls, pins, hf, fun i vpa hvpa => by rw [hac, hde]; exact hvpa⟩)
       (fun hn => hn) hps
-  obtain ⟨h1, h2⟩ := h us hus TG hTG cvj cnP cnF iT (hctor _ _ _ _ _ hfc) usj hlj hsj TVja hTVja
+  obtain ⟨h1, h2⟩ := h.2 us hus TG hTG cvj cnP cnF iT (hctor _ _ _ _ _ hfc) usj hlj hsj TVja hTVja
     ρ xs ps mid' hxl hxw hmid' hpw hps'
   refine ⟨h1, fun fs is restC hfl hil hfw hiw hfit hpin => ?_⟩
   obtain ⟨restR, hR, hUG⟩ := h2 fs is restC hfl hil hfw hiw hfit hpin

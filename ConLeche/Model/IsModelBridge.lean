@@ -3,6 +3,9 @@ module
 public import ConLeche.Denotes
 public import ConLeche.Model.OfEnvModelM
 public import ConLeche.Verify.IsModelRecords
+public import ConLeche.Verify.Resolves
+import ConLeche.Verify.EnvGuards
+import ConLeche.Verify.InstLevels
 
 public section
 
@@ -115,6 +118,81 @@ theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
     rw [← eval_strLitToConstructor]
     exact ih
 
+/-! ## A resolving term denotes -/
+
+/-- A `Nat` literal denotes, where its constants are stored. -/
+theorem Denotes_natLit {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
+    (hs : natLitSupported env = true) (ρ : BVarIdx → V) :
+    ∀ n, ∃ X, Denotes cval env φ ρ (.lit (.natVal n)) X := by
+  obtain ⟨_, _, cv0, _, _, _, cv1, _, _, _, -, hz, hsu, -, h0, h1, -⟩ := natLitSupported_inv hs
+  intro n
+  induction n with
+  | zero => exact ⟨_, .natLit (.const hz (by show 0 = cv0.levelParams.length; rw [h0]; rfl))⟩
+  | succ n ih =>
+    obtain ⟨X, hX⟩ := ih
+    exact ⟨_, .natLit (.app (.const hsu (by show 0 = cv1.levelParams.length; rw [h1]; rfl)) hX)⟩
+
+/-- A `String` literal denotes, where its constants are stored. -/
+theorem Denotes_strLit {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
+    (hs : strLitSupported env = true) (ρ : BVarIdx → V) (s : String) :
+    ∃ X, Denotes cval env φ ρ (.lit (.strVal s)) X := by
+  obtain ⟨hnat, _, ciO, _, ciN, ciC, ciH, ciF, _, pN, pC,
+    -, hO, -, hN, hC, hH, hF, -, hO0, -, hN1, hC1, hH0, hF0, -⟩ := strLitSupported_inv hs
+  have hNc : Denotes cval env φ ρ (.const listNilName [.zero]) _ :=
+    .const hN (by rw [hN1]; rfl)
+  have hCc : Denotes cval env φ ρ (.const listConsName [.zero]) _ :=
+    .const hC (by rw [hC1]; rfl)
+  have hHc : Denotes cval env φ ρ (.const charName []) _ := .const hH (by rw [hH0]; rfl)
+  have hFc : Denotes cval env φ ρ (.const charOfNatName []) _ := .const hF (by rw [hF0]; rfl)
+  have hOc : Denotes cval env φ ρ (.const stringOfListName []) _ := .const hO (by rw [hO0]; rfl)
+  have hlist : ∀ cs : List Char, ∃ X, Denotes cval env φ ρ
+      (cs.foldr
+        (init := .app (.const listNilName [.zero]) (.const charName []))
+        fun c e =>
+          .app (.app (.app (.const listConsName [.zero]) (.const charName []))
+            (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e) X := by
+    intro cs
+    induction cs with
+    | nil => exact ⟨_, .app hNc hHc⟩
+    | cons c cs ih =>
+      obtain ⟨X, hX⟩ := ih
+      obtain ⟨Y, hY⟩ := Denotes_natLit (cval := cval) (φ := φ) hnat ρ c.toNat
+      exact ⟨_, .app (.app (.app hCc hHc) (.app hFc hY)) hX⟩
+  obtain ⟨X, hX⟩ := hlist s.toList
+  exact ⟨_, .strLit (.app hOc hX)⟩
+
+/-- **A resolving term denotes**, at every variable environment: `Denotes` asks only that its
+parts read (`Expr.Resolves`). -/
+theorem Denotes_of_resolves {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    (φ : LevelParam → Nat) :
+    ∀ (e : Expr) (ρ : BVarIdx → V), e.Resolves env → ∃ v, Denotes cval env φ ρ e v
+  | .bvar _, _, _ => ⟨_, .bvar⟩
+  | .sort _, _, _ => ⟨_, .sort⟩
+  | .fvar _ _, _, h => h.elim
+  | .const _ _, _, ⟨_, hf, hlen⟩ => ⟨_, .const hf hlen⟩
+  | .app f a, ρ, ⟨hf, ha⟩ => by
+    obtain ⟨F, hF⟩ := Denotes_of_resolves φ f ρ hf
+    obtain ⟨X, hX⟩ := Denotes_of_resolves φ a ρ ha
+    exact ⟨_, .app hF hX⟩
+  | .lam ty b, ρ, ⟨hty, hb⟩ => by
+    obtain ⟨A, hA⟩ := Denotes_of_resolves φ ty ρ hty
+    have hB := fun x => Denotes_of_resolves (cval := cval) φ b (push x ρ) hb
+    exact ⟨_, .lam hA (F := fun x => (hB x).choose) fun x _ => (hB x).choose_spec⟩
+  | .forallE ty b, ρ, ⟨hty, hb⟩ => by
+    obtain ⟨A, hA⟩ := Denotes_of_resolves φ ty ρ hty
+    have hB := fun x => Denotes_of_resolves (cval := cval) φ b (push x ρ) hb
+    exact ⟨_, .pi hA (B := fun x => (hB x).choose) fun x _ => (hB x).choose_spec⟩
+  | .letE _ v b, ρ, ⟨hv, hb⟩ => by
+    obtain ⟨Y, hY⟩ := Denotes_of_resolves φ v ρ hv
+    obtain ⟨X, hX⟩ := Denotes_of_resolves φ b (push Y ρ) hb
+    exact ⟨_, .letE hY hX⟩
+  | .proj _ _ e, ρ, ⟨ht, he⟩ => by
+    obtain ⟨entry, hentry⟩ := Option.isSome_iff_exists.mp ht
+    obtain ⟨P, hP⟩ := Denotes_of_resolves φ e ρ he
+    exact ⟨_, .proj_table hentry hP⟩
+  | .lit (.natVal n), ρ, h => Denotes_natLit h ρ n
+  | .lit (.strVal s), ρ, h => Denotes_strLit h ρ s
+
 /-! ## The clauses -/
 
 /-- **Every stored ι equation is read** by `Denotes`, at every level assignment. -/
@@ -176,6 +254,69 @@ theorem isModel_of_model {ds : List Declaration} {env : Env} (M : Model V env)
       rw [eval_of_Denotes hloc hP]
       exact M.rule_eqs e hin _ ρ₀ P hP
     | _ => trivial
+
+theorem ctorLevels_length (rl : RecRule) (lps : List Name) :
+    (rl.ctorLevels lps).length = recFireLevelCount rl lps := by
+  unfold RecRule.ctorLevels recFireLevelCount
+  cases rl.fire <;> simp
+
+/-- **Every stored ι equation is read**, in the model the invariant carries, where `Eq` is
+stored: each equation resolves (`iotaEqAt_resolves`) — the stored types because the invariant
+reads them (`type_reads`), the right-hand side because the rule's law reads it, the nested pins as
+arguments of the recursor type's major, the constructor at the rule's levels by the rule's fit
+(`RecRuleLevels`), `Eq` at one level by its pin. -/
+theorem ruleEqsRead_ofEnvModelM {env : Env} (m : Model.EnvModelM V env)
+    (heq : (env.find? eqName).isSome = true) :
+    RuleEqsRead (Model.Model.ofEnvModelM m).cval env := by
+  intro e he φ ρ
+  refine Denotes_of_resolves φ e ρ ?_
+  have htype : ∀ ci ∈ env.consts, ci.toConstantVal.type.Resolves env := fun ci hci => by
+    obtain ⟨ta, hta⟩ := m.type_reads ci hci (fun _ => 0)
+    obtain ⟨hnf, -, -, hlb, -⟩ := m.base2.wf.consts ci hci
+    exact resolves_of_denote_closed hta hnf hlb
+  -- the recursor and the rule
+  simp only [ruleEqs, List.mem_flatMap] at he
+  obtain ⟨c, -, he⟩ := he
+  split at he
+  rotate_left
+  · exact absurd he List.not_mem_nil
+  rename_i cv mI rP isK rules hf
+  obtain ⟨rl, hrl, hiota⟩ := List.mem_filterMap.mp he
+  unfold iotaEq at hiota
+  simp only [bind, Option.bind_eq_some_iff] at hiota
+  obtain ⟨cj, hcj, hiota⟩ := hiota
+  cases cj with
+  | ctorInfo cvj cnP cnF iT =>
+    have hrecmem := Env.find?_mem hf
+    have hnm : cv.name = c.name := find?_name hf
+    have hfR : env.find? cv.name = some (.recInfo cv mI rP isK rules) := by rw [hnm]; exact hf
+    obtain ⟨-, -, -, -, -, hrec'⟩ := m.base2.wf.consts _ hrecmem
+    obtain ⟨hnf, -, -, hlb, hnest⟩ := hrec' cv mI rP isK rules rfl rl hrl
+    have hcv : cv.type.Resolves env := htype _ hrecmem
+    have hlaw := m.rec_rules φ c.name cv mI rP isK rules hf rl hrl
+    -- the right-hand side, read by the rule's law
+    have hrhs : rl.rhs.Resolves env := by
+      obtain ⟨Ra, hRa, -⟩ := hlaw.2.1 (cv.levelParams.map .param) (by simp)
+      refine (Expr.resolves_instantiateLevelParams _ _ _).mp
+        (resolves_of_denote_closed hRa ?_ ?_)
+      · rw [Expr.hasFvar_instantiateLevelParams]; exact hnf
+      · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hlb
+    -- the nested pins, arguments of the major's domain
+    have hpins : ∀ lvls pins, rl.fire = .nested lvls pins → ∀ p ∈ pins, p.Resolves env := by
+      intro lvls pins hfire p hp
+      obtain ⟨-, -, -, pre, dom, body, D, hstrip, -, hargs, -⟩ := hnest lvls pins hfire
+      obtain ⟨-, hfa⟩ := Expr.resolves_stripPis _ _ hstrip hcv
+      obtain ⟨-, hda⟩ := Expr.resolves_getApp dom hfa.1
+      refine (Expr.resolves_liftLooseBVars (mI - rP) p 0).mp (hda _ ?_)
+      rw [hargs]
+      exact List.mem_append_left _ (List.mem_map_of_mem hp)
+    -- the three constants
+    have hcount := hlaw.2.2.2.1 cvj cnP cnF iT hcj
+    obtain ⟨ciE, hfE⟩ := Option.isSome_iff_exists.mp heq
+    obtain ⟨-, -, hlE⟩ := (m.base2.basis_pinned _ _ hfE (by decide)).1
+    exact iotaEqAt_resolves hcv (htype _ (Env.find?_mem hcj)) hrhs hpins
+      ⟨_, hfR, rfl⟩ ⟨_, hcj, by rw [ctorLevels_length]; exact hcount⟩ ⟨ciE, hfE, hlE.symm⟩ hiota
+  | _ => exact nomatch hiota
 
 /-- **The invariant's model is local in its levels** (`acval_params`). -/
 theorem cvalLocal_ofEnvModelM {env : Env} (m : Model.EnvModelM V env) :

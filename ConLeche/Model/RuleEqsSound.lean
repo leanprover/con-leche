@@ -1348,7 +1348,7 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
         hgetD xs 0 hxW i (by omega)]
       congr 1; omega
   -- the field: its first half, the parameters' fit where the fields fit; its second, the whole fit
-  have hF := hfit φ cv.name cv mI rP isK rules hfR rl hrl (cv.levelParams.map Level.param)
+  have hF := (hfit φ cv.name cv mI rP isK rules hfR rl hrl).2 (cv.levelParams.map Level.param)
     (by simp) TVa hTVa' cvj cnP cnF iT hc (rl.ctorLevels cvj.levelParams) hlenC
     (substFn_ctorLevels φ rl cnP cv.levelParams cvj.levelParams rP) TVja hTVja' σ xsT psT mid
     (by simp [xsT, hxl]) (hbvWD xsT 0 _ rfl) hmid (hbvWD psT rP _ rfl) hRPR
