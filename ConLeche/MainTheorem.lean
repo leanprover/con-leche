@@ -5,7 +5,7 @@ public import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
-import ConLeche.Model.Denotes
+import ConLeche.Model.OfEnvModelM
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse

@@ -10,15 +10,15 @@ meta import ConLeche.Kernel.Basis.Quot
 public section
 
 /-!
-# The recursor rules as propositions (task #610 spike 2)
+# The recursor rules as propositions
 
 `iotaEq` builds a recursor rule's ι equation as a closed `∀ … , @Eq …`
 term.  The `#guard`s pin it on the pinned `Eq.rec` (an indexed family:
 the index comes from `Eq.refl`'s conclusion), `Quot.lift` and `Quot.ind`
 (the quotient eliminators are stored recursors) and a two-constructor
 enumeration.  The theorem at the end is what the equations are for: in
-every model where they hold, the enumeration's constructors denote
-different sets.
+every model (whose `rule_eqs` makes them hold), the enumeration's
+constructors denote different sets.
 -/
 
 namespace ConLeche.IotaEqTest
@@ -287,13 +287,13 @@ theorem den_tEq {env : Env} (M : Model V env)
     (den_app (den_app (den_app (den_app hrec (hb 2)) (hb 1)) (hb 0)) (hc hl hf)))
     (den_app (den_app (den_app hrhs (hb 2)) (hb 1)) (hb 0))))) ρ
 
-/-- **In every model of `inductive T | a | b` with its recursor where the ι
-equations hold, `T.a` and `T.b` denote different sets** (at the level
-assignment `1`, which the constructors, having no level parameters, are
-read at alongside the motive's universe `Type`).  At the motive
+/-- **In every model of `inductive T | a | b` with its recursor, `T.a` and `T.b` denote
+different sets**, at the level assignment `1` (which the constructors,
+having no level parameters, are read at alongside the motive's universe
+`Type`): the ι equations hold by `Model.rule_eqs`.  At the motive
 `fun _ => Prop` and the minors `False` (`∅`) and `True` (`{pt}`), the two
 rule equations make `T.rec` send `T.a` to `∅` and `T.b` to `{pt}`. -/
-theorem T_a_ne_T_b {env : Env} (M : Model V env) (hrules : RuleEqsHold M.cval env)
+theorem T_a_ne_T_b {env : Env} (M : Model V env)
     (hT : env.find? tN = some (.indInfo ⟨tN, [], srt (.succ .zero)⟩ {}))
     (hTa : env.find? taN = some (.ctorInfo taCV 0 0 tN))
     (hTb : env.find? tbN = some (.ctorInfo tbCV 0 0 tN))
@@ -340,7 +340,7 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env) (hrules : RuleEqsHold M.cval en
       simp only [ConstantInfo.name, ConstantInfo.toConstantVal, trecCV]
       rw [hR]
       exact List.mem_filterMap.mpr ⟨rl, hrl, he⟩
-    obtain ⟨x, hx⟩ := hrules _ hmem one ρ P hP
+    obtain ⟨x, hx⟩ := M.rule_eqs _ hmem one ρ P hP
     obtain ⟨Y, hY, hy⟩ := tele_app M hT hTa hTb hP hx
     obtain ⟨F, R, rfl, hF, hR'⟩ := Denotes_app_inv hY
     obtain ⟨F', L, rfl, hF', hL⟩ := Denotes_app_inv hF

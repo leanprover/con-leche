@@ -13,8 +13,8 @@ public import ConLeche.SetTheory.Derive.Sigma
 This module is the *statement* half of the main theorem: it says what it
 means for the environment the checker builds to have a model in a set
 theory `V`.  It is written to be read top to bottom in one sitting —
-three one-line helpers, the relation `Denotes`, the structure `Model` —
-and it imports nothing from the proof tiers.  The theorem itself is
+three one-line helpers, the relation `Denotes`, the recursors' rules as
+propositions (`ruleEqs`), the structure `Model` — and it imports nothing from the proof tiers.  The theorem itself is
 stated in `ConLeche/Challenge.lean` (with `sorry`) and proved in
 `ConLeche/MainTheorem.lean`.
 
@@ -216,77 +216,7 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
     cases hw with
     | strLit h' => exact ih h'
 
-/-- **A model of the environment `env` in the set theory `V`**: one
-assignment `cval` of a set to every constant at every level
-assignment — fixed once, for the whole environment — under which every
-stored constant is a member of what its type denotes, the built-in
-`False` is the empty set, and the built-in `Eq` is set equality.
-
-The interpretation of the constants *is* the model: there is nothing
-else to choose (`Sort`, `∀`, `λ`, application and projection are read
-by fixed set operations).  `mem` is what makes every stored theorem
-true — a theorem `t : P` is a constant whose type `P` denotes a truth
-value, and `cval t φ ∈ˢ ⟦P⟧` says that truth value is `{pt}` — and
-`false_empty` is what makes truth mean something: a proof of `False`
-would be a member of `∅`.
-
-`False` and `Eq` are both built in (the checker installs them from its
-own pins and rejects a stream that declares them otherwise), so the
-last two fields are facts about the checker's own constants, not
-hypotheses about the input; each is stated of whatever the stored
-constant denotes, so it says nothing when nothing is stored.
-
-A model is also a model in the logician's sense for definitions:
-`defn_eq` makes every stored definition's defining equation hold, read
-off the environment's own data, so that a definition hidden behind an
-import still means its value.  Any other definitional equality a reader
-cares about can be stated as a theorem `h : a = b` proved by `rfl`;
-`mem` puts `cval h φ` in what `Eq A a b` denotes, which by
-`eq_equality` is `eqv ⟦a⟧ ⟦b⟧`, inhabited only when `⟦a⟧ = ⟦b⟧`
-(`SetTheory.eq_of_mem_eqv`).  The recursors' rules, stated as
-propositions (`RuleEqsHold` below), are task #610's next field. -/
-structure Model (V : Type w) [SetTheory V] (env : Env) where
-  /-- the set a constant denotes, per level assignment -/
-  cval : Name → (LevelParam → Nat) → V
-  /-- every stored constant is a member of what its type denotes, at
-  every level assignment (and every variable environment — the type
-  is closed) -/
-  mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-    ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-  /-- whatever the built-in `False` denotes is the empty set -/
-  false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-    Denotes cval env φ ρ (.const falseName []) F → F = empty
-  /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-  of the universe the level `u` names, and two of its members `a` and
-  `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-  membership premises are the graph's domains — `Eq`'s denotation is a
-  three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-  over `A` again, and a graph read off its domain says nothing -/
-  eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-    Denotes cval env φ ρ (.const eqName [u]) E →
-    A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-    app (app (app E A) a) b = eqv a b
-  /-- **a stored definition means its value**: at every level
-  assignment, the value denotes what the constant does.  The value is
-  read at the definition's own level parameters (an instance `c.{us}`
-  is the same equation at the assignment `us` induces).  Definitions
-  only: a theorem is stored by its statement (its record carries no
-  value), and an opaque constant's value is never unfolded, so it stays
-  free -/
-  defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
-    ConstantInfo.defnInfo cv value hint ∈ env.consts →
-    ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
-
-/-- **A stored definition's value fixes the constant**: in every model,
-whatever the value denotes is what the constant denotes. -/
-theorem Model.cval_of_defn {V : Type w} [SetTheory V] {env : Env} (M : Model V env)
-    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
-    (h : ConstantInfo.defnInfo cv value hint ∈ env.consts)
-    {φ : LevelParam → Nat} {ρ : BVarIdx → V} {X : V}
-    (hX : Denotes M.cval env φ ρ value X) : M.cval cv.name φ = X :=
-  Denotes_functional (M.defn_eq cv value hint h φ ρ) hX
-
-/-! ### The recursor rules as propositions (task #610 spike 2: stated, not yet a `Model` field) -/
+/-! ### The recursor rules as propositions -/
 
 /-- The levels a recursor rule's constructor is used at, over the
 recursor's own level parameters: the rule's recorded levels where it
@@ -377,5 +307,84 @@ its level parameters are the recursor's). -/
 def RuleEqsHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
   ∀ e ∈ ruleEqs env, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (P : V),
     Denotes cval env φ ρ e P → ∃ x, x ∈ˢ P
+
+/-- **A model of the environment `env` in the set theory `V`**: one
+assignment `cval` of a set to every constant at every level
+assignment — fixed once, for the whole environment — under which every
+stored constant is a member of what its type denotes, the built-in
+`False` is the empty set, the built-in `Eq` is set equality, every
+stored definition means its value and every recursor rule holds.
+
+The interpretation of the constants *is* the model: there is nothing
+else to choose (`Sort`, `∀`, `λ`, application and projection are read
+by fixed set operations).  `mem` is what makes every stored theorem
+true — a theorem `t : P` is a constant whose type `P` denotes a truth
+value, and `cval t φ ∈ˢ ⟦P⟧` says that truth value is `{pt}` — and
+`false_empty` is what makes truth mean something: a proof of `False`
+would be a member of `∅`.
+
+`False` and `Eq` are both built in (the checker installs them from its
+own pins and rejects a stream that declares them otherwise), so the
+last two fields are facts about the checker's own constants, not
+hypotheses about the input; each is stated of whatever the stored
+constant denotes, so it says nothing when nothing is stored.
+
+A model is also a model in the logician's sense for definitions:
+`defn_eq` makes every stored definition's defining equation hold, read
+off the environment's own data, so that a definition hidden behind an
+import still means its value.  Any other definitional equality a reader
+cares about can be stated as a theorem `h : a = b` proved by `rfl`;
+`mem` puts `cval h φ` in what `Eq A a b` denotes, which by
+`eq_equality` is `eqv ⟦a⟧ ⟦b⟧`, inhabited only when `⟦a⟧ = ⟦b⟧`
+(`SetTheory.eq_of_mem_eqv`).
+
+The recursors are free constants in this reading too, but their rules
+are not: `rule_eqs` makes every stored recursor rule's ι equation
+(`iotaEq` above, an `Eq` between the recursor applied to a constructor
+and the rule's right-hand side) hold, so that a recursor hidden behind
+an import still computes as its rules say. -/
+structure Model (V : Type w) [SetTheory V] (env : Env) where
+  /-- the set a constant denotes, per level assignment -/
+  cval : Name → (LevelParam → Nat) → V
+  /-- every stored constant is a member of what its type denotes, at
+  every level assignment (and every variable environment — the type
+  is closed) -/
+  mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+    ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
+  /-- whatever the built-in `False` denotes is the empty set -/
+  false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
+    Denotes cval env φ ρ (.const falseName []) F → F = empty
+  /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
+  of the universe the level `u` names, and two of its members `a` and
+  `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
+  membership premises are the graph's domains — `Eq`'s denotation is a
+  three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
+  over `A` again, and a graph read off its domain says nothing -/
+  eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+    Denotes cval env φ ρ (.const eqName [u]) E →
+    A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+    app (app (app E A) a) b = eqv a b
+  /-- **a stored definition means its value**: at every level
+  assignment, the value denotes what the constant does.  The value is
+  read at the definition's own level parameters (an instance `c.{us}`
+  is the same equation at the assignment `us` induces).  Definitions
+  only: a theorem is stored by its statement (its record carries no
+  value), and an opaque constant's value is never unfolded, so it stays
+  free -/
+  defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+    ConstantInfo.defnInfo cv value hint ∈ env.consts →
+    ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+  /-- **a recursor computes by its rules**: every stored rule's ι
+  equation denotes an inhabited truth value, at every level assignment -/
+  rule_eqs : RuleEqsHold cval env
+
+/-- **A stored definition's value fixes the constant**: in every model,
+whatever the value denotes is what the constant denotes. -/
+theorem Model.cval_of_defn {V : Type w} [SetTheory V] {env : Env} (M : Model V env)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (h : ConstantInfo.defnInfo cv value hint ∈ env.consts)
+    {φ : LevelParam → Nat} {ρ : BVarIdx → V} {X : V}
+    (hX : Denotes M.cval env φ ρ value X) : M.cval cv.name φ = X :=
+  Denotes_functional (M.defn_eq cv value hint h φ ρ) hX
 
 end ConLeche
