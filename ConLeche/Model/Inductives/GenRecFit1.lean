@@ -15,6 +15,10 @@ public import ConLeche.Model.Inductives.GenClsFrame
 import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Env.BlockLfp
 import ConLeche.Model.Inductives.GenClsSem
+import ConLeche.Model.Inductives.GenRecFit2
+import ConLeche.Model.Inductives.GenRecPreRun
+import ConLeche.Semantics.Tower.TowerKit
+import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.GenClsData
 import ConLeche.Model.Inductives.GenRecParams
 import ConLeche.Model.Inductives.ClassGenRead
@@ -265,9 +269,19 @@ private theorem teleFitPA_move {σ ρ : Nat → V} {T : Term} {as bs : List Term
   rw [hvals] at hX
   exact Rules.teleFitPA_of_teleFit bs (by rw [hl]; exact hpc) hX
 
+/-- Two spines of one length pushing onto one frame alike are one. -/
+theorem consList_inj_of_length {l₁ l₂ : List V} {σ : Nat → V} (hl : l₁.length = l₂.length)
+    (h : consList l₁ σ = consList l₂ σ) : l₁ = l₂ := by
+  refine list_eq_of_getD hl fun q hq => ?_
+  have e := congrFun h (l₁.length - 1 - q)
+  rw [consList_getD_of_lt _ _ _ (by omega), consList_getD_of_lt _ _ _ (by omega),
+    show l₁.length - 1 - (l₁.length - 1 - q) = q by omega,
+    show l₂.length - 1 - (l₁.length - 1 - q) = q by omega] at e
+  exact e
+
 end Move
 
-/-! ## An outside class -/
+/-! ## At a class -/
 
 section Out
 
@@ -292,11 +306,11 @@ theorem stripPis_isSome_of_lfpCtor (hcov : LfpCover mpC []) {j : Nat} {cvI : Con
   exact ConLeche.stripPis_isSome_of_le (Nat.le_add_right _ _) (by rw [hstrip]; rfl)
 
 set_option maxHeartbeats 16000000 in
-/-- **`GenFit1` at an outside class**: the minor premise of the rule's constructor applies the
+/-- **`GenFit1` at a class**, at the class's level valuation and frame: the minor premise of the rule's constructor applies the
 constructor to the class's parameters, an application the stored type's inference infers at the
 rule prefix (it mentions no field), so the parameters' readings fit the constructor's parameter
 binders there (`teleFitPA_of_inferSpine`); `GenPs` reads the rule's parameters as theirs. -/
-theorem genFit1_out
+theorem genFit1_core
     (R : GenRecRun .verified F (ConLeche.mkFEnv env₁) env₁ (ConLeche.mkFEnv envC) pp nestedBit
       pos block out) (hg : ConLeche.ClassGenScoped R.g) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
@@ -314,18 +328,26 @@ theorem genFit1_out
             = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ))
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {ctor : ConstantVal × Nat}
-    (hctor : r.2.2.2[i]? = some ctor) (hMo : (tgtMajor out j).member = none)
+    (hctor : r.2.2.2[i]? = some ctor)
     (hnP : pp.nP ≤ pp.rulePrefixAt j)
-    {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out j cvI) :
-    GenFit1 mpC pp out j i ctor := by
-  intro ψ ψj hlv ρ xs ps mid hxl _ hmid _ hps
+    {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out j cvI)
+    (ψ ψj : Name → Nat)
+    (hlv' : ∀ q ∈ ctor.1.levelParams,
+      ψj q = Level.substFn ψ ctor.1.levelParams (tgtMajor out j).lvls q)
+    (ρ : Nat → V) (xs ps : List Term) (mid : Term)
+    (hxl : xs.length = pp.rulePrefixAt j)
+    (hmid : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ j) xs mid)
+    (hpl : ps.length = (tgtMajor out j).nPc)
+    (hpv : ∀ q, q < (tgtMajor out j).nPc → interp V ρ (ps.getD q default)
+      = interp V (consList (xs.map (interp V ρ)) ρ)
+        ((tgtOutDsa mpC.base2.acval envC pp out ψ j).getD q default)) :
+    ∃ r, TeleFitPA V ρ (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψj) ps r := by
   have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
   have hi : i < blockRecNCt (tgtRs out) j :=
     Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hctor).1 (blockRecNCt_ge hr)
   have hcAM : (tgtMajor out j).ctors[i]? = some ctor := by rw [← tgtRs_ctors hr]; exact hctor
   have hct : tgtCtorOf out j i = ctor := by
     simp [tgtCtorOf, List.getD_eq_getElem?_getD, hcAM]
-  have hmb : (tgtMajor out j).member.isSome = false := by rw [hMo]; rfl
   obtain ⟨-, -, hlpC, -⟩ := Rd.hctor i ctor hcAM
   -- the minor premise, opened at the rule frame
   obtain ⟨cls, s, x, res, ws, ihs, fvs1, o1, xs', rest, hgc, hgx, hms, hxmem, hMaj, hrP, hmp,
@@ -419,11 +441,6 @@ theorem genFit1_out
     have hψj : blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψj
         = blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i
             (Level.substFn ψ ctor.1.levelParams (tgtMajor out j).lvls) := by
-      have hlv' : ∀ q ∈ ctor.1.levelParams,
-          ψj q = Level.substFn ψ ctor.1.levelParams (tgtMajor out j).lvls q := fun q hq => by
-        have := hlv q hq
-        simp only [hmb, Bool.false_eq_true, ite_false] at this
-        exact this
       have h1 := hread ψj
       rw [denote_params_ext mpC.base2 (φ₁ := ψj)
         (φ₂ := Level.substFn ψ ctor.1.levelParams (tgtMajor out j).lvls) hlv' 0 ctor.1.type
@@ -459,11 +476,91 @@ theorem genFit1_out
       (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψj) :=
     Rules.piChain_of_stripPis _ (by rw [hdl2]; exact stripPis_isSome_of_lfpCtor hcov Rd hcAM)
       (hread ψj)
+  exact teleFitPA_move hcl hpc hr0 (by rw [hpl, hdl2]) fun q hq => hpv q (by rw [← hdl2]; exact hq)
+
+set_option maxHeartbeats 4000000 in
+/-- **`GenFit1` at every generated rule**: `genFit1_core`, with the class's level valuation
+read off `GenLv` and the parameters' readings off `GenPs` — the prefix's leading values at a
+member class (the class's frame is the prefix's first `nP` values, `GenClsRd.hfr`), the pins
+read at the prefix at an outside one. -/
+theorem genRecFit1
+    (R : GenRecRun .verified F (ConLeche.mkFEnv env₁) env₁ (ConLeche.mkFEnv envC) pp nestedBit
+      pos block out) (hg : ConLeche.ClassGenScoped R.g) (hcov : LfpCover mpC [])
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        ∃ iT, envC.find? ctor.1.name
+          = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT))
+    (hseam : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        ∃ iT, envC.find? ctor.1.name
+            = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT) ∧
+        ConstsBound envC ctor.1.type ∧
+        ∀ ψ : Name → Nat,
+          denote mpC.base2.acval envC ψ 0 ctor.1.type
+            = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ))
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List Term} (hdR : d = blockDataOf V pp pk uOfD ppsOf)
+    (hrdAll : ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.rulePrefixAt c ∧
+      ∃ cvI, GenClsRd mpC d Dc mc cvc pp out c cvI) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat),
+      r.2.2.2[i]? = some ctor → GenFit1 mpC pp out j i ctor := by
+  intro j r hr i ctor hctor ψ ψj hlvG ρ xs ps mid hxl _ hmid _ hps
+  have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨hnP, cvI, Rd⟩ := hrdAll j hj
+  have hcAM : (tgtMajor out j).ctors[i]? = some ctor := by rw [← tgtRs_ctors hr]; exact hctor
+  obtain ⟨-, -, hlpC, -⟩ := Rd.hctor i ctor hcAM
   obtain ⟨hpl, hpv⟩ := hps
-  refine teleFitPA_move hcl hpc hr0 (by rw [hpl, hdl2]) fun q hq => ?_
-  have := hpv q (by rw [← hdl2]; exact hq)
-  rw [hmb] at this
-  simpa using this
+  have hxV : (xs.map (interp V ρ)).length = tgtRP pp j := by rw [List.length_map, hxl]; rfl
+  have hdl : (tgtOutDsa mpC.base2.acval envC pp out ψ j).length = (tgtMajor out j).nPc := by
+    rw [← DenoteSpine.length_eq (Rd.hdsa ψ), Rd.hnpc]
+  have hfr := Rd.hfr ψ ρ _ hxV
+  unfold keyFrame at hfr
+  rw [show (fun k => consList (xs.map (interp V ρ)) ρ (k + tgtRP pp j)) = ρ by
+    funext k; rw [← hxV]; exact consList_apply_add _ _ _] at hfr
+  cases hmb : (tgtMajor out j).member with
+  | some t =>
+    have hmS : (tgtMajor out j).member.isSome = true := by rw [hmb]; rfl
+    -- the class's parameter count is the block's
+    obtain ⟨-, cls, -, -, -, -, -, -, -, hMj, hgc⟩ := genRun_at R hj
+    have hi' : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hj
+    obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi'
+    have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
+      rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+    rw [hget] at hMj
+    have hm0 : M₀.member = some t := by rw [hMj] at hmb; exact hmb
+    obtain ⟨-, hnPc⟩ := CR.major.member_facts hm0
+    have hnPc' : (tgtMajor out j).nPc = d.nP := by
+      rw [hMj]; subst hdR; exact hnPc
+    simp only [tgtClsFr, hmS, ite_true] at hfr
+    have hdn : d.nP = pp.nP := by subst hdR; rfl
+    have hvals := consList_inj_of_length (by
+      simp only [List.length_take, List.length_map, hdl, hnPc', hxl, hdn]; omega) hfr
+    refine genFit1_core R hg hcov h hfind hseam hr hctor hnP Rd ψ ψj (fun q hq => ?_) ρ xs ps
+      mid hxl hmid hpl fun q hq => ?_
+    · have := hlvG q hq
+      simp only [hmS, ite_true] at this
+      have h2 := congrFun (Rd.hψ ψ) q
+      simp only [tgtClsψ, hmS, ite_true] at h2
+      rw [this, h2, hlpC]
+    · have := hpv q hq
+      simp only [hmS, ite_true] at this
+      have hqd : q < d.nP := by omega
+      have e1 := congrArg (fun l => l.getD q pt) hvals
+      rw [List.getD_eq_getElem?_getD, List.getElem?_take_of_lt hqd, ← List.getD_eq_getElem?_getD,
+        getD_map_interp (by omega), getD_map_interp (by rw [hdl]; omega)] at e1
+      rw [this, e1]
+  | none =>
+    have hmS : (tgtMajor out j).member.isSome = false := by rw [hmb]; rfl
+    refine genFit1_core R hg hcov h hfind hseam hr hctor hnP Rd ψ ψj (fun q hq => ?_) ρ xs ps
+      mid hxl hmid hpl fun q hq => ?_
+    · have := hlvG q hq
+      simp only [hmS, Bool.false_eq_true, ite_false] at this
+      exact this
+    · have := hpv q hq
+      simp only [hmS, Bool.false_eq_true, ite_false] at this
+      exact this
 
 end Out
 
