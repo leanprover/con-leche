@@ -24,6 +24,7 @@ import ConLecheTests.ModularTests
 import ConLecheTests.RefineTests
 import ConLecheTests.LitHashTests
 import ConLecheTests.IotaEqTests
+import ConLecheTests.CompareAttack
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for

@@ -99,9 +99,9 @@ def tMinA : Expr := .app (bv 0) (cnst taN)
 def tMinB : Expr := .app (bv 1) (cnst tbN)
 
 /-- `T.a : T`. -/
-def taCV : ConstantVal := ⟨taN, [], cnst tN⟩
+@[expose] def taCV : ConstantVal := ⟨taN, [], cnst tN⟩
 /-- `T.b : T`. -/
-def tbCV : ConstantVal := ⟨tbN, [], cnst tN⟩
+@[expose] def tbCV : ConstantVal := ⟨tbN, [], cnst tN⟩
 
 /-- `T.rec.{u} : (motive : T → Sort u) → motive T.a → motive T.b → (t : T) → motive t`. -/
 def trecCV : ConstantVal :=
