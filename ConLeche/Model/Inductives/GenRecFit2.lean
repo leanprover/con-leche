@@ -253,4 +253,103 @@ theorem genFit2_core (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
 
 end Core
 
+/-! ## The generated rules -/
+
+section Assembly
+
+variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState}
+  {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
+  {cvc : Nat → ConstantVal}
+
+set_option maxHeartbeats 4000000 in
+/-- **`GenFit2` at every generated rule**: `genFit2_core`, with the class's level valuation
+read off `GenLv` and its frame off `GenPs` — the prefix's leading `nP` values at a member
+class (the block's parameter count, `member_facts`), the pins read at the prefix (the key
+frame) at an outside one. -/
+theorem genRecFit2
+    (R : GenRecRun .verified F (ConLeche.mkFEnv env₁) env₁ (ConLeche.mkFEnv envC) pp nestedBit
+      pos block out)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (hcov : LfpCover mpC [])
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List Term} (hdR : d = blockDataOf V pp pk uOfD ppsOf)
+    (hB : ∀ ψ ρ, GenClsBack pp out mpC d Dc mc cvc ψ ρ)
+    (hrdAll : ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.rulePrefixAt c ∧
+      ∃ cvI, GenClsRd mpC d Dc mc cvc pp out c cvI)
+    (hseam : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        ∃ iT, envC.find? ctor.1.name
+            = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2 iT) ∧
+        ConstsBound envC ctor.1.type ∧
+        ∀ ψ : Name → Nat,
+          denote mpC.base2.acval envC ψ 0 ctor.1.type
+            = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ)) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat),
+      r.2.2.2[i]? = some ctor → GenFit2 mpC pp out j i ctor := by
+  intro j r hr i ctor hctor ψ ψj hlvG ρ xs ps mid hxl _ hmid hpw hps fs is restC hfl hil hfw _
+    hfit hpin
+  have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨hnP, cvI, Rd⟩ := hrdAll j hj
+  obtain ⟨-, -, -, hreadAll⟩ := hseam j r hr i ctor hctor
+  have hcAM : (tgtMajor out j).ctors[i]? = some ctor := by rw [← tgtRs_ctors hr]; exact hctor
+  obtain ⟨hpl, hpv⟩ := hps
+  have hxV : (xs.map (interp V ρ)).length = tgtRP pp j := by rw [List.length_map, hxl]; rfl
+  cases hmb : (tgtMajor out j).member with
+  | some t =>
+    have hmS : (tgtMajor out j).member.isSome = true := by rw [hmb]; rfl
+    -- the class's parameter count is the block's
+    obtain ⟨-, cls, -, -, -, -, -, -, -, hMj, hgc⟩ := genRun_at R hj
+    have hi' : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hj
+    obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi'
+    have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
+      rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+    rw [hget] at hMj
+    have hm0 : M₀.member = some t := by rw [hMj] at hmb; exact hmb
+    obtain ⟨-, hnPc⟩ := CR.major.member_facts hm0
+    have hnPc' : (tgtMajor out j).nPc = d.nP := by
+      rw [hMj]; subst hdR; exact hnPc
+    refine genFit2_core h hcov (hB ψ ρ) hr Rd hcAM (fun q hq => ?_) (hreadAll ψj) hxl hmid
+      hpl hpw ?_ hfl hil hfw hfit hpin
+    · have := hlvG q hq
+      simp only [hmS, ite_true] at this
+      simp only [tgtClsψ, hmS, ite_true]
+      exact this
+    · simp only [tgtClsFr, hmS, ite_true]
+      congr 1
+      have hle : d.nP ≤ xs.length := by
+        rw [hxl, ← hnPc']
+        have hdn : d.nP = pp.nP := by subst hdR; rfl
+        rw [hnPc', hdn]; exact hnP
+      refine list_eq_of_getD (by simp [hpl, hnPc']; omega) fun q hq => ?_
+      have hq' : q < d.nP := by simp at hq; omega
+      have := hpv q (by rw [hnPc']; exact hq')
+      simp only [hmS, ite_true] at this
+      rw [List.getD_eq_getElem?_getD, List.getElem?_take_of_lt hq', ← List.getD_eq_getElem?_getD,
+        getD_map_interp (by omega), getD_map_interp (by rw [hpl, hnPc']; exact hq'), this]
+  | none =>
+    have hmS : (tgtMajor out j).member.isSome = false := by rw [hmb]; rfl
+    refine genFit2_core h hcov (hB ψ ρ) hr Rd hcAM (fun q hq => ?_) (hreadAll ψj) hxl hmid
+      hpl hpw ?_ hfl hil hfw hfit hpin
+    · have := hlvG q hq
+      simp only [hmS, Bool.false_eq_true, ite_false] at this
+      obtain ⟨-, -, hlpC, -⟩ := Rd.hctor i ctor hcAM
+      rw [Rd.hψ, this, hlpC]
+    · rw [Rd.hfr ψ ρ _ hxV]
+      unfold keyFrame
+      congr 1
+      · have hdl : (tgtOutDsa mpC.base2.acval envC pp out ψ j).length = (tgtMajor out j).nPc := by
+          rw [← DenoteSpine.length_eq (Rd.hdsa ψ), Rd.hnpc]
+        refine list_eq_of_getD (by simp [hdl, hpl]) fun q hq => ?_
+        rw [List.length_map, hdl] at hq
+        have := hpv q hq
+        simp only [hmS, Bool.false_eq_true, ite_false] at this
+        rw [getD_map_interp (by rw [hdl]; exact hq), getD_map_interp (by rw [hpl]; exact hq),
+          this]
+      · funext k
+        rw [← hxV]
+        exact consList_apply_add _ _ _
+
+end Assembly
+
 end ConLeche.Model
