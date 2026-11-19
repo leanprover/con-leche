@@ -18,6 +18,7 @@ import ConLeche.Model.Capstone
 import ConLeche.Model.Modular.Compare
 public import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Verify.Driver.CompareJsonRun
+import ConLeche.Verify.Cached.JustifyRun
 import ConLeche.Model.Copies
 public import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Routes
@@ -899,5 +900,38 @@ theorem main_compare_modular_trusted (V : Type w) [SetTheory V] {T D c s : Strin
   have := hwf m hin hne
   rw [hl] at this
   exact Driver.WorkerFacts.local hR hag this
+
+/-! ## A challenge and its sidecar, as two lean4export files (task #619)
+
+`--compare -- <c> <s>` checks the solution file `s` in full, then the challenge file `c` with the
+solution's environment as its sidecar: an axiom of the challenge other than the built-in ones, and
+a definition, theorem or opaque constant whose value uses `sorryAx` (read as the axiom of its
+statement), is accepted when the sidecar holds a constant of its name and statement, up to the
+names of its level parameters, everything the statement reads being the same constant in both. -/
+
+open Frontend in
+/-- **A challenge file with a hole of type `False` is never solved.**  On a snapshot where the
+challenge file `c`'s bytes parse to records one of which is a hole (`Cached.justifiable
+(Cached.sideRecord d)`: an axiom other than `propext`, `Classical.choice`, `Quot.sound`, the
+compiler-trust family and `sorryAx`, or a definition, theorem or opaque constant whose value uses
+`sorryAx`) of type `False`, no outcome of `runArgs` at `--compare -- <c> <s>` is an exit 0,
+whatever the file `s` holds: the sidecar would store a constant of type `False`. -/
+theorem main_compare_json_no_False (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    {bC : ByteArray} {rC : ParseResultD} {d : Declaration} {cv : ConstantVal}
+    (hbC : fs.file c = some bC) (hp : parseChunks [bC] = .ok rC) (hd : d ∈ rC.decls)
+    (hh : Cached.justifiable (Cached.sideRecord d) = some cv)
+    (hty : cv.type = .const falseName []) :
+    ¬ ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0 := by
+  rintro ⟨_, _, h⟩
+  obtain ⟨pre, bC', rC', bS, rS, env, -, h2, h3, -, -, hS, hC⟩ :=
+    Driver.runArgs_compare_json_accept h
+  obtain rfl : bC = bC' := Option.some.inj (hbC.symm.trans h2)
+  obtain rfl : rC = rC' := Except.ok.inj (hp.symm.trans h3)
+  have hmem : Cached.sideRecord d ∈
+      (Cached.sideRecords (some (streamEnv (preparePrelude pre rS.decls).toList))
+        (preparePrelude pre rC.decls)).toList :=
+    Array.mem_toList_iff.mpr (Array.mem_map_of_mem (Frontend.mem_preparePrelude (pre := pre) hd))
+  obtain ⟨cS, hcS, hF⟩ := Cached.justified_false hC hmem hh hty
+  exact Cached.no_proof_of_False_cached V hS cS hcS hF
 
 end ConLeche
