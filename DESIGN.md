@@ -122946,3 +122946,71 @@ sides.  Not yet a conjunct of `RecRuleLaw`.
    `RecRulesHold.lean` into `RuleEqsSound.lean` or rename it.
 7. Docs (`Model` docstring, OVERVIEW, whitepaper §7 "The statement over `Denotes`", §6b), the
    gates, the landing on `modular`.  README lines to report: 69 and 73 (see spike 2's record).
+
+## TASK #610 (cont. 2) — the stream swap's fact proved, the demonstration and the dead vocabulary done; the generated block open (2026-11-19, agent/610-model-eqs)
+
+On top of `5b83ce8d5`.  **State: not landed; nothing wired yet; every commit builds; `lake build`
+and `lake test` warning-free at `3625b4478`.**  Items 1, 5 and 6 of the previous record are done;
+2 (the generated block) is surveyed, not started; 3, 4, 7, 8 wait for it.
+
+**Item 1, the stream swap: no tower argument, no generated-side fact.**  The previous record
+planned a set-theoretic argument (equal Π-towers over `Sort u_S` and `Sort u_G`, inhabited along
+the generated motive's binders).  It does not work as planned: nothing ties the stored
+conclusion's head binder (`motiveLevel?`'s `bvar k`) to the generated motive's, and at one
+valuation a graph can be a member of a universe, so `app` chains past or short of the head's
+binder count are not refuted semantically.  What does work is the stored type's OWN inference:
+`recTyCheck` runs `inferType` + `ensureSort` on it, so its opened conclusion (the head's opened
+variable applied) infers to `Sort u_S`, and the claims put the conclusion's reading in
+`univ u_S`.  Proved, `ConLeche/Model/Inductives/StreamRecsSem.lean`:
+* `storedMotive_sort` (line 288): `inferType` of the opened conclusion is `.sort u` for the
+  `u` of `motiveLevel?` (with `endsInSort_of_piResult`, `openPis_dom_endsInSort`);
+* `storedTy_sem` (line 354) gains a conjunct: at every fit of `n` arguments of the stored
+  reading, the residual is in `univ (u.eval φ)` (`sortRow` at the opened body,
+  `teleFitPA_rest_eq` + `interp_instSeq` + `sat_of_tower`);
+* `recRuleFit_stored` (line 631): `RecRuleFit` at the generated recursor gives it at the stored
+  one, given fits both ways (`TEqAt` is symmetric; `TEqAt.fit` for the converse needs a
+  `TEqAt.symm`, not yet written: three lines) and the stored universe clause.  To be called from
+  `recRuleLaw_stored` when the field is wired; in the `htyE` case and the untouched-constant case
+  the hypothesis is `TeleFit.rest_unique` plus a rewrite.
+The inference inversions it needs moved below the stream swap, into `StructFrameKit.lean`
+(`inferTypeCore_mkAppN_endsInSort_len` line 131, `inferTypeCore_forallE_peel` 180,
+`inferTypeCore_openPis_body` 207, `inferTypeCore_pos`); `EndsInSort.instantiate1'` moved to
+`Verify/Inductives/ClassGenSyntax.lean`.
+
+**Item 5 done.**  `T_a_ne_T_b` (`tests/ConLecheTests/IotaEqTests.lean:296`) takes `Eq` stored
+with one level parameter (`hEq`, `hEl`) and builds each rule equation's denotation itself
+(`den_tEq`, line 259, over `den_pi`/`den_lam`/`den_app`); `lake test` builds.
+
+**Item 6 done.**  `RecRulesHold.lean` is gone: its live vocabulary (`Fits`, `teleFit_of_Fits`,
+`substFn_ctorLevels`, `map_interp_bvars`, `skipAt`, `insAt`, …) is §0 of `RuleEqsSound.lean`;
+removed `appList`, `recRule_of_envModelM_ne_pt`, `TeleOk`, `tele_inhabited`, `teleOk_eq`, the
+forward `Denotes_liftLooseBVars`/`Denotes_instantiateLift`/`instantiateLift_eq_self`,
+`TeleFit.transfer`, `denote_inst_self`, the duplicate `piChain_of_teleFit`.  `RuleEqsSound`'s
+`denote_peel` is `denote_peelStrip` (`BlockHoleRead` has a `denote_peel`; the umbrella
+`ConLeche/Model.lean` now imports `RuleEqsSound`).  `ruleEqsHold_of` is at
+`RuleEqsSound.lean:1044`.
+
+**Item 2, the generated block: what the next session needs.**  The obligation is `RecRuleFit` at
+every generated rule, plain and nested, threaded like `BlockRuleRhsOk` (`BlockRecData.lean`)
+into `blockRecRuleLaw_gen` (`BlockRecLaw.lean` §7) and discharged in `genRecStage`
+(`GenRecFinal.lean`).  Three parts:
+* **the universe clause is cheap**: `classRecTyOk` checks the generated type as a constant
+  (`classConstOk`: `inferType` + `ensureSort` at `fe.env`), so `storedMotive_sort` + `sortRow`
+  apply to it as to the stored type, at the pre-install environment, carried by the stage's
+  `hden` (readings agree after the cons);
+* **the parameters' fit (conjunct 1)**: `ps` reads as the prefix's first `cnP` values (plain) or
+  the pins chained over it (nested); the recursor's first `nP` binders and the constructor's
+  parameter binders read alike (`prefixDoms_agree`, `LfpCtorReads`' parameter clause);
+* **the whole fit (conjunct 2)**: two routes.  (a) Through the rule data, as the record said:
+  `genRow_hrule` (`GenRecPre.lean:924`) turns `SpineFit (pdoms ++ fdoms) (xs ++ fs)` into the
+  recursor domains' fit at `xs ++ es ++ [mk]`; missing: our premises → that `SpineFit` (the
+  constructor's field fit at its own parameters → `tgtFdomsAV` at the recursor's frame), `es`'s
+  values = `is` (`IotaIndexPin`'s `cargs` against `tgtEsAV`), `mk`'s value = `C (ps ++ fs)`,
+  and `blockRecRdsAV` ↔ the stored reading's telescope.  (b) Semantically, without the rule
+  data: the major domain is `I params indices` syntactically (`classGenRecTy_spec`), `restC` is
+  `I ps cargs` at the constructor's levels (comparands), so `C (ps ++ fs) ∈ restC` (the
+  constructor's `mem_type` along its fit) is membership in the major domain; each index value is
+  in its domain because `restC` is graded (`AppliesTo` at each application of `I`'s value, a
+  member of `I`'s type tower, whose graph domains are the index domains).  (b) needs the index
+  binders' syntax (`g.binder`) against `I`'s type; it is local to the generated type and does
+  not touch the install's rows.  Estimate either way: 600–1200 lines, nested rules included.
