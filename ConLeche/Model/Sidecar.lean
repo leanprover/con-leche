@@ -35,11 +35,7 @@ variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
 /-- **The input's environment, checked with a sidecar, carries a model.** -/
 theorem sidecar_envModel {dsS ds : Array Declaration} {envS env : Env}
     (hS : checkDecls .verified pins maxNatSize dsS = .ok envS)
-    (hC : checkDecls .verified pins maxNatSize ds (some envS) = .ok env)
-    (hsc : ∀ {J : Sidecar} {pd : Declaration} {p q : Nat × FEnv},
-      declStep .verified pins maxNatSize (some J) p pd = .ok q →
-      p.2 = mkFEnv p.2.env → EnvWF p.2.env → ScopedE p.2.env → ScopedE q.2.env)
-    (hsc0 : ScopedE Env.empty) :
+    (hC : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
     Nonempty (EnvModelM V env) := by
   -- the sidecar's model
   obtain ⟨nS, feS, runS, hfeS⟩ := checkDecls_run .verified hS
@@ -68,8 +64,8 @@ theorem sidecar_envModel {dsS ds : Array Declaration} {envS env : Env}
   have hPLS : ProofLeaves V (renEnv env feS.env) mS.base2.acval := by
     rw [hac]; exact ProofLeaves.copies mS₀ (renEnv_copies hndS) hPLS₀
   obtain ⟨mq, -⟩ := sideFold (JS := JS) (envS := feS.env) (Ef := env) rfl mS hcovS hNS hPLS htS
-    hsc run' hfe (fun pd hpd block nP he b hb b' hb' => by
-      subst he; exact recordMates_spec hpd hb hb') (L := []) rfl rfl List.nodup_nil hsc0
+    run' hfe (fun pd hpd block nP he b hb b' hb' => by
+      subst he; exact recordMates_spec hpd hb hb') (L := []) rfl rfl List.nodup_nil Scoped.empty
     (EnvModelM.empty V) lfpCover_empty (EnvModelOk.empty (V := V)).2 (fun x hx => nomatch hx)
   exact ⟨mq⟩
 
@@ -77,15 +73,11 @@ theorem sidecar_envModel {dsS ds : Array Declaration} {envS env : Env}
 declares them at all, as the prelude's. -/
 theorem sidecar_isModel {dsS ds : Array Declaration} {envS env : Env}
     (hS : checkDecls .verified pins maxNatSize dsS = .ok envS)
-    (hC : checkDecls .verified pins maxNatSize ds (some envS) = .ok env)
-    (hsc : ∀ {J : Sidecar} {pd : Declaration} {p q : Nat × FEnv},
-      declStep .verified pins maxNatSize (some J) p pd = .ok q →
-      p.2 = mkFEnv p.2.env → EnvWF p.2.env → ScopedE p.2.env → ScopedE q.2.env)
-    (hsc0 : ScopedE Env.empty) :
+    (hC : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
     (∃ model, IsModel V model ds.toList) ∧
       (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
       (DeclaresName ds.toList eqName → DeclaresEq ds.toList) := by
-  obtain ⟨m⟩ := sidecar_envModel (V := V) hS hC hsc hsc0
+  obtain ⟨m⟩ := sidecar_envModel (V := V) hS hC
   have hrec := checkDecls_recordsStored hC
   have hstored : ∀ n, DeclaresName ds.toList n → (env.find? n).isSome = true := by
     rintro n ⟨d, hd, c, hc, rfl⟩

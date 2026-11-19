@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Sidecar.Justified
 public import ConLeche.Model.DeclsRun
+public import ConLeche.Model.Modular.Scoped
 import ConLeche.Verify.Cached.JustifyBridge
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.DeclPushes
@@ -31,10 +32,6 @@ open ConLeche.Semantics
 universe w
 
 variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
-
-/-- **Every stored constant's laws read stored names.** -/
-@[expose] def ScopedE (E : Env) : Prop :=
-  ∀ n ci, E.find? n = some ci → EntryScopedP (fun d => (E.find? d).isSome = true) E n ci
 
 /-! ## Records -/
 
@@ -102,16 +99,13 @@ theorem sideFold {JS : Sidecar} {envS Ef : Env} (hJ : JS.idx = mkFEnv envS)
     (mS : EnvModelM V (renEnv Ef envS)) (hcovS : LfpCover mS []) (hNS : NatFacts (renEnv Ef envS))
     (hPLS : ProofLeaves V (renEnv Ef envS) mS.base2.acval)
     (htS : ∀ t ∈ envS.tables, envS.findTable? t.structName = some t ∧
-      ∃ cv caps, envS.find? t.structName = some (.indInfo cv caps))
-    (hsc : ∀ {pd : Declaration} {p q : Nat × FEnv},
-      declStep .verified pins maxNatSize (some JS) p pd = .ok q →
-      p.2 = mkFEnv p.2.env → EnvWF p.2.env → ScopedE p.2.env → ScopedE q.2.env) :
+      ∃ cv caps, envS.find? t.structName = some (.indInfo cv caps)) :
     ∀ {ds : List Declaration} {p q : Nat × FEnv},
       DeclsRun .verified pins maxNatSize (some JS) ds p q → q.2.env = Ef →
       (∀ pd ∈ ds, ∀ block nP, pd = .indDecl block nP → ∀ b ∈ block, ∀ b' ∈ block,
         b'.name ∈ JS.mates.getD b.name #[]) →
       ∀ {L : List Declaration} {E : Env}, E = streamEnv L → p.2 = mkFEnv E → NodupNames E →
-      ScopedE E → ∀ mp : EnvModelM V E, LfpCover mp [] → NatFacts E →
+      Scoped E → ∀ mp : EnvModelM V E, LfpCover mp [] → NatFacts E →
       (∀ x, (E.find? x).isSome = true → Shared JS Ef x → mp.base2.acval x = mS.base2.acval x) →
       ∃ mq : EnvModelM V Ef, LfpCover mq [] := by
   intro ds p q hrun
@@ -125,8 +119,8 @@ theorem sideFold {JS : Sidecar} {envS Ef : Env} (hJ : JS.idx = mkFEnv envS)
     intro hq hmat L E hL hp hnd hscE mp hcov hN hagree
     obtain ⟨fe₁, s₁, rfl, hC⟩ := declStep_ok hstep
     have hpE : p.2.env = E := by rw [hp]; rfl
-    have hscE₁ : ScopedE fe₁.env :=
-      hsc hstep (by rw [hp]; rfl) (hpE ▸ mp.base2.wf) (hpE ▸ hscE)
+    have hscE₁ : Scoped fe₁.env :=
+      declsRun_scoped (.cons hstep (.nil _)) (by rw [hp]; rfl) (hpE ▸ mp.base2.wf) (hpE ▸ hscE)
     rw [hp] at hC
     have hch1 : PushChain E fe₁ :=
       checkRecordC_push .verified (some JS) (PushChain.refl E) pd _ fe₁ s₁ hC
@@ -222,7 +216,7 @@ theorem sideFold {JS : Sidecar} {envS Ef : Env} (hJ : JS.idx = mkFEnv envS)
             ∃ cv caps, fe₁.env.find? t.structName = some (.indInfo cv caps) := by
           rw [hfe₁]; exact fun t ht => stream_tables_mem hnd₁' ht
         obtain ⟨mp', hcov', hN', hold', hnew'⟩ := sharedStep (C := fe₁.env) hJ mp hcov hN mS hcovS
-          hNS hagree hEE₁ hEE₁t hEF hEFt hall hnd₁ hscE hscE₁
+          hNS hagree hEE₁ hEE₁t hEF hEFt hall hnd₁ hscE.entryScopedP hscE₁.entryScopedP
           (fun d cv caps h x hx => by subst hL; exact stream_ctors hnd h x hx)
           (fun d cv caps h x hx => by rw [hfe₁] at h ⊢; exact stream_ctors hnd₁' h x hx)
           htC htE htS

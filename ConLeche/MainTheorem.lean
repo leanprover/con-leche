@@ -28,6 +28,7 @@ import ConLeche.Verify.Driver.CompareLocal
 import ConLeche.Semantics.DeclWF
 import ConLeche.Semantics.IsModelBasis
 import ConLeche.Model.IsModelBridge
+import ConLeche.Model.Sidecar
 
 public section
 
@@ -134,6 +135,20 @@ theorem model_exists (V : Type w) [SetTheory V]
   exact ⟨⟨_, isModel_of_envModelM m hrec⟩,
     fun h => Cached.checkDecls_declaresFalse accepted (hstored _ h),
     fun h => Cached.checkDecls_declaresEq accepted (hstored _ h)⟩
+
+/-- **The main theorem, with a sidecar.**  A stream the checker accepts
+with a sidecar — the environment `envS` of another accepted stream, which
+justifies the stream's own axioms — has a model in every set theory, and
+declares `False` and `Eq`, where it declares them at all, as the
+prelude's (`ConLeche/Model/Sidecar.lean`). -/
+theorem sidecar_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration) (envS env : Env)
+    (sidecar : checkDecls .verified pins maxNatSize dsS = .ok envS)
+    (accepted : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
+    (∃ model, IsModel V model ds.toList) ∧
+      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
+      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) :=
+  Model.Sidecar.sidecar_isModel sidecar accepted
 
 open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`
@@ -933,5 +948,25 @@ theorem main_compare_json_no_False (V : Type w) [SetTheory V] {c s : String} {fs
     Array.mem_toList_iff.mpr (Array.mem_map_of_mem (Frontend.mem_preparePrelude (pre := pre) hd))
   obtain ⟨cS, hcS, hF⟩ := Cached.justified_false hC hmem hh hty
   exact Cached.no_proof_of_False_cached V hS cS hcS hF
+
+open Frontend in
+/-- **The JSON comparison's accept has a model**: an exit 0 of `runArgs` at `--compare -- <c> <s>`
+found the challenge file `c` parsing as one chunk, and the challenge's records prepared with the
+built-in prelude have a model in every set theory, declaring `False` and `Eq`, where they declare
+them at all, as the prelude's: its axioms are justified by the solution file's checked
+environment (`sidecar_model_exists`). -/
+theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    ∃ pre bC rC, builtinPreludeE = .ok pre ∧ fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+      (∃ model, IsModel V model (preparePrelude pre rC.decls).toList) ∧
+      (DeclaresName (preparePrelude pre rC.decls).toList falseName →
+        DeclaresFalse (preparePrelude pre rC.decls).toList) ∧
+      (DeclaresName (preparePrelude pre rC.decls).toList eqName →
+        DeclaresEq (preparePrelude pre rC.decls).toList) := by
+  obtain ⟨_, _, h⟩ := h
+  obtain ⟨pre, bC, rC, bS, rS, env, hpre, hbC, hpC, -, -, hS, hC⟩ :=
+    Driver.runArgs_compare_json_accept h
+  exact ⟨pre, bC, rC, hpre, hbC, hpC,
+    sidecar_model_exists V _ _ _ _ _ _ hS hC⟩
 
 end ConLeche

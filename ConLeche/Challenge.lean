@@ -170,6 +170,20 @@ theorem model_exists (V : Type w) [SetTheory V]
       (DeclaresName ds.toList eqName → DeclaresEq ds.toList) :=
   sorry
 
+/-- **The main theorem, with a sidecar.**  A stream the checker accepts
+with a sidecar — the environment `envS` of another accepted stream, which
+justifies the stream's own axioms — has a model in every set theory, and
+declares `False` and `Eq`, where it declares them at all, as the
+prelude's. -/
+theorem sidecar_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration) (envS env : Env)
+    (sidecar : checkDecls .verified pins maxNatSize dsS = .ok envS)
+    (accepted : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
+    (∃ model, IsModel V model ds.toList) ∧
+      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
+      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) :=
+  sorry
+
 open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`
 in the shape `jsonWithTheoremFalse` describes is rejected. -/
