@@ -4,6 +4,8 @@ public import ConLeche.Model.RecRulesHold
 public import ConLeche.Model.IndTele
 public import ConLeche.Model.IndFrame
 public import ConLeche.Model.IndPointKit
+import ConLeche.Verify.Denote.OpenRevDenote
+import ConLeche.Model.Reading.Levels
 
 public section
 
@@ -833,6 +835,34 @@ theorem interp_instRevChain : ∀ (zs : List Term) (X : Term) (σ : Nat → V),
     funext i
     cases i <;> simp [instE, consN, Semantics.cons]
 
+/-- **A nested rule's pin, read through the reverse opening**: the opened reading at the prefix
+values (reversed onto any environment) is what the pin denotes with the prefix values pushed. -/
+theorem pin_reading_val {acval : Name → (Name → Nat) → Term}
+    (hcl : ∀ n ψ, Term.Closed (acval n ψ)) {env : Env} {φ : Name → Nat} {rP : Nat} {p : Expr}
+    (hnf : p.hasFvar = false) (hb : p.looseBVarsBounded rP = true) {xs : List V}
+    (hxl : xs.length = rP) {ρ : Nat → V} {X : V}
+    (hX : ConLeche.Denotes (cvalOf (V := V) acval) env φ (consN xs ρ) p X) {vpa : Term}
+    (hv : denote acval env φ rP (openRev 0 rP p) = some vpa) (σ : Nat → V) :
+    interp V (consN xs.reverse σ) vpa = X := by
+  have hfb : Expr.fvarsBelow rP (openRev 0 rP p) := by
+    have := openRev_fvarsBelow (d := 0) (e := p)
+      (fvarsBelow_zero_of_not_hasFvar hnf) rP
+    rwa [Nat.zero_add] at this
+  have hlb : (openRev 0 rP p).looseBVarsBounded 0 = true :=
+    openRev_bounded rP 0 (by simpa using hb)
+  have hD := Denotes_of_denote (V := V) hcl rP _ hv hfb hlb (consN xs.reverse σ)
+  rw [openRev_eq_instantiateLift, closeN_instantiateLift_fvars rP p 0 hnf] at hD
+  have hYl : ((List.range rP).map fun j => consN xs.reverse σ (rP - 1 - j)).length
+      = (revBVarList rP).length := by simp [revBVarList]
+  have hD' := Denotes_instantiateLift_inv (σ := consN xs.reverse σ) hYl
+    (fun j hj => by simp only [revBVarList, List.getElem_map, List.getElem_range]; exact .bvar)
+    p (d := 0) (fun i => rfl) hD
+  refine ConLeche.Denotes_functional (Denotes_congr_below hD' hb fun i hi => ?_) hX
+  simp only [insAt, Nat.not_lt_zero, ↓reduceIte, Nat.sub_zero, List.length_map,
+    List.length_range, hi, ↓reduceDIte, List.getElem_map, List.getElem_range]
+  rw [consN_lt _ _ (by simp [hxl]; omega), consN_lt _ _ (by omega), List.getElem_reverse]
+  congr 1; simp [hxl]; omega
+
 /-! ## 7. The equations hold -/
 
 theorem Denotes_bvar_inv {cval : Name → (Name → Nat) → V} {env : Env} {φ : Name → Nat}
@@ -963,6 +993,7 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
       List.getElem_append_right (by simp [hxl, hIl])] at hD
     simpa [hxBl, hidx, hxl, hIl] using hD
   clear hXs
+  have hMajD0 := hMajD
   -- the major's values: the constructor at its levels, the parameters, the fields
   rw [← hmaj] at hMajD
   obtain ⟨Cv, Ms, hCv, hMl, hMs, rfl⟩ := Denotes_mkAppN_inv _ hMajD
@@ -1015,6 +1046,92 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
       congr 1; rw [hfl, hxl]; omega
   subst hRs'
   clear hRs hRl
+  -- the constructor's value
+  cases hCv with
+  | const hfC hlenC =>
+  rw [hc] at hfC
+  cases hfC
+  simp only [ConstantInfo.toConstantVal] at hlenC
+  generalize hψc : Level.substFn φ cvj.levelParams (rl.ctorLevels cvj.levelParams) = ψc at *
+  -- the records' readings
+  have hmemR := ConLeche.Env.find?_mem hfR
+  have hmemC := ConLeche.Env.find?_mem hc
+  have hwfR := m.base2.wf.consts _ hmemR
+  have hwfC := m.base2.wf.consts _ hmemC
+  have hnfR : cv.type.hasFvar = false := hwfR.1
+  have hlbR : cv.type.looseBVarsBounded 0 = true := hwfR.2.2.2.1
+  have hwfC1 : cvj.type.hasFvar = false := hwfC.1
+  have hwfC4 : cvj.type.looseBVarsBounded 0 = true := hwfC.2.2.2.1
+  have hnfC : (cvj.type.instantiateLevelParams cvj.levelParams
+      (rl.ctorLevels cvj.levelParams)).hasFvar = false := by
+    simpa [Expr.hasFvar_instantiateLevelParams] using hwfC1
+  have hlbC : (cvj.type.instantiateLevelParams cvj.levelParams
+      (rl.ctorLevels cvj.levelParams)).looseBVarsBounded 0 = true := by
+    simpa [Expr.looseBVarsBounded_instantiateLevelParams] using hwfC4
+  obtain ⟨TVa, hTVa⟩ := m.type_reads _ hmemR φ
+  obtain ⟨TVja, hTVja⟩ := m.type_reads _ hmemC ψc
+  simp only [ConstantInfo.toConstantVal] at hTVa hTVja
+  have hTVa' : denote m.base2.acval env φ 0
+      (cv.type.instantiateLevelParams cv.levelParams (cv.levelParams.map Level.param))
+        = some TVa := by
+    rw [Expr.instantiateLevelParams_self]; exact hTVa
+  have hTVja' : denote m.base2.acval env φ 0
+      (cvj.type.instantiateLevelParams cvj.levelParams (rl.ctorLevels cvj.levelParams))
+        = some TVja := by
+    rw [denotePInstLevels m.base2 φ, hψc]; exact hTVja
+  have hclA := denote_closed hcl hnfR hlbR hTVa
+  have hclC := denote_closed hcl hnfC hlbC hTVja'
+  -- the environment holding the values, and the variables naming them
+  let W : List V := xs ++ Ps ++ fs ++ Is
+  let σ : Nat → V := fun i => W.getD i pt
+  have hσ : ∀ (o : Nat) (L : List V), (∀ i (h : i < L.length), W[o + i]? = some L[i]) →
+      ∀ i (h : i < L.length), σ (o + i) = L[i] := by
+    intro o L hL i h
+    simp only [σ, List.getD_eq_getElem?_getD, hL i h, Option.getD_some]
+  let xsT : List Term := (List.range xs.length).map fun i => .bvar (0 + i)
+  let psT : List Term := (List.range Ps.length).map fun i => .bvar (rP + i)
+  let fsT : List Term := (List.range fs.length).map fun i => .bvar (rP + cnP + i)
+  let isT : List Term := (List.range Is.length).map fun i => .bvar (rP + cnP + nF + i)
+  have hxsI : xsT.map (interp V σ) = xs := map_interp_bvars σ 0 xs (hσ 0 xs fun i h => by
+    simp only [W, Nat.zero_add, List.append_assoc]
+    rw [List.getElem?_append_left h, List.getElem?_eq_getElem h])
+  have hpsI : psT.map (interp V σ) = Ps := map_interp_bvars σ rP Ps (hσ rP Ps fun i h => by
+    simp only [W, List.append_assoc]
+    rw [List.getElem?_append_right (by omega), hxl, Nat.add_sub_cancel_left,
+      List.getElem?_append_left h, List.getElem?_eq_getElem h])
+  have hfsI : fsT.map (interp V σ) = fs := map_interp_bvars σ (rP + cnP) fs
+    (hσ (rP + cnP) fs fun i h => by
+      simp only [W, List.append_assoc]
+      rw [List.getElem?_append_right (by omega), hxl,
+        List.getElem?_append_right (by omega), hPl,
+        show rP + cnP + i - rP - cnP = i by omega, List.getElem?_append_left h,
+        List.getElem?_eq_getElem h])
+  have hisI : isT.map (interp V σ) = Is := map_interp_bvars σ (rP + cnP + nF) Is
+    (hσ (rP + cnP + nF) Is fun i h => by
+      simp only [W, List.append_assoc]
+      rw [List.getElem?_append_right (by omega), hxl,
+        List.getElem?_append_right (by omega), hPl,
+        List.getElem?_append_right (by omega), hfl,
+        show rP + cnP + nF + i - rP - cnP - nF = i by omega, List.getElem?_eq_getElem h])
+  have hbvWD : ∀ (L : List Term) (o k : Nat), L = (List.range k).map (fun i => Term.bvar (o + i)) →
+      ∀ t ∈ L, WellDenoted V σ t := by
+    intro L o k hL t ht
+    rw [hL] at ht
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp ht
+    simp
+  let majT : Term := Term.mkAppN (m.base2.acval rl.ctor ψc) (psT ++ fsT)
+  have hmajI : interp V σ majT = (Ps ++ fs).foldl app (cvalOf m.base2.acval rl.ctor ψc) := by
+    show interp V σ (Term.mkAppN _ _) = _
+    rw [interp_mkAppN, interp_cvalOf hcl, ← List.foldl_map, List.map_append, hpsI, hfsI]
+  -- the prefix fits the recursor's reading
+  have hxF : Fits (cvalOf m.base2.acval) env φ ρ (closeN 0 cv.type) xs (consN xs ρ) rest := by
+    rw [Expr.closeN_of_hasFvar _ 0 0 hnfR, hpreEq]; exact hxfit rest
+  obtain ⟨_, hxT⟩ := teleFit_of_Fits hcl xs 0 cv.type hTVa
+    (fvarsBelow_zero_of_not_hasFvar hnfR) hlbR hxF
+  have hxT' := hxT.transfer_rest (σ := σ) hclA fun _ h => absurd h (Nat.not_lt_zero _)
+  rw [← hxsI] at hxT'
+  obtain ⟨mid, hmid⟩ := Rules.teleFitPA_of_teleFit xsT
+    (by simpa using Rules.piChain_of_teleFit hxT') hxT'
   sorry
 
 end ConLeche.Model
