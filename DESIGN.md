@@ -122888,10 +122888,18 @@ sides.  Not yet a conjunct of `RecRuleLaw`.
   `Denotes_functional`.
 * Transports of `RecRuleFit` (each the sibling of the file's `RecRuleExtra`/`RecRuleLaw`
   transport, taking the source's `RecRuleFit` as a premise): `recRuleFit_ag`
-  (`Model/Modular/RestrictRules.lean`, the restriction), `recRuleFit_ext`
-  (`Model/RecRulesCons.lean`, a fresh cons: the `declStep_preserves_of_cons` callers go through
-  `recRules_cons_fresh` → `recRuleLaw_ext`), `recRuleFit_consBlockRecsR_prefix`
-  (`Model/Inductives/BlockRecLaw.lean` §1), `recRuleFit_ren` (`Model/BasisRename.lean`).
+  (`Model/Modular/RestrictRules.lean:134`, the restriction), `recRuleFit_ext`
+  (`Model/RecRulesCons.lean:334`, a fresh cons: the `declStep_preserves_of_cons` callers go
+  through `recRules_cons_fresh` → `recRuleLaw_ext`), `recRuleFit_consBlockRecsR_prefix`
+  (`Model/Inductives/BlockRecLaw.lean:341`, §1), `recRuleFit_ren` (`Model/BasisRename.lean:277`).
+* The basis installs' rows: `eqRecFit` (`Model/BasisEq.lean:1065`), `natRecZeroFit`,
+  `natRecSuccFit` (`Model/BasisBlocks.lean:1470,1510`, over `natRecFit_core` and
+  `natRec_motiveLevel`), `quotIndFit` (`Model/BasisQuot.lean:1113`), `quotLiftFit`
+  (`Model/BasisQuot.lean:2624`).  Pattern: identify the readings as the `RecRuleLaw` row does,
+  read the prefix's memberships off `teleFit_of_teleFitPA`, build the whole telescope's
+  `TeleFit` at the values, convert back with `teleFitPA_of_teleFit`; the motive's level is read
+  off the stored `Expr` by `simp` over the basis DSL (`BasisDSL.*`).
+* `TeleFit.rest_unique` moved to `Model/Env/Laws.lean` (next to `teleFit_nil_inv`).
 
 **Next, in order.**
 1. **The stream swap** (`recRuleLaw_stored`, `Model/Inductives/StreamRecsSem.lean:406`, used by
@@ -122912,9 +122920,7 @@ sides.  Not yet a conjunct of `RecRuleLaw`.
    generated recursor the motive's binders are the index and major binders, shifted: a fact to
    state next to the generated install's universe clause).  Estimate 200–300 lines.  This is the
    one place where the field may need help: if the inhabitation fact cannot be had, report.
-2. **The installs** (producers): `Eq.rec` (`Model/BasisEq.lean:936`, next to its `RecRuleLaw`
-   row), `Nat.rec`'s two rules (`Model/BasisBlocks.lean:1099,1159`), `Quot.lift`/`Quot.ind`
-   (`Model/BasisQuot.lean`), the generated block's plain and nested rules
+2. **The generated block** (the basis rows are done): its plain and nested rules
    (`blockRecRuleLaw_gen`, `BlockRecLaw.lean` §7, fed from `GenRecRules`/`GenRecFinal`): the
    forward fit is `genRow_hrule` (`GenRecPre.lean:924`) at the rule data, the missing link is
    the stored records' syntax → rule data in this direction (the constructor's parameter fit at
