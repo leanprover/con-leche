@@ -124314,6 +124314,24 @@ its union over `InClosure`), and for `--olean --modular`/`--check-graph`: every 
 `HdrClosure` has a model of `ViewRecords` of itself, agreeing with the home's model
 (`Run.homeIn`) on every context name.  The agreement is over the worker's context (a reader
 table); a spec reading of "read from" (`RecordFrom`, `Driver/ReachFrom.lean`) is the candidate.
+
+**Open spec question (for the maintainer) — the olean-level agreement.**  "Whenever a module
+imports a name via another module, the models interpret it identically" has three readings, and
+only the first is what the checks give as they stand:
+(a) over what the module READ: for every name of `M`'s context (the worker's reach), `model M`
+    and the model of the module the context record was read from agree.  Provable; but "the
+    context" and "read from" are reader tables (`WorkerRead.reach`, `Run.homeIn`), or at best
+    `RecordFrom` over the reach;
+(b) over the views: for every name a record of `M`'s view mentions and `M`'s view does not store,
+    and every module `M'` of `M`'s import closure whose view stores it, `model M n = model M' n`.
+    Spec-only, but false as stated where two modules store the name (Lean's rule admits two
+    proofs of one statement, and the reach reads one of them): the models then agree only up to
+    proof irrelevance (both are proofs, `Agree.proof`/`.thm`), not as sets unless the statement
+    is a proposition evaluated to the same truth value — which needs a separate argument;
+(c) as (b), restricted to the copy `M` reads (the first module of the order storing it): spec-only
+    again, but "first in the order" is Lean's `finalizeImport`, a merge rule the spec otherwise
+    avoids.
+The lane stopped here rather than pick one.
 Not done: docs (OVERVIEW §theorems, whitepaper §7), axiom pins for `main_oleans`, gates, landing.
 The internal `Model`'s `false_empty`/`eq_equality`: after this lane still read by
 `main_compare_json_no_False` (MainTheorem) and the tests `CompareAttack`/`IotaEqTests` — all on
