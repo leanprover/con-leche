@@ -430,15 +430,6 @@ theorem genIhEntry_read {acval : Name → (Name → Nat) → Term} {env : Env}
 
 /-! ## `GenPreSem.minor` -/
 
-omit [SetTheory V] in
-theorem EndsInSort.instantiate1' {u : Level} {v : Expr} :
-    ∀ (m : Nat) {e : Expr} (k : Nat), ConLeche.EndsInSort m u e →
-      ConLeche.EndsInSort m u (e.instantiate1 v k)
-  | 0, e, k, h => by
-    simp only [ConLeche.EndsInSort] at h ⊢
-    subst h; rfl
-  | m + 1, .forallE A b, k, h => EndsInSort.instantiate1' m (k + 1) h
-
 /-- **A full application of a member of a Π-tower ending in `Sort 0` is
 a truth value, once it is a type** ("not pt" source (1): the caller's
 grading).  On the domains it is a member of `Sort 0`; off them a graph

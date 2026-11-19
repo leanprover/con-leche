@@ -394,4 +394,4 @@ $TreeRec1$ the major is a constructor of `List` applied; the
 recursor's fit puts its value in the class at the recursor's
 parameters, and `List`'s fixed-point equation there identifies the
 constructor and the fields with the rule's
-(#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 872, 878)[the graph's equation, lifted to the law]).
+(#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 935, 941)[the graph's equation, lifted to the law]).

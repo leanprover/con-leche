@@ -274,10 +274,35 @@ theorem recRuleExtra_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
       intro hpt i hi vpa hvpa
       exact hB lvls pins ((r.hfire lvls pins).mpr hfire) hpt i hi vpa (by rw [r.hde]; exact hvpa)
 
+theorem recRuleFit_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
+    (hF : RecRuleFit m φ cv mI rP rl) : RecRuleFit m' φ cv' mI rP rl' := by
+  intro us hus TVa hTVa cvj' cnP cnF iT hfc usj hlj' hsj TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
+  have hus0 : us.length = cv.levelParams.length := hus.trans r.hlen
+  rw [r.hde, r.hty us hus0] at hTVa
+  rw [r.hctor] at hfc
+  obtain ⟨cvj, hfcj, hlj, htj, hlfj, -, hcmp, hsub, -⟩ := r.hcj cvj' cnP cnF iT hfc
+  have hlj0 : usj.length = cvj.levelParams.length := hlj'.trans hlj
+  rw [r.hde, htj usj hlj0] at hTVja
+  have hsj' := (hsub us hus0 usj hlj0).mp (by rw [← hcmp us hus0]; exact hsj)
+  have hps' : RuleParamsRead m φ cv rP cnP us rl ρ xs ps :=
+    RuleParamsRead.transport (fun lvls pins hf => ⟨lvls, pins, (r.hfire lvls pins).mpr hf,
+      fun i vpa hvpa => by rw [r.hde, r.hnest lvls pins hf]; exact hvpa⟩)
+      (fun hn lvls pins h => hn lvls pins ((r.hfire lvls pins).mp h)) hps
+  obtain ⟨h1, h2⟩ := hF us hus0 TVa hTVa cvj cnP cnF iT hfcj usj hlj0 hsj' TVja hTVja ρ xs ps mid
+    hxl hxw hmid hpw hps'
+  refine ⟨fun fs restF hfl => h1 fs restF (by rw [← r.hnf]; exact hfl),
+    fun fs is restC hfl hil hfw hiw hfit hpin => ?_⟩
+  rw [r.hnf] at hfl
+  obtain ⟨restR, hR, hU⟩ := h2 fs is restC hfl hil hfw hiw hfit hpin
+  refine ⟨restR, by rw [r.hctor, hlfj usj hlj0]; exact hR, fun pre idx rest body u hpre => ?_⟩
+  rw [r.hty us hus0] at hpre
+  exact hU pre idx rest body u hpre
+
 theorem recRuleLaw_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
     (hL : RecRuleLaw m φ n cv mI rP isK rl) : RecRuleLaw m' φ n cv' mI rP isK rl' := by
-  obtain ⟨hle, hmain, hX⟩ := hL
-  refine ⟨hle, fun us hus => ?_, recRuleExtra_ren r hX⟩
+  obtain ⟨hle, hmain, hX, hF⟩ := hL
+  refine ⟨hle, fun us hus => ?_, recRuleExtra_ren r hX, recRuleFit_ren r hF⟩
   have hus0 : us.length = cv.levelParams.length := hus.trans r.hlen
   obtain ⟨Ra, hRa, hok, hpins, hlaw⟩ := hmain us hus0
   refine ⟨Ra, by rw [r.hde, r.hrhs us hus0]; exact hRa, hok, fun lvls pins hfire i hi => ?_,

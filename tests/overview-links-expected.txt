@@ -26,28 +26,41 @@
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
    124      (BVarIdx → V) → Expr → V → Prop
 
-== ConLeche/Denotes.lean#L248-L268
-   248  structure Model (V : Type w) [SetTheory V] (env : Env) where
-   249    /-- the set a constant denotes, per level assignment -/
-   250    cval : Name → (LevelParam → Nat) → V
-   251    /-- every stored constant is a member of what its type denotes, at
-   252    every level assignment (and every variable environment — the type
-   253    is closed) -/
-   254    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-   255      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-   256    /-- whatever the built-in `False` denotes is the empty set -/
-   257    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-   258      Denotes cval env φ ρ (.const falseName []) F → F = empty
-   259    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-   260    of the universe the level `u` names, and two of its members `a` and
-   261    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-   262    membership premises are the graph's domains — `Eq`'s denotation is a
-   263    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-   264    over `A` again, and a graph read off its domain says nothing -/
-   265    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-   266      Denotes cval env φ ρ (.const eqName [u]) E →
-   267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-   268      app (app (app E A) a) b = eqv a b
+== ConLeche/Denotes.lean#L346-L379
+   346  structure Model (V : Type w) [SetTheory V] (env : Env) where
+   347    /-- the set a constant denotes, per level assignment -/
+   348    cval : Name → (LevelParam → Nat) → V
+   349    /-- every stored constant is a member of what its type denotes, at
+   350    every level assignment (and every variable environment — the type
+   351    is closed) -/
+   352    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+   353      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
+   354    /-- whatever the built-in `False` denotes is the empty set -/
+   355    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
+   356      Denotes cval env φ ρ (.const falseName []) F → F = empty
+   357    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
+   358    of the universe the level `u` names, and two of its members `a` and
+   359    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
+   360    membership premises are the graph's domains — `Eq`'s denotation is a
+   361    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
+   362    over `A` again, and a graph read off its domain says nothing -/
+   363    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+   364      Denotes cval env φ ρ (.const eqName [u]) E →
+   365      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+   366      app (app (app E A) a) b = eqv a b
+   367    /-- **a stored definition means its value**: at every level
+   368    assignment, the value denotes what the constant does.  The value is
+   369    read at the definition's own level parameters (an instance `c.{us}`
+   370    is the same equation at the assignment `us` induces).  Definitions
+   371    only: a theorem is stored by its statement (its record carries no
+   372    value), and an opaque constant's value is never unfolded, so it stays
+   373    free -/
+   374    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+   375      ConstantInfo.defnInfo cv value hint ∈ env.consts →
+   376      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+   377    /-- **a recursor computes by its rules**: every stored rule's ι
+   378    equation denotes an inhabited truth value, at every level assignment -/
+   379    rule_eqs : RuleEqsHold cval env
 
 == ConLeche/MainTheorem.lean#L122-L129
    122  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -357,9 +370,9 @@
    142      c hc hty
    143  
 
-== ConLeche/Model/Denotes.lean#L340-L341
-   340  noncomputable def Model.ofEnvModelM {env : Env}
-   341      (m : EnvModelM V env) : ConLeche.Model V env where
+== ConLeche/Model/OfEnvModelM.lean#L65-L66
+    65  noncomputable def Model.ofEnvModelM {env : Env}
+    66      (m : EnvModelM V env) : ConLeche.Model V env where
 
 == tests/layering.sh#L1-L3
      1  #!/usr/bin/env bash
@@ -726,14 +739,14 @@
     62  variable {V}
     63  
 
-== ConLeche/Model/Denotes.lean#L202-L208
-   202  theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
-   203      (hcl : ∀ n ψ, Term.Closed (acval n ψ)) {env : Env} {φ : Name → Nat} :
-   204      ∀ (d : Nat) (e : Expr) {ta : Term},
-   205        denote acval env φ d e = some ta →
-   206        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
-   207        ∀ ρ : Nat → V,
-   208          Denotes (cvalOf (V := V) acval) env φ ρ (closeN d e) (interp V ρ ta) := by
+== ConLeche/Model/Denotes.lean#L194-L200
+   194  theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
+   195      (hcl : ∀ n ψ, Term.Closed (acval n ψ)) {env : Env} {φ : Name → Nat} :
+   196      ∀ (d : Nat) (e : Expr) {ta : Term},
+   197        denote acval env φ d e = some ta →
+   198        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
+   199        ∀ ρ : Nat → V,
+   200          Denotes (cvalOf (V := V) acval) env φ ρ (closeN d e) (interp V ρ ta) := by
 
 == ConLeche/Model/Claims.lean#L49-L125
     49  /-- Head normalisation, dual success, P currency, conditional on the
@@ -1365,28 +1378,41 @@
    128        let ds := preparePrelude pre r.decls
    129        checkDecls .verified pins maxNatSize ds) = .error e := by
 
-== ConLeche/Denotes.lean#L248-L268
-   248  structure Model (V : Type w) [SetTheory V] (env : Env) where
-   249    /-- the set a constant denotes, per level assignment -/
-   250    cval : Name → (LevelParam → Nat) → V
-   251    /-- every stored constant is a member of what its type denotes, at
-   252    every level assignment (and every variable environment — the type
-   253    is closed) -/
-   254    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-   255      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-   256    /-- whatever the built-in `False` denotes is the empty set -/
-   257    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-   258      Denotes cval env φ ρ (.const falseName []) F → F = empty
-   259    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-   260    of the universe the level `u` names, and two of its members `a` and
-   261    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-   262    membership premises are the graph's domains — `Eq`'s denotation is a
-   263    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-   264    over `A` again, and a graph read off its domain says nothing -/
-   265    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-   266      Denotes cval env φ ρ (.const eqName [u]) E →
-   267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-   268      app (app (app E A) a) b = eqv a b
+== ConLeche/Denotes.lean#L346-L379
+   346  structure Model (V : Type w) [SetTheory V] (env : Env) where
+   347    /-- the set a constant denotes, per level assignment -/
+   348    cval : Name → (LevelParam → Nat) → V
+   349    /-- every stored constant is a member of what its type denotes, at
+   350    every level assignment (and every variable environment — the type
+   351    is closed) -/
+   352    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+   353      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
+   354    /-- whatever the built-in `False` denotes is the empty set -/
+   355    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
+   356      Denotes cval env φ ρ (.const falseName []) F → F = empty
+   357    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
+   358    of the universe the level `u` names, and two of its members `a` and
+   359    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
+   360    membership premises are the graph's domains — `Eq`'s denotation is a
+   361    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
+   362    over `A` again, and a graph read off its domain says nothing -/
+   363    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+   364      Denotes cval env φ ρ (.const eqName [u]) E →
+   365      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+   366      app (app (app E A) a) b = eqv a b
+   367    /-- **a stored definition means its value**: at every level
+   368    assignment, the value denotes what the constant does.  The value is
+   369    read at the definition's own level parameters (an instance `c.{us}`
+   370    is the same equation at the assignment `us` induces).  Definitions
+   371    only: a theorem is stored by its statement (its record carries no
+   372    value), and an opaque constant's value is never unfolded, so it stays
+   373    free -/
+   374    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+   375      ConstantInfo.defnInfo cv value hint ∈ env.consts →
+   376      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+   377    /-- **a recursor computes by its rules**: every stored rule's ι
+   378    equation denotes an inhabited truth value, at every level assignment -/
+   379    rule_eqs : RuleEqsHold cval env
 
 == ConLeche/Denotes.lean#L123-L124
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :

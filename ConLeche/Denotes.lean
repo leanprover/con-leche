@@ -13,8 +13,8 @@ public import ConLeche.SetTheory.Derive.Sigma
 This module is the *statement* half of the main theorem: it says what it
 means for the environment the checker builds to have a model in a set
 theory `V`.  It is written to be read top to bottom in one sitting —
-three one-line helpers, the relation `Denotes`, the structure `Model` —
-and it imports nothing from the proof tiers.  The theorem itself is
+three one-line helpers, the relation `Denotes`, the recursors' rules as
+propositions (`ruleEqs`), the structure `Model` — and it imports nothing from the proof tiers.  The theorem itself is
 stated in `ConLeche/Challenge.lean` (with `sorry`) and proved in
 `ConLeche/MainTheorem.lean`.
 
@@ -216,11 +216,104 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
     cases hw with
     | strLit h' => exact ih h'
 
+/-! ### The recursor rules as propositions -/
+
+/-- The levels a recursor rule's constructor is used at, over the
+recursor's own level parameters: the rule's recorded levels where it
+records them (a nested or a quotient rule), else the constructor's
+own parameters, which are the recursor's. -/
+def RecRule.ctorLevels (rl : RecRule) (ctorLps : List Name) : List Level :=
+  match rl.fire with
+  | .nested lvls _ => lvls
+  | .levels lvls => lvls
+  | .plain => ctorLps.map .param
+
+/-- The sort level of a recursor's motive: the motive application `body`
+(under the rule prefix `pre`, the `nIdx` indices and the major) has a
+prefix variable as its head, and that binder's domain ends in `Sort u`. -/
+def motiveLevel? (pre : List Expr) (nIdx : Nat) (body : Expr) : Option Level :=
+  match body.getAppFn with
+  | .bvar k =>
+    if nIdx + 1 ≤ k ∧ k < nIdx + 1 + pre.length then
+      match (pre.getD (pre.length - 1 - (k - (nIdx + 1))) default).piResult with
+      | .sort u => some u
+      | _ => none
+    else none
+  | _ => none
+
+/-- The parameters a recursor rule applies its constructor to, in the rule prefix's context
+(`rP` binders): a nested rule's recorded pins, else the prefix's first `cnP` variables (as many
+as the prefix has: `iotaEq` asks for `cnP` of them). -/
+def RecRule.iotaParams (rl : RecRule) (rP cnP : Nat) : List Expr :=
+  match rl.fire with
+  | .nested _ pins => pins
+  | _ => (List.range (min cnP rP)).map fun i => .bvar (rP - 1 - i)
+
+/-- **A recursor rule's ι equation, as a proposition.**  For the
+recursor `n` (its record `cv`, major position `mI`, rule prefix `rP`)
+and its rule `rl` for the constructor `C`, at the recursor's own level
+parameters:
+
+    ∀ (prefix : the recursor's first rP binders) (fields : C's fields),
+      @Eq.{u} (motive indices (C params fields))
+        (n prefix indices (C params fields)) (rl.rhs prefix fields)
+
+`params` are the constructor's parameters in the prefix context: the
+recursor's leading arguments, or a nested rule's recorded instantiations;
+the field binders are the constructor's, at those parameters; `indices`
+are the arguments of the constructor type's conclusion behind its
+parameters, so they come from the constructor's typing, not from a
+binder.  The equation's type is the recursor type's body at the indices
+and the major, and `u` the sort of the motive it applies.  `none` where
+the records do not have this shape. -/
+def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Nat)
+    (rl : RecRule) : Option Expr := do
+  let .ctorInfo cvj cnP _ _ ← find? rl.ctor | none
+  let nF := rl.nfields
+  let nIdx := mI - rP
+  -- the recursor's telescope: the rule prefix, the indices and the major, the body
+  let (pre, rest) ← cv.type.stripPis rP
+  let (_, body) ← rest.stripPis (nIdx + 1)
+  let u ← motiveLevel? pre nIdx body
+  -- the constructor at the rule's levels, its parameters in the prefix context
+  let lvls := rl.ctorLevels cvj.levelParams
+  let params := rl.iotaParams rP cnP
+  let (_, ctorBody) ← (cvj.type.instantiateLevelParams cvj.levelParams lvls).stripPis cnP
+  let (fieldDoms, concl) ← (ctorBody.instantiateLift params.reverse).stripPis nF
+  let indices := concl.getAppArgs.drop cnP
+  guard (params.length = cnP ∧ rP ≤ mI ∧ indices.length = nIdx)
+  -- under the prefix and the fields
+  let xs := (List.range rP).map fun i => Expr.bvar (rP + nF - 1 - i)
+  let fs := (List.range nF).map fun j => Expr.bvar (nF - 1 - j)
+  let major := Expr.mkAppN (.const rl.ctor lvls) (params.map (·.liftLooseBVars nF 0) ++ fs)
+  let lhs := Expr.mkAppN (.const cv.name (cv.levelParams.map .param)) (xs ++ indices ++ [major])
+  let rhs := Expr.mkAppN rl.rhs (xs ++ fs)
+  let ty := (body.liftLooseBVars nF (nIdx + 1)).instantiateLift (major :: indices.reverse)
+  pure <| (pre ++ fieldDoms).foldr .forallE
+    (.app (.app (.app (.const eqName [u]) ty) lhs) rhs)
+
+/-- **The ι equations of an environment**: every stored recursor rule's
+`iotaEq` (the quotient eliminators' among them: `Quot.lift` and
+`Quot.ind` are stored recursors with one rule each).  A recursor is read
+the way `Denotes` reads a constant, through its name. -/
+def ruleEqs (env : Env) : List Expr :=
+  env.consts.flatMap fun c => match env.find? c.name with
+    | some (.recInfo cv mI rP _ rules) => rules.filterMap (iotaEq env.find? cv mI rP)
+    | _ => []
+
+/-- **The ι equations hold** in `cval`: wherever one denotes, what it
+denotes is inhabited, at every level assignment (the equation is closed;
+its level parameters are the recursor's). -/
+def RuleEqsHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
+  ∀ e ∈ ruleEqs env, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (P : V),
+    Denotes cval env φ ρ e P → ∃ x, x ∈ˢ P
+
 /-- **A model of the environment `env` in the set theory `V`**: one
 assignment `cval` of a set to every constant at every level
 assignment — fixed once, for the whole environment — under which every
 stored constant is a member of what its type denotes, the built-in
-`False` is the empty set, and the built-in `Eq` is set equality.
+`False` is the empty set, the built-in `Eq` is set equality, every
+stored definition means its value and every recursor rule holds.
 
 The interpretation of the constants *is* the model: there is nothing
 else to choose (`Sort`, `∀`, `λ`, application and projection are read
@@ -236,15 +329,20 @@ last two fields are facts about the checker's own constants, not
 hypotheses about the input; each is stated of whatever the stored
 constant denotes, so it says nothing when nothing is stored.
 
-The model says nothing about *definitional* equalities — a
-definition's unfolding, an inductive type's iota rules, η — because it
-does not have to, and `eq_equality` is what discharges that debt: any
-such equality a reader cares about can be stated as a theorem `h : a = b`
-and proved by `rfl`; the checker accepts it; `mem` puts `cval h φ` in
-what `Eq A a b` denotes, which by `eq_equality` is `eqv ⟦a⟧ ⟦b⟧`; and
-`eqv x y` is inhabited only when `x = y` (`SetTheory.eq_of_mem_eqv`).  So the
-two sides of every accepted equation denote the same set.  Types are
-the whole statement; values are the checker's business. -/
+A model is also a model in the logician's sense for definitions:
+`defn_eq` makes every stored definition's defining equation hold, read
+off the environment's own data, so that a definition hidden behind an
+import still means its value.  Any other definitional equality a reader
+cares about can be stated as a theorem `h : a = b` proved by `rfl`;
+`mem` puts `cval h φ` in what `Eq A a b` denotes, which by
+`eq_equality` is `eqv ⟦a⟧ ⟦b⟧`, inhabited only when `⟦a⟧ = ⟦b⟧`
+(`SetTheory.eq_of_mem_eqv`).
+
+The recursors are free constants in this reading too, but their rules
+are not: `rule_eqs` makes every stored recursor rule's ι equation
+(`iotaEq` above, an `Eq` between the recursor applied to a constructor
+and the rule's right-hand side) hold, so that a recursor hidden behind
+an import still computes as its rules say. -/
 structure Model (V : Type w) [SetTheory V] (env : Env) where
   /-- the set a constant denotes, per level assignment -/
   cval : Name → (LevelParam → Nat) → V
@@ -266,5 +364,27 @@ structure Model (V : Type w) [SetTheory V] (env : Env) where
     Denotes cval env φ ρ (.const eqName [u]) E →
     A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
     app (app (app E A) a) b = eqv a b
+  /-- **a stored definition means its value**: at every level
+  assignment, the value denotes what the constant does.  The value is
+  read at the definition's own level parameters (an instance `c.{us}`
+  is the same equation at the assignment `us` induces).  Definitions
+  only: a theorem is stored by its statement (its record carries no
+  value), and an opaque constant's value is never unfolded, so it stays
+  free -/
+  defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+    ConstantInfo.defnInfo cv value hint ∈ env.consts →
+    ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+  /-- **a recursor computes by its rules**: every stored rule's ι
+  equation denotes an inhabited truth value, at every level assignment -/
+  rule_eqs : RuleEqsHold cval env
+
+/-- **A stored definition's value fixes the constant**: in every model,
+whatever the value denotes is what the constant denotes. -/
+theorem Model.cval_of_defn {V : Type w} [SetTheory V] {env : Env} (M : Model V env)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (h : ConstantInfo.defnInfo cv value hint ∈ env.consts)
+    {φ : LevelParam → Nat} {ρ : BVarIdx → V} {X : V}
+    (hX : Denotes M.cval env φ ρ value X) : M.cval cv.name φ = X :=
+  Denotes_functional (M.defn_eq cv value hint h φ ρ) hX
 
 end ConLeche

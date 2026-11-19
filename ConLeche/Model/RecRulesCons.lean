@@ -112,7 +112,7 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
     (hfE : env.find? n = some (.recInfo cv mI rP isK rules))
     {rl : RecRule} (hmem : rl ∈ rules) :
     RecRuleExtra m₂ φ n cv mI rP isK rl := by
-  obtain ⟨-, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
+  obtain ⟨-, hlaw0, hextra, -⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
   obtain ⟨cvj', cnP', cnF', iT', hst⟩ :=
     mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
   have hsC : (env.find? (RecRule.ctor rl)).isSome = true := by rw [hst]; rfl
@@ -235,6 +235,51 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
       rw [hx.leafOf hst] at hfitR hplain0 hpin0 ⊢
       exact hU ρ xs ys restR restC hxl hyl hfitR hfitC hxwd hywd hplain0 hnested' hpin0
 
+/-- **`RecRuleFit` survives a fresh cons** (task #610): `recRuleLaw_ext`'s sibling.  The two
+stored types are identified with the extension's readings by determinism, the nested pins'
+readings move forward, and the constructor's leaf is the prefix's. -/
+theorem recRuleFit_ext (mp : EnvModelM V env) {env' : Env}
+    {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
+    (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule}
+    (hfE : env.find? n = some (.recInfo cv mI rP isK rules))
+    {rl : RecRule} (hmem : rl ∈ rules) (hF : RecRuleFit mp.base2 φ cv mI rP rl) :
+    RecRuleFit m₂ φ cv mI rP rl := by
+  intro us hlen TVa hTVa cvj cnP cnF iT hfcj usj hujl hψ TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
+  obtain ⟨cvj', cnP', cnF', iT', hst⟩ :=
+    mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
+  have hfcjE : env.find? (RecRule.ctor rl)
+      = some (.ctorInfo cvj cnP cnF iT) := hx.back (by rw [hst]; rfl) hfcj
+  obtain ⟨TVa', hTVa', -, -⟩ := mp.constType 0 n _ us hfE (by exact hlen)
+  obtain rfl : TVa' = TVa := by
+    refine Option.some.inj (Eq.trans ?_ hTVa)
+    exact (hx.denote
+      (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfE) us) hTVa').symm
+  obtain ⟨TVja', hTVja', -, -⟩ :=
+    mp.constType 0 (RecRule.ctor rl) _ usj hfcjE (by exact hujl)
+  obtain rfl : TVja' = TVja := by
+    refine Option.some.inj (Eq.trans ?_ hTVja)
+    exact (hx.denote
+      (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfcjE) usj) hTVja').symm
+  obtain ⟨-, -, -, -, -, hrec'⟩ := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
+  obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
+  have hps' : RuleParamsRead mp.base2 φ cv rP cnP us rl ρ xs ps :=
+    RuleParamsRead.transport (fun lvls pins hfire => ⟨lvls, pins, hfire, fun i vpa hvpa => by
+      obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hfire
+      have hpinCR : ConLeche.Expr.constsResolve env (pins.getD i default) = true := by
+        by_cases hilt : i < pins.length
+        · obtain ⟨-, -, hres, -⟩ := hpinsWf _ (ConLeche.getD_mem hilt)
+          exact hres
+        · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+          rfl
+      exact hx.denote (constsBound_openRev (constsBound_of_constsResolve _ (by
+        rw [ConLeche.Expr.constsResolve_instantiateLevelParams]
+        exact hpinCR)) 0 rP) hvpa⟩) id hps
+  rw [hx.leafOf hst]
+  exact hF us hlen TVa' hTVa' cvj cnP cnF iT hfcjE usj hujl hψ TVja' hTVja' ρ xs ps mid hxl hxw
+    hmid hpw hps'
+
 /-- **The fired iota contract survives a fresh cons that is
 not itself a recursor.**
 
@@ -257,8 +302,9 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
     (hfE : env.find? n = some (.recInfo cv mI rP isK rules))
     {rl : RecRule} (hmem : rl ∈ rules) :
     RecRuleLaw m₂ φ n cv mI rP isK rl := by
-  obtain ⟨hrPle, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
-  refine ⟨hrPle, fun us hlen => ?_, recRuleExtra_ext mp hx φ hfE hmem⟩
+  obtain ⟨hrPle, hlaw0, -, hfit⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
+  refine ⟨hrPle, fun us hlen => ?_, recRuleExtra_ext mp hx φ hfE hmem,
+    recRuleFit_ext mp hx φ hfE hmem hfit⟩
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
   obtain ⟨-, -, -, -, -, hrec'⟩ :=
     mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)

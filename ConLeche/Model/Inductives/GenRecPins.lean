@@ -4,7 +4,6 @@ import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
-import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Capstone
 import ConLeche.Verify.Rules.Bridge

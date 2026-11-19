@@ -7,7 +7,6 @@ public import ConLeche.Verify.Inductives.ClassGenSyntax
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Denote.IndFrame
