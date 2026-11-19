@@ -124369,3 +124369,97 @@ e2e battery itself was not run beyond the `--compare` lines.
 3. Olean (`--olean --compare`) as checking with a sidecar, trusted path for the challenge, T1 —
    after #618 lands; then the modular modes; delete the old machinery; fixtures; docs (OVERVIEW,
    whitepaper §8, usage text); gates; landing.
+
+### #619 cont. 2 — the maintainer's rulings in; the model-free half proved (2026-11-19)
+
+**Rulings** (maintainer, on the first session's two spec choices): (A) ACCEPTED — a constant the
+justified axiom's type reads may itself be a justified hole, provided its copy in the challenge is
+the statement of the sidecar's constant.  (B) LIBERAL — level-parameter renaming applies to the
+constants the type reads too: a read constant matches when it is the sidecar's up to positional
+renaming (`ConstCopy`, #607/#613); blocks are matched whole.
+
+**As implemented** (`ConLeche/Cached/Justify.lean`): `copyB cS c` is `ConstCopy cS c` restricted to
+the statement kinds — the same constant, or for a definition, theorem or axiom the sidecar's at the
+input's level-parameter names (`levelsRenaming`, `atLpsC`, pointer-first `beqP`).  `refinesB` is
+`copyB` of the constant, or (A) `copyB` of the sidecar constant's statement (`.axiomInfo
+cS.toConstantVal`), so (A) is up to renaming too.  An inductive block is matched as it is: `ConstCopy`
+already excludes constructors and recursors (`RuleFree`: ι reads them at their own names), and a
+block's constants share its level-parameter names, so a renamed former alone never matches either;
+restricting to statement kinds says so in the code and keeps the model proof's renaming off blocks.
+INTERPRETATION TO REPORT: "blocks up to renaming" is not possible under `ConstCopy`; a block at
+other level-parameter names rejects (fixture `cmp_lvind`, 1).
+
+**Every hole is an axiom record.**  `sideRecord` now reads a theorem or opaque constant whose value
+uses `sorryAx` (not at a built-in axiom's name) as `.axiomDecl cv` too, so `justifiable` is the
+non-built-in axioms only and the route always pushes `.axiomInfo cv` (`justifiedInfo` is gone).
+Reasons: `IsModel` reads every theorem and opaque constant by its statement already, the checker
+reads a theorem and an axiom alike (neither unfolds), and the route does not check that a
+theorem's type is a proposition, so a `thmInfo` of a non-proposition from a sidecar would break the
+model's theorem leaf (`.prf`).  The report still labels a justified record as declared ("theorem
+big_lt justified by the sidecar").  No verdict changes.
+
+**Verdict changes this session:** `cmp_lv` 1 → 0 (ruling B; `idd` read at other level names is a
+copy).  New fixture `cmp_lvind` (1): a hole reading a universe-polymorphic block the solution
+declares at other level-parameter names.  All 18 `--compare` lines of `tests/e2e-expected.txt` pass.
+
+**Proved (all builds green, `lake test` green):**
+* `Verify/Cached/JustifyRun.lean`: `checkRecordC_justified`, `declsRun_justified`,
+  `justifyWhy_none`, `sameCvUpToLevels_false`, `justified_false`.
+* `MainTheorem.main_compare_json_no_False` (no model: the sidecar would store a constant of type
+  `False`, `no_proof_of_False_cached`); axioms pinned in `tests/ConLecheTests/Axioms.lean`.
+* `Verify/IsModelSide.lean`: `isModel_sideRecords` — `IsModel V m (sideRecords j ds).toList ↔
+  IsModel V m ds.toList` (not yet imported by a root; the model module will).
+* At any sidecar: `checkRecordC_own`/`checkRecordC_yields` (`DeclPushes`), `declsRun_blockRead`,
+  `declsRun_basisNamesOk`, `checkDecls_recordsStored` (over `sideRecords justify ds`),
+  `checkDecls_pinned`, `checkDecls_declaresFalse/Eq` (`mem_sideRecords_ind`), `declsRun_envWF`,
+  `checkDecls_envWF`.
+* `Verify/Cached/JustifyBridge.lean`: `checkRecordC_justified_run` — the route from a canonical
+  index of a well-formed env is `justifyWhy = none`, `basisNamesOk`, `∃ F, ConstantValRun F env cv
+  cv.type`, and `fe' = mkFEnv (env with .axiomInfo cv pushed)`.
+
+**The model theorem — exact plan for the next session** (`sidecar_model_exists`, new
+`ConLeche/Model/Sidecar.lean`, citation in `MainTheorem`/`Challenge` beside `model_exists`):
+1. *The renamed sidecar model.*  `envS'` := `envS` with each constant the challenge holds renamed
+   (`copyB` second clause) replaced by `c.atLps ps`.  Build `mS' : EnvModelM V envS'` with
+   `acval := renAcval mS.acval envS envS'` (`Model/BasisRename`), `LfpCover`, `NatFacts`, from
+   `mS` (`declsRun_model` on the sidecar's run).  Only statement kinds move, so blocks, rules and
+   `lfp` data are the same constants whose terms read alike (`denote_ren`); types and values by
+   `denote_copy`/`denote_copy_value` (`Model/Copies.lean`); the pinned fields read unrenamed
+   names (`renAcval_same`) — if a pinned/reserved statement-kind name (`Classical.choice`,
+   `Quot.sound`) at other level names is a problem there, restrict `copyB`'s renaming to
+   unreserved names (no fixture verdict depends on it) and record it.
+2. *Shared.*  The set certified by the `coneGo` runs of the accepted fold (each name in both
+   indices, `refinesB`, same table, `entryNeeds` closed), read in the FINAL env (entries never
+   change along the run: fresh pushes).  A record has all its constants shared or none (a block:
+   `entryNeeds` of a former lists its constructors and the block's recursors).
+3. *Fold invariant* over the challenge's run at `some (mkFEnv envS)`: covered `mp : EnvModelM V
+   E_k`, `NatFacts`, `∀ x ∈ E_k, x ∈ Shared → mp.acval x = mS'.acval x`.
+   (R) a record with no shared constant: `checkRecordC_own` + `checkDeclStepC_model` +
+   `declStep_agrees` (old leaves kept).  (S) a shared record: `Model.Modular.ctxModel` with
+   `C := E_{k+1}`, sources old ↦ `(E_k, mp, R := E_k)`, new ↦ `(envS', mS', R := Shared)`;
+   `CtxRead` from the certificate (copies are exact in `envS'`, `Refines` for (A)).  (J) a
+   justified axiom: `checkRecordC_justified_run`, then `harvestAxiom` with `A ψ := mS'.acval
+   cv.name ψ`; `hmemA` by `denote_alike` over the shared cone of `cv.type` (`mp = mS'` there)
+   and `mS'.mem_type` at `envS'`'s copy of `cv.name` (whose statement is `cv`); `hnres` from
+   `basisNamesOk` and `justifiable` (no built-in name); the new leaf is `mS'`'s, so the
+   invariant holds if `cv.name` is shared.
+4. *Conclusion:* `isModel_of_envModelM` + `checkDecls_recordsStored` (sideRecords) +
+   `isModel_sideRecords`; `False`/`Eq` from `checkDecls_declaresFalse/Eq` (names of
+   `sideRecords` = names of `ds`, `records_sideRecord`).
+
+**Then, in order:** the JSON capstone (exit 0 of `--compare C S` ⇒ `∃ model, IsModel V model
+(preparePrelude pre rC.decls).toList` with the `False`/`Eq` facts, from
+`runArgs_compare_json_accept`); drop `Model.false_empty`/`eq_equality` if unread (move
+`CompareAttack`/`IotaEqTests` to `IsModel`); olean `--olean --compare` and the modular modes after
+#618 lands (not landed at this record; do not depend on it); delete the old machinery
+(`Driver/Compare*`, `Model/Copies` if unused after step 1 — it is used by it —,
+`Model/Modular/Compare{,Run}`, `Verify/Driver/Compare{Run,Local,Module}`, `ComposeCompare`, the
+`main_compare_*` olean/modular capstones, `OleanCompare.lean`, `tests/ConLecheTests/{CompareAttack,
+CondCompare}`); docs (OVERVIEW, whitepaper §8 around justified axioms, usage text; README lines
+listed, not edited); gates; land on `compare` with `--no-ff`.
+
+**Commits this session:** 7132afb47 (ruling B, cmp_lvind), b23bf2040 (holes are axiom records;
+statement-kind renaming), 71e08a155 (`main_compare_json_no_False`), 929ce6fd7
+(`isModel_sideRecords`), 5e6e3f18b (records/pins/False/Eq at any sidecar), 3212b2bc4
+(`checkRecordC_justified_run`, envWF).  Gates run: `lake build`, `lake test` (warning-free); the
+`--compare` e2e lines.  Not run: `tests/arena.sh`, the other gates.
