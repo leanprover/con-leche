@@ -734,12 +734,12 @@ theorem instantiate1_instantiateLift_fvars (n : Nat) : ∀ (e : Expr) (c : Nat),
   | .bvar i, c => by
     simp only [Expr.instantiateLift, openFvarList, List.length_map, List.length_range]
     by_cases h1 : i < c
-    · simp [h1, Expr.instantiate1, show i ≠ c by omega, show ¬ i > c by omega]
+    · simp [h1, show i ≠ c by omega, show ¬ i > c by omega]
     · by_cases h2 : i - c < n
-      · simp [h1, h2, show i - c < n + 1 by omega, Expr.liftLooseBVars, Expr.instantiate1]
+      · simp [h1, h2, show i - c < n + 1 by omega, Expr.liftLooseBVars]
       · by_cases h3 : i - c = n
-        · simp [h1, h2, h3, Expr.liftLooseBVars, Expr.instantiate1, show i - n = c by omega]
-        · simp [h1, h2, show ¬ i - c < n + 1 by omega, Expr.instantiate1,
+        · simp [h1, h3, Expr.liftLooseBVars, show i - n = c by omega]
+        · simp [h1, h2, show ¬ i - c < n + 1 by omega,
             show i - n ≠ c by omega, show i - n > c by omega, show i - n - 1 = i - (n + 1) by omega]
   | .fvar _ _, _ | .sort _, _ | .const _ _, _ | .lit _, _ => rfl
   | .app f a, c => by
@@ -1079,7 +1079,7 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
   | const hfC hlenC =>
   rw [hc] at hfC
   cases hfC
-  simp only [ConstantInfo.toConstantVal] at hlenC
+  simp only [ConstantInfo.toConstantVal] at hlenC hMajD0 ⊢
   generalize hψc : Level.substFn φ cvj.levelParams (rl.ctorLevels cvj.levelParams) = ψc at *
   -- the records' readings
   have hmemR := ConLeche.Env.find?_mem hfR
@@ -1380,6 +1380,107 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
       simp [List.getD_eq_getElem?_getD, List.getElem?_append_right, xsT, hxl]
     rw [ConLeche.Denotes_functional hD1 hIi3, hgi]
     exact (hgetD Is (rP + cnP + nF) hxisW i (by omega)).symm
-  sorry
+  -- the field's second half: the whole telescope fits, the residual in the motive's sort
+  obtain ⟨restR, hrestR, huniv⟩ := hF2 fsT isT restC (by simp [fsT, hfl, hnF])
+    (by simp [isT, hIl]) (hbvWD fsT _ _ rfl) (hbvWD isT _ _ rfl) hrestC hpin
+  rw [hψc] at hrestR
+  have hTu := huniv pre idx rest body u hpre hbody hu
+  rw [Level.substFn_param_self] at hTu
+  -- the residual is what the equation's type denotes
+  have hvals : (xsT ++ isT ++ [majT]).map (interp V σ) = xs ++ Is ++ [(Ps ++ fs).foldl app
+      (cvalOf m.base2.acval rl.ctor ψc)] := by
+    rw [List.map_append, List.map_append, hxsI, hisI, List.map_singleton, hmajI]
+  have hTyEq : cv.type = (pre ++ idx).foldr .forallE body := by
+    rw [hpreEq, hrestEq, List.foldr_append]
+  have hsR : (cv.type.stripPis (rP + (mI - rP + 1))).isSome = true := by
+    have := stripPis_foldr (pre ++ idx) body
+    rw [List.length_append, hprel, hidxl, ← hTyEq] at this
+    rw [this]; rfl
+  have hpcR : Rules.PiChain (xsT ++ isT ++ [majT]).length TVa := by
+    have := Rules.piChain_of_stripPis _ hsR hTVa
+    simpa [xsT, isT, hxl, hIl, show rP + (mI - rP + 1) = rP + (mI - rP) + 1 by omega] using this
+  have hRT := Rules.teleFit_of_teleFitPA hpcR hrestR
+  rw [hvals] at hRT
+  have hRT' := hRT.transfer_rest (σ := ρ) hclA fun _ h => absurd h (Nat.not_lt_zero _)
+  obtain ⟨ρ'', R'', hRF, hRD⟩ := Fits_of_teleFit hcl _ 0 _ hTVa
+    (fvarsBelow_zero_of_not_hasFvar hnfR) hlbR
+    (by simpa [hxl, hIl, show rP + (mI - rP) + 1 = rP + (mI - rP + 1) by omega] using hsR) hRT'
+  rw [Expr.closeN_of_hasFvar _ 0 0 hnfR, hTyEq] at hRF
+  obtain ⟨hR'', hρ'', -⟩ := hRF.foldr_prefix (pre ++ idx) body rfl (by simp [hxl, hIl, hprel, hidxl])
+  rw [show (xs ++ Is ++ [(Ps ++ fs).foldl app (cvalOf m.base2.acval rl.ctor ψc)]).length
+      = (pre ++ idx).length by simp [hxl, hIl, hprel, hidxl],
+    List.drop_length] at hR''
+  simp only [List.foldr_nil] at hR''
+  rw [hR'', hρ''] at hRD
+  have hlenY : ((Ps ++ fs).foldl app (cvalOf m.base2.acval rl.ctor ψc) :: Is.reverse).length
+      = (major :: ind.reverse).length := by simp [hIl, hidx]
+  have hT1 := Denotes_instantiateLift_inv (σ := consN fs (consN xs ρ)) hlenY (fun j hj => by
+      cases j with
+      | zero => exact hMajD0
+      | succ j =>
+        simp only [List.getElem_cons_succ, List.getElem_reverse]
+        simp only [List.length_cons, List.length_reverse] at hj
+        have := hIsD (mI - rP - 1 - j) (by omega) (by omega)
+        simpa [hIl, hidx] using this) _ (d := 0) (fun i => rfl) hT
+  have hT2 := Denotes_liftLooseBVars_inv _ hT1
+  have hbB : body.looseBVarsBounded (rP + (mI - rP) + 1) = true := by
+    have := looseBVarsBounded_foldr_body _ (hTyEq ▸ hlbR)
+    simpa [hprel, hidxl, show rP + (mI - rP + 1) = rP + (mI - rP) + 1 by omega] using this
+  have hT3 := Denotes_congr_below hT2 hbB
+    (ρ' := consN (xs ++ Is ++ [(Ps ++ fs).foldl app (cvalOf m.base2.acval rl.ctor ψc)]) ρ)
+    fun j hj => by
+    rw [consN_lt _ _ (by simp [hxl, hIl]; omega)]
+    simp only [skipAt, insAt, Nat.not_lt_zero, ↓reduceIte, Nat.sub_zero, List.length_cons,
+      List.length_reverse, hIl]
+    by_cases hj1 : j < mI - rP + 1
+    · simp only [hj1, ↓reduceIte, ↓reduceDIte]
+      cases j with
+      | zero => simp [hxl, hIl]
+      | succ j =>
+        simp only [List.getElem_cons_succ, List.getElem_reverse]
+        rw [List.getElem_append_left (by simp [hxl, hIl]; omega),
+          List.getElem_append_right (by simp [hxl]; omega)]
+        congr 1; simp [hxl, hIl]; omega
+    · simp only [hj1, ↓reduceIte, show ¬ (j + nF < mI - rP + 1) by omega, ↓reduceDIte]
+      rw [consN_ge _ _ (by rw [hfl]; omega), hfl, consN_lt _ _ (by omega),
+        List.getElem_append_left (by simp [hxl, hIl]; omega),
+        List.getElem_append_left (by simp [hxl]; omega)]
+      congr 1; simp [hxl, hIl]; omega
+  obtain rfl := ConLeche.Denotes_functional hT3 hRD
+  -- the left-hand side lies in it
+  have hmemL := hRT.app_mem (m.mem_type _ hmemR φ TVa hTVa σ)
+  rw [interp_cvalOf hcl, show (ConstantInfo.recInfo cv mI rP isK rules).name = cv.name from rfl]
+    at hmemL
+  -- the fired equation
+  obtain ⟨Ra, hRa, -, -, hlaw⟩ := hmain (cv.levelParams.map Level.param) (by simp)
+  obtain ⟨heqn, -⟩ := hlaw cvj cnP cnF iT hc (rl.ctorLevels cvj.levelParams) σ (xsT ++ isT)
+    (psT ++ fsT) TVa TVja restR restC (by simp [xsT, isT, hxl, hIl]; omega)
+    (by simp [psT, fsT, hPl, hfl, hnF]) hlenC
+    (substFn_ctorLevels φ rl cnP cv.levelParams cvj.levelParams rP)
+    (fun y hy => by
+      rcases List.mem_append.mp hy with hy | hy
+      · exact hbvWD psT _ _ rfl y hy
+      · exact hbvWD fsT _ _ rfl y hy)
+    (fun _ => hpin) hTVa' hTVja' (by rw [hψc]; exact hrestR) hrestC
+  rw [hψc, Level.substFn_param_self, List.take_left' (by simp [xsT, hxl]),
+    List.drop_left' (by simp [psT, hPl])] at heqn
+  rw [interp_mkAppN, interp_mkAppN, interp_cvalOf hcl] at heqn
+  rw [Expr.instantiateLevelParams_self] at hRa
+  obtain ⟨hrhsF, -, -, hrhsB, -⟩ := hwfR.2.2.2.2.2 cv mI rP isK rules rfl rl hrl
+  have hRvD := Denotes_of_denote (V := V) hcl 0 rl.rhs hRa
+    (fvarsBelow_zero_of_not_hasFvar hrhsF) hrhsB (consN fs (consN xs ρ))
+  rw [Expr.closeN_of_hasFvar _ 0 0 hrhsF] at hRvD
+  obtain rfl := ConLeche.Denotes_functional hRv hRvD
+  rw [interp_closed (V := V) (denote_closed hcl hrhsF hrhsB hRa) (consN fs (consN xs ρ)) σ]
+  have hLR : (xs ++ Is ++ [(Ps ++ fs).foldl app (cvalOf m.base2.acval rl.ctor ψc)]).foldl app
+        (cvalOf m.base2.acval cv.name φ)
+      = (xs ++ fs).foldl app (interp V σ Ra) := by
+    rw [← List.foldl_map (f := interp V σ) (g := app),
+      ← List.foldl_map (f := interp V σ) (g := app), hvals, List.map_append, hxsI, hfsI] at heqn
+    exact heqn
+  -- the equation is `Eq`'s truth value of an equality
+  have hRm : (xs ++ fs).foldl app (interp V σ Ra) ∈ˢ interp V σ restR := hLR ▸ hmemL
+  rw [heq u φ _ E _ _ _ hE hTu hmemL hRm, ← hLR]
+  exact ⟨eqv_mem_univZero _ _, pt_mem_eqv_self _⟩
 
 end ConLeche.Model
