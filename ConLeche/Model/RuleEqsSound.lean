@@ -1,6 +1,9 @@
 module
 
-public import ConLeche.Model.RecRulesHold
+public import ConLeche.Model.Denotes
+public import ConLeche.Model.Rules.RedSoundKit
+import ConLeche.Verify.Denote.Shift
+import ConLeche.Verify.Denote.Lemmas
 public import ConLeche.Model.IndTele
 public import ConLeche.Model.IndFrame
 public import ConLeche.Model.IndPointKit
@@ -20,6 +23,8 @@ recursor's telescope) and `RecRuleFit` (that fit, from a fit of the prefix and t
 
 * §1 the converse substitution lemmas over `Denotes`: a lifted or instantiated term denotes
   only what its source denotes at the matching environment;
+* §0 the vocabulary: `Fits`, the telescope fit over `Denotes`, and its reading
+  (`teleFit_of_Fits`); the constructor levels as the fired comparands (`substFn_ctorLevels`);
 * §2 telescopes over `Denotes`: an equation's `∀`-telescope denotes an inhabited truth value
   where its body does at every fit;
 -/
@@ -34,6 +39,136 @@ open ConLeche.Expr (closeN)
 universe w
 
 variable {V : Type w} [SetTheory V]
+
+/-! ## 0. Vocabulary: telescope fits over `Denotes`, the constructor levels, the environments a
+lift or an instantiation reads its source in -/
+
+/-- `Fits cval env φ ρ T xs ρ' R`: the sets `xs` fit the leading `∀`
+binders of `T` read at `ρ` — each a member of what its domain denotes,
+the domain read with the earlier sets pushed — and `R` is the rest of
+`T`, to be read at `ρ'`, which is `ρ` with `xs` pushed. -/
+inductive Fits (cval : Name → (Name → Nat) → V) (env : Env) (φ : Name → Nat) :
+    (Nat → V) → Expr → List V → (Nat → V) → Expr → Prop
+  | nil {ρ : Nat → V} {T : Expr} : Fits cval env φ ρ T [] ρ T
+  | cons {ρ ρ' : Nat → V} {A B R : Expr} {A' x : V} {xs : List V}
+      (hA : ConLeche.Denotes cval env φ ρ A A') (hx : x ∈ˢ A')
+      (h : Fits cval env φ (ConLeche.push x ρ) B xs ρ' R) :
+      Fits cval env φ ρ (.forallE A B) (x :: xs) ρ' R
+
+/-- **A fit against a stored type is a fit against its reading.** -/
+theorem teleFit_of_Fits {acval : Name → (Name → Nat) → Term}
+    (hcl : ∀ n ψ, Term.Closed (acval n ψ)) {env : Env} {φ : Name → Nat} :
+    ∀ (xs : List V) (d : Nat) (e : Expr) {ta : Term} {ρ ρ' : Nat → V} {R : Expr},
+      denote acval env φ d e = some ta → Expr.fvarsBelow d e →
+      e.looseBVarsBounded 0 = true →
+      Fits (cvalOf (V := V) acval) env φ ρ (closeN d e) xs ρ' R →
+      ∃ rest, TeleFit V ρ ta xs rest
+  | [], _, _, _, _, _, _, _, _, _, _ => ⟨_, .nil⟩
+  | x :: xs, d, e, ta, ρ, ρ', R, h, hfb, hlb, hfit => by
+    cases e with
+    | forallE ty body =>
+      obtain ⟨tA, bA, hta, hba, rfl⟩ := denote_forallE_inv h
+      have hfb' : Expr.fvarsBelow d ty ∧ Expr.fvarsBelow d body := hfb
+      have hlb' : (ty.looseBVarsBounded 0 && body.looseBVarsBounded 1) = true := hlb
+      rw [Bool.and_eq_true] at hlb'
+      have hc : closeN d (.forallE ty body) = .forallE (closeN d ty 0) (closeN d body 1) := rfl
+      rw [hc] at hfit
+      cases hfit with
+      | cons hA hx hrest =>
+        have hA' := Denotes_of_denote (V := V) hcl d ty hta hfb'.1 hlb'.1 ρ
+        obtain rfl := ConLeche.Denotes_functional hA hA'
+        rw [← Expr.closeN_instantiate1 body 0 hlb'.2 hfb'.2, push_eq_cons] at hrest
+        obtain ⟨rest, hr⟩ := teleFit_of_Fits hcl xs (d + 1) _ hba
+          (Expr.fvarsBelow_instantiate1 0 hfb'.2)
+          (ConLeche.looseBVarsBounded_instantiate1 body 0 hlb'.2) hrest
+        exact ⟨rest, .cons hx hr⟩
+    | _ => cases hfit
+
+/-- Levels read alike at `φ` give one composed assignment. -/
+theorem substFn_map_subst_self (φ : Name → Nat) (lps : List Name) :
+    ∀ (ks : List Name) (vs : List Level),
+      Level.substFn φ ks (vs.map (Level.subst lps (lps.map Level.param)))
+        = Level.substFn φ ks vs
+  | [], _ => rfl
+  | _ :: _, [] => rfl
+  | k :: ks, v :: vs => by
+    funext q
+    simp only [List.map_cons, Level.substFn]
+    rw [Level.eval_subst, Level.substFn_param_self, substFn_map_subst_self φ lps ks vs]
+
+/-- **The spec's constructor levels are the fired comparands** at the recursor's own levels. -/
+theorem substFn_ctorLevels (φ : Name → Nat) (rl : RecRule) (cnP : Nat) (lps cvjLps : List Name)
+    (rP : Nat) :
+    Level.substFn φ cvjLps (rl.ctorLevels cvjLps)
+      = Level.substFn φ cvjLps
+          (ConLeche.recFireComparands rl cnP lps (lps.map Level.param) cvjLps [] rP).1 := by
+  unfold RecRule.ctorLevels ConLeche.recFireComparands
+  split <;> rename_i h <;> simp only [h]
+  · exact (substFn_map_subst_self φ lps cvjLps _).symm
+  · exact (substFn_map_subst_self φ lps cvjLps _).symm
+  · rw [show cvjLps.map (fun p => Level.subst lps (lps.map Level.param) (.param p))
+        = (cvjLps.map Level.param).map (Level.subst lps (lps.map Level.param)) by
+      rw [List.map_map]; rfl]
+    exact (substFn_map_subst_self φ lps cvjLps _).symm
+
+/-- A list of variables read in an environment holding a list. -/
+theorem map_interp_bvars (σ : Nat → V) (o : Nat) (zs : List V)
+    (hσ : ∀ i (h : i < zs.length), σ (o + i) = zs[i]) :
+    ((List.range zs.length).map fun i => Term.bvar (o + i)).map (interp V σ) = zs := by
+  apply List.ext_getElem (by simp)
+  intro i h1 h2
+  simp only [List.getElem_map, List.getElem_range, interp_bvar]
+  exact hσ i (by simpa using h1)
+
+/-- The environment a lift by `k` at cutoff `c` reads its source in. -/
+@[expose] def skipAt (c k : Nat) (ρ : Nat → V) : Nat → V := fun i => if i < c then ρ i else ρ (i + k)
+
+omit [SetTheory V] in
+theorem push_skipAt (x : V) (c k : Nat) (ρ : Nat → V) :
+    ConLeche.push x (skipAt c k ρ) = skipAt (c + 1) k (ConLeche.push x ρ) := by
+  funext i
+  cases i with
+  | zero => simp [skipAt, ConLeche.push]
+  | succ i =>
+    by_cases h : i < c
+    · have h' : i + 1 < c + 1 := by omega
+      simp [skipAt, ConLeche.push, h, h']
+    · have h' : ¬ i + 1 < c + 1 := by omega
+      simp [skipAt, ConLeche.push, h, h', show i + 1 + k = i + k + 1 by omega]
+
+theorem strLitToConstructor_looseBVarsBounded (s : String) (c : Nat) :
+    (ConLeche.strLitToConstructor s).looseBVarsBounded c = true := by
+  unfold ConLeche.strLitToConstructor
+  simp only [Expr.looseBVarsBounded, Bool.true_and]
+  induction s.toList with
+  | nil => simp [Expr.looseBVarsBounded]
+  | cons a l ih => simp [Expr.looseBVarsBounded, ih]
+
+theorem natLitToConstructor_looseBVarsBounded' (n c : Nat) :
+    (ConLeche.natLitToConstructor n).looseBVarsBounded c = true := by
+  cases n <;> simp [ConLeche.natLitToConstructor, Expr.looseBVarsBounded]
+
+/-- The environment an instantiation at depth `d` reads its source in:
+`ρ` below `d`, the values' denotations `Ys` next, `ρ` lowered above. -/
+@[expose] def insAt (d : Nat) (Ys : List V) (ρ : Nat → V) : Nat → V := fun i =>
+  if i < d then ρ i else if h : i - d < Ys.length then Ys[i - d] else ρ (i - Ys.length)
+
+omit [SetTheory V] in
+theorem push_insAt (x : V) (d : Nat) (Ys : List V) (ρ : Nat → V) :
+    ConLeche.push x (insAt d Ys ρ) = insAt (d + 1) Ys (ConLeche.push x ρ) := by
+  funext i
+  cases i with
+  | zero => simp [insAt, ConLeche.push]
+  | succ i =>
+    by_cases h : i < d
+    · have h1 : i + 1 < d + 1 := by omega
+      simp [insAt, ConLeche.push, h, h1]
+    · have h1 : ¬ i + 1 < d + 1 := by omega
+      have h2 : i + 1 - (d + 1) = i - d := by omega
+      by_cases h' : i - d < Ys.length
+      · simp [insAt, ConLeche.push, h, h1, h2, h']
+      · have h3 : i + 1 - Ys.length = (i - Ys.length) + 1 := by omega
+        simp [insAt, ConLeche.push, h, h1, h2, h', h3]
 
 section Subst
 
@@ -544,7 +679,7 @@ theorem instantiate1_foldr (v : Expr) : ∀ (ds : List Expr) (b : Expr) (c : Nat
 
 /-- **A reading's telescope, peeled**: the reading of a telescope peels to a `PiTeleAV` whose
 body is the reading of the opened body, which closes back to the body. -/
-theorem denote_peel {acval : Name → (Name → Nat) → Term} {env : Env} {φ : Name → Nat} :
+theorem denote_peelStrip {acval : Name → (Name → Nat) → Term} {env : Env} {φ : Name → Nat} :
     ∀ (k : Nat) {d : Nat} {e : Expr} {ta : Term} {ds : List Expr} {b : Expr},
       denote acval env φ d e = some ta → e.stripPis k = some (ds, b) →
       Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
@@ -571,7 +706,7 @@ theorem denote_peel {acval : Name → (Name → Nat) → Term} {env : Env} {φ :
       obtain ⟨ds'', hl'', hinst⟩ := instantiate1_foldr (.fvar d ty) ds' b₀ 0
       have hs'' := stripPis_foldr ds'' (b₀.instantiate1 (.fvar d ty) (0 + ds'.length))
       rw [← hinst, hl'', hl] at hs''
-      obtain ⟨Γ, R, b', hP, hR, hc, hfb'', hlb''⟩ := denote_peel k hB hs''
+      obtain ⟨Γ, R, b', hP, hR, hc, hfb'', hlb''⟩ := denote_peelStrip k hB hs''
         (Expr.fvarsBelow_instantiate1 0 hfb'.2)
         (ConLeche.looseBVarsBounded_instantiate1 _ 0 hlb'.2)
       have hbb : b₀.looseBVarsBounded (k + 1) = true := by
@@ -1300,7 +1435,7 @@ theorem ruleEqsHold_of {env : Env} (m : EnvModelM V env)
       rw [hpr] at h1
       exact ⟨iT, _, h1⟩
     -- the reading of the conclusion
-    obtain ⟨Γ, Rc, b', hPT, hRc, hcl', hfb', hlb'⟩ := denote_peel (cnP + nF) hTVja' hsAll
+    obtain ⟨Γ, Rc, b', hPT, hRc, hcl', hfb', hlb'⟩ := denote_peelStrip (cnP + nF) hTVja' hsAll
       (fvarsBelow_zero_of_not_hasFvar hnfC) hlbC
     rw [Nat.zero_add] at hfb'
     rw [Expr.closeN_of_hasFvar _ 0 _ hnfS, Nat.zero_add] at hcl'

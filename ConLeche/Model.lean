@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.RecRulesHold
+public import ConLeche.Model.RuleEqsSound
 public import ConLeche.Model.Claims
 public import ConLeche.Model.Inductives.StructRecKit
 public import ConLeche.Verify.Inductives.PosNodes

@@ -232,6 +232,61 @@ theorem tele_app {env : Env} (M : Model V env)
   obtain rfl := happ (c := tbN) rfl rfl rfl hTb 1 _ rfl _ hA3
   exact ⟨_, hB3 unitSet (unitSet_mem_univ 0), app_mem_piV hx2 (unitSet_mem_univ 0)⟩
 
+/-- Every piece of an equation of `T.rec` denotes at every valuation, once `Eq` is stored. -/
+theorem den_pi {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
+    {ty body : Expr} (hA : ∀ ρ, ∃ A, Denotes cval env φ ρ ty A)
+    (hB : ∀ ρ, ∃ Y, Denotes cval env φ ρ body Y) (ρ : BVarIdx → V) :
+    ∃ X, Denotes cval env φ ρ (.forallE ty body) X := by
+  obtain ⟨A, hA⟩ := hA ρ
+  exact ⟨_, .pi hA fun x _ => (hB (push x ρ)).choose_spec⟩
+
+theorem den_lam {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
+    {ty body : Expr} (hA : ∀ ρ, ∃ A, Denotes cval env φ ρ ty A)
+    (hB : ∀ ρ, ∃ Y, Denotes cval env φ ρ body Y) (ρ : BVarIdx → V) :
+    ∃ X, Denotes cval env φ ρ (.lam ty body) X := by
+  obtain ⟨A, hA⟩ := hA ρ
+  exact ⟨_, .lam hA fun x _ => (hB (push x ρ)).choose_spec⟩
+
+theorem den_app {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
+    {f a : Expr} (hf : ∀ ρ, ∃ F, Denotes cval env φ ρ f F)
+    (ha : ∀ ρ, ∃ Y, Denotes cval env φ ρ a Y) (ρ : BVarIdx → V) :
+    ∃ X, Denotes cval env φ ρ (.app f a) X := by
+  obtain ⟨F, hf⟩ := hf ρ
+  obtain ⟨Y, ha⟩ := ha ρ
+  exact ⟨_, .app hf ha⟩
+
+/-- **A rule's equation denotes**, where `Eq` is stored with one level parameter. -/
+theorem den_tEq {env : Env} (M : Model V env)
+    (hT : env.find? tN = some (.indInfo ⟨tN, [], srt (.succ .zero)⟩ {}))
+    (hTa : env.find? taN = some (.ctorInfo taCV 0 0 tN))
+    (hTb : env.find? tbN = some (.ctorInfo tbCV 0 0 tN))
+    (hR : env.find? trecN = some (.recInfo trecCV 3 3 false [ruleA, ruleB]))
+    {eqI : ConstantInfo} (hEq : env.find? eqName = some eqI)
+    (hEl : eqI.toConstantVal.levelParams.length = 1)
+    {c : Name} {cv : ConstantVal} (hl : cv.levelParams = [])
+    (hf : env.find? c = some (.ctorInfo cv 0 0 tN)) {r : Expr}
+    (hr : ∀ ρ, ∃ Y, Denotes M.cval env one ρ r Y) (ρ : BVarIdx → V) :
+    ∃ P, Denotes M.cval env one ρ (tEq c (lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB r))
+      P := by
+  have hc : ∀ {n : Name} {cv : ConstantVal}, cv.levelParams = [] →
+      env.find? n = some (.ctorInfo cv 0 0 tN) → ∀ ρ, ∃ Y, Denotes M.cval env one ρ (cnst n) Y :=
+    fun hl hf ρ => ⟨_, Denotes_const0 hf hl⟩
+  have hb : ∀ i ρ, ∃ Y, Denotes M.cval env one ρ (bv i) Y := fun _ _ => ⟨_, .bvar⟩
+  have hTd : ∀ ρ, ∃ Y, Denotes M.cval env one ρ (cnst tN) Y := fun ρ => ⟨_, Denotes_T M hT ρ⟩
+  have hmot : ∀ ρ, ∃ Y, Denotes M.cval env one ρ tMotive Y :=
+    den_pi hTd fun _ => ⟨_, .sort⟩
+  have hmA : ∀ ρ, ∃ Y, Denotes M.cval env one ρ tMinA Y := den_app (hb 0) (hc rfl hTa)
+  have hmB : ∀ ρ, ∃ Y, Denotes M.cval env one ρ tMinB Y := den_app (hb 1) (hc rfl hTb)
+  have hrhs := den_lam hmot (den_lam hmA (den_lam hmB hr))
+  have hrec : ∀ ρ, ∃ Y, Denotes M.cval env one ρ (cnst trecN [u]) Y :=
+    fun _ => ⟨_, .const hR rfl⟩
+  have heq : ∀ ρ, ∃ Y, Denotes M.cval env one ρ (cnst eqName [u]) Y :=
+    fun _ => ⟨_, .const hEq (by rw [hEl]; rfl)⟩
+  exact den_pi hmot (den_pi hmA (den_pi hmB (den_app (den_app (den_app heq
+    (den_app (hb 2) (hc hl hf)))
+    (den_app (den_app (den_app (den_app hrec (hb 2)) (hb 1)) (hb 0)) (hc hl hf)))
+    (den_app (den_app (den_app hrhs (hb 2)) (hb 1)) (hb 0))))) ρ
+
 /-- **In every model of `inductive T | a | b` with its recursor where the ι
 equations hold, `T.a` and `T.b` denote different sets** (at the level
 assignment `1`, which the constructors, having no level parameters, are
@@ -242,7 +297,9 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env) (hrules : RuleEqsHold M.cval en
     (hT : env.find? tN = some (.indInfo ⟨tN, [], srt (.succ .zero)⟩ {}))
     (hTa : env.find? taN = some (.ctorInfo taCV 0 0 tN))
     (hTb : env.find? tbN = some (.ctorInfo tbCV 0 0 tN))
-    (hR : env.find? trecN = some (.recInfo trecCV 3 3 false [ruleA, ruleB])) :
+    (hR : env.find? trecN = some (.recInfo trecCV 3 3 false [ruleA, ruleB]))
+    {eqI : ConstantInfo} (hEq : env.find? eqName = some eqI)
+    (hEl : eqI.toConstantVal.levelParams.length = 1) :
     M.cval taN one ≠ M.cval tbN one := by
   intro hab
   let ρ : BVarIdx → V := fun _ => empty
@@ -273,8 +330,17 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env) (hrules : RuleEqsHold M.cval en
       sel ∈ˢ (univ 0 : V) →
       app (app (app (app (M.cval trecN one) m) empty) unitSet) (M.cval c one) = sel := by
     intro c cv rl sel hn hl ht hf hrl he hsel hselU
-    obtain ⟨P, hP, x, hx⟩ := hrules _
-      (List.mem_flatMap.mpr ⟨_, hRmem, List.mem_filterMap.mpr ⟨rl, hrl, he⟩⟩) one ρ
+    obtain ⟨P, hP⟩ : ∃ P, Denotes M.cval env one ρ (tEq c rl.rhs) P := by
+      rcases List.mem_cons.mp hrl with rfl | hrl
+      · exact den_tEq M hT hTa hTb hR hEq hEl hl hf (fun _ => ⟨_, .bvar⟩) ρ
+      · obtain rfl := List.mem_singleton.mp hrl
+        exact den_tEq M hT hTa hTb hR hEq hEl hl hf (fun _ => ⟨_, .bvar⟩) ρ
+    have hmem : tEq c rl.rhs ∈ ruleEqs env := by
+      refine List.mem_flatMap.mpr ⟨_, hRmem, ?_⟩
+      simp only [ConstantInfo.name, ConstantInfo.toConstantVal, trecCV]
+      rw [hR]
+      exact List.mem_filterMap.mpr ⟨rl, hrl, he⟩
+    obtain ⟨x, hx⟩ := hrules _ hmem one ρ P hP
     obtain ⟨Y, hY, hy⟩ := tele_app M hT hTa hTb hP hx
     obtain ⟨F, R, rfl, hF, hR'⟩ := Denotes_app_inv hY
     obtain ⟨F', L, rfl, hF', hL⟩ := Denotes_app_inv hF
