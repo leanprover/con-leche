@@ -1,10 +1,7 @@
 module
 
-public import ConLeche.Model.Env.Laws
-public import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockDeclRun
 public import ConLeche.Model.Inductives.TargetOutRows
-public import ConLeche.Model.Inductives.TargetRuleData
 
 public section
 

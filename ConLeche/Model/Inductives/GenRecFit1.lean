@@ -1,6 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.GenRecFitBase
+public import ConLeche.Model.Inductives.GenClsSem
+import ConLeche.Verify.Inductives.GenRecRun
+import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.GenRecPins
@@ -11,10 +14,9 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Subst
-public import ConLeche.Model.Inductives.GenClsFrame
+import ConLeche.Model.Inductives.GenClsFrame
 import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Env.BlockLfp
-import ConLeche.Model.Inductives.GenClsSem
 import ConLeche.Model.Inductives.GenRecFit2
 import ConLeche.Model.Inductives.GenRecPreRun
 import ConLeche.Semantics.Tower.TowerKit
@@ -177,7 +179,7 @@ section FrameKit
 variable {envC : Env} {mpC : EnvModelM V envC} {ψ : Name → Nat}
 
 /-- **A graded frame's first `D` openers are one.** -/
-theorem GradedFrame.take {D k : Nat} {fr : List Expr} {doms : List Term}
+private theorem GradedFrame.take {D k : Nat} {fr : List Expr} {doms : List Term}
     (G : GradedFrame mpC ψ (D + k) fr doms) :
     GradedFrame mpC ψ D (fr.take D) (doms.take D) := by
   have hfl := G.frLen
@@ -211,7 +213,7 @@ theorem GradedFrame.take {D k : Nat} {fr : List Expr} {doms : List Term}
     exact G.ok l (by omega) σ ys hys
 
 /-- **A graded frame is a context** for a term over its openers. -/
-theorem GradedFrame.ctxOk {D : Nat} {fr : List Expr} {doms : List Term}
+private theorem GradedFrame.ctxOk {D : Nat} {fr : List Expr} {doms : List Term}
     (G : GradedFrame mpC ψ D fr doms) {e : Expr} (hwsE : Expr.WScoped D e)
     (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr) :
     CtxOk mpC.base2 ψ D doms.reverse e := by
@@ -238,7 +240,7 @@ theorem GradedFrame.ctxOk {D : Nat} {fr : List Expr} {doms : List Term}
       exact hw)
 
 /-- A spine fitting a frame's domains satisfies its context. -/
-theorem sat_of_spineFit_rev {doms : List Term} {σ : Nat → V} {ys : List V}
+private theorem sat_of_spineFit_rev {doms : List Term} {σ : Nat → V} {ys : List V}
     (h : SpineFit σ doms ys) : Sat V doms.reverse (consList ys σ) := by
   have := sat_of_spineFit (Δ₀ := ([] : List Term)) (Sat_nil V σ) h
   simpa using this

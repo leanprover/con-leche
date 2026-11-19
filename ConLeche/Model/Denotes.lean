@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Denotes
+import ConLeche.Denotes
 public import ConLeche.Model.Env.EnvModelM
 public import ConLeche.Verify.Close
 import ConLeche.Verify.Denote.VClosed

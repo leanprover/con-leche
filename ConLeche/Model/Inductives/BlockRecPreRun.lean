@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Model.OpenedCtx
-import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRecTyping

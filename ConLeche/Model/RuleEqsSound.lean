@@ -1,12 +1,12 @@
 module
 
 public import ConLeche.Model.Denotes
-public import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.Denote.Lemmas
-public import ConLeche.Model.IndTele
+import ConLeche.Model.IndTele
 public import ConLeche.Model.IndFrame
-public import ConLeche.Model.IndPointKit
+import ConLeche.Model.Rules.RedSoundKit
+import ConLeche.Model.IndPointKit
 import ConLeche.Verify.Denote.OpenRevDenote
 import ConLeche.Model.Reading.Levels
 

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Denotes
+import ConLeche.Model.Env.EnvModelM
 import ConLeche.Model.RuleEqsSound
 
 public section

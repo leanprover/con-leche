@@ -11,7 +11,7 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.IndFrame
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.IndStageKit
-public import ConLeche.Verify.Inductives.ClassGenSyntax
+import ConLeche.Verify.Inductives.ClassGenSyntax
 public import ConLeche.Model.IndTele
 import ConLeche.Model.Env.EnvModelM
 public import ConLeche.Kernel.Inductives.StreamRecs
@@ -237,7 +237,7 @@ conclusion: the head's opened variable carries its domain, so the conclusion inf
 `Sort u` — whatever the stored binders hold, the conclusion is a type of that universe. -/
 
 /-- A type whose `piResult` is a sort ends in it after its `∀`-binders. -/
-theorem endsInSort_of_piResult {u : Level} :
+private theorem endsInSort_of_piResult {u : Level} :
     ∀ (e : Expr), e.piResult = .sort u → ∃ j, ConLeche.EndsInSort j u e
   | .forallE _ b, h => by
     obtain ⟨j, hj⟩ := endsInSort_of_piResult b (by simpa only [Expr.piResult] using h)
@@ -248,7 +248,7 @@ theorem endsInSort_of_piResult {u : Level} :
 
 /-- **An opened binder keeps its domain's shape**: the `p`-th variable of an opening is
 annotated with a type ending in `Sort u` after `j` binders when the stripped domain is. -/
-theorem openPis_dom_endsInSort {u : Level} {j : Nat} :
+private theorem openPis_dom_endsInSort {u : Level} {j : Nat} :
     ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr} {bs : List Expr} {b : Expr},
       openPisAtFvars n e d = some (fvs, o) → e.stripPis n = some (bs, b) →
       ∀ p, p < n → ConLeche.EndsInSort j u (bs.getD p default) →

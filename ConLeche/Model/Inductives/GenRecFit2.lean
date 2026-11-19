@@ -1,9 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.GenRecFitBase
-public import ConLeche.Model.Inductives.GenRecExtra
-import ConLeche.Model.Inductives.GenClsData
-import ConLeche.Model.Inductives.GenClsSem
+import ConLeche.Model.Inductives.GenRecExtra
+public import ConLeche.Model.Inductives.GenClsSem
 import ConLeche.Model.Inductives.GenRecPre
 import ConLeche.Model.Inductives.GenRecPreRun
 import ConLeche.Model.Inductives.GenRecClasses

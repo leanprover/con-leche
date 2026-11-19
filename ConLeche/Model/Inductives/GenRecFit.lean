@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.GenRecFitBase
-public import ConLeche.Model.Inductives.BlockRecAssembly
+import ConLeche.Model.Inductives.BlockRecAssembly
 public import ConLeche.Model.Inductives.GenClsSem
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleFit

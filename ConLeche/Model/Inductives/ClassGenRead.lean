@@ -1,11 +1,9 @@
 module
 
 import ConLeche.Model.OpenedCtx
-import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Verify.Inductives.ClassGenScope
-public import ConLeche.Verify.Inductives.ClassGenSyntax
+import ConLeche.Verify.Inductives.ClassGenSyntax
 import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.Denote.ErasedEq
