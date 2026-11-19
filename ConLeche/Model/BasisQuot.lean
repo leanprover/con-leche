@@ -4,6 +4,7 @@ public import ConLeche.Model.BasisBlocks
 import ConLeche.Semantics.BasisRules
 import ConLeche.Model.Cover
 import ConLeche.Verify.PropWhen
+import ConLeche.Model.Rules.RedSoundKit
 
 public section
 
@@ -1104,6 +1105,137 @@ theorem quotIndLaw {m : EnvModel V env}
     have h3 := WellDenoted_app_pt h2.1 h2.2 (hxsA x3 (by simp))
     have h4 := WellDenoted_app_pt h3.1 h3.2 (hxsA x4 (by simp))
     exact (WellDenoted_app_pt h4.1 h4.2 (hysA y3 (by simp))).1
+
+set_option maxHeartbeats 1000000 in
+/-- **`Quot.ind`'s forward typing row** (task #610): the parameters `α r` fit `Quot.mk`'s
+binders, its application to a field lies in the quotient, and the motive at it is a
+proposition. -/
+theorem quotIndFit {m : EnvModel V env}
+    (m₂ : EnvModel V ⟨quotIndA :: env.consts, env.tables⟩)
+    (hQ : env.find? quotName = some (quotA.atLps [q]))
+    (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
+    (hac : m₂.acval = acvalWith m.acval quotIndA.name
+      (fun ψ => Term.const .quotInd [ψ uN]))
+    (φ : Name → Nat) :
+    RecRuleFit m₂ φ quotIndA.toConstantVal 4 4 quotIndRule := by
+  intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ quotIndA.toConstantVal.levelParams us := ⟨_, rfl⟩
+  have hM' : (⟨quotIndA :: env.consts, env.tables⟩ : Env).find? quotMkName
+      = some (quotMkA.atLps [x]) := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM
+  rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hM'] at hfj
+  obtain ⟨rfl, rfl, rfl⟩ :
+      cvj = (quotMkA.atLps [x]).toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
+    injection Option.some.inj hfj with a1 a2 a3 _
+    exact ⟨a1.symm, a2.symm, a3.symm⟩
+  simp only [show (quotMkA.atLps [x]).toConstantVal.levelParams = [x] from rfl] at *
+  have hulev : Level.substFn φ [x] usj x = ψ uN := by
+    rw [congrFun hlev x, hψ]
+    show Level.substFn φ [x] [Level.subst quotIndA.toConstantVal.levelParams
+      us (.param uN)] x = _
+    rw [substFn_one, Level.subst, Level.eval_subst_go]
+  have hTyRead : denote m₂.acval ⟨quotIndA :: env.consts, env.tables⟩ φ 0
+      (quotIndA.toConstantVal.type.instantiateLevelParams
+        quotIndA.toConstantVal.levelParams us)
+      = some (quotIndTy (ψ uN)) := by
+    rw [denote_instLevels m₂.acval_params φ, hac,
+      denote_quotIndA_type (m := m) _ hQ hM, ← hψ]
+  obtain rfl : TVa = _ := (Option.some.inj (hTyRead.symm.trans hTVa)).symm
+  have hCtorRead : denote m₂.acval ⟨quotIndA :: env.consts, env.tables⟩ φ 0
+      ((quotMkA.atLps [x]).toConstantVal.type.instantiateLevelParams [x] usj)
+      = some (quotMkTy (Level.substFn φ [x] usj x)) := by
+    rw [denote_instLevels m₂.acval_params φ, hac, denote_quotMkTyAt (m := m) _ (by decide) hQ]
+  obtain rfl : TVja = _ := (Option.some.inj (hCtorRead.symm.trans hTVja)).symm
+  simp only [hulev]
+  obtain ⟨x1, x2, x3, x4, rfl⟩ : ∃ p q r s, xs = [p, q, r, s] := by
+    match xs, hxl with
+    | [p, q, r, s], _ => exact ⟨p, q, r, s, rfl⟩
+  obtain ⟨hpl, hpr⟩ := hps
+  obtain ⟨p1, p2, rfl⟩ : ∃ p q, ps = [p, q] := by
+    match ps, hpl with
+    | [p, q], _ => exact ⟨p, q, rfl⟩
+  have hp1 : interp V ρ p1 = interp V ρ x1 := hpr 0 (by decide)
+  have hp2 : interp V ρ p2 = interp V ρ x2 := hpr 1 (by decide)
+  -- the prefix's memberships
+  have hT := Rules.teleFit_of_teleFitPA (by simp [quotIndTy, Rules.PiChain]) hmid
+  simp only [List.map_cons, List.map_nil] at hT
+  rw [quotIndTy] at hT
+  cases hT with | cons f1 hT =>
+  cases hT with | cons f2 hT =>
+  cases hT with | cons f3 hT =>
+  cases hT with | cons f4 _ =>
+  have f1' : interp V ρ x1 ∈ˢ (univ (ψ uN) : V) := by rwa [interp_sort] at f1
+  have f2' : interp V ρ x2 ∈ˢ relSpace V (interp V ρ x1) := by
+    rwa [quotRelTy_interp] at f2
+  have f3' : interp V ρ x3 ∈ˢ quotIndMotiveSpace V (ψ uN) (interp V ρ x1) (interp V ρ x2) := by
+    rw [quotIndMotiveTy, interp_pi, (quotApp_data (by simp [cons]) (by simp [cons]) f1' f2').2]
+      at f3
+    exact f3
+  refine ⟨?_, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
+  · -- the parameters fit `Quot.mk`'s binders
+    have hfit : TeleFit V ρ (quotMkTy (ψ uN)) ([p1, p2].map (interp V ρ))
+        (interp V (cons (interp V ρ p2) (cons (interp V ρ p1) ρ))
+          (.pi (.bvar 1) (.app (.app (.const .quot [ψ uN]) (.bvar 2)) (.bvar 1)))) := by
+      simp only [List.map_cons, List.map_nil, quotMkTy]
+      refine .cons (by rw [interp_sort, hp1]; exact f1') (.cons ?_ .nil)
+      rw [quotRelTy_interp, hp1, hp2]; exact f2'
+    exact Rules.teleFitPA_of_teleFit _ (by simp [quotMkTy, Rules.PiChain]) hfit
+  -- one field, no index
+  obtain ⟨a, rfl⟩ : ∃ a, fs = [a] := by
+    match fs, hfl with
+    | [a], _ => exact ⟨a, rfl⟩
+  obtain rfl : is = [] := List.eq_nil_of_length_eq_zero hil
+  have hT2 := Rules.teleFit_of_teleFitPA (by simp [quotMkTy, Rules.PiChain]) hfit
+  simp only [List.cons_append, List.nil_append, List.map_cons, List.map_nil, quotMkTy] at hT2
+  cases hT2 with | cons _ hT2 =>
+  cases hT2 with | cons _ hT2 =>
+  cases hT2 with | cons g3 _ =>
+  have ha : interp V ρ a ∈ˢ interp V ρ x1 := by
+    simpa [interp_bvar, cons, hp1] using g3
+  -- the major lies in the quotient
+  have hmaj : interp V ρ (Term.mkAppN (m₂.acval (RecRule.ctor quotIndRule)
+      (Level.substFn φ [x] usj)) [p1, p2, a])
+      = quotClass (ψ uN) (interp V ρ x1) (interp V ρ x2) (interp V ρ a) := by
+    rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hac, acvalWith_ne (by decide),
+      quotMkLeafVal hM]
+    simp only [Term.mkAppN_cons, Term.mkAppN_nil,
+      interp_app, interp_const, bval, hp1, hp2, ConLeche.Term.lv, List.getD_cons_zero, hulev]
+    exact quotMkV_app V f1' f2' ha
+  have hmajM : quotClass (ψ uN) (interp V ρ x1) (interp V ρ x2) (interp V ρ a)
+      ∈ˢ interp V (cons (interp V ρ x4) (cons (interp V ρ x3) (cons (interp V ρ x2)
+        (cons (interp V ρ x1) ρ)))) (quotApp (ψ uN) 3 2) := by
+    rw [(quotApp_data (by simp [cons]) (by simp [cons]) f1' f2').2]
+    exact quotClass_mem ha
+  have hfull : TeleFit V ρ (quotIndTy (ψ uN))
+      (([x1, x2, x3, x4] ++ [] ++ [Term.mkAppN (m₂.acval (RecRule.ctor quotIndRule)
+        (Level.substFn φ [x] usj)) ([p1, p2] ++ [a])]).map (interp V ρ))
+      (app (interp V ρ x3) (quotClass (ψ uN) (interp V ρ x1) (interp V ρ x2) (interp V ρ a))) := by
+    simp only [List.append_nil, List.cons_append, List.nil_append, List.map_cons, List.map_nil]
+    rw [hmaj, quotIndTy]
+    refine .cons f1 (.cons f2 (.cons f3 (.cons f4 (.cons hmajM ?_))))
+    have := TeleFit.nil (V := V) (ρ := cons (quotClass (ψ uN) (interp V ρ x1) (interp V ρ x2)
+      (interp V ρ a)) (cons (interp V ρ x4) (cons (interp V ρ x3) (cons (interp V ρ x2)
+        (cons (interp V ρ x1) ρ))))) (T := .app (.bvar 2) (.bvar 0))
+    simpa [interp_app, interp_bvar, cons] using this
+  obtain ⟨restR, hrestR⟩ := Rules.teleFitPA_of_teleFit _ (by simp [quotIndTy, Rules.PiChain]) hfull
+  refine ⟨restR, hrestR, fun pre idx rest body u hpre hbody hu => ?_⟩
+  have hres := TeleFit.rest_unique (Rules.teleFit_of_teleFitPA
+    (by simp [quotIndTy, Rules.PiChain]) hrestR) hfull
+  rw [hres]
+  -- the motive's sort is `Prop`
+  simp only [quotIndA, ConstantInfo.toConstantVal, ConLeche.quotIndMotive, ConLeche.quotIndMk,
+    ConLeche.quotRel, BasisDSL.piI, BasisDSL.pi, BasisDSL.piA, BasisDSL.srt, BasisDSL.bv,
+    BasisDSL.ap2, BasisDSL.ap3, BasisDSL.cnst, BasisDSL.prop, BasisDSL.u,
+    Expr.instantiateLevelParams, Expr.stripPis, Option.map, Option.some.injEq,
+    Prod.mk.injEq] at hpre
+  obtain ⟨rfl, rfl⟩ := hpre
+  simp only [Expr.stripPis, Option.map] at hbody
+  obtain ⟨rfl, rfl⟩ := hbody
+  simp [ConLeche.motiveLevel?, Expr.getAppFn, Expr.piResult] at hu
+  subst hu
+  exact app_mem_piV f3' (quotClass_mem ha)
 
 /-- **`Quot.ind`, installed at the P tier.** -/
 theorem extendQuotInd (mp : EnvModelM V env)
