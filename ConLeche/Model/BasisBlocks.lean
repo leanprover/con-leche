@@ -1412,4 +1412,152 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
 
 end Nat
 
+/-! ### `Nat.rec`'s forward typing rows (task #610) -/
+
+/-- **`Nat.rec`'s telescope, completed**: a fit of the prefix `motive zero succ` extends by any
+major in `ω`, the motive at it a type of `Sort u`. -/
+theorem natRecFit_core (ψ : Name → Nat) (ρ : Nat → V) {xs : List Term} (hxs : xs.length = 3)
+    {mid : Term}
+    (hmid : TeleFitPA V ρ
+      (.pi (natMotiveTy ψ)
+        (.pi (.app (.bvar 0) (.const .natZero []))
+          (.pi (natStepTy)
+            (.pi (.const .nat [])
+              (.app (.bvar 3) (.bvar 0)))))) xs mid)
+    {maj : Term} (hmaj : interp V ρ maj ∈ˢ (omega : V)) :
+    ∃ restR, TeleFitPA V ρ
+      (.pi (natMotiveTy ψ)
+        (.pi (.app (.bvar 0) (.const .natZero []))
+          (.pi (natStepTy)
+            (.pi (.const .nat [])
+              (.app (.bvar 3) (.bvar 0)))))) (xs ++ [] ++ [maj]) restR ∧
+      interp V ρ restR ∈ˢ (univ (ψ uN) : V) := by
+  obtain ⟨M, z, s, rfl⟩ : ∃ a b c, xs = [a, b, c] := by
+    match xs, hxs with
+    | [a, b, c], _ => exact ⟨a, b, c, rfl⟩
+  cases hmid with | cons h1 hmid =>
+  cases hmid with | cons h2 hmid =>
+  cases hmid with | cons h3 hmid =>
+  cases hmid
+  refine ⟨_, .cons h1 (.cons h2 (.cons h3 (.cons ?_ .nil))), ?_⟩
+  · simpa [Term.inst, Term.liftN_zero, interp_const, bval] using hmaj
+  · rw [natMotiveTy_interp] at h1
+    have hMi : interp V ρ ((((M.liftN 3 0).inst z 2).inst s 1).inst maj 0) = interp V ρ M := by
+      rw [interp_inst, interp_inst, interp_liftN_succ_inst]
+      congr 1
+    simpa [Term.inst, Term.liftN_zero, interp_app, interp_bvar, cons, hMi] using
+      natMotive_apply V h1 hmaj
+
+/-- The motive's sort in `Nat.rec`'s stored type is `Sort u`. -/
+theorem natRec_motiveLevel (us : List Level) {pre idx : List Expr} {rest body : Expr}
+    {u : Level}
+    (hpre : (natRecA.toConstantVal.type.instantiateLevelParams
+      natRecA.toConstantVal.levelParams us).stripPis 3 = some (pre, rest))
+    (hbody : rest.stripPis (3 - 3 + 1) = some (idx, body))
+    (hu : ConLeche.motiveLevel? pre (3 - 3) body = some u) :
+    u = Level.subst natRecA.toConstantVal.levelParams us (.param uN) := by
+  simp only [natRecA, ConstantInfo.toConstantVal, ConLeche.natRecMotive, ConLeche.natRecSucc,
+    ConLeche.natT, BasisDSL.piI, BasisDSL.pi, BasisDSL.srt, BasisDSL.bv, BasisDSL.cnst,
+    BasisDSL.u, Expr.instantiateLevelParams, Expr.stripPis, Option.map, Option.some.injEq,
+    Prod.mk.injEq] at hpre
+  obtain ⟨rfl, rfl⟩ := hpre
+  simp only [Expr.stripPis, Option.map] at hbody
+  obtain ⟨rfl, rfl⟩ := hbody
+  simp [ConLeche.motiveLevel?, Expr.getAppFn, Expr.piResult] at hu
+  exact hu.symm
+
+/-- **`Nat.rec`'s `zero` forward typing row.** -/
+theorem natRecZeroFit {m : EnvModel V env}
+    (m₂ : EnvModel V ⟨natRecA :: env.consts, env.tables⟩)
+    (hN : env.find? natName = some natI)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hac : m₂.acval = acvalWith m.acval natRecA.name
+      (fun ψ => Term.const .natRec [ψ uN]))
+    (φ : Name → Nat) :
+    RecRuleFit m₂ φ natRecA.toConstantVal 3 3 natRecZeroRule := by
+  intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ natRecA.toConstantVal.levelParams us := ⟨_, rfl⟩
+  have hZ' : (⟨natRecA :: env.consts, env.tables⟩ : Env).find? natZeroName
+      = some natZeroA := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hZ
+  obtain rfl : cnP = 0 := by
+    rw [show RecRule.ctor natRecZeroRule = natZeroName from rfl, hZ'] at hfj
+    injection Option.some.inj hfj with _ a2 _ _
+    exact a2.symm
+  obtain rfl : TVa = _ := (Option.some.inj
+    ((natRecTyRead (m := m) m₂ hN hZ hS hac φ us hψ).symm.trans hTVa)).symm
+  obtain rfl : ps = [] := List.eq_nil_of_length_eq_zero hps.1
+  refine ⟨⟨TVja, .nil⟩, fun fs is restC hfl hil _ _ _ _ => ?_⟩
+  obtain rfl : fs = [] := List.eq_nil_of_length_eq_zero hfl
+  obtain rfl : is = [] := List.eq_nil_of_length_eq_zero hil
+  have hctorL : m₂.acval (RecRule.ctor natRecZeroRule) (Level.substFn φ cvj.levelParams usj)
+      = Term.const .natZero [] := by
+    rw [show RecRule.ctor natRecZeroRule = natZeroName from rfl, hac, acvalWith_ne (by decide)]
+    refine EnvModel.acval_pinned m hZ (by decide) ?_
+    simp +decide [ConLeche.Verify.pinnedStructT]
+  obtain ⟨restR, hR, hU⟩ := natRecFit_core ψ ρ hxl hmid (maj := Term.const .natZero [])
+    (by simpa [interp_const, bval] using natzero_mem (V := V))
+  refine ⟨restR, by simpa [hctorL, Term.mkAppN] using hR, fun pre idx rest body u hpre hbody hu => ?_⟩
+  rw [natRec_motiveLevel us hpre hbody hu]
+  have : Level.eval φ (Level.subst natRecA.toConstantVal.levelParams us (.param uN)) = ψ uN := by
+    rw [hψ, Level.subst, Level.eval_subst_go]
+  rw [this]; exact hU
+
+/-- **`Nat.rec`'s `succ` forward typing row.** -/
+theorem natRecSuccFit {m : EnvModel V env}
+    (m₂ : EnvModel V ⟨natRecA :: env.consts, env.tables⟩)
+    (hN : env.find? natName = some natI)
+    (hZ : env.find? natZeroName = some natZeroA)
+    (hS : env.find? natSuccName = some natSuccA)
+    (hac : m₂.acval = acvalWith m.acval natRecA.name
+      (fun ψ => Term.const .natRec [ψ uN]))
+    (φ : Name → Nat) :
+    RecRuleFit m₂ φ natRecA.toConstantVal 3 3 natRecSuccRule := by
+  intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ natRecA.toConstantVal.levelParams us := ⟨_, rfl⟩
+  have hS' : (⟨natRecA :: env.consts, env.tables⟩ : Env).find? natSuccName
+      = some natSuccA := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hS
+  rw [show RecRule.ctor natRecSuccRule = natSuccName from rfl, hS'] at hfj
+  obtain ⟨rfl, rfl⟩ : cvj = natSuccA.toConstantVal ∧ cnP = 0 := by
+    injection Option.some.inj hfj with a1 a2 _ _
+    exact ⟨a1.symm, a2.symm⟩
+  obtain rfl : TVa = _ := (Option.some.inj
+    ((natRecTyRead (m := m) m₂ hN hZ hS hac φ us hψ).symm.trans hTVa)).symm
+  have hTVja' : TVja = .pi (.const .nat []) (.const .nat []) := by
+    rw [denote_instLevels m₂.acval_params φ, hac,
+      denote_natSuccTy (m := m) _ (by decide) hN] at hTVja
+    exact (Option.some.inj hTVja).symm
+  subst hTVja'
+  obtain rfl : ps = [] := List.eq_nil_of_length_eq_zero hps.1
+  refine ⟨⟨_, .nil⟩, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
+  obtain ⟨n, rfl⟩ : ∃ a, fs = [a] := by
+    match fs, hfl with
+    | [a], _ => exact ⟨a, rfl⟩
+  obtain rfl : is = [] := List.eq_nil_of_length_eq_zero hil
+  cases hfit with | cons hn _ =>
+  have hn' : interp V ρ n ∈ˢ (omega : V) := by simpa [interp_const, bval] using hn
+  have hctorL : m₂.acval (RecRule.ctor natRecSuccRule)
+      (Level.substFn φ natSuccA.toConstantVal.levelParams usj) = Term.const .natSucc [] := by
+    rw [show RecRule.ctor natRecSuccRule = natSuccName from rfl, hac, acvalWith_ne (by decide)]
+    refine EnvModel.acval_pinned m hS (by decide) ?_
+    simp +decide [ConLeche.Verify.pinnedStructT]
+  obtain ⟨restR, hR, hU⟩ := natRecFit_core ψ ρ hxl hmid
+    (maj := Term.app (Term.const .natSucc []) n)
+    (by
+      simp only [interp_app, interp_const, bval]
+      rw [natSuccV_app V hn']
+      exact natsucc_mem hn')
+  refine ⟨restR, by simpa [hctorL, Term.mkAppN] using hR,
+    fun pre idx rest body u hpre hbody hu => ?_⟩
+  rw [natRec_motiveLevel us hpre hbody hu]
+  have : Level.eval φ (Level.subst natRecA.toConstantVal.levelParams us (.param uN)) = ψ uN := by
+    rw [hψ, Level.subst, Level.eval_subst_go]
+  rw [this]; exact hU
+
 end ConLeche.Model
