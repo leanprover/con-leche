@@ -82,21 +82,21 @@ index `a` is the second argument of `Eq.refl`'s conclusion `Eq α a a`. -/
 /-! ### `inductive T | a | b` -/
 
 /-- `T`. -/
-def tN : Name := bn "T"
+@[expose] def tN : Name := bn "T"
 /-- `T.a`. -/
-def taN : Name := tN.str "a"
+@[expose] def taN : Name := tN.str "a"
 /-- `T.b`. -/
-def tbN : Name := tN.str "b"
+@[expose] def tbN : Name := tN.str "b"
 /-- `T.rec`. -/
-def trecN : Name := tN.str "rec"
+@[expose] def trecN : Name := tN.str "rec"
 
 /-- The motive's domain: `T → Sort u`. -/
-def tMotive : Expr := piA (cnst tN) (srt u)
+@[expose] def tMotive : Expr := piA (cnst tN) (srt u)
 
 /-- The minors' domains, in the motive's context. -/
-def tMinA : Expr := .app (bv 0) (cnst taN)
+@[expose] def tMinA : Expr := .app (bv 0) (cnst taN)
 /-- The second minor's domain, in the motive's and the first minor's context. -/
-def tMinB : Expr := .app (bv 1) (cnst tbN)
+@[expose] def tMinB : Expr := .app (bv 1) (cnst tbN)
 
 /-- `T.a : T`. -/
 @[expose] def taCV : ConstantVal := ⟨taN, [], cnst tN⟩
@@ -104,17 +104,17 @@ def tMinB : Expr := .app (bv 1) (cnst tbN)
 @[expose] def tbCV : ConstantVal := ⟨tbN, [], cnst tN⟩
 
 /-- `T.rec.{u} : (motive : T → Sort u) → motive T.a → motive T.b → (t : T) → motive t`. -/
-def trecCV : ConstantVal :=
+@[expose] def trecCV : ConstantVal :=
   ⟨trecN, [uN], pi "motive" tMotive <| pi "a" tMinA <| pi "b" tMinB <|
     pi "t" (cnst tN) (.app (bv 3) (bv 0))⟩
 
 /-- The rule for `T.a`: the first minor. -/
-def ruleA : RecRule := rule taN 0 (lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB <| bv 1)
+@[expose] def ruleA : RecRule := rule taN 0 (lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB <| bv 1)
 /-- The rule for `T.b`: the second minor. -/
-def ruleB : RecRule := rule tbN 0 (lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB <| bv 0)
+@[expose] def ruleB : RecRule := rule tbN 0 (lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB <| bv 0)
 
 /-- The equation of the rule for the constructor `c` with right-hand side `r`. -/
-def tEq (c : Name) (r : Expr) : Expr :=
+@[expose] def tEq (c : Name) (r : Expr) : Expr :=
   pi "motive" tMotive <| pi "a" tMinA <| pi "b" tMinB <|
     ap3 (cnst eqName [u]) (.app (bv 2) (cnst c))
       (Expr.mkAppN (cnst trecN [u]) [bv 2, bv 1, bv 0, cnst c])

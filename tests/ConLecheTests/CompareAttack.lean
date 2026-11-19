@@ -35,17 +35,17 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- `f`. -/
-def fN : Name := bn "f"
+@[expose] def fN : Name := bn "f"
 /-- The hole `t`. -/
-def holeN : Name := bn "t"
+@[expose] def holeN : Name := bn "t"
 /-- `f : T`. -/
-def fCV : ConstantVal := ⟨fN, [], cnst tN⟩
+@[expose] def fCV : ConstantVal := ⟨fN, [], cnst tN⟩
 /-- The level `1`: `T : Type`. -/
-def l1 : Level := .succ .zero
+@[expose] def l1 : Level := .succ .zero
 /-- `@Eq.{1} T f T.b`. -/
-def holeTy : Expr := ap3 (cnst eqName [l1]) (cnst tN) (cnst fN) (cnst tbN)
+@[expose] def holeTy : Expr := ap3 (cnst eqName [l1]) (cnst tN) (cnst fN) (cnst tbN)
 /-- The hole's statement, `t : f = T.b`. -/
-def holeCV : ConstantVal := ⟨holeN, [], holeTy⟩
+@[expose] def holeCV : ConstantVal := ⟨holeN, [], holeTy⟩
 
 /-- **The attack's environment**: `inductive T | a | b` with its recursor, `Eq` at one level
 parameter, `def f : T := T.a` and the hole `t : f = T.b` as the axiom of its statement. -/
