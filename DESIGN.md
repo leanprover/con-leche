@@ -123358,12 +123358,14 @@ module map), whitepaper §8 (one paragraph; `build.sh` in `nix develop ./whitepa
 `fragment-gate.sh`, `links-gate.sh --update` after re-reading: only moves and the new
 citation).
 
-**Gates (final tree):** `lake build` and `lake test` warning-free; `tests/arena.sh` in full under
-the guard, exit 0: arena tutorial 90/92 (as on `compare`), e2e 634/634 (21 new rows), olean gate
-388/388, trusted and `--jobs=1`/`--jobs=4` sweeps without divergence, self-check accepted 60 606
-declarations, axioms pinned (77 theorems); plain-reach (639 reached, all allowlisted: the JSON
-comparison imports `Verify/Cached/DeclNames` for the `declNames`/`declConstants` twins),
-trust-surface, binary-link, layering, shake (imports as the per-module criterion computed
-them), overview-links (anchors repointed after re-reading: moves only), quote-gate,
-no-local-paths, whitepaper `build.sh`, `fragment-gate.sh`, `links-gate.sh`.  `compare` had not
-moved since the lane's base (36053b2d2), so the merge into the lane was empty.
+**Gates (final tree, after merging `compare` with #608 into the lane):** `lake build` and `lake
+test` warning-free; `tests/arena.sh` in full under the guard, exit 0: arena tutorial 90/92 (as on
+`compare`), e2e 634/634 (21 new rows), olean gate 535/535, trusted and `--jobs=1`/`--jobs=4`
+sweeps without divergence, self-check accepted 60 995 declarations, axioms pinned (82 theorems);
+plain-reach (639 reached, all allowlisted: the JSON comparison imports `Verify/Cached/DeclNames`
+for the `declNames`/`declConstants` twins), trust-surface, binary-link, layering, shake
+(imports as the per-module criterion computed them), overview-links and the whitepaper's
+`links-gate.sh` (anchors repointed after re-reading: moves, plus the one new citation),
+quote-gate, no-local-paths, whitepaper `build.sh` and `fragment-gate.sh`.  The merge of
+`compare` (#608) conflicted in `Dispatch.lean` (both added requests), `MainTheorem.lean` and the
+axiom pins (both appended), OVERVIEW, the whitepaper and DESIGN; both sides kept.
