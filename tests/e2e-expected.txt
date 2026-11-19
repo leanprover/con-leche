@@ -3509,37 +3509,43 @@
 # which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
 0 lit_hash_low_bits.ndjson
 
-# --compare on two lean4export files (task #612): challenge and solution pairs exported from
-# tests/e2e/src/cmp_*.lean by scripts/mk_cmp_fixtures.sh.  The holes are the challenge's
-# axioms but the standard ones and its declarations whose value uses sorry; every other
-# declaration the challenge's environment needs is the solution's by content, up to the
-# names of level parameters; the solution's file is checked in full.
-# cmp_hole: a definition, a theorem and an axiom hole, filled (0).
+# --compare on two lean4export files: CHALLENGE checked with SOLUTION as its sidecar
+# (task #619; pairs exported from tests/e2e/src/cmp_*.lean by scripts/mk_cmp_fixtures.sh).  The
+# solution's file is checked in full; the challenge's too, its axioms other than the built-in
+# ones and its declarations whose value uses sorry justified by the solution's constant of the
+# same name and type (up to level-parameter names), everything the type reads being the same
+# constant in both (level-parameter names included); an axiom not so justified rejects (1).
+# cmp_hole: a definition, a theorem and an axiom hole, justified (0).
 0 --compare -- cmp_hole_c.ndjson cmp_hole_s.ndjson
-# cmp_kind: holes filled by other kinds (an opaque constant, a definition), 0; a declaration
-# that is no hole, of another kind in the solution (a theorem as a definition), 1.
+# cmp_kind: holes justified by other kinds (an opaque constant, a definition), 0; the
+# challenge's own theorem `triv` is checked by the challenge, so the solution's `def triv`
+# does not matter (0; 1 under the #612 comparison).
 0 --compare -- cmp_kind_c.ndjson cmp_kind_s.ndjson
-1 --compare -- cmp_kind_c.ndjson cmp_kind_bad_s.ndjson
-# cmp_lv: the solution's level parameters named differently (0).
-0 --compare -- cmp_lv_c.ndjson cmp_lv_s.ndjson
-# cmp_def: a definition that is no hole, differing in the solution (1).
+0 --compare -- cmp_kind_c.ndjson cmp_kind_bad_s.ndjson
+# cmp_lv: the hole's statement up to level-parameter names, but the definition `idd` it reads
+# at other level-parameter names in the solution: not the same constant (1; 0 under the #612
+# comparison, which renamed every compared record; leanprover/comparator rejects it too).
+1 --compare -- cmp_lv_c.ndjson cmp_lv_s.ndjson
+# cmp_def: a definition the hole reads, differing in the solution (1).
 1 --compare -- cmp_def_c.ndjson cmp_def_s.ndjson
-# cmp_stmt: a hole stated differently in the solution (1); filled from a non-standard
+# cmp_stmt: a hole stated differently in the solution (1); justified from a non-standard
 # axiom of the solution's (cmp_ax_s): the solution's check declines (2).
 1 --compare -- cmp_stmt_c.ndjson cmp_stmt_s.ndjson
 2 --compare -- cmp_stmt_c.ndjson cmp_ax_s.ndjson
-# cmp_missing: a challenge declaration the solution lacks (1).
-1 --compare -- cmp_missing_c.ndjson cmp_missing_s.ndjson
+# cmp_missing: a challenge definition the solution lacks and no hole reads: checked by the
+# challenge (0; 1 under the #612 comparison).
+0 --compare -- cmp_missing_c.ndjson cmp_missing_s.ndjson
 # cmp_redecl: the solution declares the challenge's `f := 3` itself, identically: the same
-# constant (0).  An export has no homes: content decides.
+# constant (0).
 0 --compare -- cmp_redecl_c.ndjson cmp_redecl_s.ndjson
 # cmp_attack: the challenge holds `f := 3` and asks for `t : f = 5`; the solution's
-# `f := 5` differs in content (1).
+# `f := 5` is another constant (1).
 1 --compare -- cmp_attack_c.ndjson cmp_attack_s.ndjson
 # cmp_ind: `inductive T | a | b` against the solution's `| a` (1).
 1 --compare -- cmp_ind_c.ndjson cmp_ind_s.ndjson
-# cmp_false: a hole `axiom x : False` (main_compare_json_no_False: never 0): the
-# solution's own axiom declines (2), another statement rejects (1).
+# cmp_false: a hole `axiom x : False` (never 0: an axiom of type False is never justified,
+# the sidecar's check accepting no constant of that type): the solution's own axiom declines
+# (2), another statement rejects (1).
 2 --compare -- cmp_false_c.ndjson cmp_false_ax_s.ndjson
 1 --compare -- cmp_false_c.ndjson cmp_false_other_s.ndjson
 # usage errors (3): --constant (the exporter's selection is the file), one file, the same

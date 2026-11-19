@@ -2,118 +2,39 @@ module
 
 public import ConLeche.Driver.Compare
 import ConLeche.Verify.Cached.DeclNames
+public import ConLeche.Verify.Cached.Justify
 
 @[expose] public section
 
 /-!
-# A challenge and its solution, as two lean4export files (task #612)
+# Checking a lean4export file with a sidecar
 
-`con-leche --compare [--] CHALLENGE.ndjson SOLUTION.ndjson` says whether the export
-`SOLUTION.ndjson` solves the export `CHALLENGE.ndjson`: every hole of the challenge is met by
-the solution's constant of the same name and type, every other challenge declaration is the
-solution's, and the solution's file is accepted.  This is leanprover/comparator's setting: it
-compares two lean4export files of the same targets.
+`con-leche --compare [--] CHALLENGE.ndjson SOLUTION.ndjson` checks `CHALLENGE.ndjson`, justifying
+its axioms by `SOLUTION.ndjson`: the solution's file is checked as any input is, and its
+environment is the **sidecar** of the challenge's check (`checkDecls … (some envS)`,
+`ConLeche/Cached/Justify.lean`).  The challenge's file is checked as any input is, its definitions,
+theorems and inductive types included; only its axioms other than the built-in ones, and its
+declarations whose value uses `sorryAx` (the holes: a definition's is read as the axiom of its
+statement, `sideRecord`), take the justification route: the sidecar holds a constant of the same
+name and type, up to the names of its level parameters, and everything the type reads is the
+same constant in both.  An axiom the sidecar does not justify is a rejection, exit 1, with the
+reason.
 
-**No modules, no homes.**  An export has no modules, so every record of the challenge file is
-the challenge's own, and is compared by its content alone: a solution that declares a challenge
-constant itself, with the same content, meets it (in the merged `--olean` mode a name the
-challenge imports must be its home's constant, `Driver.cmpRecord`; that rule is needed only
-where a view lacks bodies).  The comparison is `compareRecords`, the `--olean --compare` one, with
-every challenge record of the challenge's own (`jsonHomes`) but the standard axioms'.
-
-* **The holes** (`jsonHole`): the challenge file's axioms other than the standard ones
-  (`propext`, `Classical.choice`, `Quot.sound`, `isStdAxiom`) and the placeholder `sorryAx`, and its definitions, theorems
-  and opaque constants whose value uses `sorryAx` (`isHole`).  A hole is filled by the
-  solution's constant of its name and type up to the names of its level parameters, of any kind
-  `cmpRecord` admits (its declines stand: a hole at a compiler-trust name filled by a definition
-  or theorem, a hole filled by an inductive type's constant).
-* **A standard axiom** is compared as it is, exactly (`cmpRecord` with no home on either side).
-* **Every other record** is the solution's up to the names of its level parameters
-  (`sameRecordUpToLevels`).
-
-**What is compared** (`jsonRecs`): the holes, and what the challenge's environment needs: the
-records no other record of the file mentions (the exporter's selection) and what they read, the
-holes as their statements.  A record only a hole's value or a theorem's proof mentions is not
-compared: an export of a challenge holds `sorryAx` and the cone of the `sorry`'s tag, and a lemma
-a challenge's proof uses, none of which the solution need hold.
-
-The solution's file is checked in full, as a plain run checks a stream (`checkMainG`); the
-challenge's is compared, not checked: every challenge record stands for a checked solution
-record, or for a hole the statement of one, and those read only what the records before them
-install (`ctxScoped`).  A challenge record the solution's file lacks is a missing constant,
-exit 1.  There is no `--constant`: the exporter's selection is the file.
+So a challenge `def f : Nat := 3`, `theorem t : f = 5 := sorry` has no accepted solution: `t`'s
+type reads `f`, so the sidecar must hold `t` over the same `f := 3`, which it cannot prove.
 -/
 
 namespace ConLeche.Driver
 
-open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
-
 open ConLeche
 
-/-- **A compared run of two lean4export files**: the challenge's and the solution's. -/
+/-- **A run of a lean4export file with a sidecar**: the challenge's file and the solution's. -/
 structure JCmpReq where
   challenge : String
   solution : String
 
-/-- The standard axioms: compared as they are, never holes. -/
-def stdAxiomNames : Array Name := #[propextName, choiceName, quotSoundName]
-
-/-- A standard axiom's record. -/
-def isStdAxiom : Declaration → Bool
-  | .axiomDecl cv => stdAxiomNames.contains cv.name
-  | _ => false
-
-/-- The placeholder axiom's record (`sorryAx`): it installs nothing (`declConstants`), and is no
-hole. -/
-def isPlaceholder : Declaration → Bool
-  | .axiomDecl cv => cv.name == sorryAxName
-  | _ => false
-
-/-- **A hole of a challenge file**: an axiom other than a standard one and the placeholder, or
-a definition, theorem or opaque constant whose value uses `sorryAx`. -/
-def jsonHole (d : Declaration) : Bool :=
-  !isStdAxiom d && !isPlaceholder d && isHole Declaration.usedConsts d
-
-/-- The name the comparison takes as the challenge's own "module": an export has none, and
-every record of the challenge file is the challenge's own. -/
-def jsonOwn : Name := .anonymous
-
-/-- **What a record of the file mentions**: what it reads (`recordReads`, literals' support
-constants included), and a theorem's or opaque constant's value, which `recordReads` does not
-read. -/
-def jsonMentions (d : Declaration) : Array Name :=
-  match d with
-  | .thmDecl _ v | .opaqueDecl _ v => (needsGo {} (recordReads d) v).2
-  | _ => recordReads d
-
-/-- **The names other records of the file mention** (`jsonMentions`, values included).  A
-record none of whose names is among them is top-level: the exporter's selection, as a name the
-exporter was asked for is mentioned by no other record, unless one of them needs it. -/
-def jsonMentioned (recs : Array Declaration) : Std.HashSet Name :=
-  recs.foldl (init := {}) fun s d =>
-    let own := recKey d :: Modular.declNames d
-    s.insertMany ((jsonMentions d).filter (!own.contains ·))
-
-/-- **A root of a challenge file's comparison**: a hole, or a top-level record (one none of
-whose names another record mentions, `jsonMentioned`). -/
-def jsonRoot (mentioned : Std.HashSet Name) (d : Declaration) : Bool :=
-  jsonHole d || (recKey d :: Modular.declNames d).all (!mentioned.contains ·)
-
-/-- **The challenge's records**: the file's records prepared with the built-in prelude, as a
-plain run prepares them, those the challenge's environment needs: the roots (`jsonRoot`) and what
-they read, closed under reads with the holes as their statements (`readCone`), in their order.
-A record only a hole's value or a theorem's proof mentions is not needed: the `sorryAx` an export
-holds for a `sorry` and what its tag mentions, a lemma one proof uses. -/
-def jsonRecs (pre : Frontend.PreludeIx) (ds : Array Declaration) : Array Declaration :=
-  let recs := (Frontend.prepareD pre ds).decls
-  readCone (jsonRoot (jsonMentioned recs)) (fun d => if jsonHole d then Modular.stmtOf d else d)
-    recs
-
-/-- **Every challenge record is the challenge's own**, but a standard axiom's. -/
-def jsonHomes (recs : Array Declaration) : Std.HashMap Name Name :=
-  recs.foldl (init := {}) fun m d => if isStdAxiom d then m else m.insert (recKey d) jsonOwn
-
-/-- **The compared run of two lean4export files** (see the module docstring). -/
+/-- **The run** (see the module docstring): the solution's file checked, then the challenge's
+with the solution's environment as its sidecar. -/
 def compareJsonG {μ : Type → Type} [CheckerIO μ] (r : JCmpReq) (mode : CheckMode)
     (maxNatSize : Nat) (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let t0 ← clockMs
@@ -134,36 +55,37 @@ def compareJsonG {μ : Type → Type} [CheckerIO μ] (r : JCmpReq) (mode : Check
   match ← parseStreamG r.solution jobs with
   | .error e => readFailed modeTag r.solution e
   | .ok rS =>
-  let recsC := jsonRecs prelude rC.decls
-  let ⟨recsS, _, hoisted⟩ := Frontend.prepareD prelude rS.decls
-  match compareRecords jsonOwn Declaration.usedConsts (jsonHomes recsC) {} recsS
-      (recIndex recsS) recsC with
-  | .error why =>
-    if declined.isPrefixOf why then
-      diagLine s!"con-leche: {why} ({modeTag})"
-      return 2
-    diagLine s!"con-leche: {r.solution} does not solve {r.challenge}: {why} ({modeTag})"
-    return 1
-  | .ok (ctx, filled) =>
-  if let some why := ctxScoped ctx then
-    diagLine s!"con-leche: {r.solution} does not solve {r.challenge}: {why} ({modeTag})"
-    return 1
-  hoistedNote hoisted
-  -- the solution's file, checked in full
+  -- the sidecar, checked as any input
+  let ⟨recsS, _, hoistedS⟩ := Frontend.prepareD prelude rS.decls
+  hoistedNote hoistedS
   let tIndex ← clockMs
-  let J ← CheckerIO.liftIO (Jobs.build recsS)
+  let JS ← CheckerIO.liftIO (Jobs.build recsS)
   let tParse ← clockMs
-  let verdict ← CheckerIO.liftIO do
-    checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J rfl
-  match verdict with
+  let vS ← CheckerIO.liftIO do
+    checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs JS rfl
+  match vS with
   | .error e =>
-    verdictG modeTag rS.decls.size t0 recsS (.error e) s!"the solution {r.solution}: "
+    verdictG modeTag rS.decls.size t0 recsS (.error e) s!"the sidecar {r.solution}: "
   | .ok _ =>
-    outLine s!"con-leche: accepted: {r.solution} solves {r.challenge}: {recsC.size} \
-      challenge declarations compared, {filled.size} holes filled, {rS.decls.size} solution \
-      declarations checked ({modeTag})"
-    for f in filled do
-      outLine s!"con-leche: hole {f.name} ({f.hole}) filled by the solution's {f.filler}"
+  -- the challenge, checked with the sidecar
+  let envS := streamEnv recsS.toList
+  let ⟨recsC₀, _, hoistedC⟩ := Frontend.prepareD prelude rC.decls
+  hoistedNote hoistedC
+  let recsC := Cached.sideRecords (some envS) recsC₀
+  let tIndexC ← clockMs
+  let JC ← CheckerIO.liftIO (Jobs.build recsC (some envS))
+  let tParseC ← clockMs
+  let vC ← CheckerIO.liftIO do
+    checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndexC tParseC jobs JC
+      (Cached.sideRecords_idem _ _)
+  match vC with
+  | .error e => verdictG modeTag rC.decls.size t0 recsC (.error e)
+  | .ok _ =>
+    let holes := recsC.filter fun d => (Cached.justifiable d).isSome
+    outLine s!"con-leche: accepted {rC.decls.size} declarations, {holes.size} axioms justified \
+      by the sidecar {r.solution} ({rS.decls.size} declarations accepted) ({modeTag})"
+    for d in holes do
+      outLine s!"con-leche: {Cached.declCLabel d} justified by the sidecar"
     return 0
 
 end ConLeche.Driver
