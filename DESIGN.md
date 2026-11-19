@@ -124080,3 +124080,64 @@ after re-reading: moves, plus the restated statements), quote-gate, challenge.sh
 no-local-paths; whitepaper `build.sh` and `fragment-gate.sh`.  The merge of `modular`
 conflicted in DESIGN (both kept), `tests/shake-allowlist.txt` (both lines kept) and whitepaper
 §1's citation of `Denotes.lean` (modular's anchor).
+
+## TASK #614 — the merged comparison compares what the challenge reads (2026-11-19, agent/614-narrow-merged)
+
+**Ruling (maintainer, 2026-11-19, repair (a) of #611).**  `--olean --compare` compares only the
+challenge module's own records and what they read, closed under reads, every hole as its
+statement: what only a hole's value or a proof reads is not compared.  This is the narrowing
+the compare worker (`cmpRoots` + `reach`), the lean4export comparison (#612) and
+leanprover/comparator use.  An import the challenge never reads from cannot change what its
+holes say.  #611's theorem ("modular accept ⇒ merged accept") is parked on its branch
+(da667eaec), not as a PR.
+
+**Code** (`ConLeche/Driver/Compare.lean`).  `readCone root form recs`: the records `root`
+selects and what they read (`recordReads` of `form d`), a worklist over positions each pushed
+once (fuel `recs.size + 1`), the records kept in their prepared order.  It is #612's
+`jsonReachGo`/`jsonNeeded`, now shared: `jsonRecs` is `readCone (jsonRoot …)` with the holes and
+the exporter's top-level records as roots (no duplicate left).  The merged side:
+`chalRoot C homesC constants` (a record whose key's home is `C`; under `--constant`, also one
+installing a named name), `chalRecs … := readCone (chalRoot …) (chalRecord C uses homesC)`.
+`compareG` prepares the challenge, narrows, then reads the solution (under `--constant`, from
+the narrowed records' keys instead of every key of the challenge's read).  The home rule stays
+for the imported names that are compared; `cmpRecord` is unchanged.  `ctxScoped` is still the
+run-time check over what the compared records stand for: the narrowed set is read-closed and in
+prepared order, so it passes where the full one did, and its soundness (#612's argument: the
+model theorems are parametric in `recsC`) is untouched.
+
+**`--constant` and the narrowing.**  The challenge's read is the export cone of the named
+declarations (`emitAll`, values included); the comparison's roots are then the records of the
+named declarations alone (not every own record of that cone), closed under reads with holes as
+statements.  So `--constant=NAME` compares NAME and what it reads: an own lemma only NAME's proof
+uses is in the read but not compared, as without `--constant`.
+
+**Proofs.**  `chalCmpRecs` (`Verify/Driver/CompareRun.lean`) names the narrowed records;
+`challengeEnv` is now over them (signature unchanged); `compareG_accept` and
+`runArgs_compare_accept` restated over `chalCmpRecs` (and the solution's `need`).  The
+`Model.Compare` theorems were already parametric in `recsC`, so `main_compare_solves`,
+`main_compare_trusted` and `compare_attack_rejected` go through unchanged in text, over the
+narrowed environment: a tight `Model` with every constant inhabited and valued as the
+solution's.  The attack stays excluded: the hole `t : f = 5` reads `f`, so `f`'s definition is
+in the compared cone (CompareAttack's docstring says so).  `mem_jsonRecs` now comes from
+`mem_readCone` (`readConeGo_keeps`, `foldl_keeps`, `set_true_keeps`,
+`Model/Modular/CompareJson.lean`).
+
+**Fixtures.**  CmpUnC/CmpUnS (from 41ba8fdbf): merged mode now 0 ("hole easy (theorem :=
+sorry) filled by CmpUnS's theorem"), as the modular modes.  One verdict moved: upstream
+primitive-issue (UpGcd/UpGcdSol) in the merged mode 1 → 2: `boom : False` reads nothing of
+`Init.Data.Nat.Gcd`, so `Nat.gcd` is not compared, and the solution's own check declines its
+`Nat.gcd := 0` (unsupported Nat.div/mod spelling), as `--olean UpGcdSol` does; the modular
+modes still reject (1) by the clash rule, their graph holding both closures; upstream rejects on
+`Nat.gcd`.  Not an accept in any mode.
+
+**Docs.**  OVERVIEW §2: one "what is compared" rule for the three modes, `--constant`'s place
+in it, the theorem paragraph; whitepaper §8 (`06c-compare.typ`: the rule, anchors); the usage
+text (both `--compare` entries, `--constant`).
+
+**Gates (final tree):** `lake build` and `lake test` warning-free; `tests/arena.sh` in full
+under the guard, exit 0 (olean gate 539/539, arena tutorial 90/92 as on `compare`, e2e
+634/634, trusted and `--jobs` sweeps without divergence, self-check accepted 61 524
+declarations, axioms pinned: 84 theorems at the three standard axioms); plain-reach (639, all
+allowlisted), trust-surface, binary-link, layering, shake (679/679, no demotable public
+import), overview-links, whitepaper links-gate (anchors repointed after re-reading),
+fragment-gate, quote-gate, challenge.sh, no-local-paths; whitepaper `build.sh`.

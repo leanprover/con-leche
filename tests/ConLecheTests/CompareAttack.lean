@@ -17,7 +17,9 @@ and the hole `t : f = T.b` as an axiom exists, because the model makes `f` denot
 (`Model.defn_eq`), `Eq` is set equality, and `T.a` and `T.b` denote different sets
 (`IotaEqTest.T_a_ne_T_b`, from `Model.rule_eqs`).  `compare_attack_rejected` lifts it through
 the restated `main_compare_solves`: on any snapshot whose challenge read gives such an
-environment, `--olean --compare` has no exit 0, whatever the solution.
+environment, `--olean --compare` has no exit 0, whatever the solution.  The challenge's
+environment holds the challenge's own records and what they read (`Driver.chalCmpRecs`); the
+hole reads `f`, `T.b` and `Eq`, and `f` reads `T.a`, so all of the shape is in it.
 
 The fixtures themselves use `def f : Nat := 3` and `t : f = 5`.  The argument is the same; the
 step it needs in place of `T_a_ne_T_b` is that `3` and `5` denote different sets in every model,
