@@ -53,6 +53,12 @@ noncomputable def posModel (cval : Name → (LevelParam → Nat) → V) (env : E
   | some ci => cval n (Level.assign ci.toConstantVal.levelParams vals)
   | none => if n = eqName then eqRel (vals.headD 0) else empty
 
+/-- A stored constant's value, positionally: through its own level parameters. -/
+theorem posModel_of_find {cval : Name → (LevelParam → Nat) → V} {env : Env} {n : Name}
+    {ci : ConstantInfo} (h : env.find? n = some ci) (vals : List Nat) :
+    posModel cval env n vals = cval n (Level.assign ci.toConstantVal.levelParams vals) := by
+  unfold posModel; rw [h]
+
 /-- A stored constant reads only its own level parameters. -/
 def CvalLocal (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
   ∀ n ci, env.find? n = some ci → ∀ ψ₁ ψ₂ : LevelParam → Nat,

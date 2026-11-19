@@ -29,6 +29,7 @@ import ConLeche.Semantics.DeclWF
 import ConLeche.Semantics.IsModelBasis
 import ConLeche.Model.IsModelBridge
 import ConLeche.Model.IsModelOlean
+import ConLeche.Model.Modular.IsModel
 public import ConLeche.OleanInput
 
 public section
@@ -242,41 +243,22 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
 /-! ## Modular checking (task #463)
 
 A development of modules (`ConLeche/Modular.lean`) every module of which passes the local checks
-has a compatible family of models of the modules' own environments: every module gives each name
-of its context the value the module it reads it from gives it, and every theorem the point.  Each module's model is built from its
-sources' models alone (`ConLeche/Modular/Generic.lean`'s `Development.modular`, at con-leche's
-models: `ConLeche/Model/Modular/Instance.lean`). -/
+has, for every module, a model of its own records (`IsModel`, over the input), and every module
+gives each name of its context the value the module it reads it from gives it.  Each module's
+model is built from its sources' models alone (`ConLeche/Modular/Generic.lean`'s
+`Development.modular`, at con-leche's models: `ConLeche/Model/Modular/Instance.lean`), and read
+positionally (`ConLeche/Model/Modular/IsModel.lean`). -/
 
 open Modular in
 /-- **The modular theorem.** -/
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
-    ∃ m : ∀ j ≤ i, Model V (dev j).own,
-      (∀ j hj n, ((dev j).context.find? n).isSome = true →
-        ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-        (m j hj).cval n = fun _ => pt := by
-  obtain ⟨mm, hc⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
-  have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
-      ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = (mm j (by omega)).1 n :=
-    fun j hj => (mm j (by omega)).2.2.2.2.elim fun mp h => ⟨mp, h.2.2⟩
-  refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hex j hj)), ?_, ?_⟩
-  · intro j hj n hn
-    obtain ⟨hs, he, -⟩ := hc j (by omega) n ⟨hn, trivial⟩
-    have hs' : (dev j).src n < i + 1 := hs
-    have hsi : (dev j).src n ≤ i := by omega
-    refine ⟨hsi, ?_⟩
-    rw [Model.Model.ofEnvModelM_cval, Model.Model.ofEnvModelM_cval]
-    apply Model.cvalOf_congr
-    rw [Classical.choose_spec (hex j hj) n (Model.Modular.own_stored_of_context hok hj hn),
-      Classical.choose_spec (hex _ hsi) n (Model.Modular.src_stored hok hj hn)]
-    exact he
-  · intro j hj n cv hn
-    rw [Model.Model.ofEnvModelM_cval]
-    apply Model.cvalOf_prf
-    rw [Classical.choose_spec (hex j hj) n (by rw [hn]; rfl)]
-    exact Model.Modular.ProofLeaves.thm (mm j (by omega)).2.2.2.1 hn
+    ∃ model : Nat → Name → List Nat → V,
+      (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls)) ∧
+      ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+        (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
+  Model.Modular.modular_isModel V pins maxNatSize dev i hok
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]

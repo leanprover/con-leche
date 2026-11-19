@@ -189,11 +189,10 @@ open Modular in
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
-    ∃ m : ∀ j ≤ i, Model V (dev j).own,
-      (∀ j hj n, ((dev j).context.find? n).isSome = true →
-        ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-        (m j hj).cval n = fun _ => pt :=
+    ∃ model : Nat → Name → List Nat → V,
+      (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls)) ∧
+      ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+        (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
   sorry
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
