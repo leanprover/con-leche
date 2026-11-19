@@ -651,6 +651,39 @@ arguments `xs`, or, at a nested rule, its pins chained over `xs`
         interp V ρ (ps.getD i default) = interp V ρ (Term.instRevChain xs vpa)
     | _ => interp V ρ (ps.getD i default) = interp V ρ (xs.getD i default)
 
+/-- **Reading the parameters, transported**: where the nested pins read alike (and a rule that
+is not nested stays so), a reading of the parameters on one side is one on the other. -/
+theorem RuleParamsRead.transport {V : Type w} [SetTheory V] {env env' : Env}
+    {m : EnvModel V env} {m' : EnvModel V env'} {φ : Name → Nat} {cv cv' : ConstantVal}
+    {rP cnP : Nat} {us us' : List Level} {rl rl' : RecRule} {ρ : Nat → V} {xs ps : List Term}
+    (hnest : ∀ lvls pins, RecRule.fire rl = .nested lvls pins → ∃ lvls' pins',
+      RecRule.fire rl' = .nested lvls' pins' ∧ ∀ i (vpa : Term),
+        denote m.acval env φ rP (ConLeche.Verify.openRev 0 rP
+          ((pins.getD i default).instantiateLevelParams cv.levelParams us)) = some vpa →
+        denote m'.acval env' φ rP (ConLeche.Verify.openRev 0 rP
+          ((pins'.getD i default).instantiateLevelParams cv'.levelParams us')) = some vpa)
+    (hplain : (∀ lvls pins, RecRule.fire rl ≠ .nested lvls pins) →
+      ∀ lvls pins, RecRule.fire rl' ≠ .nested lvls pins)
+    (h : RuleParamsRead m' φ cv' rP cnP us' rl' ρ xs ps) :
+    RuleParamsRead m φ cv rP cnP us rl ρ xs ps := by
+  obtain ⟨hl, h⟩ := h
+  refine ⟨hl, fun i hi => ?_⟩
+  have h' := h i hi
+  unfold RuleParamsRead at *
+  cases hf : RecRule.fire rl with
+  | nested lvls pins =>
+    obtain ⟨lvls', pins', hf', hv⟩ := hnest lvls pins hf
+    rw [hf'] at h'
+    intro vpa hvpa
+    exact h' vpa (hv i vpa hvpa)
+  | plain | levels _ =>
+    have hn : ∀ lvls pins, RecRule.fire rl ≠ .nested lvls pins := fun _ _ h => by
+      rw [hf] at h; exact nomatch h
+    have hn' := hplain hn
+    cases hf' : RecRule.fire rl' with
+    | nested lvls pins => exact absurd hf' (hn' lvls pins)
+    | plain | levels _ => rw [hf'] at h'; exact h'
+
 /-- **One rule's typing, forward** (task #610): the facts that make a rule's
 ι equation (`ConLeche.iotaEq`) typed in the model.  At the recursor's levels
 `us` and the constructor's comparand levels, wherever `xs` fits the

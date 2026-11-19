@@ -131,6 +131,18 @@ theorem recRuleLaw_ag (r : RuleAg m m' φ n cv rP rl)
     exact hlaw cvj cnP cnF iT hfcj usj ρ xs ys TVa TVja restR restC hxs hys hlj hsj hwy hpt hTVa
       hTVja hfR hfC
 
+theorem recRuleFit_ag (r : RuleAg m m' φ n cv rP rl)
+    (hF : RecRuleFit m φ cv mI rP rl) : RecRuleFit m' φ cv mI rP rl := by
+  intro us hus TVa hTVa cvj cnP cnF iT hfc usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw hps
+  have hfcj := r.hctor cvj cnP cnF iT hfc
+  rw [r.hty us] at hTVa
+  rw [r.hcty cvj cnP cnF iT hfcj usj] at hTVja
+  have hps' : RuleParamsRead m φ cv rP cnP us rl ρ xs ps :=
+    RuleParamsRead.transport (fun lvls pins hfire => ⟨lvls, pins, hfire, fun i vpa hvpa => by
+      rw [r.hpins lvls pins hfire i us]; exact hvpa⟩) id hps
+  rw [r.hcleaf]
+  exact hF us hus TVa hTVa cvj cnP cnF iT hfcj usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw hps'
+
 end Law
 
 namespace CtxSrc
