@@ -312,11 +312,12 @@ def motiveLevel? (pre : List Expr) (nIdx : Nat) (body : Expr) : Option Level :=
   | _ => none
 
 /-- The parameters a recursor rule applies its constructor to, in the rule prefix's context
-(`rP` binders): a nested rule's recorded pins, else the prefix's first `cnP` variables. -/
+(`rP` binders): a nested rule's recorded pins, else the prefix's first `cnP` variables (as many
+as the prefix has: `iotaEq` asks for `cnP` of them). -/
 def RecRule.iotaParams (rl : RecRule) (rP cnP : Nat) : List Expr :=
   match rl.fire with
   | .nested _ pins => pins
-  | _ => (List.range cnP).map fun i => .bvar (rP - 1 - i)
+  | _ => (List.range (min cnP rP)).map fun i => .bvar (rP - 1 - i)
 
 /-- **A recursor rule's ι equation, as a proposition.**  For the
 recursor `n` (its record `cv`, major position `mI`, rule prefix `rP`)

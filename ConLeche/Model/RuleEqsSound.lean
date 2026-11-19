@@ -718,6 +718,85 @@ theorem stripPis_foldr_add : ∀ (ds : List Expr) (b : Expr) (k : Nat),
     simp only [List.foldr_cons, Expr.stripPis, stripPis_foldr_add ds b k, Option.map_map]
     rfl
 
+/-! ## 6b. The reverse opening -/
+
+/-- The free variables the reverse opening puts in. -/
+def openFvarList (n : Nat) : List Expr := (List.range n).map fun j => .fvar j (.sort .zero)
+
+/-- The variables the reverse opening's closure puts back, reversed. -/
+def revBVarList (n : Nat) : List Expr := (List.range n).map fun j => .bvar (n - 1 - j)
+
+theorem instantiate1_instantiateLift_fvars (n : Nat) : ∀ (e : Expr) (c : Nat),
+    (e.instantiateLift (openFvarList n) c).instantiate1 (.fvar n (.sort .zero)) c
+      = e.instantiateLift (openFvarList (n + 1)) c
+  | .bvar i, c => by
+    simp only [Expr.instantiateLift, openFvarList, List.length_map, List.length_range]
+    by_cases h1 : i < c
+    · simp [h1, Expr.instantiate1, show i ≠ c by omega, show ¬ i > c by omega]
+    · by_cases h2 : i - c < n
+      · simp [h1, h2, show i - c < n + 1 by omega, Expr.liftLooseBVars, Expr.instantiate1]
+      · by_cases h3 : i - c = n
+        · simp [h1, h2, h3, Expr.liftLooseBVars, Expr.instantiate1, show i - n = c by omega]
+        · simp [h1, h2, show ¬ i - c < n + 1 by omega, Expr.instantiate1,
+            show i - n ≠ c by omega, show i - n > c by omega, show i - n - 1 = i - (n + 1) by omega]
+  | .fvar _ _, _ | .sort _, _ | .const _ _, _ | .lit _, _ => rfl
+  | .app f a, c => by
+    simp only [Expr.instantiateLift, Expr.instantiate1, instantiate1_instantiateLift_fvars n f,
+      instantiate1_instantiateLift_fvars n a]
+  | .lam t b, c => by
+    simp only [Expr.instantiateLift, Expr.instantiate1, instantiate1_instantiateLift_fvars n t,
+      instantiate1_instantiateLift_fvars n b]
+  | .forallE t b, c => by
+    simp only [Expr.instantiateLift, Expr.instantiate1, instantiate1_instantiateLift_fvars n t,
+      instantiate1_instantiateLift_fvars n b]
+  | .letE t v b, c => by
+    simp only [Expr.instantiateLift, Expr.instantiate1, instantiate1_instantiateLift_fvars n t,
+      instantiate1_instantiateLift_fvars n v, instantiate1_instantiateLift_fvars n b]
+  | .proj _ _ e, c => by
+    simp only [Expr.instantiateLift, Expr.instantiate1, instantiate1_instantiateLift_fvars n e]
+
+/-- **The reverse opening is an instantiation** by the free variables `0, …, n-1`. -/
+theorem openRev_eq_instantiateLift : ∀ (n : Nat) (e : Expr),
+    openRev 0 n e = e.instantiateLift (openFvarList n) 0
+  | 0, e => by
+    simp only [openRev, openFvarList, List.range_zero, List.map_nil]
+    exact (Expr.instantiateLift_nil e 0).symm
+  | n + 1, e => by
+    rw [openRev, openRev_eq_instantiateLift n e, Nat.zero_add,
+      instantiate1_instantiateLift_fvars n e 0]
+
+/-- **Closing the reverse opening reverses the variables.** -/
+theorem closeN_instantiateLift_fvars (n : Nat) : ∀ (e : Expr) (c : Nat), e.hasFvar = false →
+    closeN n (e.instantiateLift (openFvarList n) c) c = e.instantiateLift (revBVarList n) c
+  | .bvar i, c, _ => by
+    simp only [Expr.instantiateLift, openFvarList, revBVarList, List.length_map, List.length_range]
+    by_cases h1 : i < c
+    · simp [h1, closeN]
+    · by_cases h2 : i - c < n
+      · simp [h1, h2, closeN, Expr.liftLooseBVars]; omega
+      · simp [h1, h2, closeN]
+  | .fvar _ _, _, h => by simp [Expr.hasFvar] at h
+  | .sort _, _, _ | .const _ _, _, _ | .lit _, _, _ => rfl
+  | .app f a, c, h => by
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiateLift, closeN, closeN_instantiateLift_fvars n f c h.1,
+      closeN_instantiateLift_fvars n a c h.2]
+  | .lam t b, c, h => by
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiateLift, closeN, closeN_instantiateLift_fvars n t c h.1,
+      closeN_instantiateLift_fvars n b (c + 1) h.2]
+  | .forallE t b, c, h => by
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiateLift, closeN, closeN_instantiateLift_fvars n t c h.1,
+      closeN_instantiateLift_fvars n b (c + 1) h.2]
+  | .letE t v b, c, h => by
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiateLift, closeN, closeN_instantiateLift_fvars n t c h.1.1,
+      closeN_instantiateLift_fvars n v c h.1.2, closeN_instantiateLift_fvars n b (c + 1) h.2]
+  | .proj _ _ e, c, h => by
+    simp only [Expr.hasFvar] at h
+    simp only [Expr.instantiateLift, closeN, closeN_instantiateLift_fvars n e c h]
+
 end Subst
 
 end ConLeche.Model
@@ -730,6 +809,29 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule)
 open ConLeche.Expr (closeN)
 
 variable {V : Type w} [SetTheory V]
+
+/-- **A reverse-instantiation chain, read**: the chain's arguments sit at the variables, the
+first at `0`. -/
+theorem interp_instRevChain : ∀ (zs : List Term) (X : Term) (σ : Nat → V),
+    interp V σ (Term.instRevChain zs X) = interp V (consN (zs.map (interp V σ)).reverse σ) X
+  | [], _, _ => rfl
+  | v :: vs, X, σ => by
+    show interp V σ (Term.instRevChain vs (X.inst (v.liftN vs.length 0) 0)) = _
+    rw [interp_instRevChain vs, interp_inst]
+    have h1 : shiftE 0 0 (consN (vs.map (interp V σ)).reverse σ)
+        = consN (vs.map (interp V σ)).reverse σ := by funext i; simp [shiftE]
+    have h2 : interp V (consN (vs.map (interp V σ)).reverse σ) (v.liftN vs.length 0)
+        = interp V σ v := by
+      rw [interp_liftN]
+      congr 1
+      funext i
+      simp only [shiftE, Nat.not_lt_zero, ↓reduceIte]
+      have := consN_shift (vs.map (interp V σ)).reverse σ i
+      simpa using this
+    rw [h1, h2, List.map_cons, List.reverse_cons, consN_append]
+    congr 1
+    funext i
+    cases i <;> simp [instE, consN, Semantics.cons]
 
 /-! ## 7. The equations hold -/
 
