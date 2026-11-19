@@ -124454,8 +124454,9 @@ declares at other level-parameter names.  All 18 `--compare` lines of `tests/e2e
 #618 lands (not landed at this record; do not depend on it); delete the old machinery
 (`Driver/Compare*`, `Model/Copies` if unused after step 1 — it is used by it —,
 `Model/Modular/Compare{,Run}`, `Verify/Driver/Compare{Run,Local,Module}`, `ComposeCompare`, the
-`main_compare_*` olean/modular capstones, `OleanCompare.lean`, `tests/ConLecheTests/{CompareAttack,
-CondCompare}`); docs (OVERVIEW, whitepaper §8 around justified axioms, usage text; README lines
+`main_compare_*` olean/modular capstones, `tests/ConLecheTests/{CompareAttack,
+CondCompare}`; NOT `OleanCompare.lean`: that is the olean reader's test tool README cites, not
+the challenge comparison — the first record's list was wrong there); docs (OVERVIEW, whitepaper §8 around justified axioms, usage text; README lines
 listed, not edited); gates; land on `compare` with `--no-ff`.
 
 **Commits this session:** 7132afb47 (ruling B, cmp_lvind), b23bf2040 (holes are axiom records;
