@@ -123014,3 +123014,72 @@ into `blockRecRuleLaw_gen` (`BlockRecLaw.lean` §7) and discharged in `genRecSta
   member of `I`'s type tower, whose graph domains are the index domains).  (b) needs the index
   binders' syntax (`g.binder`) against `I`'s type; it is local to the generated type and does
   not touch the install's rows.  Estimate either way: 600–1200 lines, nested rules included.
+
+## TASK #610 (cont. 3) — `RecRuleFit` wired; the generated block's nested rules need a ruling (2026-11-19, agent/610-model-eqs)
+
+On top of `04bede3a6`.  **State: not landed.  `4144d2a2c` builds warning-free except one
+`sorry` (the generated rules' `RecRuleFit`, `genRecStage`, `GenRecFinal.lean`); `lake test`
+fails only on the axiom pins (`sorryAx`).**  Item 3 of the cont. 2 record (the wiring) is done;
+item 2 (the generated block) stopped on a spec question; items 4–8 wait for it.
+
+**The wiring (done).**  `RecRuleLaw := … ∧ RecRuleExtra … ∧ RecRuleFit m φ cv mI rP rl`
+(`Model/Env/Laws.lean`).  Each site supplies the conjunct: the transports through their
+siblings (`recRuleFit_ext`, `recRuleFit_consBlockRecsR_prefix`, `recRuleFit_ag`,
+`recRuleFit_ren`), the basis rows through `eqRecFit`, `natRecZeroFit`, `natRecSuccFit`,
+`quotIndFit`, `quotLiftFit` (each `Fit` moved before its `Law`); the stream swap through
+`recRuleFit_stored`: `recRuleLaw_stored`'s type premise now carries the fits both ways and the
+stored motive's universe clause.  At the call sites the untouched and the syntactically equal
+type give it by `TeleFitPA.rest_unique` (new, `Laws.lean`); the checked type by `storedTy_sem`,
+`TEqAt.symm` (new) and `motiveLevel?_instantiateLevelParams` (new, `StreamRecsSem.lean`: the
+clause, stated of the uninstantiated stored type, moved across the level instantiation;
+`Expr.piResult_instantiateLevelParams` moved to `Verify/InstLevels.lean`).  The block chain
+(`recRuleLaw_of_main` → `blockRecRuleLaw_gen` → `blockRecRuleLaw_run` → `blockRecHnew_of` →
+`blockRecStaged_dataR`) takes the generated rules' fit as a premise (`hfit`, the shape of
+`hextra`); `genRecStage` passes `sorry` there.
+
+**The generated block: conjunct (1) at a nested rule is not provable from the recorded facts.**
+A lane agent surveyed it (no code).  (1) asks that a nested rule's pins, read at every prefix
+fit, fit the container constructor's parameter binders.  The statement is true, but what the
+model records does not reach it where the class has no index fit:
+* `genOut_runFit` (`GenOutKeyFit.lean:58`, from `familyKeyCheck`): at every prefix fit the pins
+  fit the parameter binders of the container's RUN telescope (`familyTelescope`);
+* `LfpCtorReads` (`EnvModelM.lean:132`): `Sat D.params` gives the constructor's first `nPc`
+  binders;
+* the link run telescope ↔ `D.params` is only the value of the whole Π-tower (`LfpReads`,
+  `FormerRead`), which says nothing about the parameter binders where the index telescope at
+  the pins has no fit (both towers are `unitSet`); `Sat D.params` at the key frame comes only from
+  liveness (`Rd.hsat`, `FrFit`), and `hliveM` gets liveness only from an index fit.
+Example: `inductive C (n : Nat) (A : Type) : Fin n → Type | mk : (i : Fin n) → A → C n A i`,
+`inductive T | node : (i : Fin 0) → C 0 T i → T`.  The class `C 0 T` has pins `[0, T]` and the
+empty index domain `Fin 0`; every check of the pins against `C`'s binders in the generated type
+and in `T.node` sits under a `Fin 0` binder, so its semantic content is empty; `familyKeyCheck`
+checks them against the run telescope only.  Not usable: dropping (1) — the consumer
+(`RuleEqsSound.lean:1339`) builds the constructor's whole fit from the fields' fit with it, and
+there is no index fit there either.  Fixes, for the maintainer:
+* (A) a kernel check: in `targetMajorPins`, also `checkSpineAt` the pins against each class
+  constructor's stored type at the class levels, depth `rP`, as `familyKeyCheck` does against the
+  family telescope; a sibling of `genOut_runFit`/`keyRunFit` then gives (1).  Needs the argument
+  that it refuses nothing official accepts (our defeq stable under substituting the pins);
+* (B) a recorded fact: the former's (run's) parameter binders and `D.params` are satisfied alike
+  (the former's analogue of `LfpCtorReads`' parameter clause), proved at each install from its
+  own defeq check;
+* (C) a weaker (1), conditional on a fit of the fields at the parameters (where the fields fit,
+  the class is live) — a change to `RecRuleFit` and to the consumer's ∀-over-fields step.
+
+**The rest of the generated block looks provable as stated** (the agent's route (a):
+`GenClsBack` plus the rule data).  Member classes (`.plain`): (1) from the prefix fit through
+the block's parameters (`genParams_fit_run`) and `hparamsC`; (2) from `blockRuleCtorFit_run`
+(fields at the recursor's parameters), `hM.ctor` (the application is the injection), the LFP
+fibre at the index readings' tuple (`resIdxFit`), `blockRuleIdxPin_run` (readings = `is` by
+the pin), `GenClsBack`, `teleFitPA_mkPisAV_of_spineFit` on `blockRecTyAV = mkPisAV rds concl`;
+the universe clause from `genRec_conclTy` (to be matched with `motiveLevel?`).  Outside
+classes, (2) only: the constructor's fit at `ps ++ fs` makes the pins fit the container's whole
+telescope (`genOut_typed`, `parsSatInv`), so the class is live there and `genOutCtorOwn` with
+the carrier fibre gives `GenClsBack`'s premises.  Hypotheses `genRecFit` needs: `hctx.base`,
+`R`, `hg`, `hcov`, `h`, `hcsem`, `hrdAll`, `hcls`, `hseam`, `hfind`, and the `m₃` crossings
+(`blockRuleTVa_run`, `blockRecDenote_cross`, `blockRecAcv_stored`).  Estimate with fix (A):
+900–1300 lines.
+
+**Next, after the ruling:** the fix; `genRecFit` (new file `GenRecFit.lean`, called from
+`genRecStage` in place of the `sorry`); then cont. 2's items 4 (the `Model` field, with
+`ofEnvModelM` moved after `RuleEqsSound`), 7 (docs), the gates and the landing.
