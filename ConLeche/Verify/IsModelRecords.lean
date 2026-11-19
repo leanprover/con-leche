@@ -448,7 +448,8 @@ theorem checkDeclStepC_blockRead (mode : CheckMode) (pins : List NatOpPinSet) (f
 
 /-- Every block of an accepting run read. -/
 theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
+    {J : Option FEnv} {ds : List Declaration} {p q : Nat × FEnv}
+    (h : DeclsRun mode pins maxNatSize J ds p q) :
     ∀ d ∈ ds, ∀ block nP, d = .indDecl block nP → BlockRead nP block := by
   induction h with
   | nil => intro _ h; exact nomatch h
@@ -457,13 +458,16 @@ theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
     rcases List.mem_cons.mp hd with rfl | hd
     · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
       subst hdb
+      rw [checkRecordC_own mode J _ rfl] at hC
       exact checkDeclStepC_blockRead mode pins _ block nP _ fe₁ s₁ hC
     · exact ih d hd block nP hdb
 
-/-- **An accepted stream stores its records** (`RecordsStored`). -/
+/-- **An accepted stream stores its records** (`RecordsStored`), the records the fold read (with
+a sidecar, `sideRecords`). -/
 theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env) :
-    RecordsStored ds.toList env := by
+    {ds : Array Declaration} {justify : Option Env} {env : Env}
+    (h : checkDecls mode pins maxNatSize ds justify = .ok env) :
+    RecordsStored (sideRecords justify ds).toList env := by
   have henv := checkDecls_env h
   obtain ⟨n, fe, run, hfe⟩ := checkDecls_run mode h
   have hnd : NodupNames env := by
@@ -474,7 +478,7 @@ theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {m
   obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
   have hmem : ci ∈ env.consts := by
     rw [henv]
-    exact (Driver.mem_streamEnv_consts ds.toList _).2 (.inl ⟨d, hd, hci⟩)
+    exact (Driver.mem_streamEnv_consts (sideRecords justify ds).toList _).2 (.inl ⟨d, hd, hci⟩)
   have hn : c.name = ci.name := by
     show c.toConstantVal.name = ci.toConstantVal.name
     rw [hst.1]
@@ -500,7 +504,8 @@ theorem checkDeclStepC_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet}
 
 /-- Every record of an accepting run passed the reserved names' check. -/
 theorem declsRun_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
+    {J : Option FEnv} {ds : List Declaration} {p q : Nat × FEnv}
+    (h : DeclsRun mode pins maxNatSize J ds p q) :
     ∀ d ∈ ds, basisNamesOk d = true := by
   induction h with
   | nil => intro _ h; exact nomatch h
@@ -508,16 +513,49 @@ theorem declsRun_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {maxN
     intro d hd
     rcases List.mem_cons.mp hd with rfl | hd
     · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
-      exact checkDeclStepC_basisNamesOk hC
+      refine checkRecordC_yields mode J p.2 d (P := fun _ => basisNamesOk d = true)
+        (fun s r s' h => checkDeclStepC_basisNamesOk (r := (r, s')) h) (fun J' cv hJ hj => ?_)
+        _ _ _ hC
+      subst hJ
+      unfold checkRecordC
+      simp only [hj]
+      refine Yields.bind fun _ => ?_
+      cases justifyWhy J' p.2 cv with
+      | some why => exact Yields.ofThrowBind
+      | none =>
+        refine Yields.bind fun _ => ?_
+        by_cases hb : basisNamesOk d = true
+        · exact Yields.const hb
+        · simp only [hb, Bool.false_eq_true, ↓reduceIte]
+          exact Yields.ofThrowBind
     · exact ih d hd
 
 /-- The four pinned inductive blocks. -/
 @[expose] def pinnedKinds : List BasisKind := [.eqK, .natK, .emptyK, .falseK]
 
+/-- A block the fold reads with a sidecar is the input's. -/
+theorem mem_sideRecords_ind {j : Option Env} {ds : Array Declaration}
+    {block : List ConstantInfo} {nP : Nat}
+    (h : Declaration.indDecl block nP ∈ (sideRecords j ds).toList) :
+    Declaration.indDecl block nP ∈ ds.toList := by
+  cases j with
+  | none => exact h
+  | some e =>
+    simp only [sideRecords, Array.toList_map, List.mem_map] at h
+    obtain ⟨d, hd, he⟩ := h
+    cases d with
+    | indDecl b n => simp only [sideRecord] at he; rw [← he]; exact hd
+    | defnDecl _ _ _ => simp only [sideRecord] at he; split at he <;> cases he
+    | thmDecl _ _ => simp only [sideRecord] at he; split at he <;> cases he
+    | opaqueDecl _ _ => simp only [sideRecord] at he; split at he <;> cases he
+    | axiomDecl _ => simp only [sideRecord] at he; cases he
+    | quotDecl _ _ => simp only [sideRecord] at he; cases he
+
 /-- **A pinned block's name, stored by an accepted stream, is that block's**: the stream holds a
 block that is the pin up to its level-parameter names. -/
 theorem checkDecls_pinned {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
+    {ds : Array Declaration} {justify : Option Env} {env : Env}
+    (h : checkDecls mode pins maxNatSize ds justify = .ok env)
     {kind : BasisKind} (hk : kind ∈ pinnedKinds) {n : Name} (hn : n ∈ kind.decls.map (·.name))
     (hs : (env.find? n).isSome = true) :
     ∃ block nP, Declaration.indDecl block nP ∈ ds.toList ∧
@@ -529,7 +567,8 @@ theorem checkDecls_pinned {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSi
   have hcn : ci.name = n := Env.find?_name hci
   have hmem := Env.find?_mem hci
   rw [henv] at hmem
-  obtain ⟨d, hd, hcd⟩ | hnil := (Driver.mem_streamEnv_consts ds.toList _).1 hmem
+  obtain ⟨d, hd, hcd⟩ | hnil :=
+    (Driver.mem_streamEnv_consts (sideRecords justify ds).toList _).1 hmem
   case inr => exact absurd hnil List.not_mem_nil
   have hb := hbn d hd
   -- the name is reserved, and none of the quotient package's
@@ -582,7 +621,7 @@ theorem checkDecls_pinned {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSi
       · rw [show cv.name = n from hcn, hres] at hb
         exact nomatch hb
   | indDecl block nP =>
-    refine ⟨block, nP, hd, ?_⟩
+    refine ⟨block, nP, mem_sideRecords_ind hd, ?_⟩
     -- the name is one of the block's
     have hnb : n ∈ block.map (·.name) := by
       simp only [declConstants] at hcd
@@ -650,7 +689,8 @@ theorem mem_blockRecords_cv {block : List ConstantInfo} {b : ConstantInfo} (hb :
 
 /-- **An accepted stream that stores `False` declares the prelude's `False`.** -/
 theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
+    {ds : Array Declaration} {justify : Option Env} {env : Env}
+    (h : checkDecls mode pins maxNatSize ds justify = .ok env)
     (hs : (env.find? falseName).isSome = true) : DeclaresFalse ds.toList := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .falseK) (by decide)
     (n := falseName) (by decide) hs
@@ -669,7 +709,8 @@ theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {m
 
 /-- **An accepted stream that stores `Eq` declares the prelude's `Eq`.** -/
 theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
+    {ds : Array Declaration} {justify : Option Env} {env : Env}
+    (h : checkDecls mode pins maxNatSize ds justify = .ok env)
     (hs : (env.find? eqName).isSome = true) : DeclaresEq ds.toList := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .eqK) (by decide)
     (n := eqName) (by decide) hs

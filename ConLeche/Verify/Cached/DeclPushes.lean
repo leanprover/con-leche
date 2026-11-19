@@ -729,6 +729,26 @@ theorem justifiable_constants {pd : Declaration} {cv : ConstantVal}
       simp [declConstants, declTables, h1, h2]
   | _ => simp [justifiable] at h
 
+/-- **A record that offers no statement takes its own check**, sidecar or not. -/
+theorem checkRecordC_own (mode : CheckMode) (J : Option FEnv) (fe : FEnv) {pd : Declaration}
+    (h : justifiable pd = none) : checkRecordC mode pins J fe pd = checkDeclStepC mode pins fe pd := by
+  unfold checkRecordC
+  cases J <;> simp [h]
+
+/-- **A fact both routes yield, the record check yields**: the record's own check, and the
+justification route of a record offering a statement. -/
+theorem checkRecordC_yields (mode : CheckMode) (J : Option FEnv) (fe : FEnv) (pd : Declaration)
+    {P : FEnv → Prop} (hown : Yields (checkDeclStepC mode pins fe pd) P)
+    (hjust : ∀ J' cv, J = some J' → justifiable pd = some cv →
+      Yields (checkRecordC mode pins J fe pd) P) :
+    Yields (checkRecordC mode pins J fe pd) P := by
+  cases hj : justifiable pd with
+  | none => rw [checkRecordC_own mode J fe hj]; exact hown
+  | some cv =>
+    cases J with
+    | none => exact hown
+    | some J' => exact hjust J' cv rfl hj
+
 /-- **An accepting record check pushes what the declaration installs**, sidecar or not. -/
 theorem checkRecordC_pushes (mode : CheckMode) (J : Option FEnv) (fe : FEnv) (pd : Declaration) :
     Yields (checkRecordC mode pins J fe pd)
