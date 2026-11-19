@@ -605,7 +605,7 @@ Read from the outside in:
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L137-L143)).
    The main theorem's model is the invariant's own, read through the
    statement's relation
-   ([definition `Model.ofEnvModelM` in `ConLeche/Model/OfEnvModelM.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/OfEnvModelM.lean#L64-L65)).
+   ([definition `Model.ofEnvModelM` in `ConLeche/Model/OfEnvModelM.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/OfEnvModelM.lean#L65-L66)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**

@@ -370,9 +370,9 @@
    142      c hc hty
    143  
 
-== ConLeche/Model/OfEnvModelM.lean#L64-L65
-    64  noncomputable def Model.ofEnvModelM {env : Env}
-    65      (m : EnvModelM V env) : ConLeche.Model V env where
+== ConLeche/Model/OfEnvModelM.lean#L65-L66
+    65  noncomputable def Model.ofEnvModelM {env : Env}
+    66      (m : EnvModelM V env) : ConLeche.Model V env where
 
 == tests/layering.sh#L1-L3
      1  #!/usr/bin/env bash
