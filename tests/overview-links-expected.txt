@@ -16,61 +16,32 @@
 == ConLeche/Kernel/Name.lean#L236
    236  def render (n : Name) : String :=
 
-== ConLeche/MainTheorem.lean#L116-L119
-   116  theorem model_exists (V : Type w) [SetTheory V]
-   117      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-   118      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-   119      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L122-L128
+   122  theorem model_exists (V : Type w) [SetTheory V]
+   123      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
+   124      (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
+   125      (∃ model, IsModel V model ds.toList) ∧
+   126        (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
+   127        (DeclaresName ds.toList eqName → DeclaresEq ds.toList) := by
+   128    obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
 
-== ConLeche/Denotes.lean#L123-L124
-   123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
-   124      (BVarIdx → V) → Expr → V → Prop
+== ConLeche/IsModel.lean#L123-L124
+   123  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
+   124      (BVarIdx → V) → Expr → V
 
-== ConLeche/Denotes.lean#L346-L379
-   346  structure Model (V : Type w) [SetTheory V] (env : Env) where
-   347    /-- the set a constant denotes, per level assignment -/
-   348    cval : Name → (LevelParam → Nat) → V
-   349    /-- every stored constant is a member of what its type denotes, at
-   350    every level assignment (and every variable environment — the type
-   351    is closed) -/
-   352    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-   353      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-   354    /-- whatever the built-in `False` denotes is the empty set -/
-   355    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-   356      Denotes cval env φ ρ (.const falseName []) F → F = empty
-   357    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-   358    of the universe the level `u` names, and two of its members `a` and
-   359    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-   360    membership premises are the graph's domains — `Eq`'s denotation is a
-   361    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-   362    over `A` again, and a graph read off its domain says nothing -/
-   363    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-   364      Denotes cval env φ ρ (.const eqName [u]) E →
-   365      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-   366      app (app (app E A) a) b = eqv a b
-   367    /-- **a stored definition means its value**: at every level
-   368    assignment, the value denotes what the constant does.  The value is
-   369    read at the definition's own level parameters (an instance `c.{us}`
-   370    is the same equation at the assignment `us` induces).  Definitions
-   371    only: a theorem is stored by its statement (its record carries no
-   372    value), and an opaque constant's value is never unfolded, so it stays
-   373    free -/
-   374    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
-   375      ConstantInfo.defnInfo cv value hint ∈ env.consts →
-   376      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
-   377    /-- **a recursor computes by its rules**: every stored rule's ι
-   378    equation denotes an inhabited truth value, at every level assignment -/
-   379    rule_eqs : RuleEqsHold cval env
+== ConLeche/IsModel.lean#L312-L313
+   312  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   313      (ds : List Declaration) : Prop :=
 
-== ConLeche/MainTheorem.lean#L130-L137
-   130  theorem no_False_declaration (V : Type w) [SetTheory V]
-   131      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
-   132      (h : jsonWithTheoremFalse chunks) :
-   133      ∃ e, (do
-   134        let pre ← builtinPreludeE
-   135        let r ← parseChunks chunks
-   136        let ds := preparePrelude pre r.decls
-   137        checkDecls .verified pins maxNatSize ds) = .error e := by
+== ConLeche/MainTheorem.lean#L145-L152
+   145  theorem no_False_declaration (V : Type w) [SetTheory V]
+   146      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
+   147      (h : jsonWithTheoremFalse chunks) :
+   148      ∃ e, (do
+   149        let pre ← builtinPreludeE
+   150        let r ← parseChunks chunks
+   151        let ds := preparePrelude pre r.decls
+   152        checkDecls .verified pins maxNatSize ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -85,10 +56,10 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/MainTheorem.lean#L166-L168
-   166  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   167      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   168      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L197-L199
+   197  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   198      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   199      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == ConLeche/Verify/Cached/StreamThm.lean#L103-L106
    103  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -126,63 +97,63 @@
     89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) :
     90      Except (CheckError × Nat) Env := do
 
-== ConLeche/MainTheorem.lean#L207-L214
-   207  theorem modular_model_exists (V : Type w) [SetTheory V]
-   208      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
-   209      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
-   210      ∃ m : ∀ j ≤ i, Model V (dev j).own,
-   211        (∀ j hj n, ((dev j).context.find? n).isSome = true →
-   212          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-   213        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-   214          (m j hj).cval n = fun _ => pt := by
+== ConLeche/MainTheorem.lean#L238-L245
+   238  theorem modular_model_exists (V : Type w) [SetTheory V]
+   239      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+   240      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
+   241      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   242        (∀ j hj n, ((dev j).context.find? n).isSome = true →
+   243          ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
+   244        ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
+   245          (m j hj).cval n = fun _ => pt := by
 
-== ConLeche/MainTheorem.lean#L357-L379
-   357  theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
-   358      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   359      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-   360        "--search-path=" ++ D, "--", c, s]) fs 0) :
-   361      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
-   362      ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
-   363        ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
-   364          (homes := true)) fs (.ok rdC) ∧
-   365        ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
-   366          (homes := true)) fs (.ok rdS) ∧
-   367        ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
-   368          (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
-   369          (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
-   370            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
-   371              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
-   372              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
-   373                (cC.toConstantVal.levelParams.map Level.param))) ∧
-   374          ∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
-   375            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
-   376              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ
-   377                cC.toConstantVal.type Ty ∧
-   378                mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
-   379                  (cC.toConstantVal.levelParams.map Level.param)) ∈ˢ Ty := by
+== ConLeche/MainTheorem.lean#L388-L410
+   388  theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+   389      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   390      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+   391        "--search-path=" ++ D, "--", c, s]) fs 0) :
+   392      let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+   393      ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
+   394        ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
+   395          (homes := true)) fs (.ok rdC) ∧
+   396        ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
+   397          (homes := true)) fs (.ok rdS) ∧
+   398        ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
+   399          (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
+   400          (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+   401            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+   402              cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
+   403              ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+   404                (cC.toConstantVal.levelParams.map Level.param))) ∧
+   405          ∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
+   406            ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
+   407              ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ
+   408                cC.toConstantVal.type Ty ∧
+   409                mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
+   410                  (cC.toConstantVal.levelParams.map Level.param)) ∈ˢ Ty := by
 
 == ConLeche/Verify/Frontend/Olean/Local.lean#L469-L471
    469  theorem challenge_local {dirs : SearchPath} {C : Name} {cs : Option (Array Name)} {fs₁ fs₂ : FS}
    470      (h : FS.AgreeUnder dirs fs₁ fs₂) :
    471      challengeView dirs C cs fs₁ = challengeView dirs C cs fs₂ := by
 
-== ConLeche/MainTheorem.lean#L517-L525
-   517  theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : String} {C S : Name}
-   518      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   519      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   520        "--search-path=" ++ dirs, "--", c, s]) fs 0)
-   521      (hwork : ∀ m, Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [C, S] m → m ≠ C →
-   522        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive
-   523          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0)
-   524      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   525        "--search-path=" ++ dirs, "--", c, s]) fs 0) :
+== ConLeche/MainTheorem.lean#L548-L556
+   548  theorem main_compare_modular_solves (V : Type w) [SetTheory V] {dirs c s : String} {C S : Name}
+   549      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   550      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   551        "--search-path=" ++ dirs, "--", c, s]) fs 0)
+   552      (hwork : ∀ m, Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [C, S] m → m ≠ C →
+   553        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive
+   554          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0)
+   555      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   556        "--search-path=" ++ dirs, "--", c, s]) fs 0) :
 
 == tests/ConLecheTests/Axioms.lean#L113-L117
-   113  /--
-   114  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-   115  -/
-   116  #guard_msgs in
-   117  #print axioms ConLeche.model_exists
+   113  
+   114  /--
+   115  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   116  -/
+   117  #guard_msgs in
 
 == ConLeche/Driver/Dispatch.lean#L66-L67
     66    | .oleans sp roots cs mode maxNatSize pace jobs =>
@@ -1409,55 +1380,55 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
-== ConLeche/MainTheorem.lean#L130-L137
-   130  theorem no_False_declaration (V : Type w) [SetTheory V]
-   131      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
-   132      (h : jsonWithTheoremFalse chunks) :
-   133      ∃ e, (do
-   134        let pre ← builtinPreludeE
-   135        let r ← parseChunks chunks
-   136        let ds := preparePrelude pre r.decls
-   137        checkDecls .verified pins maxNatSize ds) = .error e := by
+== ConLeche/MainTheorem.lean#L145-L152
+   145  theorem no_False_declaration (V : Type w) [SetTheory V]
+   146      (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
+   147      (h : jsonWithTheoremFalse chunks) :
+   148      ∃ e, (do
+   149        let pre ← builtinPreludeE
+   150        let r ← parseChunks chunks
+   151        let ds := preparePrelude pre r.decls
+   152        checkDecls .verified pins maxNatSize ds) = .error e := by
 
-== ConLeche/Denotes.lean#L346-L379
-   346  structure Model (V : Type w) [SetTheory V] (env : Env) where
-   347    /-- the set a constant denotes, per level assignment -/
-   348    cval : Name → (LevelParam → Nat) → V
-   349    /-- every stored constant is a member of what its type denotes, at
-   350    every level assignment (and every variable environment — the type
-   351    is closed) -/
-   352    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-   353      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-   354    /-- whatever the built-in `False` denotes is the empty set -/
-   355    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-   356      Denotes cval env φ ρ (.const falseName []) F → F = empty
-   357    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-   358    of the universe the level `u` names, and two of its members `a` and
-   359    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-   360    membership premises are the graph's domains — `Eq`'s denotation is a
-   361    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-   362    over `A` again, and a graph read off its domain says nothing -/
-   363    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-   364      Denotes cval env φ ρ (.const eqName [u]) E →
-   365      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-   366      app (app (app E A) a) b = eqv a b
-   367    /-- **a stored definition means its value**: at every level
-   368    assignment, the value denotes what the constant does.  The value is
-   369    read at the definition's own level parameters (an instance `c.{us}`
-   370    is the same equation at the assignment `us` induces).  Definitions
-   371    only: a theorem is stored by its statement (its record carries no
-   372    value), and an opaque constant's value is never unfolded, so it stays
-   373    free -/
-   374    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
-   375      ConstantInfo.defnInfo cv value hint ∈ env.consts →
-   376      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
-   377    /-- **a recursor computes by its rules**: every stored rule's ι
-   378    equation denotes an inhabited truth value, at every level assignment -/
-   379    rule_eqs : RuleEqsHold cval env
+== ConLeche/Denotes.lean#L258-L291
+   258  structure Model (V : Type w) [SetTheory V] (env : Env) where
+   259    /-- the set a constant denotes, per level assignment -/
+   260    cval : Name → (LevelParam → Nat) → V
+   261    /-- every stored constant is a member of what its type denotes, at
+   262    every level assignment (and every variable environment — the type
+   263    is closed) -/
+   264    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+   265      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
+   266    /-- whatever the built-in `False` denotes is the empty set -/
+   267    false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
+   268      Denotes cval env φ ρ (.const falseName []) F → F = empty
+   269    /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
+   270    of the universe the level `u` names, and two of its members `a` and
+   271    `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
+   272    membership premises are the graph's domains — `Eq`'s denotation is a
+   273    three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
+   274    over `A` again, and a graph read off its domain says nothing -/
+   275    eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+   276      Denotes cval env φ ρ (.const eqName [u]) E →
+   277      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+   278      app (app (app E A) a) b = eqv a b
+   279    /-- **a stored definition means its value**: at every level
+   280    assignment, the value denotes what the constant does.  The value is
+   281    read at the definition's own level parameters (an instance `c.{us}`
+   282    is the same equation at the assignment `us` induces).  Definitions
+   283    only: a theorem is stored by its statement (its record carries no
+   284    value), and an opaque constant's value is never unfolded, so it stays
+   285    free -/
+   286    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+   287      ConstantInfo.defnInfo cv value hint ∈ env.consts →
+   288      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+   289    /-- **a recursor computes by its rules**: every stored rule's ι
+   290    equation denotes an inhabited truth value, at every level assignment -/
+   291    rule_eqs : RuleEqsHold cval env
 
-== ConLeche/Denotes.lean#L123-L124
-   123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
-   124      (BVarIdx → V) → Expr → V → Prop
+== ConLeche/Denotes.lean#L102-L103
+   102  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
+   103      (BVarIdx → V) → Expr → V → Prop
 
 == ConLeche/Cached/Decls.lean#L89-L90
     89  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) :
@@ -1504,10 +1475,10 @@
 == ConLeche/Frontend/CheckerIO.lean#L310
    310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/MainTheorem.lean#L166-L168
-   166  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   167      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   168      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+== ConLeche/MainTheorem.lean#L197-L199
+   197  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   198      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   199      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do
