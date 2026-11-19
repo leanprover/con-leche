@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Frontend.ModelIO
+import ConLeche.Verify.Frontend.ModelIO
+public import ConLeche.Verify.Frontend.Olean.Roots
 import ConLeche.Verify.Frontend.Olean.Files
 import Std.Data.HashSet.Lemmas
 import ConLeche.Verify.Frontend.Olean.Engine
@@ -38,20 +39,20 @@ open ConLeche ConLeche.Frontend.Olean
 
 /-- **A module reached from an import list** by import edges, each module's imports what its
 header read answers on the snapshot. -/
-inductive ImpReach (sp : SearchPath) (fs : FS) (imps0 : Array ImportRec) : Name → Prop
+inductive ImpReach (sp : Roots) (fs : FS) (imps0 : Array ImportRec) : Name → Prop
   | root {i : ImportRec} : i ∈ imps0 → ImpReach sp fs imps0 i.module
   | step {a : Name} {is : Array ImportRec} {i : ImportRec} : ImpReach sp fs imps0 a →
       ModelIO.CanGive (moduleImports sp a) fs (.ok is) → i ∈ is → ImpReach sp fs imps0 i.module
 
 /-- **A path of public imports** from `a`, each module's imports what its header read answers on
 the snapshot. -/
-inductive PubReach (sp : SearchPath) (fs : FS) (a : Name) : Name → Prop
+inductive PubReach (sp : Roots) (fs : FS) (a : Name) : Name → Prop
   | refl : PubReach sp fs a a
   | step {b : Name} {is : Array ImportRec} {i : ImportRec} : PubReach sp fs a b →
       ModelIO.CanGive (moduleImports sp b) fs (.ok is) → i ∈ is → i.isExported = true →
       PubReach sp fs a i.module
 
-theorem PubReach.trans {sp : SearchPath} {fs : FS} {a b c : Name} (h₁ : PubReach sp fs a b)
+theorem PubReach.trans {sp : Roots} {fs : FS} {a b c : Name} (h₁ : PubReach sp fs a b)
     (h₂ : PubReach sp fs b c) : PubReach sp fs a c := by
   induction h₂ with
   | refl => exact h₁
@@ -61,7 +62,7 @@ theorem PubReach.trans {sp : SearchPath} {fs : FS} {a b c : Name} (h₁ : PubRea
 
 /-- **A module's imports, on a snapshot, are one list**: two value outcomes of its header read
 agree. -/
-theorem moduleImports_unique {sp : SearchPath} {m : Name} {fs : FS} {hs₁ hs₁' hs₂ hs₂' : HS}
+theorem moduleImports_unique {sp : Roots} {m : Name} {fs : FS} {hs₁ hs₁' hs₂ hs₂' : HS}
     {a b : Array ImportRec} (ha : (moduleImports sp m : ModelIO _) fs hs₁ (.ok (.ok a)) hs₁')
     (hb : (moduleImports sp m : ModelIO _) fs hs₂ (.ok (.ok b)) hs₂') : a = b := by
   simp only [moduleImports, ModelIO.bind_ok] at ha hb
@@ -81,7 +82,7 @@ theorem moduleImports_unique {sp : SearchPath} {m : Name} {fs : FS} {hs₁ hs₁
   rw [hia] at hib
   exact Option.some.inj hib
 
-theorem moduleImports_canGive_unique {sp : SearchPath} {m : Name} {fs : FS}
+theorem moduleImports_canGive_unique {sp : Roots} {m : Name} {fs : FS}
     {a b : Array ImportRec} (ha : ModelIO.CanGive (moduleImports sp m) fs (.ok a))
     (hb : ModelIO.CanGive (moduleImports sp m) fs (.ok b)) : a = b :=
   let ⟨_, _, ha⟩ := ha
@@ -313,7 +314,7 @@ theorem pubClosures_sound {ld : Loads}
     exact this _ _ hp (hs ▸ hlt)
 
 /-- A public-import path between positions, read as one between the modules there. -/
-theorem PubPos.pubReach {sp : SearchPath} {fs : FS} {ld : Loads}
+theorem PubPos.pubReach {sp : Roots} {fs : FS} {ld : Loads}
     (hix : ∀ (m : Name) (k : Nat), ld.index[m]? = some k → ld.order[k]? = some m)
     (himps : ∀ (k : Nat) (m : Name), ld.order[k]? = some m → ∀ is, ld.imports[k]? = some is →
       ModelIO.CanGive (moduleImports sp m) fs (.ok is)) {a b : Nat} (h : PubPos ld a b) :
@@ -346,7 +347,7 @@ will be followed is pending. -/
 imports, with the imports its header read answers; the order lists each placed module once;
 each pending `done` item's module is open, unplaced and read, and each open module has one; and
 every root import, and every public import of a read module, is covered. -/
-structure LvInv (sp : SearchPath) (fs : FS) (imps0 : Array ImportRec) (ws : List LvWork)
+structure LvInv (sp : Roots) (fs : FS) (imps0 : Array ImportRec) (ws : List LvWork)
     (st : LvState) : Prop where
   imps : ∀ (m : Name) (is : Array ImportRec), st.imports[m]? = some is →
     ImpReach sp fs imps0 m ∧ ModelIO.CanGive (moduleImports sp m) fs (.ok is)
@@ -390,7 +391,7 @@ theorem filterMap_ofImports (fl : LoadFlags) (is : Array ImportRec) (l : List Lv
   have : (LvWork.doneName ∘ LvWork.imp fl) = fun _ => none := by funext x; rfl
   simp [this]
 
-theorem lvInv_done {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {m : Name}
+theorem lvInv_done {sp : Roots} {fs : FS} {imps0 : Array ImportRec} {m : Name}
     {fl : LoadFlags} {rest : List LvWork} {st : LvState}
     (hi : LvInv sp fs imps0 (.done m fl :: rest) st) :
     LvInv sp fs imps0 rest
@@ -454,7 +455,7 @@ theorem lvInv_done {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {m : Na
   · exact hi.demand x is hx j hj he
   · exact hi.root i hi'
 
-theorem lvInv_skip {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {w : LvWork}
+theorem lvInv_skip {sp : Roots} {fs : FS} {imps0 : Array ImportRec} {w : LvWork}
     {rest : List LvWork} {st : LvState} (hi : LvInv sp fs imps0 (w :: rest) st)
     (hw : LvWork.doneName w = none)
     (hcov : ∀ pf i, w = .imp pf i → (i.isExported || pf.importAll) = true →
@@ -476,7 +477,7 @@ theorem lvInv_skip {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {w : Lv
   · subst h; simp [LvWork.doneName] at hw
   · exact ⟨fl, h⟩
 
-theorem lvInv_bump {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {pf : LoadFlags}
+theorem lvInv_bump {sp : Roots} {fs : FS} {imps0 : Array ImportRec} {pf : LoadFlags}
     {i : ImportRec} {rest : List LvWork} {st : LvState} {old fl' : LoadFlags}
     (hi : LvInv sp fs imps0 (.imp pf i :: rest) st) (hold : st.flags[i.module]? = some old) :
     LvInv sp fs imps0 (LvWork.ofImports fl' ((st.imports[i.module]?).getD #[]) ++ rest)
@@ -520,7 +521,7 @@ theorem lvInv_bump {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {pf : L
   · exact hi.demand m is' hm j hj he
   · exact hi.root j hj
 
-theorem lvInv_open {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {pf : LoadFlags}
+theorem lvInv_open {sp : Roots} {fs : FS} {imps0 : Array ImportRec} {pf : LoadFlags}
     {i : ImportRec} {rest : List LvWork} {st : LvState} {fl : LoadFlags} {is : Array ImportRec}
     (hi : LvInv sp fs imps0 (.imp pf i :: rest) st) (hnone : st.flags[i.module]? = none)
     (hnot : st.open_.contains i.module = false)
@@ -593,7 +594,7 @@ theorem lvInv_open {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {pf : L
     · exact .inl (List.mem_append_right _ (List.mem_cons_of_mem _ h))
 
 /-- **The worklist keeps the invariant**, to its accepting outcome. -/
-theorem levelsGo_inv {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {gPriv : Bool} :
+theorem levelsGo_inv {sp : Roots} {fs : FS} {imps0 : Array ImportRec} {gPriv : Bool} :
     ∀ (fuel : Nat) (ws : List LvWork) (st : LvState) {hs hs' : HS} {st' : LvState},
       (levelsGo (moduleImports sp) gPriv fuel ws st : ModelIO _) fs hs (.ok (.ok st')) hs' →
       LvInv sp fs imps0 ws st → LvInv sp fs imps0 [] st'
@@ -633,7 +634,7 @@ theorem levelsGo_inv {sp : SearchPath} {fs : FS} {imps0 : Array ImportRec} {gPri
           · exact levelsGo_inv fuel _ _ h
               (lvInv_open hi hold (by simpa using hnot) ⟨_, _, hr⟩)
 
-theorem lvInv_init {sp : SearchPath} {fs : FS} (isM : Bool) (imps0 : Array ImportRec) :
+theorem lvInv_init {sp : Roots} {fs : FS} (isM : Bool) (imps0 : Array ImportRec) :
     LvInv sp fs imps0 (LvWork.ofImports { importAll := true, isExported := isM } imps0) {} := by
   refine ⟨fun m is h => by simp at h, by simp, fun m => by simp, fun m h => by simp at h,
     fun m fl h => ?_, ?_, fun m h => by simp at h, fun pf i h => ?_, fun m is h => by simp at h,
@@ -665,7 +666,7 @@ theorem indexFold_get? :
 header reads): its flags and imports by position; its order without duplicates, the index naming
 each module's position; every loaded module reached from the root's imports by import edges,
 with the imports its header read answers. -/
-theorem headerFixpoint_sound {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
+theorem headerFixpoint_sound {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
     {ld : Loads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld)) :
     ld.flags.size = ld.order.size ∧ ld.imports.size = ld.order.size ∧ ld.order.toList.Nodup ∧
       (∀ (k : Nat) (m : Name), ld.order[k]? = some m →
@@ -707,7 +708,7 @@ theorem headerFixpoint_sound {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : A
 /-- **The header fixpoint loads every module a path of public imports leads to from one of the
 root's imports**: the root is loaded whole, so each of its imports is followed, and a public import
 is followed from every loaded module. -/
-theorem headerFixpoint_complete {sp : SearchPath} {fs : FS} {isM : Bool}
+theorem headerFixpoint_complete {sp : Roots} {fs : FS} {isM : Bool}
     {imps0 : Array ImportRec} {ld : Loads}
     (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld))
     {i : ImportRec} (hi0 : i ∈ imps0) {m : Name} (hm : PubReach sp fs i.module m) :
@@ -735,7 +736,7 @@ theorem headerFixpoint_complete {sp : SearchPath} {fs : FS} {isM : Bool}
     exact hcov _ (hi.demand b is his j hj he)
 
 /-- **The worklist is determined on a snapshot**: two accepting outcomes agree. -/
-theorem levelsGo_unique {sp : SearchPath} {fs : FS} {gPriv : Bool} :
+theorem levelsGo_unique {sp : Roots} {fs : FS} {gPriv : Bool} :
     ∀ (fuel : Nat) (ws : List LvWork) (st : LvState) {hs₁ hs₁' hs₂ hs₂' : HS} {a b : LvState},
       (levelsGo (moduleImports sp) gPriv fuel ws st : ModelIO _) fs hs₁ (.ok (.ok a)) hs₁' →
       (levelsGo (moduleImports sp) gPriv fuel ws st : ModelIO _) fs hs₂ (.ok (.ok b)) hs₂' →
@@ -782,8 +783,79 @@ theorem levelsGo_unique {sp : SearchPath} {fs : FS} {gPriv : Bool} :
           obtain rfl := moduleImports_unique hr₁ hr₂
           exact levelsGo_unique fuel _ _ h₁ h₂
 
+/-! ## Through a lookup and its trimmed copy (task #608) -/
+
+/-- **The worklist through a trimmed lookup, accepted, is the full lookup's**, from the same
+handles: every header it read, the full lookup reads alike. -/
+theorem levelsGo_trims {a L : Roots} (ha : a.Trims L) {fs : FS} {gPriv : Bool} :
+    ∀ (fuel : Nat) (ws : List LvWork) (st : LvState) {hs hs' : HS} {r : LvState},
+      (levelsGo (moduleImports a) gPriv fuel ws st : ModelIO _) fs hs (.ok (.ok r)) hs' →
+      (levelsGo (moduleImports L) gPriv fuel ws st : ModelIO _) fs hs (.ok (.ok r)) hs'
+  | _, [], st, _, _, _, h => by
+    simpa only [levelsGo] using h
+  | 0, _ :: _, _, _, _, _, h => by simp [levelsGo] at h
+  | fuel + 1, .done m fl :: rest, st, _, _, _, h => by
+    simp only [levelsGo] at h ⊢
+    exact levelsGo_trims ha fuel _ _ h
+  | fuel + 1, .imp pf i :: rest, st, _, _, _, h => by
+    rw [levelsGo] at h ⊢
+    split at h
+    · rename_i hc
+      simp only [hc, ↓reduceIte]
+      exact levelsGo_trims ha fuel _ _ h
+    · rename_i hc
+      simp only [hc, Bool.false_eq_true, ↓reduceIte]
+      dsimp only at h ⊢
+      cases hold : st.flags[i.module]? with
+      | some old =>
+        simp only [hold] at h ⊢
+        split at h
+        · rename_i hf
+          simp only [hf, ↓reduceIte]
+          exact levelsGo_trims ha fuel _ _ h
+        · rename_i hf
+          simp only [hf, Bool.false_eq_true, ↓reduceIte]
+          exact levelsGo_trims ha fuel _ _ h
+      | none =>
+        simp only [hold] at h ⊢
+        split at h
+        · simp at h
+        · rename_i ho
+          simp only [ho, Bool.false_eq_true, ↓reduceIte]
+          simp only [ModelIO.bind_ok] at h ⊢
+          obtain ⟨r₁, hs₁, hr₁, h⟩ := h
+          rcases r₁ with e | is₁
+          · simp at h
+          exact ⟨_, hs₁, atModule_trims (k := fun loc => readImportsAt loc i.module) ha hr₁,
+            levelsGo_trims ha fuel _ _ h⟩
+
+/-- **The header fixpoint through a trimmed lookup, accepted, is the full lookup's.** -/
+theorem headerFixpoint_trims {a L : Roots} (ha : a.Trims L) {fs : FS} {isM : Bool}
+    {imps0 : Array ImportRec} {ld : Loads}
+    (h : ModelIO.CanGive (headerFixpoint (moduleImports a) isM imps0) fs (.ok ld)) :
+    ModelIO.CanGive (headerFixpoint (moduleImports L) isM imps0) fs (.ok ld) := by
+  obtain ⟨hs, hs', h⟩ := h
+  refine ⟨hs, hs', ?_⟩
+  simp only [headerFixpoint, ModelIO.bind_ok] at h ⊢
+  obtain ⟨r₁, hs₁, hr₁, h⟩ := h
+  rcases r₁ with e | st
+  · simp at h
+  exact ⟨_, hs₁, levelsGo_trims ha _ _ _ hr₁, h⟩
+
+theorem ImpReach.trims {a L : Roots} (ha : a.Trims L) {fs : FS} {imps0 : Array ImportRec}
+    {m : Name} (h : ImpReach a fs imps0 m) : ImpReach L fs imps0 m := by
+  induction h with
+  | root hi => exact .root hi
+  | step _ hc hi ih => exact .step ih (moduleImports_trims ha hc) hi
+
+theorem PubReach.trims {a L : Roots} (ha : a.Trims L) {fs : FS} {x m : Name}
+    (h : PubReach a fs x m) : PubReach L fs x m := by
+  induction h with
+  | refl => exact .refl
+  | step _ hc hi he ih => exact .step ih (moduleImports_trims ha hc) hi he
+
 /-- **The header fixpoint is determined on a snapshot.** -/
-theorem headerFixpoint_unique {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
+theorem headerFixpoint_unique {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
     {a b : Loads} (ha : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok a))
     (hb : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok b)) : a = b := by
   obtain ⟨_, _, ha⟩ := ha
@@ -801,7 +873,7 @@ theorem headerFixpoint_unique {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : 
 
 /-- **A module of a loaded module's public-import closure** (`pubClosures`, as `captureOne`
 reads it) **is reached from it by a path of public imports**, both modules loaded. -/
-theorem pubClosures_pubReach {sp : SearchPath} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
+theorem pubClosures_pubReach {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
     {ld : Loads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld))
     {hi j : Nat} (hp : (((pubClosures ld)[hi]?).map (·.has j)).getD false = true) :
     ∃ a b, ld.order[hi]? = some a ∧ ld.order[j]? = some b ∧ PubReach sp fs a b := by
@@ -857,7 +929,7 @@ theorem loadAt_imports {i : Nat} {m : Name} {f : ModFiles} {l : Loaded}
 /-- **A module's private part's name table holds the imports its header read answers**, where
 the module's private view loads (a worker's home read): the worker's root imports are the
 graph's edges. -/
-theorem readPartNames_header {sp : SearchPath} {fs : FS} {m : Name} {f : ModFiles} {i : Nat}
+theorem readPartNames_header {sp : Roots} {fs : FS} {m : Name} {f : ModFiles} {i : Nat}
     {l : Loaded} {t : NamePositions}
     (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f)) (hl : loadAt i m f = some l)
     (ht : ModelIO.CanGive (readPartNames sp (m, .private)) fs (.ok t)) :

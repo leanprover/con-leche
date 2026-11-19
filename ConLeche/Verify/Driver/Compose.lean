@@ -7,7 +7,8 @@ public import ConLeche.Verify.Driver.Capture
 import ConLeche.Verify.Cached.Fill
 import ConLeche.Verify.Driver.Clashes
 import ConLeche.Verify.Driver.Groups
-public import ConLeche.Driver.Graph
+import ConLeche.Driver.Graph
+public import ConLeche.Verify.Driver.Graph
 
 /-!
 # The composition: a development from an accepted run
@@ -39,26 +40,35 @@ namespace ConLeche.Driver.Compose
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 /-- **A module's own records, with the theorems' values in place.** -/
-@[expose] noncomputable def ownDecls (sp : SearchPath) (fs : FS) (M : Name) (w : WorkerRead) :
+@[expose] noncomputable def ownDecls (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
     List Declaration :=
   w.own.toList.map (fillDecl (fillOf sp fs #[⟨M, w.home.frontier⟩]))
 
-/-- **An accepted run over a closure** (see the module docstring). -/
-structure Run (sp : SearchPath) (fs : FS) (maxNatSize : Nat) where
+/-- **An accepted run over a closure** (see the module docstring); `x` the imports the run adds
+to a module's header (a compared challenge's solution, task #608), no module of the closure
+importing a module with imports added. -/
+structure Run (sp : Roots) (fs : FS) (maxNatSize : Nat) where
   C : List Graph.Node
   rk : Name → Nat
-  good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2)
+  x : Name → Array ImportRec
+  good : ∀ e ∈ C, Graph.NodeOk sp fs x e
   edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1
   inj : (C.map fun e => rk e.1).Nodup
+  plain : ∀ e ∈ C, ∀ i ∈ e.2, x i.module = #[]
+  /-- each module's lookup: the graph's, or the graph's without its fallback (a compared
+  challenge's closure, read through the trusted path alone) -/
+  look : Name → Roots
+  trims : ∀ M, (look M).Trims sp
   w : Name → WorkerRead
   jobs : Name → Nat
-  facts : ∀ M ∈ C.map (·.1), WorkerFacts sp fs M (jobs M) (w M)
-  run : ∀ M ∈ C.map (·.1), DeclsRun .verified natOpPinSets maxNatSize (ownDecls sp fs M (w M))
+  facts : ∀ M ∈ C.map (·.1), WorkerFacts (look M) fs M (jobs M) (w M) (x M)
+  run : ∀ M ∈ C.map (·.1), DeclsRun .verified natOpPinSets maxNatSize
+    (ownDecls (look M) fs M (w M))
     ((w M).reach.ctx.size, mkFEnv (streamEnv (w M).reach.ctx.toList))
     ((w M).reach.ctx.size + (w M).own.size,
-      mkFEnv (streamEnv (ownDecls sp fs M (w M)) (streamEnv (w M).reach.ctx.toList)))
+      mkFEnv (streamEnv (ownDecls (look M) fs M (w M)) (streamEnv (w M).reach.ctx.toList)))
 
-variable {sp : SearchPath} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
 
 /-- **The run of a closure every module of which has an accepted worker.** -/
 noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
@@ -69,7 +79,11 @@ noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
     (dflt : WorkerRead) : Run sp fs maxNatSize := by
   classical
   exact
-  { C, rk, good, edges, inj
+  { C, rk, x := fun _ => #[], edges, inj
+    good := fun e he => ⟨e.2, good e he, by simp⟩
+    plain := fun _ _ _ _ => rfl
+    look := fun _ => sp
+    trims := fun _ => Roots.Trims.refl sp
     w := fun M => if h : M ∈ C.map (·.1) then (acc M h).choose_spec.choose else dflt
     jobs := fun M => if h : M ∈ C.map (·.1) then (acc M h).choose else 0
     facts := fun M hM => by simp only [hM, ↓reduceDIte]; exact (acc M hM).choose_spec.choose_spec.1
@@ -82,6 +96,13 @@ variable (R : Run sp fs maxNatSize)
 /-- The run's modules. -/
 @[expose] def names : List Name := R.C.map (·.1)
 
+/-- **A module of the run with no import added**: its worker's facts, as a worker's. -/
+theorem facts₀ {M : Name} (hM : M ∈ R.names) (hx : R.x M = #[]) :
+    WorkerFacts (R.look M) fs M (R.jobs M) (R.w M) := by
+  have := R.facts M hM
+  rw [hx] at this
+  exact this
+
 /-- The run of an accepted closure has that closure's modules. -/
 theorem ofAccepted_names (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
@@ -89,6 +110,28 @@ theorem ofAccepted_names (C : List Graph.Node) (rk : Name → Nat)
     (inj : (C.map fun e => rk e.1).Nodup)
     (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs) (dflt : WorkerRead) :
     (Run.ofAccepted C rk good edges inj acc dflt).names = C.map (·.1) := by
+  classical
+  rfl
+
+/-- The run of an accepted closure adds no import. -/
+theorem ofAccepted_x (C : List Graph.Node) (rk : Name → Nat)
+    (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
+    (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
+    (inj : (C.map fun e => rk e.1).Nodup)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
+    (dflt : WorkerRead) (m : Name) :
+    (Run.ofAccepted C rk good edges inj acc dflt).x m = #[] := by
+  classical
+  rfl
+
+/-- The run of an accepted closure reads every module through one lookup. -/
+theorem ofAccepted_look (C : List Graph.Node) (rk : Name → Nat)
+    (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
+    (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
+    (inj : (C.map fun e => rk e.1).Nodup)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
+    (dflt : WorkerRead) (m : Name) :
+    (Run.ofAccepted C rk good edges inj acc dflt).look m = sp := by
   classical
   rfl
 
@@ -112,7 +155,7 @@ theorem ofAccepted_names (C : List Graph.Node) (rk : Name → Nat)
 @[expose] noncomputable def modOf (M : Name) : Module where
   imports := []
   ctx := R.ctx M
-  decls := ownDecls sp fs M (R.w M)
+  decls := ownDecls (R.look M) fs M (R.w M)
   src n := R.rk (R.homeIn M n)
   iface := R.ifaceOf M
 
@@ -276,7 +319,8 @@ theorem mem_ifaceOf {M : Name} {e : Declaration} :
 context record is a module of the run of smaller rank and that every context record reads what it
 reads alike from its home (`ImportOk.reads`, the capture check's). -/
 theorem localOk_of
-    (hhome : ∀ M ∈ R.names, ∀ (k : Nat) h, (R.w M).reach.homes[k]? = some h → h ∈ R.names ∧ R.rk h < R.rk M)
+    (hhome : ∀ M ∈ R.names, ∀ (k : Nat) h, (R.w M).reach.homes[k]? = some h →
+      h ∈ R.names ∧ R.rk h < R.rk M ∧ R.x h = #[])
     (hreads : ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
       RecordScoped (readsAlike R.dev (R.rk M) ((R.dev (R.rk M)).src n)) d)
     (j : Nat) : LocalOk .verified natOpPinSets maxNatSize R.dev j := by
@@ -308,18 +352,31 @@ theorem localOk_of
       rw [R.homeIn_spec hM hi hh hn, R.homeIn_spec hM hi hh hhd]
     obtain ⟨h1, h2, h3, h4, -, -⟩ := worker_local hw (R.run M hM) R.dev (R.rk M)
       (by rw [hd]; rfl) (by rw [hd]; rfl) _ hsrcd
-    refine ⟨interfaceOk_of_workers hw R.dev (R.rk M) (by rw [hd]; rfl) fun e he => ?_,
+    have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (a : Roots) (M' : Name) (jM : Nat)
+        (wM : WorkerRead) (xM : Array ImportRec) (i : Nat), a.Trims sp ∧
+          WorkerFacts a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+          wM.reach.homes[i]? = some M := fun e he => by
+      rw [hd] at he
+      obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
+      exact ⟨R.look M', M', R.jobs M', R.w M', R.x M', i, R.trims M', R.facts M' hM', h1, h2⟩
+    -- a module with imports added is no home: it presents nothing
+    have hif : InterfaceOk R.dev (R.rk M) := by
+      by_cases hx : R.x M = #[]
+      · exact interfaceOk_of_workers (R.trims M) (R.facts₀ hM hx) R.dev (R.rk M) (by rw [hd]; rfl) hiface
+      · refine ⟨fun e he => ?_⟩
+        obtain ⟨-, M', -, -, -, i, -, -, -, h2⟩ := hiface e he
+        rw [hd] at he
+        obtain ⟨M'', hM'', i', -, h2'⟩ := (R.mem_ifaceOf).1 he
+        exact absurd (hhome M'' hM'' i' M h2').2.2 hx
+    refine ⟨hif,
       ⟨fun b hb => by simp [hd, modOf] at hb, fun n hn => ?_, h1, fun d hdm n hn => ?_, h2,
         fun d hdm n hn => hreads M hM d (by rw [hd] at hdm; exact hdm) n hn, h4, h3⟩⟩
-    · rw [hd] at he
-      obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
-      exact ⟨M', R.jobs M', R.w M', i, R.facts M' hM', h1, h2⟩
     · rw [hd] at hn ⊢
       obtain ⟨d, hdm, hnd⟩ := streamEnv_find_mem hn
       obtain ⟨i, h, hi, hh⟩ := worker_home hw hdm
       show R.rk (R.homeIn M n) < R.rk M
       rw [R.homeIn_spec hM hi hh hnd]
-      exact (hhome M hM i h hh).2
+      exact (hhome M hM i h hh).2.1
     · rw [hd] at hdm ⊢
       obtain ⟨i, h, hi, hh⟩ := worker_home hw hdm
       show d ∈ (R.dev (R.rk (R.homeIn M n))).iface
@@ -328,31 +385,71 @@ theorem localOk_of
 
 /-- **A theorem of a module's private view is a constant of its own environment**, with its
 type (`worker_thm`). -/
-theorem thm_own {M : Name} (hM : M ∈ R.names) {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
-    {all : List Name} (hv : ViewOf sp fs M d) (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
+theorem thm_own {M : Name} (hM : M ∈ R.names) (hx : R.x M = #[]) {d : ModDecoded}
+    {c : CEntryF Name Expr} {v : Expr}
+    {all : List Name} (hv : ViewOf (R.look M) fs M d) (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
     ∃ ci ∈ (R.dev (R.rk M)).own.consts, ci.toConstantVal.type = c.type := by
-  obtain ⟨code, hmem, -⟩ := worker_thm (R.facts M hM) hv hc hk
+  obtain ⟨code, hmem, -⟩ := worker_thm (R.facts₀ hM hx) hv hc hk
   refine ⟨.thmInfo ⟨c.name, c.levelParams, c.type⟩, ?_, rfl⟩
   rw [R.dev_rk hM]
-  show _ ∈ (streamEnv (ownDecls sp fs M (R.w M)) (streamEnv (R.ctx M))).consts
+  show _ ∈ (streamEnv (ownDecls (R.look M) fs M (R.w M)) (streamEnv (R.ctx M))).consts
   refine (mem_streamEnv_consts _ _).2 (.inl ⟨_, List.mem_map.2 ⟨_, Array.mem_toList_iff.2 hmem, rfl⟩, ?_⟩)
   rw [declConstants_fillDecl]
   simp [declConstants]
 
+/-- **A module of the run is found through its own lookup.** -/
+theorem found {M : Name} (hM : M ∈ R.names) :
+    ∃ loc, ModelIO.CanGive (findModule (R.look M) M) fs (.ok loc) :=
+  let ⟨_, hf, _⟩ := workerFacts_load (R.facts M hM)
+  readFiles_found hf
+
+/-- A part of a module of the run, read through any lookup of the run, is read alike through
+the module's own. -/
+theorem names_own {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names) {k : PartKey}
+    (hk : k.mod = M) {t : NamePositions} (h : PartNames a fs k t) :
+    PartNames (R.look M) fs k t := by
+  subst hk
+  obtain ⟨_, hl⟩ := R.found hM
+  exact h.move ha (R.trims _) hl
+
+theorem region_own {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names) {k : PartKey}
+    (hk : k.mod = M) {r : Region} (h : PartRegion a fs k r) : PartRegion (R.look M) fs k r := by
+  subst hk
+  obtain ⟨_, hl⟩ := R.found hM
+  exact h.move ha (R.trims _) hl
+
+theorem copy_own' {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names) {s : Spot}
+    (hk : s.part.mod = M) (h : CopyAt a fs s) : CopyAt (R.look M) fs s := by
+  subst hk
+  obtain ⟨_, hl⟩ := R.found hM
+  exact h.move ha (R.trims _) hl
+
+theorem from_own {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names) {d : Declaration}
+    (h : RecordFrom a fs d M) : RecordFrom (R.look M) fs d M :=
+  let ⟨_, hl⟩ := R.found hM
+  h.move ha (R.trims _) hl
+
 /-- **A module reached by imports from a module of the run is one of smaller rank.** -/
-theorem impReach_rank {M : Name} (hM : M ∈ R.names) {imps0 : Array ImportRec}
+theorem impReach_rank {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names)
+    {imps0 : Array ImportRec}
     (h0 : ModelIO.CanGive (moduleImports sp M) fs (.ok imps0)) {m : Name}
-    (h : ImpReach sp fs imps0 m) : m ∈ R.names ∧ R.rk m < R.rk M := by
+    (h : ImpReach a fs (imps0 ++ R.x M) m) :
+    m ∈ R.names ∧ R.rk m < R.rk M ∧ R.x m = #[] := by
   induction h with
   | @root i hi =>
     obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
-    obtain rfl := moduleImports_canGive_unique (R.good e he) h0
-    exact R.edges e he i hi
-  | @step a is i _ ha hi ih =>
+    obtain ⟨imps, himps, he2⟩ := R.good e he
+    obtain rfl := moduleImports_canGive_unique himps h0
+    rw [← he2] at hi
+    exact ⟨(R.edges e he i hi).1, (R.edges e he i hi).2, R.plain e he i hi⟩
+  | @step b is i _ hc hi ih =>
     obtain ⟨e, he, rfl⟩ := List.mem_map.1 ih.1
-    obtain rfl := moduleImports_canGive_unique (R.good e he) ha
+    obtain ⟨imps, himps, he2⟩ := R.good e he
+    obtain rfl := moduleImports_canGive_unique himps (moduleImports_trims ha hc)
+    rw [ih.2.2, Array.append_empty] at he2
+    rw [← he2] at hi
     have := R.edges e he i hi
-    exact ⟨this.1, by omega⟩
+    exact ⟨this.1, by omega, R.plain e he i hi⟩
 
 end Run
 
@@ -478,38 +575,50 @@ namespace Run
 variable (R : Run sp fs maxNatSize)
 
 /-- **What a module reaches by imports, from its own header.** -/
-theorem rootImports {M : Name} (hM : M ∈ R.names) {own : NamePositions}
-    (hown : ModelIO.CanGive (readPartNames sp (M, .private)) fs (.ok own)) :
+theorem rootImports {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names)
+    {own : NamePositions}
+    (hown : ModelIO.CanGive (readPartNames a (M, .private)) fs (.ok own)) :
     ModelIO.CanGive (moduleImports sp M) fs (.ok own.header.imports) := by
   obtain ⟨f, hf, hl⟩ := workerFacts_load (R.facts M hM)
-  exact readPartNames_header hf hl hown
+  obtain ⟨lb, hlb⟩ := readFiles_found hf
+  have hown' : ModelIO.CanGive (readPartNames (R.look M) (M, .private)) fs (.ok own) :=
+    readPartNames_move (x := (M, .private)) ha (R.trims M) hlb hown
+  have hi : ModelIO.CanGive (moduleImports (R.look M) M) fs (.ok own.header.imports) :=
+    readPartNames_header hf hl hown'
+  exact moduleImports_trims (R.trims M) hi
 
 /-- **A module of a header fixpoint read from a module of the run is one of smaller rank.** -/
-theorem fixpoint_rank {M : Name} (hM : M ∈ R.names) {own : NamePositions} {ld : Loads}
-    (hown : ModelIO.CanGive (readPartNames sp (M, .private)) fs (.ok own))
-    (hld : ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule
-      own.header.imports) fs (.ok ld)) {m : Name} (hm : m ∈ ld.order) :
-    m ∈ R.names ∧ R.rk m < R.rk M := by
+theorem fixpoint_rank {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names)
+    {own : NamePositions} {ld : Loads}
+    (hown : ModelIO.CanGive (readPartNames a (M, .private)) fs (.ok own))
+    (hld : ModelIO.CanGive (headerFixpoint (moduleImports a) (own.withImports (R.x M)).header.isModule
+      (own.withImports (R.x M)).header.imports) fs (.ok ld)) {m : Name} (hm : m ∈ ld.order) :
+    m ∈ R.names ∧ R.rk m < R.rk M ∧ R.x m = #[] := by
   obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem hm
   obtain ⟨-, -, -, hs, -⟩ := headerFixpoint_sound hld
-  exact R.impReach_rank hM (R.rootImports hM hown) (hs k _ (by simp [hk])).1
+  have h1 := (hs k ld.order[k] (by simp [hk])).1
+  rw [NamePositions.withImports_imports] at h1
+  exact R.impReach_rank ha hM (R.rootImports ha hM hown) h1
 
 /-- **What a worker of the run reaches, by loads and views, is a module of smaller rank.** -/
 theorem reached_rank {M : Name} (hM : M ∈ R.names) {m : Name}
-    (h : Reached sp fs (R.w M).reads m) : m ∈ R.names ∧ R.rk m < R.rk M := by
+    (h : Reached (R.look M) fs (R.w M).reads m) : m ∈ R.names ∧ R.rk m < R.rk M ∧ R.x m = #[] := by
   induction h with
   | @loaded j hj =>
     obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
     obtain ⟨own, hown, hld, -⟩ := workerReads_loads hrd
     have : (R.w M).reads.loads.nameAt j ∈ (R.w M).reads.loads.order := by
       unfold Loads.nameAt; rw [Array.getElem?_eq_getElem hj]; simp
-    exact R.fixpoint_rank hM hown hld this
+    exact R.fixpoint_rank (R.trims M) hM hown hld this
   | @view h v y s _ hv hs ih =>
     obtain ⟨own, ld, ts, hown, hld, -, -, rfl⟩ := hv
     rcases (homeView_part hs).1 with hp | hp
     · rw [hp]; exact ih
-    · have := R.fixpoint_rank ih.1 hown hld hp
-      exact ⟨this.1, by omega⟩
+    · have hld' : ModelIO.CanGive (headerFixpoint (moduleImports (R.look M))
+          (own.withImports (R.x h)).header.isModule (own.withImports (R.x h)).header.imports) fs
+          (.ok ld) := by rw [ih.2.2, NamePositions.withImports_empty]; exact hld
+      have := R.fixpoint_rank (R.trims M) ih.1 hown hld' hp
+      exact ⟨this.1, by omega, this.2.2⟩
 
 /-- An importer copy's module is a loaded one. -/
 theorem importerSpot_loaded {env : ReachEnv ModelIO} {y : Name} {i : Nat} {s : Spot}
@@ -529,23 +638,23 @@ theorem importerSpot_loaded {env : ReachEnv ModelIO} {y : Name} {i : Nat} {s : S
 theorem capture {M : Name} (hM : M ∈ R.names) :
     let wr := (R.w M).reads
     let env : ReachEnv ModelIO :=
-      { rd := .ofPath sp, mod := M, wr, own := ownNames (R.w M).home, copies := clashCopiesOf wr }
+      { rd := .ofPath (R.look M), mod := M, wr, own := ownOf (R.x M) (R.w M), copies := clashCopiesOf wr }
     let r := (R.w M).reach
     ∃ (loc : Std.HashMap Name Spot) (pend : List (String × Name × ConstantVal))
       (P : List (Name × Name)),
       r.ctx.size = r.homes.size ∧
       (∀ (k : Nat) (d : Declaration) (hm : Name), r.ctx[k]? = some d → r.homes[k]? = some hm →
-        (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt sp fs d s) ∧
+        (∃ x ∈ declNames d, ∃ s, copyOf env loc x = some s ∧ s.part.mod = hm ∧ ReadAt (R.look M) fs d s) ∧
         (∀ n ∈ declNames d, ∃ s, copyOf env loc n = some s ∧ s.part.mod = hm) ∧
         (∀ y ∈ recordReads d, (hm, y) ∈ P) ∧
         (∀ n ∈ declNames d, ∀ cs, env.copies[n]? = some cs → ∀ kc ∈ cs,
           ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
-      (∀ x ∈ P, Passed sp fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
-      (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
+      (∀ x ∈ P, Passed (R.look M) fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
+      (∀ cl ∈ wr.clashes, ClashOk (R.look M) fs wr (· ∈ pend) cl) ∧
       inferFlags r.ctx.toList pend = .ok () ∧
       (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
-        s.part.level = .private ∧ CopyAt sp fs s ∧ Reached sp fs wr s.part.mod ∧ s.pos.name = y) ∧
-      (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x) := by
+        s.part.level = .private ∧ CopyAt (R.look M) fs s ∧ Reached (R.look M) fs wr s.part.mod ∧ s.pos.name = y) ∧
+      (∀ x ∈ P, Reached (R.look M) fs wr x.1 ∧ Origin (R.look M) fs env r.ctx r.homes x) := by
   intro wr env r
   have hw := R.facts M hM
   obtain ⟨_, _, hrd⟩ := hw.reads
@@ -557,7 +666,7 @@ theorem capture {M : Name} (hM : M ∈ R.names) :
 
 /-- **Every home of a context record is a module of the run of smaller rank.** -/
 theorem home_rank {M : Name} (hM : M ∈ R.names) {k : Nat} {h : Name}
-    (hh : (R.w M).reach.homes[k]? = some h) : h ∈ R.names ∧ R.rk h < R.rk M := by
+    (hh : (R.w M).reach.homes[k]? = some h) : h ∈ R.names ∧ R.rk h < R.rk M ∧ R.x h = #[] := by
   obtain ⟨loc, pend, P, hsz, hrec, -, -, -, hloc, -⟩ := R.capture hM
   obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
   obtain ⟨-, -, -, -, hsize, -⟩ := workerReads_loads hrd
