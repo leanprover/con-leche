@@ -784,7 +784,7 @@ that is the function space's domain, which therefore holds the argument.
   kernel. The law there is proved without the comparisons: when the
   redex is not the point, the major is a tagged tuple, which ties the
   constructor application to the recursor's levels and parameters
-  (#src("ConLeche/Model/Env/Laws.lean", 487, 519)[what the law
+  (#src("ConLeche/Model/Env/Laws.lean", 516, 548)[what the law
   provides instead]).
 ]
 
@@ -830,7 +830,7 @@ and #src("ConLeche/Model/Rules/IotaSound.lean", 646)[the law] gives the rest.
   Every rule of the recursor of an accepted block
   #src("whitepaper/Fragment/InstallIota.lean", 807, 813)[satisfies its $iota$ law] in the model of @sec:ind-model.
   (Via #src("whitepaper/Fragment/IndRec.lean", 280, 290)[the equation on the semantic recursor]\; in con-leche,
-  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 872, 878)[the graph's equation], lifted to the law of @def:iota-law.)
+  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 935, 941)[the graph's equation], lifted to the law of @def:iota-law.)
 ] <thm:iota>
 
 #proof[

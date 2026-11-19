@@ -12,10 +12,11 @@ it declines instead; @sec:left-out). It comes with a proof, written in
 Lean itself, of what an acceptance means: every environment the
 checker accepts
 #src("ConLeche/MainTheorem.lean", 108, 111)[has a model in set theory].
-#src("ConLeche/Denotes.lean", 248, 268)[Each constant is assigned a set], each type denotes a set, and every stored
+#src("ConLeche/Denotes.lean", 346, 379)[Each constant is assigned a set], each type denotes a set, and every stored
 constant is a member of the set its type denotes. The constant `False`
 denotes the empty set, and `Eq` denotes set equality, so every
-equation the checker accepts is an equality of sets. Hence no accepted
+equation the checker accepts is an equality of sets. Every definition
+denotes its value and every recursor computes by its rules. Hence no accepted
 environment holds a proof of `False`, and every accepted theorem is
 true in the model.
 

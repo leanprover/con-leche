@@ -44,7 +44,7 @@ each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
 axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2489, 2495)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2756, 2762)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker has hand-written
