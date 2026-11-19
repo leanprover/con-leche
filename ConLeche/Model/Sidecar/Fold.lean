@@ -48,7 +48,7 @@ theorem declConstants_single {pd : Declaration} (hk : ∀ block nP, pd ≠ .indD
     by_cases h1 : cv.name = quotSoundName
     · simp only [h1, ↓reduceIte, List.mem_singleton] at hc hc'; rw [hc, hc']
     · by_cases h2 : cv.name = sorryAxName
-      · simp only [h1, h2, ↓reduceIte] at hc; exact absurd hc List.not_mem_nil
+      · simp only [h2, ↓reduceIte] at hc; exact absurd hc List.not_mem_nil
       · simp only [h1, h2, ↓reduceIte, List.mem_singleton] at hc hc'; rw [hc, hc']
   | _ =>
     simp only [declConstants, List.mem_singleton] at hc hc'
