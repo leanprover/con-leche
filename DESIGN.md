@@ -124464,3 +124464,102 @@ statement-kind renaming), 71e08a155 (`main_compare_json_no_False`), 929ce6fd7
 (`isModel_sideRecords`), 5e6e3f18b (records/pins/False/Eq at any sidecar), 3212b2bc4
 (`checkRecordC_justified_run`, envWF).  Gates run: `lake build`, `lake test` (warning-free); the
 `--compare` e2e lines.  Not run: `tests/arena.sh`, the other gates.
+
+### #619 cont. 3 — `sidecar_model_exists` proved; the JSON capstone; blocked on #618 (2026-11-19)
+
+**Rulings applied** (coordinator, on cont. 2): blocks match whole and at the same level-parameter
+names (a block at other names does not match, `cmp_lvind` 1; noted in OVERVIEW as today's limit
+of the renaming); sorried theorems and opaque constants are the axioms of their statements; the
+fallback "rename only unreserved names" is TAKEN (see below).
+
+**Code changes this session** (`ConLeche/Cached/Justify.lean`; no e2e verdict changes: all 18
+`--compare` rows pass unchanged):
+* `Sidecar` = the sidecar's index + the input's **record mates** (`recordMates ds`: every name an
+  inductive block declares ↦ every name that block declares); `entryNeeds` adds a constant's
+  mates, so a justification's cone holds whole records.  REASON: the model's step for a shared
+  record needs all of its names shared or none (`record_shared`), and a recursor has no in-data
+  link to its block (an auxiliary recursor `T.rec_1` is read by nothing in its block, and a
+  recursor's type reading its formers is a fact about the generated recursor, not provable
+  cheaply); the mates make the closure record-level by construction.  `sidecarOf justify ds`
+  builds it; `checkDecls` and `Jobs.side` use it.
+* `copyB`'s renaming branch only at a name no pin reserves (the FALLBACK: a pinned statement —
+  `Classical.choice`, `Quot.sound` at other level names — would need `EnvModelM.renameCore`'s
+  pinned transport inside the sidecar's renaming; no fixture verdict depends on it, and such
+  inputs cannot be exported from Lean sources, Init declaring those names).
+* `justifiable` excludes certified `Nat` operation names and compiler-trust operation names
+  (`natOpName`, `reduceOpNames`): the checker computes with those constants and the model's
+  `nat_ops`/`reduce_ops` laws hold only of their own installs (`harvestAxiom` takes
+  `natOpName = false` and `∉ reduceOpNames`).  Such an axiom now takes its own check, which
+  rejects it.  VERDICT CHANGE for hand-written streams only (Init declares those names; no Lean
+  source can export a challenge axiom `Nat.add`), so no fixture.
+* `refinesB`'s statement clause is not taken at a compiler-trust name (`CtxRead.reduce` needs the
+  context's copy of such a name to be its source's).
+* `harvestAxiomAt` (`Model/Harvest.lean`) is `harvestAxiom` with the installed leaf exposed.
+
+**Proved** (all build warning-free):
+* `Verify/Cached/Cone.lean` `justifyWhy_cone`: the accept read as a closed shared set
+  (`ConeGood`, `ConeClosed`).
+* `Verify/Cached/Mates.lean` `recordMates_spec`.
+* `Model/CopyStmt.lean` (subagent): `EnvModelM.copyStmt`, `NatFacts.copies`,
+  `ProofLeaves.copies` — the model across a `CopiesEnv` renaming only unreserved statements.
+* `Model/Sidecar/Rename.lean`: `renEnv Ef envS`, `renEnv_copies`, `renEnv_stmt`, `Shared` (union of
+  the cones, read in the final environment), `coneClosed_lift`, `refines_ren`.
+* `Model/Sidecar/Shared.lean` `sharedStep`: a record of shared names, through `ctxModel` with two
+  sources (the environment before it, read as itself; the renamed sidecar, read on the shared
+  names stored so far).
+* `Model/Sidecar/Justified.lean` `justStep`: the justified axiom gets `mS'`'s value at its name,
+  read at the input's level parameters; `denote_alike` over the cone; a shared justified name
+  keeps the sidecar's leaf (`ProofLeaves` of the sidecar for the proof case).
+* `Model/Sidecar/Fold.lean` `sideFold`, `Model/Sidecar.lean` `sidecar_envModel`,
+  `sidecar_isModel`.
+* `Verify/Cached/Scoped.lean` (subagent) `declsRun_scoped`, `Scoped.empty`; bridge
+  `Model/Modular/Scoped.lean` `Scoped.entryScopedP`: every environment an accepted fold reaches
+  (with or without a sidecar) is read-scoped — each stored constant's laws, its table and its pin
+  footprint read stored names (model-free; `CtxRead.scope` for the environment before a shared
+  record needs it).
+* **The capstones** (`ConLeche/MainTheorem.lean`, axioms pinned in `tests/ConLecheTests/Axioms.lean`):
+  `sidecar_model_exists` (stated beside `model_exists` in `Challenge.lean`, listed in
+  `comparator.json`; a one-line citation of `Model.Sidecar.sidecar_isModel`) and
+  `main_compare_json_model` (exit 0 of `--compare -- <c> <s>` ⇒ the challenge's prepared records
+  have a model, with the `False`/`Eq` facts).
+
+**The proof's shape, as built** (differs from cont. 2's plan in two places): (1) `Shared` is the
+union of ALL closed shared sets read in the final environment (`Shared JS Ef`), and each
+justification's cone is lifted to it (`coneClosed_lift`), so no monotonicity is needed; (2) the
+shared step's `CtxRead` needs the earlier environment read-scoped (`Scoped`), which is why
+`declsRun_scoped` exists.  `renEnv` renames by the input's FINAL environment.
+
+**Driver/plain-reach:** `recordReads` moved back to `Driver/Reach.lean` (as
+`ConLeche.Cached.recordReads`): compiled in `Cached/Needs.lean` it ran the plain `declConstants`
+(no `csimp` from `Verify/Cached/DeclNames` there) — a plain-reach regression of the first session.
+Allowlist: `ConLeche.pinFootprint` (moved from `ConLeche.Modular`), `ConstantInfo.isStmtKind`.
+
+**BLOCKED on #618** (`agent/618-views-ismodel`, not landed at this record):
+* Item 3 (drop `Model.false_empty`/`eq_equality`): NOT done.  The fields are still part of the
+  advertised `modular_model_exists` (`∃ m : ∀ j ≤ i, Model V (dev j).own, …`): dropping them weakens
+  that capstone until #618 restates the modular theorem over `IsModel`.  Readers otherwise:
+  `tests/ConLecheTests/{CompareAttack,IotaEqTests}.lean` (to move to `IsModel`),
+  `Model/Copies.lean`'s `Model.ofCopies` (constructs them; old compare machinery).
+* Items 4/5: `--olean --compare` and the modular compare modes still run the old comparison
+  (`Driver/Compare*`, `Model/Modular/Compare{,Run}`, `Verify/Driver/Compare{Run,Local,Module}`,
+  `ComposeCompare`, the `main_compare_*` olean/modular capstones, `Model/Copies.lean`'s
+  `ofCopies`), so none of it is deletable yet.  (`Model/Copies.lean`'s `CopiesEnv`/`ConstCopy`/
+  `denote_copy*` stay: `Model/CopyStmt.lean` uses them.)
+* Item 6: OVERVIEW (JSON mode, module map, checkDecls' sidecar) and the usage text are at the
+  sidecar rule.  Whitepaper §8 (`whitepaper/sections/06c-compare.typ`, `Fragment/Compare.lean`)
+  NOT rewritten: it describes the module comparison of `--olean --compare`, which is unchanged
+  until the olean mode moves to the sidecar; rewrite it then, around justified axioms.  README:
+  no line describes the JSON comparison (only links repointed: `MainTheorem.lean` and
+  `Decls.lean`/`Cli.lean` anchors).
+
+**Gates run on the final tree of this session:** `lake build`, `lake test` (warning-free);
+`tests/{challenge,trust-surface,plain-reach,binary-link,layering,quote-gate,no-local-paths,
+overview-links}.sh` pass; all 18 `--compare` e2e rows pass unchanged.  `tests/shake.sh`: 13 new
+proposals (imports of the new modules), being resolved in a subagent lane (see the commits).
+`tests/arena.sh` in full: see the end of this record.  Not run: the whitepaper gates (whitepaper
+untouched).
+
+**Next session, in order:** wait for #618; then the olean `--olean --compare` and modular modes
+as checking with a sidecar (their specs from #618), their capstones over `IsModel`; delete the old
+machinery (list above); drop the `Model` fields once the modular theorem is over `IsModel`
+(move `CompareAttack`/`IotaEqTests`); whitepaper §8; full gates; land on `compare` with `--no-ff`.
