@@ -370,6 +370,23 @@ e2e_half() {
     case "$exp" in ''|'#'*) continue;; esac
     resolve "$exp" e2e "$rel" ""
     e2e_total=$((e2e_total+1))
+    case "$rel" in
+      --*)
+        # a row of arguments (`--compare -- C.ndjson S.ndjson`): every `.ndjson` among them a
+        # fixture of tests/e2e/
+        args=()
+        for tok in $rel; do
+          case "$tok" in *.ndjson) args+=("tests/e2e/$tok");; *) args+=("$tok");; esac
+        done
+        timeout 60 "$BIN" $MODEFLAG "${args[@]}" >/dev/null 2>&1
+        got=$?
+        if [ "$got" != "$want" ]; then
+          mismatch "E2E FAIL" "$rel" "$want" "$got"
+        else
+          e2e_ok=$((e2e_ok+1))
+        fi
+        continue;;
+    esac
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
       # large fixtures are committed gzipped

@@ -178,6 +178,18 @@ info: 'ConLeche.main_compare_trusted' depends on axioms: [propext, Classical.cho
 #print axioms ConLeche.main_compare_trusted
 
 /--
+info: 'ConLeche.main_compare_json_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_json_solves
+
+/--
+info: 'ConLeche.main_compare_json_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_json_no_False
+
+/--
 info: 'ConLeche.Frontend.Olean.challenge_local' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in

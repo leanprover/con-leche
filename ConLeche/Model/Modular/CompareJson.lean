@@ -150,11 +150,15 @@ theorem jsonHomes_own {recs : Array Declaration} {d : Declaration} (hd : d ∈ r
           · rfl
           · exact h
 
-/-- A challenge file's record that is no placeholder axiom is one of the challenge's records. -/
+/-- **Every hole of a challenge file is one of the challenge's records.** -/
 theorem mem_jsonRecs {pre : Frontend.PreludeIx} {ds : Array Declaration} {d : Declaration}
-    (hd : d ∈ ds) (hp : isPlaceholder d = false) : d ∈ jsonRecs pre ds := by
+    (hd : d ∈ ds) (hh : jsonHole d = true) : d ∈ jsonRecs pre ds := by
   unfold jsonRecs
-  exact Array.mem_filter.mpr ⟨Frontend.mem_prepareD hd, by simp [hp]⟩
+  obtain ⟨i, hi, he⟩ := Array.getElem_of_mem (Frontend.mem_prepareD (pre := pre)
+    (used := Declaration.usedConsts) hd)
+  refine Array.mem_map.mpr ⟨(d, i), Array.mem_filter.mpr ⟨?_, by simp [hh]⟩, rfl⟩
+  rw [Array.mem_iff_getElem]
+  exact ⟨i, by simpa using hi, by simp [he]⟩
 
 theorem map_fillDecl_id (ds : Array Declaration) : ds.map (Cached.fillDecl id) = ds := by
   have : Cached.fillDecl id = id := funext fun d => by cases d <;> rfl
@@ -200,9 +204,9 @@ theorem compare_json_solved (V : Type w) [SetTheory V] {pins : List NatOpPinSet}
   rw [map_fillDecl_id] at H hemb
   obtain ⟨mC, mS, h1, h2⟩ := H
   refine ⟨hemb, mC, mS, h1, fun d hd hh => ?_⟩
+  have hd' := mem_jsonRecs (pre := pre) hd hh
   simp only [jsonHole, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hh
-  obtain ⟨⟨hs, hp⟩, hh⟩ := hh
-  have hd' := mem_jsonRecs (pre := pre) hd hp
+  obtain ⟨⟨hs, -⟩, hh⟩ := hh
   exact h2 d hd' (jsonHomes_own hd' hs) hh
 
 end ConLeche.Model.Compare
