@@ -4,6 +4,8 @@ public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Semantics.Inductives.DeclBlockWF
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BridgeC
+import ConLeche.Verify.Cached.JustifyBridge
+import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.PinRen
 import ConLeche.Verify.IotaReduct
@@ -322,8 +324,8 @@ theorem checkDeclsPure_envWF {F : Nat} {ds : List Declaration} {env' : Env}
 
 /-- **The fold's run keeps the environment well formed**: each record's cached check is a pure
 `checkDecl` run (`checkDeclStepC_run`, which itself reads the environment's well-formedness). -/
-theorem declsRun_envWF {maxNatSize : Nat} {ds : List Declaration} {p q : Nat × FEnv}
-    (hrun : DeclsRun .verified pins maxNatSize none ds p q) :
+theorem declsRun_envWF {maxNatSize : Nat} {J : Option FEnv} {ds : List Declaration}
+    {p q : Nat × FEnv} (hrun : DeclsRun .verified pins maxNatSize J ds p q) :
     p.2 = mkFEnv p.2.env → EnvWF p.2.env → EnvWF q.2.env := by
   induction hrun with
   | nil p => exact fun _ hw => hw
@@ -331,13 +333,29 @@ theorem declsRun_envWF {maxNatSize : Nat} {ds : List Declaration} {p q : Nat × 
     intro hfe hw
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
     rw [hfe] at hstepC
-    obtain ⟨-, hfe₁, F, hF⟩ := checkDeclStepC_run hw (CSOKF.fresh _) hstepC
-    exact ih hfe₁ (checkDecl_envWF hw hF)
+    cases hj : justifiable pd with
+    | none =>
+      rw [checkRecordC_own .verified J _ hj] at hstepC
+      obtain ⟨-, hfe₁, F, hF⟩ := checkDeclStepC_run hw (CSOKF.fresh _) hstepC
+      exact ih hfe₁ (checkDecl_envWF hw hF)
+    | some cv =>
+      cases J with
+      | none =>
+        obtain ⟨-, hfe₁, F, hF⟩ := checkDeclStepC_run hw (CSOKF.fresh _) hstepC
+        exact ih hfe₁ (checkDecl_envWF hw hF)
+      | some J =>
+        -- the justification route: the statement's front door, pushed as an axiom
+        obtain ⟨-, hfe₁, -, -, F, hrunv⟩ := checkRecordC_justified_run hw hj (CSOKF.fresh _) hstepC
+        subst hfe₁
+        refine ih (by rw [mkFEnv_env]) ?_
+        rw [mkFEnv_env]
+        exact hrunv.envWF_axiom hw
 
 /-- **What the fold the binary runs accepts is well formed** (`checkDecls`, the subject of the
 main theorem), model-free. -/
-theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {env' : Env}
-    (h : checkDecls .verified pins maxNatSize ds = .ok env') : EnvWF env' := by
+theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {justify : Option Env}
+    {env' : Env} (h : checkDecls .verified pins maxNatSize ds justify = .ok env') :
+    EnvWF env' := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run .verified h
   exact declsRun_envWF r rfl EnvWF.empty
 
