@@ -124252,3 +124252,82 @@ Sidecar (`--compare`, not started): an axiom justified by a sidecar's constant w
 record kind whose clause is membership only, with the bridge obligation that the sidecar's
 model gives the constant's value; `IsModel` itself needs no change since clauses are per
 record.
+
+## TASK #619 — the sidecar: axioms justified by a second checked stream (2026-11-19, agent/619-sidecar; base `compare`, lands on `compare`)
+
+**Status: in progress (first session).  The core CODE is in (a5b9ef45a, `lake build` green); no
+sidecar proof yet; the JSON/olean/modular modes still run the old comparison.**
+
+**The maintainer's design** (brief of #619): the compare "solution" becomes a SIDECAR.  An axiom of
+the input (a non-built-in axiom, or a definition/theorem/opaque constant whose value uses
+`sorryAx`) is accepted when JUSTIFIED: built in (`propext`, `Classical.choice`, `Quot.sound`, the
+trust family, as today) or by the sidecar's environment, checked as usual, holding a constant of
+the same name and type up to positional level renaming, everything the type reads being the SAME
+constant in both, closed under reads.  The challenge is checked like any input; the comparison
+machinery goes.  Main theorem: `checkDecls … dsS = .ok envS → checkDecls (justify := some envS)
+… ds = .ok env → ∃ model, IsModel V model ds`; without a sidecar exactly `model_exists`.
+
+**Code as landed in the first commit** (`ConLeche/Cached/Justify.lean`, `Cached/Decls.lean`):
+* `checkDecls mode pins maxNatSize ds (justify : Option Env := none)`; the fold runs over
+  `sideRecords justify ds` (none: `ds`; some: `ds.map sideRecord`, a definition whose value uses
+  `sorryAx` — name not a built-in axiom's — becomes `.axiomDecl cv`; `IsModel`'s
+  `Declaration.records` reads it the same, so `IsModel ds ↔ IsModel (ds.map sideRecord)` is the
+  bridge to prove).  `declConstants` is UNCHANGED (a first attempt changed it for sorry
+  definitions; it broke `Presents`/`defn_presents` in the modular proofs and was reverted).
+* `declStep mode pins maxNatSize (J : Option FEnv)`, `DeclsRun … J`, `recordJob … J`, all through
+  `checkRecordC mode pins J fe pd`: with `some J` and `justifiable pd = some cv` (non-built-in
+  axiom; theorem/opaque whose value uses `sorryAx`) → `flushC`, `justifyWhy J fe cv` (reject,
+  `.invalid`, with the reason, if not justified), `checkConstantValC`, the reserved names' check,
+  push `justifiedInfo pd cv` (theorem → `thmInfo`, else `axiomInfo` = `declConstants pd`);
+  otherwise `checkDeclStepC` (so `checkRecordC … none = checkDeclStepC` by `rfl`).
+* `justifyWhy J fe cv`: the sidecar has `cv.name`, `sameCvUpToLevels` (moved from
+  `Driver/Compare.lean`), and `coneGo J fe.find? fe.findTable? (J.idx.size+1) {} (type's needs)`:
+  every reached name is in both, `refinesB` (same `ConstantInfo` by `beqP`, or the input's
+  `axiomInfo cv` statement of a sidecar stmt-kind constant with the SAME `ConstantVal`), same
+  table (`tableBeqP`), and its `entryNeeds` (= `NeedsSt.const` + a former's `caps.ctors` and
+  `caps.all.map (·.str "rec")` + its table's names) pushed.  The recursor names make a block
+  shared whole (every block constant reads a former): needed by the model proof below.
+  SPEC CHOICE to report: a read name that is itself a justified hole counts as shared when its
+  input copy is the statement of the sidecar's constant at the same level names (`refinesB`'s
+  second clause) — needed by `cmp_hole`/`cmp_kind` (`theorem big_lt : 37 < big` with
+  `def big := sorry`).
+* Driver: `Jobs ds (justify : Option Env := none)` carries `side := justify.map mkFEnv` with its
+  equation; `checkDeclsIO … J (hds : sideRecords justify ds = ds)` concludes
+  `checkDecls … ds justify`.  `checkDecls_of_jobs (hds) (jobs at justify.map mkFEnv)`.
+* Proved so far (general in `J`): `declStep_ok` (→ `checkRecordC`), `justifiable_constants`,
+  `checkRecordC_pushes`, `declsRun_env`, `checkDecls_env` (env = `streamEnv (sideRecords …)`),
+  `justifyWhy_congr`, `checkRecordC_twin`, `checkRecordC_push` (PushChain), `declsRun_chain`,
+  `jobs_run_from`, `checkDecls_of_jobs`.  Every other `DeclsRun` consumer is stated at `none`.
+
+**The model proof — the plan** (not started; a new `ConLeche/Model/Sidecar.lean`):
+* Sidecar model `mS : EnvModelM V envS`, covered, `NatFacts` (`declsRun_model`).
+* Fold over the challenge's run at `some (mkFEnv envS)` with the invariant: a covered model `mp`
+  of `E_k`, `NatFacts`, and `∀ x ∈ E_k, Shared Ef envS x → mp.acval x = mS.acval x`, where `Ef`
+  is the FINAL env and `Shared` the coinductive closure `coneGo` certifies (a set `S` of names,
+  each in both with `Refines`, same table, its `entryNeeds` in `S`).  Using `Ef` avoids any
+  monotonicity of `Shared` along the fold.
+* Step kinds: (S) every constant of the record `Shared Ef` → the regular step's model `mReg`
+  (keeps old leaves: `declStep_agrees`/`CoveredRel`), then `Model.Modular.ctxModel` over
+  `C := E_{k+1}` with sources old names `(E_{k+1}, mReg, R := E_k)` and new names
+  `(envS, mS, R := the shared cone)`, leaves `aC := new ↦ mS, old ↦ mp` (CtxRead: `entry` by
+  `Refines`, `alike` by identity/`Alike`, `scope`/`ctors`/`deep` by the closure, `table` by the
+  table check).  A block with one constant shared has all shared: every block constant reads a
+  former, a former's `entryNeeds` lists the members, `caps.ctors` and the members' `.rec` — the
+  block's recursors exactly by `blockRecNameSetOk` (a per-record fact of the accepted block).
+  (J) a justified record → `harvestAxiom` (`Model/AxiomPin.lean`'s wrapper) with leaf
+  `A ψ := mS.acval a (substFn ψ lpsS (lpsC.map param))`, membership by: `denote_alike` on the
+  type's reads (all shared, so `mp = mS` there), a localized `denote_ren` (`Model/BasisRename`,
+  over `LpsCopy` on the reads only), and the instantiation lemma (`denotePInstLevels`); then
+  `mS.mem_type`.  (R) any other record: the regular step.
+* Then `isModel_of_envModelM` needs `RecordsStored` for the sidecar fold (redo
+  `checkDecls_recordsStored` over `checkRecordC`), `checkDecls_envWF` for the sidecar fold
+  (J route: `checkConstantValC` → the axiom's `ConstantValRun`), and the `sideRecord` bridge.
+* `MainTheorem.model_exists` then follows from the sidecar theorem at `dsS := #[]`?  No:
+  `checkDecls #[] = .ok Env.empty`, and `justify := some Env.empty` is NOT `none` (every axiom
+  is then rejected).  Keep `model_exists` as is; add `sidecar_model_exists`.
+
+**Order still to do:** the model proof above; JSON `--compare` as checking with a sidecar (the
+driver: parse/prepare/check S, then C with `Jobs.build (sideRecords (some envS) recsC) (some
+envS)`), its accept lemma, `main_compare_json_*` restated; delete the old JSON comparison
+(`Driver/CompareJson`'s `compareRecords` path, `Model/Modular/CompareJson`,
+`Verify/Driver/CompareJsonRun`); then olean and modular after #618; fixtures, docs, gates.
