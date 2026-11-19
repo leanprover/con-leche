@@ -164,9 +164,9 @@
    115  #guard_msgs in
    116  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Dispatch.lean#L57-L58
-    57    | .oleans sp roots cs mode maxNatSize pace jobs =>
-    58      checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
+== ConLeche/Driver/Dispatch.lean#L56-L57
+    56    | .oleans sp roots cs mode maxNatSize pace jobs =>
+    57      checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
 
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
