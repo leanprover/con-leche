@@ -127,6 +127,13 @@ theorem EndsInSort.abstract1 {u : Level} {d : Nat} :
     subst h; rfl
   | m + 1, .forallE A b, k, h => EndsInSort.abstract1 m (k + 1) h
 
+theorem EndsInSort.instantiate1' {u : Level} {v : Expr} :
+    ∀ (m : Nat) {e : Expr} (k : Nat), EndsInSort m u e → EndsInSort m u (e.instantiate1 v k)
+  | 0, e, k, h => by
+    simp only [EndsInSort] at h ⊢
+    subst h; rfl
+  | m + 1, .forallE A b, k, h => EndsInSort.instantiate1' m (k + 1) h
+
 theorem EndsInSort.stripPis {u : Level} :
     ∀ (m : Nat) {e : Expr}, EndsInSort m u e → ∃ bs, e.stripPis m = some (bs, .sort u)
   | 0, e, h => by

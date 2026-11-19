@@ -135,7 +135,7 @@ theorem Red.iota_app_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : 
   subst hrctor
   -- **the law and its ι facts**, and the fired right-hand side's
   -- reading at every depth
-  obtain ⟨hrPle, hlaw0, hextra⟩ := hin.rec_rules c cv mI rP isK rules hrec rl hrmem
+  obtain ⟨hrPle, hlaw0, hextra, -⟩ := hin.rec_rules c cv mI rP isK rules hrec rl hrmem
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hus
   obtain ⟨hRaD, hRnf, hRbd⟩ := recRhs_depthK hrec hrmem hRa0
   -- the recursor spine, read

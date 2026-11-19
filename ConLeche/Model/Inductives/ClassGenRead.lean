@@ -2,9 +2,8 @@ module
 
 import ConLeche.Model.OpenedCtx
 public import ConLeche.Verify.Inductives.ClassGenScope
-public import ConLeche.Verify.Inductives.ClassGenSyntax
+import ConLeche.Verify.Inductives.ClassGenSyntax
 import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.Denote.ErasedEq
@@ -64,41 +63,6 @@ theorem EndsInSort.closeTelescope {u : Level} {m : Nat} {B : Expr} (hB : EndsInS
     exact EndsInSort.abstract1 _ 0 (EndsInSort.closeTelescope hB nds (i + 1))
 
 /-! ## The inference, peeled to the conclusion -/
-
-/-- **A successful inference of a telescope infers its opened body**, at
-a fuel no larger, and sorts it. -/
-theorem inferTypeCore_openPis_body {envK : Env} :
-    ∀ (n : Nat) {d F : Nat} {e s : Expr} {fvs : List Expr} {o : Expr},
-      openPisAtFvars (n + 1) e d = some (fvs, o) →
-      ConLeche.inferTypeCore .verified false envK F d e = .ok s →
-      ∃ bt u, ConLeche.inferTypeCore .verified false envK F (d + (n + 1)) o = .ok bt ∧
-        ConLeche.ensureSortCore .verified false envK F (d + (n + 1)) bt = .ok u
-  | n, d, F, e, s, fvs, o, hop, hinf => by
-    match e, hop with
-    | .forallE ty bd, hop =>
-      simp only [openPisAtFvars] at hop
-      split at hop
-      · next fvs' o' hop' =>
-        simp only [Option.some.injEq, Prod.mk.injEq] at hop
-        obtain ⟨-, rfl⟩ := hop
-        obtain ⟨F₀, udom, v, bt₁, rfl, -, hbt₁, hv, -⟩ := inferTypeCore_forallE_peel hinf
-        cases n with
-        | zero =>
-          simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop'
-          obtain ⟨-, rfl⟩ := hop'
-          exact ⟨bt₁, v, ConLeche.inferTypeCore_mono (Nat.le_succ _) hbt₁,
-            ConLeche.ensureSortCore_mono (Nat.le_succ _) hv⟩
-        | succ n =>
-          obtain ⟨bt, u, hbt, hu⟩ := inferTypeCore_openPis_body n hop' hbt₁
-          refine ⟨bt, u, ?_, ?_⟩
-          · rw [show d + (n + 1 + 1) = d + 1 + (n + 1) by omega]
-            exact ConLeche.inferTypeCore_mono (Nat.le_succ _) hbt
-          · rw [show d + (n + 1 + 1) = d + 1 + (n + 1) by omega]
-            exact ConLeche.ensureSortCore_mono (Nat.le_succ _) hu
-      · exact nomatch hop
-    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop | .app _ _, hop
-    | .lam _ _, hop | .letE _ _ _, hop | .lit _, hop | .proj _ _ _, hop =>
-      simp [openPisAtFvars] at hop
 
 /-! ## The motive's slot -/
 

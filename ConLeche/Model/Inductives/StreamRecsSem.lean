@@ -2,6 +2,16 @@ module
 
 import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Verify.Inductives.DirectGen
+import ConLeche.Verify.Denote.TeleOpen
+import ConLeche.Verify.Subst
+import ConLeche.Verify.Rules.InferBridge
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.IndFrame
+import ConLeche.Model.IndPointKit
+import ConLeche.Model.IndStageKit
+import ConLeche.Verify.Inductives.ClassGenSyntax
 public import ConLeche.Model.IndTele
 import ConLeche.Model.Env.EnvModelM
 public import ConLeche.Kernel.Inductives.StreamRecs
@@ -72,6 +82,13 @@ theorem TEqAt.interp_eq : ∀ {k : Nat} {ρ : Nat → V} {T T' : Term},
     simp only [interp_pi]
     rw [← hA]
     exact piV_congr fun x hx => (hB x hx).interp_eq
+
+/-- Agreement is symmetric. -/
+theorem TEqAt.symm : ∀ {k : Nat} {ρ : Nat → V} {T T' : Term}, TEqAt k ρ T T' → TEqAt k ρ T' T
+  | 0, _, _, _, h => Eq.symm h
+  | _ + 1, _, _, _, h => by
+    obtain ⟨A, B, A', B', rfl, rfl, hA, hB⟩ := h
+    exact ⟨A', B', A, B, rfl, rfl, hA.symm, fun x hx => (hB x (hA ▸ hx)).symm⟩
 
 /-- Agreement survives substituting a term for a variable. -/
 theorem TEqAt.inst : ∀ {k : Nat} {c : Nat} {ρ : Nat → V} {a T T' : Term},
@@ -212,6 +229,128 @@ theorem wellDenoted_mkAppN_head_congr {ρ : Nat → V} :
     have hc := cast (WellDenoted_app V ρ f a) happ
     exact cast (WellDenoted_app V ρ f' a).symm ⟨hw, hc.2.1, by rw [← he]; exact hc.2.2⟩
 
+/-! ## The stored type's motive level
+
+The stored type's conclusion after the major applies a binder of its rule prefix
+(`motiveLevel?`) whose type ends in `Sort u`.  Its inference (`recTyCheck`) types that
+conclusion: the head's opened variable carries its domain, so the conclusion infers to
+`Sort u` — whatever the stored binders hold, the conclusion is a type of that universe. -/
+
+/-- A type whose `piResult` is a sort ends in it after its `∀`-binders. -/
+private theorem endsInSort_of_piResult {u : Level} :
+    ∀ (e : Expr), e.piResult = .sort u → ∃ j, ConLeche.EndsInSort j u e
+  | .forallE _ b, h => by
+    obtain ⟨j, hj⟩ := endsInSort_of_piResult b (by simpa only [Expr.piResult] using h)
+    exact ⟨j + 1, hj⟩
+  | .sort v, h => ⟨0, by simpa only [Expr.piResult, ConLeche.EndsInSort] using h⟩
+  | .bvar _, h | .fvar _ _, h | .const _ _, h | .app _ _, h | .lam _ _, h | .letE _ _ _, h
+  | .lit _, h | .proj _ _ _, h => by simp [Expr.piResult] at h
+
+/-- **An opened binder keeps its domain's shape**: the `p`-th variable of an opening is
+annotated with a type ending in `Sort u` after `j` binders when the stripped domain is. -/
+private theorem openPis_dom_endsInSort {u : Level} {j : Nat} :
+    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr} {bs : List Expr} {b : Expr},
+      openPisAtFvars n e d = some (fvs, o) → e.stripPis n = some (bs, b) →
+      ∀ p, p < n → ConLeche.EndsInSort j u (bs.getD p default) →
+      ∃ ty, fvs[p]? = some (.fvar (d + p) ty) ∧ ConLeche.EndsInSort j u ty
+  | 0, _, _, _, _, _, _, _, _, _, hp, _ => absurd hp (Nat.not_lt_zero _)
+  | n + 1, e, d, fvs, o, bs, b, hop, hst, p, hp, hE => by
+    match e, hop, hst with
+    | .forallE dom body, hop, hst =>
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs' o' hop' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        simp only [Expr.stripPis, Option.map_eq_some_iff] at hst
+        obtain ⟨⟨bs', b'⟩, hst', heq⟩ := hst
+        simp only [Prod.mk.injEq] at heq
+        obtain ⟨rfl, rfl⟩ := heq
+        cases p with
+        | zero => exact ⟨dom, by simp, by simpa using hE⟩
+        | succ p =>
+          have hsome := Expr.stripPis_instantiate1_isSome (v := .fvar d dom) n (e := body) 0
+            (by rw [hst']; rfl)
+          obtain ⟨⟨bs'', b''⟩, hst''⟩ := Option.isSome_iff_exists.mp hsome
+          obtain ⟨-, hbs⟩ := Expr.stripPis_instantiate1_eq (v := .fvar d dom) n 0 hst' hst''
+          have hl' : bs'.length = n := Expr.stripPis_length n hst'
+          have hl'' : bs''.length = n := Expr.stripPis_length n hst''
+          obtain ⟨x, hx⟩ : ∃ x, bs'[p]? = some x :=
+            ⟨bs'[p]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+          obtain ⟨x', hx'⟩ : ∃ x', bs''[p]? = some x' :=
+            ⟨bs''[p]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+          have hxx := hbs p x x' hx hx'
+          have hEx : ConLeche.EndsInSort j u x := by
+            simpa [List.getD, hx] using hE
+          have hEx' : ConLeche.EndsInSort j u (bs''.getD p default) := by
+            rw [List.getD, hx', Option.getD_some, hxx]
+            exact ConLeche.EndsInSort.instantiate1' j _ hEx
+          obtain ⟨ty, h1, h2⟩ := openPis_dom_endsInSort n hop' hst'' p (by omega) hEx'
+          exact ⟨ty, by rw [List.getElem?_cons_succ, h1, Nat.add_assoc, Nat.add_comm 1 p], h2⟩
+      · exact nomatch hop
+
+/-- **The stored conclusion infers to the motive's sort** (`motiveLevel?`): a type inferred
+at the empty context, opened `n + 1` binders deep, whose conclusion applies a rule-prefix
+binder of type `∀ …, Sort u`, has its opened conclusion inferred to `Sort u`. -/
+theorem storedMotive_sort {envK : Env} {F : Nat} {S st : Expr} {n rP : Nat}
+    {fvs : List Expr} {o : Expr} {pre idx : List Expr} {rest body : Expr} {u : Level}
+    (hinf : inferTypeCore .verified false envK F 0 S = .ok st)
+    (hop : openPisAtFvars (n + 1) S 0 = some (fvs, o)) (hrP : rP ≤ n)
+    (hpre : S.stripPis rP = some (pre, rest))
+    (hidx : rest.stripPis (n - rP + 1) = some (idx, body))
+    (hml : ConLeche.motiveLevel? pre (n - rP) body = some u) :
+    inferTypeCore .verified false envK F (n + 1) o = .ok (.sort u) ∧
+      ensureSortCore .verified false envK F (n + 1) (.sort u) = .ok u := by
+  have hall := ConLeche.stripPis_append rP hpre hidx
+  rw [show rP + (n - rP + 1) = n + 1 by omega] at hall
+  have ho := ConLeche.Verify.openPisAtFvars_instSeq (n + 1) hop hall
+  rw [Nat.add_sub_cancel] at ho
+  have hpl : pre.length = rP := Expr.stripPis_length rP hpre
+  unfold ConLeche.motiveLevel? at hml
+  split at hml
+  · next k hk =>
+    split at hml
+    · next hcond =>
+      split at hml
+      · next v hv =>
+        obtain rfl := Option.some.inj hml
+        rw [hpl] at hcond hv
+        have hp : rP - 1 - (k - (n - rP + 1)) = n - k := by omega
+        rw [hp] at hv
+        obtain ⟨j, hE⟩ := endsInSort_of_piResult _ hv
+        have hE' : ConLeche.EndsInSort j v ((pre ++ idx).getD (n - k) default) := by
+          rw [List.getD, List.getElem?_append_left (by omega), ← List.getD]; exact hE
+        obtain ⟨ty, hty, hEty⟩ := openPis_dom_endsInSort (n + 1) hop hall (n - k) (by omega) hE'
+        rw [Nat.zero_add] at hty
+        have hfl : fvs.length = n + 1 := ConLeche.Verify.openPisAtFvars_length _ hop
+        have hcl : ∀ a ∈ fvs, a.looseBVarsBounded 0 = true := by
+          intro a ha
+          obtain ⟨q, hq⟩ := List.getElem?_of_mem ha
+          obtain ⟨t, rfl⟩ := ConLeche.openPisAtFvars_index _ _ _ hop q a hq
+          rfl
+        have hb := Expr.instSeq_bvar fvs n k hcl (by omega) (by omega)
+        rw [hty] at hb
+        have hhead : Expr.instSeq fvs n (.bvar k) = .fvar (n - k) ty := (Option.some.inj hb).symm
+        rw [← Expr.mkAppN_getApp body, hk, Expr.instSeq_mkAppN, hhead] at ho
+        generalize List.map (Expr.instSeq fvs n ·) body.getAppArgs = as' at ho
+        subst ho
+        obtain ⟨bt, w, hbt, hw⟩ := inferTypeCore_openPis_body n hop hinf
+        rw [Nat.zero_add] at hbt hw
+        have hF : 1 ≤ F := inferTypeCore_pos hbt
+        obtain ⟨F₀, rfl⟩ : ∃ F₀, F = F₀ + 1 := ⟨F - 1, by omega⟩
+        obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv as' hbt
+        obtain ⟨-, rfl⟩ := ConLeche.Rules.inferTypeCore_fvar_inv htf
+        have hlen := inferTypeCore_mkAppN_endsInSort_len as' htf hEty hbt
+          (ConLeche.ensureSortCore_inv hw)
+        rw [← hlen] at hEty
+        obtain ⟨bsT, hbsT⟩ := ConLeche.EndsInSort.stripPis _ hEty
+        obtain rfl := inferTypeCore_mkAppN_sort as' htf hbsT hbt
+        obtain rfl := ensureSortCore_sort_eq hw
+        exact ⟨hbt, hw⟩
+      · exact nomatch hml
+    · exact nomatch hml
+  · exact nomatch hml
+
 /-! ## The stored type -/
 
 
@@ -229,7 +368,12 @@ theorem storedTy_sem {env : Env} (mp : EnvModelM V env) {F : Nat}
       ∀ ρ : Nat → V, WellDenotedTy V ρ TG) (φ : Name → Nat) :
     ∃ TS TG, denote mp.base2.acval env φ 0 S = some TS ∧
       denote mp.base2.acval env φ 0 G = some TG ∧
-      (∀ ρ : Nat → V, WellDenotedTy V ρ TS) ∧ ∀ ρ : Nat → V, TEqAt n ρ TS TG := by
+      (∀ ρ : Nat → V, WellDenotedTy V ρ TS) ∧ (∀ ρ : Nat → V, TEqAt n ρ TS TG) ∧
+      ∀ (rP : Nat) (pre idx : List Expr) (rest body : Expr) (u : Level), rP < n →
+        S.stripPis rP = some (pre, rest) → rest.stripPis (n - rP) = some (idx, body) →
+        ConLeche.motiveLevel? pre (n - rP - 1) body = some u →
+        ∀ (ρ : Nat → V) (ws : List Term) (restS : Term), ws.length = n →
+          TeleFitPA V ρ TS ws restS → interp V ρ restS ∈ˢ (univ (u.eval φ) : V) := by
   obtain ⟨hSb, hSf, hGf, -, -, ⟨st, u, hinf, hens⟩, sfvs, srest, gfvs, grest, hopS, hopG,
     hdoms, hres⟩ := ConLeche.recTyCheck_inv hck
   have hc := claimsAt_of (V := V) mp φ F
@@ -275,8 +419,23 @@ theorem storedTy_sem {env : Env} (mp : EnvModelM V env) {F : Nat}
     (fun ρ hρ => piTeleAV_residue_ty htS (Δ₀ := []) (fun ρ _ => hTSw ρ) ρ
       (by simpa using (hsatn ρ).mpr hρ))
     (fun ρ hρ => piTeleAV_residue_ty htG (Δ₀ := []) (fun ρ _ => hTGw ρ) ρ (by simpa using hρ))
+  -- the conclusion after the major: a type of the motive's universe
+  have hmot : ∀ (rP : Nat) (pre idx : List Expr) (rest body : Expr) (u : Level), rP < n →
+      S.stripPis rP = some (pre, rest) → rest.stripPis (n - rP) = some (idx, body) →
+      ConLeche.motiveLevel? pre (n - rP - 1) body = some u →
+      ∀ (ρ : Nat → V) (ws : List Term) (restS : Term), ws.length = n →
+        TeleFitPA V ρ TS ws restS → interp V ρ restS ∈ˢ (univ (u.eval φ) : V) := by
+    intro rP pre idx rest body w hrP hpre hidx hml ρ ws restS hwl hfit
+    obtain ⟨n', rfl⟩ : ∃ n', n = n' + 1 := ⟨n - 1, by omega⟩
+    obtain ⟨hbt, hw⟩ := storedMotive_sort hinf' hopS (by omega) hpre
+      (by rw [show n' - rP + 1 = n' + 1 - rP by omega]; exact hidx)
+      (by rw [show n' - rP = n' + 1 - rP - 1 by omega]; exact hml)
+    have hsr := hc.sortRow hbt hw OS.bodyScoped.1 OS.bodyScoped.2.1 OS.bodyScoped.2.2.1 hCa₀
+      OS.body
+    rw [teleFitPA_rest_eq (n' + 1) htS hwl hfit, ← hwl, interp_instSeq]
+    exact (hsr _ (sat_of_tower htS hwl (teleFitPA_to_chain (n' + 1) htS hwl hfit))).2
   refine ⟨TS, TG, hTS, hTG, hTSw, fun ρ => tEqAt_of_tele htS htG (Δ₀ := [])
-    (fun i hi σ hσ => ?_) (fun σ hσ => hres' σ (by simpa using hσ)) ρ (Sat_nil V ρ)⟩
+    (fun i hi σ hσ => ?_) (fun σ hσ => hres' σ (by simpa using hσ)) ρ (Sat_nil V ρ), hmot⟩
   rw [List.append_nil] at hσ
   exact (PF i (by omega)).2 hi σ (((PF i (by omega)).1 σ).mpr hσ)
 
@@ -376,6 +535,92 @@ theorem storedRhs_sem {env : Env} (mp : EnvModelM V env) {F : Nat}
 
 /-! ## The ι contract, carried to the stored recursor -/
 
+/-- **The motive's level, under a level instantiation**: the instantiated telescope's motive
+level is the instantiated level of the uninstantiated one's. -/
+theorem motiveLevel?_instantiateLevelParams (ks : List Name) (us : List Level)
+    {pre : List Expr} {nIdx : Nat} {body : Expr} {u : Level}
+    (h : ConLeche.motiveLevel? (pre.map (·.instantiateLevelParams ks us)) nIdx
+      (body.instantiateLevelParams ks us) = some u) :
+    ∃ u₀, ConLeche.motiveLevel? pre nIdx body = some u₀ ∧ u = Level.subst ks us u₀ := by
+  unfold ConLeche.motiveLevel? at h ⊢
+  rw [Expr.getAppFn_instantiateLevelParams] at h
+  cases hb : body.getAppFn with
+  | bvar k =>
+    rw [hb] at h
+    simp only [Expr.instantiateLevelParams, List.length_map] at h ⊢
+    split at h
+    · rename_i hk
+      rw [ite_eq_left hk]
+      have hlt : pre.length - 1 - (k - (nIdx + 1)) < pre.length := by omega
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hlt,
+        Option.map_some, Option.getD_some, Expr.piResult_instantiateLevelParams] at h
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
+      cases hp : pre[pre.length - 1 - (k - (nIdx + 1))].piResult with
+      | sort u₀ =>
+        rw [hp] at h
+        simp only [Expr.instantiateLevelParams, Option.some.injEq] at h
+        exact ⟨u₀, rfl, h.symm⟩
+      | _ => rw [hp] at h; simp [Expr.instantiateLevelParams] at h
+    · exact nomatch h
+  | _ => rw [hb] at h; simp [Expr.instantiateLevelParams] at h
+
+/-- **The forward typing fact at the stored type** (`RecRuleFit`) from the generated one's, at
+a carrier with the same leaves (`hac`), readings (`hde`) and constructor lookups (`hctor`):
+fits of at most `mI + 1` arguments move both ways between the stored and the generated type
+(`hty`), and the stored conclusion after the major is a type of the stored motive's universe
+wherever the generated one is of the generated motive's (`hty`'s last clause).  The
+right-hand side does not enter the fact. -/
+theorem recRuleFit_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvModel V envS}
+    (hac : mS.acval = mG.acval)
+    (hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
+      denote mG.acval envS ψ d e = denote mG.acval envG ψ d e)
+    (hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+      envS.find? c = some (.ctorInfo cvj cnP cnF iT) → envG.find? c = some (.ctorInfo cvj cnP cnF iT))
+    {φ : Name → Nat} {cvG : ConstantVal} {T : Expr} {mI rP : Nat} {rlG : RecRule} {e : Expr}
+    (hrP : rP ≤ mI)
+    (hty : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ TS : Term,
+      denote mG.acval envG φ 0 (T.instantiateLevelParams cvG.levelParams us) = some TS →
+      ∃ TG, denote mG.acval envG φ 0 (cvG.type.instantiateLevelParams cvG.levelParams us)
+          = some TG ∧
+        (∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TS xs rest → ∃ rest', TeleFitPA V ρ TG xs rest') ∧
+        (∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TG xs rest → ∃ rest', TeleFitPA V ρ TS xs rest') ∧
+        ∀ (ρ : Nat → V) (ws : List Term) (restS restG : Term), ws.length = mI + 1 →
+          TeleFitPA V ρ TS ws restS → TeleFitPA V ρ TG ws restG →
+          (∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+            (cvG.type.instantiateLevelParams cvG.levelParams us).stripPis rP = some (pre, rest) →
+            rest.stripPis (mI - rP + 1) = some (idx, body) →
+            ConLeche.motiveLevel? pre (mI - rP) body = some u →
+            interp V ρ restG ∈ˢ (univ (Level.eval φ u) : V)) →
+          ∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+            (T.instantiateLevelParams cvG.levelParams us).stripPis rP = some (pre, rest) →
+            rest.stripPis (mI - rP + 1) = some (idx, body) →
+            ConLeche.motiveLevel? pre (mI - rP) body = some u →
+            interp V ρ restS ∈ˢ (univ (Level.eval φ u) : V))
+    (h : RecRuleFit mG φ cvG mI rP rlG) :
+    RecRuleFit mS φ { cvG with type := T } mI rP { rlG with rhs := e } := by
+  intro us hus TVa hTVa cvj cnP cnF iT hfc usj hlj hsj TVja hTVja ρ xs ps mid hxl hxw hmid hpw
+    hps
+  rw [hac, hde] at hTVa hTVja
+  obtain ⟨TG, hTG, hSG, hGS, hU⟩ := hty us hus TVa hTVa
+  obtain ⟨mid', hmid'⟩ := hSG ρ xs mid (by omega) hmid
+  have hps' : RuleParamsRead mG φ cvG rP cnP us rlG ρ xs ps :=
+    RuleParamsRead.transport (m' := mS) (cv' := { cvG with type := T })
+      (rl' := { rlG with rhs := e })
+      (fun lvls pins hf => ⟨lvls, pins, hf, fun i vpa hvpa => by rw [hac, hde]; exact hvpa⟩)
+      (fun hn => hn) hps
+  obtain ⟨h1, h2⟩ := h us hus TG hTG cvj cnP cnF iT (hctor _ _ _ _ _ hfc) usj hlj hsj TVja hTVja
+    ρ xs ps mid' hxl hxw hmid' hpw hps'
+  refine ⟨h1, fun fs is restC hfl hil hfw hiw hfit hpin => ?_⟩
+  obtain ⟨restR, hR, hUG⟩ := h2 fs is restC hfl hil hfw hiw hfit hpin
+  have hwl : (xs ++ is ++ [Term.mkAppN (mG.acval (RecRule.ctor rlG)
+      (Level.substFn φ cvj.levelParams usj)) (ps ++ fs)]).length = mI + 1 := by
+    simp only [List.length_append, List.length_singleton, hxl, hil]; omega
+  obtain ⟨restS, hRS⟩ := hGS ρ _ restR (by omega) hR
+  refine ⟨restS, by rw [hac]; exact hRS, ?_⟩
+  exact hU ρ _ restS restR hwl hRS hR hUG
+
 /-- **The ι contract at the stored type and right-hand side** from the
 generated one's, at a carrier with the same leaves (`hac`), the same
 readings (`hde`), the same constructor lookups (`hctor`) and the same
@@ -397,8 +642,22 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
       denote mG.acval envG φ 0 (T.instantiateLevelParams cvG.levelParams us) = some TS →
       ∃ TG, denote mG.acval envG φ 0 (cvG.type.instantiateLevelParams cvG.levelParams us)
           = some TG ∧
-        ∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
-          TeleFitPA V ρ TS xs rest → ∃ rest', TeleFitPA V ρ TG xs rest')
+        (∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TS xs rest → ∃ rest', TeleFitPA V ρ TG xs rest') ∧
+        (∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TG xs rest → ∃ rest', TeleFitPA V ρ TS xs rest') ∧
+        ∀ (ρ : Nat → V) (ws : List Term) (restS restG : Term), ws.length = mI + 1 →
+          TeleFitPA V ρ TS ws restS → TeleFitPA V ρ TG ws restG →
+          (∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+            (cvG.type.instantiateLevelParams cvG.levelParams us).stripPis rP = some (pre, rest) →
+            rest.stripPis (mI - rP + 1) = some (idx, body) →
+            ConLeche.motiveLevel? pre (mI - rP) body = some u →
+            interp V ρ restG ∈ˢ (univ (Level.eval φ u) : V)) →
+          ∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+            (T.instantiateLevelParams cvG.levelParams us).stripPis rP = some (pre, rest) →
+            rest.stripPis (mI - rP + 1) = some (idx, body) →
+            ConLeche.motiveLevel? pre (mI - rP) body = some u →
+            interp V ρ restS ∈ˢ (univ (Level.eval φ u) : V))
     (hrhs : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ RaG : Term,
       denote mG.acval envG φ 0 (rlG.rhs.instantiateLevelParams cvG.levelParams us) = some RaG →
       ∃ RaS, denote mG.acval envG φ 0 (e.instantiateLevelParams cvG.levelParams us) = some RaS ∧
@@ -410,9 +669,17 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
     fun cvj us => propext
       ⟨FamNZ.congr (hfam cvj) fun _ _ _ _ hta => by rw [hde]; exact hta,
         FamNZ.congr (hfam cvj).symm fun _ _ _ _ hta => by rw [← hde]; exact hta⟩
+  have hfitS := recRuleFit_stored (e := e) hac hde hctor h.1 hty h.2.2.2
+  replace hty : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ TS : Term,
+      denote mG.acval envG φ 0 (T.instantiateLevelParams cvG.levelParams us) = some TS →
+      ∃ TG, denote mG.acval envG φ 0 (cvG.type.instantiateLevelParams cvG.levelParams us)
+          = some TG ∧
+        ∀ (ρ : Nat → V) (xs : List Term) (rest : Term), xs.length ≤ mI + 1 →
+          TeleFitPA V ρ TS xs rest → ∃ rest', TeleFitPA V ρ TG xs rest' :=
+    fun us hus TS hTS => (hty us hus TS hTS).elim fun TG hTG => ⟨TG, hTG.1, hTG.2.1⟩
   unfold RecRuleLaw RecRuleExtra at h ⊢
   simp only [hac, hde, hnp] at ⊢
-  obtain ⟨hrPle, hmain, hextra⟩ := h
+  obtain ⟨hrPle, hmain, hextra, -⟩ := h
   -- the stored right-hand side's reading, at given levels
   have hRa : ∀ us : List Level, us.length = cvG.levelParams.length →
       ∃ RaG RaS, denote mG.acval envG φ 0
@@ -423,7 +690,7 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
     obtain ⟨RaG, hRaG, -⟩ := hmain us hlen
     obtain ⟨RaS, hRaS, hS⟩ := hrhs us hlen RaG hRaG
     exact ⟨RaG, RaS, hRaG, hRaS, hS⟩
-  refine ⟨hrPle, fun us hlen => ?_, fun us hlen TVa hTVa => ?_⟩
+  refine ⟨hrPle, fun us hlen => ?_, fun us hlen TVa hTVa => ?_, hfitS⟩
   · obtain ⟨RaG, hRaG, -, hpins, hlaw⟩ := hmain us hlen
     obtain ⟨RaS, hRaS, hS⟩ := hrhs us hlen RaG hRaG
     refine ⟨RaS, hRaS, fun ρ => (hS ρ).1, fun lvls pins hfire i hi => ?_, ?_⟩

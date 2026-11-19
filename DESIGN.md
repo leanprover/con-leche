@@ -123369,3 +123369,650 @@ for the `declNames`/`declConstants` twins), trust-surface, binary-link, layering
 quote-gate, no-local-paths, whitepaper `build.sh` and `fragment-gate.sh`.  The merge of
 `compare` (#608) conflicted in `Dispatch.lean` (both added requests), `MainTheorem.lean` and the
 axiom pins (both appended), OVERVIEW, the whitepaper and DESIGN; both sides kept.
+
+
+## TASK #610 (spike) — `Model` holds the defining equations (2026-11-19, agent/610-model-eqs)
+
+Base `modular` dcbb8265e.  A spike: nothing lands.  Goal (maintainer): the public `Model`
+(`ConLeche/Denotes.lean`) constrains only types, so in the modular theorem a hidden
+`def f : Nat := 3` may denote 5 and `inductive T | a | b` a one-element set (task #607/#608's
+`CmpHomeA/C/S1` attack).  The plan: "M ⊨ E" — every declaration's defining equations hold,
+read off the environment's own data and stated with `Denotes` only.
+
+**Definitions: done, a field.**  `Model.defn_eq`:
+
+    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+      ConstantInfo.defnInfo cv value hint ∈ env.consts →
+      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+
+At the definition's own level parameters, every assignment (an instance `c.{us}` is the same
+equation at the assignment `us` induces).  Spec choice: definitions only.  A theorem record
+stores no value (`thmInfo cv`), and its value is a proof anyway; an opaque's value is never
+unfolded by the kernel, so it stays free (a challenge cannot prove `o = 3` by `rfl` either).
+Proof in `Model.ofEnvModelM` (12 lines): `defn_reads` (`AcvalDefnInst`), `Denotes_of_denote`,
+and `LeafReads`' proof arm (`.prf` interprets as `pt`).  Corollary `Model.cval_of_defn`: in
+every model, whatever the value denotes is what the constant denotes — the demonstration (d)
+for `def f : Nat := 3` is this at `value = .lit (.natVal 3)`.
+
+**(b) and (c) are free for this field.**  Every public `Model` on `modular` is
+`Model.ofEnvModelM` of an `EnvModelM` (the main theorem, and each module's model in
+`modular_model_exists`, which takes the `EnvModelM` the `MMod` carries for the module's OWN
+environment).  The restriction to a view, the amalgamation (`ctxModel`) and the level renaming
+(`EnvModelM.rename`) all already produce a full `EnvModelM`, `defn_reads` and `rec_rules`
+included, so nothing in `Model/Modular/*` or `Model/BasisRename.lean` changes.  A definition
+presented as its statement (`stmtOf`) is an axiom in the importer's context, so the importer's
+`EnvModelM` owes no equation for it; the home's does, and agreement carries the home's value.
+The capstones `main_no_False`, `main_oleans_no_False`, `main_modular_no_False`,
+`main_modular_one_no_False` do not mention `Model`; `Challenge.lean`'s `model_exists` and
+`modular_model_exists` do and get the stronger statement with no text change
+(`tests/challenge.sh` OK).  On `compare` (not touched), `Model.ofCopies`
+(`Model/Copies.lean`) builds a `Model` directly and owes the field: the value of a copy is the
+original's at other level names, so it is `defn_reads` + `denote_ren`/`denote_instLevels`, as its
+`mem` arm — about 25 lines.
+
+**Recursor rules: stated, derived where the major is not the point.**  `RecRulesHold cval env`
+(`ConLeche/Denotes.lean`, a definition, not yet a field), with the spec helpers `appList`,
+`Fits` (sets fitting a `∀`-telescope over `Denotes`, with the residual and its environment),
+`RecRule.ctorLevels` (the rule's recorded levels, or the constructor's own parameters for a
+plain rule) and `IndexPin`:
+
+    ∀ n cv mI rP isK rules, env.find? n = some (.recInfo cv mI rP isK rules) → ∀ rl ∈ rules,
+    ∀ cvj cnP cnF iT, env.find? rl.ctor = some (.ctorInfo cvj cnP cnF iT) →
+    ∀ φ ρ C R xs ys ρr ρc Tr Tc,
+      Denotes cval env φ ρ (.const rl.ctor (rl.ctorLevels cvj.levelParams)) C →
+      Denotes cval env φ ρ rl.rhs R →
+      xs.length = mI → ys.length = cnP + rl.nfields →
+      Fits cval env φ ρ cv.type (xs ++ [appList C ys]) ρr Tr →
+      Fits cval env φ ρ (cvj.type.instantiateLevelParams cvj.levelParams
+        (rl.ctorLevels cvj.levelParams)) ys ρc Tc →
+      (appList C ys = pt → IndexPin cval env φ ρc Tc cnP (xs.drop rP)) →
+      appList (cval n φ) (xs ++ [appList C ys]) = appList R (xs.take rP ++ ys.drop cnP)
+
+The shape is `RecRuleLaw`'s fired equation (`Model/Env/Laws.lean`): the rhs is applied, not
+peeled, to the first `rP` recursor arguments (parameters, motives, minors) and the fields
+(`ys.drop cnP`); the constructor's own parameters are not compared (the law does not need it
+off the point); where the major is the point (a proposition's constructor application forgets
+its indices), the constructor's conclusion must carry the recursor's indices — without that
+guard the equation is false (`Acc.rec` at `Acc.intro x' h` against index `x ≠ x'`, both
+majors `pt`).  Quotients: `Quot.lift`/`Quot.ind` are pinned basis constants whose ι is the
+checker's own quotient step, not a stored recursor; the field above does not cover them.  The
+pinned leaves already satisfy it, so a third field `quot_lift` (stated like `eq_equality`, over
+`Denotes` of `Quot.lift`/`Quot.mk`) would come with the basis install; not written.
+
+Proved (`ConLeche/Model/RecRulesHold.lean`, 250 lines, builds warning-free):
+`teleFit_of_Fits` (a `Fits` against a stored type is a `TeleFit` against its reading),
+`TeleFit.transfer` (closed readings fit under every environment), `substFn_ctorLevels` (the
+spec's constructor levels are `recFireComparands`' at the recursor's own levels), and
+`recRule_of_envModelM_ne_pt`: the equation in `Model.ofEnvModelM m`'s `cval` for every rule,
+given `appList C ys ≠ pt`.  The arguments are passed to `RecRuleLaw` as bound variables over
+an environment holding them; the fits go through `teleFitPA_of_teleFit`.
+
+**What remains for the rule field**, estimated:
+1. The point case: from `IndexPin` on the Expr-level conclusion to `IotaIndexPin` on the
+   `TeleFitPA` residual of the constructor type's reading.  Needs: the residual's form
+   (`teleFitPA_rest_eq`, a `PiTeleAV` of the reading), `denote` of an application spine
+   (`denote_mkAppN_of`), `Term.inst` over `mkAppN`, and the residual environment `ρc` against
+   the bound-variable environment (agreement below the telescope's depth).  200–350 lines, one
+   file.  Then `RecRulesHold` becomes `Model.rec_rules`, proved in `ofEnvModelM` from the two
+   theorems (20 lines).
+2. `Model.ofCopies` on `compare`: the rule field at renamed levels — the same derivation at
+   `renAcval`, or (simpler) prove `RecRulesHold` once for any `cval` that is `cvalOf` of an
+   `EnvModelM`'s leaves read through a level renaming: 60–100 lines.
+3. The demonstration `T.a ≠ T.b`: with the field, apply it twice with the motive
+   `lamV ⟦T⟧ (fun _ => univ 0)` and minors `{pt}`, `∅`.  The stored `T.rec` type and rules
+   must be hypotheses (the exact `Expr`s Lean generates), and the `Fits` built by hand
+   (`lamV ∈ piV`, `univ 0 ∈ univ 1`).  100–150 lines.  The major `T.a` is not the point only
+   by the model's grading, which the public `Model` does not state; with the full field (the
+   pin is trivial: no indices) the demo does not need it.
+
+**Documents.**  `Denotes.lean`'s `Model` docstring rewritten (same line count, anchors kept).
+README line 69 says `Model` states membership, `False` and `Eq` only: it would need "and every
+definition denotes its value" (reported, not edited).  Whitepaper: §2b's interpretation section
+is about the fragment and needs nothing; the "statement over `Denotes`" paragraph of §7
+("How the real proof differs") describes `Model` and would gain a sentence on the defining
+equations; §6b (modular) could say that agreement now transmits values, not only typings.
+
+## TASK #610 (spike 2) — the defining equations as propositions (2026-11-19, agent/610-model-eqs)
+
+A spike on top of spike 1 (2e83603ab): nothing lands.  Maintainer's ruling: state the
+defining equations as propositions built from the declarations, required to be inhabited in
+the model, the way `mem` works for theorems.
+
+**Recursor rules: `iotaEq`, `ruleEqs`, `RuleEqsHold`** (`ConLeche/Denotes.lean`, replacing
+spike 1's `appList`/`Fits`/`IndexPin`/`RecRulesHold` there; `RecRule.ctorLevels` kept):
+
+    def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Nat)
+        (rl : RecRule) : Option Expr
+    def ruleEqs (env : Env) : List Expr :=
+      env.consts.flatMap fun
+        | .recInfo cv mI rP _ rules => rules.filterMap (iotaEq env.find? cv mI rP)
+        | _ => []
+    def RuleEqsHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
+      ∀ e ∈ ruleEqs env, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
+        ∃ P, Denotes cval env φ ρ e P ∧ ∃ x, x ∈ˢ P
+
+`iotaEq` builds `∀ (prefix : the recursor's first rP binders) (fields : C's fields),
+@Eq.{u} ty (rec.{lps} prefix indices (C.{lvls} params fields)) (rhs prefix fields)` with the
+stored records only: `stripPis rP` of the recursor type gives the prefix binders, `stripPis
+(nIdx+1)` the body; the constructor at `ctorLevels`, its parameters the prefix variables
+`bvar (rP-1-i)` (or a nested rule's pins, which are stored in the prefix context), peeled by
+`stripPis cnP`, instantiated at the parameters (`instantiateLift`), peeled by `stripPis nF` into
+the field binders and the conclusion; `indices` = the conclusion's arguments behind `cnP`;
+`ty` = the body with prefix variables lifted past the fields and the indices and the major
+instantiated (`instantiateLift`); `u` = the sort the motive's binder ends in (`motiveLevel?`:
+the body's head is a prefix variable).  The rhs is applied, not peeled.  No `IndexPin`: the
+indices are the constructor's own, instantiated.  Quotients need nothing extra: `Quot.lift` and
+`Quot.ind` are stored recursors (`.levels` rules), so `ruleEqs` holds
+`∀ α r β f h a, @Eq.{v} β (Quot.lift α r β f h (Quot.mk α r a)) (rhs α r β f h a)` and its
+`Quot.ind` twin.  `#guard`s (`tests/ConLecheTests/IotaEqTests.lean`) pin the output on the
+pinned `Eq.rec` (index `a` read off `Eq.refl`'s conclusion), `Quot.lift`, `Quot.ind` and a
+two-constructor `T`.
+
+Prior art: the pre-#207 `Kernel/Modeled.lean` (`git show e4dc22748^`) CHECKED supplied
+`T._model.iota_j` theorems of the same shape (`checkIotaThm`, `checkIotaThmN`): telescope
+`rP + nfields` binders, lhs head the recursor at its own levels applied to the prefix, the
+indices and the major `C (params ++ fields)` (nested: stored levels and pins in the prefix
+context), indices = the constructor result's arguments behind `cnP`, rhs = the rule rhs
+applied to all the variables.  Taken: that binder order, the index instantiation and the
+nested pins/levels.  Not available there: the `Eq` type slot and level came from the supplied
+theorem (checked by `checkIotaSidesTy`); here they are built (the body instantiated, the
+motive's sort).
+
+**Definitions: `defn_eq` kept.**  `@Eq.{u} T c v` needs `u`, the sort of the definition's
+type, which no record stores and no syntactic walk finds (a type can be a definition reducing to
+a sort); it would need type inference in the spec.  `defn_eq` (the value denotes the
+constant) has no level and is the simpler statement.  (A level-free uniform alternative,
+Leibniz `∀ P : T → Prop, P c → P v`, works semantically — the indicator of `{⟦c⟧}` is a
+member of `⟦T → Prop⟧` — but reads worse than both.)
+
+**Not a field yet**: `RuleEqsHold` is a definition; `Model` gains no field because
+`ofEnvModelM` cannot prove it yet.
+
+**Proved** (`ConLeche/Model/RecRulesHold.lean`, +230 lines, warning-free):
+* substitution over `Denotes`: `Denotes_liftLooseBVars` (via `skipAt`) and
+  `Denotes_instantiateLift` (via `insAt`), induction on the derivation, both literal arms by
+  closedness;
+* the telescope: `TeleOk` (each domain reads, at every fit of the earlier ones; at a full fit
+  the body is an inhabited truth value), `tele_inhabited`, `teleOk_eq` (in a `Model`, `ty ∈
+  univ u`, `lhs ∈ ty` and `⟦lhs⟧ = ⟦rhs⟧` make the `Eq` an inhabited truth value, by
+  `eq_equality`), `RuleEqsHold_of`;
+* spike 1's `recRule_of_envModelM_ne_pt` (the semantic equation off the point, given `Fits` of
+  the whole recursor telescope), with `appList`/`Fits` moved here as proof vocabulary.
+
+**The demonstration** (`IotaEqTests.T_a_ne_T_b`; the test file is 335 lines, the demonstration about 190): in every
+`Model` of an environment storing `inductive T | a | b` with `T.rec` and its two rules, where
+`RuleEqsHold` holds, `cval T.a ≠ cval T.b` (at the assignment `1`).  The motive `fun _ =>
+Prop`, minors `∅`/`{pt}`; the rule equations via `eq_equality`, `lhs ∈ ty` from `mem` of
+`T.rec`.  It reads only `Model`'s fields and `RuleEqsHold`.
+
+**What remains for `Model.rule_eqs` in `ofEnvModelM`** (via `RuleEqsHold_of`, at every fit
+`xs` of the prefix binders and `fs` of the field binders):
+1. Readability (each binder domain, `ty`, `lhs`, `rhs` denote): from the stored types' and
+   rhs's `denote` (`type_reads`, `rec_rules`' `Ra`) through `Denotes_of_denote`, the
+   substitution lemmas, and `Denotes` of a stored telescope's pieces off the domain (a
+   `Readable` predicate — constants resolve, tables, literal support — with "readable ⇒
+   denotes at every ρ", the classical choice of the `∀` fibres, and preservation by
+   `instantiateLift`).  150–250 lines.
+2. **Typing (the real gap).**  The proposition no longer needs `IndexPin`, but the proof must
+   show the constructor's indices and `C params fs` fit the recursor's index and major
+   binders at `xs`, which `RecRuleLaw` takes as a premise (`TeleFitPA` of the recursor type at
+   `xs ++ [major]`) and the ι step gets from the redex's typing.  In the model it follows from
+   `C ∈ ⟦C's type⟧` (`mem`) only if the prefix's parameter values fit C's PARAMETER domains,
+   which the invariant does not state (recursor and constructor parameter telescopes are equal
+   only up to the install's defeq); and the indices fit the family's index domains only by
+   inverting `app` on `⟦I⟧`'s graph (a value off the domain).  Needed: an install-time fact
+   carried in `EnvModelM` — "at every fit of the recursor's rule prefix, every fit of a
+   rule's constructor fields (at the rule's parameters) makes the constructor's indices and
+   application fit the recursor's index and major binders" — proved where `rec_rules` is
+   (the block install, `Model/Inductives/*`, the nested rules, the quotient pins).  Estimate:
+   300–600 lines, most in the inductive install proofs; this is the size-dominant item.
+3. The point case: with 2, `IotaIndexPin` holds by construction (the recursor's index
+   arguments ARE the conclusion's), so it is the residual-form lemma alone (`TeleFitPA`'s
+   residual of the constructor type's reading is the reading of the conclusion, `denote` of an
+   application spine): 100–200 lines — down from spike 1's 200–350 (no `IndexPin` conversion).
+4. `ty ∈ univ u` and `lhs ∈ ty`: `mem` of the recursor applied along the fit from 2 (`lhs ∈ ty`)
+   and the motive's membership in its domain (`ty ∈ univ u`, the motive's domain's telescope
+   fit again from 2): 80–120 lines.
+5. `Model.ofCopies` on `compare`: the field at renamed levels, as `defn_eq`: 60–100 lines.
+
+**Restriction, amalgamation, renaming**: unchanged from spike 1's finding — every public
+`Model` is `ofEnvModelM` of an `EnvModelM` and those three operations produce full
+`EnvModelM`s, so once item 2's fact is an `EnvModelM` field it must be carried through them
+like `rec_rules` (restriction and amalgamation: as `rec_rules`, the rules being the home's;
+renaming: the level renaming of the indices and the major, as `rec_rules`' own transport) —
+the rule-equation FIELD itself then needs nothing there.
+
+**Comparison with spike 1.**  Spike 1's statement: 62 spec lines, four new semantic
+definitions (`appList`, `Fits`, `IndexPin`, `RecRulesHold` with 13 binders and three
+hypotheses, one conditional on the point).  Spike 2: 86 spec lines, but a construction over
+the checker's existing `Expr` operations plus a 3-line field statement with `Denotes` as the
+only semantic vocabulary, and no point special case.  The proof debt moves: spike 1 assumed
+the typing (its `Fits` hypothesis) and paid for the point case; spike 2 pays for the typing
+(item 2) and gets the point case nearly free.
+
+**Documents (reported, not edited).**  README line 69 ("states that every constant … denotes
+a member of its type's denotation (and that `False` denotes the empty set and that `Eq`
+denotes set equality)") would add "that every definition denotes its value, and every
+recursor rule's equation is inhabited"; line 73 ("it does not contain the delta and iota
+equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`
+…") would go.  Whitepaper §7 "The statement over `Denotes`" (07-left-out.typ:151–156) would
+gain a sentence: `Model` also makes definitions denote their values and makes the recursor
+rules', quotients included, equations true, built from the records; §6b could note that
+agreement between modules now carries values and rule equations, not only typings.
+
+## TASK #610 (lane, stopped) — `Model.rule_eqs` needs a spec change first (2026-11-19, agent/610-model-eqs)
+
+On top of spike 2 (0c490799f); no code change.  The lane stopped before writing proofs, on the
+two stop conditions of its brief: the statement as drafted cannot be proved, and item 2 is
+larger than twice the spike's figure.
+
+**The statement is false for environments without `Eq`.**  `RuleEqsHold` asks, for every
+`e ∈ ruleEqs env`, for `∃ P, Denotes cval env φ ρ e P ∧ ∃ x, x ∈ˢ P`.  Every `iotaEq` mentions
+`.const eqName [u]`, and `Denotes.const` needs `env.find? eqName = some _`.  Nothing makes a
+recursor with rules come after `Eq`: `checkDeclsPure` folds from `Env.empty`, `checkDecl` adds
+only `basisNamesOk`, no inductive install consults `eqName` (only `propext`, the reduce axioms and
+the div/mod guard do), and `Challenge.model_exists` quantifies over every accepted `ds`, prelude
+or not.  So `ds = [inductive T | a | b]` is accepted, its environment stores `T.rec` with two
+rules and no `Eq`, its `ruleEqs` are non-empty and denote nothing, and no `Model` of it has the
+field.  (The driver always prepends the prelude, so no CLI run shows it; the theorem's `ds` is
+arbitrary.)  Two fixes, both spec changes, for the maintainer:
+* the house style of `false_empty`/`eq_equality` ("stated of whatever the stored constant
+  denotes, so it says nothing when nothing is stored"):
+  `∀ e ∈ ruleEqs env, ∀ φ ρ P, Denotes cval env φ ρ e P → ∃ x, x ∈ˢ P`.  Where `Eq` is stored
+  every equation reads (item 1), so nothing is lost there; the `T_a_ne_T_b` demonstration
+  then builds the equation's denotation itself (it has the pieces: about 30–60 more lines);
+* or `ruleEqs` empty unless `Eq` is stored.
+
+**Item 2 (the typing fact) surveyed, not started.**  The install has the forward fact in its own
+vocabulary for the generated block: `genRow_hrule` (`Model/Inductives/GenRecPre.lean`, used at
+the ι equations' grading) gives, at a `SpineFit` of the rule data `pdoms ++ fdoms`, the
+`SpineFit` of the whole recursor type at `xs ++ es ++ [mk]`; `piConcl_univ`
+(`BlockRecPreRun.lean`) puts the conclusion in the motive's universe.  What is not there is the
+link from the stored records' syntax to that rule data in this direction (`BlockRuleFit.lean`
+proves the converse, from the major's fit): the constructor's parameter fit at the recursor's
+prefix (`LfpCtorReads`' parameter clause and `prefixDoms_agree`), C's field domains at the
+parameters against `tgtFdomsAV`, the conclusion's index readings against `tgtEsAV`.  Sites
+that establish the fact: the generated block (plain and nested rules), the stream swap
+(`StreamRecsSwap`, by `TEqAt.fit` as `recRuleLaw_stored` does), `Eq.rec` (`BasisEq`), `Nat.rec`'s
+two rules (`BasisBlocks`), `Quot.lift`, `Quot.ind` (`BasisQuot`); transports: `EnvModelM.empty`,
+`declStep_preserves_of_cons`' callers (`Harvest` ×4, `IndCons`, `BasisStep`, `TableInstall`),
+`RecRulesCons` (fresh and prefix), `BlockRecLaw` §1, `Swap`, `BasisRename`, `Modular/RestrictRules`.
+Estimate from the analogous `RecRuleLaw` code (transports 20–100 lines each, basis rows
+100–250 each): 1200–2000 lines, against the spike's 300–600.
+
+**The universe premise must be in the field.**  `ty ∈ univ u` cannot be derived in the model
+from the recursor's grading: if the motive's first domain reads empty, the motive is `pt`
+(`piV` over an empty domain is a truth value), `app pt _ = pt ∉ univ u`, and nothing in the
+model ties the motive's domains to the recursor's index and major binders (they agree only up
+to the install's defeq).  So the field carries `interp restR ∈ˢ univ (Level.eval φ u)` for the
+stored `motiveLevel?`.
+
+**The field drafted** (Term-level, beside `RecRuleLaw`, at the recursor's own levels):
+for a rule of constructor `C` (`TVa`, `TVja` the readings of the recursor type and of C's type
+at `rl.ctorLevels`), at every `ρ`, prefix `xs` (`TeleFitPA TVa xs _`, graded) and parameters
+`ps` reading as the rule's (`.plain`/`.levels`: `xs[i]`; `.nested`: the pins' `instRevChain`,
+the law's spelling): (1) `∃ r, TeleFitPA TVja ps r`; (2) for fields `fs` and index terms
+`is` with `TeleFitPA TVja (ps ++ fs) restC` and `IotaIndexPin ρ restC cnP mI rP (xs ++ is)`,
+`∃ restR, TeleFitPA TVa (xs ++ is ++ [C (ps ++ fs)]) restR` and the universe clause above.
+Reusing `IotaIndexPin` lets the consumer prove the pin once, for the field and for the law's
+point case.  Consumer tools found: `teleFit_of_teleFitPA`/`teleFitPA_of_teleFit`
+(`Rules/RedSoundKit`), `teleFitPA_rest_eq` (`IndPointKit`, the residual's form), spike 2's
+`Denotes_instantiateLift`/`Denotes_liftLooseBVars`, spike 1's `teleFit_of_Fits`.
+
+Nothing of spike 1/2 was removed; the branch is as spike 2 left it plus this record.
+
+## TASK #610 (cont.) — the rule equations' consumer proved; the field `RecRuleFit` and its transports (2026-11-19, agent/610-model-eqs)
+
+Resumed on the coordinator's rulings: fix (a) for the statement; item 2 (the typing fact) at the
+larger estimate; order item 2, readability, point case, memberships, the `Model` field, dead
+vocabulary.  This session did the consumer first (it validates the field's statement before the
+installs are paid for), then the transports.  **State: not landed; nothing wired yet; every
+commit builds** (the WIP commits `ff086a2cf`…`7111abd5a` had a `sorry` inside the consumer, removed
+at `fc299e0a1`).
+
+**Spec changes (`ConLeche/Denotes.lean`).**
+* `RuleEqsHold` is fix (a): `∀ e ∈ ruleEqs env, ∀ φ ρ P, Denotes cval env φ ρ e P → ∃ x, x ∈ˢ P`
+  (still a definition; the `Model` field is not added yet).
+* `ruleEqs` reads each recursor through its name, `env.find? c.name`, the way `Denotes.const`
+  reads a constant (a shadowed record is unreachable, and the invariant's `RecRules` is keyed by
+  `find?`; `env.consts` has no proved name uniqueness).
+* `RecRule.iotaParams rl rP cnP` names the parameters (`.nested`: the pins; else
+  `(List.range (min cnP rP)).map (bvar (rP-1-i))`): with the `min`, `iotaEq`'s guard
+  `params.length = cnP` also says `cnP ≤ rP` for a plain rule, which no stored fact gives
+  (`RuleWF` does not; a nested rule's container may have more parameters than the prefix).
+
+**The field (`ConLeche/Model/Env/Laws.lean`, before `RecRuleLaw`).**  `RecRuleFit m φ cv mI rP rl`:
+at every `us` (and the comparand levels `usj`, as `RecRuleLaw`), every `ρ`, prefix `xs`
+(`TeleFitPA TVa xs mid`, graded) and parameters `ps` with `RuleParamsRead` (by `interp`: the
+prefix's `xs[i]`, or a nested pin's `instRevChain xs vpa`): (1) `∃ r, TeleFitPA TVja ps r`;
+(2) for fields `fs`, indices `is` (graded) with `TeleFitPA TVja (ps ++ fs) restC` and
+`IotaIndexPin ρ restC cnP mI rP (xs ++ is)`, `∃ restR, TeleFitPA TVa (xs ++ is ++ [C (ps ++ fs)])
+restR` and, at the INSTANTIATED type's `stripPis`/`motiveLevel?` level `u`,
+`interp ρ restR ∈ˢ univ (Level.eval φ u)` (stated at the instantiated type so the renaming
+transport is a rewrite).  `RuleParamsRead.transport` moves the parameter premise between two
+sides.  Not yet a conjunct of `RecRuleLaw`.
+
+**Proved.**
+* `ConLeche/Model/RuleEqsSound.lean` (1486 lines, new, not yet imported by anything):
+  `ruleEqsHold_of` (line 918): given `RecRuleFit` at every stored rule and `Eq`'s law (the
+  `Model.eq_equality` statement over `cvalOf m.base2.acval`), `RuleEqsHold (cvalOf
+  m.base2.acval) env`.  Covers plain, `.levels` and nested rules (`pin_reading_val`, line 840,
+  reads a pin through the reverse opening).  Toolkit above it: the converse substitution lemmas
+  over `Denotes` (`Denotes_liftLooseBVars_inv`, `Denotes_instantiateLift_inv`,
+  `Denotes_congr_below`), telescopes over `Denotes` (`tele_inhabited_of`, `Fits.*`,
+  `Fits_of_teleFit`/`teleFit_of_Fits_rest` with residuals, `Fits_instantiateLift_inv`),
+  `denote_peel` (a reading's telescope peeled to a `PiTeleAV` whose body is the opened body's
+  reading), `iotaEq_inv`, the reverse opening as an instantiation (`openRev_eq_instantiateLift`,
+  `closeN_instantiateLift_fvars`), `interp_instRevChain`.  The point case needed no special
+  argument: the consumer proves `IotaIndexPin` from the residual's form (the constructor
+  conclusion's head is a constant by `CtorWF`), and the pin is a premise of the field and of
+  the law alike.  "Readability" (item 1 of spike 2) is gone with fix (a): every piece's
+  denotation is handed over by the `Denotes` derivation and identified with the readings by
+  `Denotes_functional`.
+* Transports of `RecRuleFit` (each the sibling of the file's `RecRuleExtra`/`RecRuleLaw`
+  transport, taking the source's `RecRuleFit` as a premise): `recRuleFit_ag`
+  (`Model/Modular/RestrictRules.lean:134`, the restriction), `recRuleFit_ext`
+  (`Model/RecRulesCons.lean:334`, a fresh cons: the `declStep_preserves_of_cons` callers go
+  through `recRules_cons_fresh` → `recRuleLaw_ext`), `recRuleFit_consBlockRecsR_prefix`
+  (`Model/Inductives/BlockRecLaw.lean:341`, §1), `recRuleFit_ren` (`Model/BasisRename.lean:277`).
+* The basis installs' rows: `eqRecFit` (`Model/BasisEq.lean:1065`), `natRecZeroFit`,
+  `natRecSuccFit` (`Model/BasisBlocks.lean:1470,1510`, over `natRecFit_core` and
+  `natRec_motiveLevel`), `quotIndFit` (`Model/BasisQuot.lean:1113`), `quotLiftFit`
+  (`Model/BasisQuot.lean:2624`).  Pattern: identify the readings as the `RecRuleLaw` row does,
+  read the prefix's memberships off `teleFit_of_teleFitPA`, build the whole telescope's
+  `TeleFit` at the values, convert back with `teleFitPA_of_teleFit`; the motive's level is read
+  off the stored `Expr` by `simp` over the basis DSL (`BasisDSL.*`).
+* `TeleFit.rest_unique` moved to `Model/Env/Laws.lean` (next to `teleFit_nil_inv`).
+
+**Next, in order.**
+1. **The stream swap** (`recRuleLaw_stored`, `Model/Inductives/StreamRecsSem.lean:406`, used by
+   `StreamRecsSwap.lean:414,429`).  Case `htyE` (stored type syntactically the generated) is a
+   rewrite.  Case `htyC` (`storedTy_sem`: `TEqAt (mI+1) ρ TS TG`; `recTyOpened` checks the
+   binder domains pairwise and the body after the major): the fits move both ways (`TEqAt` is
+   symmetric; a `fit_rest` variant gives equal residual `interp`s), but the universe clause is at
+   the STORED type's `motiveLevel?` `u_S`, the generated proves it at `u_G`, and the motive's
+   domain is checked only as a whole (`interp A_S = interp A_G` at the prefix).  The clause is
+   TRUE (the motive value applied to the indices and the major is a type of `univ u_G`; the
+   claim is that it is one of `univ u_S`), but the proof is a set-theoretic tower argument: two
+   Π-towers over `Sort u_S` (depth `j`, the stored domain's syntactic binders) and `Sort u_G`
+   (depth `mI - rP + 1`) with equal readings, the second inhabited along the indices and the
+   major, have equal fibre universes — a set of graphs determines its graphs' domain, the
+   fibres are recovered from constant graphs, and a depth mismatch is refuted by `∅ ∈ univ n`
+   (a truth value) against a set of graphs over a non-empty domain.  Needed from the generated
+   side: the motive domain's telescope is inhabited at the indices and the major (in the
+   generated recursor the motive's binders are the index and major binders, shifted: a fact to
+   state next to the generated install's universe clause).  Estimate 200–300 lines.  This is the
+   one place where the field may need help: if the inhabitation fact cannot be had, report.
+2. **The generated block** (the basis rows are done): its plain and nested rules
+   (`blockRecRuleLaw_gen`, `BlockRecLaw.lean` §7, fed from `GenRecRules`/`GenRecFinal`): the
+   forward fit is `genRow_hrule` (`GenRecPre.lean:924`) at the rule data, the missing link is
+   the stored records' syntax → rule data in this direction (the constructor's parameter fit at
+   the recursor's prefix: `LfpCtorReads`' parameter clause and `prefixDoms_agree`; the field
+   domains at the parameters against `tgtFdomsAV`; the conclusion's index readings against
+   `tgtEsAV`); the universe clause from `piConcl_univ` (`BlockRecPreRun.lean`).
+3. **Wiring**: `RecRuleLaw := … ∧ RecRuleExtra … ∧ RecRuleFit m φ cv mI rP rl`; every
+   `obtain ⟨hle, hmain, hX⟩` on a law gains a component; each transport's `RecRuleLaw` lemma
+   calls its `recRuleFit_*` sibling; `EnvModelM.empty` is vacuous.
+4. **The `Model` field** `rule_eqs : RuleEqsHold cval env` (or inlined), proved in
+   `Model.ofEnvModelM` by `ruleEqsHold_of m (fun φ … => (m.rec_rules …).2.2.2) heq`.  Import
+   cycle: `RuleEqsSound` imports `Model/Denotes.lean` (where `ofEnvModelM` lives) through
+   `RecRulesHold`; move `ofEnvModelM` (and `ofEnvModelM_cval`) to a module after
+   `RuleEqsSound`, with `eq_equality`'s proof factored as a lemma both use.
+5. **The demonstration** `IotaEqTests.T_a_ne_T_b` (`tests/ConLecheTests/IotaEqTests.lean`) uses
+   the old `RuleEqsHold` shape and `TeleOk` (`RuleEqsHold_of` was deleted from
+   `RecRulesHold.lean`): rework it to build the equations' denotations (ruling 1: 30–60 lines);
+   `lake test` does not build until then.
+6. **Dead vocabulary**: spike 1's `appList`, `Fits` (now used by `RuleEqsSound`: keep `Fits`,
+   move it there), `teleFit_of_Fits` (used), `recRule_of_envModelM_ne_pt`, `TeleOk`,
+   `tele_inhabited`, `teleOk_eq` (superseded by `tele_inhabited_of`), the duplicate
+   `piChain_of_teleFit` in `RecRulesHold.lean` (`Rules.piChain_of_teleFit` exists); then fold
+   `RecRulesHold.lean` into `RuleEqsSound.lean` or rename it.
+7. Docs (`Model` docstring, OVERVIEW, whitepaper §7 "The statement over `Denotes`", §6b), the
+   gates, the landing on `modular`.  README lines to report: 69 and 73 (see spike 2's record).
+
+## TASK #610 (cont. 2) — the stream swap's fact proved, the demonstration and the dead vocabulary done; the generated block open (2026-11-19, agent/610-model-eqs)
+
+On top of `5b83ce8d5`.  **State: not landed; nothing wired yet; every commit builds; `lake build`
+and `lake test` warning-free at `3625b4478`.**  Items 1, 5 and 6 of the previous record are done;
+2 (the generated block) is surveyed, not started; 3, 4, 7, 8 wait for it.
+
+**Item 1, the stream swap: no tower argument, no generated-side fact.**  The previous record
+planned a set-theoretic argument (equal Π-towers over `Sort u_S` and `Sort u_G`, inhabited along
+the generated motive's binders).  It does not work as planned: nothing ties the stored
+conclusion's head binder (`motiveLevel?`'s `bvar k`) to the generated motive's, and at one
+valuation a graph can be a member of a universe, so `app` chains past or short of the head's
+binder count are not refuted semantically.  What does work is the stored type's OWN inference:
+`recTyCheck` runs `inferType` + `ensureSort` on it, so its opened conclusion (the head's opened
+variable applied) infers to `Sort u_S`, and the claims put the conclusion's reading in
+`univ u_S`.  Proved, `ConLeche/Model/Inductives/StreamRecsSem.lean`:
+* `storedMotive_sort` (line 288): `inferType` of the opened conclusion is `.sort u` for the
+  `u` of `motiveLevel?` (with `endsInSort_of_piResult`, `openPis_dom_endsInSort`);
+* `storedTy_sem` (line 354) gains a conjunct: at every fit of `n` arguments of the stored
+  reading, the residual is in `univ (u.eval φ)` (`sortRow` at the opened body,
+  `teleFitPA_rest_eq` + `interp_instSeq` + `sat_of_tower`);
+* `recRuleFit_stored` (line 631): `RecRuleFit` at the generated recursor gives it at the stored
+  one, given fits both ways (`TEqAt` is symmetric; `TEqAt.fit` for the converse needs a
+  `TEqAt.symm`, not yet written: three lines) and the stored universe clause.  To be called from
+  `recRuleLaw_stored` when the field is wired; in the `htyE` case and the untouched-constant case
+  the hypothesis is `TeleFit.rest_unique` plus a rewrite.
+The inference inversions it needs moved below the stream swap, into `StructFrameKit.lean`
+(`inferTypeCore_mkAppN_endsInSort_len` line 131, `inferTypeCore_forallE_peel` 180,
+`inferTypeCore_openPis_body` 207, `inferTypeCore_pos`); `EndsInSort.instantiate1'` moved to
+`Verify/Inductives/ClassGenSyntax.lean`.
+
+**Item 5 done.**  `T_a_ne_T_b` (`tests/ConLecheTests/IotaEqTests.lean:296`) takes `Eq` stored
+with one level parameter (`hEq`, `hEl`) and builds each rule equation's denotation itself
+(`den_tEq`, line 259, over `den_pi`/`den_lam`/`den_app`); `lake test` builds.
+
+**Item 6 done.**  `RecRulesHold.lean` is gone: its live vocabulary (`Fits`, `teleFit_of_Fits`,
+`substFn_ctorLevels`, `map_interp_bvars`, `skipAt`, `insAt`, …) is §0 of `RuleEqsSound.lean`;
+removed `appList`, `recRule_of_envModelM_ne_pt`, `TeleOk`, `tele_inhabited`, `teleOk_eq`, the
+forward `Denotes_liftLooseBVars`/`Denotes_instantiateLift`/`instantiateLift_eq_self`,
+`TeleFit.transfer`, `denote_inst_self`, the duplicate `piChain_of_teleFit`.  `RuleEqsSound`'s
+`denote_peel` is `denote_peelStrip` (`BlockHoleRead` has a `denote_peel`; the umbrella
+`ConLeche/Model.lean` now imports `RuleEqsSound`).  `ruleEqsHold_of` is at
+`RuleEqsSound.lean:1044`.
+
+**Item 2, the generated block: what the next session needs.**  The obligation is `RecRuleFit` at
+every generated rule, plain and nested, threaded like `BlockRuleRhsOk` (`BlockRecData.lean`)
+into `blockRecRuleLaw_gen` (`BlockRecLaw.lean` §7) and discharged in `genRecStage`
+(`GenRecFinal.lean`).  Three parts:
+* **the universe clause is cheap**: `classRecTyOk` checks the generated type as a constant
+  (`classConstOk`: `inferType` + `ensureSort` at `fe.env`), so `storedMotive_sort` + `sortRow`
+  apply to it as to the stored type, at the pre-install environment, carried by the stage's
+  `hden` (readings agree after the cons);
+* **the parameters' fit (conjunct 1)**: `ps` reads as the prefix's first `cnP` values (plain) or
+  the pins chained over it (nested); the recursor's first `nP` binders and the constructor's
+  parameter binders read alike (`prefixDoms_agree`, `LfpCtorReads`' parameter clause);
+* **the whole fit (conjunct 2)**: two routes.  (a) Through the rule data, as the record said:
+  `genRow_hrule` (`GenRecPre.lean:924`) turns `SpineFit (pdoms ++ fdoms) (xs ++ fs)` into the
+  recursor domains' fit at `xs ++ es ++ [mk]`; missing: our premises → that `SpineFit` (the
+  constructor's field fit at its own parameters → `tgtFdomsAV` at the recursor's frame), `es`'s
+  values = `is` (`IotaIndexPin`'s `cargs` against `tgtEsAV`), `mk`'s value = `C (ps ++ fs)`,
+  and `blockRecRdsAV` ↔ the stored reading's telescope.  (b) Semantically, without the rule
+  data: the major domain is `I params indices` syntactically (`classGenRecTy_spec`), `restC` is
+  `I ps cargs` at the constructor's levels (comparands), so `C (ps ++ fs) ∈ restC` (the
+  constructor's `mem_type` along its fit) is membership in the major domain; each index value is
+  in its domain because `restC` is graded (`AppliesTo` at each application of `I`'s value, a
+  member of `I`'s type tower, whose graph domains are the index domains).  (b) needs the index
+  binders' syntax (`g.binder`) against `I`'s type; it is local to the generated type and does
+  not touch the install's rows.  Estimate either way: 600–1200 lines, nested rules included.
+
+## TASK #610 (cont. 3) — `RecRuleFit` wired; the generated block's nested rules need a ruling (2026-11-19, agent/610-model-eqs)
+
+On top of `04bede3a6`.  **State: not landed.  `4144d2a2c` builds warning-free except one
+`sorry` (the generated rules' `RecRuleFit`, `genRecStage`, `GenRecFinal.lean`); `lake test`
+fails only on the axiom pins (`sorryAx`).**  Item 3 of the cont. 2 record (the wiring) is done;
+item 2 (the generated block) stopped on a spec question; items 4–8 wait for it.
+
+**The wiring (done).**  `RecRuleLaw := … ∧ RecRuleExtra … ∧ RecRuleFit m φ cv mI rP rl`
+(`Model/Env/Laws.lean`).  Each site supplies the conjunct: the transports through their
+siblings (`recRuleFit_ext`, `recRuleFit_consBlockRecsR_prefix`, `recRuleFit_ag`,
+`recRuleFit_ren`), the basis rows through `eqRecFit`, `natRecZeroFit`, `natRecSuccFit`,
+`quotIndFit`, `quotLiftFit` (each `Fit` moved before its `Law`); the stream swap through
+`recRuleFit_stored`: `recRuleLaw_stored`'s type premise now carries the fits both ways and the
+stored motive's universe clause.  At the call sites the untouched and the syntactically equal
+type give it by `TeleFitPA.rest_unique` (new, `Laws.lean`); the checked type by `storedTy_sem`,
+`TEqAt.symm` (new) and `motiveLevel?_instantiateLevelParams` (new, `StreamRecsSem.lean`: the
+clause, stated of the uninstantiated stored type, moved across the level instantiation;
+`Expr.piResult_instantiateLevelParams` moved to `Verify/InstLevels.lean`).  The block chain
+(`recRuleLaw_of_main` → `blockRecRuleLaw_gen` → `blockRecRuleLaw_run` → `blockRecHnew_of` →
+`blockRecStaged_dataR`) takes the generated rules' fit as a premise (`hfit`, the shape of
+`hextra`); `genRecStage` passes `sorry` there.
+
+**The generated block: conjunct (1) at a nested rule is not provable from the recorded facts.**
+A lane agent surveyed it (no code).  (1) asks that a nested rule's pins, read at every prefix
+fit, fit the container constructor's parameter binders.  The statement is true, but what the
+model records does not reach it where the class has no index fit:
+* `genOut_runFit` (`GenOutKeyFit.lean:58`, from `familyKeyCheck`): at every prefix fit the pins
+  fit the parameter binders of the container's RUN telescope (`familyTelescope`);
+* `LfpCtorReads` (`EnvModelM.lean:132`): `Sat D.params` gives the constructor's first `nPc`
+  binders;
+* the link run telescope ↔ `D.params` is only the value of the whole Π-tower (`LfpReads`,
+  `FormerRead`), which says nothing about the parameter binders where the index telescope at
+  the pins has no fit (both towers are `unitSet`); `Sat D.params` at the key frame comes only from
+  liveness (`Rd.hsat`, `FrFit`), and `hliveM` gets liveness only from an index fit.
+Example: `inductive C (n : Nat) (A : Type) : Fin n → Type | mk : (i : Fin n) → A → C n A i`,
+`inductive T | node : (i : Fin 0) → C 0 T i → T`.  The class `C 0 T` has pins `[0, T]` and the
+empty index domain `Fin 0`; every check of the pins against `C`'s binders in the generated type
+and in `T.node` sits under a `Fin 0` binder, so its semantic content is empty; `familyKeyCheck`
+checks them against the run telescope only.  Not usable: dropping (1) — the consumer
+(`RuleEqsSound.lean:1339`) builds the constructor's whole fit from the fields' fit with it, and
+there is no index fit there either.  Fixes, for the maintainer:
+* (A) a kernel check: in `targetMajorPins`, also `checkSpineAt` the pins against each class
+  constructor's stored type at the class levels, depth `rP`, as `familyKeyCheck` does against the
+  family telescope; a sibling of `genOut_runFit`/`keyRunFit` then gives (1).  Needs the argument
+  that it refuses nothing official accepts (our defeq stable under substituting the pins);
+* (B) a recorded fact: the former's (run's) parameter binders and `D.params` are satisfied alike
+  (the former's analogue of `LfpCtorReads`' parameter clause), proved at each install from its
+  own defeq check;
+* (C) a weaker (1), conditional on a fit of the fields at the parameters (where the fields fit,
+  the class is live) — a change to `RecRuleFit` and to the consumer's ∀-over-fields step.
+
+**The rest of the generated block looks provable as stated** (the agent's route (a):
+`GenClsBack` plus the rule data).  Member classes (`.plain`): (1) from the prefix fit through
+the block's parameters (`genParams_fit_run`) and `hparamsC`; (2) from `blockRuleCtorFit_run`
+(fields at the recursor's parameters), `hM.ctor` (the application is the injection), the LFP
+fibre at the index readings' tuple (`resIdxFit`), `blockRuleIdxPin_run` (readings = `is` by
+the pin), `GenClsBack`, `teleFitPA_mkPisAV_of_spineFit` on `blockRecTyAV = mkPisAV rds concl`;
+the universe clause from `genRec_conclTy` (to be matched with `motiveLevel?`).  Outside
+classes, (2) only: the constructor's fit at `ps ++ fs` makes the pins fit the container's whole
+telescope (`genOut_typed`, `parsSatInv`), so the class is live there and `genOutCtorOwn` with
+the carrier fibre gives `GenClsBack`'s premises.  Hypotheses `genRecFit` needs: `hctx.base`,
+`R`, `hg`, `hcov`, `h`, `hcsem`, `hrdAll`, `hcls`, `hseam`, `hfind`, and the `m₃` crossings
+(`blockRuleTVa_run`, `blockRecDenote_cross`, `blockRecAcv_stored`).  Estimate with fix (A):
+900–1300 lines.
+
+**Next, after the ruling:** the fix; `genRecFit` (new file `GenRecFit.lean`, called from
+`genRecStage` in place of the `sorry`); then cont. 2's items 4 (the `Model` field, with
+`ofEnvModelM` moved after `RuleEqsSound`), 7 (docs), the gates and the landing.
+
+## TASK #610 (cont. 4) — fix (C) in `RecRuleFit`; the generated block's route for it (2026-11-19, agent/610-model-eqs)
+
+On top of `475e58de8`, on the coordinator's ruling: **fix (C)**, not (A), not (B).  **State: not
+landed.  The tree builds as at `4144d2a2c`: warning-free except the one marked `sorry` in
+`genRecStage` (`GenRecFinal.lean`, the generated rules' `RecRuleFit`); `lake test` fails only
+on the axiom pins.**  Item 1 of the ruling's list is done; items 2–6 are open.
+
+**Fix (C) (done).**  Conjunct (1) of `RecRuleFit` (`Model/Env/Laws.lean`) is now conditional:
+`∀ fs restF, fs.length = rl.nfields → TeleSkipFit V ρ TVja (ps.map (interp V ρ)) fs restF →
+∃ r, TeleFitPA V ρ TVja ps r`.  `TeleSkipFit` (new, `Laws.lean`, after `TeleFit`): the values
+`ps` pushed past the leading binders, their memberships not asked, then a `TeleFit` of `fs`.
+The public `RuleEqsHold` statement does not change.  Sites:
+* the basis rows (`eqRecFit`, `natRecZeroFit`, `natRecSuccFit`, `quotIndFit`, `quotLiftFit`)
+  ignore the new premises;
+* the transports (`recRuleFit_ext`, `_ag`, `_ren`, `_consBlockRecsR_prefix`, `recRuleFit_stored`)
+  pass the conjunct through unchanged (the constructor's reading is the same on both sides);
+* the consumer (`ruleEqsHold_of`, `RuleEqsSound.lean`): the fields' fit (from the equation's
+  `Denotes` derivation, `Fits_instantiateLift_inv`) now comes first; `denote_peelStrip` at
+  `cnP` peels the constructor's reading to its fields' body `RB`, `teleFit_of_Fits` at depth
+  `cnP` gives the fields' `TeleFit` there, `teleSkipFit_of_piTele` (new, §0) turns it into the
+  skip fit, and conjunct (1) then gives the parameters' fit as before.  New in §0 also
+  `PiTeleAV.bvarsBelow_rest`.
+
+**The generated block's (1) under (C): the route.**  The cont. 3 record's phrase "where the
+fields fit, the class is live" is right, but not through the class records: every typing fact
+the model records about the container's constructor is guarded by its parameters' fit
+(`LfpCtorReads`, `mem_type` at `TVja`), and the container's tower equality (`FormerRead`) says
+nothing where the index telescope at the pins is empty.  The fact comes from the GENERATED
+type's own inference, at the rule frame (the prefix and the fields, without the induction
+hypotheses), at the minor premise's major `mk = C.mk (ds ++ fieldFvs)` (an outside class):
+1. the skip fit at the pins' values → `SpineFit (consList xs ρ) (tgtFdomsAV … c j) fs` (the
+   generated minor's field domains read as the container constructor's fields at the pins;
+   the same rule-data link route (a) needs for (2));
+2. `genMinorOpen` gives the minor's conclusion's inference (`hinfR`); its last argument `mk`
+   infers at depth `pre + nF` (`inferTypeCore_mkAppN_args`, `inferTypeCore_depth_inv`, as in
+   `genArgs_graded`); `genFieldFrame` is the graded frame there;
+3. `Rules.infer_sound` → `InferSemFull` at that frame (as in `graded_of_infer_openers`): the
+   inferred type's reading is a graded type and holds `mk`'s.  The inferred type is the
+   constructor's conclusion at `ds` and the fields (`inferTypeCore_app_inv'` per argument,
+   `whnf_forallE_eq`, the stored conclusion shape `LfpCaps`' second clause): a former
+   application `C ds es`, a type, so not the point; `spineFit_of_wellDenoted_mkAppN_pi` with
+   `member_mem_tower` (the pattern of `genOut_typed`) makes the pins' and `es`' values fit
+   `D.pars ++ D.ids` — the parameters' `Sat` at the key frame (and the class's liveness);
+4. `LfpCtorReads`' parameter clause: the pins fit the constructor's first `nPc` binders, i.e.
+   `TeleFitPA TVja ps` by `teleFitPA_of_teleFit`.
+(An alternative to step 3: `inferTypeCore_app_inv'` gives each pin's inferred type
+definitionally equal to the constructor's domain; with the defeq claims' soundness at the
+frame that is the fit directly.)  Not a `WellDenoted` argument: `hargs`' grading of `mk` is
+useless at a `Prop` container (`Or.inl … : Or …`, `corner_nest_or_prop` is accepted), whose
+constructor values are the point.  Member classes: (1) holds unconditionally, from the prefix
+fit through the block's parameters (`genParams_fit_run`, `hparamsC`), as the cont. 3 record
+says.
+
+**Next:** `genRecFit` (new `Model/Inductives/GenRecFit.lean`): (1) by the route above, (2) by
+route (a) of the cont. 3 record, called from `genRecStage` in place of the `sorry`; then the
+`Model` field (`ofEnvModelM` after `RuleEqsSound`), the docs, the gates and the landing.
+README lines to report: 69 and 73.
+
+## TASK #610 (cont. 5) — the generated rules' `RecRuleFit` proved; `Model.rule_eqs`; landed (2026-11-19, agent/610-model-eqs)
+
+On top of `228d2c6be`.  **State: the `sorry` in `genRecStage` is gone; `Model` has the field
+`rule_eqs : RuleEqsHold cval env` (fix (a)), proved in `Model.ofEnvModelM`; `lake build` and
+`lake test` warning-free, the axiom pins at the three standard axioms; the battery and the
+whitepaper gates pass.**
+
+**The generated rules' `RecRuleFit`** (`GenRecFinal.lean`, `genRecStage`, through
+`genRecFit_of`):
+* `Model/Inductives/GenRecFitBase.lean`: `RecRuleFit` at a generated rule with the reading
+  binders eliminated, at the constructors' environment — `GenPs` (the rule's parameters read at
+  the prefix: the prefix's own at a member class, the class's parameters `tgtOutDsa` at an
+  outside one), `GenLv` (the constructor's levels are the class's), `GenFit1` (conjunct (1)),
+  `GenFit2` (conjunct (2)'s fit).
+* `Model/Inductives/GenRecFit.lean`: `genRecFit_of` — the reduction (`blockRuleTVa_run`,
+  `blockRecDenote_cross`, `blockRecAcv_stored`, `genOutPinVal` for the pins, `recFireComparands`
+  for the levels) and the universe clause `blockRecFit_univ`: the stored type's inference
+  infers its conclusion after the major to the motive's sort (`storedMotive_sort`), the sort
+  the stage checked it at (`blockRecConcl_univ`).
+* `Model/Inductives/GenRecFit1.lean`: conjunct (1) **unconditionally**, at every class, by
+  the route the cont. 4 record sketched but without the fields' fit: the minor premise applies
+  the constructor to the class's parameters, `C.mk ds fields`, and its head `C.mk ds` mentions
+  no field, so it is inferred at the rule prefix (`inferTypeCore_depth_inv`);
+  `teleFitPA_of_inferSpine` (generic: an inferred application spine fits its head's
+  Π-telescope — each argument inhabits its inferred type, which the application rule's
+  comparison, eager or not, makes the binder's domain; `InferSemFull`, `DefEqSem` through the
+  bridge) reads it as the fit.  Fix (C)'s premise is therefore not needed by the generated
+  block (the basis rows and the consumer keep it; the field is unchanged).
+* `Model/Inductives/GenRecFit2.lean` (a sub-agent's): conjunct (2) by route (a) — one core
+  for both class kinds through `GenClsRd`: `genOut_typed` puts the constructor application in
+  the class's former at arguments fitting the former's telescope, the index pin makes them
+  `ps ++ is`, the parameters satisfy the class's frame, so the class is live, the tuple is in
+  the index set and the application in the carrier; `GenClsBack` gives the stored domains' fit.
+
+**The `Model` field.**  `ConLeche/Denotes.lean`: the rule equations' section (`motiveLevel?`,
+`iotaEq`, `ruleEqs`, `RuleEqsHold`) moved before `structure Model`, which gains
+`rule_eqs : RuleEqsHold cval env`.  `Model.ofEnvModelM` moved to the new
+`Model/OfEnvModelM.lean` (after `RuleEqsSound`), `eq_equality` factored as `eq_equality_of`
+(used by `ruleEqsHold_of` too); `cvalOf` is `@[expose]`.  `IotaEqTests.T_a_ne_T_b` reads the
+equations off `M.rule_eqs` (no hypothesis).
+
+**Imports.**  The shake gate's proposals applied where the build agreed; two measured
+fallbacks in `scripts/pub-import-plan.py` (`GenRecFit1` ← `GenClsSem`, `GenRecFitBase`), one
+allowlist line (`Model/Denotes.lean`'s `EnvModelM`, compensated); two helpers of
+`StreamRecsSem` and three of `GenRecFit1` made private.
+
+**Docs.**  The `Model` docstring, OVERVIEW §1 (the main theorem's model, the paragraph on
+definitional equalities), whitepaper §1 and §7; §6b is the fragment's, unchanged.  README is
+the maintainer's: lines 69 ("every constant … (and that `False` … `Eq` …)": now also
+definitions mean their values and recursor rules hold) and 73 ("it does not contain the delta
+and iota equations": it now does) are stale; only their links were re-pointed.

@@ -190,8 +190,9 @@ the binary reads. The main theorem,
 > with the environment `env`, then `env` has a model in `V` — one set
 > per stored constant and universe assignment under which every stored
 > constant is a member of what its type denotes, whatever the built-in
-> `False` denotes is the empty set, and whatever the built-in `Eq`
-> denotes is set equality.
+> `False` denotes is the empty set, whatever the built-in `Eq`
+> denotes is set equality, every stored definition denotes what its
+> value denotes, and every stored recursor rule's ι equation holds.
 
 `pins` is the fold's second argument: the list of pinned
 `Nat.div`/`Nat.mod` variants its install gate tries (the bullet on
@@ -216,15 +217,21 @@ chain, a constant its set, an application the function's graph, a
 denotes a truth value at every value of its domain, a `λ` the graph of
 its body, or the proof point where its body denotes the proof point at
 every value of its domain — and the structure
-[`Model` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L248-L268).
+[`Model` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L346-L379).
 So every theorem the stream proves is true in the model.
-Definitional equalities need no clause of their own, because the field
-`eq_equality` covers them all: a definition's unfolding or an iota
-rule, stated as a theorem proved by `rfl`, is a stored constant whose
-type is `a = b`, `mem` puts that constant inside what the type
-denotes, `eq_equality` says that set is the truth value of `⟦a⟧ = ⟦b⟧`,
-and a truth value with a member is `{pt}`. So the two sides of every
-accepted equation denote the same set.
+The model also means what the declarations say where no theorem states
+it: `defn_eq` makes every stored definition denote its value, and
+`rule_eqs` makes every stored recursor rule's ι equation hold — the
+equation, `iotaEq` in the same file, is the closed `@Eq` between the
+recursor applied to a constructor and the rule's right-hand side, and
+`rule_eqs` says what it denotes is inhabited. A constant whose
+definition or recursor sits behind an import is thereby still fixed
+(two constructors of an enumeration denote different sets, `T.a ≠ T.b`
+in the test library's `IotaEqTests`). Any other definitional equality
+is covered by `eq_equality`: stated as a theorem proved by `rfl`, it is
+a stored constant whose type is `a = b`, `mem` puts that constant
+inside what the type denotes, `eq_equality` says that set is the truth
+value of `⟦a⟧ = ⟦b⟧`, and a truth value with a member is `{pt}`.
 
 The main corollary,
 [`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L130-L137):
@@ -661,7 +668,7 @@ Read from the outside in:
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L137-L143)).
    The main theorem's model is the invariant's own, read through the
    statement's relation
-   ([definition `Model.ofEnvModelM` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L340-L341)).
+   ([definition `Model.ofEnvModelM` in `ConLeche/Model/OfEnvModelM.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/OfEnvModelM.lean#L65-L66)).
 6. **The semantics** (`ConLeche/Semantics/*`) defines the denotation of
    terms in a model of the **set-theory interface**
    (`ConLeche/SetTheory/*`), and the **pure set constructions**
@@ -1229,7 +1236,7 @@ relation on the checker's own terms. The two agree wherever the
 reading of a term is defined: `interp` of the reading is a
 `Denotes`-denotation of the term, since both read a binder's regime off
 the values
-([theorem `Denotes_of_denote` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L202-L208)).
+([theorem `Denotes_of_denote` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L194-L200)).
 The relation reads a binder's body under the binder with de Bruijn
 indices while the checker opens it with a fresh free variable; a small
 closing operation translates between the two.

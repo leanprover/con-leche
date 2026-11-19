@@ -66,7 +66,7 @@ theorem model_exists (V : Type w) [SetTheory V]
     Nonempty (Model V env)
 ```
 
-This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. The relation [`Model V env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L248-L268) (in [ConLeche/Denotes.lean](./ConLeche/Denotes.lean)) states that every constant in the environment denotes a member of its type's denotation (and that `False` denotes the empty set and that `Eq` denotes set equality). In particular, every accepted theorem's statement is true in the model.
+This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. The relation [`Model V env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L346-L379) (in [ConLeche/Denotes.lean](./ConLeche/Denotes.lean)) states that every constant in the environment denotes a member of its type's denotation (and that `False` denotes the empty set and that `Eq` denotes set equality). In particular, every accepted theorem's statement is true in the model.
 
 Denotation of terms and types is captured by the inductive relation [`Denotes`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L123-L124) in the same file. It depends on some set-theoretical constructions (e.g. function spaces).
 

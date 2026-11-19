@@ -44,7 +44,7 @@ each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
 axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2489, 2495)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2756, 2762)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker has hand-written
@@ -150,8 +150,15 @@ applies the soundness, and hands the result to the declaration fold.
 
 *The statement over `Denotes`.* The main theorem is stated over #src("ConLeche/Denotes.lean", 121, 124)[`Denotes`], a relation on the checker's
 own terms with one rule per syntax form, written to be read in one
-sitting, and over the structure #src("ConLeche/Denotes.lean", 248, 268)[`Model`] built on it. #src("ConLeche/Model/Denotes.lean", 202, 208)[A theorem]
-connects the two: wherever the reading `denote` exists, its
+sitting, and over the structure #src("ConLeche/Denotes.lean", 346, 379)[`Model`] built on it. Besides
+membership, a model makes the built-in `False` empty and `Eq` set
+equality, every stored definition denote its value, and every stored
+recursor rule's ι equation hold: #src("ConLeche/Denotes.lean", 269, 270)[the equation] is built
+from the records as a closed `Eq` between the recursor applied to a
+constructor and the rule's right-hand side, and what it denotes is
+inhabited. So a constant behind an import still means what its
+declaration says. #src("ConLeche/Model/Denotes.lean", 194, 200)[A theorem]
+connects the two readings: wherever the reading `denote` exists, its
 interpretation is a `Denotes`-denotation of the term. The paper's theorem is
 the model side directly.
 

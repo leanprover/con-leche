@@ -412,7 +412,9 @@ theorem storedSwap_sem {envC : Env}
     rcases hC.1 n _ hf with hG | ⟨j, rc, g, hQ, -, hG, hci⟩
     · have h := mpG.rec_rules φ n cv mI rP isK rules hG rl hrl
       exact recRuleLaw_stored (mG := mpG.base2) (mS := m₃) hac hde hctor hfam (T := cv.type)
-        (e := rl.rhs) (fun us _ TS hTS => ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩⟩)
+        (e := rl.rhs) (fun us _ TS hTS => ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩,
+          fun ρ xs rest _ hfit => ⟨rest, hfit⟩, fun ρ ws restS restG _ hS hG hU => by
+            rw [TeleFitPA.rest_unique hS hG]; exact hU⟩)
         (fun us hus RaG hRaG => by
           obtain ⟨Ra, hRa, hw, -⟩ := h.2.1 us hus
           obtain rfl := Option.some.inj (hRa.symm.trans hRaG)
@@ -430,13 +432,34 @@ theorem storedSwap_sem {envC : Env}
       · intro us hus TS hTS
         rcases hty with htyE | htyC
         · rw [htyE] at hTS
-          exact ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩⟩
-        · rw [denote_instLevels hp] at hTS ⊢
-          obtain ⟨TS', TG, hTS', hTG, -, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw
+          refine ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩,
+            fun ρ xs rest _ hfit => ⟨rest, hfit⟩, fun ρ ws restS restG _ hS hG hU => ?_⟩
+          rw [htyE, TeleFitPA.rest_unique hS hG]; exact hU
+        · have hTS0 := hTS
+          rw [denote_instLevels hp] at hTS ⊢
+          obtain ⟨TS', TG, hTS', hTG, -, hEq, hUS⟩ := storedTy_sem mpG htyC hGb hGr hGw
             (Level.substFn φ g.1.levelParams us)
           obtain rfl := Option.some.inj (hTS.symm.trans hTS')
-          refine ⟨TG, hTG, fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ) ?_⟩
-          rw [← hmI]; exact hxl
+          refine ⟨TG, hTG, fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ) (by rw [← hmI]; exact hxl),
+            fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ).symm (by rw [← hmI]; exact hxl),
+            fun ρ ws restS restG hwl hS _ _ pre idx rest body u hpre hidx hu => ?_⟩
+          rw [Expr.stripPis_instantiateLevelParams] at hpre
+          obtain ⟨⟨pre₀, rest₀⟩, hpre₀, hpe⟩ := Option.map_eq_some_iff.mp hpre
+          simp only [Prod.mk.injEq] at hpe
+          obtain ⟨rfl, rfl⟩ := hpe
+          rw [Expr.stripPis_instantiateLevelParams] at hidx
+          obtain ⟨⟨idx₀, body₀⟩, hidx₀, hie⟩ := Option.map_eq_some_iff.mp hidx
+          simp only [Prod.mk.injEq] at hie
+          obtain ⟨rfl, rfl⟩ := hie
+          obtain ⟨u₀, hu₀, rfl⟩ := motiveLevel?_instantiateLevelParams _ _ hu
+          rw [Level.eval_subst]
+          have hrP : q.rulePrefixAt j ≤ q.majorIdxAt j := h.1
+          rw [hmI] at hrP hidx₀ hu₀ hwl
+          exact hUS _ pre₀ idx₀ rest₀ body₀ u₀ (by omega) hpre₀
+            (by rw [show rc.mI + 1 - q.rulePrefixAt j = rc.mI - q.rulePrefixAt j + 1 by omega]
+                exact hidx₀)
+            (by rw [show rc.mI + 1 - q.rulePrefixAt j - 1 = rc.mI - q.rulePrefixAt j by omega]
+                exact hu₀) ρ ws restS hwl hS
       · intro us hus RaG hRaG
         obtain ⟨r0, hr0, hr0e⟩ : ∃ r0, rc.rules[i]? = some r0 ∧ r0.rhs = rl.rhs := by
           rw [List.getElem?_map] at hiS
@@ -466,7 +489,7 @@ theorem storedSwap_sem {envC : Env}
       · rw [htyE]
         obtain ⟨TG, hTG⟩ := hGr ψ
         exact ⟨TG, hTG, hGw ψ TG hTG, hGm ψ TG hTG⟩
-      · obtain ⟨TS, TG, hTS, hTG, hw, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw ψ
+      · obtain ⟨TS, TG, hTS, hTG, hw, hEq, -⟩ := storedTy_sem mpG htyC hGb hGr hGw ψ
         exact ⟨TS, hTS, hw, fun ρ => by rw [(hEq ρ).interp_eq]; exact hGm ψ TG hTG ρ⟩
     refine ⟨fun ψ => ?_, fun ψ ta hta ρ => ?_, fun ψ ta hta ρ => ?_⟩
     · obtain ⟨TS, hTS, -, -⟩ := key ψ

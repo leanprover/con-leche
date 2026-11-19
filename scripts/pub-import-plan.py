@@ -927,6 +927,12 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Inductives.RecStage'),
     ('ConLeche.Verify.Cached.TargetRecC', 'ConLeche.Verify.Inductives.NestedRead'),
     ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Inductives.TargetAuxFire'),
+    # task #610: `GenRecFit1`'s public statements name `GenClsRd` (`GenClsSem`) and
+    # `GenFit1`/`blockRecCtorTy` (re-exported by `GenRecFitBase`).  MEASURED by
+    # demoting each alone (unknown identifier `GenClsRd`, `GenRecFit1.lean:298`;
+    # `blockRecCtorTy`, `:330`).
+    ('ConLeche.Model.Inductives.GenRecFit1', 'ConLeche.Model.Inductives.GenClsSem'),
+    ('ConLeche.Model.Inductives.GenRecFit1', 'ConLeche.Model.Inductives.GenRecFitBase'),
 }
 
 # `whitepaper/` (task #324) is its own lake library — the paper's Lean
