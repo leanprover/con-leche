@@ -124186,36 +124186,67 @@ totality is elsewhere: `Model.rule_eqs` is a ∀-form ("wherever the equation de
 inhabited"), while `Expr.eval` always gives a value, so the ι clause needs the stored ι
 equations to be READ (`RuleEqsRead`).
 
-**#617 cont. — what remains, with sizes (estimates):**
+**#617 cont. — done (2026-11-19).**  The five items of the handover, as they landed:
 
-1. `RecordsStored (streamEnv ds) ds.toList` for accepted `ds` (~300–450 lines): the fold
-   pushes `declConstants` (`checkDecls_env`); names are unique (`declsRun_chain` →
-   `NodupNames`), so `find?` returns the pushed record; per kind `records` vs
-   `declConstants` is immediate except blocks: `blockRecords block` vs `blockConstants p`
-   through `readBlock` — formers (`declared` = input), recursors (`recFire p rc =
-   inputFire formers …`), and constructors, where at `k ≥ 2` members a constructor in no group
-   is not installed: coverage needs the recursor check's "constructor grouping" pin (the
-   larger part).
-2. `CtorsStored` (~80 lines on top of 1; `readBlock` checks the input `nP`).
-3. `RuleEqsRead` (~500–900 lines): forward `Denotes` for every stored ι equation — the
-   readings of the recursor type and constructor type (`type_reads`, level crossing), the rule
-   rhs and nested pins (`RecRuleLaw`), and forward substitution lemmas for `Denotes`
-   (`instantiateLift`, `liftLooseBVars`); the inverse ones exist in `RuleEqsSound`.
-   Alternative: restate `rule_eqs` as `∃ P, Denotes … ∧ inhabited` and prove it there.
-4. `DeclaresFalse`/`DeclaresEq` for accepted streams declaring `False`/`Eq` (~120 lines:
-   `basisNamesOk` → `pinListOk` → the pins at the records' names; the pins' types at a
-   renamed parameter equal `falseRecType (.param p)` etc.), and "a stored theorem of type
-   `False` means `False` is declared" (~50, `constsResolve`).
-5. Then the public restatement (Challenge `model_exists`/`no_False_declaration`,
-   MainTheorem, OVERVIEW, whitepaper statement paragraph), `main_no_False` through
-   `IsModel.no_false_record`, the `T.a ≠ T.b` / `f := 3` demonstrations over `Expr.eval`
-   (cheap once 1–4 hold), the internal `Model`'s `false_empty`/`eq_equality` fields dropped
-   (the olean/modular/compare capstones still read them: keep until their follow-up lane),
-   tests (`IotaEqTests`, `LetDenotes` use `Denotes`), full gates, landing.
+1. **`RecordsStored`** (`ConLeche/Verify/IsModelRecords.lean`, model-free): every record of an
+   accepted stream is found under its name as `StoredAs` says (type and level parameters, a
+   definition with its value, a recursor with its rules and firing modes, a constructor with its
+   parameter count — the old `CtorsStored` is its fourth clause).  Blocks go through `readBlock`
+   (`readBlock_inv`): formers as declared, recursors with `recFire = inputFire`
+   (`recFire_eq_inputFire`: the member index of the major's head is in range exactly when the head
+   is a former), constructors in their member's group, covered at `k ≥ 2` by the recursor
+   check's grouping pin, read off an accepted step by a `Yields` walk
+   (`checkDeclStepC_blockRead` → `checkBlockKS_grouping` → `genRecCheckC_grouping`).
+   `IsModel.lean` names `blockFormerNames` (the `inputFire` formers) so the two sides meet.
+2. **`CtorsStored`**: folded into 1.
+3. **The ι clause — neither of the two routes the handover named.**  Both "build `Denotes`
+   forward" and "restate `Model.rule_eqs` as ∃P, Denotes ∧ inhabited" need `Eq` STORED: the
+   equation's head is `.const eqName [u]`, and `Denotes` reads only stored constants.  A stream
+   need not declare `Eq` (the raw `checkDecls` statement quantifies over every stream), and the
+   prepared stream's `Eq` comes from the built-in prelude, whose content no proof can read
+   (`builtinPreludeE` is a run-time parse; `decide +kernel` gets stuck in `parseExportD`).  So
+   the source fact is split one level lower: `Model.ruleEq_sides` (`RuleEqsSound.lean`, the old
+   body of `ruleEqsHold_of`) gives, at every fit of a stored equation's telescope, the type in
+   the motive's universe and the two sides ONE member of it — no `Eq` involved;
+   `ruleEqsHold_of` is now three lines on top of it plus `Eq`'s law.  The bridge
+   (`isModel_of_envModelM`) reads the equation's parts through `Expr.Resolves`
+   (`ConLeche/Verify/Resolves.lean`: every part reads — constants at their level count,
+   projections with a table, literal constants, no fvar; a resolving term denotes at every ρ,
+   `Denotes_of_resolves`; what `denote` reads resolves, `resolves_of_denote`;
+   `iotaEqAt_parts`), and `Eq` as equality: a stored `Eq` by its law (`eq_equality_of`), an
+   undeclared one by the model's own choice — `posModel` sends the unstored name `Eq` to
+   `eqRel` (`lamV (univ k) fun A => lamV A fun a => lamV A fun b => eqv a b`).  `RuleEqsRead`,
+   `isModel_of_model` (generic in `Model`) and `ruleEqsRead_ofEnvModelM` are gone.
+   **The one missing invariant:** a rule's constructor takes the rule's levels.  Nothing
+   carried it (a nested rule's levels are the major's container's, its constructor is the
+   container's — a fact only the generated stage's class reading has, `GenClsRd.hul`/`.hctor`).
+   It is now `RecRuleLevels env rl`, the first conjunct of `RecRuleFit` (`Model/Env/Laws.lean`),
+   established where the fit is: plain rules by `RecRuleLevels.of_plain`, the quotient rules at
+   `Quot.mk`, the generated rules in `genRecFit_of`, carried by the six transports.
+4. **`DeclaresFalse`/`DeclaresEq`** (`IsModelRecords.lean`): `checkDecls_pinned` — a pinned
+   block's name stored by an accepted stream belongs to a block that is the pin up to its
+   level-parameter names (`basisNamesOk` of every accepted record, `declsRun_basisNamesOk`;
+   `checkDeclStepC_basisNamesOk` moved here from `Model/Modular/Valid.lean`);
+   `checkDecls_declaresFalse`/`checkDecls_declaresEq` read the records' types off the pins
+   (`pinCopyOk_cv`).  Conditional on the name being stored: an UNCONDITIONAL "the prepared stream
+   declares `False`/`Eq`" needs the prelude's content (see 3) and is not stated.
+5. **The public restatement.**  `model_exists` (Challenge = MainTheorem, comparator-identical):
+   `(∃ model, IsModel V model ds.toList) ∧ (DeclaresName ds.toList falseName → DeclaresFalse
+   ds.toList) ∧ (DeclaresName ds.toList eqName → DeclaresEq ds.toList)` for every accepted `ds`
+   (`DeclaresName`: a record of `ds` is named `n`).  `no_False_declaration` (hence
+   `main_no_False`) goes through `IsModel.no_false_record` (now at any level parameters): the
+   theorem's type `.const False []` resolves (`checkDecls_envWF`), so `False` is stored, so the
+   stream declares the prelude's.  Demonstrations over `IsModel`:
+   `tests/ConLecheTests/IsModelTests.lean` (`T_a_ne_T_b`, `no_model` for `f := T.a`, hole
+   `t : f = T.b`), read with `Expr.eval` off the stream's records.  The `Model`-based ones stay
+   for `compare_attack_rejected` until the compare capstones are restated.  The internal
+   `Model` keeps `false_empty`/`eq_equality`: `main_compare_json_no_False` (MainTheorem) and the
+   two `Model`-based tests read them.  OVERVIEW §1 and the module map, whitepaper §1/§7
+   ("The statement over `Expr.eval`") updated; README quote re-synced, three rotted links
+   repointed, prose left (lines listed in the merge summary).
 
-`ds` in the restated theorem: the prepared stream (`preparePrelude pre r.decls`), since it is
-what `checkDecls` reads and the clauses are about the records checked; `DeclaresFalse`/
-`DeclaresEq` are then facts about its prelude part.
+Still on `Model`: the modular, olean and compare capstones (`modular_model_exists`,
+`main_oleans_no_False` via `no_False_theorem_accepted`, `main_compare_*`) — follow-up lanes.
 
 Sidecar (`--compare`, not started): an axiom justified by a sidecar's constant would add one
 record kind whose clause is membership only, with the bridge obligation that the sidecar's
