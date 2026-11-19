@@ -1044,6 +1044,11 @@ cmp_grep "upstream theorem_hole_issue" 0 "hole hw (theorem := sorry) filled by U
 cmp_grep "upstream check-multi as a comparison" 1 "a_thm: the solution has no constant of this name" UpMultiA UpMultiB
 # a solution importing its challenge is invalid input, as the modular run's cycle (task #608)
 cmp_grep "a solution importing its challenge" 1 "the solution's closure holds the challenge" CmpChal CmpImpS
+# (task #611: the challenge imports CmpBase, whose `f` its record does not read, and the solution's
+# closure lacks CmpBase: the merged comparison compares every record of the challenge's closure and
+# rejects; the modular one accepts, below.  The two modes disagree here; which verdict is the
+# target awaits a ruling)
+cmp_grep "an unread import the solution lacks" 1 "f: the solution has no constant of this name" CmpUnC CmpUnS
 # --constant: declarations of the challenge module itself; the cone alone compared
 case_grep "compare: --constant at a challenge declaration" 0 "hole foo (theorem := sorry)" \
   --olean --compare --constant=foo --search-path=$MSP -- UpDefHole UpDefHoleSol
@@ -1117,6 +1122,8 @@ mcmp "an imported name declared by the solution" 1 1 "modules CmpHomeA and CmpHo
 mcmp "an imported name redeclared with its body" 1 1 "modules CmpHomeA and CmpHomeS2 store different constants named f" CmpHomeC3 CmpHomeS2
 mcmp "an imported name read from its home" 0 0 "hole t (theorem := sorry) filled by CmpHomeS3's theorem" CmpHomeC3 CmpHomeS3
 mcmp "a solution importing its challenge" 1 1 "the solution's closure holds the challenge" CmpChal CmpImpS
+# (task #611: accepted here, rejected by the merged comparison above; target verdict pending)
+mcmp "an unread import the solution lacks" 0 0 "hole easy (theorem := sorry) filled by CmpUnS's theorem" CmpUnC CmpUnS
 mcmp "upstream simple-match" 0 0 "hole comm (theorem := sorry) filled by UpCommSol's theorem" UpComm UpCommSol
 mcmp "upstream simple-axiom-issue" 2 0 "hole comm (theorem := sorry) filled by UpCommAxSol's theorem" UpComm UpCommAxSol
 mcmp "upstream simple-mismatch" 1 1 "comm: the solution's axiom is not of the hole's type" UpComm UpCommMisSol
