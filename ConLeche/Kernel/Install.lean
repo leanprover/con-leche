@@ -79,6 +79,9 @@ def blockConstants (p : BlockShape) : List ConstantInfo :=
   blockFormers p (blockIsRec p) ++ blockCtors p ++
     blockRecs p p.recs
 
+/-- Does a value use a hole (`sorryAx`)? -/
+def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
+
 /-- **The constants a declaration installs**, in push order.  A block `readBlock` cannot read
 installs nothing (its job rejects it), and `sorryAx` nothing (any use of it declines). -/
 def declConstants : Declaration → List ConstantInfo
@@ -107,5 +110,16 @@ def declTables : Declaration → List ProjTable
 pushed onto `env`. -/
 def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
   ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
+
+/-- **The names a pinned constant's fast path reads**, beyond its own type and value: a certified
+`Nat` operation's dependencies, the `Nat` basis and, for the `Bool`-valued and `ble`-guarded ones,
+the `Bool` type and constructors; a `reduce*` opaque's element type. -/
+def pinFootprint (n : Name) : List Name :=
+  (if natOpNames.contains n || natDivModNames.contains n then
+    natOpDeps n ++ [natName, natZeroName, natSuccName] ++
+      (if n = natBeqName || n = natBleName || natDivModNames.contains n then
+        [boolName, boolTrueName, boolFalseName] else [])
+   else []) ++
+  (if reduceOpNames.contains n then [reduceElemName n] else [])
 
 end ConLeche

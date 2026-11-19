@@ -606,14 +606,35 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   ybind
   exact checkDeclC_push mode h pd
 
+/-- A justified record's constant is named by its statement. -/
+theorem justifiedInfo_name (pd : Declaration) (cv : ConstantVal) :
+    (justifiedInfo pd cv).name = cv.name := by
+  unfold justifiedInfo; split <;> rfl
+
+theorem checkRecordC_push (mode : CheckMode) (J : Option FEnv) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (pd : Declaration) :
+    Yields (checkRecordC mode pins J fe pd) (fun fe' => PushChain env fe') := by
+  unfold checkRecordC
+  split
+  · next _ cv _ =>
+    refine Yields.bind fun _ => ?_
+    refine Yields.letFun ?_
+    split
+    · exact Yields.ofThrowBind
+    · refine Yields.bind' (checkConstantValC_fresh mode fe cv) fun _ hfr => ?_
+      yields
+      all_goals (apply Yields.pure; exact h.push (by rw [justifiedInfo_name]; exact hfr))
+  · exact checkDeclStepC_push mode h pd
+
 /-- **An accepting run is a fresh chain**: from a canonical index, it returns a canonical index
 whose constants extend the start by fresh names. -/
-theorem declsRun_chain (mode : CheckMode) {ds : List Declaration} {env : Env} {p q : Nat × FEnv}
-    (h : DeclsRun mode pins maxNatSize ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
+theorem declsRun_chain (mode : CheckMode) {J : Option FEnv} {ds : List Declaration} {env : Env}
+    {p q : Nat × FEnv}
+    (h : DeclsRun mode pins maxNatSize J ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
   induction h with
   | nil p => exact hp
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    exact ih (checkDeclStepC_push mode hp pd _ fe₁ s₁ hstepC)
+    exact ih (checkRecordC_push mode J hp pd _ fe₁ s₁ hstepC)
 
 end ConLeche.Cached

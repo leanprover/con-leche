@@ -209,7 +209,7 @@ environment (`ImportOk.accepted`). -/
 @[expose] def WorkerAccepted (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) :
     Prop :=
   ∃ w, WorkerFacts sp fs m jobs w ∧
-    DeclsRun mode natOpPinSets maxNatSize
+    DeclsRun mode natOpPinSets maxNatSize none
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
       (w.reach.ctx.size + w.own.size, mkFEnv (streamEnv
@@ -247,7 +247,8 @@ theorem worker_tail {sp : Roots} {R : Roots} {m : Name} {mode : CheckMode} {maxN
     simp only [← Array.map_append, buildIndex_fill, Array.getElem_map]
     rw [← J.hI]
     have hk' : k < (w.reach.ctx ++ w.own).size := by simpa using hk
-    exact (hjobs k hs hk').run hk'
+    have := (hjobs k hs hk').run hk'
+    rwa [J.hside] at this
 
 /-- **An accepted worker, in the model**: every outcome of the worker at module `m` over a
 snapshot `fs` that is an exit 0 is `WorkerAccepted`, at any `--jobs`, pace and `alone`, whatever
@@ -525,7 +526,7 @@ is left of `ImportOk` relates `i` to other modules (`below`, `src_lt`, `presente
 the agreement): the composition's (task #467). -/
 theorem worker_local {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
     {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts sp fs m jobs w x)
-    (hrun : DeclsRun mode natOpPinSets maxNatSize
+    (hrun : DeclsRun mode natOpPinSets maxNatSize none
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
       (w.reach.ctx.size + w.own.size, mkFEnv (streamEnv
@@ -536,7 +537,7 @@ theorem worker_local {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS
     (srcOf : Declaration → Nat) (hsrc : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, (dev i).src n = srcOf d) :
     ((dev i).context.consts.map (·.toConstantVal.name)).Nodup ∧
     (∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d, (dev i).src n = (dev i).src n') ∧
-    (∃ q, DeclsRun mode natOpPinSets maxNatSize (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q) ∧
+    (∃ q, DeclsRun mode natOpPinSets maxNatSize none (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q) ∧
     (∀ k (hk : k < (dev i).ctx.length),
       RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]) ∧
     (∀ d ∈ (dev i).ctx, RecordScoped (dev i).context d) ∧ EnvWF (dev i).context := by

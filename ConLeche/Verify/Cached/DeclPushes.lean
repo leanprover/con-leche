@@ -3,6 +3,7 @@ module
 public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.IndRecC
 
 public section
@@ -710,24 +711,69 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ybind
   exact checkDeclC_pushes mode fe pd
 
+/-! ## The record check, with a sidecar -/
+
+/-- **A record that offers a statement installs it alone.** -/
+theorem justifiable_constants {pd : Declaration} {cv : ConstantVal}
+    (h : justifiable pd = some cv) :
+    declConstants pd = [justifiedInfo pd cv] ∧ declTables pd = [] := by
+  cases pd with
+  | axiomDecl c =>
+    simp only [justifiable] at h
+    split at h
+    · exact nomatch h
+    · next hb =>
+      obtain rfl := Option.some.inj h
+      have h1 : c.name ≠ quotSoundName := fun e => hb (by simp [builtinAxiomName, e])
+      have h2 : c.name ≠ sorryAxName := fun e => hb (by simp [builtinAxiomName, e])
+      simp [declConstants, declTables, justifiedInfo, h1, h2]
+  | defnDecl c v hint => simp [justifiable] at h
+  | thmDecl c v =>
+    simp only [justifiable] at h
+    split at h
+    · obtain rfl := Option.some.inj h
+      simp [declConstants, declTables, justifiedInfo]
+    · exact nomatch h
+  | opaqueDecl c v =>
+    simp only [justifiable] at h
+    split at h
+    · obtain rfl := Option.some.inj h
+      simp [declConstants, declTables, justifiedInfo]
+    · exact nomatch h
+  | quotDecl | indDecl => simp [justifiable] at h
+
+/-- **An accepting record check pushes what the declaration installs**, sidecar or not. -/
+theorem checkRecordC_pushes (mode : CheckMode) (J : Option FEnv) (fe : FEnv) (pd : Declaration) :
+    Yields (checkRecordC mode pins J fe pd)
+      (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+  unfold checkRecordC
+  split
+  · next cv _ hj =>
+    obtain ⟨hc, ht⟩ := justifiable_constants hj
+    rw [hc, ht]
+    yields
+    all_goals exact Yields.pure rfl
+  · exact checkDeclStepC_pushes mode fe pd
+
 /-! ## The environment of an accepted stream -/
 
-theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+theorem declsRun_env (mode : CheckMode) {J : Option FEnv} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize J ds p q) :
     q.2.env = streamEnv ds p.2.env := by
   induction h with
   | nil p => rfl
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd _ fe₁ s₁ hstepC
+    have h₁ := checkRecordC_pushes (pins := pins) mode J p.2 pd _ fe₁ s₁ hstepC
     rw [ih]
     simp only at h₁
     rw [h₁, pushDelta_env]
     rfl
 
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
-theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
-    (h : checkDecls mode pins maxNatSize ds = .ok env) : env = streamEnv ds.toList := by
+theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {justify : Option Env}
+    {env : Env} (h : checkDecls mode pins maxNatSize ds justify = .ok env) :
+    env = streamEnv (sideRecords justify ds).toList := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
   exact declsRun_env mode r
 

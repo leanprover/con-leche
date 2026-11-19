@@ -448,7 +448,7 @@ theorem checkDeclStepC_blockRead (mode : CheckMode) (pins : List NatOpPinSet) (f
 
 /-- Every block of an accepting run read. -/
 theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
     ∀ d ∈ ds, ∀ block nP, d = .indDecl block nP → BlockRead nP block := by
   induction h with
   | nil => intro _ h; exact nomatch h
@@ -500,7 +500,7 @@ theorem checkDeclStepC_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet}
 
 /-- Every record of an accepting run passed the reserved names' check. -/
 theorem declsRun_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
     ∀ d ∈ ds, basisNamesOk d = true := by
   induction h with
   | nil => intro _ h; exact nomatch h

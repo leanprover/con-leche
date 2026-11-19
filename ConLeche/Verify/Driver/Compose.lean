@@ -62,7 +62,7 @@ structure Run (sp : Roots) (fs : FS) (maxNatSize : Nat) where
   w : Name → WorkerRead
   jobs : Name → Nat
   facts : ∀ M ∈ C.map (·.1), WorkerFacts (look M) fs M (jobs M) (w M) (x M)
-  run : ∀ M ∈ C.map (·.1), DeclsRun .verified natOpPinSets maxNatSize
+  run : ∀ M ∈ C.map (·.1), DeclsRun .verified natOpPinSets maxNatSize none
     (ownDecls (look M) fs M (w M))
     ((w M).reach.ctx.size, mkFEnv (streamEnv (w M).reach.ctx.toList))
     ((w M).reach.ctx.size + (w M).own.size,

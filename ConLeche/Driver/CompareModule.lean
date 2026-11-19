@@ -49,6 +49,8 @@ what fills it.
 
 namespace ConLeche.Driver
 
+open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
+
 open ConLeche ConLeche.Frontend.Olean
 
 /-- **A challenge record as the context holds it**: a hole, a theorem and an opaque constant as

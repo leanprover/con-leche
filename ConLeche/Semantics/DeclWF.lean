@@ -323,7 +323,7 @@ theorem checkDeclsPure_envWF {F : Nat} {ds : List Declaration} {env' : Env}
 /-- **The fold's run keeps the environment well formed**: each record's cached check is a pure
 `checkDecl` run (`checkDeclStepC_run`, which itself reads the environment's well-formedness). -/
 theorem declsRun_envWF {maxNatSize : Nat} {ds : List Declaration} {p q : Nat × FEnv}
-    (hrun : DeclsRun .verified pins maxNatSize ds p q) :
+    (hrun : DeclsRun .verified pins maxNatSize none ds p q) :
     p.2 = mkFEnv p.2.env → EnvWF p.2.env → EnvWF q.2.env := by
   induction hrun with
   | nil p => exact fun _ hw => hw

@@ -207,15 +207,15 @@ theorem readValue_spec {c : ValueCache} {code : Nat} {o : ValueCache × Except C
 /-- **What a job that passed establishes**, at the record holding its value. -/
 def JobFact (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (F : Expr → Expr) (t : Nat) :
     Prop :=
-  ∀ ht : t < ds.size, recordJob mode natOpPinSets maxNatSize J.I t (fillDecl F ds[t]) = .ok ()
+  ∀ ht : t < ds.size, recordJob mode natOpPinSets maxNatSize J.side J.I t (fillDecl F ds[t]) = .ok ()
 
 theorem JobFact.run {mode : CheckMode} {maxNatSize : Nat} {ds : Array Declaration} {J : Jobs ds}
     {F : Expr → Expr} {t : Nat} (h : JobFact mode maxNatSize J F t) (ht : t < ds.size) :
-    recordJob mode natOpPinSets maxNatSize J.I t (fillDecl F ds[t]) = .ok () := h ht
+    recordJob mode natOpPinSets maxNatSize J.side J.I t (fillDecl F ds[t]) = .ok () := h ht
 
 theorem jobRun_ok {mode : CheckMode} {maxNatSize : Nat} {ds : Array Declaration} {J : Jobs ds}
     {t : Nat} {d : Declaration} (h : jobRun mode maxNatSize J t d = .ok ()) :
-    recordJob mode natOpPinSets maxNatSize J.I t d = .ok () := by
+    recordJob mode natOpPinSets maxNatSize J.side J.I t d = .ok () := by
   unfold jobRun at h
   split at h
   · assumption
@@ -358,9 +358,9 @@ theorem checkOleansG_accept {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     ∃ env, checkDecls mode natOpPinSets maxNatSize (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
   have hfacts := checkOleansG_jobs hgood cacheOK_empty h
   -- every record's job passed, at the records with their values in place
-  refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) fun k hk => ?_⟩
+  refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) rfl fun k hk => ?_⟩
   have hk' : k < ds.size := by simpa using hk
-  rw [buildIndex_fill, Array.getElem_map, ← J.hI]
+  rw [buildIndex_fill, Array.getElem_map, ← J.hI, ← J.hside]
   exact hfacts k (Nat.zero_le _) hk' hk'
 
 /-- **An accepted `--olean` run, in the model**: every outcome of the driver's run on the import

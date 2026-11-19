@@ -113,7 +113,7 @@ model (`ConLeche/Verify/Driver/Oleans.lean`), not a value's type. -/
 /-- Record `d`'s check at position `t`, its error tagged with the position. -/
 def jobRun (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (t : Nat) (d : Declaration) :
     Except (CheckError × Nat) Unit :=
-  match Cached.recordJob mode natOpPinSets maxNatSize J.I t d with
+  match Cached.recordJob mode natOpPinSets maxNatSize J.side J.I t d with
   | .ok () => .ok ()
   | .error e => .error (e, t)
 
@@ -374,7 +374,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       match src with
       | none =>
         let verdict ← CheckerIO.liftIO do
-          checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J
+          checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J rfl
         verdictG modeTag parsed.size t0 decls (match verdict with
           | .ok _ => .ok ()
           | .error e => .error e)

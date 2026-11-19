@@ -52,6 +52,8 @@ closure is checked, and on its accept the success line and the holes, each with 
 
 namespace ConLeche.Driver
 
+open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
+
 open ConLeche Frontend.Olean
 
 /-! ## The comparison -/

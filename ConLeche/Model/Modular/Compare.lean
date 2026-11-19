@@ -26,6 +26,7 @@ or not.
 namespace ConLeche.Model.Compare
 
 open ConLeche ConLeche.Driver ConLeche.Verify ConLeche.Model SetTheory
+open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
 
 /-- **A record installing copies of another's constants**, the same tables. -/
 @[expose] def RecCopy (e r : Declaration) : Prop :=

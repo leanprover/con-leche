@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Cached.Justify
 
 @[expose] public section
 
@@ -92,11 +92,12 @@ def FrozenIndex.view (F : FrozenIndex) (k : Nat) : FEnv :=
       rw [F.strFrom_eq, findIn_empty, strLitStoredBy_all]
       exact FBase.fromLe_litFrom { F.I.base with below := c, belowRec := k } strLitNames⟩
 
-/-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view. -/
-def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (F : FrozenIndex)
-    (k : Nat) (pd : Declaration) : Except CheckError Unit :=
+/-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view, with
+the sidecar's index `J`, if any. -/
+def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option FEnv)
+    (F : FrozenIndex) (k : Nat) (pd : Declaration) : Except CheckError Unit :=
   if andPinOk pd then
-    match checkDeclStepC mode pins (F.view k) pd { maxNatSize := maxNatSize } with
+    match checkRecordC mode pins J (F.view k) pd { maxNatSize := maxNatSize } with
     | .ok _ => .ok ()
     | .error e => .error e
   else .error (.invalid "`And` must be the standard `And`")

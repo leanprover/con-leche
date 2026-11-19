@@ -46,10 +46,13 @@ namespace ConLeche.Driver
 
 open ConLeche
 
-/-- The records' frozen index: what the check phase reads. -/
-structure Jobs (ds : Array Declaration) where
+/-- The records' frozen index, and the sidecar's environment and index if there is one: what
+the check phase reads. -/
+structure Jobs (ds : Array Declaration) (justify : Option ConLeche.Env := none) where
   I : ConLeche.Cached.FrozenIndex
   hI : I = (ConLeche.Cached.buildIndex ds).freeze
+  side : Option ConLeche.FEnv
+  hside : side = justify.map ConLeche.mkFEnv
 
 /-- **The step between the read and the check**: the frozen index of the records, built here, and
 the records and the index marked PERSISTENT.  Both are read-only from here on.  The check phase runs
@@ -63,15 +66,18 @@ The mark's result is DISCARDED: `Runtime.markPersistent` is the identity on the 
 object graph in place, so nothing downstream has to be transported across it and no verdict can turn
 on it.  It is unsafe only in that the marked closure is never freed, and the process exits right
 after. -/
-def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
+def Jobs.build (ds : Array Declaration) (justify : Option ConLeche.Env := none) :
+    IO (Jobs ds justify) := do
   let _ ← unsafe Runtime.markPersistent ds
-  let J : Jobs ds := ⟨(ConLeche.Cached.buildIndex ds).freeze, rfl⟩
+  let J : Jobs ds justify := ⟨(ConLeche.Cached.buildIndex ds).freeze, rfl,
+    justify.map ConLeche.mkFEnv, rfl⟩
   let _ ← unsafe Runtime.markPersistent J
   return J
 
 /-- **The index of the records, not marked**: for a check phase that is one of many in the
 process (a module of the one-process mode), whose records and index are freed with it. -/
-def Jobs.plain (ds : Array Declaration) : Jobs ds := ⟨(ConLeche.Cached.buildIndex ds).freeze, rfl⟩
+def Jobs.plain (ds : Array Declaration) : Jobs ds :=
+  ⟨(ConLeche.Cached.buildIndex ds).freeze, rfl, none, rfl⟩
 
 /-- What every worker reads besides the records and the index (an `--olean` run's references to
 the values still in their files), marked persistent as they are (`Jobs.build` says why). -/
@@ -79,16 +85,16 @@ def markShared {α : Type} (x : α) : IO Unit := do
   let _ ← unsafe Runtime.markPersistent x
 
 /-- What the check phase establishes: every job passes. -/
-abbrev JAll (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) : Prop :=
-  ∀ k (hk : k < ds.size), ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I k ds[k] = .ok ()
+abbrev JAll (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify) : Prop :=
+  ∀ k (hk : k < ds.size), ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.side J.I k ds[k] = .ok ()
 
 /-- A job that passed: its position, with the evidence. -/
-abbrev JPass (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) : Type :=
+abbrev JPass (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify) : Type :=
   { t : Nat // ∀ ht : t < ds.size,
-      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I t ds[t] = .ok () }
+      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.side J.I t ds[t] = .ok () }
 
 /-- A job's result: the position whose job passed, or the failure with its position. -/
-abbrev JRes (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) : Type :=
+abbrev JRes (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify) : Type :=
   Except (ConLeche.CheckError × Nat) (JPass mode maxNatSize J)
 
 /-- Job `t`'s label for the statistics: kind, name and fold position. -/
@@ -119,19 +125,19 @@ def checkHeartbeat (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (ds : Array Dec
     err.flush
 
 /-- Job `t`, run. -/
-def runAt (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (t : Nat) :
+def runAt (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify) (t : Nat) :
     JRes mode maxNatSize J :=
   if ht : t < ds.size then
-    match h : ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I t ds[t] with
+    match h : ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.side J.I t ds[t] with
     | .ok () => .ok ⟨t, fun _ => h⟩
     | .error e => .error (e, t)
   else .error (.internal s!"check phase: no job {t}", t)
 
 /-- The results walked in position order, from `k`: the first failure, or every job's pass. -/
-def collectFrom (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds)
+def collectFrom (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify)
     (tab : Array (JPass mode maxNatSize J)) (k : Nat)
     (acc : ∀ j (hj : j < ds.size), j < k →
-      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.I j ds[j] = .ok ()) :
+      ConLeche.Cached.recordJob mode ConLeche.natOpPinSets maxNatSize J.side J.I j ds[j] = .ok ()) :
     Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J)) :=
   if hk : k < ds.size then
     match tab[k]? with
@@ -146,7 +152,7 @@ def collectFrom (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Decla
   termination_by ds.size - k
 
 /-- The results, in job order, walked into the check phase's fact. -/
-def collect (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds)
+def collect (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify)
     (rs : List (JPass mode maxNatSize J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J)) :=
   collectFrom mode maxNatSize J rs.toArray 0 (fun _ _ h => absurd h (Nat.not_lt_zero _))
 
@@ -191,7 +197,7 @@ def jobEnd (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (ds : Array Declaration
 /-- One job of the pool, on worker `s.1`: run and timed (the job is forced before the clock, by
 the branch on its result). -/
 def checkStep (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 : Nat)
-    {ds : Array Declaration} (J : Jobs ds) (pl : PoolLive) (s : Nat × WStats) (t : Nat) :
+    {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify) (pl : PoolLive) (s : Nat × WStats) (t : Nat) :
     IO ((Nat × WStats) × JRes mode maxNatSize J) := do
   let ts ← jobBegin pl pace s.1 t
   let r := runAt mode maxNatSize J t
@@ -212,7 +218,7 @@ for the same instructions.  A worker that fails as an `IO` action (not a check f
 internal error, exit 3, never a verdict.  Beside the result, the pool's timing report (`PoolRep`,
 performance-only). -/
 def checkPool (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
-    {ds : Array Declaration} (J : Jobs ds) :
+    {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify) :
     IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J))) := do
   let m := ds.size
   let workers := max 1 (min jobs m)

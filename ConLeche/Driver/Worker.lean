@@ -37,6 +37,8 @@ Exit 0 needs every phase; a failure's exit code is its error's (`CheckError.exit
 
 namespace ConLeche.Driver
 
+open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
+
 open ConLeche ConLeche.Frontend.Olean
 
 /-- **A module's own records**: its loaded constants, unsafe and partial ones left out, their
@@ -73,7 +75,7 @@ so is a name of a pin ground no loaded module holds (another toolchain's variant
 check then finds absent and declines). -/
 def ownRoots (ix : NameIndex) (l : Loaded) (ds : Array Declaration) : Array Name :=
   let fp : Std.HashSet Name := l.constants.foldl
-    (fun s c => (Modular.pinFootprint c.name).foldl (fun s n => s.insert n) s) {}
+    (fun s c => (pinFootprint c.name).foldl (fun s n => s.insert n) s) {}
   (ds.foldl (fun acc d => acc ++ recordReads d) #[] ++
     l.constants.foldl (fun acc (c : CEntry) =>
       if c.skipped then acc else acc ++ c.uses.toArray) #[]).filter

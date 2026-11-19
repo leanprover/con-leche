@@ -206,7 +206,7 @@ theorem checkDeclStepC_unreserved {mode : CheckMode} {pins : List NatOpPinSet} {
 
 /-- **Every record of an accepting run passed its check.** -/
 theorem declsRun_checked {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
     ∀ d ∈ ds, ∃ fe r, checkDeclStepC mode pins fe d { maxNatSize := maxNatSize } = .ok r := by
   induction h with
   | nil => exact fun _ h => nomatch h
@@ -219,7 +219,7 @@ theorem declsRun_checked {mode : CheckMode} {maxNatSize : Nat} {pins : List NatO
 
 /-- **An accepting run pushes a fresh chain.** -/
 theorem declsRun_chain {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) {env : Env} :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) {env : Env} :
     PushChain env p.2 → PushChain env q.2 := by
   induction h with
   | nil => exact id

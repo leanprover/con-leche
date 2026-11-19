@@ -46,6 +46,8 @@ exit 1.  There is no `--constant`: the exporter's selection is the file.
 
 namespace ConLeche.Driver
 
+open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
+
 open ConLeche
 
 /-- **A compared run of two lean4export files**: the challenge's and the solution's. -/
@@ -152,7 +154,7 @@ def compareJsonG {μ : Type → Type} [CheckerIO μ] (r : JCmpReq) (mode : Check
   let J ← CheckerIO.liftIO (Jobs.build recsS)
   let tParse ← clockMs
   let verdict ← CheckerIO.liftIO do
-    checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J
+    checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J rfl
   match verdict with
   | .error e =>
     verdictG modeTag rS.decls.size t0 recsS (.error e) s!"the solution {r.solution}: "
