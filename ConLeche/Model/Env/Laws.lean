@@ -214,6 +214,15 @@ theorem teleFit_nil_inv {ρ : Nat → V} {T : Term} {rest : V}
     (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by
   cases h; rfl
 
+/-- A fit's residual is determined. -/
+theorem TeleFit.rest_unique {ρ : Nat → V} {T : Term} {vs : List V} {r₁ r₂ : V}
+    (h₁ : TeleFit V ρ T vs r₁) (h₂ : TeleFit V ρ T vs r₂) : r₁ = r₂ := by
+  induction h₁ with
+  | nil => exact (teleFit_nil_inv h₂).symm
+  | cons _ _ ih =>
+    cases h₂ with
+    | cons _ h₂ => exact ih h₂
+
 end
 
 /-- **A graded spine at a family's leaf**: the values `ts` are a spine of terms whose
