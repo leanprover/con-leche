@@ -187,6 +187,24 @@ def blockReadB : Declaration → Bool
         | none => true
   | _ => true
 
+/-- **The context's constant of a name**: read off the record `owner` says holds it. -/
+def ctxConst (owner : Std.HashMap Name Nat) (r : Reach) (n : Name) : Option ConstantInfo :=
+  match owner[n]? with
+  | some k => (declConstants (r.ctx.getD k default)).find? (·.toConstantVal.name == n)
+  | none => none
+
+/-- **A copied block's recursors read their ι equations off their own types**
+(`Cached.blockReadsOkC`), against the context's constants; true for any other record. -/
+def copyReadsB (owner : Std.HashMap Name Nat) (r : Reach) : Declaration → Bool
+  | .indDecl block nP =>
+    match readBlock nP block with
+    | .ok p =>
+      match Cached.blockReadsOkC (ctxConst owner r) p with
+      | .ok _ => true
+      | .error _ => false
+    | .error _ => false
+  | _ => true
+
 /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
 the record of each of its names). -/
 def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
@@ -215,7 +233,7 @@ def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
       if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
       else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
     | none, .indDecl .., _ =>
-      if copyRecEq d e && blockReadB d then .ok ()
+      if copyRecEq d e && blockReadB d && copyReadsB owner r d then .ok ()
       else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
     | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
     | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \

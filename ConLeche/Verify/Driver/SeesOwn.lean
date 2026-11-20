@@ -3,6 +3,8 @@ module
 public import ConLeche.Verify.Driver.Routes
 public import ConLeche.OleanInput
 public import ConLeche.Verify.IsModelRecords
+import ConLeche.Verify.Cached.IotaReadC
+import ConLeche.Verify.Inductives.IotaRead
 import ConLeche.Verify.OleanInput
 import ConLeche.Verify.Driver.Provenance
 import ConLeche.Verify.Frontend.Olean.GroupSame
@@ -383,7 +385,8 @@ theorem copyCheck_ok {m : Name} {ld : HeaderLoads} {ix : NameIndex} {r : Reach}
        (∃ cv v hint ci, d = .defnDecl cv v hint ∧ copyStmt? d = none ∧
           ci ∈ declConstants (r.ctx.getD k default) ∧ ci.toConstantVal.name = recKey d ∧
           sameDefUpToLevels (.defnInfo cv v hint) ci = true) ∨
-       (copyRecEq d (r.ctx.getD k default) = true ∧ blockReadB d = true)) := by
+       (copyRecEq d (r.ctx.getD k default) = true ∧ blockReadB d = true ∧
+          copyReadsB owner r d = true)) := by
   unfold copyCheck at h
   simp only at h
   split at h
@@ -419,7 +422,7 @@ theorem copyCheck_ok {m : Name} {ld : HeaderLoads} {ix : NameIndex} {r : Reach}
   · split at h
     · rename_i hb2
       simp only [Bool.and_eq_true] at hb2
-      exact .inr (.inr hb2)
+      exact .inr (.inr ⟨hb2.1.1, hb2.1.2, hb2.2⟩)
     · cases h
   · cases h
   · cases h
@@ -574,7 +577,11 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
     (hc : moduleConstants (R.look M) fs M c) :
     (∃ c' ∈ constantsOf (R.dev (R.rk M)).decls, StoredAs c' c) ∨
     ∃ ci, ci ∈ (streamEnv (R.w M).reach.ctx.toList).consts ∧ ci.name = c.name ∧
-      (StoredAs ci c ∨ RenamedAs ci c) := by
+      ((StoredAs ci c ∧ ∃ f : Name → Option ConstantInfo,
+          (∀ n c', f n = some c' → c' ∈ (streamEnv (R.w M).reach.ctx.toList).consts ∧
+            c'.name = n) ∧
+          ∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules → RecReads f ci) ∨
+        RenamedAs ci c) := by
   obtain ⟨f, d0, e, hf, hd0, he, hc⟩ := hc
   have hw := R.facts M hM
   obtain ⟨e', he', hst⟩ := home_view_entry hw ⟨f, hf, hd0⟩ he (entryConstants_safe hc).1
@@ -627,7 +634,7 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
         rcases hc'k with rfl | rfl <;> rw [hc1] at this <;> cases this
       have hnr : ∀ cv₁ mI rP isK rules, c ≠ .recInfo cv₁ mI rP isK rules := by
         intro cv₁ mI rP isK rules hc1
-        obtain ⟨_, h1⟩ := hst'.2.2.1 cv₁ mI rP isK rules hc1
+        obtain ⟨_, _, h1, -⟩ := hst'.2.2.1 cv₁ mI rP isK rules hc1
         rcases hc'k with rfl | rfl <;> cases h1
       have hnc : ∀ cvj cnP nF T, c ≠ .ctorInfo cvj cnP nF T := by
         intro cvj cnP nF T hc1
@@ -638,8 +645,9 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
         rw [hcin, hkey, hcc']
       refine ⟨ci, hin ci hci, hname, ?_⟩
       rcases sameCv_cases hsame with heq | ⟨hn1, hn2, hlen, heq⟩
-      · exact .inl ⟨heq ▸ hcc'.symm, fun a b h e => absurd e (hnd a b h),
-          fun a b c d e f => absurd f (hnr a b c d e), fun a b c d e => absurd e (hnc a b c d)⟩
+      · exact .inl ⟨⟨heq ▸ hcc'.symm, fun a b h e => absurd e (hnd a b h),
+          fun a b c d e f => absurd f (hnr a b c d e), fun a b c d e => absurd e (hnc a b c d)⟩,
+          fun _ => none, fun _ _ h => by simp at h, fun a b c d e f => absurd f (hnr a b c d e)⟩
       · refine .inr ⟨hn1, hcc' ▸ hn2, hcc' ▸ hlen, hname.symm, ?_,
           fun a b h e => absurd e (hnd a b h), hnr, hnc⟩
         rw [hcc']
@@ -654,7 +662,10 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
       unfold sameDefUpToLevels at hsame
       simp only at hsame
       split at hsame
-      · exact .inl ((ConstantInfo.eq_of_beqP hsame).symm ▸ hst')
+      · refine .inl ⟨(ConstantInfo.eq_of_beqP hsame).symm ▸ hst', fun _ => none,
+          fun _ _ h => by simp at h, fun cv₁ mI rP isK rules hc1 => ?_⟩
+        obtain ⟨_, _, h1, -⟩ := hst'.2.2.1 cv₁ mI rP isK rules hc1
+        cases h1
       · simp only [Bool.and_eq_true, Cached.levelsRenaming, beq_iff_eq, decide_eq_true_eq] at hsame
         obtain ⟨⟨⟨hl, hn1⟩, hn2⟩, he⟩ := hsame
         have he' := ConstantInfo.eq_of_beqP he
@@ -674,7 +685,7 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
             refine ⟨cv', v', rfl, ?_⟩
             rw [← hv', Expr.instLevelParams_spec, hcv]
           · intro cv₁ mI rP isK rules hc1
-            obtain ⟨_, h1⟩ := hst'.2.2.1 cv₁ mI rP isK rules hc1
+            obtain ⟨_, _, h1, -⟩ := hst'.2.2.1 cv₁ mI rP isK rules hc1
             cases h1
           · intro cvj cnP nF T hc1
             obtain ⟨_, _, h1⟩ := hst'.2.2.2 cvj cnP nF T hc1
@@ -690,11 +701,40 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
           obtain ⟨rfl, hbl⟩ := heq
           obtain rfl := eq_of_listBeqBy (fun a b h => ConstantInfo.eq_of_beqP h) hbl
           obtain ⟨ci, hci, hst⟩ := records_stored (fun b n h => by
-            cases h; exact blockRead_of_B hbr) c' hc'
+            cases h; exact blockRead_of_B hbr.1) c' hc'
           have hst2 := hst.trans hst'
-          refine ⟨ci, hin ci hci, ?_, .inl hst2⟩
-          show ci.toConstantVal.name = c.toConstantVal.name
-          rw [hst2.1]
+          -- the context's constants, read through the owner map
+          have hsound : ∀ n c'', ctxConst (ownerMap (R.w M).reach.ctx) (R.w M).reach n = some c'' →
+              c'' ∈ (streamEnv (R.w M).reach.ctx.toList).consts ∧ c''.name = n := by
+            intro n c'' h
+            unfold ctxConst at h
+            split at h
+            · next j hj =>
+              obtain ⟨hlt', -⟩ := ownerMap_spec hj
+              have hm : (R.w M).reach.ctx.getD j default ∈ (R.w M).reach.ctx.toList := by
+                simp [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hlt']
+              have h2 := List.find?_some h
+              simp only [beq_iff_eq] at h2
+              exact ⟨(mem_streamEnv_consts _ _).2 (.inl ⟨_, hm, List.mem_of_find?_eq_some h⟩), h2⟩
+            · exact nomatch h
+          refine ⟨ci, hin ci hci, ?_, .inl ⟨hst2, _, hsound, fun cv₁ mI rP isK rules hc1 => ?_⟩⟩
+          · show ci.toConstantVal.name = c.toConstantVal.name
+            rw [hst2.1]
+          · obtain ⟨_, _, hci1, -⟩ := hst2.2.2.1 cv₁ mI rP isK rules hc1
+            have hcr := hbr.2
+            cases hp : readBlock nP block with
+            | error e => simp [copyReadsB, hp] at hcr
+            | ok p =>
+              simp only [copyReadsB, hp] at hcr
+              cases hb : Cached.blockReadsOkC (ctxConst (ownerMap (R.w M).reach.ctx) (R.w M).reach)
+                p with
+              | error e => simp [hb] at hcr
+              | ok u =>
+                have hmemB : ci ∈ blockConstants p := by
+                  simpa [declConstants, hp] using hci
+                rw [Cached.blockReadsOkC_eq] at hb
+                cases u
+                exact blockReadsOk_reads hb ci (Cached.blockConstants_rec hmemB hci1)
         | _ => rw [hE] at heq; simp [copyRecEq] at heq
       | _ => simp [copyRecEq] at heq
 

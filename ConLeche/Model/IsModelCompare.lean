@@ -60,7 +60,7 @@ theorem compare_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S m : 
   have hin : Olean.closureConstants (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs #[C] (.thmInfo e.cv) :=
     ⟨m, hcl, f, d, e, hf, hd, hmem, by simp [Olean.entryConstants, hk, Olean.declOfEntry,
       Declaration.constants]⟩
-  obtain ⟨ci, hfi, hsa⟩ := hst _ hin
+  obtain ⟨ci, hfi, hsa, -⟩ := hst _ hin
   exact Model.no_constant_of_False mo ci (Env.find?_mem hfi) (by rw [hsa.1]; exact hty)
 
 end ConLeche

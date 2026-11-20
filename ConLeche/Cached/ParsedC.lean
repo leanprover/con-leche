@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.CheckerC
+public import ConLeche.Cached.IotaReadC
 
 @[expose] public section
 
@@ -117,7 +117,12 @@ def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     CheckCM FEnv :=
   if indParamsOk nP block then
     match readBlock nP block with
-    | .ok p => checkBlockKS mode fe block p
+    | .ok p => do
+      let fe' ← checkBlockKS mode fe block p
+      -- the recursors' ι equations read off their own types (`blockReadsOkC`)
+      match blockReadsOkC fe'.find? p with
+      | .ok _ => pure fe'
+      | .error e => throw e
     | .error e => throw e
   else throw (.invalid "number of parameters mismatch")
 

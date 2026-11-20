@@ -9,15 +9,12 @@ public section
 /-!
 # A constant holds at other level-parameter names (task #619)
 
-`Satisfies` reads a constant's level parameters positionally (`Level.assign`), so a constant
+`ModelOf` reads a constant's level parameters positionally (`Level.assign`), so a constant
 whose statement (and, for a definition, value) is a stored constant's at other names of its level
 parameters (`RenamedAs`: as many, neither list with a repeat) holds wherever the stored one does
-(`satisfies_renamed`).  The two readings meet through `Expr.eval`'s substitution lemma
+(`modelOf_renamed`).  The two readings meet through `Expr.eval`'s substitution lemma
 (`eval_instantiateLevelParams`) and the stored constant's scoping (`EnvWF`: its level parameters
 are all among its names, `eval_congr_levels`).
-
-`satisfies_ctors`: a constant holds of every set of constants holding the constructors it holds
-of (only a recursor's rules look at the set).
 -/
 
 namespace ConLeche
@@ -151,10 +148,10 @@ theorem substFn_assign_rename :
       simp [hbq]
 
 /-- **A constant holds where a stored constant it renames holds** (see the module docstring). -/
-theorem satisfies_renamed {env : Env} (m : Model.EnvModelM V env)
+theorem modelOf_renamed {env : Env} (m : Model.EnvModelM V env)
     {model : Name → List Nat → V} (hag : AgreesOn model (Model.cvalOf m.base2.acval) env)
-    {R : ConstantInfo → Prop} {ci c : ConstantInfo} (hf : env.find? c.name = some ci)
-    (hr : RenamedAs ci c) : Satisfies V model R c := by
+    {ci c : ConstantInfo} (hf : env.find? c.name = some ci)
+    (hr : RenamedAs ci c) : ModelOf model c := by
   obtain ⟨hks, hps, hlen, hname, hty, hdef, hrec, -⟩ := hr
   let M := Model.Model.ofEnvModelM m
   have hloc := cvalLocal_ofEnvModelM m
@@ -191,18 +188,5 @@ theorem satisfies_renamed {env : Env} (m : Model.EnvModelM V env)
         (eval_of_Denotes hloc hag hD).symm).trans (hren v' hvd).symm)
     | recInfo cv mI rP isK rules => exact absurd rfl (hrec cv mI rP isK rules)
     | _ => trivial
-
-/-- **A constant holds of every set holding the constructors it holds of.** -/
-theorem satisfies_ctors {model : Name → List Nat → V} {R₁ R₂ : ConstantInfo → Prop}
-    {c : ConstantInfo} (h : Satisfies V model R₁ c)
-    (hc : ∀ cvj cnP nF T, R₂ (.ctorInfo cvj cnP nF T) → R₁ (.ctorInfo cvj cnP nF T)) :
-    Satisfies V model R₂ c := by
-  intro vals hl
-  obtain ⟨h1, h2⟩ := h vals hl
-  refine ⟨h1, ?_⟩
-  cases c with
-  | recInfo cv mI rP isK rules =>
-    exact fun rl hrl cvj cnP nF T hC hn e he => h2 rl hrl cvj cnP nF T (hc _ _ _ _ hC) hn e he
-  | _ => exact h2
 
 end ConLeche

@@ -126,8 +126,8 @@ theorem compare_no_False (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S : Na
   obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := natOpPinSets) hok
   obtain ⟨mp, -⟩ := (mm i (by omega)).2.2.2.2
   have hcty : (ConstantInfo.thmInfo e.cv).toConstantVal.type = .const falseName [] := hty
-  rcases R.own_covers_x hmR hc with ⟨c', hc', hst⟩ | ⟨ci, hci, -, hst | hren⟩
-  · obtain ⟨ci, hf, hst'⟩ := Model.Modular.own_recordsStored (R.localOk i).importOk c' hc'
+  rcases R.own_covers_x hmR hc with ⟨c', hc', hst⟩ | ⟨ci, hci, -, ⟨hst, -⟩ | hren⟩
+  · obtain ⟨ci, hf, hst', -⟩ := Model.Modular.own_recordsStored (R.localOk i).importOk c' hc'
     refine Model.no_constant_of_False mp ci (Env.find?_mem hf) ?_
     rw [hst'.1, hst.1, hcty]
   · have hown : ci ∈ (R.dev i).own.consts := by

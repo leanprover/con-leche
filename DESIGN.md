@@ -125204,3 +125204,180 @@ validation by comparison (`Compared`) is gone, `compare_solves` quantifies over 
 context (plain and renamed), `LocalOk.redeclared_is_proof` kept for the attack paragraph; §7's
 "or compared" removed.  README: anchors only; stale line 69 (`Model V env` no longer says that
 `False` denotes the empty set and `Eq` set equality: those fields are gone).
+
+## TASK #622 — the pointwise `IsModel`: the ι equations read off the recursor's own type (2026-11-20, agent/622-pointwise-ismodel; base `compare`)
+
+**#622 (2026-11-20) — the pointwise `IsModel` read off the recursor's own type: measured;
+stopped for a ruling on the bridge; nothing changed in the code.**  (Briefed as #621; #621 is
+the self-containment lane, `agent/621-public-selfcontained`.)  Branch
+`agent/622-pointwise-ismodel` off `compare` 9cfb6cb31.
+
+*Why the stored recursor types differ from the generated ones.*  Lean's kernel builds every
+local of an inductive declaration through `mk_local_decl`/`mk_local_decl_for`
+(`src/kernel/inductive.cpp`), which apply `consume_type_annotations` (`Expr.consumeTypeAnnotations`,
+by name: `outParam α`, `semiOutParam α` → `α`; `optParam α d`, `autoParam α s` → `α`, repeated):
+the parameters', the indices' and the constructor fields' domains.  Our generator keeps the
+binder domains as the inductive and constructor types write them.  Measured (spike, not kept:
+`dbgTrace` in `streamRecCompareC`, `--olean -- Init Std Lean`, v4.36.0's own oleans, 200250
+declarations): 157 recursors are not syntactically the generated type; each of the 157 is
+EXACTLY the generated type with every binder domain's annotations consumed (no other
+difference), and no stored recursor type has an annotation at a binder domain.  The first
+differing subterm of every differing domain is an annotation (autoParam 122, outParam 107,
+optParam 19, semiOutParam 13).  Where: a parameter domain (outParam/semiOutParam classes,
+`autoParam` comparators of `Std.TreeMap` & co.), and in 81 minor premises a FIELD domain
+(`optParam`/`autoParam` structure fields: `Lean.SourceInfo`, `Std.Format`, `Rat`,
+`LawfulGetElem`, …).  No minor premise's conclusion differs.
+
+*The shape check on the real closures: no failure.*  For each rule of each recursor: the
+prefix binder whose conclusion (after all its `∀`s) is the recursor's motive applied to
+`rl.ctor.{us} …` is unique, has at least `nfields` binders, its major's last `nfields`
+arguments are the minor's leading binders (de Bruijn), no IH binder occurs in the indices or
+the parameters, no field in the parameters, and (at a member major) the parameters are the
+recursor's first `numParams` binders and `us` the major type's levels.  In the checker (spike
+above): 0 failures over Init, Std, Lean (v4.36.0).  By a Lean script over Lean's own
+`RecursorVal`s (`importModules`, v4.35.0): Init/Std/Lean 3148 recursors, 5110 rules, 0
+failures; Mathlib + Stacks closure (the #606 checkout's oleans) 12017 recursors, 15445 rules,
+0 failures.  The CFSG closure is no longer on this machine.
+
+*Why the bridge does not follow from the recorded facts (the ruling needed).*  The ι equation
+read off the stored minor quantifies the fields over the STORED minor's field domains.  The
+proof has (final model) the constructor-based law (`RecRuleLaw`: fields fitting the
+constructor's telescope at the parameters), and the stored type's check gives, at install
+time only, that each stored domain — a minor premise WHOLE — reads as the generated one
+(`TEqAt`, `storedTy_sem`).  Equal readings of two minor premises do not give equal readings of
+their field domains: at a `Prop` motive both premises are truth values (every `Exists.rec`-like
+recursor), so nothing of the fields survives.  The checker's `isDefEq` does compare two `∀`s
+domain by domain, but no inversion lemma exists for it, and its semantic consequence would
+again be an install-time fact.  So whatever relates the stored field domains to the
+constructor's must (i) be produced by the checker per field and (ii) reach the final model.
+Options:
+* (A) per-field `isDefEq` inside the minors (both minors opened at their own locals beside the
+  prefix, as `recDomsAt` does one level up), the conclusion compared syntactically with the
+  constructor-based one; a new `RecRuleLaw` conjunct "fields fitting the minor read off the
+  recursor's type fit the constructor's telescope", established at every install (generated
+  recursors from the generator's construction, stored ones from the new check, the basis
+  `Nat.rec`/`Eq.rec`/`Quot.lift`/`Quot.ind` by hand) and carried by every transport
+  (`recRuleLaw_ext`, `_ren`, `_ag`, `Swap`); then a `RuleEqsSound`-sized conversion to the
+  read equation.  Pure definitional equality, no new trust; the largest (estimate 2–3k lines).
+* (B) the stored minor's field domains syntactically the constructor-based equation's, or
+  those with Lean's annotations consumed (what occurs in practice, see above), consumption
+  allowed only where the gadget is defined as the prelude's identity (`optParam` :=
+  `fun α _ => α`, &c.; checked on the stored definition when consumed).  The bridge then
+  needs, at the final model, `⟦optParam α d⟧ = ⟦α⟧` from the gadget's definition clause and
+  the grading of the constructor type's field domains; no invariant change (estimate ~1k
+  lines).  A new pin-like rule.
+* (C) keep the constructor-reading `RuleHolds` (status quo).
+Side note: Lean's kernel consumes the gadgets by name, without looking at their definitions; a
+`prelude` stream that defines `optParam` otherwise gets a recursor whose field type is not the
+constructor's.  Our checker rejects such a stream (the defeq comparison fails).  Not pursued.
+
+*State.*  No code change; the lane's only commit is this record.  The spike and the script are
+not kept (they are described above).  Not landed.
+||||||| 9cfb6cb31
+
+**#622 cont. (2026-11-20) — option (B) ruled and done.**
+
+*Ruling (coordinator, within the maintainer's standing "a recursor whose type does not let us
+read off the ι equations is ruled out a priori").*  Option (B): a stored recursor's minor
+premises must state the constructors' fields syntactically, up to Lean's consumed annotations,
+each consumed only where stored as the identity; a recursor failing it is rejected (exit 1).
+
+*A false premise of the ruling, settled within it.*  The ruling expected 0 failures on
+Mathlib + Stacks for syntactic field domains up to annotations.  Measured again (a Lean script
+over `importModules`, v4.35.0; field domains of every rule against the constructor's, opened at
+fvars): Init/Std/Lean 0 of 4949 rules; Mathlib + Stacks 17 of 10768 rules differ, every one only
+in its universe levels (`Nonempty.{max 1 (succ u)}` against `Nonempty.{succ u}`: `ContractibleSpace`,
+`Small`, `IsPullback`, `IsZero`, `FormalGroup`, `DFinsupp`, …), equal after `Level.normalize`.  So
+the rule compares up to equivalent levels (`Level.isEquiv`, sound for `Level.eval`) as well: no
+recursor of Init, Std, Lean, Mathlib or Stacks is rejected.  The conclusions' indices are equal
+syntactically everywhere (0 failures).  Stripped fields occur only in plain rules (0 nested), and
+the recursor's parameter domains are the constructor's up to the same stripping in every rule
+with a stripped field (1 Mathlib rule, `Cat.FreeReflRel.mk`, has a parameter that is neither,
+and no stripped field).
+
+*The checker's rule* (`blockReadsOk`, `ConLeche/Kernel/Inductives/IotaRead.lean`; the binary runs
+its twin `blockReadsOkC`, `Cached/IotaReadC.lean`, `blockReadsOkC_eq`), after a block's install,
+against the environment after it, at every recursor the block installs and every rule `i`: the
+statement's reading (`iotaPartsOf`: the `i`-th minor premise of the motive the type's body
+applies, its first `nfields` binders the fields lifted past the later prefix, its conclusion's
+first `mI - rP` arguments the indices; the major premise's type `C'.{us} params is` gives `us` and
+`params`) is the proofs' reading through the constructor the environment stores under the rule's
+name (`iotaPartsAt`, the old `iotaEqAt`'s parts): the same indices, levels and parameters; the
+fields' domains up to equivalent levels (`Expr.lvlEq`, `==` first at every node), or, in a
+`.plain` rule whose recursor parameter domains are the constructor's up to the same
+(`paramsAnnEq`), up to consumed annotations (`annEq`: `optParam`/`autoParam` with two arguments,
+`outParam`/`semiOutParam` with one, at the head, repeatedly — Lean's `consume_type_annotations`,
+`src/kernel/inductive.cpp`).  An annotation is consumed only where its stored definition is
+`fun (α : Sort p) => α`, resp. `fun (α : Sort p) (_ : D) => α` with `D` either `α` or a constant
+type with a stored `D.missing : D` (`annIdent`, `annWitness`).  *Checked on the stored definition,
+not pinned*: the meaning comes from the definition's own clause in the model, no reserved names
+or pin semantics are added, and a stream defining its own `outParam` differently is affected only
+where one of its recursors relies on the consumption.  *Why the witness*: over an empty `D` the
+reading of `fun _ : D => α` is the proof point, not `α`, so `autoParam` is the identity only when
+its tactic argument's type is inhabited — `Lean.Syntax.missing`.  Rejection message: "the recursor
+R's minor premise for C does not state the constructor's fields, indices and parameters as the
+constructor's type does".  Runs in both modes and in the pure `checkDeclKind`.
+
+*The statement* (`ConLeche/IsModel.lean`): `ModelOf model c` (V implicit) reads `c` alone —
+membership in its type, a definition's value, a recursor's rules by position (`RuleHolds V model φ
+cv mI rP i rl := ∀ e, iotaEqOf cv mI rP i rl = some e → ∃ x, x ∈ˢ Expr.eval model φ ρ₀ e`);
+`IsModel V model C := ∀ c, C c → ModelOf model c`.  `iotaEqOf`, `iotaEqMk`, `iotaFrame`,
+`motiveLevel?` live in the kernel file (the checker runs the statement's own reading).
+`iotaEqAt`, `RecRule.ctorLevels`, `RecRule.iotaParams` moved there as the proofs' reading;
+`inputFire`, `blockFormerNames`, `blockFired`, `recFire_eq_inputFire`, `blockSplit_formers` are
+gone: a block's constants are its records (`Declaration.constants`), an `.olean` recursor's rules
+carry the reader's `.plain` placeholder (`entryConstants`), and `StoredAs` compares rules up to
+their firing modes (`RecRule.unfired`).  Quot.lift's rule reads too (its minor `f : α → β`, the
+major's type `Quot α r`).  `RecordsStored` now also carries, per constant, `RecReads env.find? ci
+∨ ∃ k cv, ci = quotAt k cv` (`declsRun_reads`: the step's `blockReadsOk` at its output, carried to
+the run's end by `PushChain.find?_some`, `RecReads.mono`).
+
+*The bridge.*  `iotaEqOf_holds` (`Model/IsModelBridge.lean`): from `ruleReadsB`, the statement's
+equation and the stored one (`∈ ruleEqs env`) are `iotaEqMk` of parts with the same indices,
+levels and parameters (`iotaEqMk_sides`), so telescopes `pre ++ fd'` and `pre ++ fd` over one body;
+`Model.ruleEq_sides` gives the sides at every fit of the stored one, and `fits_rule_transfer`
+turns a fit of the statement's into one of the stored one: up to levels by `Denotes_lvlEq`; with
+consumed annotations by `annEq_mem` — an annotation's application is the identity on a type where
+its applications apply (`ann1_app`, `ann2_app`: `defn_eq` of the stored identity definition, the
+graph of `lamV (univ k) …` never the point, its argument in `univ k`), and `AppsApply` of the
+annotated domain comes from the invariant's `type_wellDenotedTy` of the constructor's type
+(`gradedTele_of_wd`), descended along the parameters (fit through the recursor's parameter domains,
+shifted by `Fits_shift`, transferred by `fits_annEq`) and instantiated at the rule's parameters
+(`gradedTele_inst`).  `Model/IotaReadSem.lean` holds the semantic lemmas.  Quotients:
+`quot_reads` — a stored `Quot.lift`/`Quot.ind` is its pin at its names and so is the stored
+`Quot.mk` (`basis_pinned`, `rec_ctors`); the pins' rules read at any names by computation
+(`quotLift_reads`, `quotInd_reads`, `simp` over the pins).
+
+*Users.*  `model_exists`, `main_oleans`, `main_modular` and the compare capstones state `IsModel`
+unchanged in text; proofs repaired (`own_recordsStored`, `checkDecls_recordsStored`,
+`declsRun_recordsStored`).  `IsModel.anti` (#619) is now one line.  Demonstrations
+(`IsModelTests`): `T.rec`'s rules read off its type (`iotaEqOf_ruleA/B` by `rfl`).
+
+*Fixtures; verdict changes.*  `stored_type_dom_redex` (a `succ` minor premise whose field domain is
+the β-redex `(fun T : Type => T) Nat'`): 0 → 1, official (syntactic) 1; its old target was 0.
+`stored_rec_outparam` (outParam parameter, autoParam and optParam fields) stays 0 through the
+annotation path.  No other e2e, arena or olean verdict changed.  (Two new fixtures were written,
+then dropped as duplicates of these.)  The DAG towers (`tower_*`) first blew up (plain
+`instantiateLevelParams`/`liftLooseBVars` walks and an `lvlEq` without the `==` shortcut): the twin
+now uses `instLevelParams`, `liftLooseBVarsC`, `instantiateLiftC`, `dropVarsC`.
+
+*Departure (OVERVIEW §14).*  Lean's kernel consumes the four annotations by name; here only where
+stored as the identity, in a rule at the recursor's own parameters whose types are the
+constructor's up to the same.  No recursor Lean writes is rejected.
+
+*After merging `compare` (#619's solutions).*  `IsModel.anti` is one line; the side-record and
+renaming lemmas read `ModelOf` (`modelOf_renamed`; `satisfies_ctors`, `ruleHolds_side`,
+`satisfies_side` gone).  A compared challenge's inductive block stored from the context (the copy
+check) must now read too: `copyCheck` asks `copyReadsB` (`blockReadsOkC` against the context's
+constants through the owner map, `ctxConst`), which `own_covers_x` carries to the modular bridge;
+`RecordsStored` asks `RecReads` only of a recursor's constant.
+
+*Gates at the lane's head (after the merge):* `lake build`, `lake test` warning-free;
+`tests/arena.sh` in full under the guard exit 0 (olean gate 555/555, e2e 635/635, self-check
+62525 declarations, 85 theorems' axioms pinned, trusted and jobs sweeps clean); shake,
+plain-reach (the readers allowlisted; the term-copying walks are the cached twins), layering,
+trust-surface, binary-link, challenge, no-local-paths, overview-links, quote-gate, the whitepaper's
+links and fragment gates pass.  Not measured: the rule's cost (one pass per recursor rule over
+its minor premise; `minorsOf` is linear in the prefix per rule).  README (the maintainer's): only
+anchors repointed by the gates; stale lines 60, 69, 73 ("does not contain the delta and iota
+equations": `IsModel` states the ι equations, read off each recursor's own type), 75.

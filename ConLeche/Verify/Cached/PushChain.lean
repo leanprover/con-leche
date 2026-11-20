@@ -588,7 +588,12 @@ theorem checkDeclKindC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     split
     · cases hbp : readBlock nP block with
       | error e => exact Yields.ofThrow
-      | ok p => exact checkBlockKS_push mode h block p (ConLeche.readBlock_declared (by assumption))
+      | ok p =>
+        refine Yields.bind' (checkBlockKS_push mode h block p
+          (ConLeche.readBlock_declared (by assumption))) fun fe' h' => ?_
+        split
+        · exact Yields.pure h'
+        · exact Yields.ofThrow
     · exact Yields.ofThrow
 
 theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}

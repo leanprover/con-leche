@@ -38,9 +38,9 @@
    127    | error e => rw [h] at accepted; cases accepted
    128    | ok env =>
 
-== ConLeche/IsModel.lean#L312-L313
-   312  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   313      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L212-L213
+   212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   213      (C : ConstantInfo → Prop) : Prop :=
 
 == ConLeche/MainTheorem.lean#L280-L291
    280  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
@@ -7270,50 +7270,50 @@
    121  Every other record is the challenge's own, checked as any module's; a hole among them is one the
    122  solution does not fill (`ownHoleOk`). -/
 
-== ConLeche/Driver/Worker.lean#L190-L222
-   190  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
-   191  the record of each of its names). -/
-   192  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
-   193      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
-   194    let n := recKey d
-   195    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
-   196    if n == quotSoundName || n == sorryAxName then
-   197      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
-   198      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
-   199        con-leche cannot fill it")
-   200    else if !basisNamesOk d then
-   201      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
-   202    else
-   203    match owner[n]? with
-   204    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
-   205    | some k =>
-   206      let e := r.ctx.getD k default
-   207      let h := r.homes.getD k .anonymous
-   208      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
-   209      match copyStmt? d, d, ci? with
-   210      | some cv, _, some ci =>
-   211        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
-   212        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
-   213          {recKind d}")
-   214      | none, .defnDecl cv v hint, some ci =>
-   215        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
-   216        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
-   217      | none, .indDecl .., _ =>
-   218        if copyRecEq d e && blockReadB d then .ok ()
-   219        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
-   220      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
-   221      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
-   222          loads stores")
+== ConLeche/Driver/Worker.lean#L208-L240
+   208  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
+   209  the record of each of its names). -/
+   210  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
+   211      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
+   212    let n := recKey d
+   213    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
+   214    if n == quotSoundName || n == sorryAxName then
+   215      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
+   216      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
+   217        con-leche cannot fill it")
+   218    else if !basisNamesOk d then
+   219      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
+   220    else
+   221    match owner[n]? with
+   222    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
+   223    | some k =>
+   224      let e := r.ctx.getD k default
+   225      let h := r.homes.getD k .anonymous
+   226      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
+   227      match copyStmt? d, d, ci? with
+   228      | some cv, _, some ci =>
+   229        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
+   230        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
+   231          {recKind d}")
+   232      | none, .defnDecl cv v hint, some ci =>
+   233        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
+   234        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
+   235      | none, .indDecl .., _ =>
+   236        if copyRecEq d e && blockReadB d && copyReadsB owner r d then .ok ()
+   237        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
+   238      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
+   239      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
+   240          loads stores")
 
-== ConLeche/Driver/Worker.lean#L232-L239
-   232  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
-   233  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
-   234  file): the solution does not fill it. -/
-   235  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
-   236      Except CheckError Unit :=
-   237    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
-   238      solution has no constant of this name)")
-   239    else .ok ()
+== ConLeche/Driver/Worker.lean#L250-L257
+   250  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
+   251  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
+   252  file): the solution does not fill it. -/
+   253  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
+   254      Except CheckError Unit :=
+   255    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
+   256      solution has no constant of this name)")
+   257    else .ok ()
 
 == ConLeche/MainTheorem.lean#L403-L443
    403  /-- **An accepted modular comparison: the challenge's closure has a family of models**
@@ -7770,28 +7770,27 @@
     54            InferClaimIO m φ fuel := by
     55    have hin : RulesInputs V m φ := h
 
-== ConLeche/IsModel.lean#L312-L313
-   312  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   313      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L212-L213
+   212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   213      (C : ConstantInfo → Prop) : Prop :=
 
 == ConLeche/IsModel.lean#L128-L129
    128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
    129      (BVarIdx → V) → Expr → V
 
-== ConLeche/IsModel.lean#L196-L197
-   196  def iotaEqAt (cvj : ConstantVal) (cnP : Nat) (cv : ConstantVal) (mI rP : Nat)
-   197      (rl : RecRule) : Option Expr := do
+== ConLeche/Kernel/Inductives/IotaRead.lean#L188
+   188  def iotaEqOf (cv : ConstantVal) (mI rP i : Nat) (rl : RecRule) : Option Expr := do
 
-== ConLeche/Model/IsModelBridge.lean#L115-L117
-   115  theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
-   116      (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
-   117      {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
+== ConLeche/Model/IsModelBridge.lean#L116-L118
+   116  theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
+   117      (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
+   118      {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
 
-== ConLeche/Model/IsModelBridge.lean#L310-L313
-   310  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
-   311      (hrec : RecordsStored R env) {model : Name → List Nat → V}
-   312      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
-   313      IsModel V model R := by
+== ConLeche/Model/IsModelBridge.lean#L665-L668
+   665  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
+   666      (hrec : RecordsStored R env) {model : Name → List Nat → V}
+   667      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
+   668      IsModel V model R := by
 
 == ConLeche/Cached/CoreC.lean#L8-L11
      8  # The cached checker core

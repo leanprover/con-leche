@@ -3202,14 +3202,20 @@
 # stored_rec_outparam: a class with an `outParam` parameter, a structure
 # with an `autoParam` field and one with an `optParam` field — official
 # strips those annotations from the domains of the locals it creates,
-# con-leche's generator keeps them; the stored recursors are installed.
-# Official 0.
+# con-leche's generator keeps them; the stored recursors are installed,
+# and (task #622) their ι equations read off their own types: the minor
+# premises state the constructors' fields with the annotations consumed,
+# each stored as the identity on its type.  Official 0.
 0 stored_rec_outparam.ndjson
 # stored_rule_dom_redex / stored_type_dom_redex
 # (`scripts/mk_stored_rec_fixtures.py`): `Nat'.rec`'s rule for `succ`,
 # resp. its type's `succ` minor premise, with a field's domain written as
 # the β-redex `(fun T : Type => T) Nat'`: definitionally the generated
-# one, installed as stored.  Official (syntactic) 1; target: 0.
+# one.  The rule is installed as stored (0).  The type passes the
+# comparison with the generated one, but since task #622 its minor
+# premise must state the constructor's field as the constructor's type
+# does (the main theorem reads the ι equation off it): rejected (1, was 0
+# before task #622).  Official (syntactic) 1 for both; target: 0, resp. 1.
 0 stored_rule_dom_redex.ndjson
 # stored_rule_lams_short (`scripts/mk_rule_binds_fixture.py`, task #585): `Nat'.rec`'s
 # rule for `zero` written with two manifest λs, `fun motive zero => (fun x succ => x) zero`
@@ -3217,7 +3223,7 @@
 # the rule prefix's and the fields' λs, so the stored rule's check counts them
 # (`ruleBinds`): rejected.  Official (syntactic) 1; target 1.
 1 stored_rule_lams_short.ndjson
-0 stored_type_dom_redex.ndjson
+1 stored_type_dom_redex.ndjson
 # stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
 # (official 1).
 1 stored_type_dom_bad.ndjson

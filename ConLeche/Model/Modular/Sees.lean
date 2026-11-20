@@ -168,25 +168,37 @@ theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs maxNatSize)
     have hnd := (ImportOk.chain (hok _ (hle M hM)).importOk).1
     -- every constant of the module is stored, as itself or renamed
     have hcov : ∀ c, moduleConstants sp fs M c → ∃ ci, (own M).find? c.name = some ci ∧
-        (StoredAs ci c ∨ RenamedAs ci c) := by
+        ((StoredAs ci c ∧ ∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
+            RecReads (own M).find? ci ∨ ∃ k cv, ci = quotAt k cv) ∨ RenamedAs ci c) := by
       intro c hc
       rcases R.own_covers_x hM (c := c) (by rw [hl]; exact hc) with ⟨c', hc', hst⟩ |
         ⟨ci, hci, hn, hst⟩
-      · obtain ⟨ci, hf, hst'⟩ := own_recordsStored (hok _ (hle M hM)).importOk c' hc'
+      · obtain ⟨ci, hf, hst', hrd⟩ := own_recordsStored (hok _ (hle M hM)).importOk c' hc'
         have hn : c'.name = c.name := by
           show c'.toConstantVal.name = c.toConstantVal.name
           rw [hst.1]
-        exact ⟨ci, hn ▸ hf, .inl (hst'.trans hst)⟩
-      · have hmem : ci ∈ (own M).consts := by
-          show ci ∈ (R.dev (R.rk M)).own.consts
-          rw [R.dev_rk hM]
-          exact (ConLeche.Driver.mem_streamEnv_consts _ _).2 (.inr hci)
-        exact ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst⟩
+        refine ⟨ci, hn ▸ hf, .inl ⟨hst'.trans hst, fun cv mI rP isK rules hc1 => ?_⟩⟩
+        obtain ⟨isK', rules', h', -⟩ := hst.2.2.1 cv mI rP isK rules hc1
+        exact hrd cv mI rP isK' rules' h'
+      · have hctx : ∀ c', c' ∈ (streamEnv (R.w M).reach.ctx.toList).consts → c' ∈ (own M).consts :=
+          fun c' hc' => by
+            show c' ∈ (R.dev (R.rk M)).own.consts
+            rw [R.dev_rk hM]
+            exact (ConLeche.Driver.mem_streamEnv_consts _ _).2 (.inr hc')
+        refine ⟨ci, hn ▸ Driver.find?_of_nodup hnd (hctx ci hci), ?_⟩
+        rcases hst with ⟨hst, f, hf, hrd⟩ | hren
+        · refine .inl ⟨hst, fun cv mI rP isK rules hc1 => .inl ?_⟩
+          refine RecReads.mono (fun n c' h => ?_) (hrd cv mI rP isK rules hc1)
+          obtain ⟨hm, rfl⟩ := hf n c' h
+          exact Driver.find?_of_nodup hnd (hctx c' hm)
+        · exact .inr hren
     have hag : AgreesOn (model M) (cvalOf mp.base2.acval) (own M) := fun n ci hf => by
       rw [hmodel_own (by rw [hf]; rfl), hmpe]
     let Rs : ConstantInfo → Prop := fun c => moduleConstants sp fs M c ∧
-      ∃ ci, (own M).find? c.name = some ci ∧ StoredAs ci c
-    have hRs : RecordsStored Rs (own M) := fun c ⟨_, ci, hf, hst⟩ => ⟨ci, hf, hst⟩
+      ∃ ci, (own M).find? c.name = some ci ∧ StoredAs ci c ∧
+        ∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
+          RecReads (own M).find? ci ∨ ∃ k cv, ci = quotAt k cv
+    have hRs : RecordsStored Rs (own M) := fun c ⟨_, ci, hf, hst, hrd⟩ => ⟨ci, hf, hst, hrd⟩
     have heq : EqReads (model M) := by
       -- `Eq`'s value is a member's that stores it, or `M`'s own
       by_cases h1 : ((own M).find? eqName).isSome = true
@@ -204,12 +216,9 @@ theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs maxNatSize)
           simp only [model, h1, h2, ↓reduceDIte, Bool.false_eq_true, ↓reduceIte]
     have hRsM := isModel_of_agree mp hRs hag heq
     intro c hc
-    obtain ⟨ci, hf, hst | hren⟩ := hcov c hc
-    · refine satisfies_ctors (hRsM c ⟨hc, ci, hf, hst⟩) fun cvj cnP nF T hC => ⟨hC, ?_⟩
-      obtain ⟨ci', hf', hst' | hren'⟩ := hcov _ hC
-      · exact ⟨ci', hf', hst'⟩
-      · exact absurd rfl (hren'.2.2.2.2.2.2.2 cvj cnP nF T)
-    · exact satisfies_renamed mp hag hf hren
+    obtain ⟨ci, hf, ⟨hst, hrd⟩ | hren⟩ := hcov c hc
+    · exact hRsM c ⟨hc, ci, hf, hst, hrd⟩
+    · exact modelOf_renamed mp hag hf hren
   · obtain ⟨hm', hlt, -⟩ := R.sees_rank hl hM hs
     rw [hmodel_own (hpart hM hs)]
     by_cases h1 : ((own M).find? n).isSome = true

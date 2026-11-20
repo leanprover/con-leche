@@ -361,15 +361,16 @@ model of the compatible family.
   attack above is.
   #src("ConLeche/Driver/Worker.lean", 105, 122)[A record of the challenge some name of which a loaded module stores is a copy],
   and its names are read into the context like any imported name.
-  #src("ConLeche/Driver/Worker.lean", 190, 222)[The check of a copy]
+  #src("ConLeche/Driver/Worker.lean", 208, 240)[The check of a copy]
   asks a hole (an axiom, or a definition whose value uses `sorry`), a
   theorem or an opaque constant to have the loaded constant's
   statement, a definition its value too, both up to the names of the
-  level parameters, and an inductive block to be the same record. A
+  level parameters, and an inductive block to be the same record, its
+  recursors reading their ι equations off their own types. A
   model reads a constant's level parameters by position, so a renamed
   copy has the laws of the loaded constant. Every other record is
   checked as any module's, and
-  #src("ConLeche/Driver/Worker.lean", 232, 239)[a hole among them is rejected].
+  #src("ConLeche/Driver/Worker.lean", 250, 257)[a hole among them is rejected].
   Each module of the challenge's closure is read from the trusted
   directories alone.
 

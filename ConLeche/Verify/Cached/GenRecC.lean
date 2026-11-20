@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Cached.IotaReadC
 import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.BlockShapeInv
@@ -1731,7 +1732,11 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
     (h : (match readBlock nP block with
-          | .ok p => checkBlockKS .verified (mkFEnv env) block p
+          | .ok p => do
+            let fe' ← checkBlockKS .verified (mkFEnv env) block p
+            match blockReadsOkC fe'.find? p with
+            | .ok _ => pure fe'
+            | .error e => throw e
           | .error e => throw e) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
@@ -1742,7 +1747,11 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, (if indParamsOk nP block = true then
           (match readBlock nP block with
-            | .ok p => checkBlock (fueledOps .verified F) env block p
+            | .ok p => do
+              let env' ← checkBlock (fueledOps .verified F) env block p
+              match blockReadsOk env'.find? p with
+              | .ok _ => pure env'
+              | .error e => throw e
             | .error e => throw e)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   simp only [ite_eq_left hok]
@@ -1750,9 +1759,27 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
   | ok p =>
     rw [hfp] at h
     simp only at h
-    -- the block install, at any number of members, nested included
-    obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run henv (ConLeche.readBlock_declared hfp) hwf h
-    exact ⟨hres, hfe, F, hF⟩
+    -- the block install, at any number of members, nested included; then the ι reading rule
+    -- at the installed environment, read alike through its index
+    cases hk : checkBlockKS .verified (mkFEnv env) block p s₀ with
+    | error e =>
+      simp only [bind, StateT.bind, hk] at h
+      exact nomatch h
+    | ok r =>
+      obtain ⟨fe', s₁⟩ := r
+      obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run henv (ConLeche.readBlock_declared hfp) hwf hk
+      simp only [bind, StateT.bind, hk, Except.bind] at h
+      have hfind : fe'.find? = fe'.env.find? := by
+        funext n; rw [hfe]; exact mkFEnv_find? _ n
+      rw [hfind, blockReadsOkC_eq] at h
+      cases hb : blockReadsOk fe'.env.find? p with
+      | error e =>
+        simp only [hb] at h
+        exact nomatch h
+      | ok u =>
+        simp only [hb, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        exact ⟨hres, hfe, F, by simp only [hF, bind, Except.bind, hb, pure, Except.pure]⟩
   | error e =>
     rw [hfp] at h
     -- the reader's error never returns an index

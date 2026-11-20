@@ -11,8 +11,7 @@ With a solution, the fold reads a definition, theorem or opaque constant whose v
 `sorryAx` as the axiom of its statement (`sideRecord`).  `IsModel` reads such a definition, and
 every theorem and opaque constant, by its statement already (`Declaration.constants`), so the two
 streams have the same models (`isModel_sideRecords`): a theorem's constant and an axiom's constant
-of one statement say the same (`Satisfies` reads neither's kind), and no record of a
-constructor moves.
+of one statement say the same (`ModelOf` reads neither's kind).
 -/
 
 public section
@@ -62,44 +61,7 @@ theorem constants_sideRecord (d : Declaration) :
     · simp only [sideRecord, hc, Bool.false_eq_true, ↓reduceIte]
   | _ => left; rfl
 
-/-- No constructor constant moves. -/
-theorem ctor_mem_sideRecord {d : Declaration} {cvj : ConstantVal} {cnP nF : Nat} {T : Name} :
-    ConstantInfo.ctorInfo cvj cnP nF T ∈ (sideRecord d).constants ↔
-      ConstantInfo.ctorInfo cvj cnP nF T ∈ d.constants := by
-  rcases constants_sideRecord d with h | ⟨cv, v, rfl, h⟩
-  · rw [h]
-  · rw [h]
-    simp [Declaration.constants]
-
-theorem ctor_mem_constantsOf_side {ds : List Declaration} {cvj : ConstantVal} {cnP nF : Nat}
-    {T : Name} :
-    ConstantInfo.ctorInfo cvj cnP nF T ∈ constantsOf (ds.map sideRecord) ↔
-      ConstantInfo.ctorInfo cvj cnP nF T ∈ constantsOf ds := by
-  simp only [constantsOf, List.mem_flatMap, List.mem_map]
-  constructor
-  · rintro ⟨_, ⟨d, hd, rfl⟩, hc⟩; exact ⟨d, hd, ctor_mem_sideRecord.1 hc⟩
-  · rintro ⟨d, hd, hc⟩; exact ⟨_, ⟨d, hd, rfl⟩, ctor_mem_sideRecord.2 hc⟩
-
 variable {V : Type w} [SetTheory V]
-
-theorem ruleHolds_side (model : Name → List Nat → V) (ds : List Declaration)
-    (φ : LevelParam → Nat) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
-    RuleHolds V model (· ∈ constantsOf (ds.map sideRecord)) φ cv mI rP rl ↔
-      RuleHolds V model (· ∈ constantsOf ds) φ cv mI rP rl := by
-  unfold RuleHolds
-  refine forall_congr' fun cvj => forall_congr' fun cnP => forall_congr' fun nF =>
-    forall_congr' fun T => ?_
-  exact imp_congr_left ctor_mem_constantsOf_side
-
-theorem satisfies_side (model : Name → List Nat → V) (ds : List Declaration) (c : ConstantInfo) :
-    Satisfies V model (· ∈ constantsOf (ds.map sideRecord)) c ↔
-      Satisfies V model (· ∈ constantsOf ds) c := by
-  unfold Satisfies
-  refine forall_congr' fun vals => imp_congr_right fun _ => and_congr_right fun _ => ?_
-  cases c with
-  | recInfo cv mI rP isK rules =>
-    exact forall_congr' fun rl => imp_congr_right fun _ => ruleHolds_side model ds _ cv mI rP rl
-  | _ => exact Iff.rfl
 
 /-- **The fold's records and the input have the same models.** -/
 theorem isModel_sideRecords (model : Name → List Nat → V) (j : Option Env)
@@ -111,10 +73,8 @@ theorem isModel_sideRecords (model : Name → List Nat → V) (j : Option Env)
   | some e =>
     simp only [sideRecords, Array.toList_map]
     unfold IsModel
-    simp only [satisfies_side]
     have hthm : ∀ cv : ConstantVal,
-        Satisfies V model (· ∈ constantsOf ds.toList) (.axiomInfo cv) ↔
-          Satisfies V model (· ∈ constantsOf ds.toList) (.thmInfo cv) := fun _ => Iff.rfl
+        ModelOf model (.axiomInfo cv) ↔ ModelOf model (.thmInfo cv) := fun _ => Iff.rfl
     simp only [constantsOf, List.mem_flatMap, List.mem_map]
     constructor
     · rintro h c ⟨d, hd, hc⟩

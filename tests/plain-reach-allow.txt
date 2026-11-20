@@ -549,3 +549,26 @@ ConLeche.instInhabitedEnv.default  # ConLeche.Kernel.Env
 ConLeche.mkFEnv  # ConLeche.Kernel.FEnv
 ConLeche.mkIdxGo  # ConLeche.Kernel.FEnv
 ConLeche.mkTblsGo  # ConLeche.Kernel.FEnv
+
+# ConLeche.Kernel.Inductives.IotaRead — the ι reading rule's readers and comparisons, once per
+# recursor rule (the term-copying walks run as the cached twins, Cached/IotaReadC.lean): O(spine)
+# readers of the recursor's prefix (iotaFrame, minorsOf, piTele, motiveLevel?), the rule's
+# levels and parameters (two-line selectors), the comparisons (lvlEq: `==` first at every node,
+# so shared subterms are compared once; annEq: lvlEq after peeling at most the head
+# annotations; listRel), the annotations' stored-definition tests (one lookup each) and names
+ConLeche.Expr.lvlEq
+ConLeche.Expr.piTele
+ConLeche.RecRule.ctorLevels
+ConLeche.RecRule.iotaParams
+ConLeche.annEq
+ConLeche.annIdent
+ConLeche.annIdentVal
+ConLeche.annWitness
+ConLeche.autoParamName
+ConLeche.iotaFrame
+ConLeche.listRel
+ConLeche.minorsOf
+ConLeche.motiveLevel?
+ConLeche.optParamName
+ConLeche.outParamName
+ConLeche.semiOutParamName
