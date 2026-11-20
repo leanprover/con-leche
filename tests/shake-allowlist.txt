@@ -719,3 +719,8 @@ ConLeche/MainTheorem.lean	public import ConLeche.Model.Modular.CompareRun	# meas
 ConLeche/Verify/Driver/ComposeCompare.lean	public import ConLeche.Verify.Driver.Routes	# measured: removing it breaks the module (unknown Graph.NodeOk, R.dev_rk, ownEnvOf; task #608); a minimization move with compensating adds
 ConLeche/Model/Denotes.lean	public import ConLeche.Model.Env.EnvModelM	# compensated: +public import ConLeche.Verify.Denote.VClosed, ConLeche.Semantics.Interp, ConLeche.Verify.Denote in ConLeche/Model/Denotes.lean (+3 more)
 ConLeche/Model/Env/Laws.lean	public import ConLeche.Denotes	# build-verified (task #617): Model/Denotes and the Model tier read `Denotes` through this re-export; removing it breaks the build
+ConLeche/Model/IsModelOlean.lean	public import ConLeche.Verify.Driver.Main	# measured (task #618): as the line above
+ConLeche/Model/IsModelOlean.lean	public import ConLeche.Verify.OleanInput	# measured (task #618): as the line above
+ConLeche/Model/Modular/IsModel.lean	import ConLeche.Model.OfEnvModelM	# measured (task #618): removing the three breaks the module (unknown SetTheory, CheckMode, NatOpPinSet); a minimization move with compensating adds
+ConLeche/Model/Modular/IsModel.lean	public import ConLeche.Model.IsModelBridge	# measured (task #618): as the line above
+ConLeche/Model/Modular/IsModel.lean	public import ConLeche.Model.Modular.Main	# measured (task #618): as the line above

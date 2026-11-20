@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.IsModelBridge
-public import ConLeche.Verify.Frontend.Olean.Input
+import ConLeche.Model.IsModelBridge
+public import ConLeche.Verify.OleanInput
 public import ConLeche.Verify.Driver.Main
 import ConLeche.Verify.Cached.MainC
 

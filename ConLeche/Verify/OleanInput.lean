@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.OleanInput
+public import ConLeche.Frontend.Prepare
 public import ConLeche.Verify.IsModelRecords
 public import ConLeche.Verify.Frontend.Olean.GroupSame
 import ConLeche.Verify.Frontend.Prepare
