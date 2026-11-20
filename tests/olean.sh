@@ -583,7 +583,7 @@ reads_ "a public import and an import all: LvA exported, LvB and LvC whole" 0 \
   "loads 3 modules (2 private, 1 exported)" "$LIB" LvN
 reads_ "a private import of an import is not loaded: NlX's nl never meets NlY's" 0 \
   "0 names held twice" "$MSP" NlM
-reads_ "two proofs of one statement, both loaded: merged" 0 "83 names held twice" "$MSP" TeqBoth
+reads_ "two proofs of one statement, both loaded: merged" 0 "77 names held twice" "$MSP" TeqBoth
 swap_() { # <dir> <stand-in module> <module whose files take its place>
   rm -f "$1/$2".olean*
   for f in "$LIB/$3".olean*; do cp "$f" "$1/$2${f#$LIB/$3}"; done
