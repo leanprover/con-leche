@@ -124405,3 +124405,107 @@ restricted to the names `m` reads (the condition the ruling dropped), or (3) to 
 merge keeps (an order-dependent rule).
 Lane state: unchanged since 99259bd72 apart from the fixture and this record; still not done:
 the olean-level modular theorems, docs, axiom pins, gates, landing.
+
+**#618 cont. (2026-11-20, third) — rulings applied; `main_modular` not started; NOT landed.**
+
+*Rulings received (coordinator, from the maintainer).*  Option 1 for `CxM` (the standing rule
+"reject where one name could get two meanings"); one base relation for module contents;
+"constant" for a `ConstantInfo` in the public spec ("record" only for a `Declaration`); record
+sets as predicates `ConstantInfo → Prop` where defined relationally, a `List` where computed
+(no Mathlib `Set`); `main_oleans` without `extra`; `model_exists` with an `isOk` hypothesis and
+no `False`/`Eq` conjuncts (those are internal lemmas of the corollaries, in neither
+`MainTheorem` nor `Challenge`); the main modular theorem phrased so that the clash check is
+NEEDED (the `Sees` clause: `CxM` would make it false); a fully pointwise `IsModel`, the ι
+equation built from the recursor constant alone (analysis below, not implemented).
+
+*Done (commits bfd369a65..e12ea6914, each `lake build` + `lake test` warning-free):*
+1. **Every clashing name is a reach root** (`clashAgree` returns every clash's name, not only
+   the inferred ones), so every copy's statement is capture-checked as its module reads it
+   (`clashPartners`).  A failed read of a context record names the record (`inRecord`).
+   `CxM`: exit 1, "module CxM: invalid: the record of cn, read from CxA: name capture at cc,
+   read by module CxA: the copies of cc of modules CxX2 and CxX1 are not one constant (not two
+   proofs of one statement)"; `--olean --modular -- CxM` exit 1 ("1 of 7 modules not accepted;
+   the first in the graph's order: CxM"); the workers at the other six exit 0.  Why the check
+   must be at the importer: `CxA` exports `cn : cc` with `cc` from a private import, a dangling
+   name a correct build rejects (a bug in Lean's module system; the fixture needs the stand-in),
+   but dangling names are completed on demand, `CxM` never reads `cn`, and so nothing else looks
+   at `CxA`'s statement there: the clash must be checked at `CxM` itself.  The Ldg/Ldv
+   completion fixtures now complete 2 names (one an Init clash's copy reads).  OVERVIEW §2, the
+   §14 departure line, the fixture's comment.
+   **Cost** (`perf stat -e instructions:u`, `--olean --modular --jobs=8`, the v4.35.0
+   toolchain's own `lib/lean`, one run each; Mathlib's build is gone from `_tmp/ref`, no CFSG
+   closure on disk): `Init` (668 modules, 82 clashes at a full-Init importer) 437.24 G →
+   445.19 G (+1.82 %), peak RSS 0.65 → 0.66 GiB; `Std` (994 modules) 744.29 G → 769.50 G
+   (+3.39 %), peak RSS 0.81 → 1.03 GiB.  A worker at a full-Init importer reaches 567 context
+   records instead of 4 (`LdgN`); `Init.Data.Nat.Lemmas` 898 → 900 (2 clashes).
+2. **The spec** (`ConLeche/IsModel.lean`, `ConLeche/OleanInput.lean`,
+   `ConLeche/Verify/Frontend/Olean/Files.lean`): `IsModel V model (C : ConstantInfo → Prop)`;
+   `constantsOf ds : List ConstantInfo` (`ds.flatMap Declaration.constants`), JSON statements
+   pass `(· ∈ constantsOf ds)`; `InModulePart sp fs m p c` (the base relation: `m`'s files
+   decoded at `p` hold a stored constant with `c` among its `entryConstants`);
+   `moduleConstants m := InModulePart m .private`; `closureConstants roots c := ∃ m, InClosure
+   roots m ∧ moduleConstants m c`; `LoadsAt sp fs g imps0 m' all` (inductive, Lean's
+   `importModulesCore` lattice; the `isExported` flag dropped: it never decides what is
+   loaded) and `Loads sp fs m m' p` (private where some path loads `m'` whole, else exported;
+   `.server` never), beside `InClosure`; `Sees sp fs m n m' := ∃ p c, Loads m m' p ∧
+   InModulePart m' p c ∧ c.name = n`.  Renames: `Declaration.records` → `.constants`,
+   `entryRecords` → `entryConstants`, the spec's `blockRecords` → `blockFired` (the kernel's
+   `blockConstants` exists), `HasRecord` → `HasConstant`; the header fixpoint's structure
+   `Loads` → `HeaderLoads` (the spec took the name).  Every `ConstantInfo` is one constant:
+   `entryConstants` gives at most one per stored constant, and its name is the stored one's
+   except at a quotient constant and `Quot.sound` (the pinned package's constant, `quotAt`).
+3. `model_exists` (MainTheorem + Challenge): `(accepted : (checkDecls … ds).isOk) : ∃ model,
+   IsModel V model (· ∈ constantsOf ds.toList)`.  `main_oleans`: `∃ model, IsModel V model
+   (Olean.closureConstants (searchPathOf dirs) fs #[r])` — no monotonicity needed:
+   `checkDecls_inputStored` now gives `RecordsStored (closureConstants …) env` directly, the
+   prelude declarations never enter the set.  `main_oleans` axioms pinned.  OVERVIEW §1 and
+   the modular paragraph, whitepaper §7, README's quote re-synced and its anchors repointed.
+
+*Not done:* `main_modular`/`main_modular_one` (the statement over `Sees`), the pointwise
+`IsModel`, the full arena battery and the landing.  The lane does not land without
+`main_modular` (a partial lane does not land).
+
+*The ruled `main_modular`, and what its proof needs* (none of it exists yet):
+(a) `moduleConstants m` covered by the worker's own records (`ownRecords`: `MergeFacts` for
+the worker's `mergedOfList`, then `covers_entry`/`covers_block`, as `readOleansAt_covers`
+does for the merged read); (b) `LoadsAt` ↔ the header fixpoint's flags: completeness (every
+derivation's `all` ≤ the computed `importAll`) and soundness of `importAll` (needed for the
+exported case's negation), a worklist-with-bumping proof over `levelsGo` (today only
+`headerFixpoint_sound`'s `ImpReach` and `_complete`'s `PubReach` exist); (c) a name of an
+`InModulePart` at the loaded level is in the worker's index (the part's name table,
+`PartNames`), and, for an exported part, that its names are the private part's or that the
+reader loads the part `Loads` names; (d) the model change at unread names: `model' m n :=
+model m n` on own and context names, else the unique loaded copy's module's value (unique by
+the clash check, since every clashing name is now in the context), and a frame lemma
+(`Expr.eval` and `Satisfies` depend only on the constants a term mentions, all of them own or
+context names by `RecordScoped`); (e) read names: `Run.agree_loaded`/`agree_all` give `Agree`
+of every loaded copy, `agree_alike` turns that into equal values (`.same`), and a theorem
+twin's two values are both `pt`.  Estimate: several thousand lines, (b) and (a) the largest.
+
+*Pointwise `IsModel`, the ι equation from the recursor alone — analysis (not implemented).*
+Today `RuleHolds` is the only non-pointwise clause: it quantifies over the constructor
+constants of `C` (`.ctorInfo cvj … ∈ C`, `cvj.name = rl.ctor`) to get the constructor's
+parameter count and type (the fields' domains and the conclusion's indices).  So yes, the
+clause needs a second constant as stated.  The minor premise of rule `k` already holds all of
+it: `(fields) → (IHs) → motive_j idx_k (k.{us} params fields)`, in Lean's order fields first,
+IHs after.  The equation then reads `∀ prefix fields, rec prefix idx_k (k.{us} params fields)
+= rhs prefix fields`, over the recursor's first `rP` binders and the minor's first `nfields`
+binders (lifted past the later minors; the IHs not quantified); the minor of rule `i` is the
+`i`-th minor binder (by position; the head of its conclusion's major is then `rl.ctor`, which
+the spec can check rather than search).  Plain rules: yes.  Nested auxiliary recursors: the
+conclusion's major is the container's constructor at its pins, so the pins and levels come
+from the type and `RecRule.ctorLevels`/`iotaParams`/`inputFire` leave the public spec (about
+45 lines of `IsModel.lean`, and the `fire` field's role in the statement); `motiveLevel?`
+stays (the `Eq.{u}` level).  `Eq.rec` and K-like: the minor `motive a (Eq.refl a)` has no
+fields and gives `idx = [a]` and the major `@Eq.refl α a`: the same equation as today.
+Quotients keep their own clause.  The proof obligation is the hard part: on an accepted
+stream the minor-built equation must equal the internal rule equation (`iotaEqAt`'s today),
+which needs the generated recursor type's minor shape from the inductive installer
+(`Kernel/Inductives`, the stored type being compared to the generated one) — a new proof over
+the recursor generator, not a restatement.  Both forms read the same to a reader; the
+pointwise one is shorter and needs no "where its rules find their constructors".
+
+*Gates at e12ea6914:* `lake build`, `lake test` warning-free; quote-gate, overview-links,
+whitepaper links-gate pass; olean, layering, shake, trust-surface, plain-reach, binary-link,
+challenge run (see the report).  Not run: `tests/arena.sh` in full, the whitepaper fragment
+gate.
