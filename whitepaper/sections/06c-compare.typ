@@ -14,17 +14,17 @@
 
 = Comparing a challenge with a solution <sec:compare>
 
-A _challenge_ states what is asked: theorems without proofs,
-definitions without values, and assumptions. A _solution_ supplies
-them. The checker checks the solution as it checks any input. It then
-checks the challenge as any input, with one exception: an open
-statement of the challenge is accepted when the solution _justifies_
-it. This section states the rule, shows that the constants of an
-accepted challenge have a model, and shows why the rule compares more
-than the open statement itself. @sec:cmp-modular compares module by module: there the
-challenge is one more module, which imports the solution, and its
-declarations that the solution already holds are read from the
-solution instead of being checked.
+A _challenge_ states what is asked: statements whose proofs, or
+values, are left open. A _solution_ supplies them. The checker checks
+the solution as it checks any input. It then checks the challenge as
+any input, with one exception: an open statement of the challenge is
+accepted when the solution _justifies_ it. This section states the
+rule, shows that the constants of an accepted challenge have a model,
+and shows why the rule compares more than the open statement itself.
+@sec:cmp-modular compares module by module: there the challenge is one
+more module, which imports the solution, and its declarations that the
+solution already holds are read from the solution instead of being
+checked.
 
 == Holes and justification <sec:cmp-what>
 
@@ -32,13 +32,11 @@ solution instead of being checked.
   A _challenge_ is an input that the checker checks declaration by
   declaration, as in @sec:env and @sec:ind; write $E_c$ for its
   environment. A _hole_ of the challenge is an assumption it declares:
-  a name with level parameters and a type, and no value,
+  a name $n$ with level parameters $arrow(p)$ and a type $T$, and no
+  value,
   $
     (n.\{arrow(p)\} : T).
   $
-  In Lean these are the challenge's axioms other than the built-in
-  ones, and its declarations whose
-  value uses `sorry`, each read as the assumption of its statement.
   A _solution_ is an environment $E_s$ that the checker has accepted.
 ]
 
@@ -47,21 +45,24 @@ the checker does not accept a hole on its own. With a solution, a hole
 is accepted when the solution stores a constant of the same name that
 states the same, and everything the statement reads means the same in
 both environments. The second condition is a closure condition on
-names.
+names: a name the statement reads must itself be stored alike, and so
+must every name that this name's entry reads, and so on.
 
 #definition(name: "Shared names, justified hole")[
   A set $Sh$ of names is
   #src("whitepaper/Fragment/Compare.lean", 361, 365)[_shared_]
-  between $E_c$ and $E_s$ when, for every $d in Sh$, the solution
-  stores $d$, $E_c$ stores $d$ as a definition or an assumption, and
-  + either $E_c$ stores $d$ with the same entry as $E_s$,
-  + or $E_c$ stores $d$ as an assumption $(d.\{arrow(p)\} : T)$, and
-    $E_s$ stores $d$, of any kind, with level parameters $arrow(q)$,
-    as many as $arrow(p)$, and a type $T_s$ such that
+  between $E_c$ and $E_s$ when every $d in Sh$ satisfies two
+  conditions. First, $E_s$ stores $d$, and $E_c$ stores $d$ as a
+  definition or an assumption, in one of two ways:
+  + $E_c$ stores $d$ with the same entry as $E_s$, or
+  + $E_c$ stores $d$ as an assumption $(d.\{arrow(p)\} : T)$ with
+    distinct level parameters $arrow(p)$, and $E_s$ stores $d$, of any
+    kind, with level parameters $arrow(q)$, as many as $arrow(p)$, and
+    a type $T_s$ such that
     $
-      T = T_s [arrow(q) := arrow(p)];
+      T = T_s [arrow(q) := arrow(p)].
     $
-  and every constant that the type or the value of $d$'s entry in
+  Second, every constant that the type or the value of $d$'s entry in
   $E_c$ reads is in $Sh$ again. A hole of the challenge is
   #src("whitepaper/Fragment/Compare.lean", 369, 369)[_justified_]
   by $E_s$ when its name lies in a shared set. The
@@ -96,17 +97,21 @@ $M_c$ of the challenge is built along the challenge's check, as in
 @sec:env and @sec:ind, and it keeps one more fact: on every shared
 name stored so far it agrees with the solution's model,
 $
-  forall d in Sh. thin forall arrow(k). thin
-    M_c (d, arrow(k)) = M_s (d, arrow(k)).
+  forall d in Sh. thin M_c (d) = M_s (d),
 $
-Here $Sh$ is a shared set read in the challenge's final environment,
-holding the names of all justified holes. Three facts carry the
-construction. The first says that a denotation reads the model only at
-the constants the term reads:
+where, for two assignments $M$ and $M'$ and a name $d$, $M(d) = M'(d)$
+means agreement at every list of natural numbers:
+$M(d, arrow(k)) = M'(d, arrow(k))$ for all $arrow(k)$. Here $Sh$ is a
+shared set read in the challenge's final environment, holding the
+names of all justified holes. Three facts carry the construction. The
+first says that a denotation reads the model only at the constants the
+term reads:
 
 #lemma(name: "Denotation is local")[
-  If two assignments $M$ and $M'$ agree on every constant a term $e$
-  reads, then
+  Let $M$ and $M'$ be assignments and $e$ a term, and write
+  $consts(e)$ for the constants $e$ reads. If $M$ and $M'$ agree on
+  $consts(e)$, then at every valuation and every variable environment
+  $rho$
   #src("whitepaper/Fragment/Compare.lean", 161, 163)[$e$ denotes the same in both, and is well-denoted in both alike]:
   $
     (forall d in consts(e). thin M(d) = M'(d)) ==>
@@ -119,9 +124,10 @@ The second gives a justified hole the solution model's set:
 
 #lemma(name: "A justified hole")[
   Let $E_c$ be closed, with a model $M_c$, and let
-  $(n.\{arrow(p)\} : T)$ be a fresh assumption whose type is in scope
-  of $E_c$. Let $E_s$, with a model $M_s$, store $n$ with level
-  parameters $arrow(q)$ and type $T_s$, with
+  $(n.\{arrow(p)\} : T)$ be a fresh assumption, with distinct level
+  parameters $arrow(p)$ and a type in scope of $E_c$. Let $E_s$, with
+  a model $M_s$, store $n$ with level parameters $arrow(q)$, as many as
+  $arrow(p)$, and a type $T_s$ that uses only $arrow(q)$, with
   $T = T_s [arrow(q) := arrow(p)]$, and let $M_c$ and $M_s$ agree on
   every constant $T$ reads. Then
   #src("whitepaper/Fragment/Compare.lean", 284, 293)[$M_c$ extends to a model of the environment with the hole, with the solution model's set at $n$]:
@@ -147,10 +153,15 @@ solution model's set:
 
 #lemma(name: "A shared constant")[
   Let $E_c$ be closed, with a model $M_c$, and let $E_s$, with a
-  model $M_s$, store a fresh name $d$ as a definition or an
-  assumption, whose type and value are in scope of $E_c$. If $M_c$ and
-  $M_s$ agree on every constant that the type and the value read, then
-  #src("whitepaper/Fragment/Compare.lean", 319, 328)[$M_c$ extends to a model of the environment with $d$'s entry, with the solution model's set at $d$].
+  model $M_s$, store an entry $D$ at a name $d$ fresh in $E_c$, a
+  definition or an assumption whose type and value are in scope of
+  $E_c$. If $M_c$ and $M_s$ agree on every constant that the type and
+  the value read, then
+  #src("whitepaper/Fragment/Compare.lean", 319, 328)[$M_c$ extends to a model of the environment with $d$'s entry, with the solution model's set at $d$]:
+  $
+    exists M'_c in Mod(E_c, D). thin
+      M'_c (d) = M_s (d) and forall d' in E_c. thin M'_c (d') = M_c (d').
+  $
 ] <lem:cmp-shared>
 
 The typing and unfolding laws of the new constant are those of $M_s$,
@@ -163,7 +174,8 @@ carried over by @lem:cmp-local. Both lemmas extend a model at
   its holes justified by the solution's environment $E_s$. Then
   #src("whitepaper/Fragment/Compare.lean", 675, 677)[the constants of the challenge have a model]
   (@def:input-model), a hole holding as the assumption of its
-  statement.
+  statement: for the challenge's declarations $D_c$,
+  $ exists M. thin M "is a model of the constants of" D_c. $
 ] <thm:cmp-model>
 
 The statement does not mention the solution. Its model is a device of
@@ -172,21 +184,18 @@ the proof, the source of the holes' sets.
 #proof[
   Take a model $M_s$ of $E_s$, as in the proof of @thm:accepted-model.
   #src("whitepaper/Fragment/Compare.lean", 548, 552)[Induction along the challenge's check]
-  builds a model $M_c$ of the challenge's environment, with the
-  agreement on the shared names stored so far as the invariant. A declaration none of
+  builds a model $M_c$ of the challenge's environment that agrees with
+  $M_s$ on the shared names stored so far. A declaration none of
   whose names is shared takes its own step (@sec:env, @sec:ind), which
   keeps every stored constant's set. A shared definition or assumption
   takes @lem:cmp-shared: everything it reads is shared and stored
-  before it, so the invariant gives the agreement the lemma asks for.
-  A justified hole takes @lem:cmp-hole, with the agreement on its
-  type's constants from the invariant in the same way. Both give the
-  new name the solution model's set, so the invariant holds again.
+  before it, so the agreement so far is the agreement the lemma asks
+  for. A justified hole takes @lem:cmp-hole, with the agreement on its
+  type's constants in the same way. Both give the new name the
+  solution model's set, so the agreement extends to it.
   Every constant of the challenge is stored in its final environment
   as declared, so it holds in $M_c$, as in @thm:accepted-model.
 ]
-
-The fragment shares definitions and assumptions only. Con-leche
-shares an inductive block too, whole (below).
 
 A hole whose statement is an empty proposition is never justified:
 by the typing law of $M_s$, as in the proof of @lem:cmp-hole, the
@@ -221,12 +230,9 @@ environment with $t$ has no model at all.
   `con-leche --olean --compare CHALLENGE SOLUTION`: the solution's
   closure is checked in full, then the challenge's closure, read from
   the trusted directories alone, is checked in full with its holes
-  justified by the solution's environment. What the challenge's
-  closure holds
-  #src("ConLeche/Verify/CompareInput.lean", 140, 142)[depends only on the files under the trusted directories]:
-  it is the same on two file systems that agree on every path the
-  reader forms there, so an accepted run speaks of the trusted files
-  alone. In both modes,
+  justified by the solution's environment; what that closure holds
+  #src("ConLeche/Verify/CompareInput.lean", 140, 142)[depends only on the files under the trusted directories],
+  so an accepted run speaks of the trusted files alone. In both modes,
   everything the challenge imports is part of what is checked.
 
   A hole is an axiom other than the built-in ones (`propext`,
@@ -268,8 +274,9 @@ environment with $t$ has no model at all.
   challenge holds no hole of type `False`, since `False` denotes the
   empty set.
 
-  The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
-  different rule. A theorem must be a theorem on both sides, and a
+  The rule is a design choice, and another tool chooses differently:
+  #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
+  stricter rule. A theorem must be a theorem on both sides, and a
   definition a definition; every other constant the statements reach is
   compared with Lean's own equality on declarations, level-parameter
   names, binder names and annotations included. Con-leche accepts as
@@ -283,44 +290,49 @@ environment with $t$ has no model at all.
 
 When a development is checked module by module (@sec:modular), the
 challenge $c$ is one more module, and it passes the local checks of
-@sec:mod-local like any other module. Its imports are its own imports
-and the solution $s$, with the solution's full own environment as the
-view. So its context $Gamma_c$ is assembled from the views of both, and
-every two copies of a context name in these views agree (@def:valid).
+@sec:mod-local like any other module. It imports the imported views
+of its own imports and one more, the solution $s$ with the solution's
+full own environment. So its context $Gamma_c$ is assembled from these
+imported views, and every two copies of a context name in them agree
+(@def:valid).
 
-A declaration of the challenge is a _copy_ when a view it imports
-stores one of its names. A copy is not one of the challenge's
-declarations $D_c$. Its names are names of the context $Gamma_c$, read
-from the module $From_c (n)$ like any imported name, and its entry in
-$E_c$ is the context's entry. The checker compares a copy with that
-entry. Let the entry have level parameters $arrow(q)$ and type $T$, and
-let the copy have level parameters $arrow(p)$, distinct and as many as
-$arrow(q)$. A hole, a theorem or an opaque constant is a copy of the
-entry's statement,
+A declaration of the challenge is a _copy_ when one of its names is
+already stored by an imported view. A copy is not one of the
+challenge's declarations $D_c$. Each name $n$ of a copy is a name of
+the context $Gamma_c$, read from the module $From_c (n)$ like any
+imported name, and its entry in $E_c$ is the context's entry. The
+checker compares the copy with that entry. Let the entry have level
+parameters $arrow(q)$ and type $T$, and let the copy have level
+parameters $arrow(p)$, distinct and as many as $arrow(q)$, and type
+$T_c$. A hole, a theorem or an opaque constant is a copy when it
+states the entry's statement,
 $
   T_c = T [arrow(q) := arrow(p)];
 $
 a definition has the entry's value too, renamed in the same way, and
 an inductive block is the same block. Every other declaration of the
 challenge is its own, in $D_c$, and is checked. A hole among them is
-rejected: no view supplies its value.
+rejected: no imported view supplies its value.
 
 The closure condition of @sec:cmp-what has no counterpart here. The
 challenge and the solution are read in one context. A name that a
-copy's statement reads is one entry of $Gamma_c$, whichever views
-store it, and the agreement of copies gives every copy of it one value
-in the models.
+copy's statement reads is one entry of $Gamma_c$, whichever imported
+views store it, and the agreement of copies gives every copy of it one
+value in the models.
 
-#theorem(name: "The challenge has a solution, module by module")[
-  Let the modules $j <= c$ pass their local checks. Then
-  #src("whitepaper/Fragment/Compare.lean", 771, 776)[every module $j <= c$ has a model $M_j$ of the constants of $D_j$],
-  as in @thm:mod-input, with $M_j (n) = M_(j') (n)$ whenever $j$ sees
-  $n$ as $j'$'s, and every copy holds in the challenge's model: for
-  every entry $(n.\{arrow(q)\} : T)$ of $Gamma_c$ and distinct level
-  parameters $arrow(p)$ with $|arrow(p)| = |arrow(q)|$, the entry
-  #src("whitepaper/Fragment/Compare.lean", 715, 720)[renamed to $arrow(p)$]
-  (its type, and a definition's value, renamed; an inductive block's
-  entry unchanged) holds in $M_c$ (@def:input-model).
+#theorem(name: "The challenge has a model, module by module")[
+  Let the modules $j <= c$ pass their local checks. Then there are
+  assignments $M_j$, for $j <= c$, such that
+  + #src("whitepaper/Fragment/Compare.lean", 771, 776)[every module $j <= c$ has a model $M_j$ of the constants of $D_j$]
+    (@def:input-model);
+  + $M_j (n) = M_(j') (n)$ whenever $j$ sees $n$ as $j'$'s, for
+    $j, j' <= c$, as in @thm:mod-input;
+  + every copy holds in the challenge's model: for every entry
+    $(n.\{arrow(q)\} : T)$ of $Gamma_c$ and distinct level parameters
+    $arrow(p)$ with $|arrow(p)| = |arrow(q)|$, the entry
+    #src("whitepaper/Fragment/Compare.lean", 715, 720)[renamed to $arrow(p)$]
+    (its type, and a definition's value, renamed; an inductive block's
+    entry unchanged) holds in $M_c$.
 ] <thm:cmp>
 
 #proof[
@@ -351,12 +363,14 @@ it.
 In the second way, a module $a$ declares $f : Nat := 3$, and the
 challenge imports $a$ and has the hole $t : f = 5$. A solution that
 does not import $a$ declares its own $f : Nat := 5$ and proves $t$ by
-unfolding it. The challenge's views then store two copies of $f$,
-$a$'s and the solution's. Whichever of them the challenge reads $f$
-from, the module of the other copy declares $f$ itself, and that copy
-is no proof. Such a copy
-#src("whitepaper/Fragment/Compare.lean", 695, 701)[agrees only as a proof],
-so the challenge does not pass its local checks. In an accepted
+unfolding it. The challenge's imported views then store two copies of
+$f$, $a$'s and the solution's. Whichever of them the challenge reads
+$f$ from, the other copy comes from a module that declares $f$
+itself, not from an earlier module both import. Of the cases of
+agreement that @def:valid asks for, only the last is left for it, and
+#src("whitepaper/Fragment/Compare.lean", 695, 701)[such a copy agrees only as a proof]:
+both copies would have to be proofs, and a definition of $f$ as $3$
+or $5$ is none. So the challenge does not pass its local checks. In an accepted
 challenge that imports $a$, $f$ is $a$'s $f$, and it is $3$ in every
 model of the compatible family.
 

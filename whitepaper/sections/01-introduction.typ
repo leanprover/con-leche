@@ -119,8 +119,8 @@ container deep and not under a binder (@sec:nested describes the full check, wit
 reads `False`, `Eq` and `Nat` from the input alone (the real checker
 also compares them with pinned copies), and has none of the checker's
 performance devices (memo tables, fuel, the parallel check phase).
-@sec:left-out lists every omission with one sentence on what the real
-proof does about it. The fragment is verified in Lean in a small
+@sec:left-out lists every omission, with a short account of what the
+real proof does about it. The fragment is verified in Lean in a small
 development of its own, `whitepaper/Fragment/`, which imports nothing
 from the main proof and is parametric in the same kind of abstract set
 theory. The underlined source links lead into the real proof and into

@@ -4,14 +4,14 @@
 
 The fragment of §2–§4 is the real checker with everything removed that
 does not change the shape of the argument. This section lists what was
-removed, with one sentence on what the real proof does about it and a
-link to the code. Then it describes where the real proof's
+removed, each with a short account of what the real proof does about
+it and links to the code. Then it describes where the real proof's
 architecture differs from the fragment's on the features they share.
 
 == Dropped features
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
-field of a structure value. For every inductive type with one
+field of a structure value `e`. For every inductive type with one
 constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 68, 75)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 174, 189)[reduces a projection of a
@@ -53,16 +53,16 @@ copies of the toolchain's `Eq`, `Nat`, `Empty`, `False` and the quotient
 (#src("ConLeche/Kernel/Basis/False.lean", 37, 39)[`False`, for instance],
 #src("ConLeche/Kernel/Basis/Builder.lean", 8, 17)[the builder]). A
 stream block that carries a pin's names is checked and stored like any
-other block; after those checks,
-#src("ConLeche/Kernel/Basis.lean", 144, 151)[one more check] compares it
-with the pin up to the universe parameters it declares and rejects it
-if they disagree, as it rejects any other declaration that takes a
-pinned name. A quotient record is compared with its pin and stores the
-pin at the universe parameters it declares; one that disagrees is
-declined. The main theorem names neither `False` nor `Eq`: their
-declarations' own clauses make them the empty set and equality in
-every model, and the pins are what lets a corollary read those
-clauses off a stream that declares the names.]
+other block, and then
+#src("ConLeche/Kernel/Basis.lean", 144, 151)[compared with the pin]
+up to the universe parameters it declares; a block that disagrees, or
+any other declaration that takes a pinned name, is rejected. A
+quotient record stores its pin, at the universe parameters it
+declares, and one that disagrees with the pin is declined. The main
+theorem names neither `False` nor `Eq`: their declarations' own
+clauses make them the empty set and equality in every model. The pins
+let a corollary read those clauses off a stream that declares the
+names.]
 
 #left-out[Axioms][The fragment has none outside the holes of
 @sec:compare, which a solution fills. Checked on its own, the real
@@ -98,14 +98,20 @@ checker is a program, connected to the relations by further theorems
 (@sec:differs).]
 
 #left-out[The parallel check][#src("ConLeche/Cached/Decls.lean", 86, 87)[The fold] checks the declarations
-one by one, each against the environment of those before it\; the binary builds
+one by one, each against the environment of those before it. The
+executable instead builds
 #src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
-and runs the checks on a pool of workers, each against the index's view of the declarations before
-it, walking the results in fold order, so its verdict is the fold's.
-#src("ConLeche/Verify/Cached/StreamIndex.lean", 527, 531)[Every check passing is an accept of the fold],
+and checks them in parallel, each against the index's view of the
+declarations before it\;
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 527, 531)[every check passing is an accept of the fold],
 which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
+
+The differences run from the terms outwards: how variables and terms
+are represented, how the relations are organised, how the executable
+checker is connected to them, how the main theorem is stated, and what
+surrounds the declaration fold.
 
 *Free variables carry their types.* The paper uses named variables and a
 context. The real checker keeps no context at all. When it opens a binder it
@@ -126,8 +132,8 @@ applied), and built-in constants at concrete levels. That reading,
 syntactic reasons: an unknown constant, a wrong number of levels, or a
 projection with no table. The interpretation
 #src("ConLeche/Semantics/Interp.lean", 134, 145)[`interp`] then maps
-the term to a set, reading each binder off the values
-as @sec:interp does. The paper folds the two steps into one
+the term to a set, interpreting each Π-type and lambda-expression from
+the values, as @sec:interp does. The paper folds the two steps into one
 denotation on the terms themselves.
 
 *Six relations, and a mode index.* Beside reduction,
@@ -145,7 +151,7 @@ states as a relation of its own.
 *The bridge and the recomposition.* Because the real checker is a
 program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 29, 32)[The bridge] turns an accepting
 run at any fuel into a derivation, by one induction on fuel in which
-each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 77, 78)[The soundness] is the paper's
+each step of the checker lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 77, 78)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a
 lemma about one rule, never mentioning the implementation. #src("ConLeche/Model/Rules/Recompose.lean", 50, 55)[The
 recomposition] puts them together, claim by claim. It bridges the run,
@@ -153,23 +159,27 @@ applies the soundness, and hands the result to the declaration fold.
 
 *The statement over `Expr.eval`.* The main theorem is stated over
 #src("ConLeche/IsModel.lean", 212, 213)[`IsModel`], a notion of model of the
-INPUT stream, written to be read in one sitting: a model gives every constant a set at
+input stream itself: a model gives every constant a set at
 the values of its universe levels, and every constant of every declaration holds in it, each
 on its own. Its
 terms are read by #src("ConLeche/IsModel.lean", 128, 129)[`Expr.eval`], a total
 function on the checker's own terms with one equation per syntax form. A constant is a
 member of what its type denotes, a definition is what its value denotes, and every recursor
-rule's ι equation holds: #src("ConLeche/Kernel/Inductives/IotaRead.lean", 188, 188)[the equation]
+rule's ι equation holds.
+
+#src("ConLeche/Kernel/Inductives/IotaRead.lean", 188, 188)[The ι equation]
 is read off the recursor's own type, as a closed `Eq` between the recursor applied to a
 constructor and the rule's right-hand side, and what it denotes is inhabited. The rule's minor
 premise gives the fields and the indices, its major premise's type the constructor's levels and
 parameters\; no constructor is looked up. The checker accepts a recursor only where this
 reading is the one through its constructors, up to equivalent levels and the type annotations
-Lean's kernel consumes, which mean the identity on a type by their own definitions. So a
+the official kernel consumes, which mean the identity on a type by their own definitions. So a
 constant behind an import
 still means what its declaration says. Nothing is fixed by name: `False` is empty and `Eq`
 is equality because of their declarations' own clauses, and the checker accepts a stream
-declaring them only as the prelude does, which the corollaries use. The proofs' own model is of the environment the checker builds,
+declaring them only as the prelude does, which the corollaries use.
+
+The proofs' own model is of the environment the checker builds,
 read by a relation `Denotes`\; #src("ConLeche/Model/IsModelBridge.lean", 116, 118)[a theorem]
 says that `Expr.eval` agrees with it wherever it reads, and
 #src("ConLeche/Model/IsModelBridge.lean", 665, 668)[the bridge] carries that model to one of
@@ -178,8 +188,8 @@ has the same shape over the fragment's terms (@def:input-model), with the rules 
 fragment's generated recursors read off their types; its proofs' model is of the environment
 too (§3), and the step from one to the other is the proof of @thm:accepted-model.
 
-*The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 8, 11)[a
-clone of the pure one] over a term representation that carries a
+*The cached checker and its simulation.* The core the executable runs is #src("ConLeche/Cached/CoreC.lean", 8, 11)[a
+copy of the pure one] over a term representation that carries a
 precomputed hash in every node, with memo tables for reduction,
 equality and inference. #src("ConLeche/Verify/Cached/SimC.lean", 10, 15)[A simulation proof] shows
 that every successful run of the cached core is a successful run of the
@@ -187,20 +197,23 @@ pure fuelled core at some fuel, with the memo tables' invariant
 preserved\; the main
 theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the fold's soundness].
 
-*Modular checking.* In the fragment, a module's context, views and
-the module each context name is read from are given, and the local
-checks of @sec:mod-local say what they must satisfy. Con-leche states
+*Modular checking.* In the fragment, a module's context, its imported
+views, and the module each context name is read from are given, and
+the local checks of @sec:mod-local say what they must satisfy.
+Con-leche states
 #src("ConLeche/Modular.lean", 209, 229)[the same checks] over its own
-records, a context being a list of the records its imports present, in
-an order in which every record reads only itself and earlier records, and
-carries #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
+records. A context there is a list of the records its imports present,
+in an order in which every record reads only itself and earlier
+records. Con-leche proves #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
 models gives #src("ConLeche/MainTheorem.lean", 171, 178)[the modular
-theorem]. Con-leche
-computes a module's context from the `.olean` files and checks the
-module's own records against it, one module per run, and
+theorem]. The executable computes a module's context from the `.olean`
+files and checks the module's own records against it, one module per
+run, and
 #src("ConLeche/Verify/Driver/Routes.lean", 346, 347)[the runs at every module
-of an import closure together give the local checks]. Over the files themselves,
+of an import closure together give the local checks].
+
+Over the files themselves,
 #src("ConLeche/MainTheorem.lean", 187, 198)[the modular theorem] gives one model per module
 of the closure, each a model of its module's constants as the `.olean` files hold them, and a
 name a module sees as another module's (its header loads a part of that module holding a
@@ -221,9 +234,9 @@ own record where it has one and the copy's where it has none, and it
 moves the structural `Nat` operations that a pinned `Nat` operation is
 defined from ahead of it.
 #src("ConLeche/Verify/Frontend/Prepare.lean", 174, 175)[A theorem
-says that this is all]. The fold's input is a permutation of the
-decoded list plus records of the built-in prelude, and nothing is
-rewritten or generated. What no theorem says is that the decoded
-list means the same as the export file: the decoder is written to be
-meaning-preserving, and that is a review claim. The fragment has no
+states that it does nothing else]: the fold's input is a permutation
+of the decoded list plus records of the built-in prelude, and nothing
+is rewritten or generated. No theorem relates the decoded list to the
+meaning of the export file: that the decoder preserves meaning is
+established by review, not by proof. The fragment has no
 frontend: its stream is its environment.
