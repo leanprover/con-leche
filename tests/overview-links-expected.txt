@@ -143,9 +143,9 @@
    114  #guard_msgs in
    115  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Dispatch.lean#L49-L50
-    49    | .oleans sp roots cs mode maxNatSize pace jobs =>
-    50      checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
+== ConLeche/Driver/Dispatch.lean#L50-L51
+    50    | .oleans sp roots cs mode maxNatSize pace jobs =>
+    51      checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
 
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -153,12 +153,12 @@
 == ConLeche/Frontend/CheckerIO.lean#L310
    310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L250-L254
-   250  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
-   251      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
-   252      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   253        parseChunks [b] = .ok r ∧
-   254        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L255-L259
+   255  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
+   256      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
+   257      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   258        parseChunks [b] = .ok r ∧
+   259        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -1449,7 +1449,7 @@
    225        c.toConstantVal.type = cv.type := by
 
 == ConLeche/Driver/Cli.lean#L332
-   332  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+   332  argument parse, `--help` and the usage errors, the request run, and the
 
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -1472,7 +1472,7 @@
     95  def main (args : List String) : IO Unit := do
 
 == ConLeche/Driver/Cli.lean#L332
-   332  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+   332  argument parse, `--help` and the usage errors, the request run, and the
 
 == Main.lean#L28
     28  def enableAbortOnNonlinear : IO Unit := do
