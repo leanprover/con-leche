@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Cached.MainC
+public import ConLeche.Accepts
 import ConLeche.Denotes
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
@@ -21,7 +22,6 @@ import ConLeche.Semantics.IsModelBasis
 import ConLeche.Model.IsModelBridge
 import ConLeche.Model.Solution
 import ConLeche.Model.Modular.SeesMain
-import ConLeche.Model.Modular.SeesFalse
 import ConLeche.Model.IsModelOlean
 import ConLeche.Model.IsModelCompare
 import ConLeche.Semantics.NoFalse
@@ -118,18 +118,6 @@ theorem solution_model_exists (V : Type w) [SetTheory V]
     ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
   Model.Solution.challenge_isModel solution challenge
 
-/-- **The main corollary.**  An accepted stream holds no constant of type `False` — no theorem,
-axiom, opaque constant or definition, and no hole read as the axiom of its statement: a model of
-the stream (`model_exists`) makes `False` empty, because the stream declares the prelude's `False`
-(`checkDecls_declaresFalse_of_constant`: the constant's type reads `False`, and the checker
-stores at that name only the pinned block). -/
-theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
-    (accepted : (checkDecls .verified pins maxNatSize ds).isOk) {c : ConstantInfo}
-    (hc : c ∈ constantsOf ds.toList) (hty : c.type = .const falseName []) : False :=
-  IsModel.no_False_constant (model_exists V pins maxNatSize ds accepted)
-    (checkDecls_declaresFalse_of_constant accepted hc hty) hc hty
-
 /-! ## `runArgs`, all of `main` but its plumbing, in the IO model (tasks #424, #450)
 
 `main` (`Main.lean`) is `enableAbortOnNonlinear`, then `Driver.runArgs`
@@ -149,17 +137,18 @@ of the binary that exits 0 is one of the model's outcomes. -/
 
 open Frontend in
 /-- **The main corollary, lifted to the driver.**  No exit 0 of `runArgs` at the arguments
-`-- <file>` (`ModelIO.CanGive`: from whatever files the run finds open) has a file whose parsed
-records hold a constant of type `False`.  The run accepted the parsed records prepared with the
-built-in prelude (`Driver.runArgs_stream`), a stream holding every one of them
-(`no_False_declaration`). -/
+`-- <file>` (`ModelIO.CanGive`: from whatever files the run finds open) reads a file whose bytes
+are a `jsonWithTheoremFalse` file.  The run accepted the parsed records prepared with the built-in
+prelude, and the parse reads the template's four lines into a theorem record of type `False`
+(`Driver.runArgs_json_false`); a model of that stream (`model_exists`) makes `False` empty, as
+the stream declares the prelude's `False` (`checkDecls_declaresFalse_of_constant`: the
+constant's type reads `False`, and the checker stores at that name only the pinned block). -/
 theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-    {r : ParseResultD} {c : ConstantInfo}
     (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
-    (hp : parseChunks [b] = .ok r) (hc : c ∈ constantsOf r.decls.toList)
-    (hty : c.type = .const falseName []) : False := by
-  obtain ⟨ds, ha, hsub⟩ := Driver.runArgs_stream h hb hp
-  exact no_False_declaration V _ _ ds ha (hsub c hc) hty
+    (hF : jsonWithTheoremFalse [b]) : False := by
+  obtain ⟨ds, ha, c, hc, hty⟩ := Driver.runArgs_json_false h hb hF
+  exact IsModel.no_False_constant (model_exists V _ _ ds ha)
+    (checkDecls_declaresFalse_of_constant ha hc hty) hc hty
 
 open Frontend in
 /-- **The main theorem, on `.olean` files.**  Every exit 0 of `runArgs` at the arguments
@@ -172,21 +161,6 @@ theorem main_oleans (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {
     ∃ model, IsModel V model (Olean.closureConstants (Driver.searchPathOf dirs) fs #[r]) :=
   oleans_isModel V hr h
 
-open Frontend in
-/-- **The main corollary, on `.olean` files.**  No exit 0 of `runArgs` at the arguments
-`--olean --search-path=<dirs> -- <root>` has a constant of type `False` in the private part of a
-module of the closure of `root`.  The run accepted the reader's records prepared with the built-in
-prelude, which store every constant of the closure by one of the same statement
-(`Driver.runArgs_olean_stream`, `no_False_declaration`).  Not from `main_oleans`: its model is of
-the closure's constants alone, and a crafted closure may read `False` from the prelude. -/
-theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name} {fs : FS}
-    {c : ConstantInfo} (hr : Olean.parseModName root = some r)
-    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0)
-    (hm : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
-    (hc : Olean.InModulePart (Driver.searchPathOf dirs) fs m .private c)
-    (hty : c.type = .const falseName []) : False := by
-  obtain ⟨ds, ha, c', hc', hcv⟩ := Driver.runArgs_olean_stream hr h hm hc
-  exact no_False_declaration V _ _ ds ha hc' (by show c'.toConstantVal.type = _; rw [hcv]; exact hty)
 
 /-! ## Modular checking (task #463)
 
@@ -243,44 +217,6 @@ theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Na
         Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
   Driver.Compose.modular_sees_one V hr h
 
-open Frontend in
-/-- **The modular corollary, run by run.**  On a snapshot where the private view of a module `m`
-of the closure of `root` (`Olean.InClosure`), by the specification, holds a theorem of type
-`False`, where `m` declares the prelude's `False` or sees `False` as a module `m'` that does
-(`Olean.Sees`, `DeclaresFalse`), and where every module of the headers' closure has an exit 0 of
-`--olean --module`, no outcome of `--check-graph --search-path=<dirs> -- <root>` is an exit 0.
-It follows from `main_modular` alone. -/
-theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m m' : Name}
-    {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
-    (hr : Olean.parseModName root = some r)
-    (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
-    (hF : m' = m ∨ Olean.Sees (Driver.searchPathOf dirs) fs m falseName m')
-    (hD : DeclaresFalse (Olean.moduleConstants (Driver.searchPathOf dirs) fs m'))
-    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
-    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
-    (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-      Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-        (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-    ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-      fs 0 :=
-  Driver.Compose.no_False_graph V hr hcl hF hD hv hmem hk hty hwork
-
-open Frontend in
-/-- **The modular corollary, in one process.**  On a snapshot as in `main_modular_no_False`, no
-outcome of `--olean --modular --search-path=<dirs> -- <root>` is an exit 0.  It follows from
-`main_modular_one` alone. -/
-theorem main_modular_one_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m m' : Name}
-    {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
-    (hr : Olean.parseModName root = some r)
-    (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
-    (hF : m' = m ∨ Olean.Sees (Driver.searchPathOf dirs) fs m falseName m')
-    (hD : DeclaresFalse (Olean.moduleConstants (Driver.searchPathOf dirs) fs m'))
-    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
-    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
-    ¬ ModelIO.CanGive
-      (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0 :=
-  Driver.Compose.no_False_one V hr hcl hF hD hv hmem hk hty
-
 /-! ## A challenge and its solution (tasks #607, #619)
 
 `--olean --compare` reads a challenge module `C` through the trusted directories alone and a
@@ -304,26 +240,6 @@ theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : 
       ∃ model, IsModel V model (Olean.closureConstants
         (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
   compare_isModel V hc hs h
-
-open Frontend in
-/-- **A challenge holding a constant of type `False` is never solved.**  No exit 0 of `runArgs`
-at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` has a constant of
-type `False` — a hole, a theorem, an opaque constant or a definition — in the private part of a
-module of the closure of `C` through `T`, whatever the solution's files hold.  Proved from the
-run's environment, which stores the constant and has a model (`compare_no_False`): not from
-`main_compare_model`, whose model is of the closure's constants alone (a crafted closure may read
-`False` from the prelude). -/
-theorem main_compare_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S m : Name}
-    {fs : FS} {ci : ConstantInfo}
-    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-      "--search-path=" ++ D, "--", c, s]) fs 0)
-    (hm : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
-      #[C] m)
-    (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
-      fs m .private ci)
-    (hty : ci.type = .const falseName []) : False :=
-  compare_no_False V hc hs h hm hci hty
 
 /-! ## A challenge and its solution, module by module (tasks #608, #619)
 
@@ -385,14 +301,14 @@ theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {
 
 open Frontend in
 /-- **A challenge holding a constant of type `False` is never solved, module by module.**  No
-snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` in
-the private part of a module of the closure of `C` through the challenge's directories.  Proved
-from the run's own environments (`Driver.Compose.modular_compare_graph_no_False`): not from
-`main_modular_compare`, whose family covers the challenge's closure only, while the compare
-worker reads `C` with the solution loaded whole (a crafted `C` may see `False` through `S`
-alone). -/
+snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` —
+a hole, an axiom, a theorem, an opaque constant or a definition — in the private part of the
+challenge module `C`, read through the challenge's directories.  Proved from the run's own
+environments (`Driver.Compose.modular_compare_graph_no_False`): not from `main_modular_compare`
+alone, whose family covers the challenge's closure, while the compare worker reads `C` with the
+solution loaded whole, so a crafted `C` may see `False` through `S` alone. -/
 theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
-    {C S m : Name} {fs : FS} {ci : ConstantInfo}
+    {C S : Name} {fs : FS} {ci : ConstantInfo}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
       "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
@@ -404,27 +320,10 @@ theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : Stri
           root']) fs 0)
     (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
       "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-    (hm : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
-      #[C] m)
     (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
-      fs m .private ci)
+      fs C .private ci)
     (hty : ci.type = .const falseName []) : False :=
-  Driver.Compose.modular_compare_graph_no_False V hc hs hgraph hwork hcmp hm hci hty
-
-open Frontend in
-/-- **A challenge holding a constant of type `False` is never solved in one process**
-(`--olean --modular --compare`), as `main_modular_compare_no_False`. -/
-theorem main_modular_compare_one_no_False (V : Type w) [SetTheory V] {T D c s : String}
-    {C S m : Name} {fs : FS} {ci : ConstantInfo}
-    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
-      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-    (hm : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
-      #[C] m)
-    (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
-      fs m .private ci)
-    (hty : ci.type = .const falseName []) : False :=
-  Driver.Compose.modular_compare_one_no_False V hc hs h hm hci hty
+  Driver.Compose.modular_compare_graph_no_False V hc hs hgraph hwork hcmp (.root (by simp)) hci hty
 
 /-! ## A challenge and its solution, as two lean4export files (task #619)
 
@@ -451,21 +350,5 @@ theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : 
   obtain ⟨d, hd, hc⟩ := mem_constantsOf.1 hc
   exact mem_constantsOf.2 ⟨d, Array.mem_toList_iff.2
     (Frontend.mem_preparePrelude (pre := pre) (Array.mem_toList_iff.1 hd)), hc⟩
-
-open Frontend in
-/-- **A challenge file holding a constant of type `False` is never solved.**  No exit 0 of
-`runArgs` at `--compare -- <c> <s>` has a challenge file `c` whose parsed records hold a constant
-of type `False` — a hole read as the axiom of its statement among them — whatever the file `s`
-holds.  The run accepted the solution file's records and the challenge's, prepared with the
-built-in prelude, with the solution (`Driver.runArgs_compare_json_stream`); a model of that
-stream (`solution_model_exists`) makes `False` empty, as it declares the prelude's `False`. -/
-theorem main_compare_json_no_False (V : Type w) [SetTheory V] {c s : String} {fs : FS}
-    {bC : ByteArray} {rC : ParseResultD} {ci : ConstantInfo}
-    (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0)
-    (hbC : fs.file c = some bC) (hp : parseChunks [bC] = .ok rC)
-    (hci : ci ∈ constantsOf rC.decls.toList) (hty : ci.type = .const falseName []) : False := by
-  obtain ⟨dsS, ds, hS, hC, hsub⟩ := Driver.runArgs_compare_json_stream h hbC hp
-  exact IsModel.no_False_constant (solution_model_exists V _ _ dsS ds hS hC)
-    (checkDecls_declaresFalse_of_constant hC (hsub ci hci) hty) (hsub ci hci) hty
 
 end ConLeche

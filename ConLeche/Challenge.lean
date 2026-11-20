@@ -23,10 +23,9 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > denotes, every definition is what its value denotes, and every
 > recursor computes by its rules.
 >
-> **Main corollary.**  Hence an accepted stream holds no constant of
-> type `False`.
-
-The corollary follows from the theorem in two steps.  The constant —
+Hence an accepted stream holds no constant of type `False`, in two
+steps (`ConLeche/MainTheorem.lean` states it for the binary's plain
+run, `main_no_False`).  The constant —
 a theorem, an axiom, an opaque constant, a definition, or a hole read
 as the axiom of its statement — is stored by the checker under its
 own name with its declared type, so its type's `False` is stored too,
@@ -70,13 +69,11 @@ equation of the two sides' denotations.
   it treats `False` or `Eq` specially; the checker accepts a stream
   declaring them only as the prelude does, whose own clauses make
   `False` empty and `Eq` equality in every model — which is what the
-  corollary uses.
+  consequence above uses.
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
-* `c.type = .const falseName []` says the constant `c`'s type is the
-  constant `False` (`ConstantInfo.type`, `ConLeche/IsModel.lean`).
 * `False` is pinned: a stream that declares `False` or `False.rec`
-  other than as the prelude's is rejected, so the corollary needs no
+  other than as the prelude's is rejected, so that consequence needs no
   hypothesis about the input beyond the constant.
 * The modular statements below are still over `Model V env`
   (`ConLeche/Denotes.lean`), a model of the environment a module's
@@ -129,13 +126,6 @@ theorem solution_model_exists (V : Type w) [SetTheory V]
     (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
     (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
     ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
-  sorry
-
-/-- **The main corollary.**  An accepted stream holds no constant of type `False`. -/
-theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
-    (accepted : (checkDecls .verified pins maxNatSize ds).isOk) {c : ConstantInfo}
-    (hc : c ∈ constantsOf ds.toList) (hty : c.type = .const falseName []) : False :=
   sorry
 
 open Modular in

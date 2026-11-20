@@ -260,30 +260,4 @@ theorem modular_compare_graph_no_False (V : Type w) [SetTheory V] {T D c s : Str
     obtain rfl : m' = e.1 := Option.some.inj (hp'.symm.trans hp)
     exact ⟨jobs', by rw [cmpExtra_other hMC]; exact hacc C' S'⟩
 
-/-- **No constant of type `False` in an accepted modular comparison, in one process.** -/
-theorem modular_compare_one_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-    {fs : FS} (hc : parseModName c = some C) (hs : parseModName s = some S)
-    (h : ModelIO.CanGive (runArgs ["--olean", "--modular", "--compare",
-      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-    {m : Name} {ci : ConstantInfo}
-    (hcl : InClosure (trustedOr (searchPathOf T) (searchPathOf D) : Roots) fs #[C] m)
-    (hci : InModulePart (trustedOr (searchPathOf T) (searchPathOf D) : Roots) fs m .private ci)
-    (hty : ci.type = .const falseName []) : False := by
-  obtain ⟨_, _, h⟩ := h
-  obtain ⟨C', S', hc', hs', jobs, Cg, Tg, ⟨_, _, hg⟩, hall⟩ := runArgs_modularCmpT_accept h
-  obtain rfl : C' = C := Option.some.inj (hc'.symm.trans hc)
-  obtain rfl : S' = S := Option.some.inj (hs'.symm.trans hs)
-  obtain ⟨rk, good, hroots, edges, inj, -⟩ := Graph.graphOf_ok (CmpReq.solRoots_bare _) hg
-  have hhdr := Graph.graphOf_closure (CmpReq.solRoots_bare _) (roots' := [C', S'])
-    (fun r hr => by simp at hr; simp [hr])
-    (fun m i hi => by
-      unfold Graph.cmpExtra at hi
-      split at hi
-      · simp [Graph.solutionImport] at hi; simp [hi]
-      · simp at hi) hg
-  exact compare_no_False V (maxNatSize := Cached.maxNatSizeDefault) Cg.toList rk good
-    (hroots C' (by simp)) edges inj hhdr (fun M hM => by
-      obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
-      exact ⟨1, hall e he⟩) hcl hci hty
-
 end ConLeche.Driver.Compose

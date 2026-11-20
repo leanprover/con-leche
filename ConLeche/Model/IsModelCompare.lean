@@ -43,21 +43,4 @@ theorem compare_isModel (V : Type w) [SetTheory V] {T D c s : String} {C S : Nam
   rw [← closureConstants_local hag]
   exact ⟨_, isModel_of_envModelM m hst⟩
 
-/-- **A challenge whose closure through the trusted path holds a constant of type `False` has no
-accepted `.olean` comparison**: the run's environment stores the constant
-(`Driver.runArgs_compare_stored`), and it has a model (`Model.no_constant_of_False`). -/
-theorem compare_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S m : Name} {fs : FS}
-    {ci : ConstantInfo} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-      "--search-path=" ++ D, "--", c, s]) fs 0)
-    (hm : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs #[C] m)
-    (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
-      m .private ci)
-    (hty : ci.type = .const falseName []) : False := by
-  obtain ⟨_, _, h⟩ := h
-  obtain ⟨_, _, _, _, fe, hS, hrun, hst⟩ := Driver.runArgs_compare_stored hc hs h
-  obtain ⟨mo⟩ := Model.Solution.solution_envModel_run (V := V) hS hrun
-  obtain ⟨ci', hfi, hsa, -⟩ := hst _ ⟨m, hm, hci⟩
-  exact Model.no_constant_of_False mo ci' (Env.find?_mem hfi) (by rw [hsa.1]; exact hty)
-
 end ConLeche

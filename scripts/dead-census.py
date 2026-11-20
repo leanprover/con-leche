@@ -55,7 +55,7 @@ the sources.
 ## THE CHALLENGE IS ITS OWN ENVIRONMENT (lane GATEFIX)
 
 `ConLeche/Challenge.lean` restates `model_exists` and
-`no_False_declaration` under the SAME names as `ConLeche/MainTheorem.lean`
+the other main theorems under the SAME names as `ConLeche/MainTheorem.lean`
 (it is the challenge half of the Comparator pair), so the two cannot share
 an environment: `importModules` either rejects the pair (when the two
 statements differ — a stale Challenge olean, since `lake build` does not
@@ -143,7 +143,6 @@ SEED_ATTRS = {"command_elab", "term_elab", "tactic", "builtin_command_elab",
 
 CAPSTONES = [
     "ConLeche.main_no_False",
-    "ConLeche.no_False_declaration",
     "ConLeche.Cached.no_proof_of_False_cached",
     "ConLeche.Model.no_proof_of_False_pure",
     "ConLeche.Cached.no_proof_of_Empty_cached",
