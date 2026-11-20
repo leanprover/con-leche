@@ -821,35 +821,34 @@ theorem helpWanted_compare (T D c s : String) :
 
 /-- **`runArgs` on `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`,
 in the model**: every outcome that is an exit 0 read the challenge `C` (`c`) through `T` alone
-and the solution `S` (`s`) through `T`, then `D`, every constant of the challenge's closure; the
-comparison of the challenge's own records and what they read (`chalCmpRecs`) and its order check
-passed; and `checkDecls .verified` accepts the solution's records
-prepared with the built-in prelude, with the theorems' values in place. -/
+and the solution `S` (`s`) through `T`, then `D`, every constant of both closures;
+`checkDecls .verified` accepts the solution's records prepared with the built-in prelude, with the
+theorems' values in place, at the environment they denote, and the fold with that environment as
+the solution has an accepting run over the challenge's records as its check reads them. -/
 theorem runArgs_compare_accept {T D c s : String} {C S : Name} {fs : FS} {hs hs' : HS}
     (hc : Olean.parseModName c = some C) (hsol : Olean.parseModName s = some S)
     (h : (runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T, "--search-path=" ++ D,
       "--", c, s] : ModelIO _) fs hs (.ok 0) hs') :
     let r : CmpReq := ⟨C, S, searchPathOf T, searchPathOf D, none⟩
-    ∃ pre rdC rdS ctx filled env, builtinPreludeE = .ok pre ∧
+    ∃ pre rdC rdS n fe, builtinPreludeE = .ok pre ∧
       ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
         (homes := true)) fs (.ok rdC) ∧
-      ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
-        (homes := true)) fs (.ok rdS) ∧
-      compareRecords C (usedOf (some (r.chalRoots.path, rdC))) rdC.homes rdS.homes
-        (cmpRecs pre r.solRoots rdS) (recIndex (cmpRecs pre r.solRoots rdS))
-        (chalCmpRecs pre C none r.chalRoots rdC) = .ok (ctx, filled) ∧
-      ctxScoped ctx = none ∧
+      ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)) fs (.ok rdS) ∧
       Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault
-        ((cmpRecs pre r.solRoots rdS).map
-          (Cached.fillDecl (fillOf r.solRoots fs rdS.values))) = .ok env := by
+        (solChecked pre r.solRoots fs rdS) = .ok (streamEnv (solChecked pre r.solRoots fs rdS).toList) ∧
+      Cached.DeclsRun .verified natOpPinSets Cached.maxNatSizeDefault
+        (Cached.solutionOf (some (streamEnv (solChecked pre r.solRoots fs rdS).toList))
+          (chalChecked pre (streamEnv (solChecked pre r.solRoots fs rdS).toList) r.chalRoots fs rdC))
+        (chalChecked pre (streamEnv (solChecked pre r.solRoots fs rdS).toList) r.chalRoots fs
+          rdC).toList (0, mkFEnv Env.empty) (n, fe) := by
   have hp := parseArgs_compare T D c s
   obtain ⟨C', S', jobs, hf, _, _, hg⟩ := runArgs_compares_accept (helpWanted_compare T D c s)
     (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]; rfl) h
   rw [hp] at hf hg
   simp only [List.filterMap_cons, List.filterMap_nil, hc, hsol] at hf
   obtain ⟨rfl, rfl⟩ : C = C' ∧ S = S' := by simpa using hf
-  obtain ⟨pre, rdC, rdS, ctx, filled, env, h1, h2, -, h4, h5, h6, h7⟩ := compareG_accept hg
-  exact ⟨pre, rdC, rdS, ctx, filled, env, h1, h2, h4, h5, h6, h7⟩
+  obtain ⟨pre, rdC, rdS, n, fe, h1, h2, -, h4, h5, h6⟩ := compareG_accept hg
+  exact ⟨pre, rdC, rdS, n, fe, h1, h2, h4, h5, h6⟩
 
 /-! ## The modular comparison with a trusted path (task #608) -/
 

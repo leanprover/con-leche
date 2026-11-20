@@ -32,11 +32,13 @@ universe w
 
 variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
 
-/-- **The input's environment, checked with a solution, carries a model.** -/
-theorem solution_envModel {dsS ds : Array Declaration} {envS env : Env}
+/-- **An accepting run of the fold with a solution carries a model**: over any records `rs`,
+read with the solution's environment and `rs`'s record mates (`solutionOf`). -/
+theorem solution_envModel_run {dsS rs : Array Declaration} {envS : Env} {n : Nat} {fe : FEnv}
     (hS : checkDecls .verified pins maxNatSize dsS = .ok envS)
-    (hC : checkDeclsWith .verified pins maxNatSize ds (some envS) = .ok env) :
-    Nonempty (EnvModelM V env) := by
+    (run : DeclsRun .verified pins maxNatSize (solutionOf (some envS) rs) rs.toList
+      (0, mkFEnv Env.empty) (n, fe)) :
+    Nonempty (EnvModelM V fe.env) := by
   -- the solution's model
   obtain ⟨nS, feS, runS, hfeS⟩ := checkDecls_run .verified hS
   have runS' : DeclsRun .verified pins maxNatSize none (sideRecords none dsS).toList
@@ -52,22 +54,28 @@ theorem solution_envModel {dsS ds : Array Declaration} {envS env : Env}
       ∃ cv caps, feS.env.find? t.structName = some (.indInfo cv caps) := by
     rw [hfeS.env]; exact fun t ht => stream_tables_mem (hfeS.env ▸ hndS) ht
   -- the input's run
-  obtain ⟨n, fe, run, hfe⟩ := checkDecls_run .verified hC
-  let rs := sideRecords (some feS.env) ds
   let JS : Solution := ⟨mkFEnv feS.env, recordMates rs⟩
   have run' : DeclsRun .verified pins maxNatSize (some JS) rs.toList (0, mkFEnv Env.empty) (n, fe) :=
     run
   -- the renamed solution's model
-  obtain ⟨mS, hac, hcovS⟩ := EnvModelM.copyStmt mS₀ hcovS₀ (renEnv_copies (Ef := env) hndS)
-    (renEnv_stmt env feS.env)
-  have hNS : NatFacts (renEnv env feS.env) := NatFacts.copies (renEnv_copies hndS) hNS₀
-  have hPLS : ProofLeaves V (renEnv env feS.env) mS.base2.acval := by
+  obtain ⟨mS, hac, hcovS⟩ := EnvModelM.copyStmt mS₀ hcovS₀ (renEnv_copies (Ef := fe.env) hndS)
+    (renEnv_stmt fe.env feS.env)
+  have hNS : NatFacts (renEnv fe.env feS.env) := NatFacts.copies (renEnv_copies hndS) hNS₀
+  have hPLS : ProofLeaves V (renEnv fe.env feS.env) mS.base2.acval := by
     rw [hac]; exact ProofLeaves.copies mS₀ (renEnv_copies hndS) hPLS₀
-  obtain ⟨mq, -⟩ := sideFold (JS := JS) (envS := feS.env) (Ef := env) rfl mS hcovS hNS hPLS htS
-    run' hfe (fun pd hpd block nP he b hb b' hb' => by
+  obtain ⟨mq, -⟩ := sideFold (JS := JS) (envS := feS.env) (Ef := fe.env) rfl mS hcovS hNS hPLS htS
+    run' rfl (fun pd hpd block nP he b hb b' hb' => by
       subst he; exact recordMates_spec hpd hb hb') (L := []) rfl rfl List.nodup_nil Scoped.empty
     (EnvModelM.empty V) lfpCover_empty (EnvModelOk.empty (V := V)).2 (fun x hx => nomatch hx)
   exact ⟨mq⟩
+
+/-- **The input's environment, checked with a solution, carries a model.** -/
+theorem solution_envModel {dsS ds : Array Declaration} {envS env : Env}
+    (hS : checkDecls .verified pins maxNatSize dsS = .ok envS)
+    (hC : checkDeclsWith .verified pins maxNatSize ds (some envS) = .ok env) :
+    Nonempty (EnvModelM V env) := by
+  obtain ⟨n, fe, run, hfe⟩ := checkDecls_run .verified hC
+  exact hfe ▸ solution_envModel_run hS run
 
 /-- **A stream checked with a solution has a model.** -/
 theorem solution_isModel {dsS ds : Array Declaration} {envS env : Env}

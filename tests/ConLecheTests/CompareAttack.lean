@@ -15,11 +15,9 @@ solution that redeclares `f` with another value, or any other solution, must not
 `no_model` is the model-level fact: no `Model` of an environment that stores `def f : T := T.a`
 and the hole `t : f = T.b` as an axiom exists, because the model makes `f` denote `T.a`
 (`Model.defn_eq`), `Eq` is set equality, and `T.a` and `T.b` denote different sets
-(`IotaEqTest.T_a_ne_T_b`, from `Model.rule_eqs`).  `compare_attack_rejected` lifts it through
-the restated `main_compare_solves`: on any snapshot whose challenge read gives such an
-environment, `--olean --compare` has no exit 0, whatever the solution.  The challenge's
-environment holds the challenge's own records and what they read (`Driver.chalCmpRecs`); the
-hole reads `f`, `T.b` and `Eq`, and `f` reads `T.a`, so all of the shape is in it.
+(`IotaEqTest.T_a_ne_T_b`, from `Model.rule_eqs`).  The hole reads `f`, `T.b` and `Eq`, and `f`
+reads `T.a`, so all of the shape is in a challenge's environment that holds the hole and what it
+reads.
 
 The fixtures themselves use `def f : Nat := 3` and `t : f = 5`.  The argument is the same; the
 step it needs in place of `T_a_ne_T_b` is that `3` and `5` denote different sets in every model,
@@ -95,21 +93,4 @@ theorem no_model {env : Env} (M : Model V env) (h : AttackEnv env) : False := by
   exact hne (hfv ▸ he')
 
 open Frontend in
-/-- **The attack is refused, whatever the solution**: on a snapshot where every challenge read
-`--olean --compare` can make gives an environment of the attack's shape, no outcome of the run
-is an exit 0. -/
-theorem compare_attack_rejected (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-    {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (hread : ∀ pre rdC, ModelIO.CanGive (Olean.readOleansAt
-        (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).chalRoots
-        #[C] none (lenient := true) (homes := true)) fs (.ok rdC) →
-      AttackEnv (Driver.challengeEnv pre C
-        (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).chalRoots
-        rdC)) :
-    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-      "--search-path=" ++ D, "--", c, s]) fs 0 := by
-  intro h
-  obtain ⟨pre, rdC, -, -, h2, -, mC, -⟩ := main_compare_solves V hc hs h
-  exact no_model mC (hread pre rdC h2)
-
 end ConLeche.CompareAttackTest

@@ -14,7 +14,6 @@ import ConLeche.Verify.Driver.Main
 import ConLeche.Modular
 import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
-import ConLeche.Model.Modular.Compare
 public import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Verify.Driver.CompareJsonRun
 import ConLeche.Verify.Cached.JustifyRun
@@ -30,6 +29,7 @@ import ConLeche.Model.IsModelBridge
 import ConLeche.Model.Solution
 import ConLeche.Model.Modular.SeesMain
 import ConLeche.Model.IsModelOlean
+import ConLeche.Model.IsModelCompare
 import ConLeche.Model.Modular.IsModel
 public import ConLeche.OleanInput
 
@@ -389,98 +389,44 @@ theorem main_modular_one_no_False (V : Type w) [SetTheory V] {dirs root : String
   obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
   exact ⟨1, hacc e he⟩
 
-/-! ## A challenge and its solution (task #607)
+/-! ## A challenge and its solution (tasks #607, #619)
 
 `--olean --compare` reads a challenge module `C` through the trusted directories alone and a
-solution module `S` through the trusted directories, then the search path; it compares the
-challenge's records with the solution's (`Driver.compareRecords`) and checks the solution's
-closure.  An accept makes the two a development of two modules, the solution's and the
-challenge's, both passing the local checks, and the modular theorem's construction gives the
-challenge's environment a model read off the solution's (`Model.Compare.compare_models`). -/
+solution module `S` through the trusted directories, then the search path; it checks the
+solution's closure in full, then the challenge's closure in full with its axioms justified by the
+solution's environment, as `--compare` does on two lean4export files.  The theorem is about the
+challenge's closure through the trusted directories alone: what the solution's files hold, and the
+search path's, is not in the statement. -/
 
 open Frontend in
-/-- **An accepted comparison: the challenge has a solution.**  Every exit 0 of `runArgs` at
-`--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`, where `c` names the
-module `C` and `s` the module `S`, read the challenge's closure through `T` alone and the
-solution's through `T`, then `D`, and in every set theory `V` there are
-
-* a model `mC` of the challenge's environment (`Driver.challengeEnv`: the records of `C` and
-  what they read, closed under reads, at their own level-parameter names, every hole of `C` the
-  axiom of its statement) and a model `mS` of the solution's (`Driver.solutionEnv`), such that
-* every constant of the challenge's environment is the solution's constant of that name, with as
-  many level parameters, and `mC` gives it `mS`'s value read at the challenge's names;
-* every constant of the challenge's environment, every hole of `C` among them, is inhabited by
-  the solution's constant: that constant's value in `mS` is a member of what the challenge's
-  type denotes in `mC`.
-
-The challenge's environment holds what `C`'s records read, with the bodies (the merged read), and
-a model makes every definition denote its value and every recursor rule hold (`Model.defn_eq`,
-`Model.rule_eqs`).  So a challenge that imports `def f : Nat := 3` and has a hole `t : f = 5` has
-no accepted solution: `t` reads `f`, so in `mC` `f` is `3`, and `f = 5` denotes the empty set.
-Which module a solution's constant comes from (the comparison's home rule) is the code's
-business; the statement needs only the models. -/
-theorem main_compare_solves (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+/-- **An accepted comparison: the challenge has a model** (`Olean.closureConstants`): every exit 0
+of `runArgs` at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`, where
+`c` names the module `C` and `s` the module `S`, says of every snapshot `fs'` that agrees with the
+run's on the paths the reader forms under `T` that the constants of the private views of the
+modules of the closure of `C` through `T` have a model in every set theory. -/
+theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
       "--search-path=" ++ D, "--", c, s]) fs 0) :
-    let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
-    ∃ pre rdC rdS, builtinPreludeE = .ok pre ∧
-      ModelIO.CanGive (Olean.readOleansAt r.chalRoots #[C] none (lenient := true)
-        (homes := true)) fs (.ok rdC) ∧
-      ModelIO.CanGive (Olean.readOleansAt r.solRoots #[S] none (lenient := true)
-        (homes := true)) fs (.ok rdS) ∧
-      ∃ (mC : Model V (Driver.challengeEnv pre C r.chalRoots rdC))
-        (mS : Model V (Driver.solutionEnv pre r.solRoots fs rdS)),
-        (∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
-          ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
-            cS.toConstantVal.levelParams.length = cC.toConstantVal.levelParams.length ∧
-            ∀ φ, mC.cval n φ = mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
-              (cC.toConstantVal.levelParams.map Level.param))) ∧
-        ∀ n cC, (Driver.challengeEnv pre C r.chalRoots rdC).find? n = some cC →
-          ∃ cS, (Driver.solutionEnv pre r.solRoots fs rdS).find? n = some cS ∧
-            ∀ φ ρ, ∃ Ty, Denotes mC.cval (Driver.challengeEnv pre C r.chalRoots rdC) φ ρ
-              cC.toConstantVal.type Ty ∧
-              mS.cval n (Level.substFn φ cS.toConstantVal.levelParams
-                (cC.toConstantVal.levelParams.map Level.param)) ∈ˢ Ty := by
-  intro r
-  obtain ⟨_, _, h⟩ := h
-  obtain ⟨pre, rdC, rdS, ctx, filled, env, h1, h2, h3, h4, h5, h6⟩ :=
-    Driver.runArgs_compare_accept hc hs h
-  obtain ⟨mC, mS, h7, -⟩ := Model.Compare.compare_solved V h4 h5 h6
-  refine ⟨pre, rdC, rdS, h1, h2, h3, mC, mS, h7, fun n cC hf => ?_⟩
-  obtain ⟨cS, hS, -, he⟩ := h7 n cC hf
-  refine ⟨cS, hS, fun φ ρ => ?_⟩
-  obtain ⟨Ty, hTy, hm⟩ := mC.mem cC (Env.find?_mem hf) φ ρ
-  rw [Env.find?_name hf, he φ] at hm
-  exact ⟨Ty, hTy, hm⟩
+    ∀ fs', FS.AgreeUnder (Driver.searchPathOf T) fs fs' →
+      ∃ model, IsModel V model (Olean.closureConstants (Driver.searchPathOf T) fs' #[C]) :=
+  compare_isModel V hc hs h
 
 open Frontend in
-/-- **An accepted comparison is a property of the trusted files alone** (T1 and T2).  Every exit
-0 of `runArgs` at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` on
-a snapshot `fs` says of every snapshot `fs'` that agrees with `fs` on the paths the reader forms
-under the challenge's directories (`T`, or `D` where `T` names none): the challenge's read on
-`fs'` (`Olean.challengeView`) can give records whose environment, every hole of `C` the axiom of
-its statement, has a model in every set theory `V`.  A model inhabits the type of every constant
-of its environment, so every hole is inhabited, in a model where every definition the challenge
-reads denotes its value.  What the solution's files hold, and the search path's, is not in the
-statement. -/
-theorem main_compare_trusted (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-    {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-      "--search-path=" ++ D, "--", c, s]) fs 0) :
-    let r : Driver.CmpReq := ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
-    ∀ fs', FS.AgreeUnder r.chalRoots.path fs fs' →
-      ∃ pre rdC, builtinPreludeE = .ok pre ∧
-        Olean.challengeView r.chalRoots.path C none fs' (.ok (.ok rdC)) ∧
-        Nonempty (Model V (Driver.challengeEnv pre C r.chalRoots rdC)) := by
-  intro r fs' hag
-  obtain ⟨pre, rdC, rdS, h1, h2, -, mC, -⟩ := main_compare_solves V hc hs h
-  refine ⟨pre, rdC, h1, ?_, ⟨mC⟩⟩
-  · rw [← Olean.challenge_local hag]
-    obtain ⟨hs₁, hs₂, h2⟩ := h2
-    refine ⟨hs₁, hs₂, ?_⟩
-    rw [← r.chalRoots_eta]
-    exact h2
+/-- **A challenge holding a theorem of type `False` is never solved.**  On a snapshot where the
+private view of a module of the closure of `C` through `T`, by the specification, holds a theorem
+of type `False`, no outcome of `runArgs` at
+`--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` is an exit 0, whatever
+the solution's files hold. -/
+theorem main_compare_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S m : Name}
+    {fs : FS} {d : Olean.ModDecoded} {e : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (hcl : Olean.InClosure (Driver.searchPathOf T) fs #[C] m)
+    (hv : Olean.ViewOf (Driver.searchPathOf T) fs m d)
+    (hmem : e ∈ d.constants) (hk : e.kind = .thm v all) (hty : e.type = .const falseName []) :
+    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+      "--search-path=" ++ D, "--", c, s]) fs 0 :=
+  compare_no_False V hc hs hcl hv hmem hk hty
 
 /-! ## A challenge and its solution, module by module (task #608)
 

@@ -500,28 +500,34 @@ theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
       exact checkDeclStepC_blockRead mode pins _ block nP _ fe₁ s₁ hC
     · exact ih d hd block nP hdb
 
+/-- **An accepting run stores its records** (`RecordsStored`). -/
+theorem declsRun_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {J : Option Solution} {ds : List Declaration} {n : Nat} {fe : FEnv}
+    (run : DeclsRun mode pins maxNatSize J ds (0, mkFEnv Env.empty) (n, fe)) :
+    RecordsStored (· ∈ constantsOf ds) fe.env := by
+  have henv : fe.env = streamEnv ds := declsRun_env mode run
+  have hnd : NodupNames fe.env :=
+    (declsRun_chain mode run (PushChain.refl Env.empty)).2.2.1 List.nodup_nil
+  have hb := declsRun_blockRead run
+  intro c hc
+  obtain ⟨d, hd, hc⟩ := mem_constantsOf.1 hc
+  obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
+  have hmem : ci ∈ fe.env.consts := by
+    rw [henv]
+    exact (Driver.mem_streamEnv_consts ds _).2 (.inl ⟨d, hd, hci⟩)
+  have hn : c.name = ci.name := by
+    show c.toConstantVal.name = ci.toConstantVal.name
+    rw [hst.1]
+  exact ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst⟩
+
 /-- **An accepted stream stores its records** (`RecordsStored`), the records the fold read (with
 a solution, `sideRecords`). -/
 theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {justify : Option Env} {env : Env}
     (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env) :
     RecordsStored (· ∈ constantsOf (sideRecords justify ds).toList) env := by
-  have henv := checkDecls_env h
-  obtain ⟨n, fe, run, hfe⟩ := checkDecls_run mode h
-  have hnd : NodupNames env := by
-    rw [← hfe]
-    exact (declsRun_chain mode run (PushChain.refl Env.empty)).2.2.1 List.nodup_nil
-  have hb := declsRun_blockRead run
-  intro c hc
-  obtain ⟨d, hd, hc⟩ := mem_constantsOf.1 hc
-  obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
-  have hmem : ci ∈ env.consts := by
-    rw [henv]
-    exact (Driver.mem_streamEnv_consts (sideRecords justify ds).toList _).2 (.inl ⟨d, hd, hci⟩)
-  have hn : c.name = ci.name := by
-    show c.toConstantVal.name = ci.toConstantVal.name
-    rw [hst.1]
-  exact ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst⟩
+  obtain ⟨n, fe, run, rfl⟩ := checkDecls_run mode h
+  exact declsRun_recordsStored run
 
 /-! ## The pinned blocks an accepted stream declares -/
 

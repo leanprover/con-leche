@@ -111,7 +111,7 @@ they return.  What the phase establishes is then a theorem about the run in the
 model (`ConLeche/Verify/Driver/Oleans.lean`), not a value's type. -/
 
 /-- Record `d`'s check at position `t`, its error tagged with the position. -/
-def jobRun (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (t : Nat) (d : Declaration) :
+def jobRun (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify) (t : Nat) (d : Declaration) :
     Except (CheckError × Nat) Unit :=
   match Cached.recordJob mode natOpPinSets maxNatSize J.side J.I t d with
   | .ok () => .ok ()
@@ -121,7 +121,7 @@ def jobRun (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : J
 file reads it and is checked with it in place, any other record as it stands.  The value is
 dropped when the check ends. -/
 def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
-    {ds : Array Declaration} (J : Jobs ds) (sp : Frontend.Olean.Roots)
+    {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify) (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef)
     (c : Frontend.Olean.ValueCache) (t : Nat) :
     μ (Frontend.Olean.ValueCache × Except (CheckError × Nat) Unit) :=
@@ -142,7 +142,7 @@ structure OleanWorker where
 
 /-- **One job of the pool**: timed, with the heartbeat. -/
 def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
-    (run : OleanRun) (pl : PoolLive) {ds : Array Declaration} (J : Jobs ds)
+    (run : OleanRun) (pl : PoolLive) {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify)
     (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef) (s : OleanWorker) (t : Nat) :
     μ (OleanWorker × Except (CheckError × Nat) Unit) := do
@@ -158,7 +158,7 @@ records, after its context's (`checkModuleG`), every worker starting from the re
 read kept (`seed`), so that no worker reads the module's files again. -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
     (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : Frontend.Olean.Roots)
-    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds)
+    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify)
     (start : Nat := 0) (alone : Bool := true) (seed : Frontend.Olean.ValueCache := {}) :
     μ (Except (CheckError × Nat) Unit) := do
   let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs alone)
