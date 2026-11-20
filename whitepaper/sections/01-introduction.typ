@@ -35,8 +35,9 @@ The theorem is relative to a model of an abstract set theory, a
 structure with membership, extensionality, the usual set-forming
 operations and
 #src("ConLeche/SetTheory/Core.lean", 95, 100)[a chain of universes closed under them].
-By Gödel's second incompleteness theorem, Lean cannot prove that such
-a structure exists. The assumption is standard, though: it follows
+Such a structure gives a model of Lean, so by Gödel's second
+incompleteness theorem Lean cannot prove that one exists, unless Lean
+is inconsistent. The assumption is standard, though: it follows
 from the existence of ω many inaccessible cardinals, the hypothesis of
 the Lean development of Carneiro's model of Lean (@sec:related;
 #overview(7) says more).
@@ -90,15 +91,15 @@ the sort of `B` would take type inference. Our interpretation instead
 a `∀` denotes a truth value exactly when every one of its fibres (the
 set `B` denotes at a member of the domain) is a truth value, and a
 lambda denotes the point exactly when every value of its body is the point.
-The terms are Lean's own.
+The terms carry no annotation for the choice; they are Lean's own.
 
 Over a non-empty domain this reading agrees with the sort of the body.
 Over an empty domain it does not: `fun h => h.elim`, of type
 `False → Nat`, denotes the point although its type has sort `Type`
 (@sec:interp). This shapes the soundness claims: a reduction or an
 equality claims nothing about a term that denotes the point
-(@sec:claims). It also costs two checks that the official kernel
-never makes (@sec:tax): the checker compares the types of two bodies
+(@sec:claims). The same mismatch is why the checker makes two checks
+that the official kernel never makes (@sec:tax): it compares the types of two bodies
 at lambda congruence and η, and, in one rare case of ι-reduction, it
 compares a constructor application with the recursor's arguments and
 type-checks its fields.
@@ -106,14 +107,14 @@ type-checks its fields.
 == This document
 
 This document is a pen-and-paper account of that argument on a
-simplified fragment of the checker. The fragment has no projections,
-no number or string literals, no mutual inductive types, nesting only
-one container deep and not under a binder (@sec:nested describes the
-full check, without proof), no quotients, no axioms (a hole is
-accepted only with a solution that fills it, §8), no built-in
-copies of `False`, `Eq`, `Nat` and their kin (the real checker pins
-these rather than reading them from the stream), no opaques, and
-none of the checker's
+simplified fragment of the checker. The fragment keeps the terms, the
+three relations, definitions and inductive types with their recursors.
+It drops projections, number and string literals, mutual inductive
+types, quotients, opaques and axioms (a hole is accepted only with a
+solution that fills it, @sec:compare), nests inductive types only one
+container deep and not under a binder (@sec:nested describes the full check, without proof),
+reads `False`, `Eq` and `Nat` from the input alone (the real checker
+also compares them with pinned copies), and has none of the checker's
 performance devices (memo tables, fuel, the parallel check phase).
 @sec:left-out lists every omission with one sentence on what the real
 proof does about it. The fragment is verified in Lean in a small
@@ -122,39 +123,29 @@ from the main proof and is parametric in the same kind of abstract set
 theory. The underlined source links lead into the real proof and into
 that development.
 
-The rest is in nine parts. §2 presents the fragment without an
-environment: terms and universe levels, the three relations, the
-abstract set theory, the interpretation, the semantic invariant, and
-the three claims with their proof. The routine cases of the proof are
-listed briefly; the cases where the reading of a binder matters, or
-where a syntactic proof would fail, are discussed in full. §2 ends
-with the checks that other checkers skip and with a cheaper mode of
-inference. The claims (@sec:claims) are a good place to start reading.
-§3 adds the environment, the constants that refer to it, and its
-definitions: what is stored, what is checked, how a definition
-unfolds, and the model that grows with it. §4 adds inductive types as
-least fixed points in the model, their recursors and reduction rules,
-large elimination, and the main theorem: every accepted input has a
-model of its constants, with the consistency corollary that no
-accepted input declares a constant whose type is an inductive
-proposition with no constructors. §5 changes tack. It describes in full
-con-leche's check for nested inductive types, whose constructors
-mention the type being defined inside another one, as in
-`List (Tree α)`, and their generated recursors, and only sketches how
-the model extends to them. §6 shows that two features of Lean's
-definitional equality that the fragment drops, η for structures and
-unit-likeness, follow from the extensionality of the model, with one
-proof case each. §7 checks a development module by module, each
-module against an environment built from what its imports present,
-and shows that every module has a model of its own constants, each
-module's model giving every name it sees as another module's the
-value that module's model gives it. §8 checks a challenge, an input
-with holes, with a solution: a hole is accepted when the solution
-states the same and everything the statement reads is the same
-constant in both, and the constants of an accepted challenge have a
-model. §8 also compares a challenge with a solution module by
-module. §9
-lists what
-was left out, and how the real proof
-differs from the fragment where they share a feature. @sec:related
-relates the argument to earlier work.
+@sec:fragment presents the fragment without an environment: terms and
+universe levels, the three relations, the set theory, the
+interpretation, the semantic invariant, and the three claims with
+their proof. Routine proof cases are listed briefly; the cases where
+the interpretation of a binder matters, or where a syntactic proof
+would fail, are discussed in full. It ends with the checks the
+official kernel skips and with a cheaper mode of inference. The claims
+(@sec:claims) are a good place to start reading. @sec:env adds the
+environment and its definitions, and the model that grows with them.
+@sec:ind adds inductive types as least fixed points in the model,
+their recursors and ι-reduction, and proves the main theorem: every
+accepted input has a model of its constants, so none of them has an
+inductive proposition without constructors as its type. @sec:nested
+changes tack: it describes con-leche's full check for nested inductive
+types, such as `Tree α` with its field of type `List (Tree α)`, and
+only sketches how the model extends. @sec:ext derives η for
+structures and unit-likeness, which the fragment drops, from the
+extensionality of the model. @sec:modular checks a development module
+by module, each module against the imported views of its imports, and
+gives every module a model of its own constants that agrees with its
+imports' models on the names they share. @sec:compare checks an input
+with holes against a solution that fills them, and shows that the
+input's constants have a model of their own, also module by module.
+@sec:left-out lists what
+was left out and how the real proof differs from the fragment, and
+@sec:related relates the argument to earlier work.
