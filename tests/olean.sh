@@ -668,6 +668,17 @@ work_ "an own unsafe definition reading an imported unsafe one" 0 "accepted 1 de
 # NlX's nl and NlY's nl, behind a private import of an import, are never loaded
 # together: accepted, as by Lean (the merged read of the closure rejects the pair)
 work_ "two modules of one name never loaded together" 0 "accepted" "$MSP" NlM
+# CxM loads CxA's cn (a definition of value True, at CxX1's type cc := Prop, exported as an
+# axiom) and CxB's cn (a theorem of CxX2's proposition cc := True), one statement expression;
+# CxM reads neither and does not load CxX1.  Accepted, as by Lean (CxA compiled against a
+# stand-in, tests/olean/build.sh).  Task #618: no model family agrees with both copies at CxM,
+# so the modular agreement over every name a module sees fails here; the target verdict waits
+# for the maintainer's ruling (a reach of every clashing name would reject: CxA's cc is not CxM's)
+for m in CxX1 CxX2 CxZ CxA CxB CxM; do
+  work_ "the worker at $m (an unread clash, two meanings of its statement)" 0 "accepted" "$MSP" $m
+done
+case_grep "--modular at CxM (an unread clash, two meanings of its statement)" 0 \
+  "accepted 7 modules" --olean --modular --search-path=$MSP -- CxM
 # M's own foo and the foo H's exported records read: no record of M's context
 # reads it: accepted, as by Lean (the merged read rejects the pair)
 work_ "the importer declares a name an unreached record reads" 0 "accepted" "$MSP" DgColM

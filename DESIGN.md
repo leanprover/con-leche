@@ -124369,3 +124369,39 @@ rules over `moduleImports`, or `headerFixpoint` itself), and the parts as `readF
 decoded.
 Nothing else changed since 7f1ed7685; still not done: the olean-level modular theorems, docs,
 axiom pins (`main_oleans` and the modular ones), gates, landing.
+
+**#618 cont. (2026-11-20, second) — the ruled `Sees` agreement is false; stopped again.**  The
+maintainer ruled: `main_modular` states, for every module `m` of the closure, a model of
+`moduleRecords m`, and `model m n = model m' n` whenever `Sees m n m'` ("`m` loads a part of
+`m'` that stores `n`", a declarative inductive of Lean's import rules), with no condition that
+`m` reads `n`.  The fixture `CxM` (`tests/olean/src/Cx*.lean`, committed with today's verdicts)
+has every hypothesis and no model family:
+* `CxX1`: `@[expose] def cc : Type := Prop`; `CxX2`: `@[expose] def cc : Prop := True`;
+* `CxA`: `import CxX1` (private), `public import CxZ`, `def cn : cc := True` (exported as an
+  axiom of the statement `cc`); compiled against a stand-in `CxZ` that re-exports `CxX1`, as the
+  build already does for `GbH`/`UfM`/`PdN`;
+* `CxB`: `public import CxX2`, `theorem cn : cc := True.intro`;
+* `CxM`: `public import CxA`, `public import CxB`, `def cm : Nat := 0`.
+Lean compiles `CxM` (its merge keeps the theorem: `subsumesInfo` thm/axiom, one statement
+expression).  `CxM` loads `CxA` and `CxB` at their exported parts, not `CxX1` (a private import
+of a module loaded at its exported part), so `cc` at `CxM` is `CxX2`'s.  `--check-graph`,
+`--olean --modular -- CxM` and the worker at each of the 7 modules exit 0 ("1 names held twice,
+merged", 0 completed): the clash rule compares the two copies' statement expressions, and
+`ClashOk` passes on `CxB`'s theorem copy; the clash partners' reads are checked only for a
+clashing name the context stores, and `CxM` reads no `cn`.
+`Sees CxM cn CxA` and `Sees CxM cn CxB` force `model CxM cn = model CxA cn = model CxB cn`.
+`CxA`'s record (a definition) and `Sees CxA True Init.Prelude` give `model CxA cn = ⟦True⟧`,
+which the prelude's `True`/`True.intro` records make `{pt}`; `CxB`'s record (a theorem) with
+`Sees CxB cc CxX2` gives `model CxB cn ∈ ⟦True⟧ = {pt}`, so `pt`.  `{pt} = pt` contradicts
+regularity.  (A module's own name that a loaded module stores is not a second counterexample:
+`freshOk` rejects it, checked on a stand-in build.)
+Ways out, for the maintainer: (1) the checker reaches every clashing name (today only clashes
+with no theorem copy are reach roots, `clashAgree`'s `extra`), so that every clash's copies are
+capture-checked; `CxM` is then rejected (`CxA`'s `cc` is not `CxM`'s), a reject Lean does not
+make, on output only a stale or crafted build gives (a departure line).  With it a name with two
+loaded copies is in the context, and the ruled statement is provable: an unread name has one
+loaded copy, a read one agrees with every loaded copy (`Run.agree_loaded`); (2) the agreement
+restricted to the names `m` reads (the condition the ruling dropped), or (3) to the copy Lean's
+merge keeps (an order-dependent rule).
+Lane state: unchanged since 99259bd72 apart from the fixture and this record; still not done:
+the olean-level modular theorems, docs, axiom pins, gates, landing.
