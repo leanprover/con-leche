@@ -254,9 +254,6 @@ def blockFired (block : List ConstantInfo) : List ConstantInfo :=
         (rules.map ({ · with fire := inputFire (blockFormerNames block) cv mI rP }))
     | c => c
 
-/-- Does a value use a hole (`sorryAx`)? -/
-def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
-
 /-- **The constants a declaration (a record of the input) contributes to the model's clauses.**
 
 * An axiom is its statement.  `sorryAx`, the hole, contributes nothing: a hole is read where it

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Cached.Justify
 import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
@@ -1344,6 +1344,25 @@ theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht :
       (checkDeclStepC mode pins fe₂ pd) := by
   unfold checkDeclStepC
   exact RelRun.bind_same fun _ => checkDeclC_twin pins ht pd
+
+/-- The justification reads the input's index through its lookups alone. -/
+theorem justifyWhy_congr (J : Solution) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (cv : ConstantVal) :
+    justifyWhy J fe₁ cv = justifyWhy J fe₂ cv := by
+  simp only [justifyWhy, hfe, htb]
+
+/-- **The record check, with a solution or not, at twin indices.** -/
+theorem checkRecordC_twin (pins : List NatOpPinSet) (J : Option Solution) {fe₁ fe₂ : FEnv}
+    (ht : Twin fe₁ fe₂) (pd : Declaration) :
+    RelRun (PushedFrom fe₁ fe₂) (checkRecordC mode pins J fe₁ pd)
+      (checkRecordC mode pins J fe₂ pd) := by
+  unfold checkRecordC
+  split
+  · simp only [justifyWhy_congr _ ht.find ht.findTable,
+      checkConstantValC_congr ht.find ht.findTable]
+    relrun
+    all_goals exact RelRun.pure ⟨[_], [], rfl, rfl⟩
+  · exact checkDeclStepC_twin pins ht pd
 
 end Decls
 

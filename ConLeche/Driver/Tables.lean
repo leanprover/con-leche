@@ -110,12 +110,12 @@ def tabImports {μ : Type → Type} [CheckerIO μ] (n : Name) :
 
 /-- **A worker's tables** at module `m`: `m` located, its private view's files read there and
 kept (the home reads them, so that they are read once), its private part's name positions off
-them, then its header fixpoint (`headerFixpoint`) over `tabImports`, which locates each module it
-loads once; beside them, the search path with the roots of those modules resolved, each once.
+them, then its header fixpoint (`headerFixpoint`) over `tabImports`, with the imports `x` a run
+adds to the header (a compared challenge's solution), which locates each module it loads once; beside them, the search path with the roots of those modules resolved, each once.
 Nothing here fails: where a read fails, the tables hold what was read before it, and the
 worker's own read of the rest reports the failure. -/
-def workerTables {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
-    μ (Roots × ModTables) := do
+def workerTables {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name)
+    (x : Array ImportRec := #[]) : μ (Roots × ModTables) := do
   let R ← sp.resolve m
   match ← findModule R m with
   | .error _ => pure (R, {})
@@ -131,7 +131,8 @@ def workerTables {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
     | .ok own =>
       let T0 := ModTables.push {} { name := m, loc, imports := none, priv := some own, expo := none,
                                     files := some f }
-      let (_, RT) ← (headerFixpoint tabImports own.header.isModule own.header.imports).run (R, T0)
+      let (_, RT) ← (headerFixpoint tabImports own.header.isModule
+        (own.header.imports ++ x)).run (R, T0)
       pure RT
 
 end ConLeche.Driver

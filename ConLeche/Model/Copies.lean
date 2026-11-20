@@ -1,9 +1,7 @@
 module
 
 public import ConLeche.Model.BasisRename
-public import ConLeche.Model.Denotes
 import ConLeche.Model.Levels
-import ConLeche.Model.OfEnvModelM
 import ConLeche.Verify.InstLevels
 
 public section
@@ -13,12 +11,11 @@ public section
 
 `CopiesEnv env env'` says `env'` holds `env`'s constants, position by position, each the same or
 `env`'s at other level-parameter names (`ConstantInfo.atLps`, as many names, distinct), with the
-same tables.  A compared challenge's environment is such a copy of what it stands for in its
-solution's.  `Model.ofCopies` reads a model of `env'` off the invariant of `env`: a constant of
-`env'` is valued as `env`'s at the assignment that gives `env`'s `i`-th parameter the copy's
-`i`-th parameter's value (`renAcval`), so every term reads alike on both sides (`denote_ren`
-over `CopyEnv`), and every type of `env'` reads as `env`'s at that assignment
-(`denote_instLevels`).
+same tables (the renamed solution of a JSON or merged comparison, `Model/CopyStmt.lean`).  A
+constant of `env'` is valued as `env`'s at the assignment that gives `env`'s `i`-th parameter the
+copy's `i`-th parameter's value (`renAcval`), so every term reads alike on both sides
+(`denote_ren` over `CopyEnv`), and every type of `env'` reads as `env`'s at that assignment
+(`denote_copy`, `denote_instLevels`).
 -/
 
 namespace ConLeche.Model
@@ -284,88 +281,6 @@ theorem CopiesEnv.copy {env env' : Env} (hwf : EnvWF env) (h : CopiesEnv env env
 
 /-! ## What the model's equations read -/
 
-/-- **A reading moves between two environments** that store each name the first stores, at as
-many level parameters, valued alike, with the same projection tables. -/
-theorem Denotes_transport {cA cB : Name → (Name → Nat) → V} {eA eB : Env} {φ : Name → Nat}
-    (hc : ∀ n us ci, eA.find? n = some ci → us.length = ci.toConstantVal.levelParams.length →
-      ∃ ci', eB.find? n = some ci' ∧ us.length = ci'.toConstantVal.levelParams.length ∧
-        cB n (Level.substFn φ ci'.toConstantVal.levelParams us)
-          = cA n (Level.substFn φ ci.toConstantVal.levelParams us))
-    (hp : ∀ T i, eB.findProj? T i = eA.findProj? T i) :
-    ∀ {ρ : Nat → V} {e : Expr} {X : V}, ConLeche.Denotes cA eA φ ρ e X →
-      ConLeche.Denotes cB eB φ ρ e X := by
-  intro ρ e X h
-  induction h with
-  | bvar => exact .bvar
-  | sort => exact .sort
-  | const hf hlen =>
-    obtain ⟨ci', hf', hl', he⟩ := hc _ _ _ hf hlen
-    rw [← he]
-    exact .const hf' hl'
-  | app _ _ ihf iha => exact .app ihf iha
-  | lam _ _ ihA ihF => exact .lam ihA ihF
-  | pi _ _ ihA ihB => exact .pi ihA ihB
-  | letE _ _ ihv ihb => exact .letE ihv ihb
-  | proj_table ht _ ih => exact .proj_table (by rw [hp]; exact ht) ih
-  | natLit _ ih => exact .natLit ih
-  | strLit _ ih => exact .strLit ih
-
-/-- **A copy's reading is the original's**, at the renamed valuation. -/
-theorem Denotes_of_copies {env env' : Env} (m : EnvModelM V env) (h : CopiesEnv env env')
-    {φ : Name → Nat} {ρ : Nat → V} {e : Expr} {X : V}
-    (hd : ConLeche.Denotes (cvalOf (renAcval m.base2.acval env env')) env' φ ρ e X) :
-    ConLeche.Denotes (cvalOf m.base2.acval) env φ ρ e X := by
-  refine Denotes_transport (fun n us ci hf hl => ?_)
-    (fun T i => ((h.copy m.base2.wf).findProj T i).symm) hd
-  rcases h.find n with ⟨-, h2⟩ | ⟨c, c', h1, h2, hr⟩
-  · rw [h2] at hf; exact nomatch hf
-  · rw [h2] at hf
-    obtain rfl := Option.some.inj hf
-    have hl' : us.length = c.toConstantVal.levelParams.length := by
-      rcases hr.lpsCopy with rfl | ⟨-, e⟩
-      · exact hl
-      · rw [e]; exact hl
-    refine ⟨c, h1, hl', ?_⟩
-    simp only [cvalOf]
-    rw [renAcval_inst m.base2.acval_params h1 h2 hr.lpsCopy φ hl']
-
-/-- A copy of a recursor or a constructor is the constant itself. -/
-theorem ConstCopy.eq_of_ruleFree {c c' : ConstantInfo} (h : ConstCopy c c')
-    (hc : ¬ RuleFree c') : c' = c := by
-  rcases h with rfl | ⟨ps, rfl, -, -, hr⟩
-  · rfl
-  · exact absurd (by cases c <;> first | exact absurd hr id | exact trivial) hc
-
-/-- **A rule's equation reads the same in a copy**: its constructor is stored alike. -/
-theorem iotaEq_copies {env env' : Env} (h : CopiesEnv env env') (cv : ConstantVal) (mI rP : Nat)
-    (rl : RecRule) : iotaEq env'.find? cv mI rP rl = iotaEq env.find? cv mI rP rl := by
-  unfold iotaEq
-  rcases h.find rl.ctor with ⟨h1, h2⟩ | ⟨c, c', h1, h2, hr⟩
-  · rw [h1, h2]
-  · rw [h1, h2]
-    rcases hr with rfl | ⟨ps, rfl, -, -, hf⟩
-    · rfl
-    · cases c <;> first | exact absurd hf id | rfl
-
-/-- **A copy's rule equations are the original's.** -/
-theorem ruleEqs_copies {env env' : Env} (h : CopiesEnv env env') {e : Expr}
-    (he : e ∈ ConLeche.ruleEqs env') : e ∈ ConLeche.ruleEqs env := by
-  simp only [ConLeche.ruleEqs, List.mem_flatMap] at he ⊢
-  obtain ⟨c', hc', he⟩ := he
-  obtain ⟨c, hc, h1, h2, hr⟩ := mem_copies h.consts h.nodup c' hc'
-  have hn : c.name = c'.name := hr.name.symm
-  have e1 : env.find? c'.name = some c := h1
-  have e2 : env'.find? c'.name = some c' := h2
-  rw [e2] at he
-  refine ⟨c, hc, ?_⟩
-  rw [hn, e1]
-  match c', hr, he with
-  | .recInfo cv mI rP isK rules, hr, he =>
-    obtain rfl := hr.eq_of_ruleFree id
-    simp only [List.mem_filterMap] at he ⊢
-    obtain ⟨rl, hrl, he⟩ := he
-    exact ⟨rl, hrl, by rw [← iotaEq_copies h]; exact he⟩
-
 /-- **A copied definition's value reads as the original's**, at the assignment the copy's leaf
 reads. -/
 theorem denote_copy_value {env env' : Env} (m : EnvModelM V env) (h : CopiesEnv env env')
@@ -416,107 +331,5 @@ theorem denote_copy {env env' : Env} (m : EnvModelM V env) (h : CopiesEnv env en
   · rw [Level.substFn_param_self]
   · rw [atLps_cv]
     exact denote_instLevels m.base2.acval_params φ 0 _
-
-/-- **The model of a copied environment**, read off the invariant of the original. -/
-noncomputable def Model.ofCopies {env env' : Env} (m : EnvModelM V env)
-    (h : CopiesEnv env env') : ConLeche.Model V env' where
-  cval := cvalOf (renAcval m.base2.acval env env')
-  mem := by
-    intro c' hc' φ ρ
-    obtain ⟨c, hc, hf, hf', hr⟩ := mem_copies h.consts h.nodup c' hc'
-    have hn : c.name = c'.name := hr.name.symm
-    obtain ⟨ta, hta⟩ := m.type_reads c hc (renTr env env' c'.name φ)
-    have hta' := (denote_copy m h hf hf' hr φ).trans hta
-    have hwf := m.base2.wf.consts c hc
-    have hnf' : c'.toConstantVal.type.hasFvar = false := by
-      rcases hr with rfl | ⟨ps, rfl, -, -⟩
-      · exact hwf.1
-      · rw [atLps_cv]; simpa [ConstantVal.atLps, Expr.hasFvar_instantiateLevelParams] using hwf.1
-    have hlb' : c'.toConstantVal.type.looseBVarsBounded 0 = true := by
-      rcases hr with rfl | ⟨ps, rfl, -, -⟩
-      · exact hwf.2.2.2.1
-      · rw [atLps_cv]
-        simpa [ConstantVal.atLps, Expr.looseBVarsBounded_instantiateLevelParams] using hwf.2.2.2.1
-    have hcl : ∀ n ψ, Term.Closed (renAcval m.base2.acval env env' n ψ) :=
-      fun n ψ => m.base2.cval_closed n _
-    have hbr := Denotes_of_denote (V := V) hcl 0 c'.toConstantVal.type hta'
-      (fvarsBelow_zero_of_not_hasFvar hnf') hlb' ρ
-    rw [Expr.closeN_of_hasFvar _ 0 0 hnf'] at hbr
-    refine ⟨interp V ρ ta, hbr, ?_⟩
-    rw [← interp_cvalOf hcl]
-    show interp V ρ (m.base2.acval c'.name (renTr env env' c'.name φ)) ∈ˢ _
-    rw [← hn]
-    exact m.mem_type c hc _ ta (hn ▸ hta) ρ
-  false_empty := by
-    intro φ ρ F hd
-    cases hd with
-    | const hf' hlen =>
-      rename_i ci'
-      rcases h.find ConLeche.falseName with ⟨-, h2⟩ | ⟨c, c', h1, -, -⟩
-      · rw [h2] at hf'; exact nomatch hf'
-      · have hpd : ∀ ψ' : Name → Nat, ConLeche.Verify.pinnedStructT ConLeche.falseName ψ'
-            = some (Term.const .empty [0]) := fun _ => by
-          simp +decide [ConLeche.Verify.pinnedStructT]
-        have he : renAcval m.base2.acval env env' ConLeche.falseName
-            (Level.substFn φ ci'.toConstantVal.levelParams []) = Term.const .empty [0] :=
-          m.base2.acval_pinned_free h1 (by decide) hpd
-        rw [cvalOf, he, interp_const]
-        rfl
-  eq_equality := by
-    intro u φ ρ E A a b hd hA ha hb
-    cases hd with
-    | const hf' hlen =>
-      rename_i x
-      rcases h.find ConLeche.eqName with ⟨-, h2⟩ | ⟨ci, ci', h1, h2, hr⟩
-      · rw [h2] at hf'; exact nomatch hf'
-      · have e : ci' = x := Option.some.inj (h2.symm.trans hf')
-        subst e
-        obtain ⟨-, -, hl⟩ := (m.base2.basis_pinned _ _ h1 (by decide)).1
-        have hl1 : ci.toConstantVal.levelParams.length = 1 := hl
-        have hl' : ci'.toConstantVal.levelParams.length = 1 := by
-          rcases hr.lpsCopy with rfl | ⟨-, e⟩
-          · exact hl1
-          · rw [← e]; exact hl1
-        match hq : ci.toConstantVal.levelParams, hl1, hq' : ci'.toConstantVal.levelParams, hl' with
-        | [p], _, [p'], _ =>
-        have hψ : renTr env env' ConLeche.eqName (Level.substFn φ [p'] [u]) p = Level.eval φ u := by
-          simp [renTr, h1, h2, hq, hq', Level.substFn, Level.eval]
-        have hlaw := (m.eq_law ci p h1 hq
-          (renTr env env' ConLeche.eqName (Level.substFn φ [p'] [u]))).1 ρ A a b
-          (by rw [hψ]; exact hA) ha hb
-        rw [interp_cvalOf m.base2.cval_closed] at hlaw
-        rw [hq'] at *
-        exact hlaw
-  defn_eq := by
-    intro cv' v' hint hmem φ ρ
-    have hcl : ∀ n ψ, Term.Closed (renAcval m.base2.acval env env' n ψ) :=
-      fun n ψ => m.base2.cval_closed n _
-    obtain ⟨cv, v, hc, hn, hden, hnf, hlb⟩ := denote_copy_value m h hmem φ
-    obtain ⟨t, ht, hl⟩ := m.defn_reads (renTr env env' cv'.name φ) cv v ⟨hint, hc⟩
-    have hbr := Denotes_of_denote (V := V) hcl 0 v' (hden.trans ht)
-      (fvarsBelow_zero_of_not_hasFvar hnf) hlb ρ
-    rw [Expr.closeN_of_hasFvar _ 0 0 hnf] at hbr
-    suffices hs : interp V ρ t = cvalOf (renAcval m.base2.acval env env') cv'.name φ by
-      rwa [hs] at hbr
-    rw [← interp_cvalOf hcl cv'.name φ ρ]
-    show interp V ρ t = interp V ρ (m.base2.acval cv'.name (renTr env env' cv'.name φ))
-    rw [hn] at hl
-    rcases hl with rfl | ⟨hp, hpt⟩
-    · rfl
-    · rw [hp, (hpt ρ).2, interp_prf]
-  rule_eqs := by
-    intro e he φ ρ P hP
-    exact (Model.ofEnvModelM m).rule_eqs e (ruleEqs_copies h he) φ ρ P
-      (by rw [Model.ofEnvModelM_cval]; exact Denotes_of_copies m h hP)
-
-/-- The copied model's values are the original's leaves', read at the renamed assignment. -/
-theorem Model.ofCopies_cval {env env' : Env} (m : EnvModelM V env) (h : CopiesEnv env env')
-    {n : Name} {c c' : ConstantInfo} (hf : env.find? n = some c) (hf' : env'.find? n = some c')
-    (φ : Name → Nat) :
-    (Model.ofCopies m h).cval n φ = cvalOf m.base2.acval n
-      (Level.substFn φ c.toConstantVal.levelParams
-        (c'.toConstantVal.levelParams.map Level.param)) := by
-  show cvalOf (renAcval m.base2.acval env env') n φ = _
-  simp only [cvalOf, renAcval, renTr, hf, hf']
 
 end ConLeche.Model

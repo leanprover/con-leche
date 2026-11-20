@@ -94,12 +94,12 @@ theorem][In the fragment the relations are the checker. The real
 checker is a program, connected to the relations by further theorems
 (@sec:differs).]
 
-#left-out[The parallel check][#src("ConLeche/Cached/Decls.lean", 83, 84)[The fold] checks the declarations
+#left-out[The parallel check][#src("ConLeche/Cached/Decls.lean", 86, 87)[The fold] checks the declarations
 one by one, each against the environment of those before it\; the binary builds
 #src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
 and runs the checks on a pool of workers, each against the index's view of the declarations before
 it, walking the results in fold order, so its verdict is the fold's.
-#src("ConLeche/Verify/Cached/StreamIndex.lean", 525, 527)[Every check passing is an accept of the fold],
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 527, 531)[Every check passing is an accept of the fold],
 which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
@@ -149,7 +149,7 @@ recomposition] puts them together, claim by claim. It bridges the run,
 applies the soundness, and hands the result to the declaration fold.
 
 *The statement over `Expr.eval`.* The main theorem is stated over
-#src("ConLeche/IsModel.lean", 315, 316)[`IsModel`], a notion of model of the
+#src("ConLeche/IsModel.lean", 312, 313)[`IsModel`], a notion of model of the
 INPUT stream, written to be read in one sitting: a model gives every constant a set at
 the values of its universe levels, and every constant of every declaration holds in it. Its
 terms are read by #src("ConLeche/IsModel.lean", 128, 129)[`Expr.eval`], a total
@@ -178,25 +178,25 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, views and
 the module each context name is read from are given, and the local
 checks of @sec:mod-local say what they must satisfy. Con-leche states
-#src("ConLeche/Modular.lean", 220, 240)[the same checks] over its own
+#src("ConLeche/Modular.lean", 209, 229)[the same checks] over its own
 records, a context being a list of the records its imports present, in
 an order in which every record reads only itself and earlier records, and
 carries #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 246, 253)[the modular
+models gives #src("ConLeche/MainTheorem.lean", 254, 261)[the modular
 theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
 module's own records against it, one module per run, and
 #src("ConLeche/Verify/Driver/Routes.lean", 346, 347)[the runs at every module
 of an import closure together give the local checks]. Over the files themselves,
-#src("ConLeche/MainTheorem.lean", 272, 283)[the modular theorem] gives one model per module
+#src("ConLeche/MainTheorem.lean", 280, 291)[the modular theorem] gives one model per module
 of the closure, each a model of its module's constants as the `.olean` files hold them, and a
 name a module sees as another module's (its header loads a part of that module holding a
 constant of that name: `Sees`, over `Loads`, Lean's import lattice) has the value that
 module's model gives it. A name a module never reads is seen from one module only, because
 every name two loaded modules store is read into the context and checked there: two copies
 of one name with different statements would make this agreement false. Hence, from that
-theorem alone, #src("ConLeche/MainTheorem.lean", 307, 320)[no module of the closure holds a
+theorem alone, #src("ConLeche/MainTheorem.lean", 315, 328)[no module of the closure holds a
 theorem of type `False`] where it declares the prelude's `False` or sees `False` as a module
 that does, and the graph check and every module's run exit 0 on one snapshot.
 

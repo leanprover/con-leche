@@ -615,11 +615,31 @@ info: 'Fragment.compare_solves' depends on axioms: [propext, Classical.choice, Q
 #guard_msgs in #print axioms Fragment.compare_solves
 
 /--
-info: 'Fragment.Valid.redeclared_is_proof' depends on axioms: [propext]
+info: 'Fragment.LocalOk.redeclared_is_proof' depends on axioms: [propext]
 -/
-#guard_msgs in #print axioms Fragment.Valid.redeclared_is_proof
+#guard_msgs in #print axioms Fragment.LocalOk.redeclared_is_proof
 
 /--
 info: 'Fragment.Expr.instL_rename' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.Expr.instL_rename
+
+/--
+info: 'Fragment.denote_agree' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.denote_agree
+
+/--
+info: 'Fragment.EnvModel.extend_stmt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.EnvModel.extend_stmt
+
+/--
+info: 'Fragment.install_justified' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_justified
+
+/--
+info: 'Fragment.install_shared' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_shared

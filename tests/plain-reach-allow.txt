@@ -226,6 +226,7 @@ ConLeche.typePinStoredF
 
 # ConLeche.Kernel.Env — environment records and their O(1) accessors
 ConLeche.CheckMode.verifiedChecks
+ConLeche.ConstantInfo.isStmtKind
 ConLeche.ConstantInfo.name
 ConLeche.Declaration.names
 ConLeche.Expr.piSortTeleLen?
@@ -425,11 +426,10 @@ ConLeche.trustCompilerName
 ConLeche.reduceBoolDeclPin
 ConLeche.reduceNatDeclPin
 
-# ConLeche.Modular — a pinned constant's fast-path names (fixed name lists, the pin names' membership tests), read once per context constant by the worker's reach
-ConLeche.Modular.pinFootprint
+# ConLeche.Kernel.Install — a pinned constant's fast-path names (fixed name lists, the pin names' membership tests), read once per context constant by the worker's reach and once per constant of a justification's cone
+ConLeche.pinFootprint
 
 # ConLeche.Modular — a record's statement (one match on the record's kind, the constant's value dropped, nothing walked), once per hole by the compared run (`Driver.cmpRecord`, `chalRecord`)
-ConLeche.Modular.stmtOf
 
 # ConLeche.Verify.Frontend.Rounds — the rounds driver's small helpers (proved here, executed by the frontend)
 ConLeche.Frontend.instInhabitedFinPart.default

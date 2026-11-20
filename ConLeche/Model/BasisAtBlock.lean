@@ -219,7 +219,7 @@ theorem ctorFamily_ind_congr {find₁ find₂ : Name → Option ConstantInfo} {c
   · rfl
 
 /-- **A recorded block whose names the renaming keeps stays recorded.** -/
-theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : RenEnv env env') {D : LfpDatum V}
+theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : CopyEnv env env') {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks)
     (hm : ∀ mm, mm < D.k → env'.find? (D.member mm) = env.find? (D.member mm))
     (hC : ∀ c, c < D.N → ∀ j, j < D.nctors c →
@@ -229,7 +229,7 @@ theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : RenEnv env env') {
       LfpCtorReads (renAcval mp.base2.acval env env') env' D ∧ LfpCaps env' D := by
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
-    fun φ d e => denote_ren h.copy mp.base2.acval_params φ d e
+    fun φ d e => denote_ren h mp.base2.acval_params φ d e
   obtain ⟨hL, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, ⟨hcK, hcC⟩⟩ := mp.lfp_ok D hD
   have hC' : ∀ c, c < D.k → ∀ j, j < D.nctors c →
       env'.find? (D.ctorName c j) = env.find? (D.ctorName c j) :=
@@ -383,7 +383,7 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
     · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
       rw [hf]; exact hfwd _ _ hf fun _ _ _ _ _ he => nomatch he
   obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h hwf R.mem hlink hstable mp.lfpBlocks (fun D hD =>
-    lfp_keep mp h hD (hkeepD hD).1 (hkeepD hD).2)
+    lfp_keep mp h.copy hD (hkeepD hD).1 (hkeepD hD).2)
   refine ⟨mp', hacR, fun hc => ?_⟩
   have hlook : ∀ C n, ctorLook env'.find? C n = ctorLook env.find? C n := by
     intro C n
@@ -708,7 +708,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     rcases List.mem_cons.mp hD with rfl | hD'
     · exact ⟨hclause, hstoredE, hreads, hctorReads, hcaps⟩
     · obtain ⟨h1, h2⟩ := hkept hD'
-      exact lfp_keep mp h h1 (hkeepD h1 h2).1 (hkeepD h1 h2).2)
+      exact lfp_keep mp h.copy h1 (hkeepD h1 h2).1 (hkeepD h1 h2).2)
   refine ⟨mp', hacR, fun _ => ?_⟩
   -- a block with `Eq` among its names is `Eq`'s
   have hnotE : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks → eqName ∈ D.names → D.names = [eqName] := by
@@ -1110,7 +1110,7 @@ theorem coverStep_head {E env env' : Env} {pin p' : ConstantInfo} {L₀ : List C
       injection hx with e8 _
       exact hmemb hD c hck e8.symm
   obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h hwf R.mem hlink hstable mp.lfpBlocks (fun D hD =>
-    lfp_keep mp h hD (hkeepD hD).1 (hkeepD hD).2)
+    lfp_keep mp h.copy hD (hkeepD hD).1 (hkeepD hD).2)
   have hlook : ∀ {C : Name}, C ≠ quotName → ∀ n,
       ctorLook env'.find? C n = ctorLook env.find? C n := by
     intro C hC n

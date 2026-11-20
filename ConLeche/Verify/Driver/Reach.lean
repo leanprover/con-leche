@@ -33,7 +33,9 @@ public section
 
 namespace ConLeche.Driver
 
-open ConLeche ConLeche.Modular ConLeche.Frontend.Olean
+open ConLeche.Cached
+
+open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 /-! ## What an expression reads -/
 
@@ -200,11 +202,11 @@ theorem needsGo_spec :
 
 /-! ## What a record reads -/
 
-theorem NeedsSt.expr_spec {x : NeedsSt} (hi : NeedsInv x) (e : Expr) :
+theorem _root_.ConLeche.Cached.NeedsSt.expr_spec {x : NeedsSt} (hi : NeedsInv x) (e : Expr) :
     NeedsStep x (x.expr e) e :=
   needsGo_spec e x.1 x.2 hi
 
-theorem NeedsSt.names_spec {x : NeedsSt} (hi : NeedsInv x) (ns : List Name) :
+theorem _root_.ConLeche.Cached.NeedsSt.names_spec {x : NeedsSt} (hi : NeedsInv x) (ns : List Name) :
     NeedsInv (x.names ns) ∧ (∀ n ∈ x.2, n ∈ (x.names ns).2) ∧ ∀ n ∈ ns, n ∈ (x.names ns).2 := by
   have hs : ∀ n ∈ x.2, n ∈ (x.names ns).2 := fun n h => mem_appendList.2 (.inl h)
   exact ⟨fun k hk => (hi k hk).mono hs, hs, fun n h => mem_appendList.2 (.inr h)⟩
@@ -261,7 +263,7 @@ theorem TableCovered.mono {a b : Array Name} {t : ProjTable} (h : TableCovered a
     (hs : ∀ n ∈ a, n ∈ b) : TableCovered b t :=
   ⟨hs _ h.1, hs _ h.2.1, fun x hx => (h.2.2 x hx).mono hs⟩
 
-theorem NeedsSt.rule_spec {x : NeedsSt} (hi : NeedsInv x) (r : RecRule) :
+theorem _root_.ConLeche.Cached.NeedsSt.rule_spec {x : NeedsSt} (hi : NeedsInv x) (r : RecRule) :
     Grows x (x.rule r) ∧ RuleCovered (x.rule r).2 r := by
   obtain ⟨h1, h2, h3⟩ := x.expr_spec hi r.rhs
   obtain ⟨h4, h5, h6⟩ := (x.expr r.rhs).names_spec h1 [r.ctor]
@@ -293,7 +295,7 @@ theorem foldl_rule_spec :
     · exact h3.mono h5
     · exact h6 r' hr'
 
-theorem NeedsSt.const_spec {x : NeedsSt} (hi : NeedsInv x) (ci : ConstantInfo) :
+theorem _root_.ConLeche.Cached.NeedsSt.const_spec {x : NeedsSt} (hi : NeedsInv x) (ci : ConstantInfo) :
     Grows x (x.const ci) ∧ ConstCovered (x.const ci).2 ci := by
   obtain ⟨h1, h2, h3⟩ := x.expr_spec hi ci.toConstantVal.type
   -- what the middle part gives, a fold of the type's state `y` and the footprint
@@ -347,7 +349,7 @@ theorem NeedsSt.const_spec {x : NeedsSt} (hi : NeedsInv x) (ci : ConstantInfo) :
     · intro _ _ _ _ _ e; cases e
     · intro _ _ e; cases e
 
-theorem NeedsSt.table_spec {x : NeedsSt} (hi : NeedsInv x) (t : ProjTable) :
+theorem _root_.ConLeche.Cached.NeedsSt.table_spec {x : NeedsSt} (hi : NeedsInv x) (t : ProjTable) :
     Grows x (x.table t) ∧ TableCovered (x.table t).2 t := by
   obtain ⟨h1, h2, h3⟩ := x.names_spec hi [t.structName, t.ctor]
   obtain ⟨⟨h4, h5⟩, h6⟩ := foldl_expr_spec t.bodies.toList h1
@@ -416,7 +418,7 @@ end ConLeche.Driver
 
 namespace ConLeche.Driver
 
-open ConLeche ConLeche.Modular ConLeche.Frontend.Olean
+open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 /-- **The worklist's invariant** from the roots `rs`: every name a record read so far reads
 has been pushed; every pushed name is stored or still to read; every stored name is a record's;
@@ -683,7 +685,7 @@ end ConLeche.Driver
 
 namespace ConLeche.Driver
 
-open ConLeche ConLeche.Modular ConLeche.Frontend.Olean
+open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 theorem exprOk_iff {lps : List Name} {k : Nat} {e : Expr} :
     exprOk lps k e = true ↔

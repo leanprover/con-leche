@@ -61,13 +61,13 @@ def workerArgs (mode : CheckMode) (maxNatSize : Nat) (paths : Array String) (job
   #["--olean", "--module"] ++ (match jobs with | some t => #[s!"--jobs={t}"] | none => #[]) ++
     #[modeTag mode, s!"--max-nat-size={maxNatSize}"] ++ paths ++ #["--", spell m]
 
-/-- **The compare worker's arguments** at challenge `c` and solution `s` (task #608):
+/-- **The compare worker's arguments** at challenge `c` and solution `s` (tasks #608, #619):
 `--olean --module --compare`, as `workerArgs`, then `--`, `spell c` and `spell s`. -/
-def cmpWorkerArgs (mode : CheckMode) (paths : Array String) (jobs : Option Nat) (c s : Name) :
-    Array String :=
+def cmpWorkerArgs (mode : CheckMode) (maxNatSize : Nat) (paths : Array String)
+    (jobs : Option Nat) (c s : Name) : Array String :=
   #["--olean", "--module", "--compare"] ++
     (match jobs with | some t => #[s!"--jobs={t}"] | none => #[]) ++
-    #[modeTag mode] ++ paths ++ #["--", spell c, spell s]
+    #[modeTag mode, s!"--max-nat-size={maxNatSize}"] ++ paths ++ #["--", spell c, spell s]
 
 /-- A word as a POSIX shell reads it back: as it is where it is not empty and holds only
 letters, digits and `_-./=:,+@%`, else in single quotes, a `'` in it as `'\''`. -/

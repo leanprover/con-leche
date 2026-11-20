@@ -5,13 +5,14 @@ import ConLeche.Verify.Frontend.ModelIO
 import Std.Data.HashMap.Lemmas
 
 /-!
-# The challenge's read sees only the trusted directories (task #607, T1)
+# The reads through some directories see only those directories (task #607, T1)
 
 A compared run reads the challenge's closure through the trusted directories alone
-(`Driver.CmpReq.chalRoots`).  `challenge_local`: on two snapshots that agree on every path the
+(`Driver.CmpReq.chalRoots`).  `readOleansAt_local`: on two snapshots that agree on every path the
 reader can form under those directories (`FS.AgreeUnder`), the read has the same outcomes,
-failure included (`challengeView`).  So whatever an accepted run says of the challenge's read
-is a property of the trusted files alone, whatever else either snapshot holds.
+failure included; so do `readFiles` and the other reads below (`readFiles_local`), and so the
+constants of a closure through the directories are a property of the files there alone
+(`closureConstants_local`, `ConLeche/Verify/CompareInput.lean`).
 
 The paths the reader forms under a directory `d` are `modDir d m` (a module's directory, and
 `d` itself at `m = .anonymous`) and `modFile d m ext` (`Under`).  Locality is a property of an
@@ -452,28 +453,6 @@ theorem readOleansAt_local {R : Roots} (hR : RootsIn dirs R) (roots : Array Name
     | exact ModelIO.localTo_pure_true
     | refine (ModelIO.localTo_liftIO _).bind fun _ _ => ?_
     | split)
-
-/-! ## T1 -/
-
-/-- **The challenge's view of a snapshot**: the outcomes of its read through the directories
-`dirs` alone (`Driver.CmpReq.chalRoots`), from the module `C`, of the constants `cs` (`--constant`)
-or all of its closure, failure included.  The job count and the heartbeat's pace do not change
-the outcomes in the model; the view fixes them at one job and no heartbeat. -/
-@[expose] def challengeView (dirs : SearchPath) (C : Name) (cs : Option (Array Name)) (fs : FS) :
-    Except IO.Error (Except (CheckError × Nat) OleanRead) → Prop :=
-  fun o => ∃ hs hs', (readOleansAt { path := dirs } #[C] cs 1 .off true true : ModelIO _) fs hs o hs'
-
-/-- **T1, the challenge is local to the trusted directories**: on two snapshots that agree on
-every path the reader can form under `dirs`, the challenge's read has the same outcomes,
-failure included. -/
-theorem challenge_local {dirs : SearchPath} {C : Name} {cs : Option (Array Name)} {fs₁ fs₂ : FS}
-    (h : FS.AgreeUnder dirs fs₁ fs₂) :
-    challengeView dirs C cs fs₁ = challengeView dirs C cs fs₂ := by
-  have hl := (readOleansAt_local (dirs := dirs) (R := { path := dirs })
-    ⟨fun _ h => h, fun _ h => by simp at h, fun _ _ h => by simp at h⟩ #[C] cs 1 .off true
-      true).1 fs₁ fs₂ h
-  unfold challengeView
-  rw [hl]
 
 end Frontend.Olean
 

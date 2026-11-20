@@ -7,33 +7,57 @@ public import Fragment.ModularInstance
 /-!
 # Comparing a challenge with a solution
 
-A **challenge** is a module whose own declarations state what is
-asked; its **holes** are the ones the solution must supply (Lean's
-axioms and `sorry` declarations), stored as assumptions.  A
-**solution** is an earlier module that declares the challenge's names.
-The challenge is a module of the development validated by comparison
-(`Compared`): its own environment is its context, assembled from the
-views of its imports, among them the solution.  It reads each of its
-own names from the solution, and every name it imports from the module
-that declares it, its **home**.
+A **challenge** states what is asked; its **holes** are its assumptions
+(Lean's axioms, and the declarations whose value uses `sorry`, read as
+the assumptions of their statements).  A **solution** is a second,
+checked environment.
 
-* `compare_solves`: if the modules up to the challenge are valid, there
-  is a compatible family of models in which the challenge gives every
-  name the value of the module it reads it from, and every constant of
-  the challenge's environment, every hole among them, has its type
-  inhabited by that value.  For a hole, read from the solution, the
-  inhabitant is the solution's value; for an imported name, its value
-  is its home's.
-* `Valid.redeclared_is_proof`: the home rule needs no check of its own.
-  A view of a module other than the home that stores an imported name,
-  without that module having the name in its own context (the module
-  declares it itself), agrees only as a proof.
+**Justified assumptions.**  The challenge is checked like any input,
+except that a hole may be added to its environment when the solution
+justifies it: the solution stores the hole's name with the same
+statement, up to the names of the level parameters, and the two models
+agree on every constant the statement reads.  The model of the
+challenge then takes the solution model's value at the hole.
+
+* `denote_agree`: two assignments that agree on every constant a term
+  reads give it the same denotation, and make it well-denoted alike.
+* `EnvModel.extend_stmt`: an environment model extends to a fresh
+  statement-kind constant whose laws hold at a given set.
+* `install_justified`: a model of the challenge's environment extends
+  to a justified hole, with the solution model's value at it.
+  `install_shared`: likewise for a constant the two environments store
+  alike, whose type and value read only constants on which the models
+  agree.  Together these keep the models in agreement on the shared
+  constants along the challenge's check.
 * `Expr.instL_rename`: renaming a constant's level parameters
   position by position changes none of its instances, so it changes
   none of its laws in a model, whose values are read off lists of
-  levels by position.  The modules here compare at equal names.
--/
+  levels by position.
 
+**The module comparison.**  The challenge may instead be a module of
+a development, which passes the local checks like any other module
+(`LocalOk`).  It imports the solution besides its own imports, so its
+context is assembled from the views of both, every two copies of a
+name agreeing.  A declaration of the challenge whose name a view stores
+is a **copy**: it is not one of the module's declarations, and its name
+is read into the context like any imported name, from the module the
+context reads it from.  A copy states what that module's constant
+states, up to the names of the level parameters.  Every other
+declaration of the challenge is its own, and is checked.
+
+* `Checks.find?_context` (`ModularModel.lean`): an entry of the
+  context is an entry of the module's own environment.
+* `compare_solves`: if the modules up to the challenge pass their local
+  checks, there is a compatible family of models in which every entry
+  of the challenge's context, every copy among them, has its type
+  inhabited by the value of the module it is read from, also with its
+  level parameters renamed.
+* `LocalOk.redeclared_is_proof`: a view of a module other than the one
+  a name is read from, which stores the name without that module
+  having it in its context (the module declares it itself), agrees
+  only as a proof.  So a solution that declares a name the challenge
+  imports, other than as a proof, fails the agreement of copies.
+-/
 namespace Fragment
 
 open SetLib IndLib
@@ -116,18 +140,214 @@ theorem Expr.instL_rename {ps ps' : List Name} {ls : List Level}
     simp only [Expr.instL_letE, instL_rename hnd hl' hl T h.1.1, instL_rename hnd hl' hl v h.1.2,
       instL_rename hnd hl' hl b h.2]
 
-/-! ## The home rule -/
+/-! ## Justified assumptions -/
 
 universe u
 
+section Justified
+
+variable {V : Type u} [IndLib V]
+
+/-- **Denotation reads only the constants a term reads**: two
+assignments that agree on them give the term the same set, and make it
+well-denoted alike. -/
+theorem denote_agree {M M' : Name → List Nat → V} {e : Expr}
+    (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) (φ : Name → Nat) (ρ : Nat → V) :
+    interp M φ ρ e = interp M' φ ρ e ∧ (WellDenoted M φ ρ e ↔ WellDenoted M' φ ρ e) :=
+  ⟨interp_consts h, WellDenoted_consts h⟩
+
+theorem ConstInfo.IsStmt.not_recursor {ci : ConstInfo} (hk : ci.IsStmt)
+    {nP nM nMin nI : Nat} {rules : List RecRule} : ci.kind ≠ .recursor nP nM nMin nI rules := by
+  rcases hk with h | ⟨v, h⟩ <;> rw [h] <;> exact fun h' => by cases h'
+
+theorem ConstInfo.IsStmt.not_induct {ci : ConstInfo} (hk : ci.IsStmt)
+    {nP nI : Nat} {cs : List Name} {S : IndSpec} : ci.kind ≠ .induct nP nI cs S := by
+  rcases hk with h | ⟨v, h⟩ <;> rw [h] <;> exact fun h' => by cases h'
+
+/-- **A model extends to a fresh statement at a given set.**  A fresh
+constant of a statement kind (an assumption or a definition), whose
+type and value are in scope of a closed environment, is added with the
+set `A` wherever `A` satisfies its typing and unfolding laws in the old
+model; every stored constant keeps its set. -/
+theorem EnvModel.extend_stmt {E : Env} (hs : Env.Scoped E) (m : EnvModel V E) {a : Name}
+    {ci : ConstInfo} (hfresh : E.find? a = none) (hk : ci.IsStmt)
+    (hty : Expr.Scoped E ci.lparams 0 ci.type)
+    (hvs : ∀ v, ci.value? = some v → Expr.Scoped E ci.lparams 0 v) (A : List Nat → V)
+    (htype : ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+      WellDenoted m.M φ ρ (ci.type.instL ci.lparams ls) ∧
+      IsTy (interp m.M φ ρ (ci.type.instL ci.lparams ls)) ∧
+      A (ls.map (Level.eval φ)) ∈ˢ interp m.M φ ρ (ci.type.instL ci.lparams ls))
+    (hunfold : ∀ v, ci.value? = some v →
+      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+        WellDenoted m.M φ ρ (v.instL ci.lparams ls) ∧
+        interp m.M φ ρ (v.instL ci.lparams ls) = A (ls.map (Level.eval φ))) :
+    ∃ m' : EnvModel V (E.add a ci), (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      ∀ ls, m'.M a ls = A ls := by
+  obtain ⟨M', hM'a, hM'n⟩ : ∃ M' : Name → List Nat → V,
+      (∀ ls, M' a ls = A ls) ∧ (∀ n, n ≠ a → ∀ ls, M' n ls = m.M n ls) :=
+    ⟨fun n ls => if n = a then A ls else m.M n ls, fun ls => by simp,
+      fun n hn ls => by simp [hn]⟩
+  have hM' : ∀ n, (E.find? n).isSome → ∀ ls, m.M n ls = M' n ls :=
+    fun n hn ls => (hM'n n (Env.ne_of_isSome_find? hn hfresh) ls).symm
+  obtain ⟨m₀, hm₀⟩ : ∃ m₀ : EnvModel V E, m₀.M = M' := ⟨m.transport hs M' hM', rfl⟩
+  refine ⟨{ M := M', type_ok := ?_, unfold := ?_, rec_rules := ?_,
+              rec_rules_nested := ?_, ind_fib := ?_, rec_rules_slot := ?_, rec_rules_k := ?_ },
+    fun n hn ls => hM'n n (Env.ne_of_isSome_find? hn hfresh) ls, hM'a⟩
+  · -- `type_ok`
+    intro n ci' hfind φ ρ ls hlen
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · rename_i h
+      cases hfind
+      subst h
+      have hc := consts_agree hty hM' ls
+      have := htype φ ρ ls hlen
+      rwa [WellDenoted_consts hc, interp_consts hc, ← hM'a] at this
+    · have := m₀.type_ok n ci' hfind φ ρ ls hlen
+      rwa [hm₀] at this
+  · -- `unfold`
+    intro n ci' v hfind hv φ ρ ls hlen
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · rename_i h
+      cases hfind
+      subst h
+      have hc := consts_agree (hvs v hv) hM' ls
+      have := hunfold v hv φ ρ ls hlen
+      rwa [WellDenoted_consts hc, interp_consts hc, ← hM'a] at this
+    · have := m₀.unfold n ci' v hfind hv φ ρ ls hlen
+      rwa [hm₀] at this
+  · -- `rec_rules`: the new constant is no recursor
+    intro n ci' nP nM nMin nI rules hfind hkr rl hrl hinst cij hcij
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · cases hfind
+      exact absurd hkr hk.not_recursor
+    · have hctor := ((hs n ci' hfind).2.2 nP nM nMin nI rules hkr rl hrl).2
+      rw [Env.find?_add_of_ne E ci (Env.ne_of_isSome_find? hctor hfresh)] at hcij
+      have := m₀.rec_rules n ci' nP nM nMin nI rules hfind hkr rl hrl hinst cij hcij
+      rwa [hm₀] at this
+  · -- `rec_rules_nested`: likewise
+    intro n ci' nP nM nMin nI rules hfind hkr rl hrl lvs pinst hinst cij I nPc nf hcij hcijk
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · cases hfind
+      exact absurd hkr hk.not_recursor
+    · have hctor := ((hs n ci' hfind).2.2 nP nM nMin nI rules hkr rl hrl).2
+      rw [Env.find?_add_of_ne E ci (Env.ne_of_isSome_find? hctor hfresh)] at hcij
+      have := m₀.rec_rules_nested n ci' nP nM nMin nI rules hfind hkr rl hrl lvs pinst hinst cij I
+        nPc nf hcij hcijk
+      rwa [hm₀] at this
+  · -- `ind_fib`: the new constant is no type former
+    intro n ci' nP nI cs S' hfind hki
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · cases hfind
+      exact absurd hki hk.not_induct
+    · have := m₀.ind_fib n ci' nP nI cs S' hfind hki
+      rwa [hm₀] at this
+  · -- `rec_rules_slot`: likewise
+    intro n ci' nP nM nMin nI rules hfind hkr rl hrl cij hcij
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · cases hfind
+      exact absurd hkr hk.not_recursor
+    · have hctor := ((hs n ci' hfind).2.2 nP nM nMin nI rules hkr rl hrl).2
+      rw [Env.find?_add_of_ne E ci (Env.ne_of_isSome_find? hctor hfresh)] at hcij
+      have := m₀.rec_rules_slot n ci' nP nM nMin nI rules hfind hkr rl hrl cij hcij
+      rwa [hm₀] at this
+  · -- `rec_rules_k`: the new constant is no recursor
+    intro n ci' nP nM nMin nI rules hfind hkr rl hrl hkk
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · cases hfind
+      exact absurd hkr hk.not_recursor
+    · have := m₀.rec_rules_k n ci' nP nM nMin nI rules hfind hkr rl hrl hkk
+      rwa [hm₀] at this
+
+/-- **A justified hole takes the solution's value.**  Let the
+challenge's environment `E` be closed, with a model `m`, and let `a` be
+a fresh hole: an assumption `ci` whose type is in scope of `E`.  Let
+the solution's environment `ES`, with a model `mS`, store `a` as `ciS`
+of any kind, whose type renamed to `ci`'s level parameters, position
+by position, is `ci`'s type.  If `m` and `mS` agree on every constant
+the hole's type reads, then `m` extends to a model of `E` with the
+hole, which keeps every stored constant's set and gives the hole the
+solution model's set. -/
+theorem install_justified {E ES : Env} (hs : Env.Scoped E) (m : EnvModel V E)
+    (mS : EnvModel V ES) {a : Name} {ci ciS : ConstInfo}
+    (hfresh : E.find? a = none) (hk : ci.kind = .assumed)
+    (hty : Expr.Scoped E ci.lparams 0 ci.type)
+    (hS : ES.find? a = some ciS) (hnd : ci.lparams.Nodup)
+    (hlen : ci.lparams.length = ciS.lparams.length) (hSty : ciS.type.lparamsIn ciS.lparams = true)
+    (hren : ci.type = ciS.type.instL ciS.lparams (ci.lparams.map .param))
+    (hagree : ∀ d ∈ ci.type.consts, ∀ ls, m.M d ls = mS.M d ls) :
+    ∃ m' : EnvModel V (E.add a ci), (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      ∀ ls, m'.M a ls = mS.M a ls := by
+  refine m.extend_stmt hs hfresh (Or.inl hk) hty
+    (fun v hv => by simp [ConstInfo.value?, hk, ConstKind.value?] at hv) (mS.M a)
+    (fun φ ρ ls hl => ?_)
+    (fun v hv => by simp [ConstInfo.value?, hk, ConstKind.value?] at hv)
+  have hl' : ls.length = ciS.lparams.length := hl.trans hlen
+  have hinst : ci.type.instL ci.lparams ls = ciS.type.instL ciS.lparams ls := by
+    rw [hren]
+    exact Expr.instL_rename hnd hlen hl' ciS.type hSty
+  have hc : ∀ d ∈ (ciS.type.instL ciS.lparams ls).consts, ∀ ls', m.M d ls' = mS.M d ls' := by
+    intro d hd
+    apply hagree
+    rw [hren, Expr.consts_instL]
+    rwa [Expr.consts_instL] at hd
+  obtain ⟨hw, hT, hmem⟩ := mS.type_ok a ciS hS φ ρ ls hl'
+  have hd := denote_agree hc φ ρ
+  rw [hinst, hd.1, hd.2]
+  exact ⟨hw, hT, hmem⟩
+
+/-- **A shared constant takes the solution's value.**  Let the
+challenge's environment `E` be closed, with a model `m`, and let the
+solution's environment `ES`, with a model `mS`, store a fresh name `a`
+as the statement-kind constant `ci`, whose type and value are in scope
+of `E`.  If `m` and `mS` agree on every constant the type and the value
+read, then `m` extends to a model of `E` with `ci`, which keeps every
+stored constant's set and gives `a` the solution model's set. -/
+theorem install_shared {E ES : Env} (hs : Env.Scoped E) (m : EnvModel V E)
+    (mS : EnvModel V ES) {a : Name} {ci : ConstInfo}
+    (hfresh : E.find? a = none) (hk : ci.IsStmt)
+    (hty : Expr.Scoped E ci.lparams 0 ci.type)
+    (hvs : ∀ v, ci.value? = some v → Expr.Scoped E ci.lparams 0 v)
+    (hS : ES.find? a = some ci)
+    (hagree : ∀ d, (d ∈ ci.type.consts ∨ ∃ v, ci.value? = some v ∧ d ∈ v.consts) →
+      ∀ ls, m.M d ls = mS.M d ls) :
+    ∃ m' : EnvModel V (E.add a ci), (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      ∀ ls, m'.M a ls = mS.M a ls := by
+  refine m.extend_stmt hs hfresh hk hty hvs (mS.M a) (fun φ ρ ls hl => ?_)
+    (fun v hv φ ρ ls hl => ?_)
+  · have hc : ∀ d ∈ (ci.type.instL ci.lparams ls).consts, ∀ ls', m.M d ls' = mS.M d ls' := by
+      intro d hd
+      rw [Expr.consts_instL] at hd
+      exact hagree d (Or.inl hd)
+    have hd := denote_agree hc φ ρ
+    rw [hd.1, hd.2]
+    exact mS.type_ok a ci hS φ ρ ls hl
+  · have hc : ∀ d ∈ (v.instL ci.lparams ls).consts, ∀ ls', m.M d ls' = mS.M d ls' := by
+      intro d hd
+      rw [Expr.consts_instL] at hd
+      exact hagree d (Or.inr ⟨v, hv, hd⟩)
+    have hd := denote_agree hc φ ρ
+    rw [hd.1, hd.2]
+    exact mS.unfold a ci v hS hv φ ρ ls hl
+
+end Justified
+
+/-! ## The agreement of copies -/
+
 variable [LevelOracle]
 
-/-- **A copy at a module other than the home agrees only as a proof**,
-unless that module reads the name itself: a view of module `j` that
-stores a name `n` the validated module `i` reads from another module,
-where `n` is not in `j`'s context (`j` declares it), is a proof at `n`,
-as is every copy of the module `n` is read from. -/
-theorem Valid.redeclared_is_proof {dev : Nat → Module} {i : Nat} (hv : Valid dev i)
+/-- **A copy at a module other than the one a name is read from agrees
+only as a proof**, unless that module reads the name itself: a view of
+module `j` that stores a name `n` the module `i` reads from another
+module, where `n` is not in `j`'s context (`j` declares it), is a proof
+at `n`, as is every copy of the module `n` is read from. -/
+theorem LocalOk.redeclared_is_proof {dev : Nat → Module} {i : Nat} (hv : LocalOk dev i)
     {n : Name} (hn : ((dev i).context.find? n).isSome = true) {x : Nat × Env}
     (hx : x ∈ sources dev i) (hs : (x.2.find? n).isSome = true)
     (hne : x.1 ≠ (dev i).src n) (hctx : ((dev x.1).context.find? n).isSome = false) :
@@ -145,29 +365,45 @@ variable {V : Type u} [IndLib V]
 
 variable (V) in
 /-- **An accepted comparison solves the challenge.**  If the modules up
-to the challenge `c` are valid, there is a compatible family of models,
-one of each module's own environment, in which the challenge gives
-every name of its context the value of the module it reads the name
-from, and every constant of the challenge's environment has its type
-inhabited, at every correctly sized level list, by that module's
-value: for a hole, read from the solution, the solution's value. -/
-theorem compare_solves (dev : Nat → Module) (c : Nat) (h : ∀ j ≤ c, Valid dev j)
-    (hc : Compared dev c) :
+to the challenge `c` pass their local checks, there is a compatible
+family of models, one of each module's own environment, in which the
+challenge gives every name of its context the value of the module it
+reads the name from, and every entry of the challenge's context, every
+copy among them, has its type inhabited, at every correctly sized level
+list, by that module's value; so does its type with the level
+parameters renamed, position by position, to distinct names. -/
+theorem compare_solves (dev : Nat → Module) (c : Nat) (h : ∀ j ≤ c, LocalOk dev j) :
     ∃ m : (i : Nat) → i < c + 1 → BlockModel V (dev i).own,
       (∀ j (hj : j < c + 1) n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n < c + 1, (m j hj).M n = (m ((dev j).src n) h).M n) ∧
-      ∀ n ci, (dev c).own.find? n = some ci →
+      ∀ n ci, (dev c).context.find? n = some ci →
         ∃ h : (dev c).src n < c + 1,
-          ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+          (∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
             (m ((dev c).src n) h).M n (ls.map (Level.eval φ)) ∈ˢ
-              interp (m c (Nat.lt_succ_self c)).M φ ρ (ci.type.instL ci.lparams ls) := by
+              interp (m c (Nat.lt_succ_self c)).M φ ρ (ci.type.instL ci.lparams ls)) ∧
+          ∀ ps : List Name, ps.Nodup → ps.length = ci.lparams.length →
+            ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ps.length →
+              (m ((dev c).src n) h).M n (ls.map (Level.eval φ)) ∈ˢ
+                interp (m c (Nat.lt_succ_self c)).M φ ρ
+                  ((ci.type.instL ci.lparams (ps.map .param)).instL ps ls) := by
   obtain ⟨m, hcomp, -⟩ := modular V dev (c + 1) fun j hj => h j (Nat.le_of_lt_succ hj)
   refine ⟨m, hcomp, fun n ci hf => ?_⟩
-  have hn : ((dev c).context.find? n).isSome = true := by
-    rw [← hc.own, hf]; rfl
-  obtain ⟨hs, he⟩ := hcomp c (Nat.lt_succ_self c) n hn
-  refine ⟨hs, fun φ ρ ls hls => ?_⟩
-  rw [← he]
-  exact ((m c (Nat.lt_succ_self c)).type_ok n ci hf φ ρ ls hls).2.2
+  have hok := h c (Nat.le_refl c)
+  -- the context's entry is the own environment's
+  have ho : (dev c).own.find? n = some ci := hok.checks.find?_context hf
+  obtain ⟨hs, he⟩ := hcomp c (Nat.lt_succ_self c) n (by rw [hf]; rfl)
+  have hplain : ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level),
+      ls.length = ci.lparams.length →
+      (m ((dev c).src n) hs).M n (ls.map (Level.eval φ)) ∈ˢ
+        interp (m c (Nat.lt_succ_self c)).M φ ρ (ci.type.instL ci.lparams ls) := by
+    intro φ ρ ls hls
+    rw [← he]
+    exact ((m c (Nat.lt_succ_self c)).type_ok n ci ho φ ρ ls hls).2.2
+  refine ⟨hs, hplain, fun ps hnd hlen φ ρ ls hls => ?_⟩
+  -- renaming the level parameters changes no instance
+  have hpar : ci.type.lparamsIn ci.lparams = true :=
+    (hok.importOk.reads.1.scoped n ci hf).1.2.2
+  rw [Expr.instL_rename hnd hlen (hls.trans hlen) ci.type hpar]
+  exact hplain φ ρ ls (hls.trans hlen)
 
 end Fragment

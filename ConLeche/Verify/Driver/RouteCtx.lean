@@ -95,7 +95,7 @@ theorem checkDeclStepC_basis {mode : CheckMode} {pins : List NatOpPinSet} {fe : 
 
 /-- **Every record of an accepted run passed the reserved names' check.** -/
 theorem declsRun_basis {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) : ∀ d ∈ ds, basisNamesOk d = true := by
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) : ∀ d ∈ ds, basisNamesOk d = true := by
   induction h with
   | nil => exact fun _ h => nomatch h
   | @cons pd ds p p₁ q hstep rest ih =>
@@ -214,7 +214,7 @@ theorem checkDeclStepC_defn_sorry {mode : CheckMode} {pins : List NatOpPinSet} {
   exact Yields.bind' checkConstantValC_sorry fun _ h => Yields.const h
 
 theorem declsRun_defn_sorry {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) {cv : ConstantVal} {v : Expr}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) {cv : ConstantVal} {v : Expr}
     {hh : ReducibilityHint} (hd : .defnDecl cv v hh ∈ ds) : cv.name ≠ sorryAxName := by
   induction h with
   | nil => exact nomatch hd
@@ -367,7 +367,7 @@ theorem checkDeclStepC_quot {mode : CheckMode} {pins : List NatOpPinSet} {fe : F
   all_goals exact Yields.const (by assumption)
 
 theorem declsRun_quot {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) {k : QuotKind} {cv : ConstantVal}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) {k : QuotKind} {cv : ConstantVal}
     (hd : .quotDecl k cv ∈ ds) : quotPinHit k cv = true := by
   induction h with
   | nil => exact nomatch hd
@@ -627,24 +627,40 @@ theorem emitted_ownNames {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p :
 
 /-- **A name an own environment stores, loaded at the module, is in its context**: an own
 record's names are the module's own, which no load holds. -/
-theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {y : Name}
+theorem stored_of_own_find {h : Name} (hh : h ∈ R.names) {y : Name}
     (hy : ((ownEnvOf (R.look h) fs h (R.w h)).find? y).isSome = true)
     (hl : ((R.w h).reads.index.first[y]?).isSome = true) :
     ((R.dev (R.rk h)).context.find? y).isSome = true := by
-  have hw := R.facts₀ hh hx
+  have hw := R.facts h hh
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.1 hy
   have hn := Env.find?_name hci
   rw [R.dev_rk hh]
   rcases (mem_streamEnv_consts _ _).1 (Env.find?_mem hci) with ⟨p, hp, hcp⟩ | hc
   · obtain ⟨p0, hp0, rfl⟩ := List.mem_map.1 hp
     rw [declConstants_fillDecl] at hcp
-    have hpe : p0 ∈ (R.w h).emitted.toList := by
+    have hpe : p0 ∈ (ownRecs (R.x h) (R.w h).reads.index (R.w h).emitted).toList := by
       rw [hw.own] at hp0
       exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.1 hp0
-    have := R.emitted_ownNames hh hx (Array.mem_toList_iff.1 hpe) (List.mem_map_of_mem (f := fun c : ConstantInfo => c.toConstantVal.name) hcp)
-    rw [show ci.toConstantVal.name = y from hn] at this
-    rw [first_none_of_ownNames hw this] at hl
-    cases hl
+    have hyn : y ∈ declNames p0 := by
+      rw [← hn]; exact List.mem_map_of_mem (f := fun c : ConstantInfo => c.toConstantVal.name) hcp
+    by_cases hx : R.x h = #[]
+    · have hpe' : p0 ∈ (R.w h).emitted.toList := by
+        simpa [ownRecs, hx] using hpe
+      have := R.emitted_ownNames hh hx (Array.mem_toList_iff.1 hpe') hyn
+      rw [first_none_of_ownNames (R.facts₀ hh hx) this] at hl
+      cases hl
+    · have hxe : (R.x h).isEmpty = false := by
+        cases hxe : (R.x h).isEmpty
+        · rfl
+        · exact absurd (Array.isEmpty_iff.1 hxe) hx
+      simp only [ownRecs, hxe, Bool.false_eq_true, ↓reduceIte, Array.toList_filter,
+        List.mem_filter, Bool.not_eq_eq_eq_not, Bool.not_true] at hpe
+      have hnl := hpe.2
+      simp only [loadedRec, List.any_eq_false] at hnl
+      have := hnl y hyn
+      simp only [Std.HashMap.contains_eq_isSome_getElem?] at this
+      rw [hl] at this
+      exact absurd rfl this
   · obtain ⟨d, hd, hcd⟩ := ((mem_streamEnv_consts _ _).1 hc).resolve_right (by simp [Env.empty])
     rw [← hn]
     exact stored_of_record hd (List.mem_map_of_mem hcd)
@@ -927,7 +943,7 @@ theorem reader_ctx {M : Name} (hM : M ∈ R.names) {h y : Name} (hP : (h, y) ∈
       have hst' := own_type_stored ⟨_, R.run h hhN⟩
         (List.mem_map.2 ⟨_, emitted_own hwh hp, rfl⟩) hrec y
         (by rw [← needs_eq_readNames]; exact hyn')
-      exact R.stored_of_own_find hhN hxN hst' hl
+      exact R.stored_of_own_find hhN hst' hl
     · obtain ⟨ci, hfind, hcv, -, -, -⟩ := copy_own hwh ⟨_, R.run h hhN⟩ hmod2.symm hcpH hlv hrgH hst
         hsk2 htag hsy
       exact R.stored_of_own_const hhN hxN (Env.find?_mem hfind) (by rw [hcv]; exact hyn') hl

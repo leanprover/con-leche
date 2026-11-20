@@ -58,7 +58,7 @@ inductive Req where
   /-- a challenge against its solution, as one module of a modular run (`checkCmpModuleG`,
   task #608) -/
   | cmpModule (trusted searchPath : List System.FilePath) (c s : Name) (mode : CheckMode)
-      (pace : Pace) (jobs : Nat)
+      (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
 
 /-- **A request run** by its driver. -/
 def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
@@ -70,10 +70,10 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
     | some s, [c] => checkGraphCmpG ⟨c, s, tp, sp, none⟩ jobs
     | _, _ => Graph.checkGraphG sp roots jobs
   | .modular _ sp root none mode maxNatSize pace jobs =>
-    checkModularG sp sp root none (pure none) mode maxNatSize pace jobs
+    checkModularG sp root none (pure none) mode maxNatSize pace jobs
   | .modular tp sp root (some s) mode maxNatSize pace jobs =>
     let r : CmpReq := ⟨root, s, tp, sp, none⟩
-    checkModularG r.chalRoots r.solRoots root (some s) (fallbackOnly r) mode maxNatSize pace jobs
+    checkModularG r.solRoots root (some s) (chalWalk r jobs) mode maxNatSize pace jobs
   | .schedule tp sp root cmp opts mode maxNatSize pace jobs jobsGiven =>
     scheduleG tp sp root cmp opts mode maxNatSize pace jobs jobsGiven
   | .compare r mode maxNatSize pace jobs => compareG r mode maxNatSize pace jobs
@@ -81,9 +81,9 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .module tp sp m mode maxNatSize pace jobs => do
     let (R, T) ← workerTables (⟨m, m, tp, sp, none⟩ : CmpReq).solRoots m
     checkModuleG (T.reads R) R m mode maxNatSize pace jobs
-  | .cmpModule tp sp c s mode pace jobs => do
+  | .cmpModule tp sp c s mode maxNatSize pace jobs => do
     let r : CmpReq := ⟨c, s, tp, sp, none⟩
-    let (R, T) ← workerTables r.chalRoots c
-    checkCmpModuleG (T.reads R) (T.reads r.solRoots) c s (fallbackOnly r) mode pace jobs
+    let (R, T) ← workerTables r.solRoots c #[Graph.solutionImport s]
+    checkCmpModuleG (T.reads R) R c s (chalWalk r jobs) mode maxNatSize pace jobs
 
 end ConLeche.Driver

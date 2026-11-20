@@ -30,6 +30,8 @@ public section
 
 namespace ConLeche.Driver
 
+open ConLeche.Cached
+
 open ConLeche ConLeche.Modular ConLeche.Frontend.Olean
 
 /-! ## What the check says -/

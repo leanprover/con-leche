@@ -11,8 +11,8 @@ stream, checking what the official kernel checks (on a few features
 it declines instead; @sec:left-out). It comes with a proof, written in
 Lean itself, of what an acceptance means: every stream the
 checker accepts
-#src("ConLeche/MainTheorem.lean", 124, 130)[has a model in set theory].
-#src("ConLeche/IsModel.lean", 315, 316)[Each constant is assigned a set], each type denotes a set, and every
+#src("ConLeche/MainTheorem.lean", 122, 128)[has a model in set theory].
+#src("ConLeche/IsModel.lean", 312, 313)[Each constant is assigned a set], each type denotes a set, and every
 constant is a member of the set its type denotes. The prelude's `False`
 denotes the empty set, and its `Eq` denotes equality, so every
 equation the checker accepts is an equality of sets. Every definition
@@ -20,7 +20,7 @@ denotes its value and every recursor computes by its rules. Hence no accepted
 stream holds a proof of `False`, and every accepted theorem is
 true in the model. Checked module by module from Lean's `.olean`
 files, every module of an import closure
-#src("ConLeche/MainTheorem.lean", 272, 283)[has a model of its own constants],
+#src("ConLeche/MainTheorem.lean", 280, 291)[has a model of its own constants],
 and a name a module sees as another module's means there what that
 module's model says.
 
@@ -141,10 +141,12 @@ proof case each. §7 checks a development module by module, each
 module against an environment built from what its imports present,
 and shows that every module's environment has a model, each module's
 model giving every name it reads the value it has in the model of the
-module it is read from. §8 compares a challenge, a module with open
-statements, with a solution: an accepted comparison gives a model in
-which every statement holds, with the solution's value as its witness,
-and every imported name has the value it has where it is declared. §9
+module it is read from. §8 checks a challenge, an input with open
+statements, with a solution: an open statement is accepted when the
+solution states the same and everything the statement reads is the
+same constant in both, and an accepted challenge has a model, which
+takes the solution's value at every open statement. §8 also compares a
+challenge with a solution module by module. §9
 lists what
 was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related

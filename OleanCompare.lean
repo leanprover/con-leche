@@ -224,7 +224,7 @@ def runReach (sp : List System.FilePath) (m : Name) (jobs : Nat) (list : Bool) :
         match declsOf (emitAll mg (cs.map (·.name)).toArray) with
         | .error (e, _) => fail e
         | .ok ds =>
-          let roots := ds.foldl (fun acc d => acc ++ recordReads d) #[] ++
+          let roots := ds.foldl (fun acc d => acc ++ Cached.recordReads d) #[] ++
             cs.foldl (fun acc c => acc ++ c.uses.toArray) #[]
           match ← (reach (.ofPath sp) m w own roots : IO _) with
           | .error e => fail e

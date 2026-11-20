@@ -157,7 +157,7 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
 covered carrier at the context, with the `Nat` facts and every proof's leaf
 the canonical proof, carries to one at the own environment that keeps every context leaf. -/
 theorem declsRun_proofs :
-    ∀ {ds : List Declaration} {p q : Nat × FEnv}, DeclsRun .verified pins maxNatSize ds p q →
+    ∀ {ds : List Declaration} {p q : Nat × FEnv}, DeclsRun .verified pins maxNatSize none ds p q →
     ∀ {E : Env}, p.2 = mkFEnv E →
     ∀ mp : EnvModelM V E, LfpCover mp [] → NatFacts E →
       ProofLeaves V E mp.base2.acval →

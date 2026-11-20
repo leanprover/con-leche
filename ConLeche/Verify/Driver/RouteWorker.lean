@@ -399,7 +399,7 @@ theorem checkDeclStepC_quot {mode : CheckMode} {pins : List NatOpPinSet} {fe : F
   exact checkQuotRecordC_hit _ _ _
 
 theorem declsRun_quot_hit {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
     ∀ cv, Declaration.axiomDecl cv ∈ ds → cv.name = quotSoundName → quotPinHit .sound cv = true := by
   induction h with
   | nil => exact fun _ h _ => nomatch h

@@ -214,7 +214,7 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
 @[expose] def AcceptsX (pins : List NatOpPinSet) (maxNatSize : Nat) (Γ : XEnv) (D : List Declaration)
     (Γ' : XEnv) : Prop :=
   Γ'.1 = streamEnv D Γ.1 ∧ (∀ n, Γ'.2 n) ∧
-    ∃ k q, DeclsRun .verified pins maxNatSize D (k, mkFEnv Γ.1) q
+    ∃ k q, DeclsRun .verified pins maxNatSize none D (k, mkFEnv Γ.1) q
 
 theorem streamEnv_isSome_base : ∀ (D : List Declaration) {E : Env} {n : Name},
     (E.find? n).isSome = true → ((streamEnv D E).find? n).isSome = true

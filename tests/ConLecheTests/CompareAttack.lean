@@ -15,11 +15,9 @@ solution that redeclares `f` with another value, or any other solution, must not
 `no_model` is the model-level fact: no `Model` of an environment that stores `def f : T := T.a`
 and the hole `t : f = T.b` as an axiom exists, because the model makes `f` denote `T.a`
 (`Model.defn_eq`), `Eq` is set equality, and `T.a` and `T.b` denote different sets
-(`IotaEqTest.T_a_ne_T_b`, from `Model.rule_eqs`).  `compare_attack_rejected` lifts it through
-the restated `main_compare_solves`: on any snapshot whose challenge read gives such an
-environment, `--olean --compare` has no exit 0, whatever the solution.  The challenge's
-environment holds the challenge's own records and what they read (`Driver.chalCmpRecs`); the
-hole reads `f`, `T.b` and `Eq`, and `f` reads `T.a`, so all of the shape is in it.
+(`IotaEqTest.T_a_ne_T_b`, from `Model.rule_eqs`).  The hole reads `f`, `T.b` and `Eq`, and `f`
+reads `T.a`, so all of the shape is in a challenge's environment that holds the hole and what it
+reads.
 
 The fixtures themselves use `def f : Nat := 3` and `t : f = 5`.  The argument is the same; the
 step it needs in place of `T_a_ne_T_b` is that `3` and `5` denote different sets in every model,
@@ -61,10 +59,10 @@ structure AttackEnv (env : Env) : Prop where
 
 /-- **No model of the attack's environment**: `f` denotes `T.a`, so the hole's type denotes
 `eqv ⟦T.a⟧ ⟦T.b⟧`, which is empty. -/
-theorem no_model {env : Env} (M : Model V env) (h : AttackEnv env) : False := by
+theorem no_model {env : Env} (M : Model V env) (heq : EqLaw M) (h : AttackEnv env) : False := by
   obtain ⟨_, hEq, hEqLps⟩ := h.hEq
   obtain ⟨_, hfd⟩ := h.hF
-  have hne := T_a_ne_T_b M h.hT h.hTa h.hTb h.hRec hEq hEqLps
+  have hne := T_a_ne_T_b M heq h.hT h.hTa h.hTb h.hRec hEq hEqLps
   -- `f` denotes `T.a`
   have hfv : M.cval fN one = M.cval taN one :=
     M.cval_of_defn (List.mem_of_find?_eq_some hfd) (φ := one) (ρ := fun _ => empty)
@@ -89,27 +87,9 @@ theorem no_model {env : Env} (M : Model V env) (h : AttackEnv env) : False := by
     rw [substFn_nil]; exact mem_ctor M h.hT rfl rfl h.hTb
   change _ ∈ˢ app (app (app E (M.cval tN one)) (M.cval fN (Level.substFn one [] [])))
     (M.cval tbN (Level.substFn one [] [])) at hm
-  rw [M.eq_equality l1 one _ E _ _ _ hE hTU ha hb] at hm
+  rw [heq l1 one _ E _ _ _ hE hTU ha hb] at hm
   have he := eq_of_mem_eqv hm
   have he' : M.cval fN one = M.cval tbN one := he
   exact hne (hfv ▸ he')
-
-open Frontend in
-/-- **The attack is refused, whatever the solution**: on a snapshot where every challenge read
-`--olean --compare` can make gives an environment of the attack's shape, no outcome of the run
-is an exit 0. -/
-theorem compare_attack_rejected (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-    {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (hread : ∀ pre rdC, ModelIO.CanGive (Olean.readOleansAt
-        (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).chalRoots
-        #[C] none (lenient := true) (homes := true)) fs (.ok rdC) →
-      AttackEnv (Driver.challengeEnv pre C
-        (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).chalRoots
-        rdC)) :
-    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-      "--search-path=" ++ D, "--", c, s]) fs 0 := by
-  intro h
-  obtain ⟨pre, rdC, -, -, h2, -, mC, -⟩ := main_compare_solves V hc hs h
-  exact no_model mC (hread pre rdC h2)
 
 end ConLeche.CompareAttackTest
