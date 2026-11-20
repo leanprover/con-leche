@@ -65,7 +65,11 @@ of a process; `ConLeche/Driver/Schedule/Run.lean` runs the jobs and calls these.
   sorted by the FNV-1a hash of their spelled keys (`shuffle`), the same on every run and machine,
   so a resumed run keeps the order and skips the logged jobs.  Neighbours in the graph's order
   are alike in size (runs of small or of big ones), which made the memory pressure come in waves
-  and the jobs run so far an unrepresentative sample.  `graph` starts them in the graph's order.
+  and the jobs run so far an unrepresentative sample.  `graph` starts them in the graph's order;
+* **a failed start** (`spawnFailAct`): while other jobs run, the job goes back to its position
+  (`requeueFailed`) and the starts wait until a running job has ended (`startsHeld`); with none
+  running it is the job's verdict 3 and no further job starts.  What held the starts back, the
+  memory, the thread budget or a failed start, is summed over the run (`heldBy`).
 -/
 
 namespace ConLeche.Driver.Schedule
@@ -225,5 +229,52 @@ typical peak, else `typical`. -/
 def resTerm (k win typ size : Nat) : String :=
   let pk := max k win
   if size > max pk typ then "learned" else if pk ≥ typ then "window peak" else "typical"
+
+/-- **What a failed start does** (the job's process could not be started, e.g. `fork` failing with
+ENOMEM or EAGAIN): with `running` jobs still running it is no verdict, the job goes back to its
+position (`requeueFailed`) and no job starts until a running one has ended (`startsHeld`); with
+none running nothing would free what the start lacked, and it is the job's verdict 3 and the end
+of the starts. -/
+inductive SpawnFail where
+  | requeue
+  | stop
+  deriving BEq, Repr
+
+/-- `SpawnFail` at `running` running jobs. -/
+def spawnFailAct (running : Nat) : SpawnFail := if running = 0 then .stop else .requeue
+
+/-- A job whose start failed, back among the unstarted ones at its own position: among the killed
+ones (`again`) where it came from there, else among the never started ones (`pending`, where it
+was the first). -/
+def requeueFailed {α : Type} (pos : α → Nat) (m : α) (fromAgain : Bool) (again pending : List α) :
+    List α × List α :=
+  if fromAgain then (insertAt pos m again, pending) else (again, insertAt pos m pending)
+
+/-- **Are the starts held after a failed start?** `hold` is the number of jobs running when a
+start failed (`none`: no failure pending); the starts resume once fewer run, i.e. once a running
+job has ended (finished or killed). -/
+def startsHeld (hold : Option Nat) (running : Nat) : Bool :=
+  match hold with
+  | some n => running ≥ n
+  | none => false
+
+/-- **What held the starts back** over a tick, for the statistics: nothing where no job waits
+(`queued` false) or the starts stopped; a failed start (`startsHeld`); the thread budget where
+the running jobs' threads fill `jobs`; else the memory (the head slot is busy and no other job
+fits into the room). -/
+inductive HeldBy where
+  | memory
+  | jobs
+  | spawn
+  deriving BEq, Repr
+
+/-- `HeldBy` after a tick's starts: `queued` whether an unstarted job is left, `held` whether a
+failed start holds the starts, `threads` the running jobs' threads, `stopped` whether the starts
+ended. -/
+def heldBy (queued held stopped : Bool) (threads jobs : Nat) : Option HeldBy :=
+  if !queued || stopped then none
+  else if held then some .spawn
+  else if threads ≥ jobs then some .jobs
+  else some .memory
 
 end ConLeche.Driver.Schedule

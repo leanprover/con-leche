@@ -12,7 +12,8 @@ itself on one module (`workerArgs`; the module last, spelled by `spell`, which i
 scheduler finds the worker in `/proc`).  This module holds what is particular to that worker,
 all of it pure:
 
-* **its command line** (`workerArgs`), and the commands a user runs to check a closure without
+* **its command line** (`workerArgs`) and its stack size (`stackEnv`, `stackUsed`), and the
+  commands a user runs to check a closure without
   the scheduler (`commandLines`, `--schedule-commands`), shell-quoted (`shellQuote`);
 * **what it printed** (`workerStats`, `reportedPeak`): its declarations (stdout's `accepted N
   declarations`), its parse and check phases (the `stats: phases:` line), its check pool's busy
@@ -22,8 +23,8 @@ all of it pure:
   what ended it otherwise (DESIGN #569): `Child.tryWait` returns 128 + the signal for a signalled
   child and a worker's own codes are 0 to 3, so a code above 128 is the signal `c - 128`.
   `stack` is SIGABRT with `Stack overflow detected` on the worker's stderr (Lean's
-  `segv_handler`: the declaration needs a larger `LEAN_STACK_SIZE_KB`, which the workers inherit;
-  the finish line adds the hint); `oom-kill` is SIGKILL while the `oom_kill` counter of the
+  `segv_handler`: the declaration needs a larger stack, `--worker-stack-size`, which the
+  scheduler passes as the worker's `LEAN_STACK_SIZE_KB`, `stackEnv`; the finish line adds the hint); `oom-kill` is SIGKILL while the `oom_kill` counter of the
   nearest cgroup with a memory limit (`memory.events`, found through `/proc/self/cgroup`) rose
   since the last look; any other signal reads `signal 11 (SIGSEGV)` (the number alone for an
   unnamed one), and a code between 4 and 128 `exit N`.  The scheduler's own verdicts are
@@ -63,14 +64,51 @@ def shellQuote (s : String) : String :=
   if !s.isEmpty && s.all plain then s
   else "'" ++ "'\\''".intercalate (s.splitOn "'") ++ "'"
 
+/-- A memory size in KiB: a number with a unit, `K`, `M`, `G` or `T` (KiB, MiB, GiB, TiB; the
+lower-case letters too): `512M`, `40G`.  No unit is no size: a bare number could as well mean
+bytes as MiB. -/
+def parseSize (v : String) : Option Nat :=
+  let unit : Option Nat := match v.back with
+    | 'K' | 'k' => some 1
+    | 'M' | 'm' => some 1024
+    | 'G' | 'g' => some (1024 * 1024)
+    | 'T' | 't' => some (1024 * 1024 * 1024)
+    | _ => none
+  match unit, (v.dropEnd 1).toString.toNat? with
+  | some u, some n => some (n * u)
+  | _, _ => none
+
+/-- **The workers' stack size** (`--worker-stack-size`, KiB) as the change to a worker's
+environment (`SpawnArgs.env`): `LEAN_STACK_SIZE_KB` set to it, which Lean's runtime reads at the
+start for every thread's stack; nothing without the flag (the worker inherits the scheduler's
+environment unchanged). -/
+def stackEnv (stackKb : Option Nat) : Array (String × Option String) :=
+  match stackKb with
+  | some k => #[("LEAN_STACK_SIZE_KB", some (toString k))]
+  | none => #[]
+
+/-- **The stack size a worker runs at**, as the log records it (`verdictLine`'s last field) and
+the `stack` verdict's retry rule compares it: the flag's KiB where `--worker-stack-size` is given,
+else the `LEAN_STACK_SIZE_KB` the worker inherits (`inherited`, the scheduler's own), `-` where
+that is unset (Lean's default). -/
+def stackUsed (stackKb : Option Nat) (inherited : Option String) : String :=
+  match stackKb with
+  | some k => toString k
+  | none => inherited.getD "-"
+
 /-- **The commands that check a closure** (`--schedule-commands`), one line each, shell-quoted:
 the graph check of `root` (`app --check-graph --search-path=dirs -- root`), then one worker per
-module of `mods`, in the order given (`workerArgs` at each). -/
+module of `mods`, in the order given (`workerArgs` at each), each prefixed with
+`LEAN_STACK_SIZE_KB=K ` where the workers' stack size `stackKb` (KiB) is given, the setting
+`stackEnv` makes for the scheduler's own workers. -/
 def commandLines (app : String) (dirs : String) (root : Name) (mods : List Name)
-    (args : Name → Array String) : List String :=
+    (args : Name → Array String) (stackKb : Option Nat := none) : List String :=
   let line (ws : Array String) : String := " ".intercalate (ws.toList.map shellQuote)
+  let env := match stackKb with
+    | some k => s!"LEAN_STACK_SIZE_KB={k} "
+    | none => ""
   line #[app, "--check-graph", "--search-path=" ++ dirs, "--", spell root] ::
-    mods.map fun m => line (#[app] ++ args m)
+    mods.map fun m => env ++ line (#[app] ++ args m)
 
 /-- The usual signals' names. -/
 def signalName (n : Nat) : Option String :=
@@ -165,10 +203,12 @@ the empty ones and its statistics. -/
 def passedOn (msg : String) : List String :=
   (msg.splitOn "\n").filter fun l => l != "" && !l.startsWith "con-leche: stats:"
 
-/-- The hint after a `stack` verdict: the stack size `stackKb` the workers inherited. -/
+/-- The hint after a `stack` verdict: the stack size `stackKb` the worker ran at (`stackUsed`:
+KiB, or `-` for Lean's default). -/
 def stackHint (m : Name) (stackKb : String) : String :=
+  let now := if stackKb == "-" then "Lean's default" else s!"{stackKb} KiB"
   s!"con-leche: schedule: {m}: the worker overflowed its stack; rerun with a \
-    larger LEAN_STACK_SIZE_KB (now {stackKb}; a resumed run retries it once the value \
+    larger --worker-stack-size (now {now}; a resumed run retries it once the size \
     differs)"
 
 end ConLeche.Driver.Schedule
