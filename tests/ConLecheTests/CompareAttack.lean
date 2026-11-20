@@ -92,5 +92,4 @@ theorem no_model {env : Env} (M : Model V env) (h : AttackEnv env) : False := by
   have he' : M.cval fN one = M.cval tbN one := he
   exact hne (hfv ▸ he')
 
-open Frontend in
 end ConLeche.CompareAttackTest

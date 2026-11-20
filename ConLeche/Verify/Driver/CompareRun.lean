@@ -162,7 +162,7 @@ theorem compareG_accept {r : CmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace
     obtain ⟨n, fe, hrun⟩ := checkOleansG_run hgoodC hvC
     rw [hfC] at hrun
     refine ⟨pre', rdC, rdS, n, fe, rfl, ⟨_, _, hx⟩, hcs, ⟨_, _, hy⟩, hS, ?_⟩
-    rw [solChecked, streamEnv_fill]
+    rw [solChecked, Array.toList_map, streamEnv_fill]
     exact hrun
 
 end ConLeche.Driver

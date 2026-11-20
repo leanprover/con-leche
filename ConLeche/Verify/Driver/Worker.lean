@@ -61,15 +61,6 @@ theorem namesNodupGo_spec :
         simp only [Std.HashSet.contains_insert, Bool.or_eq_false_iff] at this
         exact this.2
 
-/-- A theorem's value in place changes nothing a record installs. -/
-theorem streamEnv_fill (F : Expr → Expr) :
-    ∀ (ds : List Declaration) (env : Env), streamEnv (ds.map (fillDecl F)) env = streamEnv ds env
-  | [], _ => rfl
-  | d :: ds, env => by
-    simp only [List.map_cons, streamEnv, List.foldl_cons, declConstants_fillDecl,
-      declTables_fillDecl]
-    exact streamEnv_fill F ds _
-
 /-! ## What the worker read -/
 
 /-- With no import added, a worker's own part is its private part's. -/

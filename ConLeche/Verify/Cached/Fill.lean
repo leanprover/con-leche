@@ -42,10 +42,13 @@ theorem buildIndex_fill (ds : Array Declaration) :
   simp only [buildIndex, Array.foldl_map, StreamIndex.add_fillDecl]
 
 /-- **The environment of the records does not look at a theorem's value.** -/
-theorem streamEnv_fill (ds : Array Declaration) (env : Env := Env.empty) :
-    streamEnv (ds.map (fillDecl F)).toList env = streamEnv ds.toList env := by
-  simp only [streamEnv, Array.toList_map, List.foldl_map, declConstants_fillDecl,
-    declTables_fillDecl]
+theorem streamEnv_fill :
+    ∀ (ds : List Declaration) (env : Env), streamEnv (ds.map (fillDecl F)) env = streamEnv ds env
+  | [], _ => rfl
+  | d :: ds, env => by
+    simp only [List.map_cons, streamEnv, List.foldl_cons, declConstants_fillDecl,
+      declTables_fillDecl]
+    exact streamEnv_fill ds _
 
 /-- **The record mates do not look at a theorem's value** either: only inductive blocks have
 mates. -/
