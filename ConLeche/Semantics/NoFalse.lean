@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Semantics.IsModelBasis
+public import ConLeche.IsModel
+import ConLeche.Semantics.IsModelBasis
 public import ConLeche.Cached.Decls
 import ConLeche.Semantics.DeclWF
 import ConLeche.Verify.IsModelRecords

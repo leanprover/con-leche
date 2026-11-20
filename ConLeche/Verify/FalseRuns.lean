@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Driver.Cli
 public import ConLeche.IsModel
-public import ConLeche.Cached.Decls
+import ConLeche.Cached.Decls
 import ConLeche.Verify.Driver.Main
 import ConLeche.Verify.Frontend.Prepare
 public import ConLeche.Accepts

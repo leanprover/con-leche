@@ -1040,7 +1040,7 @@ block's auxiliary recursor reads the minor premises of its own motive,
   For every model of the extended theory, the constants of every
   accepted list of declarations
   #src("whitepaper/Fragment/Main.lean", 46, 47)[have a model in it]
-  (#src("ConLeche/MainTheorem.lean", 101, 107)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 96, 102)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[

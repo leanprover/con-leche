@@ -8,17 +8,12 @@ import ConLeche.Cached.Decls
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Driver.Cli
 import ConLeche.Verify.Frontend.Olean.Files
-import ConLeche.Verify.Driver.Main
 import ConLeche.Modular
-import ConLeche.Model.Modular.Main
-import ConLeche.Model.Capstone
 import ConLeche.Verify.Driver.CompareJsonRun
 import ConLeche.Model.Copies
 import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Graph
 public import ConLeche.Model.Modular.SeesCompare
-import ConLeche.Semantics.DeclWF
-import ConLeche.Semantics.IsModelBasis
 import ConLeche.Model.IsModelBridge
 import ConLeche.Model.Solution
 import ConLeche.Model.Modular.SeesMain
