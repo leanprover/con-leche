@@ -27,6 +27,7 @@ import ConLeche.Verify.Driver.CompareLocal
 import ConLeche.Semantics.DeclWF
 import ConLeche.Semantics.IsModelBasis
 import ConLeche.Model.IsModelBridge
+import ConLeche.Model.Modular.SeesMain
 import ConLeche.Model.IsModelOlean
 import ConLeche.Model.Modular.IsModel
 public import ConLeche.OleanInput
@@ -260,6 +261,41 @@ theorem modular_no_False (V : Type w) [SetTheory V]
   obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2.2
   exact Model.no_constant_of_False mp c hc hty
+
+open Frontend in
+/-- **The modular theorem, run by run.**  On a snapshot where `--check-graph
+--search-path=<dirs> -- <root>` exits 0 and every module of the headers' import closure of `root`
+has an exit 0 of `--olean --module`, there is a model for every module of the closure of `root`
+(`Olean.InClosure`): a model of the module's constants (`Olean.moduleConstants`, its private
+part's), and a name the module sees as another module's (`Olean.Sees`: its header loads a part
+of that module holding a constant of that name) has the value that module's model gives it. -/
+theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+      fs 0)
+    (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+      Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+        (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+    ∃ model : Name → (Name → List Nat → V),
+      (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+      (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+  Driver.Compose.modular_sees_graph V hr h hwork
+
+open Frontend in
+/-- **The modular theorem, in one process.**  Every exit 0 of `--olean --modular
+--search-path=<dirs> -- <root>` has the family of models of `main_modular`. -/
+theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive
+      (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0) :
+    ∃ model : Name → (Name → List Nat → V),
+      (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+      (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+  Driver.Compose.modular_sees_one V hr h
 
 open Frontend in
 /-- **An accepted run over a closure holds no theorem of type `False`**: on a snapshot where every
