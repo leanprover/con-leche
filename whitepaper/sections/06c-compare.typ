@@ -243,14 +243,14 @@ environment with $t$ has no model at all.
   and follows the challenge's check:
   #src("ConLeche/Model/Solution/Fold.lean", 17, 25)[a shared record takes the solution's sets, a justified hole the solution's value, any other record its own step].
   The capstone
-  #src("ConLeche/MainTheorem.lean", 133, 141)[states] @thm:cmp-model
+  #src("ConLeche/MainTheorem.lean", 132, 140)[states] @thm:cmp-model
   for the checker's functions: if `checkDecls` accepts the solution's
   records and `checkChallenge` accepts the challenge's with them, the
   challenge's own constants have a model.
-  #src("ConLeche/MainTheorem.lean", 518, 525)[Its corollary for the command line]
+  #src("ConLeche/MainTheorem.lean", 517, 524)[Its corollary for the command line]
   says the same of an exit 0 of
   `--compare CHALLENGE.ndjson SOLUTION.ndjson`, and
-  #src("ConLeche/MainTheorem.lean", 493, 504)[a challenge file with a hole of type `False` is never solved].
+  #src("ConLeche/MainTheorem.lean", 492, 503)[a challenge file with a hole of type `False` is never solved].
 
   The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
   different rule. A theorem must be a theorem on both sides, and a
@@ -373,12 +373,12 @@ model of the compatible family.
   Each module of the challenge's closure is read from the trusted
   directories alone.
 
-  #src("ConLeche/MainTheorem.lean", 404, 444)[The modular capstones]
+  #src("ConLeche/MainTheorem.lean", 403, 443)[The modular capstones]
   state @thm:cmp for an exit 0 of every command of such a run, and of
   the run in one process: on every snapshot that agrees with the run's
   under the challenge's directories, every module of the challenge's
   closure, the challenge with its copies among them, has a model of
   its constants, and a name a module sees as another module's has the
   value that module's model gives it. In particular,
-  #src("ConLeche/MainTheorem.lean", 447, 482)[a challenge whose closure holds a theorem of type `False` is never solved].
+  #src("ConLeche/MainTheorem.lean", 446, 481)[a challenge whose closure holds a theorem of type `False` is never solved].
 ]

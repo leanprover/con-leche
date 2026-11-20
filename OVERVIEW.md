@@ -182,7 +182,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L123-L129):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L122-L128):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins`, every maximum `Nat` size `maxNatSize`
@@ -239,7 +239,7 @@ constant whose type is `a = b`, and its membership clause makes that the
 truth value of `⟦a⟧ = ⟦b⟧` with a member.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L150-L157):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L149-L156):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -284,7 +284,7 @@ default mode, which is the verified one, and the default worker count;
 nothing is said about `--help` or the other flags. On a snapshot where
 the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
 `runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L202-L204)).
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L201-L203)).
 This is a theorem about the outcomes of `runArgs` in the model; that a
 run of the binary that exits 0 is one of those outcomes is assumed, not
 proved, and §2 states what the assumption is.
@@ -361,7 +361,7 @@ way.
 
 **Modular checking** has its own theorem, about a development of
 modules rather than one stream,
-[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L255-L262):
+[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L254-L261):
 if every module passes the local checks of `ConLeche/Modular.lean`
 (its interface presents its own records; as an importer, its context
 is made of presented records read as their homes read them, and its
@@ -393,7 +393,7 @@ same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
 `--olean --modular -- <root>` exits 0 (`main_modular_one_no_False`).
 
 Over the files, the modular theorem is
-[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L281-L292):
+[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L280-L291):
 where `--check-graph -- <root>` and `--olean --module` at every module of the headers' closure
 exit 0 on one snapshot (or `--olean --modular -- <root>` does, `main_modular_one`), there is one
 model per module of the closure of `root` (`Olean.InClosure`, over the private views), each a
@@ -411,7 +411,7 @@ false.
 
 **A challenge and its solution** have their own theorems, about `--olean --compare` (§2), which
 checks the solution's closure and then the challenge's, its axioms justified by the solution.
-[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L362-L368):
+[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L361-L367):
 every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` says of
 every snapshot that agrees with the run's under the challenge's directories (`Driver.trustedOr`:
 `T`, or `D` where `T` names none; every path the reader forms there has the same real path, kind
@@ -426,7 +426,7 @@ holds `def f : Nat := 3` and a hole `t : f = 5` has no model, whatever the solut
 those arguments exits 0.
 
 The same question **module by module** has the theorem of the modular runs' shape.
-[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L411-L428):
+[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L410-L427):
 on a snapshot where every command `--schedule-commands --compare -- <c> <s>` prints exits 0 (the
 graph check, `--olean --module` at every module of the headers' closure of `C` and `S` but `C`,
 the compare worker at `C`, each with `--trusted-search-path=<T> --search-path=<D>`), on every

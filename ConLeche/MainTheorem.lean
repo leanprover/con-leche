@@ -18,7 +18,6 @@ import ConLeche.Verify.Driver.CompareJsonRun
 import ConLeche.Verify.Cached.JustifyRun
 import ConLeche.Model.Copies
 import ConLeche.Verify.Frontend.Olean.Local
-import ConLeche.Verify.Driver.Routes
 import ConLeche.Verify.Driver.Graph
 public import ConLeche.Model.Modular.SeesCompare
 import ConLeche.Semantics.DeclWF
