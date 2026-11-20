@@ -31,7 +31,7 @@ establishes on a snapshot, for the module `m`:
 * `worker_ctx` — **the context**: every context record `RecordScoped` in the prefix of the
   context ending with it (`ImportOk.ordered`) and in the context, every name
   it reads stored there, the context `EnvWF`, its names distinct (`ImportOk.nodup`), and each name
-  read from one record of one home (`ctxHome`, `ImportOk.one_src`);
+  read from one record of one home (`Run.homeIn`, `ImportOk.one_src`);
 * `worker_thm` — **the own records are the module's**: every theorem of `m`'s private view by the
   specification (`ViewOf`) is an own record, with its statement, and its value in place is the
   specification's (`ValueAt`).
@@ -98,7 +98,7 @@ loaded module stores) in the hoist's order. -/
 
 /-- **What a worker read and checked before its jobs, on a snapshot** (`workerRead`'s phases, see
 `ConLeche/Driver/Worker.lean`); `x` the imports the run adds to the module's header (none, but at
-a compared challenge, whose worker is `cmpModuleRead`, task #608). -/
+a compared challenge: `import all` of its solution, tasks #608 and #619). -/
 structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead)
     (x : Array ImportRec := #[]) : Prop where
   /-- the home: its private part's files, the private view loaded off them, its three parts

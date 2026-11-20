@@ -42,19 +42,13 @@ namespace ConLeche.Driver
 
 open ConLeche Frontend.Olean
 
-/-! ## Records and their statements (the modular compare modes share these) -/
+/-! ## Records (the modular compare mode reads them too) -/
 
 /-- **The name a record is found under**: its constant's, an inductive block's first. -/
 def recKey : Declaration → Name
   | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ | .quotDecl _ cv =>
     cv.name
   | .indDecl b _ => (b.head?.map (·.name)).getD .anonymous
-
-/-- The statement a record declares, where it declares one constant. -/
-def recCv? : Declaration → Option ConstantVal
-  | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ | .quotDecl _ cv =>
-    some cv
-  | .indDecl _ _ => none
 
 /-- A record's kind, for the messages. -/
 def recKind : Declaration → String
@@ -65,56 +59,6 @@ def recKind : Declaration → String
   | .quotDecl .. => "quotient constant"
   | .indDecl .. => "inductive type"
 
-/-- Two lists of level-parameter names a renaming relates: as many, neither with a repeat. -/
-def levelsRenaming (ps ps' : List Name) : Bool :=
-  ps.length == ps'.length && decide ps.Nodup && decide ps'.Nodup
-
-/-- **A challenge's statement, the solution's up to the names of its level parameters**: the
-same, or as many names, each list without repeats, and the solution's (`cv'`) at the
-challenge's names the challenge's.  The solution's is the one renamed: it is checked, so its
-level parameters are all among its names, and the renaming reads it whole. -/
-def sameCvUpToLevels (cv cv' : ConstantVal) : Bool :=
-  if cv.levelParams == cv'.levelParams then cv.beqP cv'
-  else levelsRenaming cv.levelParams cv'.levelParams && (cv'.atLps cv.levelParams).beqP cv
-
-/-- **A challenge's constant, the solution's up to the names of its level parameters**
-(`ConstantInfo.atLps`, the solution's renamed). -/
-def sameUpToLevels (c c' : ConstantInfo) : Bool :=
-  let ps := c.toConstantVal.levelParams
-  let ps' := c'.toConstantVal.levelParams
-  if ps == ps' then c.beqP c'
-  else levelsRenaming ps ps' && (c'.atLps ps).beqP c
-
-/-- **Two records, the same**: of one kind, their constants equal (a theorem by its statement:
-its record's value is where to read it), an inductive block's parameter count and a
-quotient record's slot equal. -/
-def sameRecord : Declaration → Declaration → Bool
-  | .indDecl b n, .indDecl b' n' => n == n' && listBeqBy ConstantInfo.beqP b b'
-  | .quotDecl k cv, .quotDecl k' cv' => k.slot == k'.slot && cv.beqP cv'
-  | .opaqueDecl cv v, .opaqueDecl cv' v' => cv.beqP cv' && v == v'
-  | .thmDecl cv _, .thmDecl cv' _ => cv.beqP cv'
-  | d@(.defnDecl ..), d'@(.defnDecl ..) | d@(.axiomDecl _), d'@(.axiomDecl _) =>
-    listBeqBy ConstantInfo.beqP (declConstants d) (declConstants d')
-  | _, _ => false
-
-/-- **The same record up to the names of its level parameters**: a definition, theorem or
-opaque constant (an opaque's value as well); any other record exactly. -/
-def sameRecordUpToLevels : Declaration → Declaration → Bool
-  | .defnDecl cv v h, .defnDecl cv' v' h' =>
-    sameUpToLevels (.defnInfo cv v h) (.defnInfo cv' v' h')
-  | .thmDecl cv _, .thmDecl cv' _ => sameCvUpToLevels cv cv'
-  | .opaqueDecl cv v, .opaqueDecl cv' v' =>
-    sameUpToLevels (.defnInfo cv v .opaque) (.defnInfo cv' v' .opaque)
-  | d, d' => sameRecord d d'
-
-/-- **A hole of the challenge** (of `C`'s own records): an axiom, or a definition, theorem or
-opaque constant whose value uses `sorryAx`; a theorem's value is read off its file (`uses`). -/
-def isHole (uses : Declaration → Array Name) : Declaration → Bool
-  | .axiomDecl _ => true
-  | .defnDecl _ v _ | .opaqueDecl _ v => (Frontend.usedConstsGo {} #[] v).2.contains sorryAxName
-  | d@(.thmDecl _ _) => (uses d).contains sorryAxName
-  | _ => false
-
 /-- **A theorem read as the hole it is** (`--olean --compare`): a theorem whose file says its
 value uses `sorryAx` (`uses`, the file-read constants) is the axiom of its statement, where a
 solution may justify it, as `Cached.sideRecord` reads a definition or opaque constant whose value
@@ -123,17 +67,6 @@ def holeRecord (uses : Declaration → Array Name) : Declaration → Declaration
   | d@(.thmDecl cv _) =>
     if !Cached.builtinAxiomName cv.name && (uses d).contains sorryAxName then .axiomDecl cv else d
   | d => d
-
-/-- What starts the reason of a comparison that positively detects a feature con-leche does
-not support: the run declines (exit 2) instead of rejecting. -/
-def declined : String := "declined: "
-
-/-- A hole and what fills it, for the report. -/
-structure Filled where
-  name : Name
-  hole : String
-  filler : String
-  home : Name
 
 /-! ## The run -/
 
