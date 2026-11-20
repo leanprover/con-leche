@@ -312,7 +312,8 @@ def Satisfies (V : Type w) [SetTheory V] (model : Name → List Nat → V) (C : 
 
 /-- **`model` is a model of the constants `C`**: every one of them holds.  Of a declaration
 stream `ds`, it is a model of `(· ∈ constantsOf ds)`. -/
-def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V) (C : ConstantInfo → Prop) : Prop :=
+def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+    (C : ConstantInfo → Prop) : Prop :=
   ∀ c, C c → Satisfies V model C c
 
 /-! ## The prelude's `False` and `Eq`

@@ -149,21 +149,21 @@ recomposition] puts them together, claim by claim. It bridges the run,
 applies the soundness, and hands the result to the declaration fold.
 
 *The statement over `Expr.eval`.* The main theorem is stated over
-#src("ConLeche/IsModel.lean", 312, 313)[`IsModel`], a notion of model of the
+#src("ConLeche/IsModel.lean", 315, 316)[`IsModel`], a notion of model of the
 INPUT stream, written to be read in one sitting: a model gives every constant a set at
-the values of its universe levels, and every record of every declaration holds in it. Its
-terms are read by #src("ConLeche/IsModel.lean", 123, 124)[`Expr.eval`], a total
+the values of its universe levels, and every constant of every declaration holds in it. Its
+terms are read by #src("ConLeche/IsModel.lean", 128, 129)[`Expr.eval`], a total
 function on the checker's own terms with one equation per syntax form. A constant is a
 member of what its type denotes, a definition is what its value denotes, and every recursor
-rule's ι equation holds: #src("ConLeche/IsModel.lean", 191, 192)[the equation] is built
-from the records as a closed `Eq` between the recursor applied to a constructor and the
+rule's ι equation holds: #src("ConLeche/IsModel.lean", 196, 197)[the equation] is built
+from the constants as a closed `Eq` between the recursor applied to a constructor and the
 rule's right-hand side, and what it denotes is inhabited. So a constant behind an import
 still means what its declaration says. Nothing is fixed by name: `False` is empty and `Eq`
-is equality because of their declarations' own clauses, and a stream that declares them
-declares the prelude's. The proofs' own model is of the environment the checker builds,
-read by a relation `Denotes`\; #src("ConLeche/Model/IsModelBridge.lean", 96, 98)[a theorem]
+is equality because of their declarations' own clauses, and the checker accepts a stream
+declaring them only as the prelude does, which the corollaries use. The proofs' own model is of the environment the checker builds,
+read by a relation `Denotes`\; #src("ConLeche/Model/IsModelBridge.lean", 102, 104)[a theorem]
 says that `Expr.eval` agrees with it wherever it reads, and
-#src("ConLeche/Model/IsModelBridge.lean", 277, 279)[the bridge] carries that model to one of
+#src("ConLeche/Model/IsModelBridge.lean", 283, 285)[the bridge] carries that model to one of
 the input. The paper's theorem is the model side directly.
 
 *The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 8, 11)[a
@@ -183,13 +183,13 @@ records, a context being a list of the records its imports present, in
 an order in which every record reads only itself and earlier records, and
 carries #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 238, 245)[the modular
+models gives #src("ConLeche/MainTheorem.lean", 246, 253)[the modular
 theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
 module's own records against it, one module per run, and
 #src("ConLeche/Verify/Driver/Routes.lean", 346, 347)[the runs at every module
 of an import closure together give the local checks]. Hence
-#src("ConLeche/MainTheorem.lean", 309, 319)[no module of the closure holds a
+#src("ConLeche/MainTheorem.lean", 297, 307)[no module of the closure holds a
 theorem of type `False`] where the graph check and every module's run exit 0
 on one snapshot.
 
