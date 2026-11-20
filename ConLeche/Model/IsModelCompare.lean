@@ -2,7 +2,6 @@ module
 
 import ConLeche.Model.IsModelBridge
 import ConLeche.Model.Solution
-import ConLeche.Model.Capstone
 import ConLeche.Verify.CompareInput
 public import ConLeche.OleanInput
 public import ConLeche.Verify.Frontend.Olean.Local
@@ -42,25 +41,5 @@ theorem compare_isModel (V : Type w) [SetTheory V] {T D c s : String} {C S : Nam
   obtain ⟨m⟩ := Model.Solution.solution_envModel_run (V := V) hS hrun
   rw [← closureConstants_local hag]
   exact ⟨_, isModel_of_envModelM m hst⟩
-
-/-- **A challenge whose closure through the trusted path holds a theorem of type `False` has no
-accepted `.olean` comparison.** -/
-theorem compare_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S m : Name} {fs : FS}
-    {d : Olean.ModDecoded} {e : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
-    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (hcl : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs #[C] m)
-    (hv : Olean.ViewOf (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs m d)
-    (hmem : e ∈ d.constants) (hk : e.kind = .thm v all) (hty : e.type = .const falseName []) :
-    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-      "--search-path=" ++ D, "--", c, s]) fs 0 := by
-  rintro ⟨_, _, h⟩
-  obtain ⟨_, _, _, _, fe, hS, hrun, hst⟩ := Driver.runArgs_compare_stored hc hs h
-  obtain ⟨mo⟩ := Model.Solution.solution_envModel_run (V := V) hS hrun
-  obtain ⟨f, hf, hd⟩ := hv
-  have hin : Olean.closureConstants (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs #[C] (.thmInfo e.cv) :=
-    ⟨m, hcl, f, d, e, hf, hd, hmem, by simp [Olean.entryConstants, hk, Olean.declOfEntry,
-      Declaration.constants]⟩
-  obtain ⟨ci, hfi, hsa, -⟩ := hst _ hin
-  exact Model.no_constant_of_False mo ci (Env.find?_mem hfi) (by rw [hsa.1]; exact hty)
 
 end ConLeche

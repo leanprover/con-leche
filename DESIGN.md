@@ -125433,3 +125433,96 @@ paragraphs.  NOTES.md: one unconditional ι law at a constructor value.
 `whitepaper/build.sh` (nix dev shell) PDF + HTML without diagnostics; `whitepaper/links-gate.sh`
 after `--update` (citing paragraphs re-read).  Nothing outside `whitepaper/` changed (`git diff
 --stat compare.. -- ':!whitepaper'` empty, so `lake build` and the OVERVIEW gates are unaffected).
+
+## TASK #624 — the no-`False` corollaries in one shape, from the main theorems (2026-11-20, agent/624-no-false; base `compare`)
+
+(#624 was free on every branch.)
+
+*The rulings, as they came.*  (1) Uniform shape: the main theorem's acceptance hypotheses and a
+constant of type `False` of the input (any kind: theorem, axiom, hole, opaque, definition) give
+`False`; one-line derivations from the main theorems; remove `hF`/`hD` from the modular ones.
+(2) Mid-lane scope change: the end-to-end theorems state a model of the input, so only TWO
+corollaries stay — the plain JSON run (`main_no_False`) and the most complicated case, the modular
+compare (`main_modular_compare_no_False`); the others are deleted with their proofs and pins.
+(3) `main_no_False` keeps the text-level `jsonWithTheoremFalse` (it leaves no question about what
+the parser does).  (4) `main_modular_compare_no_False` speaks of the challenge module `C` itself.
+
+*The two corollaries* (`ConLeche/MainTheorem.lean`):
+* `main_no_False (h : CanGive (runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
+  (hF : jsonWithTheoremFalse [b]) : False` — from `model_exists`, with the model-free
+  `Driver.runArgs_json_false` (`Verify/FalseRuns.lean`: the accepted stream is the parsed records
+  prepared with the prelude and holds the template's theorem of type `False`),
+  `checkDecls_declaresFalse_of_constant` (`Semantics/NoFalse.lean`: an accepted stream with a
+  constant of type `False` declares the prelude's `False` — the constant is stored, the
+  environment is well formed (`checkDecls_envWF`), so `False` is stored, and the fold stores
+  only the pinned block there, `Cached.checkDecls_declaresFalse`) and `IsModel.no_False_constant`.
+* `main_modular_compare_no_False` — exactly `main_modular_compare`'s commands, and
+  `InModulePart (trustedOr T D) fs C .private ci`, `ci.type = .const falseName []`.  Proved from
+  the runs' own environments (`Driver.Compose.modular_compare_graph_no_False`, generalized from a
+  theorem of the view to any constant of the part: `inModulePart_trims`, `own_covers_x`,
+  `Model.no_constant_of_False`), NOT from `main_modular_compare`; see the gap below.
+* `ConstantInfo.type` (`IsModel.lean`), for the statements' `c.type`.
+
+*Deleted:* `no_False_declaration` (MainTheorem and Challenge; `comparator.json` lists only the
+three main theorems now), `main_oleans_no_False`, `modular_no_False`, `main_modular_no_False`,
+`main_modular_one_no_False`, `main_compare_no_False`, `main_modular_compare_one_no_False`,
+`main_compare_json_no_False`; with them `Model/Modular/SeesFalse.lean`,
+`IsModelCompare.compare_no_False`, `SeesCompare.modular_compare_one_no_False`,
+`Verify/Cached/StreamThm.lean` (`no_False_theorem_accepted`), `Verify/Cached/JustifyRun.lean`
+(`justified_false`), and their axiom pins.  `jsonWithTheoremFalse` and its parser proof
+(`Accepts.lean`, `FileFalse.lean`, `FalseLines.lean`, `Digits.lean`, `FileTests.lean`) stay: the
+kept corollary reads them.
+
+*Gaps found — why some corollaries cannot follow from their main theorem alone* (for the
+maintainer; no statement was weakened):
+1. **The prelude.**  `main_oleans`, `main_compare_model` and `main_compare_json_model` state a
+   model of the input alone (the closure's constants, the parsed challenge), but the run checks
+   the input prepared with the built-in prelude, which supplies `False` to an input that does not
+   declare it.  A crafted closure with `theorem t : False` and no `False` of its own is rejected
+   only through the prelude's records, which the stated model does not cover.  The plain-run
+   corollary therefore goes through `model_exists` on the prepared stream (which is its main
+   theorem anyway).
+2. **The solution loaded whole.**  The compare worker reads `C` with `import all S` added; the
+   family `main_modular_compare` states covers `C`'s closure and `Sees` over `C`'s own header.  A
+   crafted `C` whose header loads no module storing `False`, with a hole `x : False` filled by
+   `S`, reads `False` through `S` alone, and nothing in that family makes `C`'s `False` empty.
+   Closing it needs a family over the modules the compare worker loads (or `SeesX` in the
+   statement).
+3. **The modular `hF`/`hD`-free argument** (sub-lane `agent/624-mod`, NOT merged: its lemmas have
+   no user yet).  Proved there (`Verify/Driver/FalseDeclared.lean`): the pinned `False` block from
+   `basisNamesOk` (`falseBlock_of_basis`, `falseRec_of_pinned`), the converse of `own_covers` by
+   name (`Run.view_entry_of_own`), `Run.declares_of_own` (a module whose own records store `False`
+   declares the prelude's `False` in its `moduleConstants`), and the case split
+   `Run.false_own_or_ctx` (own, or the context stores `False`).  Open, the context case: (a) no
+   accepted worker establishes that a module's private view decodes whole (theorem values are
+   read lazily) nor that its exported view decodes on its own — both needed by `ViewOf`/`Loads`/
+   `Sees`; the honest fix is a home check (`parseView` at `.private` and `.exported`), to be
+   measured; (b) the converse of `loadsAt_fixpoint` (the fixpoint's flags are `LoadsAt`-sound);
+   (c) choosing the seen module from the index's first copy via `sees_agree`; (d) the general-`x`
+   form for the compare worker.  With gap 2 the compare corollary would still need more.
+
+*Docs.*  OVERVIEW: the main-corollary section rewritten (a model of an accepted stream has no
+constant of type `False`; `main_no_False` over the template), the modular and compare paragraphs
+("since `False` denotes the empty set"), the module map (`NoFalse.lean`, `FalseRuns.lean`,
+`SeesFalse.lean` gone).  Whitepaper §1, §7 (modular), §8 (compare) sentences; the fragment's
+`no_false` forms stay (§4 uses them).  README (the maintainer's): the `main_no_False` quote
+re-synced, two anchors repointed (`main_no_False`, `StreamConsts`, `ParsedC`); stale and
+reported: lines 40–54 (the Main Corollary section: its prose and the `no_False_declaration`
+quote — the theorem is gone, so `tests/quote-gate.sh` fails on it), 60 (its link, now pointing
+into `main_no_False`'s proof, and "mostly a corollary"), 98 ("lift the main corollary": it is
+now from `model_exists` directly), 155–166 (the `--olean` corollary prose and the
+`main_oleans_no_False` quote, gone: quote gate).
+
+*README (maintainer's ruling).*  The two quoted blocks of deleted theorems are removed with the
+sentence introducing each: the `no_False_declaration` quote and its lead-in (old lines 42–55) and
+the `main_oleans_no_False` quote and its lead-in (old lines 155–167); the remaining prose there
+(the Main Corollary section, line 60's link into `main_no_False`'s proof, line 98) is the
+maintainer's to rewrite.  The modular-compare corollary keeps its internal proof, by ruling.
+`agent/624-mod` (the partial `hF`/`hD`-free lemmas, `Verify/Driver/FalseDeclared.lean`) stays an
+unmerged branch: unused groundwork for the context case listed above.
+
+*Gates at the lane's head:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard: everything passes (olean gate 555/555, e2e 635/635, 76 theorems' axioms pinned,
+layering, shake, trust-surface, plain-reach, binary-link, challenge, no-local-paths,
+overview-links); `tests/quote-gate.sh` passes after the README deletions; whitepaper links and
+fragment gates pass.  Landed on `compare` (nothing new there since the lane's base).

@@ -182,7 +182,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L122-L128):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L96-L102):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins`, every maximum `Nat` size `maxNatSize`
@@ -245,77 +245,38 @@ definitional equality, stated as a theorem proved by `rfl`, is a
 constant whose type is `a = b`, and its membership clause makes that the
 truth value of `⟦a⟧ = ⟦b⟧` with a member.
 
-The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L149-L156):
+Hence a model of an accepted stream has no constant of type `False`,
+since `False` denotes the empty set. The stream need not say so: a
+constant of type `False` is stored with its type, the environment is
+well formed, so its type's `False` is stored too, and the checker
+stores at that name only the prelude's `False`
+([`checkDecls_declaresFalse_of_constant` in `ConLeche/Semantics/NoFalse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/NoFalse.lean#L41-L45)).
 
-> … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
-> `False`, an expression entry for the constant `False`, a name entry
-> for the theorem's own name, and a theorem record whose type is that
-> expression, four lines in the exporter's own shapes, in that order,
-> with anything at all before, between and after them — then the chain
-> "the built-in prelude parses; the chunks parse; `checkDecls` accepts
-> the parsed records prepared with the prelude" returns an error.
+The main corollary is stated for the binary, over `runArgs`, in the
+model of its IO (§2), at the fixed arguments `-- <file>`: no flag, so
+the default mode, which is the verified one, and the default worker
+count; nothing is said about `--help` or the other flags. If an outcome
+of `runArgs` is an exit 0 on a snapshot where the file's bytes are a
+`jsonWithTheoremFalse` file, then `False` holds
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L141-L143)).
+The file is described at the level of its text
+([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L62-L72)):
+a name entry for `False`, an expression entry for the constant `False`,
+a name entry for the theorem's own name, and a theorem record whose
+type is that expression, four lines in the exporter's own shapes, in
+that order, with anything at all before, between and after them. It is
+ONE way of putting a theorem of type `False` into a JSON file, not
+every proof of `False` a file might hold, and it leaves no question
+about what the parser does. The run's exit 0 is an accept of
+`checkDecls` on the parsed records prepared with the built-in prelude
+([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L318-L322)),
+the parsed records hold a theorem record of type `False`, and
+`model_exists` gives a model of that stream. This is a theorem about the
+outcomes of `runArgs` in the model; that a run of the binary that exits
+0 is one of those outcomes is assumed, not proved, and §2 states what
+the assumption is.
 
-The hypothesis is the file, and the conclusion is the binary's accept
-path erroring: the three pure functions the driver's phases compute —
-`Frontend.builtinPreludeE`, `Frontend.parseChunks chunks`,
-`checkDecls .verified` over `Frontend.preparePrelude` — written as one
-`do` block, and `∃ e, … = .error e` says it returns an error, with no
-claim about which of the three produced it. There is one conversion
-nowhere in it: the
-three steps fail in the same type, the checker's own `CheckError`
-paired with the position of the failure, which is the input's line
-number in the frontend's half and the record's position in the fold's.
-The reasons are the driver's diagnostics, and its exit code is that
-`CheckError`'s whichever step produced it. The driver runs the same
-three steps with IO between
-them — the streaming read loop is `parseChunks` with the reads
-interleaved, the preparation is `preparePrelude` plus its receipts,
-and the check driver returns its environment with the evidence that
-`checkDecls` returns it — and prints its success line from nothing
-else. This is the form of the statement a reader can check without
-knowing what an `Env`, or even a declaration record, is: it speaks
-only of the bytes handed to the binary. The predicate is a whole-file
-template over the chunks' concatenation
-([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L62-L72)),
-one interpolated Lean string whose five parts are arbitrary — the name
-says so: it is ONE way of putting a theorem of type `False` into a JSON
-file, not every proof of `False` a file might hold. There is no side
-condition: the chunks may be cut anywhere, empty pieces included, and
-an input the machine word cannot address is refused by the parser
-before any of it is read, which is an error like any other.
-
-The main corollary is lifted to the driver, over `runArgs`, in the model
-of its IO (§2), at the fixed arguments `-- <file>`: no flag, so the
-default mode, which is the verified one, and the default worker count;
-nothing is said about `--help` or the other flags. On a snapshot where
-the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
-`runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L201-L203)).
-This is a theorem about the outcomes of `runArgs` in the model; that a
-run of the binary that exits 0 is one of those outcomes is assumed, not
-proved, and §2 states what the assumption is.
-
-The corollary rests on a statement at the stream — the fold's input —
-proved beside the fold
-([`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamThm.lean#L103-L106)):
-
-> … if any record of `ds` declares a theorem whose declared type is
-> `False`, then `checkDecls` accepts `ds` with no environment at all.
-> (`ds` is the array of records the parse returns and the fold folds;
-> the proofs read it as a list, which costs nothing at run time.)
-
-That follows from the theorem in a handful of lines, through the
-environment in between. A theorem record is installed by statement,
-under its own name, with its declared type; and every later step
-of the fold only ever extends the list of stored constants — so an
-accepted stream that declared such a theorem would leave a constant of
-type `False` among the constants of the environment the fold returns.
-It cannot: the model the theorem provides puts every stored constant
-inside what its type denotes, and what the built-in `False` denotes is
-the empty set, which has no members.
-
-What the corollary adds to that is the parser and the preparation. The
+What the corollary reads of the parser and the preparation: The
 byte recogniser never reads past a newline
 (`ConLeche/Verify/Frontend/Local.lean`), so every line of the file is
 read as a line whatever surrounds it; a stream index is bound once (a
@@ -326,7 +287,7 @@ whole
 ([`parseChunks_ok_parseBytes` in `ConLeche/Verify/Frontend/Chunks.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Chunks.lean#L363),
 with the streaming reader's running byte count as the same guard the
 wholesale parse applies up front); and the template's lines scan to
-exactly the records the fold then forbids
+a theorem record of type `False`
 ([`parseChunks_jsonWithTheoremFalse` in `ConLeche/Verify/Frontend/FileFalse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/FileFalse.lean#L174)).
 The preparation puts the built-in prelude's records first and moves
 the definitions a pinned `Nat` operation's certificates are spelled
@@ -336,12 +297,12 @@ parsed records plus the prelude's, so the record is still there
 
 "Installed under its own name, with its declared type" is a claim in
 its own right, and it is proved in general:
-[`checkDecls_consts` in `ConLeche/Model/StreamConsts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L220-L225)
+[`checkDecls_consts` in `ConLeche/Model/StreamConsts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L215-L220)
 says that whenever `checkDecls` accepts `ds`, every record of `ds` that
 declares a constant — a definition, a theorem, an opaque, or an axiom
 that is neither `sorryAx`, the axiom record that installs nothing, nor
 `Quot.sound`, which stores its slot's pin
-([`Declaration.Declares` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L89-L95))
+([`Declaration.Declares` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L84-L90))
 — leaves a constant of that very name in the returned environment, with
 the record's own level parameters and the record's own type, `let`s
 included.
@@ -368,7 +329,7 @@ way.
 
 **Modular checking** has its own theorem, about a development of
 modules rather than one stream,
-[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L254-L261):
+[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L171-L178):
 if every module passes the local checks of `ConLeche/Modular.lean`
 (its interface presents its own records; as an importer, its context
 is made of presented records read as their homes read them, and its
@@ -382,8 +343,7 @@ modules), or two proofs of one statement: a statement an earlier module
 stores as a theorem, or else one the importer infers to be a proposition
 over the part of its context below the name; no module records anything
 about its names for others.
-Hence no module's own environment stores a constant
-of type `False` (`modular_no_False`). An
+An
 exit 0 of the binary at one module (`--olean --module`) establishes that
 module's part of the local checks (§2, one module alone), and the runs at
 every module of a closure compose into a development every module of
@@ -391,16 +351,10 @@ which passes them (`Run.localOk`, `ConLeche/Verify/Driver/Routes.lean`):
 each module is the closure's module of its rank, its context its worker's,
 a name read from the home of the record storing it, and every read the
 capture check passed agrees by the branch that passed it. So
-`main_modular` below holds of the files, and its corollary
-`main_modular_no_False` follows from it alone: if the private view of a module
-of the closure of `root` holds a theorem of type `False`, the module declares the
-prelude's `False` or sees `False` as a module that does (`DeclaresFalse`, `Olean.Sees`),
-and every module of the headers' closure has an exit 0 of `--olean --module` on the
-same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
-`--olean --modular -- <root>` exits 0 (`main_modular_one_no_False`).
+`main_modular` below holds of the files.
 
 Over the files, the modular theorem is
-[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L280-L291):
+[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L187-L198):
 where `--check-graph -- <root>` and `--olean --module` at every module of the headers' closure
 exit 0 on one snapshot (or `--olean --modular -- <root>` does, `main_modular_one`), there is one
 model per module of the closure of `root` (`Olean.InClosure`, over the private views), each a
@@ -418,7 +372,7 @@ false.
 
 **A challenge and its solution** have their own theorems, about `--olean --compare` (§2), which
 checks the solution's closure and then the challenge's, its axioms justified by the solution.
-[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L361-L367):
+[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L230-L236):
 every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` says of
 every snapshot that agrees with the run's under the challenge's directories (`Driver.trustedOr`:
 `T`, or `D` where `T` names none; every path the reader forms there has the same real path, kind
@@ -428,12 +382,11 @@ statement: the challenge's model takes, at each justified axiom, the value of th
 but what the challenge means is fixed by the trusted files alone (`closureConstants_local`,
 `ConLeche/Verify/CompareInput.lean`). A model makes every definition of the closure denote its value
 and every recursor rule hold, so the statement excludes the attacks by itself: a challenge that
-holds `def f : Nat := 3` and a hole `t : f = 5` has no model, whatever the solution holds.
-`main_compare_no_False`: where a module of that closure holds a theorem of type `False`, no run at
-those arguments exits 0.
+holds `def f : Nat := 3` and a hole `t : f = 5` has no model, whatever the solution holds, nor
+does one with a constant of type `False`, since `False` denotes the empty set.
 
 The same question **module by module** has the theorem of the modular runs' shape.
-[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L410-L427):
+[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L262-L279):
 on a snapshot where every command `--schedule-commands --compare -- <c> <s>` prints exits 0 (the
 graph check, `--olean --module` at every module of the headers' closure of `C` and `S` but `C`,
 the compare worker at `C`, each with `--trusted-search-path=<T> --search-path=<D>`), on every
@@ -442,9 +395,12 @@ where `T` names none), every module of the closure of `C` through them has a mod
 constants, and a name a module sees as another module's has the value that module's model gives
 it, as in `main_modular`. `C`'s constants include its holes: each is the axiom of its statement,
 and its model's value is the solution's constant's, which the solution's worker checked.
-`main_modular_compare_one` says the same of `--olean --modular --compare`, and
-`main_modular_compare_no_False` and `main_modular_compare_one_no_False` that a theorem of type
-`False` in that closure has no accepted comparison.
+`main_modular_compare_one` says the same of `--olean --modular --compare`.
+`main_modular_compare_no_False`: where those commands exit 0, the challenge module `C` has no
+constant of type `False` in its private part, of any kind, a hole `x : False` among them. It is
+proved from the runs' own environments, not from `main_modular_compare` alone: the compare
+worker reads `C` with the solution loaded whole, so a crafted `C` may see `False` through `S`
+alone, outside the family that theorem states.
 
 Two lean4export files (`--compare -- <c> <s>`, §2): the solution's records are checked by
 `checkDecls`, the challenge's by `checkChallenge` (`ConLeche/Cached/Decls.lean`), the same fold
@@ -455,9 +411,8 @@ theory (`IsModel V model (· ∈ constantsOf ds.toList)`). Its axioms are justif
 model takes, at each justified axiom, the value of the solution's model at that name, and the two
 models agree on everything its type reads. `main_compare_json_model`: on a snapshot where the file
 `c` holds the bytes `bC`, every exit 0 parsed `bC`, and the challenge file's records have such a
-model. `main_compare_json_no_False`: if `bC` parses to records one of which is a hole of type
-`False` (an axiom other than the standard ones, or a declaration whose value uses `sorry`), no run
-at those arguments exits 0, whatever `s` holds.
+model, which holds no hole of type `False` (an axiom other than the standard ones, or a
+declaration whose value uses `sorry`), since `False` denotes the empty set.
 
 `False` is not read off the stream: the checker installs it from a
 built-in pin, and a stream that declares `False` or `False.rec`
@@ -1061,9 +1016,7 @@ stand for it (`mergeAll_ok`), every constant the walk visits and does not filter
 where the blocks of the merged constants agree, which `blocksOk` checks before the walk
 (`emitAll_covers`), and every declaration comes from stored constants (`declsOf_from`).
 A theorem of a module of the closure is among the records with its statement (`declsOf_thm`,
-`readOleansAt_thm`), so `main_oleans_no_False` holds of the files, at the arguments `--olean
---search-path=<dirs> -- <root>`: if the private view of a module of the closure of `root`, by the
-specification (`ViewOf`, `decodeModuleSpec`), holds a theorem of type `False`, no run exits 0. An inductive block's record is
+`readOleansAt_thm`). An inductive block's record is
 known to be made of stored constants of the right kinds by their statements; its other fields and
 the recursor rules are `validateIndF`'s and the installer's to check. The records' order rests
 on what a constant mentions, read by a walk that has no theorem, as nothing but the order
@@ -2126,16 +2079,16 @@ and every such line carries its reason.
 | `ConLeche/Term/` | The term language the denotation targets and the interpretation reads, its substitution operations and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
 | `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and nested tuples, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
-| `ConLeche/Semantics/` | The interpretation, the semantic invariant, the semantics of inductive blocks, the declaration-level facts, and what `False` and `Eq` are in every model of a stream declaring them (`IsModelBasis.lean`). |
+| `ConLeche/Semantics/` | The interpretation, the semantic invariant, the semantics of inductive blocks, the declaration-level facts, what `False` and `Eq` are in every model of a stream declaring them (`IsModelBasis.lean`), and that an accepted stream with a constant of type `False` declares `False`, whose models hold no such constant (`NoFalse.lean`). |
 | `ConLeche/Rules/` | The relational description of the core checker: mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, η-expansion, unit-likeness, type inference (checking and infer-only), and the certificate checks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), the derived rules (`Derived.lean`), and the derivations at an environment holding some definitions as their statements, which are derivations at the environment holding them with their values (`Refine.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
 | `ConLeche/Verify/Rules/` | The bridge: an accepting run of a kernel function, at any fuel, yields a derivation (`Bridge.lean`, from one step theorem per entry point and the certificate bridges); composed with the rules at a refinement, an accepting run at an environment holding some definitions as their statements, a former's reduced telescope included, is a derivation at the environment holding their values (`Refine.lean`). |
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Env/`), the facts about the stored-term reading `denote` that read the environment invariant (`Reading/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the final theorems (`Capstone.lean`), the model read through the relation `Denotes` (`Denotes.lean`), and that model carried to a model of the input (`IsModelBridge.lean`, with what the ι reading rule means, `IotaReadSem.lean`). |
-| `ConLeche/Verify/` | Proofs about kernel functions that need no model: what an accepted stream stores of its records and which pinned blocks it declares (`IsModelRecords.lean`), the ι reading rule as a fact about the stored recursors (`Inductives/IotaRead.lean`), the terms every part of which reads (`Resolves.lean`), well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every stage's congruence in the index (`ViewCongr.lean`), every job passing is an accept of the fold (`StreamIndex.lean`, which `ConLeche/Driver/CheckPool.lean` imports), and a record's constants, tables and names as the worker's reach computes them, the cached twins in the specification's place (`DeclNames.lean`, which `ConLeche/Driver/Reach.lean` imports)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`), the runs of the IO model and the folds over a file's reads in it (`ModelIO.lean`), that the stream's reads in it put together are the file (`StreamModel.lean`), and the `.olean` reader's decoders and reads (`Olean/`)), and all of `main` in the IO model at the arguments `-- <file>` (`Driver/Main.lean`), with an `--olean` run's check phase (`Driver/Oleans.lean`), a module's context (`Driver/Reach.lean`), where it read each record (`Driver/ReachFrom.lean`) and what that record presents (`Driver/Provenance.lean`, `Driver/Groups.lean`), one module checked alone (`Driver/Worker.lean`), reads answered from tables refining the files' (`Driver/Shared.lean`), every module of a closure in one process (`Driver/Modular.lean`), a compared run (`Driver/CompareRun.lean`) and one of two lean4export files (`Driver/CompareJsonRun.lean`), a compared closure's run, its challenge's worker one with the solution added (`Driver/ComposeCompare.lean`), the challenge's read local to the trusted directories (`Frontend/Olean/Local.lean`), the import graph check's validation (`Driver/Graph.lean`), and what a module of a run sees against its worker: the header fixpoint loads what `Loads` derives (`Driver/LoadsAll.lean`), a seen name is a copy of the worker's index (`Driver/SeesLoads.lean`), a module's constants are its own records', or at a compared challenge the copies' loaded constants (`Driver/SeesOwn.lean`), a seen name agrees with the context (`Driver/SeesCtx.lean`), and what a module sees moved between snapshots and to a lookup's full form (`Driver/SeesMoves.lean`). |
+| `ConLeche/Verify/` | Proofs about kernel functions that need no model: what an accepted stream stores of its records and which pinned blocks it declares (`IsModelRecords.lean`), the ι reading rule as a fact about the stored recursors (`Inductives/IotaRead.lean`), the terms every part of which reads (`Resolves.lean`), well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every stage's congruence in the index (`ViewCongr.lean`), every job passing is an accept of the fold (`StreamIndex.lean`, which `ConLeche/Driver/CheckPool.lean` imports), and a record's constants, tables and names as the worker's reach computes them, the cached twins in the specification's place (`DeclNames.lean`, which `ConLeche/Driver/Reach.lean` imports)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`), the runs of the IO model and the folds over a file's reads in it (`ModelIO.lean`), that the stream's reads in it put together are the file (`StreamModel.lean`), and the `.olean` reader's decoders and reads (`Olean/`)), and all of `main` in the IO model at the arguments `-- <file>` (`Driver/Main.lean`), its accept on a `jsonWithTheoremFalse` file a stream with a constant of type `False` (`FalseRuns.lean`), with an `--olean` run's check phase (`Driver/Oleans.lean`), a module's context (`Driver/Reach.lean`), where it read each record (`Driver/ReachFrom.lean`) and what that record presents (`Driver/Provenance.lean`, `Driver/Groups.lean`), one module checked alone (`Driver/Worker.lean`), reads answered from tables refining the files' (`Driver/Shared.lean`), every module of a closure in one process (`Driver/Modular.lean`), a compared run (`Driver/CompareRun.lean`) and one of two lean4export files (`Driver/CompareJsonRun.lean`), a compared closure's run, its challenge's worker one with the solution added (`Driver/ComposeCompare.lean`), the challenge's read local to the trusted directories (`Frontend/Olean/Local.lean`), the import graph check's validation (`Driver/Graph.lean`), and what a module of a run sees against its worker: the header fixpoint loads what `Loads` derives (`Driver/LoadsAll.lean`), a seen name is a copy of the worker's index (`Driver/SeesLoads.lean`), a module's constants are its own records', or at a compared challenge the copies' loaded constants (`Driver/SeesOwn.lean`), a seen name agrees with the context (`Driver/SeesCtx.lean`), and what a module sees moved between snapshots and to a lookup's full form (`Driver/SeesMoves.lean`). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/IsModel.lean` | The statement's semantics: the total reading of a term (`Expr.eval`), the recursors' rules as propositions read off their own types (`RuleHolds`), and what a model of a declaration stream is (`ModelOf`, `IsModel`); imports nothing from the proof tiers. |
 | `ConLeche/Denotes.lean` | The proofs' model of an environment: what a term denotes (`Denotes`) and what a model of an environment is (`Model`), which the proofs build and read; the theorems state `IsModel` (`ConLeche/IsModel.lean`). |
 | `ConLeche/Modular.lean`, `ConLeche/Modular/` | Modular checking's statement half: a module's context as the records its imports present, the local checks per home (`InterfaceOk`) and per importer (`ImportOk`), copies agreeing (`Agree`: one record, or two proofs of one statement); and the theorem over an abstract interface of models (`Modular/Generic.lean`, the whitepaper fragment's), whose instance for con-leche's models is `ConLeche/Model/Modular/`. |
-| `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`); the family over what each module sees, at an accepted run and at the driver (`Sees.lean`, `SeesMain.lean`), its `False` corollaries (`SeesFalse.lean`), and at a compared run, over the challenge's closure (`SeesCompare.lean`); a copy at other level-parameter names holds where its stored constant does (`ConLeche/Model/IsModelRename.lean`). |
+| `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`); the family over what each module sees, at an accepted run and at the driver (`Sees.lean`, `SeesMain.lean`), and at a compared run, over the challenge's closure (`SeesCompare.lean`); a copy at other level-parameter names holds where its stored constant does (`ConLeche/Model/IsModelRename.lean`). |
 | `ConLeche/Model/Solution/`, `ConLeche/Model/Solution.lean` | A stream checked with a solution has a model: the solution's model renamed to the input's level-parameter names (`Rename.lean`, over `ConLeche/Model/CopyStmt.lean`), a record of shared names given the solution's leaves (`Shared.lean`, through the context reading of `Model/Modular`), a justified axiom given the solution's value (`Justified.lean`), the input's fold (`Fold.lean`) and the assembly (`Solution.lean`). The justification's accept read as a closed shared set is `ConLeche/Verify/Cached/Cone.lean`, the record mates `Mates.lean`. |
 | `ConLeche/Model/IsModelCompare.lean`, `ConLeche/Verify/CompareInput.lean` | `--olean --compare`'s accept has a model of the challenge's closure read through the trusted directories: the checked records store every constant of the closure (`chalChecked_inputStored`, a theorem read as a hole stored as the axiom of its statement), the closure's constants are the same on every snapshot agreeing under those directories (`closureConstants_local`), and a theorem of type `False` there is never accepted |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the main corollary lifted to the driver, and the comparison's theorems; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |

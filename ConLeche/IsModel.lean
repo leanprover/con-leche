@@ -223,6 +223,9 @@ force `⟦@Eq A a b⟧ = eqv a b` (`IsModel.false_empty`, `IsModel.eq_eqv`,
 with, as a stream carries them (at any level-parameter names); the checker accepts a stream
 declaring `False` or `Eq` only with them. -/
 
+/-- A constant's type. -/
+abbrev ConstantInfo.type (c : ConstantInfo) : Expr := c.toConstantVal.type
+
 /-- `C` has a constant named `n`. -/
 def DeclaresName (C : ConstantInfo → Prop) (n : Name) : Prop :=
   ∃ c, C c ∧ c.name = n

@@ -195,23 +195,22 @@ records, a context being a list of the records its imports present, in
 an order in which every record reads only itself and earlier records, and
 carries #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 254, 261)[the modular
+models gives #src("ConLeche/MainTheorem.lean", 171, 178)[the modular
 theorem]. Con-leche
 computes a module's context from the `.olean` files and checks the
 module's own records against it, one module per run, and
 #src("ConLeche/Verify/Driver/Routes.lean", 346, 347)[the runs at every module
 of an import closure together give the local checks]. Over the files themselves,
-#src("ConLeche/MainTheorem.lean", 280, 291)[the modular theorem] gives one model per module
+#src("ConLeche/MainTheorem.lean", 187, 198)[the modular theorem] gives one model per module
 of the closure, each a model of its module's constants as the `.olean` files hold them, and a
 name a module sees as another module's (its header loads a part of that module holding a
 constant of that name: `Sees`, over `Loads`, Lean's import lattice) has the value that
 module's model gives it. A name a module never reads is seen from one module only, because
 every name two loaded modules store is read into the context and checked there: two copies
 of one name with different statements would make this agreement false. The fragment's
-@thm:mod-input is the same statement, with seeing read off the imported views. Hence, from that
-theorem alone, #src("ConLeche/MainTheorem.lean", 315, 328)[no module of the closure holds a
-theorem of type `False`] where it declares the prelude's `False` or sees `False` as a module
-that does, and the graph check and every module's run exit 0 on one snapshot.
+@thm:mod-input is the same statement, with seeing read off the imported views. A module's model
+has no constant of type `False` where the module declares the prelude's `False` or sees it as a
+module that does, since `False` then denotes the empty set.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,
