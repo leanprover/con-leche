@@ -60,8 +60,10 @@ checked against, as a list of records, and its validation.
   every name two loaded modules hold (`WorkerReads.clashes`) must be proofs of one statement
   (`clashAgree`, Lean's merge).  Copies of one statement of which one is a theorem need no
   inference (task #506): a theorem's type is a proposition, and the copies' statement is one,
-  its names read alike.  Only where no copy is a theorem is the statement inferred; such a
-  clash has its name reached, so that its statement's names are in the context.
+  its names read alike.  Only where no copy is a theorem is the statement inferred.  Every
+  clashing name is reached, so that its statement's names are in the context and every copy's
+  statement is capture-checked (task #618): Lean's merge compares the copies' statements as
+  expressions, which a stale or hand-made build can make mean two things.
 * **What a record reads** (`recordReads`): the names its constants' laws and its tables
   ask stored, `RecordScoped`'s (`ConLeche/Modular.lean`): every constant of a type, of a
   definition's value, of a recursor's rules and nested pins, a literal's and a
@@ -513,7 +515,9 @@ def agreeCheck (env : ReachEnv μ) (c : ReachCache) (h y : Name) (s₁ s₂ : Sp
 
 /-- **The clash rule** (ruling 3 of #460, Lean's merge): the copies of every name two loaded
 modules hold must be proofs of one statement, one of them a theorem or the statement inferred to
-be a proposition; the names whose statements are inferred, to be reached.  Where a record reads such a name, `agreeCheck` asks the agreement. -/
+be a proposition.  Every clashing name is returned, to be reached (task #618): each copy's
+statement is then capture-checked as its module reads it (`clashPartners`), so that the
+statement means one thing at every copy, and a name two loaded modules hold has one meaning. -/
 def clashAgree (env : ReachEnv μ) :
     ReachCache → List Clash → Array Name → μ (ReachCache × Except CheckError (Array Name))
   | c, [], acc => pure (c, .ok acc)
@@ -528,7 +532,7 @@ def clashAgree (env : ReachEnv μ) :
       if ps.contains .no then
         pure (c, .error (.invalid s!"the loaded modules {spots.map (·.1.part.mod)} store \
           {cl.name}, not as one constant (not proofs of one statement)"))
-      else if ps.contains .yes then clashAgree env c cls acc
+      else if ps.contains .yes then clashAgree env c cls (acc.push cl.name)
       else
         match spots with
         | (_, cv, _) :: _ =>
@@ -851,6 +855,11 @@ def clashCopiesOf (wr : WorkerReads) : Std.HashMap Name (Array (Name × Constant
   wr.clashes.foldl (fun m cl =>
     m.insert cl.name (cl.copies.map fun (cp, cv, _) => (wr.loads.nameAt cp.mod, cv))) {}
 
+/-- A failed read of the record of `x`, read from `h`, names the record. -/
+def inRecord (x h : Name) : CheckError → CheckError
+  | .invalid m => .invalid s!"the record of {x}, read from {h}: {m}"
+  | e => e
+
 /-- **The reach's worklist** (see the module docstring). -/
 def reachGo {μ : Type → Type} [CheckerIO μ] (env : ReachEnv μ) :
     Nat → ReachLog → ReachCache → μ (Except CheckError (ReachLog × ReachCache))
@@ -882,7 +891,7 @@ def reachGo {μ : Type → Type} [CheckerIO μ] (env : ReachEnv μ) :
           else
             let rd := (recordReads d).toList
             match ← captureAll env h c rd with
-            | (_, .error e) => pure (.error e)
+            | (_, .error e) => pure (.error (inRecord x h e))
             | (c, .ok ()) =>
               match ← storedNamesOk env c h ns with
               | (_, .error e) => pure (.error e)
