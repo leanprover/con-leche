@@ -111,7 +111,7 @@ def levelsGo {μ : Type → Type} [Monad μ] (imps : Name → μ (Except CheckEr
             { st with open_ := st.open_.insert m, imports := st.imports.insert m is }
 
 /-- **What Lean loads for a module**: its header's fixpoint, in Lean's module order. -/
-structure Loads where
+structure HeaderLoads where
   /-- the loaded modules, in Lean's order (`moduleNames` of those with data) -/
   order : Array Name
   /-- by position in `order`: the module's flags -/
@@ -141,7 +141,7 @@ Lean's order and at the later one here.  The order decides nothing but which cop
 a name comes first in the index (`ConLeche/Frontend/Olean/Index.lean`). -/
 def headerFixpoint {μ : Type → Type} [Monad μ]
     (imps : Name → μ (Except CheckError (Array ImportRec))) (isModule : Bool)
-    (imports : Array ImportRec) : μ (Except CheckError Loads) := do
+    (imports : Array ImportRec) : μ (Except CheckError HeaderLoads) := do
   let root : LoadFlags := { importAll := true, isExported := isModule }
   match ← levelsGo imps (!isModule) closureFuel (LvWork.ofImports root imports) {} with
   | .error e => pure (.error e)
@@ -182,7 +182,7 @@ are loaded wherever that module is (the rule `isExported`/`needsData` follows a 
 import from every module with data), so the importer's copy of a name of their
 exported parts is the module's own.  A public import of a loaded module is placed
 before it (it is met during that module's first expansion), so one pass in order. -/
-def pubClosures (ld : Loads) : Array ModSet :=
+def pubClosures (ld : HeaderLoads) : Array ModSet :=
   let n := ld.order.size
   (List.range n).foldl (fun (acc : Array ModSet) i =>
     let s := ((ld.imports[i]?).getD #[]).foldl (fun s imp =>

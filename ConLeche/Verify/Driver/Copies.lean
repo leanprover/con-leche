@@ -669,7 +669,7 @@ theorem firstIn_zip (y : Name) :
           rw [this]; simpa using ht'
 
 /-- Freshness: no name of the own private part is loaded. -/
-theorem freshOk_spec {m : Name} {ld : Loads} {ix : NameIndex} {own : NamePositions}
+theorem freshOk_spec {m : Name} {ld : HeaderLoads} {ix : NameIndex} {own : NamePositions}
     (h : freshOk m ld ix own = .ok ()) {q : NamePosition} (hq : q ∈ own.consts) :
     ix.first[q.name]? = none := by
   unfold freshOk at h
@@ -774,7 +774,7 @@ theorem homeView_index {sp a L : Roots} (ha : a.Trims L) (hsL : sp.Trims L) {fs 
       · simp [NameIndex.at, nameIndexOf, ht, hq]
       · rw [← hs]
         have hn : w.reads.loads.nameAt cp.mod = mn := by
-          simp only [Loads.nameAt]; rw [← Array.getElem?_toList, ho]; rfl
+          simp only [HeaderLoads.nameAt]; rw [← Array.getElem?_toList, ho]; rfl
         have hfl : (w.reads.loads.flags[cp.mod]?).getD default = fl := by
           rw [← Array.getElem?_toList, hf]; rfl
         rw [hn, hfl]

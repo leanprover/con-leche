@@ -26,14 +26,14 @@ open SetTheory ConLeche.SetModel
 
 universe w
 
-variable {V : Type w} [SetTheory V] {model : Name → List Nat → V} {ds : List Declaration}
+variable {V : Type w} [SetTheory V] {model : Name → List Nat → V} {R : ConstantInfo → Prop}
 
-/-- A record's membership clause, off `HasRecord`. -/
-theorem IsModel.mem_of_hasRecord (h : IsModel V model ds) {n : Name} {ps : List LevelParam}
-    {T : Expr} (hr : HasRecord ds n ps T) (vals : List Nat) (hl : vals.length = ps.length) :
+/-- A record's membership clause, off `HasConstant`. -/
+theorem IsModel.mem_of_hasRecord (h : IsModel V model R) {n : Name} {ps : List LevelParam}
+    {T : Expr} (hr : HasConstant R n ps T) (vals : List Nat) (hl : vals.length = ps.length) :
     model n vals ∈ˢ Expr.eval model (Level.assign ps vals) ρ₀ T := by
-  obtain ⟨d, hd, c, hc, hcv⟩ := hr
-  have hs := (h d hd c hc vals (by rw [hcv]; exact hl)).1
+  obtain ⟨c, hc, hcv⟩ := hr
+  have hs := (h c hc vals (by rw [hcv]; exact hl)).1
   have hn : c.name = n := by
     show c.toConstantVal.name = n
     rw [hcv]
@@ -41,7 +41,7 @@ theorem IsModel.mem_of_hasRecord (h : IsModel V model ds) {n : Name} {ps : List 
   exact hs
 
 /-- **`False` is empty** in every model of a stream declaring the prelude's `False`. -/
-theorem IsModel.false_empty (h : IsModel V model ds) (hF : DeclaresFalse ds) :
+theorem IsModel.false_empty (h : IsModel V model R) (hF : DeclaresFalse R) :
     model falseName [] = empty := by
   obtain ⟨p, hr⟩ := hF
   have hm := h.mem_of_hasRecord hr [0] rfl
@@ -59,7 +59,7 @@ theorem IsModel.false_empty (h : IsModel V model ds) (hF : DeclaresFalse ds) :
 
 /-- **`Eq` is equality** in every model of a stream declaring the prelude's `Eq`: at a type
 `A` of the universe `k` and two of its members, `@Eq.{k} A a b` denotes `eqv a b`. -/
-theorem IsModel.eq_eqv (h : IsModel V model ds) (hE : DeclaresEq ds) {k : Nat} {A a b : V}
+theorem IsModel.eq_eqv (h : IsModel V model R) (hE : DeclaresEq R) {k : Nat} {A a b : V}
     (hA : A ∈ˢ (univ k : V)) (ha : a ∈ˢ A) (hb : b ∈ˢ A) :
     app (app (app (model eqName [k]) A) a) b = eqv a b := by
   obtain ⟨⟨pE, hrE⟩, ⟨pR, hrR⟩, ⟨p₁, p, hne, hrC⟩⟩ := hE
@@ -133,8 +133,8 @@ theorem IsModel.eq_eqv (h : IsModel V model ds) (hE : DeclaresEq ds) {k : Nat} {
 
 /-- **No model of a stream declaring the prelude's `False` has a theorem of type `False`**, at
 any level parameters. -/
-theorem IsModel.no_false_record (h : IsModel V model ds) (hF : DeclaresFalse ds) {t : Name}
-    {ps : List LevelParam} (ht : HasRecord ds t ps (.const falseName [])) : False := by
+theorem IsModel.no_false_record (h : IsModel V model R) (hF : DeclaresFalse R) {t : Name}
+    {ps : List LevelParam} (ht : HasConstant R t ps (.const falseName [])) : False := by
   have hm := h.mem_of_hasRecord ht (ps.map fun _ => 0) (by simp)
   have he : Expr.eval model (Level.assign ps (ps.map fun _ => 0)) ρ₀ (.const falseName []) =
       model falseName [] := rfl

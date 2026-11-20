@@ -334,14 +334,14 @@ theorem headerFixpoint_within {fs₁ fs₂ : FS}
 /-! ## The worker's reads and its home -/
 
 theorem readInfosOf_within {fs₁ fs₂ : FS} {rd : OleanReads ModelIO} {sp : Roots}
-    (h : OleanReads.Within fs₁ fs₂ rd sp) (ld : Loads) (ix : NameIndex) (x : Nat × Array Copy) :
+    (h : OleanReads.Within fs₁ fs₂ rd sp) (ld : HeaderLoads) (ix : NameIndex) (x : Nat × Array Copy) :
     ModelIO.Within fs₁ fs₂ (readInfosOf rd ld ix x) (readInfosOf (.ofPath sp) ld ix x) := by
   simp only [readInfosOf]
   refine ModelIO.Within.bind (h.files _ _) fun _ => ?_
   within_tac []
 
 theorem readInfos_within {fs₁ fs₂ : FS} {rd : OleanReads ModelIO} {sp : Roots}
-    (h : OleanReads.Within fs₁ fs₂ rd sp) (ld : Loads) (ix : NameIndex) (jobs : Nat) (cs : Array Copy) :
+    (h : OleanReads.Within fs₁ fs₂ rd sp) (ld : HeaderLoads) (ix : NameIndex) (jobs : Nat) (cs : Array Copy) :
     ModelIO.Within fs₁ fs₂ (readInfos rd ld ix jobs cs) (readInfos (.ofPath sp) ld ix jobs cs) := by
   simp only [readInfos]
   refine ModelIO.Within.bind (parMapExcept_within (readInfosOf_within h ld ix) _ _ _) fun _ => ?_

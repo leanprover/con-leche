@@ -9,8 +9,8 @@ import ConLeche.Verify.Cached.IndWalksC
 
 With a sidecar, the fold reads a definition, theorem or opaque constant whose value uses
 `sorryAx` as the axiom of its statement (`sideRecord`).  `IsModel` reads such a definition, and
-every theorem and opaque constant, by its statement already (`Declaration.records`), so the two
-streams have the same models (`isModel_sideRecords`): a theorem's record and an axiom's record
+every theorem and opaque constant, by its statement already (`Declaration.constants`), so the two
+streams have the same models (`isModel_sideRecords`): a theorem's constant and an axiom's constant
 of one statement say the same (`Satisfies` reads neither's kind), and no record of a
 constructor moves.
 -/
@@ -23,16 +23,16 @@ open ConLeche.Cached
 
 universe w
 
-/-- **A record read by its statement**: the same records, or a theorem's statement read as an
+/-- **A record read by its statement**: the same constants, or a theorem's statement read as an
 axiom's. -/
-theorem records_sideRecord (d : Declaration) :
-    (sideRecord d).records = d.records ∨
-      ∃ cv v, d = .thmDecl cv v ∧ (sideRecord d).records = [.axiomInfo cv] := by
+theorem constants_sideRecord (d : Declaration) :
+    (sideRecord d).constants = d.constants ∨
+      ∃ cv v, d = .thmDecl cv v ∧ (sideRecord d).constants = [.axiomInfo cv] := by
   have hax : ∀ cv : ConstantVal, builtinAxiomName cv.name = false →
-      (Declaration.axiomDecl cv).records = [.axiomInfo cv] := fun cv hb => by
+      (Declaration.axiomDecl cv).constants = [.axiomInfo cv] := fun cv hb => by
     have h1 : cv.name ≠ quotSoundName := fun e => by simp [builtinAxiomName, e] at hb
     have h2 : cv.name ≠ sorryAxName := fun e => by simp [builtinAxiomName, e] at hb
-    simp [Declaration.records, h1, h2]
+    simp [Declaration.constants, h1, h2]
   cases d with
   | defnDecl cv v hint =>
     left
@@ -42,7 +42,7 @@ theorem records_sideRecord (d : Declaration) :
         rw [usesSorry, ← Expr.mentionsAnyConstC_spec]; exact hc.2
       rw [show sideRecord (.defnDecl cv v hint) = .axiomDecl cv by
         simp only [sideRecord, hc.1, hc.2, Bool.not_false, Bool.and_self, ↓reduceIte], hax cv hc.1]
-      simp only [Declaration.records, hs, ↓reduceIte]
+      simp only [Declaration.constants, hs, ↓reduceIte]
     · simp only [sideRecord, hc, Bool.false_eq_true, ↓reduceIte]
   | thmDecl cv v =>
     by_cases hc : (!builtinAxiomName cv.name && Expr.mentionsAnyConstC [sorryAxName] v) = true
@@ -62,28 +62,38 @@ theorem records_sideRecord (d : Declaration) :
     · simp only [sideRecord, hc, Bool.false_eq_true, ↓reduceIte]
   | _ => left; rfl
 
-/-- No constructor record moves. -/
+/-- No constructor constant moves. -/
 theorem ctor_mem_sideRecord {d : Declaration} {cvj : ConstantVal} {cnP nF : Nat} {T : Name} :
-    ConstantInfo.ctorInfo cvj cnP nF T ∈ (sideRecord d).records ↔
-      ConstantInfo.ctorInfo cvj cnP nF T ∈ d.records := by
-  rcases records_sideRecord d with h | ⟨cv, v, rfl, h⟩
+    ConstantInfo.ctorInfo cvj cnP nF T ∈ (sideRecord d).constants ↔
+      ConstantInfo.ctorInfo cvj cnP nF T ∈ d.constants := by
+  rcases constants_sideRecord d with h | ⟨cv, v, rfl, h⟩
   · rw [h]
   · rw [h]
-    simp [Declaration.records]
+    simp [Declaration.constants]
+
+theorem ctor_mem_constantsOf_side {ds : List Declaration} {cvj : ConstantVal} {cnP nF : Nat}
+    {T : Name} :
+    ConstantInfo.ctorInfo cvj cnP nF T ∈ constantsOf (ds.map sideRecord) ↔
+      ConstantInfo.ctorInfo cvj cnP nF T ∈ constantsOf ds := by
+  simp only [constantsOf, List.mem_flatMap, List.mem_map]
+  constructor
+  · rintro ⟨_, ⟨d, hd, rfl⟩, hc⟩; exact ⟨d, hd, ctor_mem_sideRecord.1 hc⟩
+  · rintro ⟨d, hd, hc⟩; exact ⟨_, ⟨d, hd, rfl⟩, ctor_mem_sideRecord.2 hc⟩
 
 variable {V : Type w} [SetTheory V]
 
 theorem ruleHolds_side (model : Name → List Nat → V) (ds : List Declaration)
     (φ : LevelParam → Nat) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
-    RuleHolds V model (ds.map sideRecord) φ cv mI rP rl ↔ RuleHolds V model ds φ cv mI rP rl := by
+    RuleHolds V model (· ∈ constantsOf (ds.map sideRecord)) φ cv mI rP rl ↔
+      RuleHolds V model (· ∈ constantsOf ds) φ cv mI rP rl := by
   unfold RuleHolds
-  simp only [List.forall_mem_map]
-  refine forall_congr' fun d => imp_congr_right fun _ => forall_congr' fun cvj =>
-    forall_congr' fun cnP => forall_congr' fun nF => forall_congr' fun T => ?_
-  rw [ctor_mem_sideRecord]
+  refine forall_congr' fun cvj => forall_congr' fun cnP => forall_congr' fun nF =>
+    forall_congr' fun T => ?_
+  exact imp_congr_left ctor_mem_constantsOf_side
 
 theorem satisfies_side (model : Name → List Nat → V) (ds : List Declaration) (c : ConstantInfo) :
-    Satisfies V model (ds.map sideRecord) c ↔ Satisfies V model ds c := by
+    Satisfies V model (· ∈ constantsOf (ds.map sideRecord)) c ↔
+      Satisfies V model (· ∈ constantsOf ds) c := by
   unfold Satisfies
   refine forall_congr' fun vals => imp_congr_right fun _ => and_congr_right fun _ => ?_
   cases c with
@@ -94,19 +104,30 @@ theorem satisfies_side (model : Name → List Nat → V) (ds : List Declaration)
 /-- **The fold's records and the input have the same models.** -/
 theorem isModel_sideRecords (model : Name → List Nat → V) (j : Option Env)
     (ds : Array Declaration) :
-    IsModel V model (sideRecords j ds).toList ↔ IsModel V model ds.toList := by
+    IsModel V model (· ∈ constantsOf (sideRecords j ds).toList) ↔
+      IsModel V model (· ∈ constantsOf ds.toList) := by
   cases j with
   | none => exact Iff.rfl
   | some e =>
     simp only [sideRecords, Array.toList_map]
-    unfold IsModel IsModelOfDecl
-    simp only [List.forall_mem_map, satisfies_side]
-    refine forall_congr' fun d => imp_congr_right fun _ => ?_
-    rcases records_sideRecord d with h | ⟨cv, v, rfl, h⟩
-    · rw [h]
-    · rw [h]
-      simp only [Declaration.records, List.forall_mem_singleton]
-      unfold Satisfies
-      exact Iff.rfl
+    unfold IsModel
+    simp only [satisfies_side]
+    have hthm : ∀ cv : ConstantVal,
+        Satisfies V model (· ∈ constantsOf ds.toList) (.axiomInfo cv) ↔
+          Satisfies V model (· ∈ constantsOf ds.toList) (.thmInfo cv) := fun _ => Iff.rfl
+    simp only [constantsOf, List.mem_flatMap, List.mem_map]
+    constructor
+    · rintro h c ⟨d, hd, hc⟩
+      rcases constants_sideRecord d with h' | ⟨cv, v, rfl, h'⟩
+      · exact h c ⟨_, ⟨d, hd, rfl⟩, h' ▸ hc⟩
+      · simp only [Declaration.constants, List.mem_singleton] at hc
+        subst hc
+        exact (hthm cv).1 (h _ ⟨_, ⟨_, hd, rfl⟩, by rw [h']; exact List.mem_singleton_self _⟩)
+    · rintro h c ⟨_, ⟨d, hd, rfl⟩, hc⟩
+      rcases constants_sideRecord d with h' | ⟨cv, v, rfl, h'⟩
+      · exact h c ⟨d, hd, h' ▸ hc⟩
+      · rw [h', List.mem_singleton] at hc
+        subst hc
+        exact (hthm cv).2 (h _ ⟨_, hd, List.mem_singleton_self _⟩)
 
 end ConLeche

@@ -133,7 +133,7 @@ theorem firstIn_name {y : Name} : ∀ (l : List (PartKey × NamePositions)) {s :
     · exact firstIn_name l h
 
 /-- A view's part is at a level a load reads. -/
-theorem viewKeys_level {h : Name} {ld : Loads} {k : PartKey} (hk : k ∈ viewKeys h ld) :
+theorem viewKeys_level {h : Name} {ld : HeaderLoads} {k : PartKey} (hk : k ∈ viewKeys h ld) :
     k.level ≠ .server := by
   unfold viewKeys at hk
   rcases List.mem_cons.1 hk with rfl | hk

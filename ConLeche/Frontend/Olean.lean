@@ -72,7 +72,7 @@ search path with the roots a run resolved, each once; a `SearchPath` is one with
 
 | name | theorem |
 |---|---|
-| `headerFixpoint imps isModule imports : μ (Except CheckError Loads)`: every module Lean's `importModulesCore` loads for a header, in its order, with the part (`LoadFlags.level`) | none needed: a presentation decides only whether a verdict is Lean's |
+| `headerFixpoint imps isModule imports : μ (Except CheckError HeaderLoads)`: every module Lean's `importModulesCore` loads for a header, in its order, with the part (`LoadFlags.level`) | none needed: a presentation decides only whether a verdict is Lean's |
 | `pubClosures ld : Array ModSet`: each loaded module's public-import closure | |
 | `workerReads rd m jobs : μ (Except CheckError WorkerReads)`: the fixpoint, the name index of the loaded parts (`nameIndexOf`), Lean's clash rule (`clashOk`, by `subsumesF`) over every loaded name and freshness (`freshOk`), each a reject | |
 | `groupRecord mg n : Except CheckError Declaration`: one inductive group's record, validated as `blocksOk` validates a block; `readGroup` gathers it from one part | `groupRecord_from`, `groupRecord_valid` |

@@ -577,7 +577,7 @@ theorem filterMap_getElem? {α β : Type} {f : α → Option β} :
 
 /-- **One module's statements read**: every entry is a requested copy with its position's
 statement and kind, off the files of the part it is loaded at; every requested copy has one. -/
-theorem readInfosOf_ok {sp : Roots} {fs : FS} {ld : Loads} {ix : NameIndex} {i : Nat}
+theorem readInfosOf_ok {sp : Roots} {fs : FS} {ld : HeaderLoads} {ix : NameIndex} {i : Nat}
     {cs : Array Copy} {arr : Array (Copy × ConstantVal × CKindF Name Unit)}
     (h : ModelIO.CanGive (readInfosOf (.ofPath sp) ld ix (i, cs)) fs (.ok arr)) :
     (∀ c cv k, (c, cv, k) ∈ arr.toList → c ∈ cs.toList ∧ ∃ q f r a, ix.at c = some q ∧
@@ -738,7 +738,7 @@ theorem infos_fold :
 
 /-- **The statements read for some copies**: every entry is its copy's position's statement and
 kind, off the files of the part its module is loaded at; every requested copy has one. -/
-theorem readInfos_ok {sp : Roots} {fs : FS} {ld : Loads} {ix : NameIndex} {jobs : Nat}
+theorem readInfos_ok {sp : Roots} {fs : FS} {ld : HeaderLoads} {ix : NameIndex} {jobs : Nat}
     {cs : Array Copy} {infos : Std.HashMap Copy (ConstantVal × CKindF Name Unit)}
     (h : ModelIO.CanGive (readInfos (.ofPath sp) ld ix jobs cs) fs (.ok infos)) :
     (∀ c v, infos[c]? = some v → ∃ q f r a, ix.at c = some q ∧

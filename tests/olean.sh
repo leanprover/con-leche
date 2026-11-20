@@ -631,7 +631,8 @@ d="$TMPDIR/con-leche-olean-reach"
 for a in Ldg Ldv; do
   rm -rf "$d"; cp -r "$LIB" "$d"
   patch_import "$d/${a}A.olean" private
-  reach_ "a group's read completed ($a)" 0 "1 completed" "$d:$INIT" ${a}N
+  # two completed: the group's, and one an Init clash's copy reads (every clash is reached, #618)
+  reach_ "a group's read completed ($a)" 0 "2 completed" "$d:$INIT" ${a}N
   rm -rf "$d"; cp -r "$LIB" "$d"
   patch_import "$d/${a}A.olean" drop
   reach_ "a group's read located nowhere ($a)" 1 "which no module of its view holds" "$d:$INIT" ${a}N
@@ -668,6 +669,23 @@ work_ "an own unsafe definition reading an imported unsafe one" 0 "accepted 1 de
 # NlX's nl and NlY's nl, behind a private import of an import, are never loaded
 # together: accepted, as by Lean (the merged read of the closure rejects the pair)
 work_ "two modules of one name never loaded together" 0 "accepted" "$MSP" NlM
+# CxM loads CxA's cn (a definition of value True, at CxX1's type cc := Prop, exported as an
+# axiom) and CxB's cn (a theorem of CxX2's proposition cc := True), one statement expression
+# meaning two things; CxM reads neither and does not load CxX1.  Lean accepts it (its merge
+# compares the statement expressions; CxA compiled against a stand-in, tests/olean/build.sh).
+# CxA exports cn : cc while its cc comes from a private import (a dangling name, which a
+# correct build rejects: the fixture needs the stand-in), a bug in Lean's module system.
+# Rejected (task #618): every clashing name is reached, so every copy's statement is
+# capture-checked at CxM, and CxA's cc is not CxM's.  A departure (OVERVIEW §14)
+for m in CxX1 CxX2 CxZ CxA CxB; do
+  work_ "the worker at $m" 0 "accepted" "$MSP" $m
+done
+work_ "a clashing name whose statement means two things" 1 \
+  "the record of cn, read from CxA: name capture at cc, read by module CxA: the copies of cc of modules CxX2 and CxX1" \
+  "$MSP" CxM
+case_grep "--modular at CxM (a clashing name whose statement means two things)" 1 \
+  "1 of 7 modules not accepted; the first in the graph's order: CxM" \
+  --olean --modular --search-path=$MSP -- CxM
 # M's own foo and the foo H's exported records read: no record of M's context
 # reads it: accepted, as by Lean (the merged read rejects the pair)
 work_ "the importer declares a name an unreached record reads" 0 "accepted" "$MSP" DgColM
@@ -903,7 +921,8 @@ rm -rf "$d"
 for a in Ldg Ldv; do
   rm -rf "$d"; cp -r "$LIB" "$d"
   patch_import "$d/${a}A.olean" private
-  work_ "a group's read completed ($a)" 0 "1 completed" "$d:$INIT" ${a}N --progress
+  # two completed: the group's, and one an Init clash's copy reads (every clash is reached, #618)
+  work_ "a group's read completed ($a)" 0 "2 completed" "$d:$INIT" ${a}N --progress
   rm -rf "$d"; cp -r "$LIB" "$d"
   patch_import "$d/${a}A.olean" drop
   work_ "a group's read located nowhere ($a)" 1 "which no module of its view holds" "$d:$INIT" ${a}N

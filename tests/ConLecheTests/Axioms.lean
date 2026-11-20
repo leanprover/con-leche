@@ -62,13 +62,14 @@ equation the compiled equality rests on.
 
 | theorem | what it says |
 |---|---|
-| `ConLeche.model_exists` | **THE MAIN THEOREM**: every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input), and declares `False` and `Eq`, where it declares them at all, as the prelude's |
+| `ConLeche.model_exists` | **THE MAIN THEOREM**: every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input) |
 | `ConLeche.sidecar_model_exists` | **THE MAIN THEOREM, WITH A SIDECAR**: a stream `checkDecls` accepts with the environment of another accepted stream as its sidecar (its own axioms justified by it) has a model in every `SetTheory V`, and declares `False` and `Eq`, where it declares them at all, as the prelude's |
 | `ConLeche.main_compare_json_model` | an exit 0 of `--compare -- <c> <s>` parsed `c`, and the challenge's records prepared with the prelude have such a model |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
 | `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
 | `ConLeche.modular_model_exists` | **THE MODULAR THEOREM**: a development every module of which passes the local checks has a compatible family of models of the own environments |
 | `ConLeche.modular_no_False` | its corollary: no module's own environment stores a constant of type `False` |
+| `ConLeche.main_modular` | **THE MODULAR THEOREM, OVER THE FILES**: where `--check-graph -- <root>` and `--olean --module` at every module of the headers' closure exit 0 (`main_modular_one`: `--olean --modular -- <root>`), every module of the closure of `root` has a model of its constants, and a name it sees as another module's has that module's value |
 | `ConLeche.main_modular_no_False` | **THE MODULAR COROLLARY, RUN BY RUN**: where a module of a root's headers' closure holds a theorem of type `False` in its private view and every module of the closure has an exit 0 of `--olean --module` on the snapshot, no outcome of `--check-graph -- <root>` is an exit 0 (`main_modular_one_no_False`: nor of `--olean --modular -- <root>`) |
 | `ConLeche.main_no_False` | **THE MAIN COROLLARY, LIFTED TO THE DRIVER**: on a snapshot where the file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at the arguments `-- <file>` is an exit 0 |
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
@@ -176,6 +177,12 @@ constant, under its own name, with its own level parameters and its
 own declared type, in the environment the fold returns. -/
 
 /--
+info: 'ConLeche.main_oleans' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_oleans
+
+/--
 info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
@@ -234,6 +241,18 @@ info: 'ConLeche.Frontend.Olean.challenge_local' depends on axioms: [propext, Cla
 -/
 #guard_msgs in
 #print axioms ConLeche.Frontend.Olean.challenge_local
+
+/--
+info: 'ConLeche.main_modular' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular
+
+/--
+info: 'ConLeche.main_modular_one' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular_one
 
 /--
 info: 'ConLeche.main_modular_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]

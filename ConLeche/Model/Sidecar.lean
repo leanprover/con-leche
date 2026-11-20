@@ -69,30 +69,13 @@ theorem sidecar_envModel {dsS ds : Array Declaration} {envS env : Env}
     (EnvModelM.empty V) lfpCover_empty (EnvModelOk.empty (V := V)).2 (fun x hx => nomatch hx)
   exact ⟨mq⟩
 
-/-- **A stream checked with a sidecar has a model**, and declares `False` and `Eq`, where it
-declares them at all, as the prelude's. -/
+/-- **A stream checked with a sidecar has a model.** -/
 theorem sidecar_isModel {dsS ds : Array Declaration} {envS env : Env}
     (hS : checkDecls .verified pins maxNatSize dsS = .ok envS)
     (hC : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
-    (∃ model, IsModel V model ds.toList) ∧
-      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
-      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) := by
+    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
   obtain ⟨m⟩ := sidecar_envModel (V := V) hS hC
-  have hrec := checkDecls_recordsStored hC
-  have hstored : ∀ n, DeclaresName ds.toList n → (env.find? n).isSome = true := by
-    rintro n ⟨d, hd, c, hc, rfl⟩
-    have hd' : sideRecord d ∈ (sideRecords (some envS) ds).toList := by
-      simp only [sideRecords, Array.toList_map]; exact List.mem_map_of_mem hd
-    obtain ⟨c', hc', hn⟩ : ∃ c' ∈ (sideRecord d).records, c'.name = c.name := by
-      rcases records_sideRecord d with h | ⟨cv, v, rfl, h⟩
-      · exact ⟨c, h ▸ hc, rfl⟩
-      · simp only [Declaration.records, List.mem_singleton] at hc
-        subst hc
-        exact ⟨.axiomInfo cv, by rw [h]; exact List.mem_singleton_self _, rfl⟩
-    obtain ⟨ci, hf, -⟩ := hrec _ hd' c' hc'
-    rw [← hn, hf]; rfl
-  exact ⟨⟨_, (isModel_sideRecords _ (some envS) ds).mp (isModel_of_envModelM m hrec)⟩,
-    fun h => checkDecls_declaresFalse hC (hstored _ h),
-    fun h => checkDecls_declaresEq hC (hstored _ h)⟩
+  exact ⟨_, (isModel_sideRecords _ (some envS) ds).mp
+    (isModel_of_envModelM m (checkDecls_recordsStored hC))⟩
 
 end ConLeche.Model.Sidecar

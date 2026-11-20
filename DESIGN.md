@@ -124253,6 +124253,346 @@ record kind whose clause is membership only, with the bridge obligation that the
 model gives the constant's value; `IsModel` itself needs no change since clauses are per
 record.
 
+## TASK #618 — the main theorems over `IsModel`, the `.olean` input as records (2026-11-19, agent/618-views-ismodel; base `compare`)
+
+**#618 cont. — state of the lane (in progress, not landed).**
+
+Done and committed on the branch (each builds warning-free at its module):
+
+1. **`IsModel` over a set of records** (`ConLeche/IsModel.lean`): `Records := ConstantInfo → Prop`,
+   `recordsOf ds` (every record of every declaration of `ds`); `RuleHolds`/`Satisfies`/`IsModel`
+   take `R : Records`; `IsModelOfDecl` is gone; `DeclaresName`/`HasRecord`/`DeclaresFalse`/
+   `DeclaresEq` over `R`.  `model_exists` (Challenge = MainTheorem) reads `IsModel V model
+   (recordsOf ds.toList)`.  `RecordsStored R env` over a record set, `StoredAs.trans`,
+   `RecordsStored.mono` (a record stored by a record that is stored is stored).
+2. **The `.olean` input as a spec** (`ConLeche/OleanInput.lean`): `entryRecords c` (a view
+   constant's records: `declOfEntry` for a non-block constant, one `indInfo`/`ctorInfo`/`recInfo`
+   for a block member, the recursor's rules firing as `inputFire all`, its own `all` being the
+   block's formers; unsafe/partial none), `ClosureRecords sp fs roots` (every record of every
+   constant of every `ViewOf` of every `InClosure` module — no order, no merge),
+   `InputRecords sp fs roots extra` (and the records of the prelude declarations `extra` the
+   preparation added).
+3. **The reader covers the spec** (`ConLeche/Verify/Frontend/Olean/Input.lean`):
+   `readOleansAt_entry` (a view constant's merged copy is it, or a theorem of its statement:
+   `EntryStands`), `declOfF_ind_records` (what a block record holds; constructor lookup through
+   `ctorAt`'s index map), `covers_entry`/`covers_block`, `readOleansAt_covers`,
+   `checkDecls_inputStored` (`∃ extra ⊆ pre.decls, RecordsStored (InputRecords …) env`; a theorem
+   standing for the axiom `Quot.sound` is excluded by `basisNamesOk`).
+4. **`main_oleans`** (MainTheorem, one line; proof `oleans_isModel` in
+   `ConLeche/Model/IsModelOlean.lean`): exit 0 of `--olean --search-path=<dirs> -- <root>` →
+   `∃ pre, builtinPreludeE = .ok pre ∧ ∃ extra ⊆ pre.decls, ∃ model, IsModel V model
+   (InputRecords (searchPathOf dirs) fs #[r] extra)`.
+
+Spec choice taken for the prelude: "the prelude, prepared" is stated as preparePrelude's own spec
+(the stream plus SOME prelude declarations, nothing missing), not as "the prelude declarations the
+closure does not store": the latter needs every module the reader loads to be in `InClosure` with a
+full `ViewOf`, which is false off an accept (the reader loads theorem values lazily; a corrupt
+value decodes only in the check) — provable under exit 0 but at the cost of a whole-view decode
+proof.  `main_oleans_no_False` keeps its route (`readOleansAt_thm`).
+
+5. **`modular_model_exists` over `IsModel`** (Challenge = MainTheorem = `Modular.lean`'s quote;
+   proof `Model.Modular.modular_isModel`, `ConLeche/Model/Modular/IsModel.lean`):
+   `∃ model : Nat → Name → List Nat → V, (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls))
+   ∧ ∀ j ≤ i, ∀ n, context stores n → src n ≤ i ∧ model j n = model (src n) n`.  The models are
+   the compatible family's, read positionally (`posModel_of_find`); a module's own records are
+   stored in its own environment (`own_recordsStored`, from `LocalOk`'s accepting run); a context
+   name's two copies are `Alike` (`agree_alike`), so one level-parameter list.
+   **Spec choice:** the per-module record set is the module's OWN records, not context ++ own.
+   The context records are presentations (`Presents`: a permutation of the home record's installed
+   constants, or its statement), installed by `streamEnv` and never checked as blocks at the
+   importer, so `RecordsStored` for an inductive context record needs `BlockRead` of a record
+   nobody reads as a block there; their meaning reaches the importer through the agreement with
+   the home's model instead.  Needs the maintainer's eye if context ++ own is wanted.
+
+**Next (the olean-level modular statements):** the worker's own records are `ownRecords w.home`
+= `blocksOk` + `declsOf (emitAll mg mg.order)` over `mg := mergedOfList (home constants, unsafe
+filtered)` (`WorkerFacts.emitted`, `Driver/Worker.lean`), so `covers_entry`/`covers_block` apply
+once a `MergeFacts mg w.emitted` is shown for that merge (`mergedOfList_spec`/`_names`, order nodup)
+and a view constant of `M` is matched to its merged copy (`worker_thm`'s first half:
+`skels_name_inj`).  Then: `ViewRecords sp fs M` (one module's view records; `ClosureRecords` =
+its union over `InClosure`), and for `--olean --modular`/`--check-graph`: every module of
+`HdrClosure` has a model of `ViewRecords` of itself, agreeing with the home's model
+(`Run.homeIn`) on every context name.  The agreement is over the worker's context (a reader
+table); a spec reading of "read from" (`RecordFrom`, `Driver/ReachFrom.lean`) is the candidate.
+
+**Open spec question (for the maintainer) — the olean-level agreement.**  "Whenever a module
+imports a name via another module, the models interpret it identically" has three readings, and
+only the first is what the checks give as they stand:
+(a) over what the module READ: for every name of `M`'s context (the worker's reach), `model M`
+    and the model of the module the context record was read from agree.  Provable; but "the
+    context" and "read from" are reader tables (`WorkerRead.reach`, `Run.homeIn`), or at best
+    `RecordFrom` over the reach;
+(b) over the views: for every name a record of `M`'s view mentions and `M`'s view does not store,
+    and every module `M'` of `M`'s import closure whose view stores it, `model M n = model M' n`.
+    Spec-only, but false as stated where two modules store the name (Lean's rule admits two
+    proofs of one statement, and the reach reads one of them): the models then agree only up to
+    proof irrelevance (both are proofs, `Agree.proof`/`.thm`), not as sets unless the statement
+    is a proposition evaluated to the same truth value — which needs a separate argument;
+(c) as (b), restricted to the copy `M` reads (the first module of the order storing it): spec-only
+    again, but "first in the order" is Lean's `finalizeImport`, a merge rule the spec otherwise
+    avoids.
+The lane stopped here rather than pick one.
+Not done: docs (OVERVIEW §theorems, whitepaper §7), axiom pins for `main_oleans`, gates, landing.
+The internal `Model`'s `false_empty`/`eq_equality`: after this lane still read by
+`main_compare_json_no_False` (MainTheorem) and the tests `CompareAttack`/`IotaEqTests` — all on
+#619's side (the compare capstones).  **Note for whichever of #618/#619 lands second:** once those
+are restated over `IsModel`, drop the two fields (`ConLeche/Denotes.lean`) and their proofs
+(`Model/OfEnvModelM.lean`, `Model/Copies.lean`).
+
+**#618 cont. (2026-11-20) — reading (b) is false; stopped for a spec ruling.**  The maintainer
+ruled reading (b): for every `M` of the closure, every `n` a record of `M`'s view mentions and
+`M`'s view does not store, and every `M'` of `M`'s import closure whose view stores `n`,
+`model M n = model M' n`.  On the committed fixture `NlM` (`tests/olean/src/Nl*.lean`) that
+statement has no model family, and the run's hypotheses hold: `--olean --modular -- NlM` and
+the worker at every module of its closure exit 0 (`tests/olean.sh`, "--modular at NlM", "the
+worker at NlX/NlY/NlB", "two modules of one name never loaded together"), as Lean accepts it.
+`NlX` and `NlY` both declare `def nl : Nat` (`1` and `2`); `NlB` imports `NlX` privately;
+`NlM` imports `NlB` and `NlY` publicly and mentions `nl`.  `NlX` is in `NlM`'s header closure
+but is never loaded at `NlM` (Lean's `importModulesCore` does not follow a private import of an
+exported-level import).  So reading (b) demands `model NlM nl = model NlX nl = model NlY nl`.
+But `IsModel` of `NlX`'s and `NlY`'s own records forces the two values to `⟦1⟧` and `⟦2⟧`.  These
+are read through `Init.Prelude`'s agreed `Nat.zero`/`Nat.succ`/`OfNat`, and every model of the
+prelude's records makes them different (the `Nat.rec` rules at a `Nat`-valued and a
+`Prop`-valued motive, with `False` empty).  Neither suggested fix applies: this is not a
+duplicate that the reader's merge admits (no worker loads the two together), Lean accepts it
+(rejecting it would be a departure), and the construction cannot make it hold.  A crafted
+variant gives the same failure with "view": a name that only `M'`'s private part stores, where
+`M` loads `M'` at the exported level.
+**Candidate (b')**, provable with the run's existing proofs (`Run.agree_loaded` +
+`Run.agree_all`: every loaded copy of a context name agrees, `Agree.same`/`.thm`/`.proof`):
+`M'` ranges over the modules that `M`'s header LOADS (Lean's `importModulesCore` lattice:
+`headerFixpoint`'s flags), and "stores `n`" reads `M'`'s part at the level it is loaded
+(exported, or private where loaded whole).  For a root outside the module system, every module
+of the closure is loaded at its private part, so (b') is (b) there.  The spec choice that needs
+the maintainer: the loaded set and level as a spec notion (a declarative inductive of the lattice
+rules over `moduleImports`, or `headerFixpoint` itself), and the parts as `readFiles … level`
+decoded.
+Nothing else changed since 7f1ed7685; still not done: the olean-level modular theorems, docs,
+axiom pins (`main_oleans` and the modular ones), gates, landing.
+
+**#618 cont. (2026-11-20, second) — the ruled `Sees` agreement is false; stopped again.**  The
+maintainer ruled: `main_modular` states, for every module `m` of the closure, a model of
+`moduleRecords m`, and `model m n = model m' n` whenever `Sees m n m'` ("`m` loads a part of
+`m'` that stores `n`", a declarative inductive of Lean's import rules), with no condition that
+`m` reads `n`.  The fixture `CxM` (`tests/olean/src/Cx*.lean`, committed with today's verdicts)
+has every hypothesis and no model family:
+* `CxX1`: `@[expose] def cc : Type := Prop`; `CxX2`: `@[expose] def cc : Prop := True`;
+* `CxA`: `import CxX1` (private), `public import CxZ`, `def cn : cc := True` (exported as an
+  axiom of the statement `cc`); compiled against a stand-in `CxZ` that re-exports `CxX1`, as the
+  build already does for `GbH`/`UfM`/`PdN`;
+* `CxB`: `public import CxX2`, `theorem cn : cc := True.intro`;
+* `CxM`: `public import CxA`, `public import CxB`, `def cm : Nat := 0`.
+Lean compiles `CxM` (its merge keeps the theorem: `subsumesInfo` thm/axiom, one statement
+expression).  `CxM` loads `CxA` and `CxB` at their exported parts, not `CxX1` (a private import
+of a module loaded at its exported part), so `cc` at `CxM` is `CxX2`'s.  `--check-graph`,
+`--olean --modular -- CxM` and the worker at each of the 7 modules exit 0 ("1 names held twice,
+merged", 0 completed): the clash rule compares the two copies' statement expressions, and
+`ClashOk` passes on `CxB`'s theorem copy; the clash partners' reads are checked only for a
+clashing name the context stores, and `CxM` reads no `cn`.
+`Sees CxM cn CxA` and `Sees CxM cn CxB` force `model CxM cn = model CxA cn = model CxB cn`.
+`CxA`'s record (a definition) and `Sees CxA True Init.Prelude` give `model CxA cn = ⟦True⟧`,
+which the prelude's `True`/`True.intro` records make `{pt}`; `CxB`'s record (a theorem) with
+`Sees CxB cc CxX2` gives `model CxB cn ∈ ⟦True⟧ = {pt}`, so `pt`.  `{pt} = pt` contradicts
+regularity.  (A module's own name that a loaded module stores is not a second counterexample:
+`freshOk` rejects it, checked on a stand-in build.)
+Ways out, for the maintainer: (1) the checker reaches every clashing name (today only clashes
+with no theorem copy are reach roots, `clashAgree`'s `extra`), so that every clash's copies are
+capture-checked; `CxM` is then rejected (`CxA`'s `cc` is not `CxM`'s), a reject Lean does not
+make, on output only a stale or crafted build gives (a departure line).  With it a name with two
+loaded copies is in the context, and the ruled statement is provable: an unread name has one
+loaded copy, a read one agrees with every loaded copy (`Run.agree_loaded`); (2) the agreement
+restricted to the names `m` reads (the condition the ruling dropped), or (3) to the copy Lean's
+merge keeps (an order-dependent rule).
+Lane state: unchanged since 99259bd72 apart from the fixture and this record; still not done:
+the olean-level modular theorems, docs, axiom pins, gates, landing.
+
+**#618 cont. (2026-11-20, third) — rulings applied; `main_modular` not started; NOT landed.**
+
+*Rulings received (coordinator, from the maintainer).*  Option 1 for `CxM` (the standing rule
+"reject where one name could get two meanings"); one base relation for module contents;
+"constant" for a `ConstantInfo` in the public spec ("record" only for a `Declaration`); record
+sets as predicates `ConstantInfo → Prop` where defined relationally, a `List` where computed
+(no Mathlib `Set`); `main_oleans` without `extra`; `model_exists` with an `isOk` hypothesis and
+no `False`/`Eq` conjuncts (those are internal lemmas of the corollaries, in neither
+`MainTheorem` nor `Challenge`); the main modular theorem phrased so that the clash check is
+NEEDED (the `Sees` clause: `CxM` would make it false); a fully pointwise `IsModel`, the ι
+equation built from the recursor constant alone (analysis below, not implemented).
+
+*Done (commits bfd369a65..e12ea6914, each `lake build` + `lake test` warning-free):*
+1. **Every clashing name is a reach root** (`clashAgree` returns every clash's name, not only
+   the inferred ones), so every copy's statement is capture-checked as its module reads it
+   (`clashPartners`).  A failed read of a context record names the record (`inRecord`).
+   `CxM`: exit 1, "module CxM: invalid: the record of cn, read from CxA: name capture at cc,
+   read by module CxA: the copies of cc of modules CxX2 and CxX1 are not one constant (not two
+   proofs of one statement)"; `--olean --modular -- CxM` exit 1 ("1 of 7 modules not accepted;
+   the first in the graph's order: CxM"); the workers at the other six exit 0.  Why the check
+   must be at the importer: `CxA` exports `cn : cc` with `cc` from a private import, a dangling
+   name a correct build rejects (a bug in Lean's module system; the fixture needs the stand-in),
+   but dangling names are completed on demand, `CxM` never reads `cn`, and so nothing else looks
+   at `CxA`'s statement there: the clash must be checked at `CxM` itself.  The Ldg/Ldv
+   completion fixtures now complete 2 names (one an Init clash's copy reads).  OVERVIEW §2, the
+   §14 departure line, the fixture's comment.
+   **Cost** (`perf stat -e instructions:u`, `--olean --modular --jobs=8`, the v4.35.0
+   toolchain's own `lib/lean`, one run each; Mathlib's build is gone from `_tmp/ref`, no CFSG
+   closure on disk): `Init` (668 modules, 82 clashes at a full-Init importer) 437.24 G →
+   445.19 G (+1.82 %), peak RSS 0.65 → 0.66 GiB; `Std` (994 modules) 744.29 G → 769.50 G
+   (+3.39 %), peak RSS 0.81 → 1.03 GiB.  A worker at a full-Init importer reaches 567 context
+   records instead of 4 (`LdgN`); `Init.Data.Nat.Lemmas` 898 → 900 (2 clashes).
+2. **The spec** (`ConLeche/IsModel.lean`, `ConLeche/OleanInput.lean`,
+   `ConLeche/Verify/Frontend/Olean/Files.lean`): `IsModel V model (C : ConstantInfo → Prop)`;
+   `constantsOf ds : List ConstantInfo` (`ds.flatMap Declaration.constants`), JSON statements
+   pass `(· ∈ constantsOf ds)`; `InModulePart sp fs m p c` (the base relation: `m`'s files
+   decoded at `p` hold a stored constant with `c` among its `entryConstants`);
+   `moduleConstants m := InModulePart m .private`; `closureConstants roots c := ∃ m, InClosure
+   roots m ∧ moduleConstants m c`; `LoadsAt sp fs g imps0 m' all` (inductive, Lean's
+   `importModulesCore` lattice; the `isExported` flag dropped: it never decides what is
+   loaded) and `Loads sp fs m m' p` (private where some path loads `m'` whole, else exported;
+   `.server` never), beside `InClosure`; `Sees sp fs m n m' := ∃ p c, Loads m m' p ∧
+   InModulePart m' p c ∧ c.name = n`.  Renames: `Declaration.records` → `.constants`,
+   `entryRecords` → `entryConstants`, the spec's `blockRecords` → `blockFired` (the kernel's
+   `blockConstants` exists), `HasRecord` → `HasConstant`; the header fixpoint's structure
+   `Loads` → `HeaderLoads` (the spec took the name).  Every `ConstantInfo` is one constant:
+   `entryConstants` gives at most one per stored constant, and its name is the stored one's
+   except at a quotient constant and `Quot.sound` (the pinned package's constant, `quotAt`).
+3. `model_exists` (MainTheorem + Challenge): `(accepted : (checkDecls … ds).isOk) : ∃ model,
+   IsModel V model (· ∈ constantsOf ds.toList)`.  `main_oleans`: `∃ model, IsModel V model
+   (Olean.closureConstants (searchPathOf dirs) fs #[r])` — no monotonicity needed:
+   `checkDecls_inputStored` now gives `RecordsStored (closureConstants …) env` directly, the
+   prelude declarations never enter the set.  `main_oleans` axioms pinned.  OVERVIEW §1 and
+   the modular paragraph, whitepaper §7, README's quote re-synced and its anchors repointed.
+
+*Not done:* `main_modular`/`main_modular_one` (the statement over `Sees`), the pointwise
+`IsModel`, the full arena battery and the landing.  The lane does not land without
+`main_modular` (a partial lane does not land).
+
+*The ruled `main_modular`, and what its proof needs* (none of it exists yet):
+(a) `moduleConstants m` covered by the worker's own records (`ownRecords`: `MergeFacts` for
+the worker's `mergedOfList`, then `covers_entry`/`covers_block`, as `readOleansAt_covers`
+does for the merged read); (b) `LoadsAt` ↔ the header fixpoint's flags: completeness (every
+derivation's `all` ≤ the computed `importAll`) and soundness of `importAll` (needed for the
+exported case's negation), a worklist-with-bumping proof over `levelsGo` (today only
+`headerFixpoint_sound`'s `ImpReach` and `_complete`'s `PubReach` exist); (c) a name of an
+`InModulePart` at the loaded level is in the worker's index (the part's name table,
+`PartNames`), and, for an exported part, that its names are the private part's or that the
+reader loads the part `Loads` names; (d) the model change at unread names: `model' m n :=
+model m n` on own and context names, else the unique loaded copy's module's value (unique by
+the clash check, since every clashing name is now in the context), and a frame lemma
+(`Expr.eval` and `Satisfies` depend only on the constants a term mentions, all of them own or
+context names by `RecordScoped`); (e) read names: `Run.agree_loaded`/`agree_all` give `Agree`
+of every loaded copy, `agree_alike` turns that into equal values (`.same`), and a theorem
+twin's two values are both `pt`.  Estimate: several thousand lines, (b) and (a) the largest.
+
+*Pointwise `IsModel`, the ι equation from the recursor alone — analysis (not implemented).*
+Today `RuleHolds` is the only non-pointwise clause: it quantifies over the constructor
+constants of `C` (`.ctorInfo cvj … ∈ C`, `cvj.name = rl.ctor`) to get the constructor's
+parameter count and type (the fields' domains and the conclusion's indices).  So yes, the
+clause needs a second constant as stated.  The minor premise of rule `k` already holds all of
+it: `(fields) → (IHs) → motive_j idx_k (k.{us} params fields)`, in Lean's order fields first,
+IHs after.  The equation then reads `∀ prefix fields, rec prefix idx_k (k.{us} params fields)
+= rhs prefix fields`, over the recursor's first `rP` binders and the minor's first `nfields`
+binders (lifted past the later minors; the IHs not quantified); the minor of rule `i` is the
+`i`-th minor binder (by position; the head of its conclusion's major is then `rl.ctor`, which
+the spec can check rather than search).  Plain rules: yes.  Nested auxiliary recursors: the
+conclusion's major is the container's constructor at its pins, so the pins and levels come
+from the type and `RecRule.ctorLevels`/`iotaParams`/`inputFire` leave the public spec (about
+45 lines of `IsModel.lean`, and the `fire` field's role in the statement); `motiveLevel?`
+stays (the `Eq.{u}` level).  `Eq.rec` and K-like: the minor `motive a (Eq.refl a)` has no
+fields and gives `idx = [a]` and the major `@Eq.refl α a`: the same equation as today.
+Quotients keep their own clause.  The proof obligation is the hard part: on an accepted
+stream the minor-built equation must equal the internal rule equation (`iotaEqAt`'s today),
+which needs the generated recursor type's minor shape from the inductive installer
+(`Kernel/Inductives`, the stored type being compared to the generated one) — a new proof over
+the recursor generator, not a restatement.  Both forms read the same to a reader; the
+pointwise one is shorter and needs no "where its rules find their constructors".
+
+*Gates at 5e61c0eb2:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard exit 0 (olean gate 546/546); layering (fixed: `Verify/Frontend/Olean/Input.lean`,
+which imported outside the reader's fence since 2261d97f6, is `Verify/OleanInput.lean`), shake
+(the measured proposals allowlisted), trust-surface, plain-reach, binary-link, challenge,
+overview-links, quote-gate, the whitepaper's links and fragment gates pass.  Not merged into
+`compare`, not landed: `main_modular` is open.
+
+**#618 cont. (2026-11-20, fourth) — `main_modular` proved; the pointwise `IsModel` and the
+`False` corollaries' re-derivation need rulings.**
+
+*`main_modular`, `main_modular_one`* (`ConLeche/MainTheorem.lean`, one-line citations of
+`ConLeche/Model/Modular/SeesMain.lean`): in the ruled shape
+`∃ model : Name → (Name → List Nat → V), (∀ m, InClosure sp fs #[r] m → IsModel V (model m)
+(moduleConstants sp fs m)) ∧ (∀ m n m', InClosure sp fs #[r] m → Sees sp fs m n m' →
+model m n = model m' n)`, from `--check-graph` plus `--olean --module` at every module of the
+headers' closure, resp. from `--olean --modular`.  Axioms pinned (propext, Classical.choice,
+Quot.sound).  The proof:
+* `Run.sees_isModel` (`Model/Modular/Sees.lean`): the compatible family read positionally
+  (`modular_posModels`: a model of each module's own environment, context names valued as their
+  source, and — new — as every earlier module that agrees on them, from `Compatible`'s
+  sources clause); module `M`'s model is the member at `M`'s rank on the names `M`'s own
+  environment stores, the unique seen module's member on a name `M` sees but does not store, else
+  `M`'s member.
+* the bridge generalized (`Model/IsModelBridge.lean`): `isModel_of_agree` — any model agreeing
+  with `posModel` on the stored names (`AgreesOn`) and reading `Eq` as equality (`EqReads`) is a
+  model of the stored records; `isModel_of_envModelM` is its instance.  `Eq`'s value in a
+  module's model is always some member's that `EqReads` (a stored `Eq` is pinned; an absent one is
+  `eqRel`).
+* the run facts (`Verify/Driver/Sees{Loads,Own,Ctx}.lean`, no model): `sees_copy` (a seen name is
+  a copy of the worker's index, of the seen module: `LoadsAt` completeness over the fixpoint's
+  worklist, name tables against the decoded part, an exported constant's name a private one's);
+  `sees_rank`; `own_covers` (every constant of `moduleConstants M` is `StoredAs` by a constant of
+  `M`'s own records: the home merge's `MergeFacts`, `covers_entry`/`covers_block`); `part_own`
+  (every constant of every part of a module of the run is stored in its own environment under its
+  name, quotients by `quotAt_name_of_hit`); `sees_ctx` (a stored seen name is a context name:
+  freshness); `sees_unique` (outside the context a name is seen from one module: two copies are a
+  clash, and every clash's name is stored in the context, `reach_clash`); `sees_agree`
+  (`agree_loaded` with `Run.agreeAll`).  `Loads` is now `@[expose]` (specification).
+
+*The pointwise `IsModel` (item 2): false under the current checker, NOT done; needs a ruling.*
+A stored recursor type is installed when it is `isDefEq` to the generated one
+(`streamRecCompare`/`recTyCheck`, `Kernel/Inductives/StreamRecs.lean`: domain by domain, each
+minor premise whole), not only when it is equal.  A minor premise read off the stored type is so
+only definitionally the generated `(fields) → (IHs) → motive idx (C params fields)`: e.g. a
+conclusion `K (motive idx (C ps fs)) junk (C ps' fs)` with `K := fun a b c => a` passes the check,
+and the minor-built equation would read `idx := [motive …, junk]`, major `C ps' fs` — an
+equation no model need satisfy, so an accepted stream would have no pointwise `IsModel`.
+Equal meanings of two minor types do not give equal meanings of their parts either.  Measured
+(spike, not kept; `dbgTrace` in `streamRecCompareC`, `--olean -- Std`, v4.35.0's own oleans):
+116 recursors of Init + Std are not syntactically the generated type (every one a class or
+structure with `outParam`-style binders: `HAdd.rec`, `Coe.rec`, `GetElem.rec`, …), and 137 rules
+not syntactically the generated right-hand side.  Options: (a) install only an equal type
+(rejects those 116 today, unless the generator is first made to reproduce Lean's types exactly —
+the differences need a look); (b) keep the constructor-reading `RuleHolds`; (c) install the
+generated type and state the spec over it — then the spec's reading of the stored record is not
+what is installed.  The standing olean rule does not decide it.
+
+*Re-deriving `main_modular_no_False`/`main_modular_one_no_False` from `main_modular`: false for
+crafted input, NOT done; they keep their internal proof (`run_no_False`).*  The derivation needs
+`False`'s value at the theorem's module to be a module's that declares `False` (a `Sees` fact from
+the worker's index — the converse of `sees_copy`).  `Sees` asks the seen part to decode at its
+level (`decodeModuleSpec f .exported`), and no accepted worker decodes an exported view in its own
+region: `checkViews` decodes in the region of all three files, and an exported constant that is
+the private one's object is not decoded at all.  So a module whose exported `foo` points into its
+`.olean.private` is accepted, and an importer loading it at the exported level sees nothing of it
+by the specification.  `main_modular` stays true (its `Sees` clause is then vacuous there), but
+reads less than the checker does.  A fix would be a home check that the exported view decodes on
+its own (`parseView f .exported`, one more parse per module; Lean itself maps the exported file
+alone), plus about two thousand lines (`LoadsAt` soundness, `ViewOf` from a worker, the converse
+of `own_covers`, the pinned `False` block in a `DeclsRun`).  For the maintainer.
+
+*Docs.*  OVERVIEW: the `main_modular` paragraph (§1's modular part) and the module map;
+whitepaper §1 and §7 state the modular theorem over `Sees`/`Loads` and the generalized bridge;
+the whitepaper's fragment is unchanged (its model notion did not change).  README (the
+maintainer's): only anchors repointed.  Stale README lines: 60 ("every accepted environment has
+a model": it is a model of the input stream now), 69 (`Model V env` is no longer the statement;
+`IsModel` over `Expr.eval`), 71 (`Denotes` is the proofs' relation, the statement reads
+`Expr.eval`), 73 ("does not contain the delta and iota equations": `IsModel` has both), 75
+("only talks about `checkDecls` and its output `env`": it talks about the input `ds`); and README
+has no word on `main_oleans`' model or on `main_modular`.
+
+*Gates at the lane's head:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard exit 0 (olean gate 546/546, e2e 634/634, 87 theorems' axioms pinned); layering, shake
+(unused imports dropped, the measured moves allowlisted, three measured public-import fallbacks),
+trust-surface, plain-reach, binary-link, challenge, no-local-paths, overview-links, quote-gate,
+the whitepaper's links and fragment gates pass.  Landed on `compare` (nothing new there since
+the lane's base).
+
 ## TASK #619 — the sidecar: axioms justified by a second checked stream (2026-11-19, agent/619-sidecar; base `compare`, lands on `compare`)
 
 **Status: in progress (first session).  The core CODE is in (a5b9ef45a, `lake build` green); no

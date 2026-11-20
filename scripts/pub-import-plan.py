@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #618: `SeesOwn.lean`'s statements name `entryConstants` (`OleanInput`), `StoredAs`
+    # (`IsModelRecords`) and `R.names`'s membership (`Run`, through `Routes`).  Measured by
+    # demoting each (unknown identifier `entryConstants`, `SeesOwn.lean:45`; `StoredAs`, `:337`;
+    # a stuck `Membership Name`, `:302`).
+    ('ConLeche.Verify.Driver.SeesOwn', 'ConLeche.OleanInput'),
+    ('ConLeche.Verify.Driver.SeesOwn', 'ConLeche.Verify.IsModelRecords'),
+    ('ConLeche.Verify.Driver.SeesOwn', 'ConLeche.Verify.Driver.Routes'),
     # task #608: `ReachFrom.lean`'s statements reach `Roots.Trims` by dot-notation (`a.Trims L`).
     # Measured by demoting it alone (invalid field `Trims`, `ReachFrom.lean:163`).
     ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.Olean.Roots'),
