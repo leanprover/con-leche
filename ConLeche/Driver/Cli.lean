@@ -469,7 +469,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
                 eprintln tryHelp
                 return 3
               if a.module then
-                return ← runReq (.cmpModule a.trustedPath a.searchPath c s a.mode a.progress jobs)
+                return ← runReq (.cmpModule a.trustedPath a.searchPath c s a.mode a.maxNatSize
+                  a.progress jobs)
               if a.modular then
                 return ← runReq (.modular a.trustedPath a.searchPath c (some s) a.mode
                   a.maxNatSize a.progress jobs)

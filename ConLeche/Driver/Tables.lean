@@ -114,8 +114,8 @@ them, then its header fixpoint (`headerFixpoint`) over `tabImports`, which locat
 loads once; beside them, the search path with the roots of those modules resolved, each once.
 Nothing here fails: where a read fails, the tables hold what was read before it, and the
 worker's own read of the rest reports the failure. -/
-def workerTables {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
-    μ (Roots × ModTables) := do
+def workerTables {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name)
+    (x : Array ImportRec := #[]) : μ (Roots × ModTables) := do
   let R ← sp.resolve m
   match ← findModule R m with
   | .error _ => pure (R, {})
@@ -131,7 +131,8 @@ def workerTables {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
     | .ok own =>
       let T0 := ModTables.push {} { name := m, loc, imports := none, priv := some own, expo := none,
                                     files := some f }
-      let (_, RT) ← (headerFixpoint tabImports own.header.isModule own.header.imports).run (R, T0)
+      let (_, RT) ← (headerFixpoint tabImports own.header.isModule
+        (own.header.imports ++ x)).run (R, T0)
       pure RT
 
 end ConLeche.Driver
