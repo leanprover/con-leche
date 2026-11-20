@@ -330,6 +330,43 @@ sb[so + 32:so + 39] = b'HidUse\\0'" HidUse
 }
 MOD=; rcases
 
+# --- the public parts read on their own ---------------------------------
+# A module's M.olean must read alone (Lean's import maps it alone), and its
+# M.olean.server with M.olean alone: no pointer from them into
+# M.olean.private.  The reader follows pointers downwards only, so a part's
+# root decides it.  Tiny's exported root, then its server root, pointed at
+# its private part's root (the private view itself, which would make the
+# public parts show every private constant): a malformed module, exit 1 in
+# every mode that reads the module's files.
+d="$TMPDIR/con-leche-olean-public"
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" Tiny "struct.pack_into('<Q', parts['olean'][1], 88, struct.unpack_from('<Q', parts['olean.private'][1], 88)[0])"
+for mode in "" --module --modular; do
+  case_grep "an exported part pointing into its private part${mode:+ [$mode]}" 1 \
+    "its exported part Tiny.olean does not read on its own" --olean $mode --search-path=$d -- Tiny
+done
+# (an importer's worker reads Tiny.olean alone, which does not say where its root points: a
+# file that does not read, exit 3, as any malformed file read alone; Tiny's home rejects it)
+case_grep "an exported part pointing into its private part [an importer's worker]" 3 \
+  "name table" --olean --module --search-path=$d -- TinyUse
+# (an exported constants array pointing up into the private part: the same)
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" Tiny "pr = struct.unpack_from('<Q', parts['olean.private'][1], 88)[0]
+setfld(struct.unpack_from('<Q', parts['olean'][1], 88)[0], 2, fld(pr, 2))"
+case_grep "an exported constants array in the private part" 1 \
+  "its exported part Tiny.olean does not read on its own" --olean --module --search-path=$d -- Tiny
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" Tiny "struct.pack_into('<Q', parts['olean.server'][1], 88, struct.unpack_from('<Q', parts['olean.private'][1], 88)[0])"
+# (`--olean` reads the private view, as Lean's import outside the module system does)
+case_ "a server part pointing into its private part [--olean, the private view]" 0 --olean --search-path=$d Tiny
+for mode in --module --modular; do
+  case_grep "a server part pointing into its private part [$mode]" 1 \
+    "its server part Tiny.olean.server points into its .olean.private" --olean $mode --search-path=$d -- Tiny
+done
+cmp_ --home "a server part pointing into its private part [a home's read]" 1 \
+  "points into its .olean.private" "$d" Tiny
+rm -rf "$d"
+
 # --- Lake's and Comparator's test suites, ported ------------------------
 # The Up* fixtures (tests/olean/src/Up*.lean; each header names the
 # upstream test, its path and its outcome there), as plain developments:

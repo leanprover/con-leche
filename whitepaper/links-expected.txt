@@ -7742,6 +7742,22 @@
    292        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
    293          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
+== ConLeche/MainTheorem.lean#L307-L320
+   307  theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m m' : Name}
+   308      {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+   309      (hr : Olean.parseModName root = some r)
+   310      (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
+   311      (hF : m' = m ∨ Olean.Sees (Driver.searchPathOf dirs) fs m falseName m')
+   312      (hD : DeclaresFalse (Olean.moduleConstants (Driver.searchPathOf dirs) fs m'))
+   313      (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+   314      (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
+   315      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   316        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   317          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   318      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   319        fs 0 :=
+   320    Driver.Compose.no_False_graph V hr hcl hF hD hv hmem hk hty hwork
+
 == ConLeche/Frontend/Prepare.lean#L173-L174
    173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
    174    (prepareD pre ds).decls

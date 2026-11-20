@@ -382,20 +382,6 @@ theorem localOk_of
       rw [R.homeIn_spec hM hi hh hn, R.dev_rk (hhome M hM i h hh).1]
       exact (R.mem_ifaceOf).2 ⟨M, hM, i, hi, hh⟩
 
-/-- **A theorem of a module's private view is a constant of its own environment**, with its
-type (`worker_thm`). -/
-theorem thm_own {M : Name} (hM : M ∈ R.names) (hx : R.x M = #[]) {d : ModDecoded}
-    {c : CEntryF Name Expr} {v : Expr}
-    {all : List Name} (hv : ViewOf (R.look M) fs M d) (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
-    ∃ ci ∈ (R.dev (R.rk M)).own.consts, ci.toConstantVal.type = c.type := by
-  obtain ⟨code, hmem, -⟩ := worker_thm (R.facts₀ hM hx) hv hc hk
-  refine ⟨.thmInfo ⟨c.name, c.levelParams, c.type⟩, ?_, rfl⟩
-  rw [R.dev_rk hM]
-  show _ ∈ (streamEnv (ownDecls (R.look M) fs M (R.w M)) (streamEnv (R.ctx M))).consts
-  refine (mem_streamEnv_consts _ _).2 (.inl ⟨_, List.mem_map.2 ⟨_, Array.mem_toList_iff.2 hmem, rfl⟩, ?_⟩)
-  rw [declConstants_fillDecl]
-  simp [declConstants]
-
 /-- **A module of the run is found through its own lookup.** -/
 theorem found {M : Name} (hM : M ∈ R.names) :
     ∃ loc, ModelIO.CanGive (findModule (R.look M) M) fs (.ok loc) :=

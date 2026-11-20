@@ -384,9 +384,11 @@ which passes them (`Run.localOk`, `ConLeche/Verify/Driver/Routes.lean`):
 each module is the closure's module of its rank, its context its worker's,
 a name read from the home of the record storing it, and every read the
 capture check passed agrees by the branch that passed it. So
-`main_modular_no_False` holds of the files: if the private view of a module
-of the headers' import closure of `root` holds a theorem of type `False`
-and every module of that closure has an exit 0 of `--olean --module` on the
+`main_modular` below holds of the files, and its corollary
+`main_modular_no_False` follows from it alone: if the private view of a module
+of the closure of `root` holds a theorem of type `False`, the module declares the
+prelude's `False` or sees `False` as a module that does (`DeclaresFalse`, `Olean.Sees`),
+and every module of the headers' closure has an exit 0 of `--olean --module` on the
 same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
 `--olean --modular -- <root>` exits 0 (`main_modular_one_no_False`).
 
@@ -715,7 +717,12 @@ looked at.
 A module of the module system has three files, each holding the module at one
 level (`OLeanLevel`): `.exported`, `.server` and `.private`. Later files point into
 earlier ones, so a view reads the files up to its own, and an importer needs
-`M.olean` alone. `--olean` reads the private view of each module, as Lean's own import
+`M.olean` alone. That is a format check on every module: the reader follows a pointer only
+to an object below the one holding it, so a part whose root lies in the files up to its own
+reads in them alone. An `M.olean` that does not read on its own beside the other parts
+points into them (`outsideOrEscaping`), and a server part whose root lies in
+`M.olean.private` points into it (`checkViews`): both are malformed modules, a reject.
+Lean's own import, which maps `M.olean` alone, fails on such files too. `--olean` reads the private view of each module, as Lean's own import
 does outside the module system and as `lean4export` does, so it does not compare a
 module's files with each other.
 
@@ -2108,7 +2115,7 @@ and every such line carries its reason.
 | `ConLeche/IsModel.lean` | The statement's semantics: the total reading of a term (`Expr.eval`), the recursors' rules as propositions (`iotaEqAt`), and what a model of a declaration stream is (`IsModel`); imports nothing from the proof tiers. |
 | `ConLeche/Denotes.lean` | The proofs' model of an environment: what a term denotes (`Denotes`) and what a model of an environment is (`Model`), which the proofs build and read; the theorems state `IsModel` (`ConLeche/IsModel.lean`). |
 | `ConLeche/Modular.lean`, `ConLeche/Modular/` | Modular checking's statement half: a module's context as the records its imports present, the local checks per home (`InterfaceOk`) and per importer (`ImportOk`), copies agreeing (`Agree`: one record, or two proofs of one statement); and the theorem over an abstract interface of models (`Modular/Generic.lean`, the whitepaper fragment's), whose instance for con-leche's models is `ConLeche/Model/Modular/`. |
-| `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`); the family over what each module sees, at an accepted run and at the driver (`Sees.lean`, `SeesMain.lean`), and at a compared run, over the challenge's closure (`SeesCompare.lean`); a copy at other level-parameter names holds where its stored constant does (`ConLeche/Model/IsModelRename.lean`). |
+| `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`); the family over what each module sees, at an accepted run and at the driver (`Sees.lean`, `SeesMain.lean`), its `False` corollaries (`SeesFalse.lean`), and at a compared run, over the challenge's closure (`SeesCompare.lean`); a copy at other level-parameter names holds where its stored constant does (`ConLeche/Model/IsModelRename.lean`). |
 | `ConLeche/Model/Solution/`, `ConLeche/Model/Solution.lean` | A stream checked with a solution has a model: the solution's model renamed to the input's level-parameter names (`Rename.lean`, over `ConLeche/Model/CopyStmt.lean`), a record of shared names given the solution's leaves (`Shared.lean`, through the context reading of `Model/Modular`), a justified axiom given the solution's value (`Justified.lean`), the input's fold (`Fold.lean`) and the assembly (`Solution.lean`). The justification's accept read as a closed shared set is `ConLeche/Verify/Cached/Cone.lean`, the record mates `Mates.lean`. |
 | `ConLeche/Model/IsModelCompare.lean`, `ConLeche/Verify/CompareInput.lean` | `--olean --compare`'s accept has a model of the challenge's closure read through the trusted directories: the checked records store every constant of the closure (`chalChecked_inputStored`, a theorem read as a hole stored as the axiom of its statement), the closure's constants are the same on every snapshot agreeing under those directories (`closureConstants_local`), and a theorem of type `False` there is never accepted |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the main corollary lifted to the driver, and the comparison's theorems; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |
