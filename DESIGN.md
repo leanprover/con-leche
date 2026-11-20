@@ -125513,11 +125513,16 @@ into `main_no_False`'s proof, and "mostly a corollary"), 98 ("lift the main coro
 now from `model_exists` directly), 155–166 (the `--olean` corollary prose and the
 `main_oleans_no_False` quote, gone: quote gate).
 
+*README (maintainer's ruling).*  The two quoted blocks of deleted theorems are removed with the
+sentence introducing each: the `no_False_declaration` quote and its lead-in (old lines 42–55) and
+the `main_oleans_no_False` quote and its lead-in (old lines 155–167); the remaining prose there
+(the Main Corollary section, line 60's link into `main_no_False`'s proof, line 98) is the
+maintainer's to rewrite.  The modular-compare corollary keeps its internal proof, by ruling.
+`agent/624-mod` (the partial `hF`/`hD`-free lemmas, `Verify/Driver/FalseDeclared.lean`) stays an
+unmerged branch: unused groundwork for the context case listed above.
+
 *Gates at the lane's head:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
 the guard: everything passes (olean gate 555/555, e2e 635/635, 76 theorems' axioms pinned,
 layering, shake, trust-surface, plain-reach, binary-link, challenge, no-local-paths,
-overview-links) EXCEPT `tests/quote-gate.sh`, which fails on README.md's quoted
-`no_False_declaration` and `main_oleans_no_False`: the theorems were deleted by ruling and the
-README is the maintainer's.  Whitepaper links and fragment gates pass.  NOT landed: a red gate
-on `compare`; it lands once the README drops those two quotes (then re-run quote-gate, merge
-`--no-ff`).
+overview-links); `tests/quote-gate.sh` passes after the README deletions; whitepaper links and
+fragment gates pass.  Landed on `compare` (nothing new there since the lane's base).

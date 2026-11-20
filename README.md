@@ -39,20 +39,6 @@ Depending on your background and your level of interest you may want to look at 
 
 ### The Main Corollary
 
-In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an export file containing a `theorem … : False := …` declaration (in JSON), with arbitrary declarations before and after, will not be accepted by `con-leche`:
-
-```lean
-open Frontend in
-theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
-    (h : jsonWithTheoremFalse chunks) :
-    ∃ e, (do
-      let pre ← builtinPreludeE
-      let r ← parseChunks chunks
-      let ds := preparePrelude pre r.decls
-      checkDecls .verified pins maxNatSize ds) = .error e
-```
-
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L50-L51) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
 
 ### The Main Theorem
@@ -151,19 +137,6 @@ The fast byte-wise parser is proven equivalent (`@[csimp]`) to a naive reference
 ## The `.olean` parser
 
 In addition to reading the official export format (`.ndjson`), `con-leche` can also read `.olean` files directly. This avoids the need to run `lean4export`. You can either check all modules reachable from a root module, or just the dependencies of a specific constant. See the usage section in [OVERVIEW.md](./OVERVIEW.md#0-using-the-checker) for how to use it.
-
-The main corollary from above can be stated about `--olean` as well, saying that if the module or any module it imports, transitively, declares in its private view a theorem of type `False`, the program will reject:
-
-```lean
-open Frontend in
-theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name} {fs : FS}
-    {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
-    (hr : Olean.parseModName root = some r)
-    (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
-    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
-    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
-    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0
-```
 
 The `.olean` “format” is not well-specified. We ship our own “naive” parser [`decodeModuleSpec`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/View.lean#L81) as a specification, and then prove that the actual parsers we use (which are optimized, and may read partial data as needed) are correct with regard to that one. We cannot prove that `decodeModuleSpec` matches how Lean interprets its data structures, only test it (using the [`olean-compare`](./OleanCompare.lean) tool).
 
