@@ -125364,3 +125364,20 @@ now uses `instLevelParams`, `liftLooseBVarsC`, `instantiateLiftC`, `dropVarsC`.
 *Departure (OVERVIEW §14).*  Lean's kernel consumes the four annotations by name; here only where
 stored as the identity, in a rule at the recursor's own parameters whose types are the
 constructor's up to the same.  No recursor Lean writes is rejected.
+
+*After merging `compare` (#619's solutions).*  `IsModel.anti` is one line; the side-record and
+renaming lemmas read `ModelOf` (`modelOf_renamed`; `satisfies_ctors`, `ruleHolds_side`,
+`satisfies_side` gone).  A compared challenge's inductive block stored from the context (the copy
+check) must now read too: `copyCheck` asks `copyReadsB` (`blockReadsOkC` against the context's
+constants through the owner map, `ctxConst`), which `own_covers_x` carries to the modular bridge;
+`RecordsStored` asks `RecReads` only of a recursor's constant.
+
+*Gates at the lane's head (after the merge):* `lake build`, `lake test` warning-free;
+`tests/arena.sh` in full under the guard exit 0 (olean gate 555/555, e2e 635/635, self-check
+62525 declarations, 85 theorems' axioms pinned, trusted and jobs sweeps clean); shake,
+plain-reach (the readers allowlisted; the term-copying walks are the cached twins), layering,
+trust-surface, binary-link, challenge, no-local-paths, overview-links, quote-gate, the whitepaper's
+links and fragment gates pass.  Not measured: the rule's cost (one pass per recursor rule over
+its minor premise; `minorsOf` is linear in the prefix per rule).  README (the maintainer's): only
+anchors repointed by the gates; stale lines 60, 69, 73 ("does not contain the delta and iota
+equations": `IsModel` states the ι equations, read off each recursor's own type), 75.
