@@ -31,11 +31,12 @@ universe w
 /-- **A module's own records are stored in its own environment**, as they say. -/
 theorem own_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {dev : Nat → Module} {j : Nat} (h : ImportOk mode pins maxNatSize dev j) :
-    RecordsStored (recordsOf (dev j).decls) (dev j).own := by
+    RecordsStored (· ∈ recordsOf (dev j).decls) (dev j).own := by
   obtain ⟨q, hq⟩ := h.accepted
   have hnd := (ImportOk.chain h).1
   have hb := declsRun_blockRead hq
-  rintro c ⟨d, hd, hc⟩
+  intro c hc
+  obtain ⟨d, hd, hc⟩ := mem_recordsOf.1 hc
   obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
   have hmem : ci ∈ (dev j).own.consts :=
     (Driver.mem_streamEnv_consts (dev j).decls _).2 (.inl ⟨d, hd, hci⟩)
@@ -49,7 +50,7 @@ theorem modular_isModel (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Module) (i : Nat)
     (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
     ∃ model : Nat → Name → List Nat → V,
-      (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls)) ∧
+      (∀ j ≤ i, IsModel V (model j) (· ∈ recordsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
         (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
   classical

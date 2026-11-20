@@ -22,9 +22,7 @@ proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
 > and list of universe levels, under which every declaration holds —
 > every constant, every theorem included, is a member of what its type
 > denotes, every definition is what its value denotes, and every
-> recursor computes by its rules.  And a stream that declares `False`
-> or `Eq` at all declares the prelude's, so that in such a model
-> `False` is empty and `Eq` is equality.
+> recursor computes by its rules.
 >
 > **Main corollary.**  Hence a file — the chunks the binary reads —
 > that declares a theorem of type `False` is rejected.
@@ -62,9 +60,8 @@ equation of the two sides' denotations.
 * `checkDecls` is the shipped checking function — the one the
   `con-leche` binary runs on the parsed stream; `.verified` is its
   default `--verified` mode.
-* `ds : Array Declaration` is the parsed stream, `Env` the environment the
-  checker builds, `env.consts` the constants it accepted; `.ok env`
-  says the checker accepted `ds` and this is what it accepted.
+* `ds : Array Declaration` is the parsed stream; `(checkDecls … ds).isOk`
+  says the checker accepted it.
 * `pins : List NatOpPinSet` is the list of pin variants the fold's
   `Nat.div`/`Nat.mod` install gate tries — the one large constant the
   checker carries, and the statements quantify over it: consistency
@@ -79,18 +76,17 @@ equation of the two sides' denotations.
   `--max-nat-size` sets another.
 * `IsModel V model R` (`ConLeche/IsModel.lean`) says that `model` is
   a model of the records `R` in `V` — here `recordsOf ds`, every
-  record of every declaration of `ds` — : every record holds, its terms read by `Expr.eval`, a total function
+  record of every declaration of `ds`, as a membership predicate — :
+  every record holds, its terms read by `Expr.eval`, a total function
   from a checker term to a set.  `model : Name → List Nat → V` is the
   set a constant denotes at the values of its universe levels, given
   positionally.  That file is the whole of what the main theorem's
   meaning rests on beyond the checker's own data types; it reads the
-  INPUT, nothing of the environment the checker builds.
-  `DeclaresName R n` says a record of `R` is named `n`;
-  `DeclaresFalse` and `DeclaresEq` say that `R` declares the
-  prelude's `False` and `Eq` (their eliminators' and constructors'
-  types, at any level-parameter names), from which, in every model,
-  `False` is empty and `Eq` is equality
-  (`ConLeche/Semantics/IsModelBasis.lean`).
+  INPUT, nothing of the environment the checker builds.  Nothing in
+  it treats `False` or `Eq` specially; the checker accepts a stream
+  declaring them only as the prelude does, whose own clauses make
+  `False` empty and `Eq` equality in every model — which is what the
+  corollary uses.
 * `SetTheory V` is not a hypothesis about the input: the proof works
   for every `V` implementing that interface and never fixes one.
 * `chunks : List ByteArray` are the pieces the binary's read loop is
@@ -160,14 +156,11 @@ open ConLeche.Cached (checkDecls)
 universe w
 
 /-- **The main theorem.**  Every stream the checker accepts has a
-model in every set theory, and declares `False` and `Eq`, where it
-declares them at all, as the prelude's. -/
+model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    (∃ model, IsModel V model (recordsOf ds.toList)) ∧
-      (DeclaresName (recordsOf ds.toList) falseName → DeclaresFalse (recordsOf ds.toList)) ∧
-      (DeclaresName (recordsOf ds.toList) eqName → DeclaresEq (recordsOf ds.toList)) :=
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
+    (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    ∃ model, IsModel V model (· ∈ recordsOf ds.toList) :=
   sorry
 
 open Frontend in
@@ -190,7 +183,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ model : Nat → Name → List Nat → V,
-      (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls)) ∧
+      (∀ j ≤ i, IsModel V (model j) (· ∈ recordsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
         (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
   sorry

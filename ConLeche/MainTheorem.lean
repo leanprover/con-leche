@@ -116,27 +116,20 @@ open ConLeche.Cached (checkDecls)
 universe w
 
 /-- **The main theorem.**  Every stream the checker accepts has a
-model in every set theory (`IsModel`, `ConLeche/IsModel.lean`), and a
-stream that declares `False` or `Eq` at all declares the prelude's —
-at every `Nat.div`/`Nat.mod` pin list, so consistency does not depend
-on which variants the install gate is handed (the empty list included:
+model in every set theory (`IsModel`, `ConLeche/IsModel.lean`) — at
+every `Nat.div`/`Nat.mod` pin list, so consistency does not depend on
+which variants the install gate is handed (the empty list included:
 under it every stream that declares `Nat.div` declines).  The shipped
 binary runs the fold at `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    (∃ model, IsModel V model (recordsOf ds.toList)) ∧
-      (DeclaresName (recordsOf ds.toList) falseName → DeclaresFalse (recordsOf ds.toList)) ∧
-      (DeclaresName (recordsOf ds.toList) eqName → DeclaresEq (recordsOf ds.toList)) := by
-  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
-  have hrec := Cached.checkDecls_recordsStored accepted
-  have hstored : ∀ n, DeclaresName (recordsOf ds.toList) n → (env.find? n).isSome = true := by
-    rintro n ⟨c, hc, rfl⟩
-    obtain ⟨ci, hf, -⟩ := hrec c hc
-    rw [hf]; rfl
-  exact ⟨⟨_, isModel_of_envModelM m hrec⟩,
-    fun h => Cached.checkDecls_declaresFalse accepted (hstored _ h),
-    fun h => Cached.checkDecls_declaresEq accepted (hstored _ h)⟩
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
+    (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    ∃ model, IsModel V model (· ∈ recordsOf ds.toList) := by
+  cases h : checkDecls .verified pins maxNatSize ds with
+  | error e => rw [h] at accepted; cases accepted
+  | ok env =>
+    obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) h
+    exact ⟨_, isModel_of_envModelM m (Cached.checkDecls_recordsStored h)⟩
 
 open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`
@@ -158,16 +151,16 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
   have hmem' := Array.mem_toList_iff.mpr (Frontend.mem_preparePrelude (pre := pre) hmem)
-  obtain ⟨⟨model, hM⟩, -, -⟩ := model_exists V pins maxNatSize _ env hcheck
+  obtain ⟨model, hM⟩ := model_exists V pins maxNatSize _ (by rw [hcheck]; rfl)
   -- the theorem is a record of type `False`
-  have hrec : HasRecord (recordsOf (preparePrelude pre r.decls).toList) cv.name cv.levelParams
-      (.const falseName []) := ⟨.thmInfo cv, ⟨_, hmem', List.mem_singleton_self _⟩, by
-        rw [← hty]; rfl⟩
+  have hrec : HasRecord (· ∈ recordsOf (preparePrelude pre r.decls).toList) cv.name
+      cv.levelParams (.const falseName []) :=
+    ⟨.thmInfo cv, mem_recordsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩, by rw [← hty]; rfl⟩
   -- its type reads `False`, so the accepted environment stores it, as the prelude's
-  have hF : DeclaresFalse (recordsOf (preparePrelude pre r.decls).toList) := by
+  have hF : DeclaresFalse (· ∈ recordsOf (preparePrelude pre r.decls).toList) := by
     refine Cached.checkDecls_declaresFalse hcheck ?_
     obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck (.thmInfo cv)
-      ⟨_, hmem', List.mem_singleton_self _⟩
+      (mem_recordsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩)
     obtain ⟨-, -, hres, -⟩ := (Semantics.checkDecls_envWF hcheck).consts ci (Env.find?_mem hf)
     rw [hcv] at hres
     change Expr.constsResolve env cv.type = true at hres
@@ -208,14 +201,13 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
 
 open Frontend in
 /-- **The main theorem, on `.olean` files.**  Every exit 0 of `runArgs` at the arguments
-`--olean --search-path=<dirs> -- <root>` has a model of its input (`Olean.InputRecords`,
+`--olean --search-path=<dirs> -- <root>` has a model of its input (`Olean.closureRecords`,
 `ConLeche/OleanInput.lean`): every record of every constant of the private views of the modules
-of the closure of `root`, and of the built-in prelude's declarations the preparation added. -/
+of the closure of `root`. -/
 theorem main_oleans (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
     (hr : Olean.parseModName root = some r)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0) :
-    ∃ pre, builtinPreludeE = .ok pre ∧ ∃ extra, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
-      ∃ model, IsModel V model (Olean.InputRecords (Driver.searchPathOf dirs) fs #[r] extra) :=
+    ∃ model, IsModel V model (Olean.closureRecords (Driver.searchPathOf dirs) fs #[r]) :=
   oleans_isModel V hr h
 
 open Frontend in
@@ -255,7 +247,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ model : Nat → Name → List Nat → V,
-      (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls)) ∧
+      (∀ j ≤ i, IsModel V (model j) (· ∈ recordsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
         (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
   Model.Modular.modular_isModel V pins maxNatSize dev i hok

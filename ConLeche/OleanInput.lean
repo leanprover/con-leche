@@ -16,15 +16,15 @@ notions of `ConLeche/Verify/Frontend/Olean/Files.lean`, which records that input
 
 * **the closure** (`InClosure`): the roots, and every import of the private view of a module of
   it;
-* **a module's view** (`ViewOf`): what its files hold at the private level, its constants among
-  it;
+* **a module's view** (`ViewOf`): what its files hold at the private level, its imports and
+  constants among it;
 * **a constant's record** (`entryRecords`): its declaration's records, as the stream reader
   would read them from lean4export's output.  Unsafe and partial constants have none: lean4export
   leaves them out.  A recursor's rules fire as its own type says against its block's type
   formers, the names its `all` lists (`inputFire`);
-* **the input** (`InputRecords`): every record of every constant of every module of the closure,
-  and the records of the prelude declarations the preparation adds
-  (`ConLeche/Frontend/Prepare.lean`: the prelude declarations the stream does not declare).
+* **a part's records** (`PartRecord`): those of the constants of a module's part, exported or
+  private; a module's records (`moduleRecords`) are its private part's, the closure's
+  (`closureRecords`) those of its modules.
 
 There is no order and no merge here.  A name two modules store is one of Lean's: Lean's import
 keeps one copy, and refuses the closure unless the two copies are one constant, or proofs of
@@ -75,16 +75,28 @@ def entryRecords (c : CEntryF Name Expr) : List ConstantInfo :=
       { ctor := cn, nfields := nf, fire := inputFire all c.cv mI rP, rhs })]
   | _ => ((declOfEntry c).map Declaration.records).getD []
 
-/-- **The closure's records**: every record of every constant of the private view of every
-module of the closure of `roots`. -/
-def ClosureRecords (sp : Roots) (fs : FS) (roots : Array Name) : Records := fun r =>
-  ∃ m d c, InClosure sp fs roots m ∧ ViewOf sp fs m d ∧ c ∈ d.constants ∧ r ∈ entryRecords c
+/-- **Part `p` of module `m` holds the record `r`**: `m`'s files on the search path, decoded at
+the level `p` (`.exported`, or `.private`: the whole module), hold a constant whose record is `r`
+(`entryRecords`).  Every record is one `ConstantInfo` of one constant: a type former, a
+constructor and a recursor of a block are one record each, every other kind of constant at most
+one, so `r.name` is its single name.  It is the constant's own name except at a quotient
+constant (and the axiom `Quot.sound`), whose record is the quotient package's constant of its
+kind (`quotAt`), under that constant's name. -/
+def PartRecord (sp : Roots) (fs : FS) (m : Name) (p : OLeanLevel) (r : ConstantInfo) : Prop :=
+  ∃ f d c, ModelIO.CanGive (readFiles sp m p) fs (.ok f) ∧ decodeModuleSpec f p = some d ∧
+    c ∈ d.constants ∧ r ∈ entryRecords c
 
-/-- **The input of `--olean`, prepared with the prelude declarations `extra`**: the closure's
-records and theirs.  The preparation (`ConLeche/Frontend/Prepare.lean`) adds the prelude's
-declarations the stream does not declare, and nothing else. -/
-def InputRecords (sp : Roots) (fs : FS) (roots : Array Name) (extra : List Declaration) :
-    Records :=
-  fun r => ClosureRecords sp fs roots r ∨ recordsOf extra r
+/-- **A module's records**: those of its private part, the whole module. -/
+def moduleRecords (sp : Roots) (fs : FS) (m : Name) : ConstantInfo → Prop :=
+  PartRecord sp fs m .private
+
+/-- **The closure's records**: every record of every module of the closure of `roots`. -/
+def closureRecords (sp : Roots) (fs : FS) (roots : Array Name) : ConstantInfo → Prop := fun r =>
+  ∃ m, InClosure sp fs roots m ∧ moduleRecords sp fs m r
+
+/-- **Module `m` sees `n` as `m'`'s**: `m`'s header loads a part of `m'` (`Loads`) that holds a
+record named `n`. -/
+def Sees (sp : Roots) (fs : FS) (m n m' : Name) : Prop :=
+  ∃ p r, Loads sp fs m m' p ∧ PartRecord sp fs m' p r ∧ r.name = n
 
 end ConLeche.Frontend.Olean

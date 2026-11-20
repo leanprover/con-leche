@@ -200,13 +200,13 @@ theorem ModSet.has_union {s t : ModSet} {j : Nat} (h : (s.union t).has j = true)
 
 /-- **A path of public imports between positions of a load order**, through its imports and its
 index. -/
-inductive PubPos (ld : Loads) : Nat → Nat → Prop
+inductive PubPos (ld : HeaderLoads) : Nat → Nat → Prop
   | refl (a : Nat) : PubPos ld a a
   | cons {a b c : Nat} {imp : ImportRec} : imp ∈ (ld.imports[a]?).getD #[] →
       imp.isExported = true → ld.index[imp.module]? = some b → PubPos ld b c → PubPos ld a c
 
 /-- One position's closure, as `pubClosures` builds it from the earlier ones. -/
-theorem pubClosures_step (ld : Loads) (acc : Array ModSet) (i : Nat)
+theorem pubClosures_step (ld : HeaderLoads) (acc : Array ModSet) (i : Nat)
     (hacc : ∀ k (hk : k < acc.size), ∀ j, acc[k].has j = true → PubPos ld k j) :
     ∀ (l : List ImportRec) (s : ModSet), (∀ imp ∈ l, imp ∈ (ld.imports[i]?).getD #[]) →
       (∀ j, s.has j = true → PubPos ld i j) →
@@ -239,18 +239,18 @@ theorem pubClosures_step (ld : Loads) (acc : Array ModSet) (i : Nat)
       · exact hs
 
 /-- One position's closure, as `pubClosures` builds it. -/
-@[expose] def pubStep (ld : Loads) (acc : Array ModSet) (i : Nat) : ModSet :=
+@[expose] def pubStep (ld : HeaderLoads) (acc : Array ModSet) (i : Nat) : ModSet :=
   ((ld.imports[i]?).getD #[]).foldl (fun s imp =>
     if !imp.isExported then s else
     match ld.index[imp.module]? with
     | some j => if j < acc.size then s.union acc[j]! else s.add j
     | none => s) ((ModSet.empty ld.order.size).add i)
 
-theorem pubClosures_eq (ld : Loads) :
+theorem pubClosures_eq (ld : HeaderLoads) :
     pubClosures ld = (List.range ld.order.size).foldl (fun (acc : Array ModSet) i => acc.push (pubStep ld acc i))
       (Array.mkEmpty ld.order.size) := rfl
 
-theorem pubClosures_range (ld : Loads) : ∀ n : Nat,
+theorem pubClosures_range (ld : HeaderLoads) : ∀ n : Nat,
     ((List.range n).foldl (fun (acc : Array ModSet) i => acc.push (pubStep ld acc i))
       (Array.mkEmpty ld.order.size)).size = n ∧
     ∀ k (hk : k < ((List.range n).foldl (fun (acc : Array ModSet) i => acc.push (pubStep ld acc i))
@@ -277,7 +277,7 @@ theorem pubClosures_range (ld : Loads) : ∀ n : Nat,
       · rw [ModSet.has_empty] at hj; cases hj
       · exact .refl _
 
-theorem pubClosures_spec (ld : Loads) :
+theorem pubClosures_spec (ld : HeaderLoads) :
     (pubClosures ld).size = ld.order.size ∧
       ∀ k (hk : k < (pubClosures ld).size), ∀ j, (pubClosures ld)[k].has j = true →
         PubPos ld k j := by
@@ -286,7 +286,7 @@ theorem pubClosures_spec (ld : Loads) :
 
 /-- **A set bit of a module's public-import closure is a public-import path**, between positions
 in range. -/
-theorem pubClosures_sound {ld : Loads}
+theorem pubClosures_sound {ld : HeaderLoads}
     (hix : ∀ (m : Name) (k : Nat), ld.index[m]? = some k → ld.order[k]? = some m) {hi j : Nat}
     (h : (((pubClosures ld)[hi]?).map (·.has j)).getD false = true) :
     hi < ld.order.size ∧ j < ld.order.size ∧ PubPos ld hi j := by
@@ -314,7 +314,7 @@ theorem pubClosures_sound {ld : Loads}
     exact this _ _ hp (hs ▸ hlt)
 
 /-- A public-import path between positions, read as one between the modules there. -/
-theorem PubPos.pubReach {sp : Roots} {fs : FS} {ld : Loads}
+theorem PubPos.pubReach {sp : Roots} {fs : FS} {ld : HeaderLoads}
     (hix : ∀ (m : Name) (k : Nat), ld.index[m]? = some k → ld.order[k]? = some m)
     (himps : ∀ (k : Nat) (m : Name), ld.order[k]? = some m → ∀ is, ld.imports[k]? = some is →
       ModelIO.CanGive (moduleImports sp m) fs (.ok is)) {a b : Nat} (h : PubPos ld a b) :
@@ -667,7 +667,7 @@ header reads): its flags and imports by position; its order without duplicates, 
 each module's position; every loaded module reached from the root's imports by import edges,
 with the imports its header read answers. -/
 theorem headerFixpoint_sound {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
-    {ld : Loads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld)) :
+    {ld : HeaderLoads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld)) :
     ld.flags.size = ld.order.size ∧ ld.imports.size = ld.order.size ∧ ld.order.toList.Nodup ∧
       (∀ (k : Nat) (m : Name), ld.order[k]? = some m →
         ImpReach sp fs imps0 m ∧ ld.index[m]? = some k ∧
@@ -709,7 +709,7 @@ theorem headerFixpoint_sound {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array 
 root's imports**: the root is loaded whole, so each of its imports is followed, and a public import
 is followed from every loaded module. -/
 theorem headerFixpoint_complete {sp : Roots} {fs : FS} {isM : Bool}
-    {imps0 : Array ImportRec} {ld : Loads}
+    {imps0 : Array ImportRec} {ld : HeaderLoads}
     (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld))
     {i : ImportRec} (hi0 : i ∈ imps0) {m : Name} (hm : PubReach sp fs i.module m) :
     m ∈ ld.order := by
@@ -831,7 +831,7 @@ theorem levelsGo_trims {a L : Roots} (ha : a.Trims L) {fs : FS} {gPriv : Bool} :
 
 /-- **The header fixpoint through a trimmed lookup, accepted, is the full lookup's.** -/
 theorem headerFixpoint_trims {a L : Roots} (ha : a.Trims L) {fs : FS} {isM : Bool}
-    {imps0 : Array ImportRec} {ld : Loads}
+    {imps0 : Array ImportRec} {ld : HeaderLoads}
     (h : ModelIO.CanGive (headerFixpoint (moduleImports a) isM imps0) fs (.ok ld)) :
     ModelIO.CanGive (headerFixpoint (moduleImports L) isM imps0) fs (.ok ld) := by
   obtain ⟨hs, hs', h⟩ := h
@@ -856,7 +856,7 @@ theorem PubReach.trims {a L : Roots} (ha : a.Trims L) {fs : FS} {x m : Name}
 
 /-- **The header fixpoint is determined on a snapshot.** -/
 theorem headerFixpoint_unique {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
-    {a b : Loads} (ha : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok a))
+    {a b : HeaderLoads} (ha : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok a))
     (hb : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok b)) : a = b := by
   obtain ⟨_, _, ha⟩ := ha
   obtain ⟨_, _, hb⟩ := hb
@@ -874,7 +874,7 @@ theorem headerFixpoint_unique {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array
 /-- **A module of a loaded module's public-import closure** (`pubClosures`, as `captureOne`
 reads it) **is reached from it by a path of public imports**, both modules loaded. -/
 theorem pubClosures_pubReach {sp : Roots} {fs : FS} {isM : Bool} {imps0 : Array ImportRec}
-    {ld : Loads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld))
+    {ld : HeaderLoads} (h : ModelIO.CanGive (headerFixpoint (moduleImports sp) isM imps0) fs (.ok ld))
     {hi j : Nat} (hp : (((pubClosures ld)[hi]?).map (·.has j)).getD false = true) :
     ∃ a b, ld.order[hi]? = some a ∧ ld.order[j]? = some b ∧ PubReach sp fs a b := by
   obtain ⟨-, -, -, hord, hix⟩ := headerFixpoint_sound h

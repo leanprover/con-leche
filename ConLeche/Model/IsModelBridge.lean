@@ -280,7 +280,7 @@ theorem eval_eq {env : Env} (m : Model.EnvModelM V env) {φ : LevelParam → Nat
 
 /-- **The bridge**: the invariant's model is a model of the input, given that the records are
 stored. -/
-theorem isModel_of_envModelM {R : Records} {env : Env} (m : Model.EnvModelM V env)
+theorem isModel_of_envModelM {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
     (hrec : RecordsStored R env) :
     IsModel V (posModel (Model.cvalOf m.base2.acval) env) R := by
   let M := Model.Model.ofEnvModelM m

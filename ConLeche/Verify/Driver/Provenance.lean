@@ -202,7 +202,7 @@ theorem workerReads_index {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Ar
     simp only [ModelIO.pure_iff, Except.ok.injEq] at hb
     obtain ⟨hb, -⟩ := hb
     subst hb
-    simp only [Loads.nameAt]
+    simp only [HeaderLoads.nameAt]
     rw [← Array.foldl_toList] at hi
     rw [← Array.getElem?_toList, loadsIndex_spec st.order.toList hi]
     rfl
@@ -217,7 +217,7 @@ theorem workerReads_index {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Ar
   rw [List.getElem?_zip_eq_some] at hz
   obtain ⟨h1, h2⟩ := hz
   have hn : ld.nameAt i = n := by
-    simp only [Loads.nameAt]; rw [← Array.getElem?_toList, h1]; rfl
+    simp only [HeaderLoads.nameAt]; rw [← Array.getElem?_toList, h1]; rfl
   have hf : ((ld.flags[i]?).getD default) = fl := by
     rw [← Array.getElem?_toList, h2]; rfl
   simp only

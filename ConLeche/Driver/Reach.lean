@@ -286,7 +286,7 @@ structure ReachCache where
 
 /-- **The parts of module `h`'s view**, in order: `h`'s own private part, then the parts its
 header fixpoint `ld` loads, in its order. -/
-def viewKeys (h : Name) (ld : Loads) : List PartKey :=
+def viewKeys (h : Name) (ld : HeaderLoads) : List PartKey :=
   ⟨h, .private⟩ :: (ld.order.zip ld.flags).toList.map fun (m, fl) => ⟨m, fl.level⟩
 
 /-- **One part's names into a view**, the first copy of each name kept. -/

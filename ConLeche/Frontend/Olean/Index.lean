@@ -74,7 +74,7 @@ structure Clash where
 /-! ## Reading -/
 
 /-- **The statements and kinds of some copies** of one module, read together. -/
-def readInfosOf {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (ld : Loads) (ix : NameIndex)
+def readInfosOf {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (ld : HeaderLoads) (ix : NameIndex)
     (x : Nat × Array Copy) : μ (Except CheckError (Array (Copy × ConstantVal × CKindF Name Unit))) := do
   let (i, cs) := x
   let m := (ld.order[i]?).getD .anonymous
@@ -97,7 +97,7 @@ def byModule (cs : Array Copy) : Array (Nat × Array Copy) :=
   (m.toArray.qsort (·.1 < ·.1))
 
 /-- **The statements and kinds of some copies**, module by module, in parallel. -/
-def readInfos {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (ld : Loads) (ix : NameIndex)
+def readInfos {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (ld : HeaderLoads) (ix : NameIndex)
     (jobs : Nat) (cs : Array Copy) :
     μ (Except CheckError (Std.HashMap Copy (ConstantVal × CKindF Name Unit))) := do
   match ← CheckerIO.parMapExcept jobs (readInfosOf rd ld ix) (byModule cs).toList with
@@ -108,12 +108,12 @@ def readInfos {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (ld : Loa
 /-! ## The checks -/
 
 /-- A module's name for messages. -/
-def Loads.nameAt (ld : Loads) (i : Nat) : Name := (ld.order[i]?).getD .anonymous
+def HeaderLoads.nameAt (ld : HeaderLoads) (i : Nat) : Name := (ld.order[i]?).getD .anonymous
 
 /-- **Lean's clash rule over one name's copies**, in the load order: the copy kept so far
 and the next one, the next kept where it subsumes the kept one, the kept one staying where
 it subsumes the next, a reject otherwise. -/
-def clashOk (ld : Loads) (headTy : Name → Option Expr) (c : Clash) : Except CheckError Unit :=
+def clashOk (ld : HeaderLoads) (headTy : Name → Option Expr) (c : Clash) : Except CheckError Unit :=
   match c.copies.toList with
   | [] => pure ()
   | k :: rest =>
@@ -127,7 +127,7 @@ def clashOk (ld : Loads) (headTy : Name → Option Expr) (c : Clash) : Except Ch
     r.map fun _ => ()
 
 /-- **Freshness**: no constant of the module's own part bears a loaded name. -/
-def freshOk (m : Name) (ld : Loads) (ix : NameIndex) (own : NamePositions) : Except CheckError Unit :=
+def freshOk (m : Name) (ld : HeaderLoads) (ix : NameIndex) (own : NamePositions) : Except CheckError Unit :=
   match own.consts.find? (ix.first.contains ·.name) with
   | none => pure ()
   | some q =>
@@ -136,7 +136,7 @@ def freshOk (m : Name) (ld : Loads) (ix : NameIndex) (own : NamePositions) : Exc
 
 /-- **Lean's refusal of a classic import from a module** (`importModulesCore`): every import
 of a root of the module system is of the module system. -/
-def importsModulesOk (m : Name) (isModule : Bool) (ld : Loads) (ix : NameIndex)
+def importsModulesOk (m : Name) (isModule : Bool) (ld : HeaderLoads) (ix : NameIndex)
     (imports : Array ImportRec) : Except CheckError Unit :=
   if !isModule then pure () else
   match imports.find? fun i => match ld.index[i.module]? with
@@ -152,7 +152,7 @@ structure WorkerReads where
   /-- the module's own private part's name positions and header -/
   own : NamePositions
   /-- what Lean loads for it -/
-  loads : Loads
+  loads : HeaderLoads
   /-- each loaded module's public-import closure -/
   pub : Array ModSet
   /-- the loaded parts' names -/

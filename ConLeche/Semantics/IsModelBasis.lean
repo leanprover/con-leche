@@ -26,7 +26,7 @@ open SetTheory ConLeche.SetModel
 
 universe w
 
-variable {V : Type w} [SetTheory V] {model : Name → List Nat → V} {R : Records}
+variable {V : Type w} [SetTheory V] {model : Name → List Nat → V} {R : ConstantInfo → Prop}
 
 /-- A record's membership clause, off `HasRecord`. -/
 theorem IsModel.mem_of_hasRecord (h : IsModel V model R) {n : Name} {ps : List LevelParam}
