@@ -1189,9 +1189,9 @@ case_grep "modular compare: the graph with the solution added" 0 "acyclic: 4 mod
   --check-graph --compare --search-path=$MSP -- CmpChal CmpSol
 case_grep "modular compare: the graph of a solution importing its challenge" 1 \
   "import cycle: CmpChal → CmpImpS → CmpChal" --check-graph --compare --search-path=$MSP -- CmpChal CmpImpS
-case_grep "modular compare: the commands" 0 "check-graph --compare --search-path=" \
+case_grep "modular compare: the commands" 0 "check-graph --compare --trusted-search-path= --search-path=" \
   --olean --schedule-commands --compare --search-path=$MSP -- CmpChal CmpSol
-case_grep "modular compare: the commands' compare worker" 0 "module --compare --verified --max-nat-size=[0-9]* --search-path=.* -- '«CmpChal»' '«CmpSol»'" \
+case_grep "modular compare: the commands' compare worker" 0 "module --compare --verified --max-nat-size=[0-9]* --trusted-search-path= --search-path=.* -- '«CmpChal»' '«CmpSol»'" \
   --olean --schedule-commands --compare --search-path=$MSP -- CmpChal CmpSol
 case_ "modular compare: --check-graph with one module" 3 --check-graph --compare --search-path=$MSP -- CmpChal
 case_ "modular compare: --check-graph with the module twice" 3 --check-graph --compare --search-path=$MSP -- CmpChal CmpChal

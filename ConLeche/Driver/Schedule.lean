@@ -86,13 +86,16 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (tp sp : SearchPath) (root : N
     | .ok (C, _) =>
       -- a compared run's challenge closure, through the trusted path alone
       if cmp.isSome then
-        if let some (line, c) := ← chalWalk r jobs then
-          diagLine line
-          return c
+        if let some e := ← chalWalk r jobs then
+          diagLine s!"con-leche: graph: {e}"
+          return e.exitCode
       let mods := C.map (·.1)
       let dirs := ":".intercalate (sp.map toString)
       let tdirs := ":".intercalate (tp.map toString)
-      let paths := Schedule.pathArgs (if cmp.isSome then tdirs else "") dirs
+      -- a compared run's commands carry both lookups' flags, the trusted path's empty where none
+      -- is given (the form `ConLeche.main_modular_compare` reads them in)
+      let paths := if cmp.isSome then #["--trusted-search-path=" ++ tdirs, "--search-path=" ++ dirs]
+        else Schedule.pathArgs "" dirs
       -- the challenge's worker is the compare worker (tasks #608, #619); every worker of a
       -- compared run reads through the trusted path, then the search path
       let args (t : Option Nat) (m : Name) : Array String :=

@@ -268,8 +268,9 @@ theorem tabImports_keeps (fs : FS) (sp : Roots) (n : Name) :
   exact moduleImports_at hx' hy
 
 /-- **A worker's tables are read off the snapshot**, and so are the roots beside them. -/
-theorem workerTables_ok {fs : FS} {sp : Roots} (hsp : sp.bare = sp) {m : Name} {R : Roots}
-    {T : ModTables} {hs hs' : HS} (h : (workerTables sp m : ModelIO _) fs hs (.ok (R, T)) hs') :
+theorem workerTables_ok {fs : FS} {sp : Roots} (hsp : sp.bare = sp) {m : Name}
+    {x : Array ImportRec} {R : Roots}
+    {T : ModTables} {hs hs' : HS} (h : (workerTables sp m x : ModelIO _) fs hs (.ok (R, T)) hs') :
     R.Ok fs ∧ R.bare = sp ∧ TablesOk fs sp T := by
   simp only [workerTables, ModelIO.bind_ok] at h
   obtain ⟨R₀, hs₀, hR₀, x, hs₁, hx, h⟩ := h

@@ -89,7 +89,7 @@ def headerNode (extra : Name → Array ImportRec) (e : Graph.Node) : Graph.Node 
 
 /-- **The one-process mode**, generic in the IO class (see the module docstring). -/
 def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
-    (sol : Option Name) (pre : μ (Option (String × UInt8))) (mode : CheckMode) (maxNatSize : Nat)
+    (sol : Option Name) (pre : μ (Option CheckError)) (mode : CheckMode) (maxNatSize : Nat)
     (pace : Pace) (jobs : Nat) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
@@ -106,9 +106,9 @@ def checkModularG {μ : Type → Type} [CheckerIO μ] (sp : Roots) (root : Name)
   | .ok (C, sp) =>
     say s!"graph: acyclic, {C.size} modules"
     match ← pre with
-    | some (line, c) =>
-      diagLine s!"{line} ({modeTag})"
-      return c
+    | some e =>
+      diagLine s!"con-leche: graph: {e} ({modeTag})"
+      return e.exitCode
     | none =>
     match ← CheckerIO.parMapExcept jobs (readModTable sp)
         (C.toList.map (headerNode (modExtra root sol))) with

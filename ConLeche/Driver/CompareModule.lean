@@ -34,29 +34,28 @@ namespace ConLeche.Driver
 open ConLeche ConLeche.Frontend.Olean
 
 /-- **The challenge's closure through the trusted path alone** (`--trusted-search-path`, its
-verdict only): where a module of it is not there, the line saying so and the exit code (1 where
-the search path holds it, as in `--olean --compare`); none where the walk succeeds or no trusted
-path is given. -/
+verdict only): where a module of it is not there, why (invalid where the search path holds it, as
+in `--olean --compare`); none where the walk succeeds or no trusted path is given. -/
 def chalWalk {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (jobs : Nat) :
-    μ (Option (String × UInt8)) := do
+    μ (Option CheckError) := do
   if r.trusted.isEmpty then return none
   match ← Graph.graphOf r.chalRoots [r.challenge] jobs with
   | .ok _ => return none
   | .error e =>
     match ← fallbackOnly r with
-    | some why => return some (s!"con-leche: graph: {why}", 1)
-    | none => return some (s!"con-leche: graph: {e}", e.exitCode)
+    | some why => return some (.invalid why)
+    | none => return some e
 
 /-- **The compare worker** (see the module docstring), generic in the IO class: the challenge's
 closure walked through the trusted path alone (`pre`, `chalWalk`), then the worker of `C` with the
 solution `S` added to its header, every read through `rd`. -/
 def checkCmpModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (sp : Roots) (C S : Name)
-    (pre : μ (Option (String × UInt8))) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace)
+    (pre : μ (Option CheckError)) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace)
     (jobs : Nat) (alone : Bool := true) : μ UInt8 := do
   match ← pre with
-  | some (line, c) =>
-    diagLine line
-    return c
+  | some e =>
+    diagLine s!"con-leche: graph: {e}"
+    return e.exitCode
   | none => checkModuleG rd sp C mode maxNatSize pace jobs alone #[Graph.solutionImport S]
 
 /-- **The graph check of a compared run** (`--check-graph --compare`), generic in the IO class:
@@ -65,9 +64,9 @@ with a trusted path, the challenge's closure first, through the challenge's look
 the challenge's header (`Graph.checkGraphG`). -/
 def checkGraphCmpG {μ : Type → Type} [CheckerIO μ] (r : CmpReq) (jobs : Nat) : μ UInt8 := do
   match ← chalWalk r jobs with
-  | some (line, c) =>
-    diagLine line
-    pure c
+  | some e =>
+    diagLine s!"con-leche: graph: {e}"
+    pure e.exitCode
   | none =>
     Graph.checkGraphG r.solRoots [r.challenge] jobs (Graph.cmpExtra r.challenge r.solution)
 

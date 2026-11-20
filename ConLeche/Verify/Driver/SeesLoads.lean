@@ -39,6 +39,44 @@ open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
 variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
 
+/-- **What a header with imports added loads, at a part** (task #619): `LoadsAt` over a module's
+own imports followed by `x`, the private part where some derivation loads it whole, the exported
+part where one loads it.  It holds wherever `Loads` does (`loads_toX`), which also asks
+an exported part not loaded whole. -/
+@[expose] def LoadsX (sp : Roots) (fs : FS) (x : Array ImportRec) (m m' : Name) (p : OLeanLevel) :
+    Prop :=
+  ∃ d, ViewOf sp fs m d ∧
+    match p with
+    | .private => LoadsAt sp fs (!d.isModule) (d.imports ++ x) m' true
+    | .exported => LoadsAt sp fs (!d.isModule) (d.imports ++ x) m' false
+    | .server => False
+
+/-- **What a header with imports added sees** (`Sees` over `LoadsX`). -/
+@[expose] def SeesX (sp : Roots) (fs : FS) (x : Array ImportRec) (m n m' : Name) : Prop :=
+  ∃ p c, LoadsX sp fs x m m' p ∧ InModulePart sp fs m' p c ∧ c.name = n
+
+/-- What a header loads, it loads with imports added. -/
+theorem loadsAt_append {sp : Roots} {fs : FS} {g : Bool} {imps : Array ImportRec} (x : Array ImportRec)
+    {m : Name} {b : Bool} (h : LoadsAt sp fs g imps m b) : LoadsAt sp fs g (imps ++ x) m b := by
+  induction h with
+  | root hi => exact .root (Array.mem_append_left _ hi)
+  | step _ hv hi hx ih => exact .step ih hv hi hx
+
+theorem loads_toX {sp : Roots} {fs : FS} (x : Array ImportRec) {m m' : Name} {p : OLeanLevel}
+    (h : Loads sp fs m m' p) : LoadsX sp fs x m m' p := by
+  obtain ⟨d, hv, hl⟩ := h
+  refine ⟨d, hv, ?_⟩
+  cases p with
+  | «private» => exact loadsAt_append x hl
+  | exported => exact loadsAt_append x hl.1
+  | server => exact hl.elim
+
+/-- **What a header sees, it sees with imports added.** -/
+theorem sees_toX {sp : Roots} {fs : FS} (x : Array ImportRec) {m n m' : Name}
+    (h : Sees sp fs m n m') : SeesX sp fs x m n m' := by
+  obtain ⟨p, c, hL, hc, hn⟩ := h
+  exact ⟨p, c, loads_toX x hL, hc, hn⟩
+
 /-- **A part's name table, from its files**: the table of the view the files hold. -/
 theorem partNames_of_files {sp : Roots} {fs : FS} {m : Name} {p : OLeanLevel} {f : ModFiles}
     {t : NamePositions} (hf : ModelIO.CanGive (readFiles sp m p) fs (.ok f))
@@ -95,7 +133,7 @@ variable (R : Run sp fs maxNatSize)
 
 /-- **A quotient constant of a part of a module of the run is at its pin's name**: the private
 constant behind it is an own record, which the module's check asks pinned. -/
-theorem quot_name (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Name}
+theorem quot_name (hl : ∀ M, R.look M = sp) {M : Name} (hx : R.x M = #[])
     (hM : M ∈ R.names) {p : OLeanLevel} {t : NamePositions} (ht : PartNames sp fs ⟨M, p⟩ t)
     {q : NamePosition} (hq : q ∈ t.consts) (hp : p ≠ .server) {f : ModFiles} {r1 : Region}
     {a1 : UInt64} (hf : ModelIO.CanGive (readFiles sp M p) fs (.ok f))
@@ -103,7 +141,7 @@ theorem quot_name (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Nam
     (he : entryAt r1 q.loc = some e) {qs : String} (hk : e.kind = .quot qs)
     {dq : Declaration} (hdq : declOfEntry e = some dq) :
     ∀ c ∈ dq.constants, c.name = e.name := by
-  have hw := R.facts₀ hM (hx M)
+  have hw := R.facts₀ hM hx
   rw [hl M] at hw
   obtain ⟨f0, r, a, sk, skels, hf0, hreg0, hsk, -, -, hcv, hload, hN, hO, hb, hem, hall⟩ :=
     home_records hw
@@ -190,7 +228,7 @@ theorem entryConstants_name {e : CEntryF Name Expr} (hq : ∀ qs, e.kind ≠ .qu
            exact (show (quotPin .sound).name = quotSoundName by decide).trans h1.symm)
 
 /-- **A constant of a part of a module of the run has its stored constant's name.** -/
-theorem entry_name (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Name}
+theorem entry_name (hl : ∀ M, R.look M = sp) {M : Name} (hx : R.x M = #[])
     (hM : M ∈ R.names) {p : OLeanLevel} {t : NamePositions} (ht : PartNames sp fs ⟨M, p⟩ t)
     {q : NamePosition} (hq : q ∈ t.consts) (hp : p ≠ .server) {f : ModFiles} {r1 : Region}
     {a1 : UInt64} (hf : ModelIO.CanGive (readFiles sp M p) fs (.ok f))
@@ -210,18 +248,17 @@ theorem entry_name (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Na
 
 /-- **The part a module sees is a loaded part**: the module at some position of its worker's load
 order, at the part seen, or the private part where the exported one is seen. -/
-theorem sees_at (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M m' : Name}
-    (hM : M ∈ R.names) {p : OLeanLevel} (h : Loads sp fs M m' p) :
+theorem sees_at (hl : ∀ M, R.look M = sp) {M m' : Name}
+    (hM : M ∈ R.names) {p : OLeanLevel} (h : LoadsX sp fs (R.x M) M m' p) :
     p ≠ .server ∧ ∃ k : Nat, (R.w M).reads.loads.order[k]? = some m' ∧
       (((((R.w M).reads.loads.flags[k]?).getD default).level = p) ∨
         (p = .exported ∧ (((R.w M).reads.loads.flags[k]?).getD default).level = .private)) := by
-  unfold Loads at h
   obtain ⟨d, hv, hlp⟩ := h
-  have hw := R.facts₀ hM (hx M)
+  have hw := R.facts M hM
   rw [hl M] at hw
   obtain ⟨_, _, hr⟩ := hw.reads
   obtain ⟨own, hown, hld, -, -, -, -, -⟩ := workerReads_loads hr
-  rw [NamePositions.withImports_empty] at hld
+  rw [NamePositions.withImports_imports, NamePositions.withImports_isModule] at hld
   obtain ⟨fM, hfM, hdM⟩ := hv
   obtain ⟨ps, hps, hhead, -⟩ := readNamePositions_of_view ((parseView_eq_spec _ _).trans hdM)
   have hown' := readPartNames_of_all hfM hown
@@ -237,29 +274,34 @@ theorem sees_at (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M m' : Na
     refine ⟨by decide, k, hk, .inl ?_⟩
     unfold LoadFlags.level; rw [ha rfl]; rfl
   | exported =>
-    obtain ⟨k, hk, -⟩ := loadsAt_fixpoint hld hlp.1
+    obtain ⟨k, hk, -⟩ := loadsAt_fixpoint hld hlp
     refine ⟨by decide, k, hk, ?_⟩
     rcases hlev (((R.w M).reads.loads.flags[k]?).getD default) with h' | h'
     · exact .inr ⟨rfl, h'⟩
     · exact .inl h'
   | server => exact hlp.elim
 
+/-- **A module a module loads is a module of the run of smaller rank**, with no import added. -/
+theorem loads_rank {M : Name} (hM : M ∈ R.names) {k : Nat} {m' : Name}
+    (hk : (R.w M).reads.loads.order[k]? = some m') :
+    m' ∈ R.names ∧ R.rk m' < R.rk M ∧ R.x m' = #[] := by
+  obtain ⟨_, _, hr⟩ := (R.facts M hM).reads
+  obtain ⟨own, hown, hld, -⟩ := workerReads_loads hr
+  exact R.fixpoint_rank (R.trims M) hM hown hld (Array.mem_of_getElem? hk)
+
 /-- **A name a module sees is a copy of its worker's index**, of the module it sees it from. -/
-theorem sees_copy (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Name}
-    (hM : M ∈ R.names) {n m' : Name} (h : Sees sp fs M n m') :
+theorem sees_copy (hl : ∀ M, R.look M = sp) {M : Name}
+    (hM : M ∈ R.names) {n m' : Name} (h : SeesX sp fs (R.x M) M n m') :
     ∃ cp q, (R.w M).reads.index.at cp = some q ∧ q.name = n ∧
       (R.w M).reads.loads.nameAt cp.mod = m' := by
   obtain ⟨p, c, hL, ⟨f, dp, e, hf, hdp, he, hce⟩, rfl⟩ := h
-  obtain ⟨hps, k, hk, hlevel⟩ := R.sees_at hl hx hM hL
-  have hw := R.facts₀ hM (hx M)
+  obtain ⟨hps, k, hk, hlevel⟩ := R.sees_at hl hM hL
+  have hw := R.facts M hM
   rw [hl M] at hw
   obtain ⟨_, _, hr⟩ := hw.reads
   obtain ⟨own, hown, hld, -, hsize, -, -, -⟩ := workerReads_loads hr
-  have hm'R : m' ∈ R.names := by
-    have := R.fixpoint_rank (Roots.Trims.refl sp) hM hown ((hx M).symm ▸ hld)
-      (Array.mem_of_getElem? hk)
-    exact this.1
-  have hw' := R.facts₀ hm'R (hx m')
+  obtain ⟨hm'R, -, hxm'⟩ := R.loads_rank hM hk
+  have hw' := R.facts₀ hm'R hxm'
   rw [hl m'] at hw'
   have hkl : k < (R.w M).reads.index.parts.size := by
     rw [hsize]; exact (Array.getElem?_eq_some_iff.1 hk).1
@@ -271,7 +313,7 @@ theorem sees_copy (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Nam
   -- the constant's position in the part it is in
   obtain ⟨tp, q, r1, a1, htp, hq, hqn, hreg1, hent⟩ := view_entry_pos hdp he
   have hpn : PartNames sp fs ⟨m', p⟩ tp := partNames_of_files hf htp
-  have hcn : c.name = e.name := R.entry_name hl hx hm'R hpn hq hps hf hreg1 hent hce
+  have hcn : c.name = e.name := R.entry_name hl hxm' hm'R hpn hq hps hf hreg1 hent hce
   -- its name in the loaded part
   obtain ⟨q', hq', hq'n⟩ : ∃ q' ∈ (R.w M).reads.index.parts[k].consts, q'.name = e.name := by
     rcases hlevel with hL' | ⟨rfl, hL'⟩
@@ -287,19 +329,13 @@ theorem sees_copy (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Nam
   obtain ⟨cp, hcm, hat⟩ := hcop k _ q' (Array.getElem?_eq_getElem hkl) hq'
   exact ⟨cp, q', hat, hq'n.trans hcn.symm, by rw [hcm, hnk]⟩
 
-/-- **A module a module sees is a module of the run of smaller rank.** -/
-theorem sees_rank (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Name}
-    (hM : M ∈ R.names) {n m' : Name} (h : Sees sp fs M n m') :
-    m' ∈ R.names ∧ R.rk m' < R.rk M := by
+/-- **A module a module sees is a module of the run of smaller rank**, with no import added. -/
+theorem sees_rank (hl : ∀ M, R.look M = sp) {M : Name}
+    (hM : M ∈ R.names) {n m' : Name} (h : SeesX sp fs (R.x M) M n m') :
+    m' ∈ R.names ∧ R.rk m' < R.rk M ∧ R.x m' = #[] := by
   obtain ⟨p, c, hL, -, -⟩ := h
-  obtain ⟨-, k, hk, -⟩ := R.sees_at hl hx hM hL
-  have hw := R.facts₀ hM (hx M)
-  rw [hl M] at hw
-  obtain ⟨_, _, hr⟩ := hw.reads
-  obtain ⟨own, hown, hld, -⟩ := workerReads_loads hr
-  have := R.fixpoint_rank (Roots.Trims.refl sp) hM hown ((hx M).symm ▸ hld)
-    (Array.mem_of_getElem? hk)
-  exact ⟨this.1, this.2.1⟩
+  obtain ⟨-, k, hk, -⟩ := R.sees_at hl hM hL
+  exact R.loads_rank hM hk
 
 end Run
 

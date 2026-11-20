@@ -48,6 +48,21 @@ a recursor with its rules (firing modes included), a constructor with its parame
     ∃ isK', ci = .recInfo cv mI rP isK' rules) ∧
   (∀ cvj cnP nF T, c = .ctorInfo cvj cnP nF T → ∃ nF' T', ci = .ctorInfo cvj cnP nF' T')
 
+/-- **A constant, a stored one at other level-parameter names**: its statement (and a
+definition's value) the stored constant's instantiated at its own level parameters, as many, neither
+list with a repeat; a recursor or a constructor never (a block is matched as it is). -/
+@[expose] def RenamedAs (ci c : ConstantInfo) : Prop :=
+  ci.toConstantVal.levelParams.Nodup ∧ c.toConstantVal.levelParams.Nodup ∧
+  ci.toConstantVal.levelParams.length = c.toConstantVal.levelParams.length ∧
+  c.name = ci.name ∧
+  c.toConstantVal.type = ci.toConstantVal.type.instantiateLevelParams
+    ci.toConstantVal.levelParams (c.toConstantVal.levelParams.map Level.param) ∧
+  (∀ cv v h, c = .defnInfo cv v h → ∃ cv' v', ci = .defnInfo cv' v' h ∧
+    v = v'.instantiateLevelParams ci.toConstantVal.levelParams
+      (c.toConstantVal.levelParams.map Level.param)) ∧
+  (∀ cv mI rP isK rules, c ≠ .recInfo cv mI rP isK rules) ∧
+  (∀ cvj cnP nF T, c ≠ .ctorInfo cvj cnP nF T)
+
 /-- A record of a stream is a record of one of its declarations. -/
 theorem mem_constantsOf {ds : List Declaration} {c : ConstantInfo} :
     c ∈ constantsOf ds ↔ ∃ d ∈ ds, c ∈ d.constants := List.mem_flatMap
@@ -247,7 +262,7 @@ theorem inj_of_nodup_map {α β : Type} {f : α → β} :
 
 /-- What an accepted block's step established of its records: it reads, its grouped
 constructors are distinct by name, and they are its constructors, by name. -/
-def BlockRead (nP : Nat) (block : List ConstantInfo) : Prop :=
+@[expose] def BlockRead (nP : Nat) (block : List ConstantInfo) : Prop :=
   ∃ p, readBlock nP block = .ok p ∧ (p.allCtors.map (·.1.name)).Nodup ∧
     ∀ cvTs cs rs, blockSplit block = some (cvTs, cs, rs) →
       p.allCtors.map (·.1.name) = cs.map (·.1.name)

@@ -76,14 +76,15 @@ theorem closure_sees_isModel (V : Type w) [SetTheory V] {sp : Roots} {fs : FS} {
   let R := Run.ofAccepted C rk good edges inj acc w
   have hnames : R.names = C.map (·.1) := Run.ofAccepted_names C rk good edges inj acc w
   obtain ⟨model, hM, hS⟩ := Run.sees_isModel V R
-    (Run.ofAccepted_look C rk good edges inj acc w) (Run.ofAccepted_x C rk good edges inj acc w)
+    (Run.ofAccepted_look C rk good edges inj acc w)
   have hmem : ∀ m, InClosure sp fs #[r] m → m ∈ R.names := fun m hm => by
     rw [hnames]
     refine hdrClosure_mem good (fun r' hr' => ?_) (fun e he i hi => (edges e he i hi).1)
       (inClosure_hdr hm)
     simp only [List.mem_singleton] at hr'
     rw [hr']; exact hr
-  exact ⟨model, fun m hm => hM m (hmem m hm), fun m n m' hm hs => hS m (hmem m hm) n m' hs⟩
+  exact ⟨model, fun m hm => hM m (hmem m hm), fun m n m' hm hs =>
+    hS m (hmem m hm) n m' (sees_toX _ hs)⟩
 
 /-- **The modular theorem over what each module sees, run by run** (`--check-graph` and a worker
 for every module of the headers' closure). -/

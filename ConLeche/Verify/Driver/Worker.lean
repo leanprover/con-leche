@@ -80,21 +80,21 @@ theorem _root_.ConLeche.Frontend.Olean.NamePositions.withImports_isModule (own :
   unfold NamePositions.withImports
   split <;> rfl
 
-/-- **The reach's own names at a module with imports `x` added**: its own names; none at a
-compared challenge (`x` not empty, task #608), whose names are read from its solution. -/
+/-- **The reach's own names at a module with imports `x` added** (`ownNamesOf`): its own names; at a
+compared challenge (`x` not empty, task #619), those no loaded module stores. -/
 @[expose] def ownOf (x : Array ImportRec) (w : WorkerRead) : Std.HashSet Name :=
-  if x.isEmpty then ownNames w.home else {}
+  ownNamesOf x w.reads.index w.home
 
-/-- **The reach's roots at a module with imports `x` added**: what its own records read
-(`ownRoots`); at a compared challenge, its names and what its records read of what it imports
-(`cmpRoots`). -/
+/-- **The reach's roots at a module with imports `x` added** (`rootsAt`): what its own records
+read (`ownRoots`); at a compared challenge, what its own records and constants read and its
+copies' names. -/
 @[expose] def rootsOf (x : Array ImportRec) (w : WorkerRead) : Array Name :=
-  if x.isEmpty then ownRoots w.reads.index w.home w.emitted else cmpRoots w.home w.emitted
+  rootsAt x w.reads.index w.home w.emitted
 
-/-- **The records a worker checks**: its own records in the hoist's order; none at a compared
-challenge, whose records are compared, not checked. -/
+/-- **The records a worker checks**: its own records (`ownRecs`: at a compared challenge, those no
+loaded module stores) in the hoist's order. -/
 @[expose] def recsOf (x : Array ImportRec) (w : WorkerRead) : Array Declaration :=
-  if x.isEmpty then (Frontend.hoistNatOpGround (ownUses w.home) w.emitted).1 else #[]
+  (Frontend.hoistNatOpGround (ownUses w.home) (ownRecs x w.reads.index w.emitted)).1
 
 /-- **What a worker read and checked before its jobs, on a snapshot** (`workerRead`'s phases, see
 `ConLeche/Driver/Worker.lean`); `x` the imports the run adds to the module's header (none, but at
@@ -117,19 +117,22 @@ structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : Worker
   own : w.own = recsOf x w
   /-- the region the theorems' values are read from: the home's, on the snapshot -/
   values : CacheOK sp fs #[⟨m, w.home.frontier⟩] w.values
+  /-- at a compared challenge, every copy what the loaded constants of its names are -/
+  copies : copiesOk m x w.reads w.reach w.emitted = .ok ()
 
 /-- **`workerRead`'s accept** is `WorkerFacts`, whatever the heartbeat answered. -/
 theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : Pace}
-    {t0 jobs : Nat} {fs : FS} {w : WorkerRead} (hrd : OleanReads.Within fs fs rd sp) {hs hs' : HS}
-    (h : (workerRead rd m pace t0 jobs : ModelIO _) fs hs (.ok (.ok w)) hs') :
-    WorkerFacts sp fs m jobs w := by
+    {t0 jobs : Nat} {x : Array ImportRec} {fs : FS} {w : WorkerRead}
+    (hrd : OleanReads.Within fs fs rd sp) {hs hs' : HS}
+    (h : (workerRead rd m pace t0 jobs x : ModelIO _) fs hs (.ok (.ok w)) hs') :
+    WorkerFacts sp fs m jobs w x := by
   unfold workerRead at h
   simp only [ModelIO.bind_ok] at h
-  obtain ⟨x, _, hx, h⟩ := h
-  rcases x with e | f
+  obtain ⟨y, _, hy, h⟩ := h
+  rcases y with e | f
   · simp at h
   have hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f) :=
-    (hrd.files m .private).canGive ⟨_, _, hx⟩
+    (hrd.files m .private).canGive ⟨_, _, hy⟩
   simp only at h
   cases hh : homeOf m f with
   | error e => simp [hh] at h
@@ -139,12 +142,19 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : 
   obtain ⟨_, y, _, hy, h⟩ := h
   rcases y with e | wr
   · simp at h
+  simp only at h
+  split at h
+  · simp at h
   simp only [ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨_, h⟩ := h
   cases hds : ownRecords l with
   | error e => simp [hds] at h
   | ok ds =>
-  simp only [hds, ModelIO.bind_ok] at h
+  simp only [hds] at h
+  cases hho : ownHolesOk m x (ownUses l) wr.index ds with
+  | error e => simp [hho] at h
+  | ok u =>
+  simp only [hho, ModelIO.bind_ok] at h
   obtain ⟨z, _, hz, h⟩ := h
   rcases z with e | r
   · simp at h
@@ -152,14 +162,17 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : 
   cases hn : namesNodupGo {} (r.ctx.toList.flatMap declNames) with
   | false => simp [hn] at h
   | true =>
-  simp only [hn, Bool.not_true, Bool.false_eq_true, ↓reduceIte, ModelIO.bind_ok,
-    ModelIO.liftIO_iff, exists_eq_left] at h
+  simp only [hn, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+  cases hco : copiesOk m x wr r ds with
+  | error e => simp [hco] at h
+  | ok u' =>
+  simp only [hco, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨_, h⟩ := h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
   subst h
-  refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd m jobs #[]).canGive ⟨_, _, hy⟩, hds,
-    (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl, ?_⟩
+  refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd m jobs x).canGive ⟨_, _, hy⟩, hds,
+    (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl, ?_, hco⟩
   -- the values' region: the home's files' private region
   exact cacheOK_files (md := ⟨m, l.frontier⟩) rfl hf
 
@@ -167,7 +180,7 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : 
 
 /-- The values every job of a worker reads: its home's, on the snapshot. -/
 theorem workerFacts_good {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) :
+    {x : Array ImportRec} (hw : WorkerFacts sp fs m jobs w x) :
     ∀ md ∈ (#[⟨m, w.home.frontier⟩] : Array ModRef), ∃ f r a,
       ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := by
@@ -197,9 +210,9 @@ theorem workerFacts_good {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : Wor
 records, with their theorems' values in place (`fillOf` over the home's frontier), accepted one
 after another from the context's environment at position `ctx.size`, ending at the own
 environment (`ImportOk.accepted`). -/
-@[expose] def WorkerAccepted (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) :
-    Prop :=
-  ∃ w, WorkerFacts sp fs m jobs w ∧
+@[expose] def WorkerAccepted (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (m : Name) (jobs : Nat)
+    (x : Array ImportRec := #[]) : Prop :=
+  ∃ w, WorkerFacts sp fs m jobs w x ∧
     DeclsRun mode natOpPinSets maxNatSize none
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
@@ -209,13 +222,13 @@ environment (`ImportOk.accepted`). -/
 
 /-- The check phase and the verdict of an accepted worker: an exit 0 is `WorkerAccepted`. -/
 theorem worker_tail {sp : Roots} {R : Roots} {m : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
-    {jobs : Nat} {fs : FS} {w : WorkerRead} (hR : R.Ok fs) (hp : R.bare = sp)
-    (hw : WorkerFacts sp fs m jobs w) (tag who : String)
+    {jobs : Nat} {fs : FS} {w : WorkerRead} {x : Array ImportRec} (hR : R.Ok fs) (hp : R.bare = sp)
+    (hw : WorkerFacts sp fs m jobs w x) (tag who : String)
     (alone : Bool) (t0 tIndex tParse : Nat) (J : Jobs (w.reach.ctx ++ w.own)) :
     ∀ v hs hs', (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs R #[⟨m, w.home.frontier⟩] J
         w.reach.ctx.size alone w.values : ModelIO _) fs hs (.ok v) hs' →
       ModelIO.AllOk (verdictG tag w.own.size t0 (w.reach.ctx ++ w.own) v who) fs hs'
-        (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs) := by
+        (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs x) := by
   intro v _ _ hv c _ hc h0
   obtain rfl := verdictG_ok hc h0
   have hgood : ∀ md ∈ (#[⟨m, w.home.frontier⟩] : Array ModRef), ∃ f r a,
@@ -246,21 +259,21 @@ snapshot `fs` that is an exit 0 is `WorkerAccepted`, at any `--jobs`, pace and `
 the `liftIO` actions answered, for any reads `rd` that refine the search path's (the search
 path's own, `OleanReads.Within.ofPath`, or the one-process mode's tables). -/
 theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {R : Roots} {m : Name}
-    {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {jobs : Nat} {alone : Bool} {fs : FS}
+    {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {jobs : Nat} {alone : Bool}
+    {x : Array ImportRec} {fs : FS}
     (hrd : OleanReads.Within fs fs rd sp) (hR : R.Ok fs) (hRp : R.bare = sp) {hs hs' : HS}
-    (h : (checkModuleG rd R m mode maxNatSize pace jobs alone : ModelIO _) fs hs (.ok 0) hs') :
-    WorkerAccepted mode maxNatSize sp fs m jobs := by
-  suffices H : ModelIO.AllOk (checkModuleG rd R m mode maxNatSize pace jobs alone) fs hs
-      (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs) from H 0 hs' h rfl
+    (h : (checkModuleG rd R m mode maxNatSize pace jobs alone x : ModelIO _) fs hs (.ok 0) hs') :
+    WorkerAccepted mode maxNatSize sp fs m jobs x := by
+  suffices H : ModelIO.AllOk (checkModuleG rd R m mode maxNatSize pace jobs alone x) fs hs
+      (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs x) from H 0 hs' h rfl
   simp only [checkModuleG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff]
-  rintro t0 _ rfl - _ rfl x _ hx
-  rcases x with ⟨e, _⟩ | w
+  rintro t0 _ rfl - _ rfl y _ hy
+  rcases y with ⟨e, _⟩ | w
   · simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, ModelIO.allOk_pure]
     rintro - _ rfl h0
     exact absurd h0 (CheckError.exitCode_ne_zero _)
-  have hw := workerRead_ok hrd hx
-  -- with or without the diagnostic lines (a `Unit` step), the clock and the jobs' index, then
-  -- the check phase and the verdict
+  have hw := workerRead_ok hrd hy
+  -- the verdict, then (a `Unit` step) the copies' lines
   simp only
   by_cases hh : w.hoisted.size > 0 <;>
     simp only [hh, ↓reduceIte, ModelIO.allOk_bind, ModelIO.liftIO_iff] <;>
@@ -269,7 +282,9 @@ theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {R : Roots} {
     by_cases hp : pace.on = true <;>
     simp only [hp, Bool.false_eq_true, ↓reduceIte, ModelIO.allOk_bind, ModelIO.liftIO_iff] <;>
     (first | rintro (_ : Unit) _ rfl | skip) <;>
-    exact fun v hs₁ hv => worker_tail hR hRp hw _ _ _ t0 tIndex tParse J v _ hs₁ hv
+    exact fun v hs₁ hv c hs₃ hc => by
+      have hP := worker_tail hR hRp hw _ _ alone t0 tIndex tParse J v _ hs₁ hv c hs₃ hc
+      split <;> simp_all [ModelIO.AllOk, ModelIO.bind_ok, ModelIO.liftIO_iff, ModelIO.pure_iff]
 
 /-! ## The context -/
 
