@@ -33,8 +33,9 @@ we then supply it from the set-theoretic models of §3 and §4.
 
 == Environment models in the abstract <sec:mod-iface>
 
-Let $C$ be the context of the module we are checking, built from a
-family of imported views $(E_x)_(x in X)$. To check the declarations,
+Let $C$ be the context of the module we are checking, an environment
+built from a family of imported views $(E_x)_(x in X)$, environments
+indexed by a set $X$. To check the declarations,
 we need a model of $C$ that preserves the values already assigned by
 the imports' models. This requires agreement wherever two imported
 views store a name of $C$.
@@ -70,8 +71,8 @@ $C$_ when $m_x agr_C m_y$ for all $x,y in X$.
     exists m_C in Mod(C). thin forall x in X. thin m_C agr_C m_x.
   $
   _Proofs_ are recognised in two ways. $Prf(C,E,c)$ says that $C$
-  proves $E$'s $c$ a proof (in the instance: its type is inferred over
-  $C$ to be a proposition), and a model of $E$ agreeing on $C$ with a
+  shows $E$'s entry at $c$ to be a proof (in the instance: its type is
+  inferred over $C$ to be a proposition), and a model of $E$ agreeing on $C$ with a
   model of $C$ gives it $pi$. $By(C,E,E',c)$ says that $E$'s $c$ has the
   statement of a theorem $E'$ stores under $c$, which $C$, $E$ and $E'$
   read alike, and a model of $E$ agreeing on $C$ with a model of $C$
@@ -176,11 +177,11 @@ assembly of $E$ from the views in $X_i$ by $Asm_i (E)$.
 ] <def:valid>
 
 The condition on imported views makes induction and restriction possible.
-The proof case is not circular. Whether a copy's type is a proposition
-is inferred over the part below the name, which holds only the names
-the type reads, of smaller rank. Before the copies of $c$ are
-compared, the views already agree on that part, so it has a model
-amalgamated from theirs, and the proof law applies to every copy.
+The rank orders the agreements. Whether a copy's type is a proposition
+is inferred over the part below the name, which holds only names of
+smaller rank. Their copies agree by the time those of $c$ are
+compared, so the part below $c$ has a model amalgamated from the
+views' models, and the proof law applies to every copy of $c$.
 
 == Compatible models and the theorem <sec:mod-thm>
 
@@ -191,28 +192,32 @@ when every module gives each name of its context the value the module
 it is read from gives it, and so does every imported view storing it:
 $
   Cmp_k ((m_i)) quad :<==> quad
-  & forall i < k. thin forall c in Gamma_i. thin From_i (c) < k
+  & forall i < k. thin forall c in Gamma_i. thin (From_i (c) < k
     and m_i (c) = m_(From_i (c)) (c) \
-  & quad and forall (j,V) in X_i. thin c in V ==> m_j (c) = m_(From_i (c)) (c).
+  & quad and forall (j,V) in X_i. thin c in V ==> m_j (c) = m_(From_i (c)) (c)).
 $
 Two proofs of one statement under one name agree without comparing
 their bodies, since both get $pi$.
 
 Compatibility concerns values because hidden bodies can refer to
-names that have a different meaning in the importer. Let module $j$
-define names $d := 0$ and $c := d$, presenting only $c : sans("Nat")$ as
-an assumption. Module $k$ reads all of $j$, proves $e : c = 0$ by
-unfolding, and presents $c$ and $e$ as assumptions. Independently,
-module $l$ defines $d := 1$. A module $i$ importing $k$ and $l$ sees
-$c : sans("Nat")$, $e : c = 0$ and $d := 1$. The two copies of $d$
-have different values, $0$ and $1$, and never meet in a context, so
-nothing asks them to agree. Restoring $c := d$ in $i$ would make it
-unfold to $1$, contradicting $e$; a model instead takes $c$'s value
-from $j$ and $d$'s from $l$. A module that did read both copies of $d$
-would have to show that they agree: they come from different modules,
-are not one copy loaded twice, and are not proofs, so the check
-rejects it. There is no combined environment of bodies and no renaming
-of names.
+names that have a different meaning in the importer. Take four
+modules $j$, $k$, $l$ and $i$:
+$
+  j: & quad d := 0, quad c := d, quad "presenting" c : sans("Nat") \
+  k: & quad "reads all of" j, quad e : c = 0 "(by unfolding)", quad
+    "presenting" c : sans("Nat"), thick e : c = 0 \
+  l: & quad d := 1 \
+  i: & quad "imports" k "and" l, "reading" c : sans("Nat"), thick
+    e : c = 0, thick d := 1.
+$
+The two copies of $d$ have different values, $0$ and $1$, but never
+meet in a context, so nothing asks them to agree. Restoring $c := d$
+in $i$ would make $c$ unfold to $1$, contradicting $e$; a model of $i$
+instead takes $c$'s value from $j$ and $d$'s from $l$. A module that
+did read both copies of $d$ would have to show that they agree: they
+come from different modules, are not one copy loaded twice, and are
+not proofs, so the check rejects it. There is no combined environment
+of bodies and no renaming of names.
 
 #theorem(name: "Modular checking")[
   For every $k in NN$, if the modules $i < k$ are valid, they have a
@@ -231,7 +236,7 @@ of names.
   agreement this is the restriction. In the second, $j$'s copy is the
   value $m_j$ gives $c$, which by compatibility of the earlier family is
   the value of the view $(h,W)$ that $j$ reads, and so of $(h,W')$, by
-  an inner induction on the view's module. In the third, the names of
+  an inner induction on the presenting module, as $h < j$. In the third, the names of
   the part below $c$ have smaller rank, so the restricted models agree
   there and amalgamate to a model of $P_k (c)$, which agrees there with
   every restricted model, a theorem's view's among them; the proof laws
@@ -274,9 +279,8 @@ $pi$ is the constant function with value $pt$.
 which
 #src("whitepaper/Fragment/ModularModel.lean", 82, 86)[proofs are the point]:
 every definition or assumption of $E$ whose type
-#src("whitepaper/Fragment/ModularModel.lean", 73, 75)[reads as a truth value],
-at every list of levels, has the point as its set, at every list of
-levels, and in which
+#src("whitepaper/Fragment/ModularModel.lean", 73, 75)[reads as a truth value]
+has the point as its set, at every list of levels, and in which
 #src("whitepaper/Fragment/Holds.lean", 39, 40)[every stored constant holds]
 in the sense of @def:input-model. Both survive amalgamation, since a
 constant's clauses read only the constants its entry mentions, and
@@ -435,11 +439,15 @@ name is read from is seen, and so is every other module whose view
 holds a copy of it.
 
 #theorem(name: "Every module has a model of its constants")[
-  Assume $Pass_j$ for every $j < k$. Then there is an assignment
-  $M_j$ for every module $j < k$ such that
+  For every $k in NN$, assume $Pass_j$ for every module $j < k$. Then
+  there are assignments $M_j$, for $j < k$, such that
   #src("whitepaper/Fragment/ModularInstance.lean", 204, 207)[$M_j$ is a model of the constants of $D_j$]
-  (@def:input-model), and $M_j (c) = M_(j') (c)$ whenever $j$ sees $c$
-  as $j'$'s.
+  (@def:input-model), and every name $c$ that $j$ sees as $j'$'s, for
+  $j, j' < k$, has one value in both:
+  $
+    c in Gamma_j and (exists V. thin (j', V) in X_j and c in V)
+      ==> M_j (c) = M_(j') (c).
+  $
 ] <thm:mod-input>
 
 #proof[
@@ -454,7 +462,9 @@ holds a copy of it.
 
 Let $B$ be the empty Prop block of @cor:consistency, with no level
 parameters, parameters, indices or constructors, and with large
-elimination. If the constants of $D_i$ include $B$'s recursor, then,
+elimination. Let the modules up to $i$ pass their checks, so that
+@thm:mod-input with $k = i + 1$ gives the constants of $D_i$ a model.
+If they include $B$'s recursor, then,
 by the argument of @cor:consistency over
 #src("whitepaper/Fragment/Main.lean", 59, 62)[any model of such constants],
 none of them has type $I_B$: no theorem of $D_i$ proves the empty
@@ -524,7 +534,7 @@ satisfy the scope conditions.
 )
 
 #real[
-  Con-leche states these checks over its own records
+  The checks are stated over con-leche's own records
   (#src("ConLeche/Modular.lean", 209, 229)[the local checks]): a context is a
   list of records each of which an earlier module
   #src("ConLeche/Modular.lean", 82, 92)[presents], as itself or as its
@@ -536,9 +546,10 @@ satisfy the scope conditions.
   from $h$'s view, on demand, for the names the context reads and every copy
   of every clashing name it stores. The importer's check is that rule: a read
   passes when the context's copy is that one, and otherwise the copy $h$'s
-  view locates must agree with the context's. So the source's copy of each such name
+  view locates must agree with the context's. So the copy $h$'s view locates
+  for each such name
   #src("ConLeche/Modular.lean", 168, 192)[agrees] with the context's: it is
-  that module's, or one record loaded through two paths, or both are proofs
+  the copy of the module the name is read from, or one record loaded through two paths, or both are proofs
   of one statement whose names agree: an earlier module's copy of it, its
   names agreeing too, is a theorem, or else its type is inferred to be a
   proposition over the records before the name's; every record reads only itself and earlier

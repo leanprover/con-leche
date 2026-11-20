@@ -14,15 +14,18 @@ checker accepts
 #src("ConLeche/MainTheorem.lean", 96, 102)[has a model in set theory].
 #src("ConLeche/IsModel.lean", 212, 213)[Each constant is assigned a set], each type denotes a set, and every
 constant of the stream holds in the model on its own: it is a member
-of the set its type denotes, a definition is what its value denotes,
-and a recursor computes by its rules, read off its own type. A hole
+of the set its type denotes, a definition denotes what its value
+denotes, and a recursor computes by its rules, read off its own type.
+A hole
 (an axiom, or a declaration whose value uses `sorry`) is read as an
 assumption of its statement. Nothing is fixed by name: the prelude's
 `False` denotes the empty set, and its `Eq` denotes equality, by
 their declarations' own clauses, so every equation the checker
 accepts is an equality of sets. Hence a model of an accepted stream has
-no constant of type `False`, since `False` denotes the empty set, and every accepted theorem is true in the model. Checked module by module from Lean's `.olean`
-files, every module of an import closure
+no constant of type `False`, since `False` denotes the empty set, and
+every accepted theorem is true in the model.
+
+Checked module by module from Lean's `.olean` files, every module of an import closure
 #src("ConLeche/MainTheorem.lean", 187, 198)[has a model of its own constants],
 and a name a module sees as another module's means there what that
 module's model says. A challenge, a module with holes, checked
@@ -79,10 +82,10 @@ type's set.
 == How to interpret a `∀` or a lambda
 
 At every binder the interpretation has to decide how to interpret a
-`∀` or a lambda. In Lean, `∀ x : A, B` is a type of functions when `B`
-is a type and a proposition when `B` is a proposition, and in the
-model these are different kinds of sets. A function type is a set of
-graphs. A proposition is a _truth value_, a set with at most one
+`∀` or a lambda. In Lean, a Π-type `∀ x : A, B`, with `x` a variable
+and `A`, `B` terms, is a type of functions when `B` is a type and a
+proposition when `B` is a proposition, and in the model these are
+different kinds of sets. A function space is a set of graphs. A proposition is a _truth value_, a set with at most one
 element: the model has one distinguished set, _the point_, which every
 proof of every proposition denotes, so proof irrelevance is built in.
 The two cases look the same on the page, and telling them apart by
