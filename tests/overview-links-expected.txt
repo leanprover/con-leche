@@ -121,34 +121,34 @@
    291        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
    292          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
-== ConLeche/MainTheorem.lean#L405-L411
-   405  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
-   406      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   407      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-   408        "--search-path=" ++ D, "--", c, s]) fs 0) :
-   409      ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
-   410        ∃ model, IsModel V model (Olean.closureConstants
-   411          (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
+== ConLeche/MainTheorem.lean#L362-L368
+   362  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+   363      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   364      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+   365        "--search-path=" ++ D, "--", c, s]) fs 0) :
+   366      ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
+   367        ∃ model, IsModel V model (Olean.closureConstants
+   368          (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
 
-== ConLeche/MainTheorem.lean#L454-L471
-   454  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   455      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   456      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   457        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   458      (hwork : ∀ m, Driver.Graph.HdrClosure
-   459          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   460          [C, S] m → m ≠ C →
-   461        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   462          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   463            root']) fs 0)
-   464      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   465        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   466      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   467      ∀ fs', FS.AgreeUnder sp fs fs' →
-   468        ∃ model : Name → (Name → List Nat → V),
-   469          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   470          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   471            model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L411-L428
+   411  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   412      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   413      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   414        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   415      (hwork : ∀ m, Driver.Graph.HdrClosure
+   416          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   417          [C, S] m → m ≠ C →
+   418        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   419          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   420            root']) fs 0)
+   421      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   422        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   423      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   424      ∀ fs', FS.AgreeUnder sp fs fs' →
+   425        ∃ model : Name → (Name → List Nat → V),
+   426          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   427          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   428            model m n = model m' n) :=
 
 == tests/ConLecheTests/Axioms.lean#L117-L121
    117  

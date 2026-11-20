@@ -411,7 +411,7 @@ false.
 
 **A challenge and its solution** have their own theorems, about `--olean --compare` (§2), which
 checks the solution's closure and then the challenge's, its axioms justified by the solution.
-[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L405-L411):
+[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L362-L368):
 every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` says of
 every snapshot that agrees with the run's under the challenge's directories (`Driver.trustedOr`:
 `T`, or `D` where `T` names none; every path the reader forms there has the same real path, kind
@@ -426,7 +426,7 @@ holds `def f : Nat := 3` and a hole `t : f = 5` has no model, whatever the solut
 those arguments exits 0.
 
 The same question **module by module** has the theorem of the modular runs' shape.
-[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L454-L471):
+[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L411-L428):
 on a snapshot where every command `--schedule-commands --compare -- <c> <s>` prints exits 0 (the
 graph check, `--olean --module` at every module of the headers' closure of `C` and `S` but `C`,
 the compare worker at `C`, each with `--trusted-search-path=<T> --search-path=<D>`), on every
