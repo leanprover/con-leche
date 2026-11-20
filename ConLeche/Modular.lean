@@ -53,16 +53,15 @@ records.
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
-    ∃ m : ∀ j ≤ i, Model V (dev j).own,
-      (∀ j hj n, ((dev j).context.find? n).isSome = true →
-        ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-        (m j hj).cval n = fun _ => pt
+    ∃ model : Nat → Name → List Nat → V,
+      (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
+      ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+        (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n
 ```
 
-a compatible family of models of the own environments: every module gives each name of its
-context the value the module it is read from gives it, and every theorem the point.  Its corollary is that no own environment
-stores a constant of type `False`.
+a model of every module's own records (`IsModel`, over the input), the family compatible: every
+module gives each name of its context the value the module it is read from gives it.  The
+corollary `modular_no_False`: no own environment stores a constant of type `False`.
 -/
 
 namespace ConLeche.Modular

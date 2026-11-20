@@ -5,7 +5,6 @@ import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
-import ConLeche.Model.OfEnvModelM
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
@@ -28,6 +27,10 @@ import ConLeche.Verify.Driver.CompareLocal
 import ConLeche.Semantics.DeclWF
 import ConLeche.Semantics.IsModelBasis
 import ConLeche.Model.IsModelBridge
+import ConLeche.Model.Modular.SeesMain
+import ConLeche.Model.IsModelOlean
+import ConLeche.Model.Modular.IsModel
+public import ConLeche.OleanInput
 
 public section
 
@@ -113,27 +116,20 @@ open ConLeche.Cached (checkDecls)
 universe w
 
 /-- **The main theorem.**  Every stream the checker accepts has a
-model in every set theory (`IsModel`, `ConLeche/IsModel.lean`), and a
-stream that declares `False` or `Eq` at all declares the prelude's —
-at every `Nat.div`/`Nat.mod` pin list, so consistency does not depend
-on which variants the install gate is handed (the empty list included:
+model in every set theory (`IsModel`, `ConLeche/IsModel.lean`) — at
+every `Nat.div`/`Nat.mod` pin list, so consistency does not depend on
+which variants the install gate is handed (the empty list included:
 under it every stream that declares `Nat.div` declines).  The shipped
 binary runs the fold at `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    (∃ model, IsModel V model ds.toList) ∧
-      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
-      (DeclaresName ds.toList eqName → DeclaresEq ds.toList) := by
-  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
-  have hrec := Cached.checkDecls_recordsStored accepted
-  have hstored : ∀ n, DeclaresName ds.toList n → (env.find? n).isSome = true := by
-    rintro n ⟨d, hd, c, hc, rfl⟩
-    obtain ⟨ci, hf, -⟩ := hrec d hd c hc
-    rw [hf]; rfl
-  exact ⟨⟨_, isModel_of_envModelM m hrec⟩,
-    fun h => Cached.checkDecls_declaresFalse accepted (hstored _ h),
-    fun h => Cached.checkDecls_declaresEq accepted (hstored _ h)⟩
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
+    (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
+  cases h : checkDecls .verified pins maxNatSize ds with
+  | error e => rw [h] at accepted; cases accepted
+  | ok env =>
+    obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) h
+    exact ⟨_, isModel_of_envModelM m (Cached.checkDecls_recordsStored h)⟩
 
 open Frontend in
 /-- **The main corollary.**  A file declaring a theorem of type `False`
@@ -155,16 +151,16 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
   have hmem' := Array.mem_toList_iff.mpr (Frontend.mem_preparePrelude (pre := pre) hmem)
-  obtain ⟨⟨model, hM⟩, -, -⟩ := model_exists V pins maxNatSize _ env hcheck
+  obtain ⟨model, hM⟩ := model_exists V pins maxNatSize _ (by rw [hcheck]; rfl)
   -- the theorem is a record of type `False`
-  have hrec : HasRecord (preparePrelude pre r.decls).toList cv.name cv.levelParams
-      (.const falseName []) := ⟨_, hmem', .thmInfo cv, List.mem_singleton_self _, by
-        rw [← hty]; rfl⟩
+  have hrec : HasConstant (· ∈ constantsOf (preparePrelude pre r.decls).toList) cv.name
+      cv.levelParams (.const falseName []) :=
+    ⟨.thmInfo cv, mem_constantsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩, by rw [← hty]; rfl⟩
   -- its type reads `False`, so the accepted environment stores it, as the prelude's
-  have hF : DeclaresFalse (preparePrelude pre r.decls).toList := by
+  have hF : DeclaresFalse (· ∈ constantsOf (preparePrelude pre r.decls).toList) := by
     refine Cached.checkDecls_declaresFalse hcheck ?_
-    obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck _ hmem' (.thmInfo cv)
-      (List.mem_singleton_self _)
+    obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck (.thmInfo cv)
+      (mem_constantsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩)
     obtain ⟨-, -, hres, -⟩ := (Semantics.checkDecls_envWF hcheck).consts ci (Env.find?_mem hf)
     rw [hcv] at hres
     change Expr.constsResolve env cv.type = true at hres
@@ -204,6 +200,17 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
   simp [hp, hr, hc, bind, Except.bind] at he
 
 open Frontend in
+/-- **The main theorem, on `.olean` files.**  Every exit 0 of `runArgs` at the arguments
+`--olean --search-path=<dirs> -- <root>` has a model of its input (`Olean.closureConstants`,
+`ConLeche/OleanInput.lean`): every constant of the private views of the modules of the closure
+of `root`. -/
+theorem main_oleans (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0) :
+    ∃ model, IsModel V model (Olean.closureConstants (Driver.searchPathOf dirs) fs #[r]) :=
+  oleans_isModel V hr h
+
+open Frontend in
 /-- **The main corollary, on `.olean` files.**  On a snapshot where the private view of a module
 of the closure of `root`, by the specification, holds a theorem of type `False`, no outcome of
 `runArgs` at the arguments `--olean --search-path=<dirs> -- <root>` is an exit 0.  At these
@@ -228,41 +235,22 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
 /-! ## Modular checking (task #463)
 
 A development of modules (`ConLeche/Modular.lean`) every module of which passes the local checks
-has a compatible family of models of the modules' own environments: every module gives each name
-of its context the value the module it reads it from gives it, and every theorem the point.  Each module's model is built from its
-sources' models alone (`ConLeche/Modular/Generic.lean`'s `Development.modular`, at con-leche's
-models: `ConLeche/Model/Modular/Instance.lean`). -/
+has, for every module, a model of its own constants (`IsModel`, over the input), and every module
+gives each name of its context the value the module it reads it from gives it.  Each module's
+model is built from its sources' models alone (`ConLeche/Modular/Generic.lean`'s
+`Development.modular`, at con-leche's models: `ConLeche/Model/Modular/Instance.lean`), and read
+positionally (`ConLeche/Model/Modular/IsModel.lean`). -/
 
 open Modular in
 /-- **The modular theorem.** -/
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
-    ∃ m : ∀ j ≤ i, Model V (dev j).own,
-      (∀ j hj n, ((dev j).context.find? n).isSome = true →
-        ∃ h : (dev j).src n ≤ i, (m j hj).cval n = (m ((dev j).src n) h).cval n) ∧
-      ∀ j hj n cv, (dev j).own.find? n = some (.thmInfo cv) →
-        (m j hj).cval n = fun _ => pt := by
-  obtain ⟨mm, hc⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
-  have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
-      ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = (mm j (by omega)).1 n :=
-    fun j hj => (mm j (by omega)).2.2.2.2.elim fun mp h => ⟨mp, h.2.2⟩
-  refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hex j hj)), ?_, ?_⟩
-  · intro j hj n hn
-    obtain ⟨hs, he, -⟩ := hc j (by omega) n ⟨hn, trivial⟩
-    have hs' : (dev j).src n < i + 1 := hs
-    have hsi : (dev j).src n ≤ i := by omega
-    refine ⟨hsi, ?_⟩
-    rw [Model.Model.ofEnvModelM_cval, Model.Model.ofEnvModelM_cval]
-    apply Model.cvalOf_congr
-    rw [Classical.choose_spec (hex j hj) n (Model.Modular.own_stored_of_context hok hj hn),
-      Classical.choose_spec (hex _ hsi) n (Model.Modular.src_stored hok hj hn)]
-    exact he
-  · intro j hj n cv hn
-    rw [Model.Model.ofEnvModelM_cval]
-    apply Model.cvalOf_prf
-    rw [Classical.choose_spec (hex j hj) n (by rw [hn]; rfl)]
-    exact Model.Modular.ProofLeaves.thm (mm j (by omega)).2.2.2.1 hn
+    ∃ model : Nat → Name → List Nat → V,
+      (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
+      ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+        (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
+  Model.Modular.modular_isModel V pins maxNatSize dev i hok
 
 /-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
 theorem modular_no_False (V : Type w) [SetTheory V]
@@ -273,6 +261,41 @@ theorem modular_no_False (V : Type w) [SetTheory V]
   obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok
   obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2.2
   exact Model.no_constant_of_False mp c hc hty
+
+open Frontend in
+/-- **The modular theorem, run by run.**  On a snapshot where `--check-graph
+--search-path=<dirs> -- <root>` exits 0 and every module of the headers' import closure of `root`
+has an exit 0 of `--olean --module`, there is a model for every module of the closure of `root`
+(`Olean.InClosure`): a model of the module's constants (`Olean.moduleConstants`, its private
+part's), and a name the module sees as another module's (`Olean.Sees`: its header loads a part
+of that module holding a constant of that name) has the value that module's model gives it. -/
+theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+      fs 0)
+    (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+      Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+        (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+    ∃ model : Name → (Name → List Nat → V),
+      (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+      (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+  Driver.Compose.modular_sees_graph V hr h hwork
+
+open Frontend in
+/-- **The modular theorem, in one process.**  Every exit 0 of `--olean --modular
+--search-path=<dirs> -- <root>` has the family of models of `main_modular`. -/
+theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive
+      (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0) :
+    ∃ model : Name → (Name → List Nat → V),
+      (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+      (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+  Driver.Compose.modular_sees_one V hr h
 
 open Frontend in
 /-- **An accepted run over a closure holds no theorem of type `False`**: on a snapshot where every

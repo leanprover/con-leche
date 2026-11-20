@@ -102,7 +102,7 @@ theorem pub_loaded {M : Name} (hM : M ∈ R.names) {h y : Name} (hh : h ∈ R.na
   refine ⟨hrank.1, hrank.2.1, ?_⟩
   obtain ⟨j, hj, hjb⟩ := Array.getElem_of_mem hmem
   have hjb' : (R.w a).reads.loads.nameAt j = b := by
-    unfold Loads.nameAt; rw [Array.getElem?_eq_getElem hj, hjb]; rfl
+    unfold HeaderLoads.nameAt; rw [Array.getElem?_eq_getElem hj, hjb]; rfl
   have hjp : j < (R.w a).reads.index.parts.size := by rw [hsizeh]; exact hj
   obtain ⟨hparts, -⟩ := workerReads_index hrdh
   have ht := hparts j _ (Array.getElem?_eq_getElem hjp)

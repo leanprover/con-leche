@@ -21,7 +21,7 @@ for m in Tiny TinyClassic TinyUse PrivUnused LazyVal ClashA ClashB HidA HidAll H
     TdA TdB TdH TdM StackDeep CmpBase CmpChal CmpSol CmpSolDef CmpSolStmt CmpSolMissing \
     CmpSolSorry CmpOpq CmpOpqSol CmpOpqSolK CmpHomeA CmpHomeC CmpHomeC3 CmpHomeS1 CmpHomeS2 \
     CmpHomeS3 CmpLvC CmpLvS CmpBndC CmpBndS CmpAxC CmpAxS CmpAxBadS CmpIndC CmpIndS CmpTrustC CmpTrustS CmpSorryC CmpSorryS CmpImpS \
-    CmpUnC CmpUnS; do
+    CmpUnC CmpUnS CxX1 CxX2 CxB CxZ; do
   mkdir -p "$(dirname "$OUT/$m")"
   LEAN_PATH="$OUT" "$LEAN" -o "$OUT/$m.olean" "tests/olean/src/$m.lean"
 done
@@ -37,6 +37,11 @@ LEAN_PATH="$OUT/stand:$OUT" "$LEAN" -o "$OUT/UfM.olean" tests/olean/src/UfM.lean
 # PdB's theorem)
 LEAN_PATH="$OUT/stand" "$LEAN" -o "$OUT/stand/PdA.olean" tests/olean/src/stand/PdA.lean
 LEAN_PATH="$OUT/stand:$OUT" "$LEAN" -o "$OUT/PdN.olean" tests/olean/src/PdN.lean
+# CxA likewise, against a stand-in CxZ that re-exports CxX1 (so that CxA's exported cn may
+# read CxX1's cc, which CxA's importers do not load); then CxM, against the real CxZ
+LEAN_PATH="$OUT/stand" "$LEAN" -o "$OUT/stand/CxZ.olean" tests/olean/src/stand/CxZ.lean
+LEAN_PATH="$OUT/stand:$OUT" "$LEAN" -o "$OUT/CxA.olean" tests/olean/src/CxA.lean
+LEAN_PATH="$OUT" "$LEAN" -o "$OUT/CxM.olean" tests/olean/src/CxM.lean
 rm -r "$OUT/stand"
 # only the olean levels are fixtures
 find "$OUT" \( -name '*.ir' -o -name '*.ir.sig' \) -delete

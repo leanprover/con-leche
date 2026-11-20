@@ -12,19 +12,24 @@ public import ConLeche.SetTheory.Derive.Sigma
 
 This module is the *statement* half of the main theorem: what it means for a set-theoretic
 `model` to be a model of the declarations `ds` the checker reads.  It reads the INPUT: every
-clause below is about one record of `ds`, as the stream carries it, and nothing here looks at
+clause below is about one constant of `ds`, as the stream carries it, and nothing here looks at
 the environment the checker builds.  It is written to be read top to bottom in one sitting —
 the reading `Expr.eval` of a term as a set, the recursors' rules as propositions (`iotaEqAt`),
-one clause per record (`Satisfies`), and the definition `IsModel` — and it imports nothing
+one clause per constant (`Satisfies`), and the definition `IsModel` — and it imports nothing
 from the proof tiers.  The theorem is stated in `ConLeche/Challenge.lean` (with `sorry`) and
 proved in `ConLeche/MainTheorem.lean`.
 
 ## The model
 
 A model is one function `model : Name → List Nat → V`: the set a constant denotes, given the
-values of its universe levels, positionally.  `IsModel V model ds` says: every record of every
-declaration of `ds` holds in `model`.  It is a conjunction over `ds` — the order of the
-declarations does not matter, and a name two declarations declare must satisfy both clauses.
+values of its universe levels, positionally.  `IsModel V model C` says: every constant of `C`
+holds in `model`, where `C : ConstantInfo → Prop` is a set of constants, as its membership
+predicate; of a stream `ds` it is `(· ∈ constantsOf ds)`, every constant of every declaration
+(record) of `ds`.  It is a conjunction over the
+constants — their order does not matter, a constant listed twice is one, and a name two
+constants declare must satisfy both clauses.  The `.olean` input is such a set too: the
+constants of the
+constants of the closure's views (`ConLeche/OleanInput.lean`).
 
 ## The reading
 
@@ -174,7 +179,7 @@ def RecRule.iotaParams (rl : RecRule) (rP cnP : Nat) : List Expr :=
 
 /-- **A recursor rule's ι equation, as a proposition.**  For the
 recursor `cv` (major position `mI`, rule prefix `rP`), its rule `rl`
-and the constructor record `cvj` (with `cnP` parameters) the rule names,
+and the constructor constant `cvj` (with `cnP` parameters) the rule names,
 at the recursor's own level parameters:
 
     ∀ (prefix : the recursor's first rP binders) (fields : C's fields),
@@ -187,7 +192,7 @@ the field binders are the constructor's, at those parameters; `indices`
 are the arguments of the constructor type's conclusion behind its
 parameters.  The equation's type is the recursor type's body at the indices
 and the major, and `u` the sort of the motive it applies.  `none` where
-the records do not have this shape. -/
+the constants do not have this shape. -/
 def iotaEqAt (cvj : ConstantVal) (cnP : Nat) (cv : ConstantVal) (mI rP : Nat)
     (rl : RecRule) : Option Expr := do
   let nF := rl.nfields
@@ -232,7 +237,7 @@ def inputFire (formers : List Name) (cv : ConstantVal) (mI rP : Nat) : RecRuleFi
     | _ => .plain
   | _ => .plain
 
-/-! ## The records of a declaration -/
+/-! ## The constants of a declaration -/
 
 /-- The names of a block's type formers. -/
 def blockFormerNames (block : List ConstantInfo) : List Name :=
@@ -240,9 +245,9 @@ def blockFormerNames (block : List ConstantInfo) : List Name :=
     | .indInfo cv _ => some cv.name
     | _ => none
 
-/-- The block's records, its recursors' rules with their firing mode (`inputFire`, read off
+/-- The block's constants, its recursors' rules with their firing mode (`inputFire`, read off
 the recursor's type against the block's type formers). -/
-def blockRecords (block : List ConstantInfo) : List ConstantInfo :=
+def blockFired (block : List ConstantInfo) : List ConstantInfo :=
   block.map fun
     | .recInfo cv mI rP isK rules =>
       .recInfo cv mI rP isK
@@ -252,7 +257,7 @@ def blockRecords (block : List ConstantInfo) : List ConstantInfo :=
 /-- Does a value use a hole (`sorryAx`)? -/
 def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
 
-/-- **The records a declaration contributes to the model's clauses.**
+/-- **The constants a declaration (a record of the input) contributes to the model's clauses.**
 
 * An axiom is its statement.  `sorryAx`, the hole, contributes nothing: a hole is read where it
   is used, as the axiom of the statement it fills.
@@ -260,12 +265,12 @@ def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
   as an axiom of its statement.
 * A theorem and an `opaque` are their statements: the value is never read, so an opaque
   constant stays free.
-* An inductive block is its records, its recursors' rules firing as their types say
-  (`blockRecords`).
-* A quotient record, and the axiom `Quot.sound`, are the quotient package's constant at the
+* An inductive block is its constants, its recursors' rules firing as their types say
+  (`blockFired`).
+* A quotient constant, and the axiom `Quot.sound`, are the quotient package's constant at the
   record's level-parameter names (`quotAt`): `Quot.lift` and `Quot.ind` carry their ι rule
   there. -/
-def Declaration.records : Declaration → List ConstantInfo
+def Declaration.constants : Declaration → List ConstantInfo
   | .axiomDecl cv =>
     if cv.name = quotSoundName then [quotAt .sound cv]
     else if cv.name = sorryAxName then []
@@ -274,44 +279,42 @@ def Declaration.records : Declaration → List ConstantInfo
   | .thmDecl cv _ => [.thmInfo cv]
   | .opaqueDecl cv _ => [.axiomInfo cv]
   | .quotDecl k cv => [quotAt k cv]
-  | .indDecl block _ => blockRecords block
+  | .indDecl block _ => blockFired block
 
 /-! ## The clauses -/
 
-/-- **A recursor rule holds** at the level assignment `φ`: for every constructor record of
-`ds` the rule names, the rule's ι equation denotes an inhabited set (a true proposition). -/
-def RuleHolds (V : Type w) [SetTheory V] (model : Name → List Nat → V) (ds : List Declaration)
+/-- **The constants of the declarations `ds`**: every constant of every one of them, in order. -/
+def constantsOf (ds : List Declaration) : List ConstantInfo := ds.flatMap Declaration.constants
+
+/-- **A recursor rule holds** at the level assignment `φ`: for every constructor constant of
+`C` the rule names, the rule's ι equation denotes an inhabited set (a true proposition). -/
+def RuleHolds (V : Type w) [SetTheory V] (model : Name → List Nat → V) (C : ConstantInfo → Prop)
     (φ : LevelParam → Nat) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
-  ∀ d ∈ ds, ∀ cvj cnP nF T, ConstantInfo.ctorInfo cvj cnP nF T ∈ d.records →
-    cvj.name = rl.ctor →
+  ∀ cvj cnP nF T, C (.ctorInfo cvj cnP nF T) → cvj.name = rl.ctor →
     ∀ e, iotaEqAt cvj cnP cv mI rP rl = some e → ∃ x, x ∈ˢ Expr.eval model φ ρ₀ e
 
-/-- **A record holds in `model`**: at every list of level values `vals`, one per level
-parameter, read through `φ := Level.assign ps vals`,
+/-- **A constant holds in `model`** (of the constants `C`, where its rules find their
+constructors): at every list of level values `vals`, one per level parameter, read through
+`φ := Level.assign ps vals`,
 
 * the constant is a member of what its type denotes;
 * a definition is what its value denotes;
 * every rule of a recursor holds (`RuleHolds`). -/
-def Satisfies (V : Type w) [SetTheory V] (model : Name → List Nat → V) (ds : List Declaration)
+def Satisfies (V : Type w) [SetTheory V] (model : Name → List Nat → V) (C : ConstantInfo → Prop)
     (c : ConstantInfo) : Prop :=
   ∀ vals : List Nat, vals.length = c.toConstantVal.levelParams.length →
     let φ := Level.assign c.toConstantVal.levelParams vals
     model c.name vals ∈ˢ Expr.eval model φ ρ₀ c.toConstantVal.type ∧
     match c with
     | .defnInfo _ value _ => model c.name vals = Expr.eval model φ ρ₀ value
-    | .recInfo cv mI rP _ rules => ∀ rl ∈ rules, RuleHolds V model ds φ cv mI rP rl
+    | .recInfo cv mI rP _ rules => ∀ rl ∈ rules, RuleHolds V model C φ cv mI rP rl
     | _ => True
 
-/-- **`model` is a model of the declaration `d`** (of the stream `ds`, where its recursors
-find their constructors): every record of `d` holds. -/
-def IsModelOfDecl (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-    (ds : List Declaration) (d : Declaration) : Prop :=
-  ∀ c ∈ d.records, Satisfies V model ds c
-
-/-- **`model` is a model of the declarations `ds`**: of every one of them. -/
+/-- **`model` is a model of the constants `C`**: every one of them holds.  Of a declaration
+stream `ds`, it is a model of `(· ∈ constantsOf ds)`. -/
 def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-    (ds : List Declaration) : Prop :=
-  ∀ d ∈ ds, IsModelOfDecl V model ds d
+    (C : ConstantInfo → Prop) : Prop :=
+  ∀ c, C c → Satisfies V model C c
 
 /-! ## The prelude's `False` and `Eq`
 
@@ -319,17 +322,17 @@ Nothing above treats `False` or `Eq` specially: `False` is whatever `model` make
 `Eq`.  What makes them mean the empty proposition and equality is their declarations, through
 their own clauses: `False.rec`'s membership forces `⟦False⟧ = ∅`, and `Eq.refl` with `Eq.rec`
 force `⟦@Eq A a b⟧ = eqv a b` (`IsModel.false_empty`, `IsModel.eq_eqv`,
-`ConLeche/Semantics/IsModelBasis.lean`).  These are the records the prelude declares them
+`ConLeche/Semantics/IsModelBasis.lean`).  These are the constants the prelude declares them
 with, as a stream carries them (at any level-parameter names); the checker accepts a stream
 declaring `False` or `Eq` only with them. -/
 
-/-- `ds` has a record named `n`. -/
-def DeclaresName (ds : List Declaration) (n : Name) : Prop :=
-  ∃ d ∈ ds, ∃ c ∈ d.records, c.name = n
+/-- `C` has a constant named `n`. -/
+def DeclaresName (C : ConstantInfo → Prop) (n : Name) : Prop :=
+  ∃ c, C c ∧ c.name = n
 
-/-- `ds` has a record declaring `n` at the level parameters `ps` with the type `T`. -/
-def HasRecord (ds : List Declaration) (n : Name) (ps : List LevelParam) (T : Expr) : Prop :=
-  ∃ d ∈ ds, ∃ c ∈ d.records, c.toConstantVal = ⟨n, ps, T⟩
+/-- `C` has a constant `n` at the level parameters `ps` with the type `T`. -/
+def HasConstant (C : ConstantInfo → Prop) (n : Name) (ps : List LevelParam) (T : Expr) : Prop :=
+  ∃ c, C c ∧ c.toConstantVal = ⟨n, ps, T⟩
 
 /-- `False.rec.{u} : (motive : False → Sort u) → (t : False) → motive t`. -/
 def falseRecType (u : Level) : Expr :=
@@ -360,15 +363,15 @@ def eqRecType (u₁ u : Level) : Expr :=
   .forallE (eqApp u (.bvar 4) (.bvar 3) (.bvar 0)) <|
   .app (.app (.bvar 3) (.bvar 1)) (.bvar 0)
 
-/-- **`ds` declares the prelude's `False`**: its eliminator, at some level-parameter name. -/
-def DeclaresFalse (ds : List Declaration) : Prop :=
-  ∃ p, HasRecord ds (falseName.str "rec") [p] (falseRecType (.param p))
+/-- **`C` declares the prelude's `False`**: its eliminator, at some level-parameter name. -/
+def DeclaresFalse (C : ConstantInfo → Prop) : Prop :=
+  ∃ p, HasConstant C (falseName.str "rec") [p] (falseRecType (.param p))
 
-/-- **`ds` declares the prelude's `Eq`**: the type former, `Eq.refl` and `Eq.rec`, each at
+/-- **`C` declares the prelude's `Eq`**: the type former, `Eq.refl` and `Eq.rec`, each at
 some (distinct) level-parameter names. -/
-def DeclaresEq (ds : List Declaration) : Prop :=
-  (∃ p, HasRecord ds eqName [p] (eqType (.param p))) ∧
-  (∃ p, HasRecord ds eqReflName [p] (eqReflType (.param p))) ∧
-  (∃ p₁ p, p₁ ≠ p ∧ HasRecord ds (eqName.str "rec") [p₁, p] (eqRecType (.param p₁) (.param p)))
+def DeclaresEq (C : ConstantInfo → Prop) : Prop :=
+  (∃ p, HasConstant C eqName [p] (eqType (.param p))) ∧
+  (∃ p, HasConstant C eqReflName [p] (eqReflType (.param p))) ∧
+  (∃ p₁ p, p₁ ≠ p ∧ HasConstant C (eqName.str "rec") [p₁, p] (eqRecType (.param p₁) (.param p)))
 
 end ConLeche

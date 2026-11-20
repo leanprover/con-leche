@@ -44,7 +44,7 @@ variable {V : Type w} [SetTheory V]
 
 /-- The block's records are its constants: the recursor's major is `T`, a type former of the
 block, so its rules fire `.plain`, as they are written. -/
-theorem tDecl_records : tDecl.records = tBlock := by rfl
+theorem tDecl_records : tDecl.constants = tBlock := by rfl
 
 theorem iotaEqAt_ruleA : iotaEqAt taCV 0 trecCV 3 3 ruleA = some (tEq taN ruleA.rhs) :=
   iotaEq_ruleA (find? := fun _ => some (.ctorInfo taCV 0 0 tN)) rfl
@@ -58,11 +58,11 @@ abbrev φ1 : LevelParam → Nat := Level.assign [uN] [1]
 /-- **In every model of a stream holding `T` and declaring `Eq`, `T.a` and `T.b` are different
 sets.** -/
 theorem T_a_ne_T_b {ds : List Declaration} {model : Name → List Nat → V}
-    (h : IsModel V model ds) (hT : tDecl ∈ ds) (hE : DeclaresEq ds) :
+    (h : IsModel V model (· ∈ constantsOf ds)) (hT : tDecl ∈ ds) (hE : DeclaresEq (· ∈ constantsOf ds)) :
     model taN [] ≠ model tbN [] := by
   intro hab
-  have hrec : ∀ c ∈ tBlock, Satisfies V model ds c := fun c hc =>
-    h tDecl hT c (by rw [tDecl_records]; exact hc)
+  have hrec : ∀ c ∈ tBlock, Satisfies V model (· ∈ constantsOf ds) c := fun c hc =>
+    h c (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; exact hc⟩)
   -- the type and its constructors
   have hTm : model tN [] ∈ˢ (univ 1 : V) := (hrec (.indInfo tCV {}) (by simp [tBlock]) [] rfl).1
   have hTa : model taN [] ∈ˢ model tN [] :=
@@ -108,10 +108,10 @@ theorem T_a_ne_T_b {ds : List Declaration} {model : Name → List Nat → V}
       IsModel.eq_eqv h hE (univ_mem_univ 0) (hrecAt _ hca)
         (hsel _ _ (empty_mem_univ 0) (unitSet_mem_univ 0))] at h3
     exact eq_of_mem_eqv h3
-  obtain ⟨xa, hxa⟩ := hrules ruleA (by simp) tDecl hT taCV 0 0 tN
-    (by rw [tDecl_records]; simp [tBlock]) rfl _ iotaEqAt_ruleA
-  obtain ⟨xb, hxb⟩ := hrules ruleB (by simp) tDecl hT tbCV 0 0 tN
-    (by rw [tDecl_records]; simp [tBlock]) rfl _ iotaEqAt_ruleB
+  obtain ⟨xa, hxa⟩ := hrules ruleA (by simp) taCV 0 0 tN
+    (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; simp [tBlock]⟩) rfl _ iotaEqAt_ruleA
+  obtain ⟨xb, hxb⟩ := hrules ruleB (by simp) tbCV 0 0 tN
+    (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; simp [tBlock]⟩) rfl _ iotaEqAt_ruleB
   have ha := hrule taN xa (fun a _ => a) hTa (fun a _ ha _ => ha) hxa
   have hb := hrule tbN xb (fun _ b => b) hTb (fun _ b _ hb => hb) hxb
   rw [hab, hb] at ha
@@ -121,27 +121,27 @@ theorem T_a_ne_T_b {ds : List Declaration} {model : Name → List Nat → V}
 `t : f = T.b`.  `f` is `T.a`, `Eq` is equality, so the hole's type is `eqv ⟦T.a⟧ ⟦T.b⟧`, empty
 by `T_a_ne_T_b`. -/
 theorem no_model {ds : List Declaration} {model : Name → List Nat → V}
-    (h : IsModel V model ds) (hT : tDecl ∈ ds) (hE : DeclaresEq ds) {hint : ReducibilityHint}
+    (h : IsModel V model (· ∈ constantsOf ds)) (hT : tDecl ∈ ds) (hE : DeclaresEq (· ∈ constantsOf ds)) {hint : ReducibilityHint}
     (hf : Declaration.defnDecl fCV (cnst taN) hint ∈ ds)
     (ht : Declaration.axiomDecl holeCV ∈ ds) : False := by
   have hTm : model tN [] ∈ˢ (univ 1 : V) :=
-    (h tDecl hT (.indInfo tCV {}) (by rw [tDecl_records]; simp [tBlock]) [] rfl).1
+    (h (.indInfo tCV {}) (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; simp [tBlock]⟩) [] rfl).1
   have hTb : model tbN [] ∈ˢ model tN [] :=
-    (h tDecl hT (.ctorInfo tbCV 0 0 tN) (by rw [tDecl_records]; simp [tBlock]) [] rfl).1
+    (h (.ctorInfo tbCV 0 0 tN) (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; simp [tBlock]⟩) [] rfl).1
   -- `f` is what its value denotes
-  have hfr : ConstantInfo.defnInfo fCV (cnst taN) hint ∈ (Declaration.defnDecl fCV (cnst taN) hint).records := by
-    simp only [Declaration.records]
+  have hfr : ConstantInfo.defnInfo fCV (cnst taN) hint ∈ (Declaration.defnDecl fCV (cnst taN) hint).constants := by
+    simp only [Declaration.constants]
     rw [ite_eq_right (by decide)]
     exact List.mem_singleton_self _
-  obtain ⟨hfm, hfv⟩ := h _ hf _ hfr [] rfl
+  obtain ⟨hfm, hfv⟩ := h _ (List.mem_flatMap.2 ⟨_, hf, hfr⟩) [] rfl
   change model fN [] ∈ˢ model tN [] at hfm
   change model fN [] = model taN [] at hfv
   -- the hole's type is the truth value of `f = T.b`
-  have hhr : ConstantInfo.axiomInfo holeCV ∈ (Declaration.axiomDecl holeCV).records := by
-    simp only [Declaration.records]
+  have hhr : ConstantInfo.axiomInfo holeCV ∈ (Declaration.axiomDecl holeCV).constants := by
+    simp only [Declaration.constants]
     rw [ite_eq_right (by decide), ite_eq_right (by decide)]
     exact List.mem_singleton_self _
-  have hh := (h _ ht _ hhr [] rfl).1
+  have hh := (h _ (List.mem_flatMap.2 ⟨_, ht, hhr⟩) [] rfl).1
   change model holeN [] ∈ˢ app (app (app (model eqName [1]) (model tN [])) (model fN []))
     (model tbN []) at hh
   rw [IsModel.eq_eqv h hE hTm hfm hTb] at hh

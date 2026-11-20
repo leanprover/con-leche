@@ -57,15 +57,13 @@ The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/Con
 
 ### The Main Theorem
 
-The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L145-L152) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L141-L148) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    (∃ model, IsModel V model ds.toList) ∧
-      (DeclaresName ds.toList falseName → DeclaresFalse ds.toList) ∧
-      (DeclaresName ds.toList eqName → DeclaresEq ds.toList)
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
+    (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    ∃ model, IsModel V model (· ∈ constantsOf ds.toList)
 ```
 
 This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. The relation [`Model V env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L258-L291) (in [ConLeche/Denotes.lean](./ConLeche/Denotes.lean)) states that every constant in the environment denotes a member of its type's denotation (and that `False` denotes the empty set and that `Eq` denotes set equality). In particular, every accepted theorem's statement is true in the model.
@@ -97,7 +95,7 @@ We can then prove something about such generic code in an idealized (pure, nonde
 
 In the model, we assume nothing about `liftIO a` or its return value, except of course its type. Using a subtype there allows us to run, say, parallel code and still know that the result is what we need for the proof (e.g. `checkDeclsIO` returning a subtype mentioning `checkDecls`).
 
-In this setting we can [lift the main corollary](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L197-L199) to cover the driver as well:
+In this setting we can [lift the main corollary](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L193-L195) to cover the driver as well:
 
 ```lean
 open Frontend in

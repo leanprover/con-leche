@@ -492,7 +492,7 @@ theorem viewFold_mem {y : Name} {s : Spot} :
       · exact .inr ⟨kt, List.mem_cons_self, h''⟩
     · exact .inr ⟨kt', List.mem_cons_of_mem _ hkt', h'⟩
 
-theorem viewKeys_mem {h : Name} {ld : Loads} {k : PartKey} (hk : k ∈ viewKeys h ld) :
+theorem viewKeys_mem {h : Name} {ld : HeaderLoads} {k : PartKey} (hk : k ∈ viewKeys h ld) :
     k = ⟨h, .private⟩ ∨ k.mod ∈ ld.order := by
   unfold viewKeys at hk
   rcases List.mem_cons.1 hk with rfl | hk
@@ -502,7 +502,7 @@ theorem viewKeys_mem {h : Name} {ld : Loads} {k : PartKey} (hk : k ∈ viewKeys 
 
 /-- **A copy in a home's view is in one of its parts**: `h`'s own private part, or a part its
 header fixpoint loads. -/
-theorem homeView_part {h y : Name} {ld : Loads} {ts : List NamePositions}
+theorem homeView_part {h y : Name} {ld : HeaderLoads} {ts : List NamePositions}
     {s : Spot} (hs : (((viewKeys h ld).zip ts).foldl (fun v kt => viewStep v kt.1 kt.2) {})[y]? =
       some s) :
     (s.part = ⟨h, .private⟩ ∨ s.part.mod ∈ ld.order) ∧ ∃ t, (s.part, t) ∈ (viewKeys h ld).zip ts ∧
@@ -589,7 +589,7 @@ theorem rootImports {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names
 
 /-- **A module of a header fixpoint read from a module of the run is one of smaller rank.** -/
 theorem fixpoint_rank {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names)
-    {own : NamePositions} {ld : Loads}
+    {own : NamePositions} {ld : HeaderLoads}
     (hown : ModelIO.CanGive (readPartNames a (M, .private)) fs (.ok own))
     (hld : ModelIO.CanGive (headerFixpoint (moduleImports a) (own.withImports (R.x M)).header.isModule
       (own.withImports (R.x M)).header.imports) fs (.ok ld)) {m : Name} (hm : m ∈ ld.order) :
@@ -608,7 +608,7 @@ theorem reached_rank {M : Name} (hM : M ∈ R.names) {m : Name}
     obtain ⟨_, _, hrd⟩ := (R.facts M hM).reads
     obtain ⟨own, hown, hld, -⟩ := workerReads_loads hrd
     have : (R.w M).reads.loads.nameAt j ∈ (R.w M).reads.loads.order := by
-      unfold Loads.nameAt; rw [Array.getElem?_eq_getElem hj]; simp
+      unfold HeaderLoads.nameAt; rw [Array.getElem?_eq_getElem hj]; simp
     exact R.fixpoint_rank (R.trims M) hM hown hld this
   | @view h v y s _ hv hs ih =>
     obtain ⟨own, ld, ts, hown, hld, -, -, rfl⟩ := hv

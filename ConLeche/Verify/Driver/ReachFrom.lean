@@ -69,7 +69,7 @@ instance : LawfulBEq PartKey where
 `viewKeys` over `h`'s header fixpoint, read from `h`'s private part's header, each part's name
 table the snapshot's, folded in order with the first copy of each name kept. -/
 @[expose] def HomeView (sp : Roots) (fs : FS) (h : Name) (v : Std.HashMap Name Spot) : Prop :=
-  ∃ (own : NamePositions) (ld : Loads) (ts : List NamePositions),
+  ∃ (own : NamePositions) (ld : HeaderLoads) (ts : List NamePositions),
     PartNames sp fs ⟨h, .private⟩ own ∧
     ModelIO.CanGive (headerFixpoint (moduleImports sp) own.header.isModule own.header.imports) fs
       (.ok ld) ∧
