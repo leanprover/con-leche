@@ -13,16 +13,21 @@ Lean itself, of what an acceptance means: every stream the
 checker accepts
 #src("ConLeche/MainTheorem.lean", 122, 128)[has a model in set theory].
 #src("ConLeche/IsModel.lean", 212, 213)[Each constant is assigned a set], each type denotes a set, and every
-constant is a member of the set its type denotes. The prelude's `False`
-denotes the empty set, and its `Eq` denotes equality, so every
-equation the checker accepts is an equality of sets. Every definition
-denotes its value and every recursor computes by its rules. Hence no accepted
-stream holds a proof of `False`, and every accepted theorem is
-true in the model. Checked module by module from Lean's `.olean`
+constant of the stream holds in the model on its own: it is a member
+of the set its type denotes, a definition is what its value denotes,
+and a recursor computes by its rules, read off its own type. A hole
+(an axiom, or a declaration whose value uses `sorry`) is read as an
+assumption of its statement. Nothing is fixed by name: the prelude's
+`False` denotes the empty set, and its `Eq` denotes equality, by
+their declarations' own clauses, so every equation the checker
+accepts is an equality of sets. Hence no accepted stream holds a
+proof of `False`, and every accepted theorem is true in the model. Checked module by module from Lean's `.olean`
 files, every module of an import closure
 #src("ConLeche/MainTheorem.lean", 280, 291)[has a model of its own constants],
 and a name a module sees as another module's means there what that
-module's model says.
+module's model says. A challenge, a module with holes, checked
+with a solution that fills them, has a model of its own constants
+too, and that statement does not mention the solution.
 
 == The shape of the argument
 
@@ -104,7 +109,8 @@ This document is a pen-and-paper account of that argument on a
 simplified fragment of the checker. The fragment has no projections,
 no number or string literals, no mutual inductive types, nesting only
 one container deep and not under a binder (@sec:nested describes the
-full check, without proof), no quotients, no axioms, no built-in
+full check, without proof), no quotients, no axioms (a hole is
+accepted only with a solution that fills it, §8), no built-in
 copies of `False`, `Eq`, `Nat` and their kin (the real checker pins
 these rather than reading them from the stream), no opaques, and
 none of the checker's
@@ -128,9 +134,10 @@ inference. The claims (@sec:claims) are a good place to start reading.
 definitions: what is stored, what is checked, how a definition
 unfolds, and the model that grows with it. §4 adds inductive types as
 least fixed points in the model, their recursors and reduction rules,
-large elimination, and the consistency corollary: no accepted
-environment stores a constant whose type is an inductive proposition
-with no constructors. §5 changes tack. It describes in full
+large elimination, and the main theorem: every accepted input has a
+model of its constants, with the consistency corollary that no
+accepted input declares a constant whose type is an inductive
+proposition with no constructors. §5 changes tack. It describes in full
 con-leche's check for nested inductive types, whose constructors
 mention the type being defined inside another one, as in
 `List (Tree α)`, and their generated recursors, and only sketches how
@@ -139,14 +146,14 @@ definitional equality that the fragment drops, η for structures and
 unit-likeness, follow from the extensionality of the model, with one
 proof case each. §7 checks a development module by module, each
 module against an environment built from what its imports present,
-and shows that every module's environment has a model, each module's
-model giving every name it reads the value it has in the model of the
-module it is read from. §8 checks a challenge, an input with open
-statements, with a solution: an open statement is accepted when the
-solution states the same and everything the statement reads is the
-same constant in both, and an accepted challenge has a model, which
-takes the solution's value at every open statement. §8 also compares a
-challenge with a solution module by module. §9
+and shows that every module has a model of its own constants, each
+module's model giving every name it sees as another module's the
+value that module's model gives it. §8 checks a challenge, an input
+with holes, with a solution: a hole is accepted when the solution
+states the same and everything the statement reads is the same
+constant in both, and the constants of an accepted challenge have a
+model. §8 also compares a challenge with a solution module by
+module. §9
 lists what
 was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related

@@ -36,7 +36,7 @@ how the construction and the proofs of @sec:ind-model extend to them.
 The details are in the linked con-leche proof. A restricted case, with
 one container instantiation at depth one and not under a binder, is
 verified in the paper's Lean fragment:
-#src("whitepaper/Fragment/NestInstall.lean", 258, 262)[installing such a block keeps a model of the environment].
+#src("whitepaper/Fragment/NestInstall.lean", 259, 262)[installing such a block keeps a model of the environment].
 
 == Nested blocks <sec:nest-what>
 
