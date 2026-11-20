@@ -15,7 +15,7 @@ stream's own records, with nothing of the environment the checker builds:
 
 * `T_a_ne_T_b`: in every model of a stream holding `inductive T | a | b` with its recursor and
   declaring the prelude's `Eq`, `T.a` and `T.b` are different sets.  The recursor's two rules
-  hold (`RuleHolds`); at the motive `fun _ => Prop` and the minors `False` (`∅`) and `True`
+  hold (`RuleHolds`, read off `T.rec`'s own type); at the motive `fun _ => Prop` and the minors `False` (`∅`) and `True`
   (`{pt}`) they make `T.rec` send `T.a` to `∅` and `T.b` to `{pt}`.
 * `no_model`: no model of a stream that also holds `def f : T := T.a` and the hole
   `t : f = T.b` (an axiom of its statement) exists: `f` is what its value denotes, `Eq` is
@@ -46,11 +46,11 @@ variable {V : Type w} [SetTheory V]
 block, so its rules fire `.plain`, as they are written. -/
 theorem tDecl_records : tDecl.constants = tBlock := by rfl
 
-theorem iotaEqAt_ruleA : iotaEqAt taCV 0 trecCV 3 3 ruleA = some (tEq taN ruleA.rhs) :=
-  iotaEq_ruleA (find? := fun _ => some (.ctorInfo taCV 0 0 tN)) rfl
+/-- The rules' equations read off `T.rec`'s own type: its minor premises `motive T.a` and
+`motive T.b`, by position. -/
+theorem iotaEqOf_ruleA : iotaEqOf trecCV 3 3 0 ruleA = some (tEq taN ruleA.rhs) := by rfl
 
-theorem iotaEqAt_ruleB : iotaEqAt tbCV 0 trecCV 3 3 ruleB = some (tEq tbN ruleB.rhs) :=
-  iotaEq_ruleB (find? := fun _ => some (.ctorInfo tbCV 0 0 tN)) rfl
+theorem iotaEqOf_ruleB : iotaEqOf trecCV 3 3 1 ruleB = some (tEq tbN ruleB.rhs) := by rfl
 
 /-- The level assignment `T.rec.{1}` is read at. -/
 abbrev φ1 : LevelParam → Nat := Level.assign [uN] [1]
@@ -61,7 +61,7 @@ theorem T_a_ne_T_b {ds : List Declaration} {model : Name → List Nat → V}
     (h : IsModel V model (· ∈ constantsOf ds)) (hT : tDecl ∈ ds) (hE : DeclaresEq (· ∈ constantsOf ds)) :
     model taN [] ≠ model tbN [] := by
   intro hab
-  have hrec : ∀ c ∈ tBlock, Satisfies V model (· ∈ constantsOf ds) c := fun c hc =>
+  have hrec : ∀ c ∈ tBlock, ModelOf model c := fun c hc =>
     h c (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; exact hc⟩)
   -- the type and its constructors
   have hTm : model tN [] ∈ˢ (univ 1 : V) := (hrec (.indInfo tCV {}) (by simp [tBlock]) [] rfl).1
@@ -108,10 +108,8 @@ theorem T_a_ne_T_b {ds : List Declaration} {model : Name → List Nat → V}
       IsModel.eq_eqv h hE (univ_mem_univ 0) (hrecAt _ hca)
         (hsel _ _ (empty_mem_univ 0) (unitSet_mem_univ 0))] at h3
     exact eq_of_mem_eqv h3
-  obtain ⟨xa, hxa⟩ := hrules ruleA (by simp) taCV 0 0 tN
-    (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; simp [tBlock]⟩) rfl _ iotaEqAt_ruleA
-  obtain ⟨xb, hxb⟩ := hrules ruleB (by simp) tbCV 0 0 tN
-    (List.mem_flatMap.2 ⟨tDecl, hT, by rw [tDecl_records]; simp [tBlock]⟩) rfl _ iotaEqAt_ruleB
+  obtain ⟨xa, hxa⟩ := hrules 0 ruleA rfl _ iotaEqOf_ruleA
+  obtain ⟨xb, hxb⟩ := hrules 1 ruleB rfl _ iotaEqOf_ruleB
   have ha := hrule taN xa (fun a _ => a) hTa (fun a _ ha _ => ha) hxa
   have hb := hrule tbN xb (fun _ b => b) hTb (fun _ b _ hb => hb) hxb
   rw [hab, hb] at ha
