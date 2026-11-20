@@ -125512,3 +125512,12 @@ quote — the theorem is gone, so `tests/quote-gate.sh` fails on it), 60 (its li
 into `main_no_False`'s proof, and "mostly a corollary"), 98 ("lift the main corollary": it is
 now from `model_exists` directly), 155–166 (the `--olean` corollary prose and the
 `main_oleans_no_False` quote, gone: quote gate).
+
+*Gates at the lane's head:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard: everything passes (olean gate 555/555, e2e 635/635, 76 theorems' axioms pinned,
+layering, shake, trust-surface, plain-reach, binary-link, challenge, no-local-paths,
+overview-links) EXCEPT `tests/quote-gate.sh`, which fails on README.md's quoted
+`no_False_declaration` and `main_oleans_no_False`: the theorems were deleted by ruling and the
+README is the maintainer's.  Whitepaper links and fragment gates pass.  NOT landed: a red gate
+on `compare`; it lands once the README drops those two quotes (then re-run quote-gate, merge
+`--no-ff`).
