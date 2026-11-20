@@ -21,9 +21,9 @@ definitions; inductive types, the rule $iota$ and the consistency
 corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
-#src("whitepaper/Fragment/Env.lean", 116, 132)[list of the constants] accepted so far,
+#src("whitepaper/Fragment/Env.lean", 115, 131)[list of the constants] accepted so far,
 #src("ConLeche/Kernel/Env.lean", 464)[most recent first]. A
-#src("whitepaper/Fragment/Env.lean", 66, 107)[stored constant] has its level parameters $arrow(p)$, its type (a closed
+#src("whitepaper/Fragment/Env.lean", 66, 106)[stored constant] has its level parameters $arrow(p)$, its type (a closed
 term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 291, 314)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
@@ -119,7 +119,7 @@ invariant gains the clause that a constant, like a variable or a
 sort, is always well-denoted.
 
 *The contract.* What the soundness theorem, extended below,
-assumes of the environment is #src("whitepaper/Fragment/EnvModel.lean", 293, 357)[a _model_]: an
+assumes of the environment is #src("whitepaper/Fragment/EnvModel.lean", 300, 364)[a _model_]: an
 assignment $M(c, arrow(n))$ of a set to every constant $c$ and every
 list of natural numbers $arrow(n)$ (the values of its level
 parameters), satisfying two laws (four more, for inductive types,
@@ -130,10 +130,10 @@ the semantic invariant of @sec:inv.
 
 #definition(name: "Model of an environment")[
   #set enum(numbering: "1.")
-  + #src("whitepaper/Fragment/EnvModel.lean", 297, 305)[Typing]: for every $(c.\{arrow(p)\} : T) in E$,
+  + #src("whitepaper/Fragment/EnvModel.lean", 304, 312)[Typing]: for every $(c.\{arrow(p)\} : T) in E$,
     $ rho models T[arrow(p) := arrow(ell)], quad lden T[arrow(p) := arrow(ell)] rden_rho "is a type", quad "and" quad
       M(c, phi(arrow(ell))) in lden T[arrow(p) := arrow(ell)] rden_rho. $
-  + #src("whitepaper/Fragment/EnvModel.lean", 306, 312)[Unfolding]: for every $(c.\{arrow(p)\} : T := v) in E$,
+  + #src("whitepaper/Fragment/EnvModel.lean", 313, 319)[Unfolding]: for every $(c.\{arrow(p)\} : T := v) in E$,
     $ rho models v[arrow(p) := arrow(ell)] quad "and" quad
       lden v[arrow(p) := arrow(ell)] rden_rho = M(c, phi(arrow(ell))). $
 ] <def:model>
@@ -142,13 +142,18 @@ In words: every stored constant is a member of its type, which is a
 type in the sense of @sec:interp, and a
 definition's value denotes the constant, at every instantiation of
 the declared level parameters.
+This is the proof's notion of a model, of the environment the checker
+builds, with the semantic invariant the soundness induction needs.
+The main theorem is stated over the input itself, each declared
+constant holding on its own (@def:input-model); a model of the
+environment gives one (@thm:accepted-model).
 
 #real[
   The real proof's model carries the same two laws among others
   (#src("ConLeche/Model/Env/EnvModelM.lean", 229, 252)[the carrier's invariant]).
 ]
 
-The empty environment #src("whitepaper/Fragment/EnvModel.lean", 359, 368)[has a model
+The empty environment #src("whitepaper/Fragment/EnvModel.lean", 366, 375)[has a model
 trivially]: any assignment, and laws with nothing to say.
 
 *Soundness, extended.* @thm:sound holds for the relations extended by

@@ -629,3 +629,17 @@ comment block at the top of `lib.typ`.
     as a separate clause of the comparison (`compare_homes`); with the
     challenge placed in the modular family, as for the modular modes,
     that clause and its proof would follow from agreement.  (2026-11-18.)
+
+**(2026-11-20) One unconditional ι law at a constructor value.** Restating the fragment's
+theorem over the input, with every recursor rule read off the recursor's own type, needed no
+check on the checker's side: values fitting a minor premise's fields fit the constructor's
+fields at the recursor's own parameters, the conclusion's arguments read as the constructor's
+index values and its value, and the ι equation at a constructor value then holds with no
+condition — at a proposition both sides are the point, the right-hand side lying in the
+motive's fibre by the rule's own typing. Con-leche could keep one internal law of that form,
+stated over fits of the parameters, motives, minors and fields, and derive from it both the
+statement's `RuleHolds` and the conditional laws the reduction rules consume (the point case,
+the slot law, K). The stored recursor's type still has to be checked against its constructors
+(the stream supplies it), but the two syntactic readings of the equation (`iotaEqAt`,
+`iotaEqOf`) would meet once, in that law, instead of in the bridge; for a generated recursor
+the reading off its type is a computation on the generated syntax.

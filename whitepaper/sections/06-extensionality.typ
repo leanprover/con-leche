@@ -33,7 +33,7 @@ Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is type-valued denotes
 a #src("whitepaper/Fragment/IndLib.lean", 50, 64)[tagged tuple]
 $tag(i, lden f_1 rden, ..., lden f_n rden)$, the
-#src("whitepaper/Fragment/IndCommon.lean", 336, 338)[constructor's number $i$] followed by its fields.
+#src("whitepaper/Fragment/IndCommon.lean", 330, 332)[constructor's number $i$] followed by its fields.
 The family at parameters and indices denotes
 #src("whitepaper/Fragment/IndSem.lean", 1458, 1461)[the least set closed
 under the constructor steps], so that

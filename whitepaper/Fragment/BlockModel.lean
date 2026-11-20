@@ -566,10 +566,11 @@ theorem install_def' {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped en
 
 /-- **Installing a plain inductive block preserves having a block
 model**, and the new block satisfies its law (the model of
-`Install.lean`). -/
+`Install.lean`, whose assignment is `S.M₃`). -/
 theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.Scoped env)
     (m : BlockModel V env) (hok : S.Ok env) :
-    ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+    ∃ m' : BlockModel V (S.install env), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      m'.M = S.M₃ m.M := by
   have hagree : AgreeOn env m.M (S.M₃ m.M) := IndSpec.agree_M₃ hok m.M
   have hS := hok.scoped
   have hK := S.contScoped_of_plain (env := env) hpl
@@ -601,7 +602,7 @@ theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.S
     exact hB.symm.domsBounded_imp ps
       (IndSpec.domsBounded_of hpl hs m.toEnvModel hok (S.ψ ls) base hps ((hB.fitsParams_iff ps).mp hp))
   refine ⟨{ toEnvModel := IndSpec.mInstall hpl hs m.toEnvModel hok, blocks := ?_ },
-    fun n hn ls => (hagree n hn ls).symm⟩
+    fun n hn ls => (hagree n hn ls).symm, rfl⟩
   intro K ci nP nI cs spec hfind hkind
   show spec.BlockLaw (S.install env) (S.M₃ m.M)
   rw [S.install_find? hpl] at hfind

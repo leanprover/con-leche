@@ -59,11 +59,14 @@ with the pin up to the universe parameters it declares and rejects it
 if they disagree, as it rejects any other declaration that takes a
 pinned name. A quotient record is compared with its pin and stores the
 pin at the universe parameters it declares; one that disagrees is
-declined. The pins are how the main theorem can name `False` and `Eq`
-and say what they denote.]
+declined. The main theorem names neither `False` nor `Eq`: their
+declarations' own clauses make them the empty set and equality in
+every model, and the pins are what lets a corollary read those
+clauses off a stream that declares the names.]
 
-#left-out[Axioms][The fragment has none. The real checker accepts
-exactly Lean's three standard axioms: `propext` and `Classical.choice`,
+#left-out[Axioms][The fragment has none outside the holes of
+@sec:compare, which a solution fills. Checked on its own, the real
+checker accepts exactly Lean's three standard axioms: `propext` and `Classical.choice`,
 each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 600, 606)[true in the
 model] (`propext` by the extensionality of truth values, `choice` by
 choice in the meta-logic), and `Quot.sound` as
@@ -170,7 +173,10 @@ declaring them only as the prelude does, which the corollaries use. The proofs' 
 read by a relation `Denotes`\; #src("ConLeche/Model/IsModelBridge.lean", 116, 118)[a theorem]
 says that `Expr.eval` agrees with it wherever it reads, and
 #src("ConLeche/Model/IsModelBridge.lean", 665, 668)[the bridge] carries that model to one of
-the input, and to every model agreeing with it on the stored names. The paper's theorem is the model side directly.
+the input, and to every model agreeing with it on the stored names. The paper's theorem
+has the same shape over the fragment's terms (@def:input-model), with the rules of the
+fragment's generated recursors read off their types; its proofs' model is of the environment
+too (§3), and the step from one to the other is the proof of @thm:accepted-model.
 
 *The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 8, 11)[a
 clone of the pure one] over a term representation that carries a
@@ -201,7 +207,8 @@ name a module sees as another module's (its header loads a part of that module h
 constant of that name: `Sees`, over `Loads`, Lean's import lattice) has the value that
 module's model gives it. A name a module never reads is seen from one module only, because
 every name two loaded modules store is read into the context and checked there: two copies
-of one name with different statements would make this agreement false. Hence, from that
+of one name with different statements would make this agreement false. The fragment's
+@thm:mod-input is the same statement, with seeing read off the imported views. Hence, from that
 theorem alone, #src("ConLeche/MainTheorem.lean", 315, 328)[no module of the closure holds a
 theorem of type `False`] where it declares the prelude's `False` or sees `False` as a module
 that does, and the graph check and every module's run exit 0 on one snapshot.

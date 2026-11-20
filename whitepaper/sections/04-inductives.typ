@@ -301,7 +301,7 @@ generated type a well-denoted type.
 
 The block #src("whitepaper/Fragment/Decl.lean", 532, 573)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
-(#src("whitepaper/Fragment/Env.lean", 66, 82)[the kinds],
+(#src("whitepaper/Fragment/Env.lean", 65, 81)[the kinds],
 #src("ConLeche/Kernel/Env.lean", 134, 142)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
@@ -313,7 +313,7 @@ with the notation of @sec:env, a stored declaration is one of
 - $(r.\{arrow(ell)\} : T)^sans("rec") [k, 1, n, m; R_1, dots, R_n]$, a
   recursor: $k$ parameters, one motive, $n$ minors, $m$ indices, the
   major; rules $R_1, dots, R_n$, each
-  #src("whitepaper/Fragment/Env.lean", 56, 63)[flagged _K_] when the
+  #src("whitepaper/Fragment/Env.lean", 55, 62)[flagged _K_] when the
   block is K-like (@sec:iota-cases).
 
 The counts are the sizes of the argument groups (@ex:nat shows them
@@ -327,7 +327,7 @@ recursor itself, and the official kernel infers no rule either.
 The model of a block has three parts: the set the type former
 denotes at each choice of indices, the sets the constructors denote,
 and the set the recursor denotes. With the recursor, the contract of @sec:env gains its
-#src("whitepaper/Fragment/EnvModel.lean", 313, 320)[third law]:
+#src("whitepaper/Fragment/EnvModel.lean", 320, 327)[third law]:
 every rule of every stored recursor satisfies its $iota$ law
 (@def:iota-law), which this subsection proves. @sec:iota-cases adds
 three more laws, facts about the model that let most $iota$ steps go
@@ -411,7 +411,7 @@ $ PiV(arrow(z) in arrow(A), thick adm(W(arrow(e)(arrow(z))))), $
 and the fibre $W(arrow(e))$ itself when the telescope is empty
 (#src("whitepaper/Fragment/IndSem.lean", 282, 303)[a field's set],
 #src("whitepaper/Fragment/IndSem.lean", 315, 320)[a fitting list]).
-Here #src("whitepaper/Fragment/IndCommon.lean", 188, 195)[$adm(X)$], the _admissible part_ of $X$, is $X$
+Here #src("whitepaper/Fragment/IndCommon.lean", 182, 189)[$adm(X)$], the _admissible part_ of $X$, is $X$
 itself when the family is proposition-valued; when it is type-valued,
 it is the members of $X$ that neither are the point nor contain it.
 On the family the construction ends with, $adm$ changes nothing,
@@ -419,13 +419,13 @@ since there a type-valued fibre is a set of tagged tuples. It is
 needed for the arbitrary families the operator is also applied to. A
 fibre ${pt}$ would make the field's function space a truth value, and
 then the field's set would not grow with the family
-(#src("whitepaper/Fragment/IndCommon.lean", 278, 286)[the function space's body]).
+(#src("whitepaper/Fragment/IndCommon.lean", 272, 280)[the function space's body]).
 The fibre is a set, built by replacement, union and separation from
 the fields' sets
 (#src("whitepaper/Fragment/IndSem.lean", 501, 550)[the construction],
 #src("whitepaper/Fragment/IndSem.lean", 561, 565)[its members are as displayed]).
 When the family is proposition-valued ($u$ evaluates to $0$ at $phi$) a
-constructor value #src("whitepaper/Fragment/IndCommon.lean", 336, 338)[is the point] instead of the tagged tuple,
+constructor value #src("whitepaper/Fragment/IndCommon.lean", 330, 332)[is the point] instead of the tagged tuple,
 so every fibre of $Phi(W)$ is a subset of ${pt}$: the truth value
 "some constructor reaches these indices".
 
@@ -790,7 +790,7 @@ that is the function space's domain, which therefore holds the argument.
 
 By @thm:sound each comparison becomes an equality of sets wherever
 neither side is the point. So the
-#src("whitepaper/Fragment/EnvModel.lean", 114, 181)[$iota$ law] is stated on values, with the fits
+#src("whitepaper/Fragment/EnvModel.lean", 121, 188)[$iota$ law] is stated on values, with the fits
 and these conditional equalities as premises:
 
 #definition(name: [the $iota$ law of a rule])[
@@ -828,7 +828,7 @@ and #src("ConLeche/Model/Rules/IotaSound.lean", 646)[the law] gives the rest.
 
 #theorem(name: [the $iota$ law holds])[
   Every rule of the recursor of an accepted block
-  #src("whitepaper/Fragment/InstallIota.lean", 807, 813)[satisfies its $iota$ law] in the model of @sec:ind-model.
+  #src("whitepaper/Fragment/InstallIota.lean", 827, 833)[satisfies its $iota$ law] in the model of @sec:ind-model.
   (Via #src("whitepaper/Fragment/IndRec.lean", 280, 290)[the equation on the semantic recursor]\; in con-leche,
   #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 940, 946)[the graph's equation], lifted to the law of @def:iota-law.)
 ] <thm:iota>
@@ -904,7 +904,7 @@ for it, each proved when the block is installed.
 at least $1$ at every valuation (one oracle test on the levels at
 the use), then
 #src("whitepaper/Fragment/Rules.lean", 394, 445)[the step needs no certificate]. The model's
-#src("whitepaper/Fragment/EnvModel.lean", 273, 291)[_fibre law_] says that a stored family's
+#src("whitepaper/Fragment/EnvModel.lean", 280, 298)[_fibre law_] says that a stored family's
 fibres are truth values where its stored sort evaluates to zero and
 strict sets where it does not; the installation
 #src("whitepaper/Fragment/InstallInd.lean", 150, 163)[proves it] from the construction of
@@ -935,9 +935,9 @@ the second kind of check of the certification tax (@sec:tax). Other checkers
 skip it for the reason they skip the first: in a well-typed major the
 fields are well-typed. The major premise itself needs no check. By the
 model's
-#src("whitepaper/Fragment/EnvModel.lean", 245, 271)[_major-premise law_], wherever the recursor's
+#src("whitepaper/Fragment/EnvModel.lean", 252, 278)[_major-premise law_], wherever the recursor's
 domain holds the point as the major, the redex or the constructor is
-the point (#src("whitepaper/Fragment/InstallIota.lean", 1031, 1041)[its proof]: a fibre holding the point is a
+the point (#src("whitepaper/Fragment/InstallIota.lean", 1051, 1061)[its proof]: a fibre holding the point is a
 truth value, so the family is a proposition there). In that case the
 reduced constructor application is the point, as the major is.
 
@@ -951,11 +951,11 @@ not reduced. What remains is Lean's type check: the major's inferred
 type reduces to the family at some arguments, and the constructor
 fabricated at their parameters has a type definitionally equal to it.
 That check decides whether the step is taken; no claim consumes it.
-The model's #src("whitepaper/Fragment/EnvModel.lean", 183, 209)[_K law_] says that at _any_
+The model's #src("whitepaper/Fragment/EnvModel.lean", 190, 216)[_K law_] says that at _any_
 values fitting the recursor's whole telescope, the major's included,
 an application that is not the point equals the right-hand side at
 the values before the indices. The installation
-#src("whitepaper/Fragment/InstallIota.lean", 966, 987)[proves it] by inversion of the least fixed
+#src("whitepaper/Fragment/InstallIota.lean", 986, 1007)[proves it] by inversion of the least fixed
 point. The major's value lies in the fibre at the recursor's
 parameters and indices, a member of a fibre is a constructor value
 reaching those indices, and with one constructor and no fields that
@@ -979,69 +979,141 @@ without a certificate, through the projections of the major.
 
 == Consistency <sec:consistency>
 
-An environment is #src("whitepaper/Fragment/Consistency.lean", 36, 50)[_accepted_] when it is built from the empty
-environment by the two steps of §3 and §4: a definition that
-passes its checks, or an inductive block that passes its checks and
-is installed. (A third step, a theorem stored as its statement, joins
-in @sec:modular.)
-An accepted environment is closed: #src("whitepaper/Fragment/Consistency.lean", 54, 59)[every stored term mentions only stored constants]. This is what
-@thm:install-def and the construction of @sec:ind-model
+The input is a list of declarations: definitions, inductive blocks,
+and theorems (@sec:modular). The checker
+#src("whitepaper/Fragment/Modular.lean", 224, 228)[accepts] it when
+each declaration passes its check against the environment of those
+before it, from the empty environment. An accepted list ends in a
+closed environment:
+#src("whitepaper/Fragment/Compare.lean", 439, 440)[every stored term mentions only stored constants].
+This is what @thm:install-def and the construction of @sec:ind-model
 assumed of the environment they extend.
 
-#theorem(name: "Every accepted environment has a model")[
-  For every model of the extended theory, every accepted environment
-  #src("whitepaper/Fragment/Consistency.lean", 62, 79)[has a model in it]
+The models of §3 and of @sec:ind-model are the proof's own: models of
+the environment the checker builds, with laws shaped for the
+soundness induction. The main theorem is stated over the input
+instead, one constant at a time. A declaration
+#src("whitepaper/Fragment/Modular.lean", 219, 220)[contributes the constants it stores]:
+a definition itself, a theorem its statement, a block its type
+former, constructors and recursor. Write $phi_arrow(n)$ for the
+valuation that sends the level parameters $arrow(p)$ of a constant to
+the values $arrow(n)$.
+
+#definition(name: "Model of the input")[
+  An assignment $M$ is
+  #src("whitepaper/Fragment/IsModel.lean", 189, 190)[a model of a set of constants]
+  when #src("whitepaper/Fragment/IsModel.lean", 176, 183)[every one of them holds in $M$],
+  each on its own: for $(c.\{arrow(p)\} : T)$ and every list of values
+  $arrow(n)$ with $|arrow(n)| = |arrow(p)|$,
+  + $M(c, arrow(n)) in lden T rden$ at $phi_arrow(n)$;
+  + if $c$ is a definition with value $v$, then
+    $M(c, arrow(n)) = lden v rden$ at $phi_arrow(n)$;
+  + if $c$ is a recursor, each of its rules
+    #src("whitepaper/Fragment/IsModel.lean", 156, 164)[holds, read off the recursor's own type]:
+    rule $j$ reads the $j$-th minor premise of the motive that $T$
+    concludes with. For all values $arrow(X), arrow(C), arrow(H)$
+    fitting the parameters, motives and minors of $T$, and all values
+    $arrow(F)$ fitting the first $k$ binders of that minor premise ($k$
+    the rule's field count), let the minor premise conclude with
+    $C' thick arrow(Y) thick t$ behind its fields and its inductive
+    hypotheses (which the conclusion does not mention). Then
+    $
+      M(c, arrow(n)) dot.op arrow(X) dot.op arrow(C) dot.op arrow(H)
+        dot.op lden arrow(Y) rden dot.op lden t rden
+      = lden R_j rden dot.op arrow(X) dot.op arrow(C) dot.op arrow(H) dot.op arrow(F).
+    $
+  A theorem's statement, and a hole (@sec:compare), only the first
+  clause.
+] <def:input-model>
+
+The clauses read the constant alone: no constructor is looked up, no
+level or parameter is compared, and the rule's equation holds at every
+fit, the point included. For a generated recursor the reading is a
+computation on the generated type: the minor premise's fields are the
+constructor's fields at the recursor's parameters, and its conclusion
+is the motive at the constructor's index expressions and the
+constructor applied to the parameters and the fields. (A nested
+block's auxiliary recursor reads the minor premises of its own motive,
+@sec:nest-rec.)
+
+#theorem(name: "Every accepted input has a model")[
+  For every model of the extended theory, the constants of every
+  accepted list of declarations
+  #src("whitepaper/Fragment/Main.lean", 46, 47)[have a model in it]
   (#src("ConLeche/MainTheorem.lean", 122, 128)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
-  By induction on the acceptance. The empty environment has a model;
-  a definition step is @thm:install-def; a block step is the
-  construction of @sec:ind-model, #src("whitepaper/Fragment/Install.lean", 176, 181)[assembled]: law 1 is its
-  membership claims, law 2 has no new instance, and law 3 is
-  @thm:iota.
+  By induction on the acceptance, the environment the list ends in has
+  a model in the sense of §3 and @sec:ind-model. The empty environment
+  has one; a definition step is @thm:install-def; a block step is the
+  construction of @sec:ind-model,
+  #src("whitepaper/Fragment/Holds.lean", 247, 250)[assembled]: law 1 is
+  its membership claims, law 2 has no new instance, and law 3 is
+  @thm:iota. The model of each step keeps every earlier constant's
+  set, and a declaration stores only fresh names, so every constant of
+  the input is stored in the final environment as it was declared.
+  Its first two clauses are laws 1 and 2 at the levels that evaluate
+  to $arrow(n)$. For a rule, the values $arrow(F)$ fitting the minor
+  premise's fields fit the constructor's fields at the parameters
+  $arrow(X)$, so the constructor's value at them is in the family at
+  the indices $lden arrow(Y) rden$, and the whole spine fits the
+  recursor's type. With the constructor's own levels and parameters
+  the three comparisons of @def:iota-law are equalities, so where the
+  recursor's application is not the point the law gives the equation
+  (#src("whitepaper/Fragment/IotaRead.lean", 254, 257)[the rule read off the type]).
+  Where it is the point, the motive's fibre is a truth value; the
+  right-hand side lies in the same fibre by the rule's typing, so it
+  is the point too.
 ]
 
 #real[
   The block step is one theorem,
   #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 76)[the install of a block],
-  read off the checker's run stage by stage.
+  read off the checker's run stage by stage. The rules of a stored
+  recursor are read off its type there as here, and the checker
+  accepts a recursor only where that reading is the one through its
+  constructors (@sec:differs).
 ]
 
 #corollary(name: "No proof of an empty proposition")[
   Let $I$ be an inductive type with no constructors, no parameters,
-  no indices and no level parameters, installed in an accepted
-  environment. Then #src("whitepaper/Fragment/Consistency.lean", 139, 149)[no closed term $e$ has] $tack e => I$; in
-  particular no stored constant has type $I$
-  (#src("whitepaper/Fragment/Consistency.lean", 155, 159)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 564, 571)[as in con-leche]).
+  no indices and no level parameters, declared by an accepted input
+  with large elimination. Then
+  #src("whitepaper/Fragment/Main.lean", 76, 79)[no constant of the input has type $I$],
+  a theorem among them; this follows from
+  #src("whitepaper/Fragment/Main.lean", 59, 62)[any model of constants that include $I$'s recursor]
+  (#src("ConLeche/Semantics/IsModelBasis.lean", 136, 137)[as in con-leche]).
+  In the environment the input ends in,
+  #src("whitepaper/Fragment/Main.lean", 89, 91)[no closed term $e$ has] $tack e => I$.
 ] <cor:consistency>
 
 #proof[
-  Take a model of the environment, by @thm:accepted-model, and read
-  law 1 for the block's recursor at the valuation that sends every
-  level to $0$. Its type is then
+  Take a model $M$ of the input, by @thm:accepted-model, and read the
+  first clause for $I$'s recursor at the values $0$. Its type is then
   $ forall (C : forall (t : I). thin Prop). thin forall (t : I). thin C thick t, $
   the elimination principle of an empty type, read as a
-  proposition, and law 1 puts the recursor's set in what it denotes.
-  If $e$ had $tack e => I$, @cor:closed would put $lden e rden$ into
-  $lden I rden$. Take for $C$ the abstraction over $lden I rden$ that
-  is constantly the empty truth value: it lies in the motive's domain,
-  so the recursor applied to $C$ and $lden e rden$ lies in $C dot.op
-  lden e rden$, the empty truth value: a member of the empty set.
-  The proof uses only that a model exists, not how it was built. (The
-  construction of @sec:ind-model also makes $lden I rden$ empty
-  outright, as the least fixed point of an operator with no step.)
+  proposition, and the clause puts the recursor's set in what it
+  denotes. A constant of type $I$ is, by its own first clause, a
+  member of $lden I rden$. Take for $C$ the abstraction over
+  $lden I rden$ that is constantly the empty truth value: it lies in
+  the motive's domain, so the recursor applied to $C$ and that member
+  lies in the empty truth value: a member of the empty set. The proof
+  uses only that a model of the input exists, not how it was built.
+  For a closed term $e$ with $tack e => I$, the same argument runs in
+  the environment's model, where @cor:closed puts $lden e rden$ into
+  $lden I rden$. (The construction of @sec:ind-model also makes
+  $lden I rden$ empty outright, as the least fixed point of an
+  operator with no step.)
 ]
 
 #real[
-  The real theorem differs in two ways. Its checker does not read
-  `False` from the stream but installs it from a built-in copy and
-  rejects a stream that declares it differently (likewise `Eq`,
-  `Nat` and a few others, @sec:left-out), so the main theorem can
-  name `False` and say that it denotes the empty set and `Eq` set
-  equality, with no hypothesis about the stream (#overview(1)); and
-  its acceptance is the run of a program,
+  The real theorem differs in two ways. Its checker rejects a stream
+  that declares `False` other than as the toolchain's prelude does
+  (likewise `Eq`, `Nat` and a few others, @sec:left-out), so a
+  corollary can read off the declarations' own clauses that `False`
+  denotes the empty set and `Eq` equality, in every model of the
+  input (#overview(1)); and its acceptance is the run of a program,
   #src("ConLeche/Model/Fold.lean", 493, 495)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The

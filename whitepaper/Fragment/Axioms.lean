@@ -13,6 +13,7 @@ public import Fragment.ValueReading
 public import Fragment.Probe
 public import Fragment.EtaIota
 public import Fragment.IOWitness
+public import Fragment.Main
 
 public section
 
@@ -46,16 +47,6 @@ info: 'Fragment.install_def' depends on axioms: [propext, Classical.choice, Quot
 info: 'Fragment.install_ind' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.install_ind
-
-/--
-info: 'Fragment.accepted_model' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms Fragment.accepted_model
-
-/--
-info: 'Fragment.no_empty_inductive_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms Fragment.no_empty_inductive_inhabitant
 
 /--
 info: 'Fragment.no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -136,11 +127,6 @@ info: 'Fragment.IndSpec.rec_rule_law1N' depends on axioms: [propext, Classical.c
 info: 'Fragment.install_nest' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.install_nest
-
-/--
-info: 'Fragment.install_ind_any' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms Fragment.install_ind_any
 
 /--
 info: 'Fragment.AccIter.closed_of_acc' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -575,21 +561,6 @@ info: 'Fragment.modular' depends on axioms: [propext, Classical.choice, Quot.sou
 #guard_msgs in #print axioms Fragment.modular
 
 /--
-info: 'Fragment.modular_model' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms Fragment.modular_model
-
-/--
-info: 'Fragment.modular_no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms Fragment.modular_no_empty_prop_inhabitant
-
-/--
-info: 'Fragment.modular_statements_hold' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms Fragment.modular_statements_hold
-
-/--
 info: 'Fragment.FromViews.restrict' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.FromViews.restrict
@@ -643,3 +614,109 @@ info: 'Fragment.install_justified' depends on axioms: [propext, Classical.choice
 info: 'Fragment.install_shared' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.install_shared
+
+/--
+info: 'Fragment.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.model_exists
+
+/--
+info: 'Fragment.IsModel.no_false' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IsModel.no_false
+
+/--
+info: 'Fragment.no_false_constant' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.no_false_constant
+
+/--
+info: 'Fragment.empty_of_rec_mem' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.empty_of_rec_mem
+
+/--
+info: 'Fragment.install_ind_holds' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_ind_holds
+
+/--
+info: 'Fragment.IndSpec.rule_holds' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rule_holds
+
+/--
+info: 'Fragment.IndSpec.rule_holdsN' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rule_holdsN
+
+/--
+info: 'Fragment.IndSpec.rule_holds1' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rule_holds1
+
+/--
+info: 'Fragment.IndSpec.rec_rule_coreN' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rec_rule_coreN
+
+/--
+info: 'Fragment.IndSpec.rule1_coreB' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rule1_coreB
+
+/--
+info: 'Fragment.ModelOf.congr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.ModelOf.congr
+
+/--
+info: 'Fragment.Holds.congr' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Holds.congr
+
+/--
+info: 'Fragment.EnvModel.modelOf' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.EnvModel.modelOf
+
+
+/--
+info: 'Fragment.Checks.find?_of_stores' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Checks.find?_of_stores
+
+/--
+info: 'Fragment.Assembled.holds' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Assembled.holds
+
+/--
+info: 'Fragment.modular_holds' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular_holds
+
+/--
+info: 'Fragment.solution_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.solution_model_exists
+
+/--
+info: 'Fragment.ChallengeChecks.model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.ChallengeChecks.model
+
+/--
+info: 'Fragment.step_shared' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.step_shared
+
+/--
+info: 'Fragment.Decl.Ok.step' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Decl.Ok.step
+
+/--
+info: 'Fragment.ModelOf.copyAt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.ModelOf.copyAt

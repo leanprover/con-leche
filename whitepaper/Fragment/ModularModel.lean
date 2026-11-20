@@ -1,6 +1,7 @@
 module
 
 public import Fragment.Modular
+public import Fragment.Holds
 public import Fragment.InstallThm
 public import Fragment.ModularSemantics
 
@@ -26,15 +27,17 @@ This file holds what the fragment's instance of the modular interface
   which lies in its type (`defVal_eq_pt`);
 * **the step**: the module's declarations are installed on the
   context's model (`Checks.blockModel`, the theorems of
-  `Install.lean`), keeping every set of the context and proofs the point;
+  `Install.lean`), keeping every set of the context and proofs the
+  point, every stored constant holding (`Holds`, `Holds.lean`);
 * **assembly** (`Assembled C E`): every constant of `C` is, at the
   same name, a constant of a member of the family `E`, or an
   assumption of its type, and lies within the part of that member that
   `C` stores too (`common`);
-* **amalgamation** (`Assembled.model`, `Assembled.proofsPt`): models of
-  the family that agree on every name of `C` two members store give a
-  model of `C` — the laws of each constant are those of the member's
-  constant it refines, at names `C` and the member both store;
+* **amalgamation** (`Assembled.model`, `Assembled.proofsPt`,
+  `Assembled.holds` in `ModularInstance.lean`): models of the family
+  that agree on every name of `C` two members store give a model of
+  `C` — the laws of each constant are those of the member's constant
+  it refines, at names `C` and the member both store;
 * **a closed part of a context** (`Assembled.restrict`, `FromViews.restrict`): a context need not be
   everything a module loads; any part closed under what its constants' laws read is assembled from
   the same views, which is why a module may be checked over the reach of its own declarations;
@@ -51,7 +54,8 @@ This file holds what the fragment's instance of the modular interface
 
 A context entry stays in the module's own environment unchanged
 (`Checks.find?_context`): a checked declaration stores only fresh
-names.
+names, each once, so every entry a declaration stores is found in the
+environment the checked list ends in (`Checks.find?_of_stores`).
 -/
 
 namespace Fragment
@@ -154,6 +158,7 @@ theorem Decl.Ok.fresh {E : Env} {d : Decl} (h : d.Ok E) : ∀ n ∈ d.names, E.f
     cases hn : S.nest with
     | none => rw [hn] at h; exact h.fresh
     | some N => rw [hn] at h; exact h.fresh
+  | hole _ _ _ => exact h.elim
 
 omit [IndLib V] in
 /-- **A context entry stays in the own environment**: a checked list
@@ -173,6 +178,69 @@ theorem Checks.find?_context {E : Env} {ds : List Decl} (hc : Checks E ds) {n : 
       rw [hd.fresh n hm] at h; cases h
 
 omit [IndLib V] [LevelOracle] in
+theorem lookup_of_mem_nodup : ∀ {l : List (Name × ConstInfo)}, (l.map Prod.fst).Nodup →
+    ∀ {n : Name} {e : ConstInfo}, (n, e) ∈ l → l.lookup n = some e
+  | [], _, _, _, h => by cases h
+  | (m, e') :: l, hnd, n, e, h => by
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    rcases List.mem_cons.mp h with h | h
+    · cases h; simp [List.lookup]
+    · have hnm : n ≠ m := fun hnm => hnd.1 ⟨(n, e), h, hnm⟩
+      have hb : (n == m) = false := beq_eq_false_iff_ne.mpr hnm
+      simp only [List.lookup, hb]
+      exact lookup_of_mem_nodup hnd.2 h
+
+omit [IndLib V] in
+/-- **A checked declaration stores each name once.** -/
+theorem Decl.Ok.keys_nodup {E : Env} {d : Decl} (h : d.Ok E) : (d.stores.map Prod.fst).Nodup := by
+  cases d with
+  | defn c ci => simp [Decl.stores, Decl.apply, Env.add, Env.empty]
+  | thm c ci v => simp [Decl.stores, Decl.apply, Env.add, Env.empty]
+  | hole _ _ _ => exact h.elim
+  | ind S =>
+    have hC : (S.envCtors Env.empty).consts =
+        (S.ctors.map fun c => (c.name, S.ctorInfo c)).reverse ++ [(S.name, S.indInfo)] :=
+      IndSpec.foldl_add_empty S S.ctors [(S.name, S.indInfo)]
+    have hr : ∀ l : List Name, l.reverse.Nodup ↔ l.Nodup := fun l => (List.reverse_perm l).nodup_iff
+    simp only [Decl.Ok, IndOk] at h
+    simp only [Decl.stores, Decl.apply, IndSpec.install, IndSpec.installN]
+    cases hn : S.nest with
+    | none =>
+      rw [hn] at h
+      have hnd := h.nodup
+      simp only [Env.add, hC, List.map_cons, List.map_append, List.map_reverse, List.map_map,
+        List.map_nil]
+      simp only [List.nodup_cons, List.mem_cons, List.mem_map, not_or] at hnd ⊢
+      simp only [List.nodup_append, hr, List.mem_append, List.mem_reverse,
+        List.mem_map, List.mem_singleton, List.nodup_cons, List.not_mem_nil, not_false_eq_true,
+        List.nodup_nil, and_true] at ⊢
+      grind
+    | some N =>
+      rw [hn] at h
+      have hnd := h.nodup
+      simp only [Env.add, hC, List.map_cons, List.map_append, List.map_reverse, List.map_map,
+        List.map_nil]
+      simp only [List.nodup_cons, List.mem_cons, List.mem_map, not_or] at hnd ⊢
+      simp only [List.nodup_append, hr, List.mem_append, List.mem_reverse,
+        List.mem_map, List.mem_singleton, List.nodup_cons, List.not_mem_nil, not_false_eq_true,
+        List.nodup_nil, and_true] at ⊢
+      grind
+
+omit [IndLib V] in
+/-- **An entry a checked declaration stores is found** in the
+environment the checked list ends in. -/
+theorem Checks.find?_of_stores {E : Env} {ds : List Decl} (hc : Checks E ds) {d : Decl} {n : Name}
+    {ci : ConstInfo} (hd : d ∈ ds) (hm : (n, ci) ∈ d.stores) : (applyAll ds E).find? n = some ci := by
+  induction hc with
+  | nil => cases hd
+  | @cons E d' ds hd' hc' ih =>
+    rcases List.mem_cons.mp hd with rfl | hd
+    · apply hc'.find?_context
+      rw [Decl.apply_eq]
+      exact lookup_append_of_some (lookup_of_mem_nodup hd'.keys_nodup hm)
+    · exact ih hd
+
+omit [IndLib V] [LevelOracle] in
 /-- A block stores no constant of a statement kind. -/
 theorem ind_stores_not_stmt {S : IndSpec} {n : Name} {e : ConstInfo}
     (h : (Decl.ind S).stores.lookup n = some e) : ¬ e.IsStmt := by
@@ -188,16 +256,17 @@ theorem ind_stores_not_stmt {S : IndSpec} {n : Name} {e : ConstInfo}
     grind [IndSpec.indInfo, IndSpec.ctorInfo, IndSpec.recInfo, IndSpec.recInfoN, IndSpec.rec1Info]
 
 /-- **Installing a checked list preserves having a model**: every
-stored constant keeps its set, and proofs stay the point. -/
+stored constant keeps its set, proofs stay the point, and every stored
+constant holds (`Holds`, `Holds.lean`). -/
 theorem Checks.blockModel {E : Env} {ds : List Decl} (hc : Checks E ds) :
-    Env.Scoped E → ∀ m : BlockModel V E, ProofsPt E m.M →
+    Env.Scoped E → ∀ m : BlockModel V E, ProofsPt E m.M → Holds E m.M →
       ∃ m' : BlockModel V (applyAll ds E),
         (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
-        ProofsPt (applyAll ds E) m'.M := by
+        ProofsPt (applyAll ds E) m'.M ∧ Holds (applyAll ds E) m'.M := by
   induction hc with
-  | nil => intro _ m hp; exact ⟨m, fun _ _ _ => rfl, hp⟩
+  | nil => intro _ m hp hh; exact ⟨m, fun _ _ _ => rfl, hp, hh⟩
   | @cons E d ds hd _ ih =>
-    intro hs m hp
+    intro hs m hp hh
     -- an old name keeps its set, and its type its reading
     have hold : ∀ m₁ : BlockModel V (d.apply E),
         (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) →
@@ -237,23 +306,43 @@ theorem Checks.blockModel {E : Env} {ds : List Decl} (hc : Checks E ds) :
           rw [hval ls]
           exact defVal_eq_pt m.toEnvModel hok rfl hpt' ls
         · cases hl
-    obtain ⟨m₁, hag₁, hp₁⟩ : ∃ m₁ : BlockModel V (d.apply E),
+    -- a statement's new constant holds by the typing and unfolding laws
+    have hstmt : ∀ (m₁ : BlockModel V (d.apply E)) (c : Name) (ci : ConstInfo),
+        (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) → d.stores = [(c, ci)] →
+        ci.IsStmt → Holds (d.apply E) m₁.M := by
+      intro m₁ c ci hag hst hk
+      refine Holds.apply hs hh (fun n hn ls => (hag n hn ls).symm) fun n ci' hl => ?_
+      rw [hst] at hl
+      simp only [List.lookup] at hl
+      split at hl
+      · cases hl
+        rename_i hnc
+        have hnc' : n = c := beq_iff_eq.mp hnc
+        subst hnc'
+        refine m₁.toEnvModel.modelOf ?_ fun _ _ _ _ _ h => ?_
+        · rw [Decl.apply_eq, hst]; simp [Env.find?]
+        · rcases hk with h' | ⟨v, h'⟩ <;> rw [h'] at h <;> cases h
+      · cases hl
+    obtain ⟨m₁, hag₁, hp₁, hh₁⟩ : ∃ m₁ : BlockModel V (d.apply E),
         (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) ∧
-        ProofsPt (d.apply E) m₁.M := by
+        ProofsPt (d.apply E) m₁.M ∧ Holds (d.apply E) m₁.M := by
       cases d with
       | defn c ci =>
         obtain ⟨m₁, hag, hval⟩ := install_def' hs m hd
         obtain ⟨v, -, hk, -⟩ := hd.2.2.1
         have hci : { ci with kind := .defn v } = ci := by
           obtain ⟨l, t, k⟩ := ci; simp only at hk; rw [hk]
-        refine ⟨m₁, hag, hnew m₁ c ci v hag rfl (hci ▸ hd) fun ls => ?_⟩
+        refine ⟨m₁, hag, hnew m₁ c ci v hag rfl (hci ▸ hd) fun ls => ?_,
+          hstmt m₁ c ci hag rfl (.inr ⟨v, hk⟩)⟩
         rw [hval v hk ls, hci]
       | thm c ci v =>
         obtain ⟨m₁, hag, hval⟩ := install_thm hs m hd
-        exact ⟨m₁, hag, hnew m₁ c ci v hag rfl hd.2.1 hval⟩
+        exact ⟨m₁, hag, hnew m₁ c ci v hag rfl hd.2.1 hval, hstmt m₁ c ci hag rfl (.inl hd.1)⟩
+      | hole _ _ _ => exact hd.elim
       | ind S =>
-        obtain ⟨m₁, hag⟩ := install_ind_any hs m hd
-        refine ⟨m₁, hag, fun n ci hf hk hpt => ?_⟩
+        obtain ⟨m₁, hag, hnewS⟩ := install_ind_holds hs m hd
+        refine ⟨m₁, hag, fun n ci hf hk hpt => ?_,
+          Holds.apply hs hh (fun n hn ls => (hag n hn ls).symm) hnewS⟩
         cases hl : (Decl.ind S).stores.lookup n with
         | none => exact hold m₁ hag n ci hl hf hk hpt
         | some e =>
@@ -268,8 +357,9 @@ theorem Checks.blockModel {E : Env} {ds : List Decl} (hc : Checks E ds) :
       | defn c ci => exact hs.add_def hd
       | thm c ci v => exact hs.add_thm hd
       | ind S => exact hs.install_any hd
-    obtain ⟨m', hag', hp'⟩ := ih hs₁ m₁ hp₁
-    exact ⟨m', fun n hn ls => (hag' n (isSome_find?_apply hn d) ls).trans (hag₁ n hn ls), hp'⟩
+      | hole _ _ _ => exact hd.elim
+    obtain ⟨m', hag', hp', hh'⟩ := ih hs₁ m₁ hp₁ hh₁
+    exact ⟨m', fun n hn ls => (hag' n (isSome_find?_apply hn d) ls).trans (hag₁ n hn ls), hp', hh'⟩
 
 /-! ## Assembling an environment from others -/
 
