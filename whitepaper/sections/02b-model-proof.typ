@@ -113,7 +113,7 @@ that _a graph is never the point_: a function and a proof are never
 the same set. Together with domain uniqueness this makes "the domain
 of $f$" a meaningful phrase for every value $f$ that may be applied:
 everything if $f$ is the point, $A$ if $f$ is the graph
-$graph(F, A)$. This is what lets β fire with no premise at all.
+$graph(F, A)$. This is what lets the reduction rule β fire with no premise at all.
 
 One law is deliberately restricted: closure of a universe under
 function spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for
@@ -179,8 +179,8 @@ domain is itself the point, a proof; otherwise it is a graph. The
 choice depends on these values and on nothing else. The interpretation does not know the sort
 of $B$, and does not compute it.
 
-*The empty domain.* Over a non-empty domain the values choose the
-reading the sort of the body would choose. Over an _empty_ domain
+*The empty domain.* For a well-typed body over a non-empty domain,
+the values choose the interpretation the sort of the body would choose. Over an _empty_ domain
 there are no values, and both clauses take their first case: a
 function space over an empty domain
 #src("whitepaper/Fragment/Lib.lean", 676, 682)[is ${pt}$], and an abstraction over one
@@ -298,7 +298,7 @@ to arguments that are equal where neither is the point must be equal,
 and that needs the two arguments to be both the point or neither,
 which their common domain, a type, provides.
 
-The invariant records which sets are types; that is what lets the
+The semantic invariant records which sets are types; that is what lets the
 proof conclude that two values in one type are both the point or
 neither. Where a lambda is typed, its inference rule supplies a family
 of types holding the body's values, and then the choice between the
@@ -759,7 +759,8 @@ $
 $
 where $H'_rho (T, w)$ holds only when $T$ is a Π-type
 $forall x : A. thin B$, $lden A rden_rho$ is a type, $w$ is a graph
-over $lden A rden_rho$ that is not the point at every member, and
+over $lden A rden_rho$ with $w dot.op v' != pt$ for some
+$v' in lden A rden_rho$, and
 $H_(rho, x |-> v) (B, w dot.op v)$ for every $v in lden A rden_rho$.
 It is
 #src("whitepaper/Fragment/IOGrade.lean", 362, 363)[proved for every rule]
@@ -792,7 +793,8 @@ Three points of this section run through the rest of the paper. The claims of re
 equality are conditional: they say nothing about a term that denotes
 the point. The checks of the certification tax are exactly what a
 typing judgement would otherwise supply: a common type for the two
-sides of a comparison where nothing else gives one. And the proof uses
+bodies at lambda congruence and $eta$, and, at the certified case of
+ι, the typing of the constructor application. And the proof uses
 no subject reduction, no confluence, no injectivity of Π-types and no
 unique typing; it needs only the laws of the set theory and the
 derivations of the checker's three relations.
