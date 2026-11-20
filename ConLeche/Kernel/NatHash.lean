@@ -8,7 +8,7 @@ module
 `natBigHash n` mixes all 64-bit words of `n` with Lean's `mixHash`
 (`native/nat_hash.c`).  It is VENDORED FROM lean4#16146 (which fixes
 lean4#15686): the C of that PR's `Literal.natHash`, under upstream's own
-symbol `lean_nat_big_hash`.  The v4.35.0 runtime does not export it; a
+symbol `lean_nat_big_hash`.  The v4.36.0 runtime does not export it; a
 toolchain that ships lean4#16146 does, and then the link fails on the
 duplicate definition.
 

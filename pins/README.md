@@ -5,10 +5,10 @@ pinned definitions (named after the toolchain that first needed it),
 and the built-in prelude of the repository's own toolchain:
 
     pins/leanprover-lean4-nightly-nightly-2026-11-16.json     lean4 master since its wf-recursion changes
-    pins/leanprover-lean4-nightly-nightly-2026-09-10.json     the dump matching the repository toolchain (v4.35.0)
+    pins/leanprover-lean4-nightly-nightly-2026-09-10.json     the dump matching the repository toolchain (v4.36.0)
     pins/leanprover-lean4-v4.34.0-rc2.json                    further dumps ("pin variants")
     pins/leanprover-lean4-v4.33.0.json
-    pins/leanprover-lean4-v4.35.0.prelude.ndjson              the built-in prelude
+    pins/leanprover-lean4-v4.36.0.prelude.ndjson              the built-in prelude
 
 ## The pin dump (`<toolchain>.json`)
 
@@ -119,8 +119,8 @@ variant accepts v4.29.0 … v4.33.1 exports; v4.34.0-rc2 renamed the
 `if_pos`/`dif_pos`/`Nat.div_eq` family the certificate blobs cite and
 needs its own; the nightly variant covers lean4 master from the
 `Decidable` rewrite to the wf-recursion changes of 2026-11-12, and also
-v4.35.0, the repository toolchain, which therefore has no dump of its
-own; the nightly-2026-11-16 variant covers lean4 master after those
+v4.35.0 and v4.36.0, the repository toolchain, which therefore has no
+dump of its own; the nightly-2026-11-16 variant covers lean4 master after those
 changes — `Nat.bitwise` and with it `Nat.land`/`Nat.lor`/`Nat.xor`
 are respelled).
 
@@ -131,7 +131,7 @@ byte-for-byte, meta line (the generating Lean's version and githash)
 included.  It holds
 only the pinned basis blocks and the `Bool`/`And` blocks, which have
 not changed across the supported toolchains (the nightly's and
-v4.33.0's generated preludes are byte-identical to v4.35.0's below
+v4.33.0's generated preludes are byte-identical to v4.36.0's below
 the meta line).  A
 stream's own record is used wherever it has one — the prelude's copy
 only fills in what the stream lacks; `And` is pinned by the fold, so a

@@ -22,6 +22,9 @@ writes a file (`tests/trust-surface.sh`'s process fence).  What it does, all of 
 * **workers that inherit nothing but their three standard streams**, all pipes: stdin closed at
   the start, stdout and stderr each read to the end by a thread of its own (so no worker blocks
   on a full pipe), stderr passed on for a verdict other than 0 (`WCfg`, `spawnW`, `passedOn`);
+  their environment is the scheduler's, with `LEAN_STACK_SIZE_KB` set to `--worker-stack-size`
+  where it is given (`stackEnv`): the scheduler's own threads, the readers among them, keep
+  Lean's default stack;
 * **kills of its own children only**: a victim of an overflow (`victims`), a worker alone over
   the limit (`aloneAct`), a worker past its time limit (`timeout`, seconds, 0 for none; its
   verdict `timeout`) and every running worker at an interrupt is killed by `Child.kill` of the
@@ -31,9 +34,12 @@ writes a file (`tests/trust-surface.sh`'s process fence).  What it does, all of 
 * **SIGINT and SIGTERM** (`Std.Async.Signal.Waiter`, polled every tick): no further start, every
   running worker killed through its own `Child` and waited for, logged as `killed` (no verdict),
   the log flushed, the statistics printed, and the exit code 130 (SIGINT) or 143 (SIGTERM);
-* **no worker outlives the scheduler**: a worker that cannot be started is that module's verdict
-  3, with the reason, and no further one starts; the running ones are waited for.  On any other
-  error the running workers are killed before the error is passed on;
+* **a worker that cannot be started** (`spawnFailAct`) while others run is no verdict: the module
+  goes back to its position and no worker starts until a running one has ended (`startsHeld`),
+  with a line for the first failure of a series; with none running it is that module's verdict
+  3, with the reason, and no further one starts;
+* **no worker outlives the scheduler**: on an error the running workers are killed before the
+  error is passed on;
 * **the verdicts** are reported in the graph's order (`summary`);
 * **the commands instead of a run** (`--schedule-commands`, `printCommands`): no process
   started; the commands that check the closure (`commandLines`) on stdout, nothing else.
@@ -57,20 +63,9 @@ structure Opts where
   shuffled : Bool := true
   /-- print the commands that check the closure instead of running them -/
   commands : Bool := false
-
-/-- A memory size in KiB: a number with a unit, `K`, `M`, `G` or `T` (KiB, MiB, GiB, TiB; the
-lower-case letters too): `512M`, `40G`.  No unit is no size: a bare number could as well mean
-bytes as MiB. -/
-def parseSize (v : String) : Option Nat :=
-  let unit : Option Nat := match v.back with
-    | 'K' | 'k' => some 1
-    | 'M' | 'm' => some 1024
-    | 'G' | 'g' => some (1024 * 1024)
-    | 'T' | 't' => some (1024 * 1024 * 1024)
-    | _ => none
-  match unit, (v.dropEnd 1).toString.toNat? with
-  | some u, some n => some (n * u)
-  | _, _ => none
+  /-- the workers' stack size, KiB (`--worker-stack-size`; `none`: they inherit the scheduler's
+  environment unchanged) -/
+  stackKb : Option Nat := none
 
 /-- The settings, from the values of the `--schedule[-OPT=VALUE]` flags (`""` for the bare
 flag, `-log=FILE`, `-memory=SIZE` (`parseSize`), `-timeout=S`, `-order=shuffled|graph`,
@@ -135,10 +130,11 @@ def Running.sampled (r : Running) (now k h : Nat) : Running :=
   { r with hwm := max r.hwm h, recent := pushMinute r.recent ((now - r.start) / 60000) x }
 
 /-- A worker started: the binary `app` at the arguments, the last of which is `spell m`, with
-`threads` threads; its stdin closed, its stdout and stderr drained. -/
+`threads` threads and the environment changes `env` (`stackEnv`); its stdin closed, its stdout
+and stderr drained. -/
 def spawnW (app : System.FilePath) (m : Name) (args : Array String) (now : Nat)
-    (threads : Nat := 1) : IO Running := do
-  let c ← IO.Process.spawn { cmd := app.toString, args, stdin := .piped, stdout := .piped
+    (threads : Nat := 1) (env : Array (String × Option String) := #[]) : IO Running := do
+  let c ← IO.Process.spawn { cmd := app.toString, args, env, stdin := .piped, stdout := .piped
                            , stderr := .piped : IO.Process.SpawnArgs }
   let (_, c) ← c.takeStdin
   let out ← IO.asTask (prio := .dedicated) c.stdout.readToEnd
@@ -180,8 +176,13 @@ structure St extends Stats where
   doneMs : Nat := 0
   /-- the time of the last line, module or heartbeat -/
   lastLine : Nat := 0
-  /-- a worker could not be started: no more start -/
+  /-- a worker could not be started with none running: no more start -/
   stopped : Bool := false
+  /-- a worker could not be started while this many ran: no start until fewer run
+  (`startsHeld`) -/
+  hold : Option Nat := none
+  /-- what held the starts back after the last tick (`heldBy`), for the time-weighted sums -/
+  held : Option HeldBy := none
   /-- the running workers' resident memory at the last tick, KiB: the total now, the largest
   now, and the sum of their reservations (`none`: `/proc` could not be read) -/
   mem : Option (Nat × Nat × Nat) := none
@@ -222,8 +223,9 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     IO (Std.HashMap Name String × Nat × Option (String × UInt8)) := do
   let err ← IO.getStderr
   let out ← IO.getStdout
-  -- the workers inherit the stack size; a `stack` verdict is logged with it
-  let stackKb := (← IO.getEnv "LEAN_STACK_SIZE_KB").getD "-"
+  -- the workers' stack size (the flag's, else the one they inherit); a `stack` verdict is logged
+  -- with it
+  let stackKb := stackUsed o.stackKb (← IO.getEnv "LEAN_STACK_SIZE_KB")
   -- the cgroup's OOM-kill counter, to tell a SIGKILL by the OOM killer from another
   let cg ← limitCgroup
   let oomRef ← IO.mkRef (← match cg with | some d => oomKills d | none => pure none)
@@ -267,7 +269,7 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     statusText total st.nDone st.running.size
       (etaMs (total - st.nDone) (logged.msSum + st.doneMs)
         (logged.msN + st.finished) st.runMs (now - t0) logged.workers jobs)
-      jobs (threadsOf st) st.mem o.memory
+      jobs (threadsOf st) st.mem o.memory (planNow st)
   let finish (st : St) (r : Running) (w : String) : IO St := do
     let (outText, msg) ← r.texts
     let now ← IO.monoMsNow
@@ -295,8 +297,11 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     logLine (killLine r.m (now - r.start) (st.seen.getD r.m 0) r.threads)
   let jobs := max 1 jobs
   -- a start: the worker's threads from `threadCap` (`cap`), the declarations read only where
-  -- `cap` is above 1, one thread for a module once killed with more
-  let start (st : St) (m : Name) (now : Nat) (cap : Nat) : IO St := do
+  -- `cap` is above 1, one thread for a module once killed with more; whether it started.  A
+  -- failed start with workers running puts the module back (`fromAgain`: it came from the killed
+  -- ones) and holds the starts; with none, it is the module's verdict 3 (`spawnFailAct`)
+  let start (st : St) (m : Name) (fromAgain : Bool) (now : Nat) (cap : Nat) :
+      IO (St × Bool) := do
     let mut st := st
     let mut t := 1
     if cap > 1 && !st.single.contains m then
@@ -305,15 +310,27 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
       let t1 ← IO.monoMsNow
       st := { st with declReads := st.declReads + 1, declMs := st.declMs + (t1 - t0) }
       t := threadsFor cap (n.getD 0)
-    match ← (spawnW app m (args m t) now t).toBaseIO with
-    | .ok r => return { st with running := st.running.push r,
-                                threadStarts := st.threadStarts + (if t > 1 then 1 else 0) }
+    match ← (spawnW app m (args m t) now t (stackEnv o.stackKb)).toBaseIO with
+    | .ok r => return ({ st with running := st.running.push r,
+                                 threadStarts := st.threadStarts + (if t > 1 then 1 else 0) }, true)
     | .error e =>
-      err.putStrLn s!"con-leche: schedule: {m}: 3: no worker started: {e}; no further \
-        worker starts, the running ones are waited for"
-      err.flush
-      return { st with verdicts := st.verdicts.insert m "3", nDone := st.nDone + 1,
-                       stopped := true, nonzero := st.nonzero + 1 }
+      match spawnFailAct st.running.size with
+      | .requeue =>
+        -- the first failure of a series has a line; the others are counted
+        if st.hold.isNone then
+          err.putStrLn s!"con-leche: schedule: {m}: no worker started: {e}; requeued, the \
+            starts wait for one of the {st.running.size} running workers to end"
+          err.flush
+        let (again, pending) := requeueFailed pos m fromAgain st.again st.pending
+        return ({ st with again, pending, hold := some st.running.size,
+                          spawnFails := st.spawnFails + 1 }, false)
+      | .stop =>
+        err.putStrLn s!"con-leche: schedule: {m}: 3: no worker started: {e}; no worker \
+          running, no further worker starts"
+        err.flush
+        return ({ st with verdicts := st.verdicts.insert m "3", nDone := st.nDone + 1,
+                          stopped := true, nonzero := st.nonzero + 1,
+                          spawnFails := st.spawnFails + 1 }, false)
   -- one tick: the running workers looked at, the budget, the starts, the heartbeat
   let tick (st : St) : IO St := do
     let now ← IO.monoMsNow
@@ -323,7 +340,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     st := { st with lastTick := now, runMs := st.runMs + st.running.size * dt,
                     memMs := st.memMs + (st.mem.map (·.1)).getD 0 * dt,
                     resMs := st.resMs + st.effPk * dt,
-                    memSeen := st.memSeen || st.mem.isSome }
+                    memSeen := st.memSeen || st.mem.isSome,
+                    heldMemMs := st.heldMemMs + (if st.held == some .memory then dt else 0),
+                    heldJobsMs := st.heldJobsMs + (if st.held == some .jobs then dt else 0),
+                    heldSpawnMs := st.heldSpawnMs + (if st.held == some .spawn then dt else 0) }
     -- the resident sets, every tick, budget or not
     let rss ← workerRssOpt
     let look (l : List (String × Nat × Nat)) (r : Running) : Nat × Nat :=
@@ -435,8 +455,12 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     let take (st : St) (m : Name) : St :=
       { st with again := st.again.erase m,
                 pending := if st.pending.head? == some m then st.pending.tail else st.pending }
+    -- a failed start's hold ends once fewer workers run than at the failure
+    if !startsHeld st.hold st.running.size then st := { st with hold := none }
     if st.stopped then
       st := { st with pending := [], again := [] }
+    else if st.hold.isSome then
+      pure ()
     else
       let mut room := roomOf st (eff st st.running)
       let mut started := false
@@ -457,16 +481,19 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
                 {gib room}: {m}"
               err.flush
           room := room - min room need
-          st ← start (take st m) m now (capOf st room)
-          st := { st with head := some m }
-          started := true
+          let (st', ok) ← start (take st m) m (st.again.contains m) now (capOf st room)
+          st := st'
+          if ok then
+            st := { st with head := some m }
+            started := true
       for _ in [0:jobs] do
-        if st.stopped || threadsOf st ≥ jobs then break
+        if st.stopped || st.hold.isSome || threadsOf st ≥ jobs then break
         match nextFit pos (st.sizes.getD · 0) st.typ room st.again st.pending with
         | some m =>
           room := room - min room (max st.typ (st.sizes.getD m 0))
-          st ← start (take st m) m now (capOf st room)
-          started := true
+          let (st', ok) ← start (take st m) m (st.again.contains m) now (capOf st room)
+          st := st'
+          started := started || ok
         | none => break
       -- a start ends the stretch: its surprise is kept, and what admission reserved now is the
       -- new reference
@@ -475,6 +502,10 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
         let ws := if ws.size > surpriseWindow then ws.extract (ws.size - surpriseWindow) ws.size else ws
         st := { st with surprises := ws, surpriseTop := max st.surpriseTop st.epMax, epMax := 0,
                         resv := st.running.foldl (fun m r => m.insert r.m (eff1 st r)) {} }
+    -- what holds the starts back until the next tick
+    let held := heldBy (!st.pending.isEmpty || !st.again.isEmpty) st.hold.isSome st.stopped
+      (threadsOf st) jobs
+    st := { st with held }
     -- while modules wait for room: the reservations in the log, at most once a minute
     if o.memory > 0 && rss.isSome && now - st.lastReserve ≥ 60000 && waitingOf st > 0 then
       if let some h := logH then
@@ -507,11 +538,14 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     err.putStrLn s!"con-leche: schedule: from the log: {s0.peaks.size} peaks (typical peak \
       {gib s0.typ}), {s0.again.length} killed modules to run again"
   let stRef ← IO.mkRef { st0 with nDone := total - todo.length, lastLine := t0, lastTick := t0 }
-  -- SIGINT and SIGTERM, polled every tick; where they cannot be set up the run has no handler
+  -- SIGINT and SIGTERM, polled every tick; where they cannot be set up the run has no handler.
+  -- The waiters repeat: a one-shot one gives the signal back its default action once it fired, and
+  -- a second SIGINT (`timeout -s INT` sends it to the child and to its process group, a user may
+  -- press Ctrl-C twice) then ended the scheduler before it killed the workers and printed anything
   let sigs : Array (Std.Async.AsyncTask Int × String × UInt8) ←
     try
       let mkW (s : Std.Async.Signal) (name : String) (code : UInt8) := do
-        let w ← Std.Async.Signal.Waiter.mk s false
+        let w ← Std.Async.Signal.Waiter.mk s true
         return ((← w.wait), name, code)
       pure #[← mkW .sigint "SIGINT" 130, ← mkW .sigterm "SIGTERM" 143]
     catch _ => pure #[]
@@ -608,7 +642,7 @@ def printCommands (paths : Array String) (root : Name) (cmp : Option Name) (mods
   let app ← IO.appPath
   let order := if o.shuffled then shuffle spell mods.toList else mods.toList
   let out ← IO.getStdout
-  for l in commandLines app.toString paths root cmp order args do out.putStrLn l
+  for l in commandLines app.toString paths root cmp order args o.stackKb do out.putStrLn l
   out.flush
   return 0
 

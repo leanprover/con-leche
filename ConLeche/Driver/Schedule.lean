@@ -55,10 +55,10 @@ def Schedule.declCount {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Nam
 
 /-- **The scheduler**, generic in the IO class (see the module docstring); `opts` the values of
 its `--schedule` flags, `jobsGiven` whether `--jobs` was given (the printed commands carry it only
-then). -/
+then), `stackKb` the workers' stack size (`--worker-stack-size`, KiB). -/
 def scheduleG {μ : Type → Type} [CheckerIO μ] (tp sp : SearchPath) (root : Name) (cmp : Option Name)
     (opts : List String) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
-    (jobsGiven : Bool) : μ UInt8 := do
+    (jobsGiven : Bool) (stackKb : Option Nat) : μ UInt8 := do
   -- the heartbeat: `--progress=N` after N ms without a line (at least a second), `Ss` after S
   -- seconds; a percentage has no meaning here (every module's line says how far the run is)
   let beat : Except String Nat := match pace with
@@ -67,7 +67,7 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (tp sp : SearchPath) (root : N
     | .seconds s => .ok (s * 1000)
     | .percent _ => .error "--schedule takes --progress=N (milliseconds) or --progress=Ss, \
         not a percentage"
-  match beat >>= fun h => (Schedule.Opts.parse opts { heartbeat := h }) with
+  match beat >>= fun h => (Schedule.Opts.parse opts { heartbeat := h, stackKb }) with
   | .error msg =>
     diagLine s!"con-leche: {msg}"
     return 3

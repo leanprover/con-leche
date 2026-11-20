@@ -168,7 +168,7 @@ def fixtures : List String :=
 /-! ## The command line (`--`): after it, everything is a file -/
 
 example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] := by
-  simp [ConLeche.Driver.parseArgs]
+  simp [ConLeche.Driver.parseArgs, ConLeche.Driver.Args.closed]
 #guard (ConLeche.Driver.parseArgs ["--", "-weird-name.ndjson"] {}).files == #["-weird-name.ndjson"]
 #guard (ConLeche.Driver.parseArgs ["--", "-weird-name.ndjson"] {}).bad.isNone
 #guard (ConLeche.Driver.parseArgs ["--jobs=2", "--", "--trusted", "--"] {}).files ==
@@ -180,7 +180,21 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 -- The help fits a terminal, and names every flag `parseArgs` takes.
 #guard (ConLeche.Driver.helpText.splitOn "\n").all (·.length ≤ 80)
 #guard ["--verified", "--trusted", "--jobs=", "--max-nat-size=", "--progress", "--help",
-    "--olean", "--search-path=", "--constant="].all (ConLeche.Driver.helpText.contains ·)
+    "--olean", "--search-path=", "--constant=", "--schedule", "--worker-stack-size="].all
+  (ConLeche.Driver.helpText.contains ·)
+-- `--worker-stack-size=SIZE` (DESIGN #620): a size with a unit, in KiB, only with `--schedule`
+#guard (ConLeche.Driver.parseArgs ["--olean", "--schedule", "--worker-stack-size=8G", "--", "M"]
+  {}).workerStack == some 8388608
+#guard (ConLeche.Driver.parseArgs ["--worker-stack-size=8G", "--schedule", "--", "M"]
+  {}).bad.isNone
+#guard (ConLeche.Driver.parseArgs ["--schedule", "--worker-stack-size=8388608", "--", "M"]
+  {}).bad.isSome
+#guard (ConLeche.Driver.parseArgs ["--schedule", "--worker-stack-size=0G", "--", "M"]
+  {}).bad.isSome
+#guard (ConLeche.Driver.parseArgs ["--olean", "--worker-stack-size=8G", "--", "M"]
+  {}).bad == some "--worker-stack-size takes --schedule"
+#guard (ConLeche.Driver.parseArgs ["--olean", "--worker-stack-size=8G", "M"]
+  {}).bad == some "--worker-stack-size takes --schedule"
 
 /-! ## The maximum `Nat` size (`--max-nat-size`, `natOpRefusal`; official lean4#14849) -/
 
@@ -220,6 +234,6 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 #guard (ConLeche.Cached.NatBinOp.ofName? (ConLeche.natName.str "addd")).isNone
 /-- No flag: the verified mode. -/
 example : (ConLeche.Driver.parseArgs ["--", "x"] {}).mode = .verified := by
-  simp [ConLeche.Driver.parseArgs]
+  simp [ConLeche.Driver.parseArgs, ConLeche.Driver.Args.closed]
 
 end ConLecheTests.CheckerIOTests

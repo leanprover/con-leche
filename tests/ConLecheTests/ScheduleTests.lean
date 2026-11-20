@@ -16,7 +16,10 @@ out), the windowed peak (`pushMinute`, `windowPeak`), the fixed queue and its he
 <module>`, the five fields of the ms/rss/at format, the eleven of the statistics and threads
 format) and `killed` lines; the new verdicts (`stack`, `oom-kill`, `signal N (NAME)`, DESIGN #569)
 with `exitVerdict` and `parseLog`'s retry rule for `stack`; the seeded state of a resumed run
-(`Logged.seed`); the commands `--schedule-commands` prints (`commandLines`, `shellQuote`).
+(`Logged.seed`); the commands `--schedule-commands` prints (`commandLines`, `shellQuote`); the
+workers' stack size (`stackEnv`, `stackUsed`, `stackHint`), the sizes (`parseSize`), a failed
+start (`spawnFailAct`, `requeueFailed`, `startsHeld`), what held the starts back (`heldBy`), and
+the status part's reservation (`statusText`, `statsLines`).
 -/
 
 namespace ConLecheTests.ScheduleTests
@@ -287,5 +290,70 @@ def memLog : String :=
 #guard workerArgs .trusted 7 (pathArgs "" "d") (some 4) (nm "M") =
   #["--olean", "--module", "--jobs=4", "--trusted", "--max-nat-size=7", "--search-path=d", "--",
     "«M»"]
+
+-- the workers' stack size (`--worker-stack-size`, DESIGN #620): set in the worker's environment
+-- where given, nothing otherwise (the worker inherits the scheduler's environment)
+#guard stackEnv (some 8388608) = #[("LEAN_STACK_SIZE_KB", some "8388608")]
+#guard stackEnv none = #[]
+-- the size the log records and the `stack` retry rule compares: the flag's, else the inherited
+#guard stackUsed (some 8388608) (some "1024") = "8388608"
+#guard stackUsed none (some "1024") = "1024"
+#guard stackUsed none none = "-"
+-- a `stack` verdict logged at the flag's size holds at that size only
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog (stackUsed (some 8388608) none)).verdicts.get?
+  (nm "S2")) = some "stack"
+#guard ((parseLog ConLeche.Frontend.Olean.parseModName sigLog (stackUsed (some 4194304) none)).verdicts.get?
+  (nm "S2")) = none
+-- the hint names the flag and the size the worker ran at
+#guard (stackHint (nm "M") "8388608").contains "--worker-stack-size (now 8388608 KiB;"
+#guard (stackHint (nm "M") "-").contains "(now Lean's default;"
+-- the commands: with the flag every worker's line starts with the setting, the graph check's not
+#guard commandLines "/bin/con-leche" (pathArgs "" "/l") (nm "R") none [nm "B"]
+    (workerArgs .verified 99 (pathArgs "" "/l") none) (some 8388608) =
+  ["/bin/con-leche --check-graph --search-path=/l -- '«R»'",
+   "LEAN_STACK_SIZE_KB=8388608 /bin/con-leche --olean --module --verified --max-nat-size=99 \
+     --search-path=/l -- '«B»'"]
+
+-- the sizes (`parseSize`, shared by `--schedule-memory` and `--worker-stack-size`): a unit is
+-- required
+#guard parseSize "8G" = some 8388608
+#guard parseSize "512m" = some 524288
+#guard parseSize "1T" = some 1073741824
+#guard parseSize "8388608" = none
+#guard parseSize "G" = none
+#guard parseSize "8GB" = none
+
+-- a failed start: requeued while others run, verdict 3 with none running
+#guard spawnFailAct 3 == .requeue
+#guard spawnFailAct 0 == .stop
+-- requeued at its own position: back at the head of the never started ones, or among the killed
+#guard requeueFailed (fun (n : Nat) => n) 2 false [5] [3, 4] = ([5], [2, 3, 4])
+#guard requeueFailed (fun (n : Nat) => n) 4 true [1, 5] [2] = ([1, 4, 5], [2])
+-- the starts are held until fewer workers run than at the failure
+#guard startsHeld (some 3) 3
+#guard !startsHeld (some 3) 2
+#guard !startsHeld none 7
+-- what held the starts back after a tick
+#guard heldBy false false false 2 8 == none
+#guard heldBy true false true 2 8 == none
+#guard heldBy true true false 2 8 == some .spawn
+#guard heldBy true false false 8 8 == some .jobs
+#guard heldBy true false false 5 8 == some .memory
+
+-- the status part: with a limit, the reservation of the planning budget; fixed widths
+#guard statusText 75627 59773 49 (some 957000) 80 55 (some (19818100, 1258300, 36490500)) 41943040
+    37748736 =
+  "[59773 ( 79.0%)  49 wrkr  55 thds  RSS  18.9G tot   1.2G biggest   34.8G of  36.0G rsvd   \
+    15m57s eta]"
+-- without a limit no reservation
+#guard statusText 10 3 1 none 4 1 (some (1048576, 1048576, 5 * 1048576)) 0 =
+  "[ 3 ( 30.0%)  1 wrkr  1 thds  RSS   1.0G tot   1.0G biggest        ? eta]"
+
+-- the statistics' held-back line
+#guard (statsLines { heldMemMs := 3000, heldJobsMs := 1000 } 10000 4 0 0 0 0 none)[2]? =
+  some "  starts held back: by memory 3.0s (30.0 %), by --jobs 1.0s (10.0 %) of the wall time"
+#guard (statsLines { heldSpawnMs := 500, spawnFails := 2 } 10000 4 0 0 0 0 none)[2]? =
+  some "  starts held back: by memory 0.0s (0.0 %), by --jobs 0.0s (0.0 %), by 2 failed starts \
+    0.5s (5.0 %) of the wall time"
 
 end ConLecheTests.ScheduleTests

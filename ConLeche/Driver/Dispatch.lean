@@ -41,10 +41,10 @@ inductive Req where
   | modular (trusted searchPath : List System.FilePath) (root : Name) (sol : Option Name)
       (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- every module of a closure, one worker process each (`scheduleG`, outside the theorem);
-  `jobsGiven`: `--jobs` was given -/
+  `jobsGiven`: `--jobs` was given; `stackKb`: the workers' stack size, KiB -/
   | schedule (trusted searchPath : List System.FilePath) (root : Name) (cmp : Option Name)
       (opts : List String) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
-      (jobsGiven : Bool)
+      (jobsGiven : Bool) (stackKb : Option Nat)
   /-- a challenge and its solution, compared, and the solution's closure checked
   (`compareG`) -/
   | compare (r : CmpReq) (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
@@ -74,8 +74,8 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .modular tp sp root (some s) mode maxNatSize pace jobs =>
     let r : CmpReq := ⟨root, s, tp, sp, none⟩
     checkModularG r.solRoots root (some s) (chalWalk r jobs) mode maxNatSize pace jobs
-  | .schedule tp sp root cmp opts mode maxNatSize pace jobs jobsGiven =>
-    scheduleG tp sp root cmp opts mode maxNatSize pace jobs jobsGiven
+  | .schedule tp sp root cmp opts mode maxNatSize pace jobs jobsGiven stackKb =>
+    scheduleG tp sp root cmp opts mode maxNatSize pace jobs jobsGiven stackKb
   | .compare r mode maxNatSize pace jobs => compareG r mode maxNatSize pace jobs
   | .compareJson r mode maxNatSize pace jobs => compareJsonG r mode maxNatSize pace jobs
   | .module tp sp m mode maxNatSize pace jobs => do

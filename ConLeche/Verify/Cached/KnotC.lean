@@ -76,15 +76,25 @@ theorem Runs.whnf_easy {d : Nat} {i : Expr} (h : whnfEasy i = true) :
 grind_pattern [conleche_grind] Runs.whnf_easy =>
   Runs ((fueledFns mode eager env).whnf d i) i
 
-/-- A whnf memo hit answers the fueled whnf, well scoped. -/
-theorem CSOK.whnf_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+/-- A whnf memo hit answers the fueled whnf. -/
+theorem CSOK.whnf_hit {s : CState} {d : Nat} {i r : Expr}
     (hs : CSOK mode eager env s) (hl : s.whnfC[i]? = some r) (hw : Expr.WScoped d i) :
-    Runs ((fueledFns mode eager env).whnf d i) r ∧ Expr.WScoped d r := by
+    Runs ((fueledFns mode eager env).whnf d i) r := by
   obtain ⟨F, hall⟩ := hs.whnfC i r hl
-  have hrun := hall d hw.to_wscopedB
-  exact ⟨⟨F, hrun⟩, whnf_WScoped henv F hrun hw⟩
+  exact ⟨F, hall d hw.to_wscopedB⟩
 grind_pattern [conleche_grind] CSOK.whnf_hit =>
   CSOK mode eager env s, s.whnfC[i]?, Runs ((fueledFns mode eager env).whnf d i) r
+
+/-- The answer of that hit is well scoped.  A lemma of its own, with its
+own trigger: `vcgen` proves a post's conjuncts one at a time, and the
+`WScoped` goal does not mention the `Runs` term above. -/
+theorem CSOK.whnf_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode eager env s) (hl : s.whnfC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := by
+  obtain ⟨F, hall⟩ := hs.whnfC i r hl
+  exact whnf_WScoped henv F (hall d hw.to_wscopedB) hw
+grind_pattern [conleche_grind] CSOK.whnf_hit_ws =>
+  CSOK mode eager env s, s.whnfC[i]?, Expr.WScoped d r
 
 /-- A body answer is a whnf answer one fuel up. -/
 theorem Runs.whnf_of_body {d : Nat} {i r : Expr}
@@ -123,15 +133,25 @@ theorem memoEI_whnf_spec (henv : EnvWF env)
 
 /-! ### The infer memo -/
 
-/-- An infer memo hit answers the fueled infer, well scoped. -/
-theorem CSOK.infer_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+/-- An infer memo hit answers the fueled infer. -/
+theorem CSOK.infer_hit {s : CState} {d : Nat} {i r : Expr}
     (hs : CSOK mode eager env s) (hl : s.inferC[i]? = some r) (hw : Expr.WScoped d i) :
-    Runs ((fueledFns mode eager env).infer d i) r ∧ Expr.WScoped d r := by
+    Runs ((fueledFns mode eager env).infer d i) r := by
   obtain ⟨F, hall⟩ := hs.inferC i r hl
-  have hrun := hall d hw.to_wscopedB
-  exact ⟨⟨F, hrun⟩, inferTypeCore_WScoped henv F hrun hw⟩
+  exact ⟨F, hall d hw.to_wscopedB⟩
 grind_pattern [conleche_grind] CSOK.infer_hit =>
   CSOK mode eager env s, s.inferC[i]?, Runs ((fueledFns mode eager env).infer d i) r
+
+/-- The answer of that hit is well scoped.  A lemma of its own, with its
+own trigger: `vcgen` proves a post's conjuncts one at a time, and the
+`WScoped` goal does not mention the `Runs` term above. -/
+theorem CSOK.infer_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode eager env s) (hl : s.inferC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := by
+  obtain ⟨F, hall⟩ := hs.inferC i r hl
+  exact inferTypeCore_WScoped henv F (hall d hw.to_wscopedB) hw
+grind_pattern [conleche_grind] CSOK.infer_hit_ws =>
+  CSOK mode eager env s, s.inferC[i]?, Expr.WScoped d r
 
 /-- A body answer is an infer answer one fuel up. -/
 theorem Runs.infer_of_body {d : Nat} {i r : Expr}
@@ -171,15 +191,25 @@ The slot is the io body under its own memo (`CState.inferIOC`); a hit
 consumes the io clause — the weaker one — and a miss re-inserts in
 depth-universal form through `inferTypeIO_depth_inv`. -/
 
-/-- An io memo hit answers the fueled io slot, well scoped. -/
-theorem CSOK.inferIO_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+/-- An io memo hit answers the fueled io slot. -/
+theorem CSOK.inferIO_hit {s : CState} {d : Nat} {i r : Expr}
     (hs : CSOK mode eager env s) (hl : s.inferIOC[i]? = some r) (hw : Expr.WScoped d i) :
-    Runs ((fueledFns mode eager env).inferIO d i) r ∧ Expr.WScoped d r := by
+    Runs ((fueledFns mode eager env).inferIO d i) r := by
   obtain ⟨F, hall⟩ := hs.inferIOC i r hl
-  have hrun := hall d hw.to_wscopedB
-  exact ⟨⟨F, hrun⟩, inferTypeIO_WScoped henv F hrun hw⟩
+  exact ⟨F, hall d hw.to_wscopedB⟩
 grind_pattern [conleche_grind] CSOK.inferIO_hit =>
   CSOK mode eager env s, s.inferIOC[i]?, Runs ((fueledFns mode eager env).inferIO d i) r
+
+/-- The answer of that hit is well scoped.  A lemma of its own, with its
+own trigger: `vcgen` proves a post's conjuncts one at a time, and the
+`WScoped` goal does not mention the `Runs` term above. -/
+theorem CSOK.inferIO_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode eager env s) (hl : s.inferIOC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := by
+  obtain ⟨F, hall⟩ := hs.inferIOC i r hl
+  exact inferTypeIO_WScoped henv F (hall d hw.to_wscopedB) hw
+grind_pattern [conleche_grind] CSOK.inferIO_hit_ws =>
+  CSOK mode eager env s, s.inferIOC[i]?, Expr.WScoped d r
 
 /-- An io body answer is an io-slot answer one fuel up. -/
 theorem Runs.inferIO_of_body {d : Nat} {i r : Expr}

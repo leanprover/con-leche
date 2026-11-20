@@ -12,10 +12,12 @@ All of it pure text, printed by `ConLeche/Driver/Schedule/Run.lean`.
 
 * **progress**: every finish line (stdout, `finishText`) and every heartbeat (stderr) starts with
   the SAME status part, in the same fixed columns (`statusText`):
-  `[ 3804 ( 1.5%)  3 wrkr  25 thds  RSS 34.1G tot 27.7G biggest  15d12h eta]`: the modules with
-  a verdict (a resumed run's logged ones included) and their percentage; the running workers; the
-  threads they hold; the running workers' resident sets now, summed (`tot`), and the largest
-  one's (`biggest`), left out where `/proc` cannot be read; the estimate.  A finish line goes on
+  `[ 3804 ( 1.5%)  3 wrkr  25 thds  RSS 34.1G tot 27.7G biggest  35.2G of 36.0G rsvd  15d12h eta]`:
+  the modules with a verdict (a resumed run's logged ones included) and their percentage; the
+  running workers; the threads they hold; the running workers' resident sets now, summed (`tot`),
+  and the largest one's (`biggest`), left out where `/proc` cannot be read; with a memory limit,
+  what admission reserves for the running workers of the planning budget (`rsvd`: where the two
+  are close, memory, not `--jobs`, limits the starts); the estimate.  A finish line goes on
   with `t=Ss  rss=X GiB  ×T  [FAILED V  ]M`: the time padded to 6, `X` the worker's own peak
   from its stats line (`rss≥X` the last sampled one where it wrote none), `×T` the worker's
   threads where above 1 (blank, and absent at `--jobs=1`, otherwise), then, only for a non-zero
@@ -49,7 +51,8 @@ All of it pure text, printed by `ConLeche/Driver/Schedule/Run.lean`.
   modules it skipped): the wall time; the time-weighted mean number of running workers, of the
   workers' current memory and of what admission reserved, against the jobs and the budget; where
   a declaration count was read, the workers started with more than one thread, the reads and
-  their time, and the modules back at one thread after a kill; wall time and peak per module
+  their time, and the modules back at one thread after a kill; for how long the starts were held
+  back by memory, by `--jobs` and by a failed start (`heldBy`); wall time and peak per module
   (mean, median, 90th percentile, the maximum with its module); the kills and the worker time
   lost to them; the head slot's starts that did not fit; the `memory` and the non-zero verdicts.
 -/
@@ -131,11 +134,14 @@ def gibCol (dec : Nat) (kib : Nat) : String :=
 
 /-- **The status part**, the start of every finish line (stdout) and every heartbeat (stderr), so
 the first columns read the same down the terminal:
-`[ 3804 ( 1.5%)  3 wrkr  25 thds  RSS 34.1G tot 27.7G biggest  15d12h eta]`.
+`[ 3804 ( 1.5%)  3 wrkr  25 thds  RSS 34.1G tot 27.7G biggest  35.2G of 36.0G rsvd  15d12h eta]`.
 `3804 ( 1.5%)`: the modules with a verdict, counting a resumed run's logged ones, and their
 percentage of `total`; `wrkr` the running workers; `thds` the threads they hold; `RSS tot` the
 running workers' resident sets now, summed, and `biggest` the largest one's (GiB; left out where
-`/proc` could not be read); `eta` the estimate (`etaMs`: remaining modules × mean module time ÷
+`/proc` could not be read); with a memory limit, `rsvd` what admission reserves for the running
+workers (each at the most of its windowed peak, the typical peak and its known size) of the
+planning budget `plan` it fits them into: where the two are close, memory, not `--jobs`, keeps
+workers from starting (above it: the head slot's start beyond the room); `eta` the estimate (`etaMs`: remaining modules × mean module time ÷
 average running workers; `dur`: `51d16h` past 48 hours, `12h` from 10, below that with minutes;
 `?` where no time is known, `-` once nothing is left).  It leans low: logged times come only from
 modules that finished, and the long ones are more often still running or interrupted (logged
@@ -143,7 +149,7 @@ modules that finished, and the long ones are more often still running or interru
 `total`, the percentage `100.0`, the counts that of `jobs`, the sizes (two decimals where the limit
 is under 10 GiB) and the estimate seven characters. -/
 def statusText (total done running : Nat) (eta : Option Nat) (jobs threads : Nat)
-    (mem : Option (Nat × Nat × Nat)) (limit : Nat) : String :=
+    (mem : Option (Nat × Nat × Nat)) (limit : Nat) (plan : Nat := 0) : String :=
   let pm := if total = 0 then 1000 else done * 1000 / total
   let eta := match eta with
     | some ms => if done ≥ total then "-" else dur ms
@@ -152,9 +158,10 @@ def statusText (total done running : Nat) (eta : Option Nat) (jobs threads : Nat
   let g := gibCol dec
   let memT := match mem with
     | none => ""
-    | some (t, m, _) =>
-      let (t, m) := if running = 0 then (0, 0) else (t, m)
-      s!"  RSS {g t}G tot {g m}G biggest"
+    | some (t, m, r) =>
+      let (t, m, r) := if running = 0 then (0, 0, 0) else (t, m, r)
+      let rsvd := if limit = 0 then "" else s!"  {g r}G of {g plan}G rsvd"
+      s!"  RSS {g t}G tot {g m}G biggest{rsvd}"
   let jw := (toString jobs).length
   let w := (toString total).length
   s!"[{padL w (toString done)} ({padL 5 s!"{pm / 10}.{pm % 10}"}%)  \
@@ -256,6 +263,12 @@ structure Stats where
   threadStarts : Nat := 0
   declReads : Nat := 0
   declMs : Nat := 0
+  /-- the time (ms) the starts were held back by memory, by the thread budget, by a failed start
+  (`heldBy`); the failed starts -/
+  heldMemMs : Nat := 0
+  heldJobsMs : Nat := 0
+  heldSpawnMs : Nat := 0
+  spawnFails : Nat := 0
 
 /-- The run's statistics, a few lines for stderr.  `wall` is the run's time (ms), `budget` the
 memory limit and `plan` the planning budget at the end, `singles` the modules back at one thread,
@@ -280,8 +293,13 @@ def statsLines (st : Stats) (wall jobs budget plan singles skipped : Nat)
     [s!"  threads: {st.threadStarts} workers started with more than one; {st.declReads} \
       declaration counts read in {msText st.declMs}; {singles} modules back at one \
       thread after a kill"]
+  let pc (ms : Nat) : String := let x := ms * 1000 / w; s!"{msText ms} ({x / 10}.{x % 10} %)"
+  let spawnT := if st.spawnFails = 0 then "" else
+    s!", by {st.spawnFails} failed starts {pc st.heldSpawnMs}"
   [ s!"con-leche: schedule: statistics: {st.recs.size} modules run{skip}, wall {msText wall}{sig}",
-    s!"  workers: {tenth running} running on average ({running * 10 / jobs} % of {jobs} threads)" ] ++
+    s!"  workers: {tenth running} running on average ({running * 10 / jobs} % of {jobs} threads)",
+    s!"  starts held back: by memory {pc st.heldMemMs}, by --jobs {pc st.heldJobsMs}{spawnT} \
+      of the wall time" ] ++
   threadsL ++
   memL ++
   [ s!"  time per module: {distText (st.recs.map fun r => (r.m, r.ms)) msText}",
