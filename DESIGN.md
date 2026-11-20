@@ -125956,3 +125956,77 @@ challenge, shake (666/666 allowlisted), pub-imports, plain-reach (629), binary-l
 122/122, self-check 54 983 declarations (exported by v4.36.0's `leanexport`), olean compare
 0 differences (58 547 records; 37 for `Nat.add_comm`), axioms pinned (33 theorems), arena tutorial
 90/92, e2e 610/610, the trusted and `--jobs` sweeps without divergence.
+
+## TASK #626 — `compare` holds `modular` and `master` (v4.36.0); the whitepaper's commit status (2026-11-20, agent/626-sync; base `compare` 28e15d19b)
+
+`compare` is to become the PR into `master` that replaces `modular`'s, so it first takes both
+integration branches.
+
+**`modular` merged** (e375431a6: tasks #606, #616, #620, the scheduler on Stacks, a failed worker
+start requeues, `--worker-stack-size`, the reserved memory in the status).  Conflicts, all
+between #620's stack size and compare's `--compare` modes (#608/#619), resolved by keeping both:
+- `Req.schedule` and `scheduleG` take the trusted path and the solution (compare) and the
+  workers' stack size `stackKb` (modular); the compared schedule
+  (`--olean --schedule --compare`) passes `--worker-stack-size` as the plain one does.
+- `Schedule.commandLines` takes the lookup's flags and the solution (compare) and prefixes each
+  worker's line with `LEAN_STACK_SIZE_KB=K` (modular); modular's `#guard` follows the merged
+  signature.
+- #620's `Args.closed` (a `--worker-stack-size` without `--schedule` is a usage error) is applied
+  at the end of `parseArgs`, so compare's six `parseArgs_*compare*`/trusted-path lemmas
+  (`Verify/Driver/Main.lean`, `CompareJsonRun.lean`) unfold it too (`simp [parseArgs,
+  Args.closed]`), as modular did for its own.
+- DESIGN, OVERVIEW: compare's text, then modular's three records; two line anchors repointed
+  (`runArgs_accept` in OVERVIEW, `runArgs` in README), the cited text unchanged.
+
+**`origin/master` merged** (cd2eceab2, task #604: v4.35.0 → v4.36.0).  The only textual conflict is
+DESIGN.md (records appended on both sides; #604's goes after compare's).  `lake build` and
+`lake test` are clean on v4.36.0 as merged: none of the code or proofs that `compare` and `modular`
+added since #604's base uses `withPtrEq` at a type variable or the split memo-hit lemmas'
+old conjunction.  The bump's fallout is in two pinned outputs:
+- **The fragment's axiom pin.**  `Fragment.LocalOk.redeclared_is_proof` (#621) read `[propext]`
+  on v4.35.0 and reads the standard three on v4.36.0: it reads `Fragment.Env.find?`, whose
+  `String` equality now comes through `String.instLinearOrderPackage`
+  (`Std.LinearOrderPackage.ofLE`, a proof using `Classical.propDecidable`).  Re-pinned at
+  `[propext, Classical.choice, Quot.sound]`, as every other entry of `Fragment/Axioms.lean`.
+- **The olean gate's TeqBoth case.**  `olean-compare --reads TeqBoth` counts the names held twice
+  over the whole loaded closure, `Init`'s included: 83 on v4.35.0's `Init`, 77 on v4.36.0's (the
+  fixture's own `teq`, merged, unchanged).  Re-pinned at 77.  The case is #464's and never ran on
+  v4.36.0 (master's `tests/olean.sh` predates it).
+No other e2e, olean or arena verdict changed; the committed `tests/olean/lib` fixtures are not
+rebuilt (as on master, they still read under v4.36.0's `Init`).  No new Nat-op pin: `pindump` finds
+the nightly-2026-09-10 set matching v4.36.0's `Init`.
+
+*The annotation rule against v4.36.0* (#622 cited v4.35.0's kernel sources).
+`src/kernel/inductive.cpp` differs between the two tags only by two deleted unused helpers
+(`is_inductive`, `is_recursor`); `mk_local_decl`/`mk_local_decl_for` still apply
+`consume_type_annotations` to every local, and `src/kernel/expr.cpp` still forwards it to
+`Expr.consumeTypeAnnotations`, whose body in `src/Lean/Expr.lean` is unchanged (`optParam`/
+`autoParam` at arity 2, `outParam`/`semiOutParam` at arity 1, repeated).  `annEq`
+(`Kernel/Inductives/IotaRead.lean`) covers the same four names at the same arities, so #622's rule
+stands on v4.36.0.
+
+**The whitepaper's commit status** (`.github/workflows/whitepaper.yml`).  After the zipped
+`whitepaper` artifact (kept), the HTML goes up once more as an artifact of its own, not zipped:
+`actions/upload-artifact@v7.0.2` with `archive: false` (the input exists from v7.0.0 on, per the
+action's `action.yml` and its v7.0.0 release notes; v4–v6 have none; the artifact is named after
+the file).  A step posts a commit status `whitepaper` on the built commit
+(`github.event.pull_request.head.sha` on pull requests, `github.sha` on pushes) whose
+`target_url` is that artifact's `artifact-url` output; the job gets `contents: read` and
+`statuses: write`, the step `GH_TOKEN: ${{ github.token }}`.  The HTML is self-contained (CSS and
+scripts inline, MathML, SVG); its one relative link, to `con-leche-proof-idea.pdf`, does not
+resolve from the single-file artifact.  The artifact URL needs a signed-in viewer.  On a pull
+request from a fork the token is read-only and the status step would fail.  actionlint 1.7.12:
+clean.
+
+**Scheduler smoke test** (the #620 code with compare's): `--olean --schedule --jobs=4
+--worker-stack-size=64M -- Init` on v4.36.0: 668 modules accepted, one worker each, the log's
+stack column 65536, 0 kills.
+
+**Gates (final tree):** `lake build`, `lake test` warning-free (v4.36.0); `tests/arena.sh` in full
+under the guard: layering, pindump (the committed set matches v4.36.0's `Init`, the prelude
+reproduced, four pinners reproduced), trust surface (13 escapes in 7 allowlisted files),
+overview links (169), whitepaper links (575), fragment, quote, no-local-paths, challenge, shake
+(702/702 allowlisted), pub-imports, plain-reach (655, all allowlisted), binary-link, olean gate
+560/560, self-check 62 564 declarations, olean compare 0 differences, axioms pinned (76 theorems),
+arena tutorial 90/92, e2e 635/635, the trusted and `--jobs` sweeps without divergence; whitepaper
+`build.sh` warning-free.
