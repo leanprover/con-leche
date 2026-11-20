@@ -124655,3 +124655,9 @@ lib/lean>`): Init 436 065 845 296 → 436 081 934 324 (+0.004 %), Std 773 937 10
 *Docs.*  OVERVIEW: the format check in the views paragraph; the corollary paragraph; the module
 map (`SeesFalse.lean`); two anchors repointed.  Whitepaper §7: the corollary moved after the
 modular theorem over the files, stated from it; four §6c anchors repointed.  README untouched.
+
+*Gates at the lane's head:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard exit 0 (olean gate 555/555, e2e 634/634, 87 theorems' axioms pinned); layering, shake
+(SeesFalse's imports as the criterion asks), trust-surface, plain-reach, binary-link, challenge,
+no-local-paths, overview-links, quote-gate, the whitepaper's links and fragment gates pass.
+Landed on `compare` (nothing new there since the lane's base).
