@@ -1,9 +1,14 @@
 module
 
-public import ConLeche.Verify.OleanInput
-public import ConLeche.Verify.Driver.Main
+import ConLeche.Verify.OleanInput
+public import ConLeche.OleanInput
+public import ConLeche.Verify.IsModelRecords
+import ConLeche.Verify.Driver.Main
+public import ConLeche.Verify.Driver.CompareRun
+public import ConLeche.Driver.Cli
 import ConLeche.Verify.IsModelSide
 public import ConLeche.Verify.Frontend.Olean.Local
+import Std.Data.HashMap.Lemmas
 
 /-!
 # A compared run's challenge, as the specification reads it (task #619)

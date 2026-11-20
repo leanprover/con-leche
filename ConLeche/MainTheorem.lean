@@ -14,7 +14,6 @@ import ConLeche.Verify.Driver.Main
 import ConLeche.Modular
 import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
-public import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Verify.Driver.CompareJsonRun
 import ConLeche.Verify.Cached.JustifyRun
 import ConLeche.Model.Copies

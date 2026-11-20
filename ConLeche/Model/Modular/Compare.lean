@@ -2,13 +2,7 @@ module
 
 public import ConLeche.Model.Copies
 public import ConLeche.Driver.Compare
-public import ConLeche.Verify.Cached.Fill
 public import ConLeche.Model.Modular.Valid
-import ConLeche.Model.Modular.Main
-import ConLeche.Verify.Driver.ComposeReads
-import ConLeche.Verify.Driver.Reach
-import ConLeche.Model.Modular.Proofs
-import ConLeche.Model.OfEnvModelM
 
 public section
 
@@ -24,7 +18,6 @@ compare worker's challenge environment is of what its records stand for
 namespace ConLeche.Model.Compare
 
 open ConLeche ConLeche.Driver ConLeche.Verify ConLeche.Model SetTheory
-open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
 
 /-- **A record installing copies of another's constants**, the same tables. -/
 @[expose] def RecCopy (e r : Declaration) : Prop :=

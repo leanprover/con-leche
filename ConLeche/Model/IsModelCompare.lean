@@ -3,7 +3,10 @@ module
 import ConLeche.Model.IsModelBridge
 import ConLeche.Model.Solution
 import ConLeche.Model.Capstone
-public import ConLeche.Verify.CompareInput
+import ConLeche.Verify.CompareInput
+public import ConLeche.OleanInput
+public import ConLeche.Verify.Frontend.Olean.Local
+public import ConLeche.Driver.Cli
 
 public section
 

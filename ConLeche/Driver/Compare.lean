@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Driver.CheckMain
-public import ConLeche.Driver.Reach
 import ConLeche.Verify.Cached.DeclNames
 
 @[expose] public section
@@ -40,8 +39,6 @@ line and one line per justified record.
 -/
 
 namespace ConLeche.Driver
-
-open ConLeche.Cached (recordReads needsGo NeedsSt litNeeds)
 
 open ConLeche Frontend.Olean
 
