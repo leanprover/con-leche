@@ -47,11 +47,13 @@ open System Lake DSL
 --      `ConLeche/PinGen/Certs.lean`) and say at its top why it is
 --      forked and how it differs.
 --
--- THIS PINNER FORKS `ConLeche.Kernel.PtrDecEq`: its toolchain (lean4
--- master past the wf-recursion changes of 2026-11-12, lean4#16408 and
--- #16409; nightly-2026-11-16) has the new `withPtrEqDecEq` calling convention.  The shared library
--- below lists the cone explicitly, minus that module, and
--- `PinnerFork` serves the fixed copy from this directory.
+-- No fork exists here: this toolchain (lean4 master past the
+-- wf-recursion changes of 2026-11-12, lean4#16408 and #16409) has the
+-- repository toolchain's `withPtrEqDecEq` calling convention, so the
+-- root stays the whole `ConLeche` hierarchy and any module the cone
+-- grows into resolves without editing this file.  `lake build` here
+-- builds the executable and nothing else, so that root is never built
+-- as a library.
 --
 -- NO NATIVE SECTION, unlike the other pinners.  `ConLeche.Kernel.Expr`
 -- hashes a big `Nat` literal with `natBigHash`, the extern
@@ -66,13 +68,7 @@ package pinner
 
 lean_lib ConLecheShared where
   srcDir := "../.."
-  roots := #[`ConLeche.PinGen, `ConLeche.PinGen.Dump, `ConLeche.PinGen.Prelude,
-    `ConLeche.PinGen.Certs, `ConLeche.Kernel.Name, `ConLeche.Kernel.PropWhen,
-    `ConLeche.Kernel.Expr, `ConLeche.Kernel.Exclusive, `ConLeche.Kernel.NatHash]
-
-lean_lib PinnerFork where
-  srcDir := "."
-  roots := #[`ConLeche.Kernel.PtrDecEq]
+  roots := #[`ConLeche]
 
 @[default_target]
 lean_exe «natop-pins-export» where

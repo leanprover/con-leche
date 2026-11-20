@@ -10,10 +10,10 @@ were committed files with no recipe behind them.
 A **pinner** is that recipe: a Lake project whose `lean-toolchain` is
 the dump's toolchain.
 
-    pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.lean
-    pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.lean
-    pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.lean
-    pinners/leanprover-lean4-nightly-nightly-2026-11-16/ lean-toolchain, lakefile.lean, one fork
+    pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.lean, one fork
+    pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.lean, one fork
+    pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.lean, one fork
+    pinners/leanprover-lean4-nightly-nightly-2026-11-16/ lean-toolchain, lakefile.lean
 
 The directory name is the dump's basename without `.json` — the
 toolchain string with everything outside `[A-Za-z0-9._-]` turned into
@@ -33,7 +33,7 @@ and name its output, and refuses to run if that name disagrees with
 `<toolchain>.prelude.ndjson` and prints both paths.
 
 There is no pinner for a toolchain whose `Init` a committed pin set
-already matches — the repository toolchain, v4.35.0, is one
+already matches — the repository toolchain, v4.36.0, is one
 (task #328; `pins/README.md`).  Its prelude comes from the root
 project's own `lake exe natop-pins-export`.
 
@@ -82,18 +82,23 @@ task #275).  A fork is therefore a narrowing:
    path (say `ConLeche/PinGen/Certs.lean`), and say at its top why it
    is forked and how it differs.
 
-One fork exists: the nightly-2026-11-16 pinner (lean4 master) forks
-`ConLeche/Kernel/PtrDecEq.lean`, the one definition behind the
-pointer-first equalities, because master changed `withPtrEqDecEq`'s
-calling convention and no longer compiles `withPtrEq` at a type
-variable; its copy decides by the pure meaning, without the pointer
-shortcut.  Its toolchain ships lean4#16146, whose runtime defines
-`lean_nat_big_hash`, so that pinner links no vendored C and builds
-`ConLeche/Kernel/NatHash.lean` as an ordinary module.  v4.34.0-rc2 and the nightly build the shared sources with
+One file is forked: `ConLeche/Kernel/PtrDecEq.lean`, the one
+definition behind the pointer-first equalities (`ptrDecEq`) and the
+equation `withPtrEq_eq`.  The shared copy follows the repository
+toolchain: `withPtrEqDecEq` takes the pointer test `withPtrEq` as an
+argument, and the compiler accepts `withPtrEq` only at a concrete type.
+The v4.33.0, v4.34.0-rc2 and nightly-2026-09-10 pinners predate that
+change, so each holds the same fork: the old `withPtrEqDecEq a b k`,
+and `withPtrEq_eq` proved from the body that `import all Init.Util`
+exposes.  The nightly-2026-11-16 toolchain has the new calling
+convention and shares the file.  It also ships lean4#16146, whose
+runtime defines `lean_nat_big_hash`, so that pinner links no vendored C
+and builds `ConLeche/Kernel/NatHash.lean` as an ordinary module.
+v4.34.0-rc2 and the nightlies build the shared sources with
 deprecation warnings only, and produce byte-identical dumps.  (Since task #328 `ConLeche/PinGen/Certs.lean` silences the
 deprecation linter — it keeps the `if_pos`/`dif_pos` spellings every
 toolchain has and the blobs cite — so the repository toolchain,
-v4.35.0, builds the cone warning-free in the root project.)
+v4.36.0, builds the cone warning-free in the root project.)
 
 ## Adding or dropping a toolchain
 

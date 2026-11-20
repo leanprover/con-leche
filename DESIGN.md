@@ -125860,3 +125860,99 @@ report.
 Files: `_tmp/620/repro/` (`run.sh`, `before.*`, `first-before.*`, `after1.*` (300 s, before the
 waiter fix), `after.*` (240 s), `int.sh`, `int2.*` (the SIGINT probes), `w.out`, `w.err` (one
 worker's output)).
+
+## TASK #604 — toolchain v4.35.0 → v4.36.0 (2026-11-17, agent/604-lean-4.36)
+
+The bump to the v4.36.0 release.  Two changes of the toolchain needed source changes; the
+rest is per-toolchain artefacts.
+
+**`withPtrEq` is accepted only at a concrete type** (non-mechanical).  v4.36.0's `withPtrEq` is
+`@[expose] noncomputable`, and the compiler refuses a definition that uses it unless it can check
+that the type's values hold no types or type formers, so never at a type variable.
+`withPtrEqDecEq` now takes the pointer test and its equation as arguments
+(`withPtrEqDecEq withPtrEq (fun _ _ _ _ => rfl) a b k`).  Two polymorphic definitions of ours
+used `withPtrEq` at a type variable:
+- `ConLeche.ptrDecEq` (`Kernel/PtrDecEq.lean`), behind every pointer-first equality (`Name`,
+  `Level`, `Literal`, `Expr` and their `Nat` components).  It now has `withPtrEqDecEq`'s shape:
+  `ptrDecEq ptrEq hw a b k`, and each call site, all at concrete types, passes
+  `withPtrEq ConLeche.withPtrEq_eq`.  `withPtrEq_eq : withPtrEq a b k h = k ()` is a new
+  theorem of the same file (`rfl`, the body being exposed).
+- `sameB` (`Driver/OwnerParse.lean`), the rounds parse's pointer-first equality, used at `Prior`
+  and `ByteArray`.  It takes the pointer test too (`sameB withPtrEq x.P P`); `sameB_eq` and
+  `sameB_iff` take its equation.
+Because the body is exposed, the two `import all Init.Util` lines (`Kernel/Expr.lean`,
+`Driver/OwnerParse.lean`) are gone; `Expr.beqMemo_iff` rewrites with `withPtrEq_eq` instead of
+unfolding by `show`.  No `implemented_by` and no `unsafe`: con-agua's patch for the same change
+(a restored polymorphic `withPtrEq` over `withPtrEqUnsafe`) is not used.  The compiled code is the
+same pointer test as before.
+
+**`vcgen` proves a post's conjuncts one at a time** (lean4#15487).  The memo-hit lemmas
+`CSOK.{whnf,infer,inferIO}_hit` (`Verify/Cached/KnotC.lean`) and
+`CSOK.{whnfCore,whnfCoreCheap}_hit` (`DiscC4.lean`) concluded `Runs … r ∧ WScoped d r` with one
+trigger on the `Runs` term, which the separate `WScoped` goal no longer contains
+(`whnfCoreLoopC_spec`, two `finish` failures).  Each is split in two: `_hit` concludes the `Runs`
+fact (and no longer needs `EnvWF`), `_hit_ws` the `WScoped` fact, each with its own
+`grind_pattern`.  `whnfCoreLoopC_spec` passes both halves.  con-agua's third patch (an extra
+`finish` lemma in `DiscC3`) is not needed on v4.36.0.
+
+`lake build` and `lake test` are warning-free.  The `.olean` reader needs no change: `Expr`,
+`Level`, the `ConstantInfo` values, `ModuleData` and `Import` keep their layout (v4.36.0's
+`Declaration.lean`/`Expr.lean` lose only `@[export]` helpers), and the format version is 2.
+
+**Per-toolchain artefacts.**
+- No new pin dump: the nightly-2026-09-10 set still matches v4.36.0's `Init` (`tests/pindump.sh`;
+  v4.36.0's `Nat.bitwise` is the nightly-2026-09-10 one).
+- The built-in prelude is `pins/leanprover-lean4-v4.36.0.prelude.ndjson`, regenerated; its body is
+  byte-identical to v4.35.0's, only the meta line changed.
+- **The pinner fork flips.**  The shared `Kernel/PtrDecEq.lean` now follows the new convention, so
+  the nightly-2026-11-16 pinner (lean4 master, which has it) loses its fork and covers the whole
+  `ConLeche` hierarchy again.  The v4.33.0, v4.34.0-rc2 and nightly-2026-09-10 pinners predate it;
+  each now holds the same fork (`pinners/*/ConLeche/Kernel/PtrDecEq.lean`): the same two names,
+  `ptrDecEq` ignoring the test it is passed and calling the old `withPtrEqDecEq a b k`, and
+  `withPtrEq_eq` proved `by rfl` under `import all Init.Util` (a term-mode `rfl` elaborates in the
+  public view and fails).  All four pinners reproduce their dumps byte-for-byte.
+- lean4#16146 (`lean_nat_big_hash`) is not in v4.36.0, so `native/nat_hash.c` stays (task #598's
+  plan waits for the next release).
+- The bridge (`bridge/lean4lean-model`) moves to v4.36.0 and Mathlib's `v4.36.0` tag.  Its
+  manifest still recorded the root's `lakefile.toml`, which #598 replaced by `lakefile.lean`, so
+  `lake update` failed on master already; the entry is fixed.  One Mathlib deprecation
+  (`Cardinal.mk_Iio_ordinal` → `Ordinal.cardinalMk_Iio`, `ConLecheBridge/Carneiro.lean`) is renamed;
+  the bridge builds warning-free.
+- **The self-check and the olean compare use the toolchain's own exporter.**  Lean ships
+  `leanexport` (lean4#14885, releases after v4.34.0-rc2) with lean4export's command line.
+  `scripts/selfcheck.sh` no longer clones and builds lean4export (which has no v4.36.0 commit yet)
+  and `tests/olean-compare.sh` no longer takes its checkout; both run
+  `$(lean --print-prefix)/bin/leanexport`, and exit 3 if the toolchain has none.
+- Version mentions follow (`NatOpPins.lean`, `NatHash.lean`, `native/nat_hash.c`, `pins/README.md`,
+  `pinners/README.md`, the CI comment, the bridge README); OVERVIEW §10 and CLAUDE.md no longer
+  list `Init.Util`'s `withPtrEq` among the `import all` reasons.
+
+**Performance** (not landed in PERF.md): `instructions:u`, one run per cell, `--verified
+--jobs=1`, master d88e04e9b on v4.35.0 against this branch on v4.36.0, same streams:
+
+| stream | before | after | Δ |
+|---|---|---|---|
+| `let-ladder` | 2.558 G | 2.558 G | +0.00 % |
+| `beta-ladder` | 4.926 G | 4.941 G | +0.32 % |
+| `init-prelude` | 1.131 G | 1.105 G | −2.26 % |
+| `grind-ring-5` | 8.698 G | 8.636 G | −0.71 % |
+| `app-lam` | 22.08 G | 22.08 G | −0.01 % |
+| `init-full` | 253.95 G | 253.14 G | −0.32 % |
+
+**Gate fallout.**  `lake shake` on v4.36.0 newly proposes dropping
+`import ConLeche.Verify.PropRead` from `Verify/EnvExt/Reads.lean`; task #223's criterion
+(`--only ConLeche.Verify.EnvExt.Reads` against the `--only ConLeche.NoSuchModule` floor) shows no
+compensating addition, so it is removed.  The same run also lists `InferLemmas` there, which the
+full run does not propose (another import implies it); it stays.  `native/nat_hash.c`'s pin in
+`tests/trust-surface.sh` follows its one-word comment change.  Line anchors: two OVERVIEW links
+(`windowStep`, `StoredFacts`) and three whitepaper `#src` citations of `Kernel/Expr.lean` (`Level`,
+`Expr`, seven lines up) are repointed; the cited text is unchanged.
+
+**Gates.**  `lake build`, `lake test` warning-free; bridge warning-free; `tests/arena.sh` green:
+layering, pindump (the nightly-2026-09-10 set matches v4.36.0's `Init`, the root generator
+reproduces the new prelude, four of four pinners reproduced), trust surface (12 escapes in 7
+allowlisted files), overview links (164), whitepaper links (468), fragment, quote, no-local-paths,
+challenge, shake (666/666 allowlisted), pub-imports, plain-reach (629), binary-link, olean gate
+122/122, self-check 54 983 declarations (exported by v4.36.0's `leanexport`), olean compare
+0 differences (58 547 records; 37 for `Nat.add_comm`), axioms pinned (33 theorems), arena tutorial
+90/92, e2e 610/610, the trusted and `--jobs` sweeps without divergence.

@@ -3,7 +3,6 @@ module
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.EnvPreds
-import ConLeche.Verify.PropRead
 import ConLeche.Verify.StrLitExpr
 import ConLeche.Verify.InstSpine
 

@@ -171,13 +171,13 @@
     42    | param (n : Name)
     43    deriving DecidableEq, Repr
 
-== ConLeche/Kernel/Expr.lean#L39-L44
-    39  inductive Level where
-    40    | zero
-    41    | succ (u : Level)
-    42    | max (u v : Level)
-    43    | imax (u v : Level)
-    44    | param (n : Name)
+== ConLeche/Kernel/Expr.lean#L32-L37
+    32  inductive Level where
+    33    | zero
+    34    | succ (u : Level)
+    35    | max (u v : Level)
+    36    | imax (u v : Level)
+    37    | param (n : Name)
 
 == whitepaper/Fragment/Level.lean#L50-L56
     50  /-- The value of a level under a *valuation* `φ` of its parameters. -/
@@ -2591,18 +2591,18 @@
     35    /-- A constant of the environment at a level instantiation. -/
     36    | const (c : Name) (ls : List Level)
 
-== ConLeche/Kernel/Expr.lean#L435-L445
-   435  inductive Expr where
-   436    | bvar (i : Nat)
-   437    | fvar (idx : Nat) (type : Expr)
-   438    | sort (u : Level)
-   439    | const (n : Name) (us : List Level)
-   440    | app (f a : Expr)
-   441    | lam (type body : Expr)
-   442    | forallE (type body : Expr)
-   443    | letE (type value body : Expr)
-   444    | lit (l : Literal)
-   445    | proj (structName : Name) (idx : Nat) (e : Expr)
+== ConLeche/Kernel/Expr.lean#L428-L438
+   428  inductive Expr where
+   429    | bvar (i : Nat)
+   430    | fvar (idx : Nat) (type : Expr)
+   431    | sort (u : Level)
+   432    | const (n : Name) (us : List Level)
+   433    | app (f a : Expr)
+   434    | lam (type body : Expr)
+   435    | forallE (type body : Expr)
+   436    | letE (type value body : Expr)
+   437    | lit (l : Literal)
+   438    | proj (structName : Name) (idx : Nat) (e : Expr)
 
 == whitepaper/Fragment/Syntax.lean#L112-L121
    112  /-- Instantiate the level parameters `ps` at the levels `ls`, in
@@ -7558,10 +7558,10 @@
    530        (buildIndex ds).freeze k ds[k] = .ok ()) :
    531      checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
 
-== ConLeche/Kernel/Expr.lean#L435-L437
-   435  inductive Expr where
-   436    | bvar (i : Nat)
-   437    | fvar (idx : Nat) (type : Expr)
+== ConLeche/Kernel/Expr.lean#L428-L430
+   428  inductive Expr where
+   429    | bvar (i : Nat)
+   430    | fvar (idx : Nat) (type : Expr)
 
 == ConLeche/Rules/Rel.lean#L370-L371
    370    | fvar {d i : Nat} {ty₁ ty₂ : Expr} :

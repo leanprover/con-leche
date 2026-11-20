@@ -190,8 +190,7 @@ arm or induction case). No custom tactic, macro or elab.
   it). A missing re-export does not say "unknown identifier"; it makes a
   `rfl` stop closing.
 * `import all X` only where a proof must see a body that is hidden by
-  the toolchain (`Init.Util`'s `withPtrEq`,
-  `Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`);
+  the toolchain (`Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`);
   each site carries its reason.
 * Elaboration-time code (`PinGen/*`, the pin splices) is `meta`: `meta section`, `public meta import`; a
   module needed at both levels is imported twice (`public import X` +

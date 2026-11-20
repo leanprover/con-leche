@@ -1,7 +1,7 @@
 /*
  * The hash of a big `Nat` literal (`natBigHash`, ConLeche/Kernel/NatHash.lean),
  * VENDORED FROM lean4#16146 (fixes lean4#15686): that PR's `hash_digits` and
- * `lean_nat_big_hash`, under upstream's own symbol and signature.  The v4.35.0
+ * `lean_nat_big_hash`, under upstream's own symbol and signature.  The v4.36.0
  * runtime does not export `lean_nat_big_hash`; a toolchain that ships
  * lean4#16146 does, and then the link fails on the duplicate definition.  That
  * failure is the reminder: delete this file and `Kernel/NatHash.lean`, and

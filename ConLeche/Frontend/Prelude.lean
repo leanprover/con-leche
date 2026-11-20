@@ -58,7 +58,7 @@ regenerates it and re-points this path (`tests/pindump.sh` checks
 both) — even when it adds no pin dump: the prelude is the repository
 toolchain's, the dumps are not (task #328). -/
 def builtinPreludeText : String :=
-  include_str "../../pins/leanprover-lean4-v4.35.0.prelude.ndjson"
+  include_str "../../pins/leanprover-lean4-v4.36.0.prelude.ndjson"
 
 /-- The parsed, indexed prelude: `Except` because a committed file can
 in principle be corrupted, and a prelude that does not parse must be a

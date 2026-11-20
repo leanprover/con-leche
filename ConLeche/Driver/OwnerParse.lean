@@ -2,10 +2,6 @@ module
 
 public import ConLeche.Verify.Frontend.Rounds
 public import Std.Sync.Mutex
-/- `withPtrEq` is `public` but not `@[expose]`; `sameB_eq` below needs
-its body (it is *defined* as `k ()`).  `import all` makes it visible in
-this module only. -/
-import all Init.Util
 
 /-!
 # The rounds parse driver: owner threads (task #329)
@@ -116,14 +112,20 @@ def await {α : Type} [Nonempty α] (p : IO.Promise α) : IO α := do
 /-- Equality, the pointer first: `true` at once on the same object; else
 the type's own lawful comparison (for the finished tables, entry by
 entry with the kernel's pointer-first equalities, `Prior`'s
-`LawfulBEq`; for bytes, `memcmp`). -/
-@[inline] def sameB {α : Type} [BEq α] [LawfulBEq α] (a b : α) : Bool :=
-  withPtrEq a b (fun _ => a == b) (fun h => by simp [h])
+`LawfulBEq`; for bytes, `memcmp`).  The pointer test is an argument,
+as for `ConLeche.ptrDecEq`: the compiler accepts `withPtrEq` only at a
+concrete type, so each call site passes `withPtrEq`, and a proof about it
+`ConLeche.withPtrEq_eq`. -/
+@[inline] def sameB {α : Type} [BEq α] [LawfulBEq α]
+    (ptrEq : (a b : α) → (k : Unit → Bool) → (a = b → k () = true) → Bool) (a b : α) : Bool :=
+  ptrEq a b (fun _ => a == b) (fun h => by simp [h])
 
-theorem sameB_eq {α : Type} [BEq α] [LawfulBEq α] (a b : α) : sameB a b = (a == b) := by rfl
+theorem sameB_eq {α : Type} [BEq α] [LawfulBEq α] {ptrEq} (hw : ∀ a b k h, ptrEq a b k h = k ())
+    (a b : α) : sameB ptrEq a b = (a == b) := hw ..
 
-theorem sameB_iff {α : Type} [BEq α] [LawfulBEq α] {a b : α} : sameB a b = true ↔ a = b := by
-  rw [sameB_eq, beq_iff_eq]
+theorem sameB_iff {α : Type} [BEq α] [LawfulBEq α] {ptrEq} (hw : ∀ a b k h, ptrEq a b k h = k ())
+    {a b : α} : sameB ptrEq a b = true ↔ a = b := by
+  rw [sameB_eq hw, beq_iff_eq]
 
 /-- Mark one value persistent: the escape `Runtime.markPersistent`, the
 identity on the value. -/
@@ -298,10 +300,10 @@ structure Cur where
 driver sends the very tables round 0 was sent, so the pointer test
 answers; behind it is one pass over the tables (`Prior`'s `LawfulBEq`). -/
 @[inline] def Cur.is (x : Cur) (P : Prior) (c0 : Ctr) : Bool :=
-  x.c0.beq c0 && sameB x.P P
+  x.c0.beq c0 && sameB withPtrEq x.P P
 
 theorem Cur.is_eq {x : Cur} {P c0} (h : x.is P c0 = true) : x.c0 = c0 ∧ x.P = P := by
-  simp only [Cur.is, Bool.and_eq_true, sameB_iff] at h
+  simp only [Cur.is, Bool.and_eq_true, sameB_iff ConLeche.withPtrEq_eq] at h
   exact ⟨Ctr.beq_iff.mp h.1, h.2⟩
 
 /-- **The owner's loop.**  Its state is plain arguments: the chunk of
@@ -429,9 +431,9 @@ def gather {β : Type} {Q : Nat → ByteArray → β → Prop} (bs : Array ByteA
       | none => none
     | some x =>
       if hx : x.ok && x.c == acc.size &&
-          (match bs[acc.size]? with | some b => sameB x.b b | none => false) then
+          (match bs[acc.size]? with | some b => sameB withPtrEq x.b b | none => false) then
         gather bs rs dflt (acc.push x.v) (gather_push hacc fun hb => by
-          simp only [Bool.and_eq_true, beq_iff_eq, Array.getElem?_eq_getElem hb, sameB_iff] at hx
+          simp only [Bool.and_eq_true, beq_iff_eq, Array.getElem?_eq_getElem hb, sameB_iff ConLeche.withPtrEq_eq] at hx
           obtain ⟨⟨hok, hcc⟩, hbb⟩ := hx
           have := x.h hok
           rw [hcc, hbb] at this; exact this)

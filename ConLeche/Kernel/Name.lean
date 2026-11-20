@@ -71,7 +71,7 @@ almost always by their hashes.  The component comparison is
 pointer-first too (`lean_string_eq` tests `s1 == s2`; the `Nat`
 component goes through `ConLeche.ptrDecEq`, `withPtrEqDecEq`). -/
 def Name.decEqPtr (a b : Name) : Decidable (a = b) :=
-  ConLeche.ptrDecEq a b fun _ =>
+  ConLeche.ptrDecEq withPtrEq ConLeche.withPtrEq_eq a b fun _ =>
     if hh : a.hashData = b.hashData then
       match a, b with
       | .anonymous, .anonymous => isTrue rfl
@@ -82,7 +82,7 @@ def Name.decEqPtr (a b : Name) : Decidable (a = b) :=
           | isFalse hp => isFalse (fun e => hp (Name.str.inj e).1)
         else isFalse (fun e => hs (Name.str.inj e).2)
       | .num p n, .num q m =>
-        match ConLeche.ptrDecEq n m (fun _ => Nat.decEq n m) with
+        match ConLeche.ptrDecEq withPtrEq ConLeche.withPtrEq_eq n m (fun _ => Nat.decEq n m) with
         | isTrue hn =>
           match Name.decEqPtr p q with
           | isTrue hp => isTrue (by rw [hp, hn])
