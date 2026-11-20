@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Driver.Graph
 public import ConLeche.Driver.Schedule.Run
 public import ConLeche.Driver.CompareModule
 

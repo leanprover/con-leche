@@ -1,9 +1,7 @@
 module
 
 public import ConLeche.Model.BasisRename
-public import ConLeche.Model.Denotes
 import ConLeche.Model.Levels
-import ConLeche.Model.OfEnvModelM
 import ConLeche.Verify.InstLevels
 
 public section

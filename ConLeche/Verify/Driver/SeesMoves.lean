@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Driver.SeesLoads
-public import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Verify.Frontend.Olean.Local
 
 public section

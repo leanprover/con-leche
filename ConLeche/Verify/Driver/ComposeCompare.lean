@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Driver.Routes
-public import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Driver.Groups
 import ConLeche.Verify.Driver.Reach
 

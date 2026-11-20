@@ -14,10 +14,10 @@ import ConLeche.Verify.Driver.Main
 import ConLeche.Modular
 import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
-public import ConLeche.Verify.Driver.CompareJsonRun
+import ConLeche.Verify.Driver.CompareJsonRun
 import ConLeche.Verify.Cached.JustifyRun
 import ConLeche.Model.Copies
-public import ConLeche.Verify.Frontend.Olean.Local
+import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Routes
 import ConLeche.Verify.Driver.Graph
 public import ConLeche.Model.Modular.SeesCompare
@@ -29,7 +29,7 @@ import ConLeche.Model.Modular.SeesMain
 import ConLeche.Model.IsModelOlean
 import ConLeche.Model.IsModelCompare
 import ConLeche.Model.Modular.IsModel
-public import ConLeche.OleanInput
+import ConLeche.OleanInput
 
 public section
 

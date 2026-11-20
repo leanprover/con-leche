@@ -430,7 +430,6 @@ ConLeche.reduceNatDeclPin
 ConLeche.pinFootprint
 
 # ConLeche.Modular — a record's statement (one match on the record's kind, the constant's value dropped, nothing walked), once per hole by the compared run (`Driver.cmpRecord`, `chalRecord`)
-ConLeche.Modular.stmtOf
 
 # ConLeche.Verify.Frontend.Rounds — the rounds driver's small helpers (proved here, executed by the frontend)
 ConLeche.Frontend.instInhabitedFinPart.default

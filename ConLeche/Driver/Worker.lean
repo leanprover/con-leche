@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Driver.CheckMain
 public import ConLeche.Driver.Reach
 public import ConLeche.Driver.Compare
 import ConLeche.Verify.Cached.DeclNames

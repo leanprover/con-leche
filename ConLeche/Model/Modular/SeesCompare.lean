@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Modular.Sees
+import ConLeche.Model.Modular.Sees
 public import ConLeche.Verify.Driver.SeesMoves
 public import ConLeche.Verify.Driver.ComposeCompare
 public import ConLeche.Driver.Cli
