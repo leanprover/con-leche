@@ -2,7 +2,7 @@
 
 // Notation local to this file, matching §3 and §7.
 #let Mod = $op("Mod")$
-#let Valid = $op("Valid")$
+#let Pass = $op("Pass")$
 #let Cmp = $op("Cmp")$
 #let From = $op("src")$
 #let Side = $op("Pf")$
@@ -21,8 +21,10 @@ checks the challenge as any input, with one exception: an open
 statement of the challenge is accepted when the solution _justifies_
 it. This section states the rule, shows that an accepted challenge has
 a model, and shows why the rule compares more than the open statement
-itself. @sec:cmp-modular describes a second way to compare, used when
-the challenge and the solution are checked module by module.
+itself. @sec:cmp-modular compares module by module: there the
+challenge is one more module, which imports the solution, and its
+declarations that the solution already holds are read from the
+solution instead of being checked.
 
 == Holes and justification <sec:cmp-what>
 
@@ -71,7 +73,7 @@ them changes none of the constant's instances:
   Let $T$ use only the level parameters $arrow(q)$, and let
   $arrow(p)$ be distinct names, as many as $arrow(q)$. Then for every
   level list $arrow(ell)$ with $|arrow(ell)| = |arrow(q)|$,
-  #src("whitepaper/Fragment/Compare.lean", 105, 111)[renaming does not change the instances]:
+  #src("whitepaper/Fragment/Compare.lean", 114, 120)[renaming does not change the instances]:
   $
     T[arrow(q) := arrow(p)][arrow(p) := arrow(ell)] = T[arrow(q) := arrow(ell)].
   $
@@ -98,7 +100,7 @@ the constants the term reads:
 #lemma(name: "Denotation is local")[
   If two assignments $M$ and $M'$ agree on every constant a term $e$
   reads, then
-  #src("whitepaper/Fragment/Compare.lean", 142, 147)[$e$ denotes the same in both, and is well-denoted in both alike]:
+  #src("whitepaper/Fragment/Compare.lean", 151, 156)[$e$ denotes the same in both, and is well-denoted in both alike]:
   $
     (forall d in consts(e). thin M(d) = M'(d)) ==>
       lden e rden_rho "in" M = lden e rden_rho "in" M'
@@ -115,7 +117,7 @@ The second gives a justified hole the solution model's set:
   parameters $arrow(q)$ and type $T_s$, with
   $T = T_s [arrow(q) := arrow(p)]$, and let $M_c$ and $M_s$ agree on
   every constant $T$ reads. Then
-  #src("whitepaper/Fragment/Compare.lean", 259, 277)[$M_c$ extends to a model of the environment with the hole, with the solution model's set at $n$]:
+  #src("whitepaper/Fragment/Compare.lean", 268, 286)[$M_c$ extends to a model of the environment with the hole, with the solution model's set at $n$]:
   $
     exists M'_c in Mod(E_c, (n.\{arrow(p)\} : T)). thin
       M'_c (n) = M_s (n) and forall d in E_c. thin M'_c (d) = M_c (d).
@@ -141,12 +143,12 @@ solution model's set:
   model $M_s$, store a fresh name $d$ as a definition or an
   assumption, whose type and value are in scope of $E_c$. If $M_c$ and
   $M_s$ agree on every constant that the type and the value read, then
-  #src("whitepaper/Fragment/Compare.lean", 296, 312)[$M_c$ extends to a model of the environment with $d$'s entry, with the solution model's set at $d$].
+  #src("whitepaper/Fragment/Compare.lean", 305, 321)[$M_c$ extends to a model of the environment with $d$'s entry, with the solution model's set at $d$].
 ] <lem:cmp-shared>
 
 The typing and unfolding laws of the new constant are those of $M_s$,
 carried over by @lem:cmp-local. Both lemmas extend a model at
-#src("whitepaper/Fragment/Compare.lean", 158, 176)[a given set], as
+#src("whitepaper/Fragment/Compare.lean", 167, 185)[a given set], as
 @sec:env extends it at a definition's value.
 
 #theorem(name: "The challenge has a model")[
@@ -206,7 +208,7 @@ environment with $t$ has no model at all.
   the trusted directories alone, is checked in full with its holes
   justified by the solution's environment. What the challenge's
   closure holds
-  #src("ConLeche/Verify/CompareInput.lean", 153, 155)[depends only on the files under the trusted directories]:
+  #src("ConLeche/Verify/CompareInput.lean", 140, 142)[depends only on the files under the trusted directories]:
   it is the same on two file systems that agree on every path the
   reader forms there, so an accepted run speaks of the trusted files
   alone. In both modes,
@@ -241,14 +243,14 @@ environment with $t$ has no model at all.
   and follows the challenge's check:
   #src("ConLeche/Model/Solution/Fold.lean", 17, 25)[a shared record takes the solution's sets, a justified hole the solution's value, any other record its own step].
   The capstone
-  #src("ConLeche/MainTheorem.lean", 134, 142)[states] @thm:cmp-model
+  #src("ConLeche/MainTheorem.lean", 133, 141)[states] @thm:cmp-model
   for the checker's functions: if `checkDecls` accepts the solution's
   records and `checkChallenge` accepts the challenge's with them, the
   challenge's own constants have a model.
-  #src("ConLeche/MainTheorem.lean", 917, 924)[Its corollary for the command line]
+  #src("ConLeche/MainTheorem.lean", 561, 568)[Its corollary for the command line]
   says the same of an exit 0 of
   `--compare CHALLENGE.ndjson SOLUTION.ndjson`, and
-  #src("ConLeche/MainTheorem.lean", 892, 903)[a challenge file with a hole of type `False` is never solved].
+  #src("ConLeche/MainTheorem.lean", 536, 547)[a challenge file with a hole of type `False` is never solved].
 
   The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
   different rule. A theorem must be a theorem on both sides, and a
@@ -264,67 +266,119 @@ environment with $t$ has no model at all.
 == Comparing modules <sec:cmp-modular>
 
 When a development is checked module by module (@sec:modular), the
-challenge is compared as a module. It is
-#src("whitepaper/Fragment/ModularModel.lean", 724, 731)[validated by comparison]
-(@sec:mod-local): it is not checked, and its own environment is its
-context,
-$
-  E_c = Gamma_c,
-$
-assembled from the views of its imports, which are its own imports and
-the solution $s$. The challenge reads each of its own names from the
-solution, $From_c (n) = s$, and each name it imports from that name's
-_home_, the module that declares it. Assembly compares every entry of
-$E_c$ with the entry stored under the same name in the module it is
-read from. A hole is filled by the solution's entry of the same type,
-after renaming the level parameters by @lem:cmp-rename, of any kind
-that states something; every other declaration of the challenge is the
-solution's, unchanged.
+challenge $c$ is one more module, and it passes the local checks of
+@sec:mod-local like any other module. Its imports are its own imports
+and the solution $s$, with the solution's full own environment as the
+view. So its context $Gamma_c$ is assembled from the views of both, and
+every two copies of a context name in these views agree (@def:valid).
 
-An imported name is identified by its home, and not by what its copies
-contain. Let a module $a$ declare $f : Nat := 3$ and present $f$ to
-its importers with the value hidden, and let the challenge import $a$
-and have the hole $t : f = 5$. A solution that does not import $a$
-declares its own $f : Nat := 5$. Were $f$ read from the solution, the
-challenge's environment $f : Nat, thin t : f = 5$ would have a model
-with $t$ inhabited, the one with $f$ equal to $5$, while the challenge
-asks about $a$'s $f$. Read from its home, $f$ is $3$ in every model of
-the compatible family, and no solution is accepted. No separate check
-is needed for this: the agreement of copies (@sec:mod-thm) rejects a
-solution that declares an imported name itself, since
-#src("whitepaper/Fragment/Compare.lean", 336, 347)[such a copy agrees only as a proof].
+A declaration of the challenge is a _copy_ when a view it imports
+stores one of its names. A copy is not one of the challenge's
+declarations $D_c$. Its names are names of the context $Gamma_c$, read
+from the module $From_c (n)$ like any imported name, and its entry in
+$E_c$ is the context's entry. The checker compares a copy with that
+entry. Let the entry have level parameters $arrow(q)$ and type $T$, and
+let the copy have level parameters $arrow(p)$, distinct and as many as
+$arrow(q)$. A hole, a theorem or an opaque constant is a copy of the
+entry's statement,
+$
+  T_c = T [arrow(q) := arrow(p)];
+$
+a definition has the entry's value too, renamed in the same way, and
+an inductive block is the same block. Every other declaration of the
+challenge is its own, in $D_c$, and is checked. A hole among them is
+rejected: no view supplies its value.
+
+The closure condition of @sec:cmp-what has no counterpart here. The
+challenge and the solution are read in one context. A name that a
+copy's statement reads is one entry of $Gamma_c$, whichever views
+store it, and the agreement of copies gives every copy of it one value
+in the models.
 
 #theorem(name: "The challenge has a solution, module by module")[
-  Let the modules $j <= c$ be valid, the challenge $c$ by comparison.
-  There is a compatible family of models
-  #src("whitepaper/Fragment/Compare.lean", 358, 374)[in which the type of every entry of the challenge is inhabited by the value of the module it is read from]:
+  Let the modules $j <= c$ pass their local checks. There is a
+  compatible family of models
+  #src("whitepaper/Fragment/Compare.lean", 366, 407)[in which the type of every entry of the challenge's context is inhabited by the value of the module it is read from]:
   $
-    & (forall j <= c. thin Valid_j) and E_c = Gamma_c ==>
+    & (forall j <= c. thin Pass_j) ==>
       exists (m_j in Mod(E_j))_(j <= c). thin Cmp_(c+1) ((m_j)) and \
-    & quad forall (n.\{arrow(p)\} : T) in E_c. thin forall phi, rho, arrow(ell). thin
-      m_(From_c (n)) (n)(phi(arrow(ell))) in lden T[arrow(p) := arrow(ell)] rden_rho "in" m_c.
+    & quad forall (n.\{arrow(q)\} : T) in Gamma_c. thin forall phi, rho, arrow(ell). thin
+      m_(From_c (n)) (n)(phi(arrow(ell))) in lden T[arrow(q) := arrow(ell)] rden_rho "in" m_c.
+  $
+  The same holds of $T$ renamed to distinct level parameters
+  $arrow(p)$ with $|arrow(p)| = |arrow(q)|$, so of every copy:
+  $
+    m_(From_c (n)) (n)(phi(arrow(ell))) in
+      lden T[arrow(q) := arrow(p)][arrow(p) := arrow(ell)] rden_rho "in" m_c.
   $
 ] <thm:cmp>
 
 #proof[
-  @thm:mod gives the compatible family. Compatibility says that
-  $m_c (n) = m_(From_c (n)) (n)$ for every name $n$ of $Gamma_c = E_c$,
-  and the typing law of $m_c$ (@def:model) puts $m_c (n)$ in its
-  type.
+  @thm:mod, through the local checks (@sec:mod-local), gives the
+  compatible family. A checked declaration stores only fresh names, so
+  #src("whitepaper/Fragment/ModularModel.lean", 158, 173)[every entry of $Gamma_c$ is an entry of $E_c$],
+  and the typing law of $m_c$ (@def:model) puts $m_c (n)(phi(arrow(ell)))$
+  in its type. Compatibility says that $m_c (n) = m_(From_c (n)) (n)$.
+  For a renamed statement, @lem:cmp-rename gives
+  $T[arrow(q) := arrow(p)][arrow(p) := arrow(ell)] = T[arrow(q) := arrow(ell)]$.
 ]
+
+The copies take the place of the justified holes of
+@sec:cmp-model: the value at a copy is the value of the module it is
+read from, the solution's for a hole the solution fills. The model of
+the challenge needs no construction of its own, since @thm:mod builds
+it as it builds every module's.
+
+The attack of @sec:cmp-attack fails here in two ways. If the
+challenge declares $f : Nat := 3$ itself and the solution declares
+$f : Nat := 5$, the challenge's $f$ is a copy of the solution's, and a
+definition is a copy only with the entry's value; the checker rejects
+it.
+
+In the second way, a module $a$ declares $f : Nat := 3$, and the
+challenge imports $a$ and has the hole $t : f = 5$. A solution that
+does not import $a$ declares its own $f : Nat := 5$ and proves $t$ by
+unfolding it. The challenge's views then store two copies of $f$,
+$a$'s and the solution's. Whichever of them the challenge reads $f$
+from, the module of the other copy declares $f$ itself, and that copy
+is no proof. Such a copy
+#src("whitepaper/Fragment/Compare.lean", 345, 360)[agrees only as a proof],
+so the challenge does not pass its local checks. In an accepted
+challenge that imports $a$, $f$ is $a$'s $f$, and it is $3$ in every
+model of the compatible family.
 
 #real[
   The modular modes compare by this rule: `--olean --compare` with
   `--module`, `--modular` or `--schedule`, and `--check-graph --compare`.
   The challenge is
-  #src("ConLeche/Driver/CompareModule.lean", 11, 19)[one more module of a modular run]
-  over the closures of the challenge and the solution, its own names
-  read from the solution, each name it imports from the module of the
-  closure that declares it, and each module of the challenge's closure
-  from the trusted directories alone.
-  #src("ConLeche/MainTheorem.lean", 505, 527)[The modular capstones]
-  state @thm:cmp for an exit 0 of every command of such a run: every
-  module has a model of its own environment, a name a module reads from
-  another means the same in both models, and the challenge's model
-  inhabits every hole.
+  #src("ConLeche/Driver/CompareModule.lean", 11, 23)[one more module of a modular run]
+  over the closures of the challenge and the solution, with
+  `import all` of the solution added to its header. It loads what Lean
+  loads for such a module, under Lean's rule for two loaded copies of
+  one name, applied to every loaded name: two copies of a name are one
+  constant, or the module is rejected. So a solution that declares its
+  own $f$ beside the challenge's import of $a$ is rejected as the
+  attack above is.
+  #src("ConLeche/Driver/Worker.lean", 106, 123)[A record of the challenge some name of which a loaded module stores is a copy],
+  and its names are read into the context like any imported name.
+  #src("ConLeche/Driver/Worker.lean", 191, 223)[The check of a copy]
+  asks a hole (an axiom, or a definition whose value uses `sorry`), a
+  theorem or an opaque constant to have the loaded constant's
+  statement, a definition its value too, both up to the names of the
+  level parameters, and an inductive block to be the same record. A
+  model reads a constant's level parameters by position, so a renamed
+  copy has the laws of the loaded constant. Every other record is
+  checked as any module's, and
+  #src("ConLeche/Driver/Worker.lean", 233, 240)[a hole among them is rejected].
+  Each module of the challenge's closure is read from the trusted
+  directories alone.
+
+  #src("ConLeche/MainTheorem.lean", 447, 487)[The modular capstones]
+  state @thm:cmp for an exit 0 of every command of such a run, and of
+  the run in one process: on every snapshot that agrees with the run's
+  under the challenge's directories, every module of the challenge's
+  closure, the challenge with its copies among them, has a model of
+  its constants, and a name a module sees as another module's has the
+  value that module's model gives it. In particular,
+  #src("ConLeche/MainTheorem.lean", 490, 525)[a challenge whose closure holds a theorem of type `False` is never solved].
 ]
