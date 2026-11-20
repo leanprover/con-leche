@@ -124913,3 +124913,59 @@ no-local-paths,overview-links}.sh` and `whitepaper/links-gate.sh` pass.  Whitepa
 repointed, the lean4export paragraph of §8 states the sidecar rule; the module-comparison text of
 §8 is unchanged (the olean mode is).  Shake: imports of the new modules minimized (subagent),
 five fallback pairs added to `scripts/pub-import-plan.py`'s `FALLBACK` table.
+
+### #619 cont. 4 — `--olean --compare` checks the challenge with the solution (2026-11-20, agent/619-olean)
+
+**The run** (`compareG`, `ConLeche/Driver/Compare.lean`): the challenge's closure read through the
+trusted lookup alone (`CmpReq.chalRoots`; `D` when `T` is empty, as before), the solution's
+through `T`, then `D` (under `--constant`: the constants the challenge's prepared records name);
+a solution importing its challenge rejected (exit 1, as before); the solution's closure prepared
+and checked in full as an `--olean` run (`checkOleansG`, `Jobs.build recsS`); then the challenge's
+prepared records as `chalRecords envS`: every theorem whose FILE says its value uses `sorryAx`
+(`holeRecord`, from `OleanRead.thmUses`) the axiom of its statement, then `sideRecords (some envS)`
+(definitions, opaque constants), checked with `Jobs.build … (some envS)`.  Output as the JSON mode:
+`accepted N declarations, K axioms justified by the solution S (M declarations accepted)`, one
+`… justified by the solution` line per justified record; the solution's failure prefixed
+`the solution S: `.  `checkOleansG`/`oleanJobRun`/`JobFact` are generic in `Jobs ds justify`.
+
+**The hint needs no proof.**  The brief's route was: prove that an accepted job of an UNHINTED
+theorem has a value not mentioning `sorryAx` (so `sideRecords (some envS) D = D` and
+`checkDeclsWith D (some envS) = .ok …`).  That needs "no accepted environment stores a constant
+named `sorryAx`" through every install path (blocks included), which no lemma states today.  It is
+not needed: `Model.Solution.solution_envModel_run` takes the fold's accepting RUN over any records
+`rs` at `solutionOf (some envS) rs` (the old `solution_envModel` is its corollary), and
+`checkOleansG_run` (`Verify/Driver/Oleans.lean`) gives that run over the filled records from the
+jobs (`buildIndex_fill`, `solutionOf_fill`/`recordMates_fill`).  An unhinted theorem whose value
+uses sorry is then a theorem record of the run, whatever its check did; a hinted theorem without
+sorry the axiom of its statement.  So `compareG_accept` (`Verify/Driver/CompareRun.lean`) states a
+`DeclsRun`, not a `checkDeclsWith`; no runtime check was added.
+
+**The capstones** (`ConLeche/MainTheorem.lean`, proofs `ConLeche/Model/IsModelCompare.lean`,
+model-free half `ConLeche/Verify/CompareInput.lean`; axioms pinned):
+`main_compare_model`: exit 0 of `["--olean", "--compare", "--trusted-search-path=" ++ T,
+"--search-path=" ++ D, "--", c, s]` → `∀ fs', FS.AgreeUnder (searchPathOf T) fs fs' → ∃ model,
+IsModel V model (closureConstants (searchPathOf T) fs' #[C])`; `main_compare_no_False`: a theorem
+of type `False` in a module of the closure of `C` through `T` (`InClosure`, `ViewOf`) → no exit 0
+(the theorem's record is stored in the run's environment, which has an `EnvModelM`:
+`no_constant_of_False`).  Route: `runArgs_compare_stored` — the challenge's prepared record `d`
+stands in the run as `fill (sideRecord (holeRecord d))`, which keeps `d`'s constants or reads a
+theorem as the axiom of its statement (`StoredAs` compares statement kinds by `toConstantVal`), with
+the same reserved-names verdict (`inputStored_of`, the generalization of `checkDecls_inputStored`,
+`Verify/OleanInput.lean`); `closureConstants_local` from `readFiles_local`.
+**T empty:** `closureConstants` over the empty path is empty (`closureConstants_nil`: nothing
+resolves), so the capstone holds vacuously there and the driver keeps reading the challenge
+through `D` when `T` is empty.
+
+**Deleted** (the merged comparison): `cmpRecord`, `chalRecord`, `recIndex`, `readCone(Go)`,
+`chalRoot`, `chalRecs`, `compareRecords`, `ctxScoped` (`Driver/Compare.lean`); `cmpRecs`,
+`chalCmpRecs`, `challengeEnv`, `solutionEnv` (`Verify/Driver/CompareRun.lean`);
+`Model/Modular/Compare.lean` down to `RecCopy` and `records_copy` (the modular compare's);
+`main_compare_solves`, `main_compare_trusted`; `challengeView`, `challenge_local`;
+`CompareAttackTest.compare_attack_rejected` (its `no_model` stays, `IsModelTests` reads it).
+
+**Fixture verdict changes** (`tests/olean.sh`, each with its reason beside the row): opaque of
+another value 1→0; hole filled by an inductive type 2→1; holes at `Quot.sound`/`sorryAx` 2→0 and
+the compiler-trust definition 2→1 (all three the target verdicts the old comments named); an
+imported name redeclared with its body 1→0; upstream simple-mismatch 1→2 and
+def-hole-type-mismatch 1→2 (the solution's own check declines first); upstream check-multi 1→0.
+Every message re-pinned.  Cost: a module both closures hold is now checked twice.

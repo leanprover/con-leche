@@ -1010,68 +1010,83 @@ case_grep "--schedule-commands: --jobs where given" 0 "^/.* --module --jobs=3 " 
 rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"
-# --- a challenge and its solution (--compare, task #607) ---------------------
-# holes: the challenge module's own axioms and sorry declarations, met by the solution's
-# constant of the name and type (up to level-parameter names), of any kind
+# --- a challenge and its solution (--compare, tasks #607, #619) ---------------
+# the solution's closure checked in full, then the challenge's closure in full with its axioms
+# justified by the solution's environment (as `--compare` on two lean4export files): a hole (an
+# axiom of the challenge's closure but the standard ones, or a declaration whose value uses
+# sorry, read as the axiom of its statement) is accepted when the solution holds a constant of
+# its name and type, up to level-parameter names, and everything its type reads is the same
+# constant in both.  (#619 verdict changes against the merged comparison of #607 are marked.)
 cmp_case() { case_ "compare: $1" "$2" --olean --compare --search-path=$MSP -- "${@:3}"; }
 cmp_grep() { case_grep "compare: $1" "$2" "$3" --olean --compare --search-path=$MSP -- "${@:4}"; }
-cmp_grep "theorem holes filled" 0 "hole g_eq (theorem := sorry) filled by CmpSol's theorem" CmpChal CmpSol
-cmp_grep "a definition that differs" 1 "g: the solution's definition differs" CmpChal CmpSolDef
-cmp_grep "a hole stated differently" 1 "g_eq: the solution's theorem is not of the hole's type" CmpChal CmpSolStmt
-cmp_grep "a constant the solution lacks" 1 "easy: the solution has no constant of this name" CmpChal CmpSolMissing
+# theorem holes `:= sorry`: read as axioms before the index, from the file's used constants
+cmp_grep "theorem holes filled" 0 "theorem g_eq justified by the solution" CmpChal CmpSol
+cmp_grep "a definition that differs" 1 "axiom g_eq is not justified by the solution: its type reads g, which the solution does not declare alike" CmpChal CmpSolDef
+cmp_grep "a hole stated differently" 1 "axiom g_eq is not justified by the solution: the solution's g_eq has another type" CmpChal CmpSolStmt
+cmp_grep "a constant the solution lacks" 1 "axiom easy is not justified by the solution: the solution has no constant easy" CmpChal CmpSolMissing
 # the solution's check declines sorry, as every --olean run does
 cmp_case "a solution that uses sorry" 2 CmpChal CmpSolSorry
-cmp_grep "definition and opaque holes filled" 0 "hole answer (definition := sorry) filled by CmpOpqSol's definition" CmpOpq CmpOpqSol
-cmp_grep "an opaque constant of another value" 1 "k: the solution's opaque constant differs" CmpOpq CmpOpqSolK
-cmp_grep "an axiom hole filled by a theorem" 0 "hole ax (axiom) filled by CmpAxS's theorem" CmpAxC CmpAxS
+cmp_grep "definition and opaque holes filled" 0 "def answer justified by the solution" CmpOpq CmpOpqSol
+# (#619: 1 -> 0.  The challenge's `opaque k := 0` is its own declaration, checked as such; no hole's
+# type reads it, so the solution's `k := 1` is never compared)
+cmp_grep "an opaque constant of another value" 0 "opaque secret justified by the solution" CmpOpq CmpOpqSolK
+cmp_grep "an axiom hole filled by a theorem" 0 "axiom ax justified by the solution" CmpAxC CmpAxS
 # a non-standard axiom at the hole's name: the solution's check declines it, as always
 cmp_case "a solution axiom at a hole's name" 2 CmpAxC CmpAxBadS
-# a hole filled by an inductive type: not supported yet, declined
-cmp_grep "a hole filled by an inductive type" 2 "T: the solution fills this hole with an inductive type" CmpIndC CmpIndS
-cmp_grep "level parameters named otherwise" 0 "hole h (axiom) filled by CmpLvS's theorem" CmpLvC CmpLvS
-cmp_grep "binders named otherwise" 0 "hole gt (theorem := sorry) filled by CmpBndS's theorem" CmpBndC CmpBndS
-# holes con-leche cannot fill (declines; the target verdicts: Quot.sound and sorryAx filled by
-# the same axiom accepted, once the comparison carries their pin copies; a definition at a
-# compiler-trust name rejected, as the solution's own check rejects it)
-cmp_grep "a hole at Quot.sound" 2 "declined: Quot.sound: a hole at the quotient's axiom" QsA QsB
-cmp_grep "a hole at sorryAx" 2 "declined: sorryAx: a hole at the placeholder axiom" CmpSorryC CmpSorryS
-cmp_grep "a compiler-trust hole filled by a definition" 2 \
-  "declined: Lean.reduceBool: the solution fills this hole at a compiler-trust name with a definition" \
+# (#619: 2 -> 1.  The holes `T` and `T.mk : T`: `T.mk`'s type reads `T`, which the solution
+# declares as an inductive type, not as a statement: not the same constant)
+cmp_grep "a hole filled by an inductive type" 1 "axiom T.mk is not justified by the solution: its type reads T" CmpIndC CmpIndS
+cmp_grep "level parameters named otherwise" 0 "axiom h justified by the solution" CmpLvC CmpLvS
+cmp_grep "binders named otherwise" 0 "theorem gt justified by the solution" CmpBndC CmpBndS
+# (#619: 2 -> 0, the target verdict the merged comparison declined: a built-in axiom of the
+# challenge (`Quot.sound` with the pinned quotient, the tolerated `sorryAx`) takes its own check,
+# solution or not)
+cmp_grep "a hole at Quot.sound" 0 "0 axioms justified by the solution QsB" QsA QsB
+cmp_grep "a hole at sorryAx" 0 "0 axioms justified by the solution CmpSorryS" CmpSorryC CmpSorryS
+# (#619: 2 -> 1, the target verdict: the solution's own check rejects a definition at a
+# compiler-trust name)
+cmp_grep "a compiler-trust hole filled by a definition" 1 \
+  "the solution CmpTrustS: invalid: a compiler-trust name, not an opaque constant: Lean.reduceBool" \
   CmpTrustC CmpTrustS
-cmp_grep "a definition hole filled by an opaque constant" 0 "filled by UpKindDefOpqSol's opaque constant" UpKindDef UpKindDefOpqSol
-cmp_grep "a theorem hole filled by a definition" 0 "filled by UpKindThmDefSol's definition" UpKindThm UpKindThmDefSol
-cmp_grep "a hole filled by an imported definition" 0 "hole n (definition := sorry) filled by UpHidDef's definition" UpKindDef UpHidDefSol
-# imported names are their home's: never compared by content
-cmp_grep "an imported name declared by the solution" 1 "f: the challenge reads it from CmpHomeA, the solution's is CmpHomeS1's" CmpHomeC CmpHomeS1
-cmp_grep "an imported name redeclared with its body" 1 "f: the challenge reads it from CmpHomeA, the solution's is CmpHomeS2's" CmpHomeC3 CmpHomeS2
-cmp_grep "an imported name read from its home" 0 "hole t (theorem := sorry) filled by CmpHomeS3's theorem" CmpHomeC3 CmpHomeS3
+cmp_grep "a definition hole filled by an opaque constant" 0 "def n justified by the solution" UpKindDef UpKindDefOpqSol
+cmp_grep "a theorem hole filled by a definition" 0 "theorem t justified by the solution" UpKindThm UpKindThmDefSol
+cmp_grep "a hole filled by an imported definition" 0 "def n justified by the solution" UpKindDef UpHidDefSol
+# a name a hole's type reads is the same constant in both, wherever each closure declares it
+cmp_grep "an imported name declared by the solution" 1 "axiom t is not justified by the solution: its type reads f, which the solution does not declare alike" CmpHomeC CmpHomeS1
+# (#619: 1 -> 0.  `t : f = 3` reads `f`; the solution's own `f := 3` is the challenge's `f`, the
+# same constant: the rule compares constants, not the modules declaring them)
+cmp_grep "an imported name redeclared with its body" 0 "theorem t justified by the solution" CmpHomeC3 CmpHomeS2
+cmp_grep "an imported name read from its home" 0 "theorem t justified by the solution" CmpHomeC3 CmpHomeS3
 # the ported upstream pairs (comparator's test suite)
-cmp_grep "upstream simple-match" 0 "hole comm (theorem := sorry) filled by UpCommSol's theorem" UpComm UpCommSol
+cmp_grep "upstream simple-match" 0 "theorem comm justified by the solution" UpComm UpCommSol
 cmp_case "upstream simple-axiom-issue" 2 UpComm UpCommAxSol
-cmp_grep "upstream simple-mismatch" 1 "comm: the solution's axiom is not of the hole's type" UpComm UpCommMisSol
-cmp_grep "upstream def-hole" 0 "hole n (definition := sorry) filled by UpDefHoleSol's definition" UpDefHole UpDefHoleSol
+# (#619: 1 -> 2.  The solution's `comm` is an axiom: its own check declines it before the
+# challenge is looked at)
+cmp_grep "upstream simple-mismatch" 2 "the solution UpCommMisSol: not implemented yet: non-standard axiom (comm)" UpComm UpCommMisSol
+cmp_grep "upstream def-hole" 0 "def n justified by the solution" UpDefHole UpDefHoleSol
 cmp_case "upstream def-hole-axiom-issue" 2 UpDefHole UpDefHoleAxSol
 cmp_case "upstream def-hole-kind-mismatch" 2 UpDefHole UpDefHoleKindSol
-cmp_grep "upstream def-hole-type-mismatch" 1 "n: the solution's definition is not of the hole's type" UpDefHoleTy UpDefHoleTySol
-cmp_grep "upstream numeric-namespace" 0 "hole «123».foo" 'UpNum.«12.34».«5»' UpNumSol
+# (#619: 1 -> 2.  The solution's `foo` uses sorry: its own check declines it first)
+cmp_grep "upstream def-hole-type-mismatch" 2 "the solution UpDefHoleTySol: not implemented yet: use of the sorryAx axiom in value of foo" UpDefHoleTy UpDefHoleTySol
+cmp_grep "upstream numeric-namespace" 0 "theorem «123».foo justified by the solution" 'UpNum.«12.34».«5»' UpNumSol
 cmp_case "upstream opaque-value" 2 UpBoom UpBoomOpqSol
-# (the challenge's `boom : False` reads nothing of its import Init.Data.Nat.Gcd, so `Nat.gcd` is
-# not compared (task #614); the solution's own check then declines its `Nat.gcd := 0`, as
-# `--olean UpGcdSol` does.  Upstream rejects on `Nat.gcd`; the modular modes below reject by the
-# clash rule, their graph holding both closures)
+# (the solution's own check declines its `Nat.gcd := 0`, as `--olean UpGcdSol` does.  Upstream
+# rejects on `Nat.gcd`; the modular modes below reject by the clash rule, their graph holding both
+# closures)
 cmp_grep "upstream primitive-issue" 2 "unsupported Nat.div/mod spelling" UpGcd UpGcdSol
-cmp_grep "upstream proj_trick" 1 "S: the solution's inductive type differs" UpProj UpProjSol
+cmp_grep "upstream proj_trick" 1 "axiom tgt is not justified by the solution: its type reads S" UpProj UpProjSol
 cmp_case "upstream quot_mismatch" 1 UpQuot UpQuotSol
-cmp_grep "upstream theorem_hole_issue" 0 "hole hw (theorem := sorry) filled by UpThmHoleSol's theorem" UpThmHole UpThmHoleSol
-cmp_grep "upstream check-multi as a comparison" 1 "a_thm: the solution has no constant of this name" UpMultiA UpMultiB
+cmp_grep "upstream theorem_hole_issue" 0 "theorem hw justified by the solution" UpThmHole UpThmHoleSol
+# (#619: 1 -> 0.  `a_thm` is the challenge's own theorem, no hole: checked by its own check, the
+# solution need not hold it, as `cmp_missing` of the lean4export comparison)
+cmp_grep "upstream check-multi as a comparison" 0 "0 axioms justified by the solution UpMultiB" UpMultiA UpMultiB
 # a solution importing its challenge is invalid input, as the modular run's cycle (task #608)
 cmp_grep "a solution importing its challenge" 1 "the solution's closure holds the challenge" CmpChal CmpImpS
-# the challenge imports CmpBase, whose `f` its record does not read, and the solution's closure
-# lacks CmpBase: only the challenge's own records and what they read are compared (task #614),
-# so the merged mode accepts, as the modular ones below (task #611 found it rejecting)
-cmp_grep "an unread import the solution lacks" 0 "hole easy (theorem := sorry) filled by CmpUnS's theorem" CmpUnC CmpUnS
-# --constant: declarations of the challenge module itself; the cone alone compared
-case_grep "compare: --constant at a challenge declaration" 0 "hole foo (theorem := sorry)" \
+# the challenge imports CmpBase, which the solution's closure lacks: the challenge's closure is
+# checked as itself, and only what the hole's type reads must be the solution's
+cmp_grep "an unread import the solution lacks" 0 "theorem easy justified by the solution" CmpUnC CmpUnS
+# --constant: declarations of the challenge module itself and what they read
+case_grep "compare: --constant at a challenge declaration" 0 "theorem foo justified by the solution" \
   --olean --compare --constant=foo --search-path=$MSP -- UpDefHole UpDefHoleSol
 case_grep "compare: --constant at an imported name" 1 \
   "--constant=Nat.add: not a declaration of the challenge module UpDefHole" \
