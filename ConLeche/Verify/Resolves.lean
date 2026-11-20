@@ -340,30 +340,50 @@ theorem Expr.resolves_of_lvlEq {env : Env} : ∀ (s c : Expr), s.lvlEq c = true 
   induction s with
   | bvar i => intro c _ _; trivial
   | sort u => intro c _ _; trivial
-  | fvar i t => intro c h hc; cases c <;> simp [Expr.lvlEq] at h; simp_all [Resolves]
   | const n us =>
     intro c h hc
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hc
+    cases c <;> simp at h
     obtain ⟨rfl, h⟩ := h
     obtain ⟨ci, hf, hl⟩ := hc
     exact ⟨ci, hf, (isEquivList_length h).trans hl⟩
   | app f a ihf iha =>
-    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    intro c h hc
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hc
+    cases c <;> simp at h
     exact ⟨ihf _ h.1 hc.1, iha _ h.2 hc.2⟩
   | lam t b iht ihb =>
-    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    intro c h hc
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hc
+    cases c <;> simp at h
     exact ⟨iht _ h.1 hc.1, ihb _ h.2 hc.2⟩
   | forallE t b iht ihb =>
-    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    intro c h hc
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hc
+    cases c <;> simp at h
     exact ⟨iht _ h.1 hc.1, ihb _ h.2 hc.2⟩
   | letE t v b iht ihv ihb =>
-    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    intro c h hc
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hc
+    cases c <;> simp at h
     exact ⟨ihv _ h.1.2 hc.1, ihb _ h.2 hc.2⟩
-  | lit l => intro c h hc; cases c <;> simp [Expr.lvlEq] at h; subst h; exact hc
   | proj T i e ihe =>
-    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    intro c h hc
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hc
+    cases c <;> simp at h
     obtain ⟨⟨rfl, rfl⟩, h⟩ := h
     exact ⟨hc.1, ihe _ h hc.2⟩
+  | fvar _ _ | lit _ =>
+    intro c h hc
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hc
+    cases c <;> simp at h
 
 /-- **A term an annotated resolving one consumes to resolves.** -/
 theorem Expr.resolves_of_annEq {env : Env} {f : Name → Option ConstantInfo} {s c : Expr}

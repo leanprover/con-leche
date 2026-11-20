@@ -192,18 +192,18 @@ def iotaEqOf (cv : ConstantVal) (mI rP i : Nat) (rl : RecRule) : Option Expr := 
 
 /-! ## The checker's rule: the two readings are one -/
 
-/-- **Equal up to equivalent universe levels**: the same term, each `Sort` and constant at
-levels `Level.isEquiv` decides equal. -/
-def Expr.lvlEq : Expr → Expr → Bool
-  | .bvar i, .bvar j => i == j
-  | .fvar i t, .fvar j t' => i == j && t == t'
+/-- **Equal up to equivalent universe levels**: the same term (`==`, which compares shared
+subterms once), or the same syntax form with each `Sort` and constant at levels `Level.isEquiv`
+decides equal and its parts so related. -/
+def Expr.lvlEq (a b : Expr) : Bool :=
+  a == b ||
+  match a, b with
   | .sort u, .sort v => Level.isEquiv u v == some true
   | .const n us, .const m vs => n == m && Level.isEquivList us vs == some true
   | .app f a, .app g b => Expr.lvlEq f g && Expr.lvlEq a b
   | .lam t b, .lam t' b' => Expr.lvlEq t t' && Expr.lvlEq b b'
   | .forallE t b, .forallE t' b' => Expr.lvlEq t t' && Expr.lvlEq b b'
   | .letE t v b, .letE t' v' b' => Expr.lvlEq t t' && Expr.lvlEq v v' && Expr.lvlEq b b'
-  | .lit l, .lit l' => l == l'
   | .proj s i e, .proj s' i' e' => s == s' && i == i' && Expr.lvlEq e e'
   | _, _ => false
 

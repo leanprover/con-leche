@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.CheckerC
-public import ConLeche.Kernel.Inductives.IotaRead
+public import ConLeche.Cached.IotaReadC
 
 @[expose] public section
 
@@ -120,8 +120,8 @@ def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     match readBlock nP block with
     | .ok p => do
       let fe' ← checkBlockKS mode fe block p
-      -- the recursors' ι equations read off their own types (`blockReadsOk`)
-      match blockReadsOk fe'.find? p with
+      -- the recursors' ι equations read off their own types (`blockReadsOkC`)
+      match blockReadsOkC fe'.find? p with
       | .ok _ => pure fe'
       | .error e => throw e
     | .error e => throw e

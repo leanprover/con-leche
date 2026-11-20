@@ -41,18 +41,19 @@ theorem Denotes_lvlEq :
       Denotes cval env φ ρ s X → Denotes cval env φ ρ c X := by
   intro s
   induction s with
-  | bvar i =>
-    intro c ρ X h hd; cases c <;> simp [Expr.lvlEq] at h; subst h; exact hd
-  | fvar i t => intro c ρ X h hd; cases hd
   | sort u =>
     intro c ρ X h hd
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
     cases hd
     rw [Level.isEquiv_sound h φ]
     exact .sort
   | const n us =>
     intro c ρ X h hd
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
     obtain ⟨rfl, h⟩ := h
     cases hd with
     | const hf hlen =>
@@ -61,32 +62,45 @@ theorem Denotes_lvlEq :
       exact .const hf ((isEquivList_length h).symm.trans hlen)
   | app f a ihf iha =>
     intro c ρ X h hd
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
     cases hd with
     | app hf ha => exact .app (ihf _ h.1 hf) (iha _ h.2 ha)
   | lam t b iht ihb =>
     intro c ρ X h hd
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
     cases hd with
     | lam hA hF => exact .lam (iht _ h.1 hA) fun x hx => ihb _ h.2 (hF x hx)
   | forallE t b iht ihb =>
     intro c ρ X h hd
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
     cases hd with
     | pi hA hB => exact .pi (iht _ h.1 hA) fun x hx => ihb _ h.2 (hB x hx)
   | letE t v b iht ihv ihb =>
     intro c ρ X h hd
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
     cases hd with
     | letE hv hb => exact .letE (ihv _ h.1.2 hv) (ihb _ h.2 hb)
-  | lit l =>
-    intro c ρ X h hd; cases c <;> simp [Expr.lvlEq] at h; subst h; exact hd
   | proj T i e ihe =>
     intro c ρ X h hd
-    cases c <;> simp [Expr.lvlEq] at h
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
     obtain ⟨⟨rfl, rfl⟩, h⟩ := h
     cases hd with
     | proj_table ht he => exact .proj_table ht (ihe _ h he)
+  | bvar _ | fvar _ _ | lit _ =>
+    intro c ρ X h hd
+    unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
+    rcases h with rfl | h; · exact hd
+    cases c <;> simp at h
 
 /-- **Every application of a term's spine applies** (`AppliesTo`), outside binders. -/
 @[expose] def AppsApply (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat)

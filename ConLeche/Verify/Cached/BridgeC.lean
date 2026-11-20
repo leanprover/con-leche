@@ -315,7 +315,7 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
           (match readBlock nP block with
             | .ok p => do
               let fe' ← checkBlockKS .verified (mkFEnv env) block p
-              match blockReadsOk fe'.find? p with
+              match blockReadsOkC fe'.find? p with
               | .ok _ => pure fe'
               | .error e => throw e
             | .error e => throw e)

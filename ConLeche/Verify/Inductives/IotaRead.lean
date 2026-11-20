@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Kernel.Inductives.IotaRead
 public import ConLeche.Verify.Cached.PushChain
-import ConLeche.Verify.Level
 
 public section
 
@@ -329,11 +328,6 @@ theorem listRel_length {α β : Type} {r : α → β → Bool} :
     simp [listRel_length h.2]
   | [], _ :: _, h | _ :: _, [], h => by simp [listRel] at h
 
-theorem listRel_of_eq {α : Type} {r : α → α → Bool} (hr : ∀ a, r a a = true) :
-    ∀ (as : List α), listRel r as as = true
-  | [] => rfl
-  | a :: as => by simp [listRel, hr a, listRel_of_eq hr as]
-
 theorem isEquivList_length : ∀ {us vs : List Level}, Level.isEquivList us vs = some true →
     us.length = vs.length
   | [], [], _ => rfl
@@ -344,16 +338,6 @@ theorem isEquivList_length : ∀ {us vs : List Level}, Level.isEquivList us vs =
     | true => simp [isEquivList_length h]
     | false => simp at h
   | [], _ :: _, h | _ :: _, [], h => by simp [Level.isEquivList] at h
-
-theorem isEquivList_refl : ∀ us : List Level, Level.isEquivList us us = some true
-  | [] => rfl
-  | u :: us => by
-    simp [Level.isEquivList, Level.isEquiv_of_beq (beq_self_eq_true u), isEquivList_refl us]
-
-theorem lvlEq_refl : ∀ e : Expr, e.lvlEq e = true := by
-  intro e
-  induction e <;>
-    simp_all [Expr.lvlEq, Level.isEquiv_of_beq (beq_self_eq_true _), isEquivList_refl]
 
 end ConLeche
 

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Cached.IotaReadC
 import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.BlockShapeInv
@@ -1733,7 +1734,7 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     (h : (match readBlock nP block with
           | .ok p => do
             let fe' ← checkBlockKS .verified (mkFEnv env) block p
-            match blockReadsOk fe'.find? p with
+            match blockReadsOkC fe'.find? p with
             | .ok _ => pure fe'
             | .error e => throw e
           | .error e => throw e) s₀ =
@@ -1770,7 +1771,7 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
       simp only [bind, StateT.bind, hk, Except.bind] at h
       have hfind : fe'.find? = fe'.env.find? := by
         funext n; rw [hfe]; exact mkFEnv_find? _ n
-      rw [hfind] at h
+      rw [hfind, blockReadsOkC_eq] at h
       cases hb : blockReadsOk fe'.env.find? p with
       | error e =>
         simp only [hb] at h

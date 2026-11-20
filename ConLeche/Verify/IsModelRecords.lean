@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.IsModel
+import ConLeche.Verify.Cached.IotaReadC
 import ConLeche.Cached.Decls
 public import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Cached.PushChain
@@ -451,6 +452,7 @@ theorem checkDeclStepC_reads (mode : CheckMode) (pins : List NatOpPinSet) (fe : 
           refine Yields.pure fun p' hp' => ?_
           cases hp'
           cases u
+          rw [← blockReadsOkC_eq]
           exact hu
         · exact Yields.ofThrow
     · exact Yields.ofThrow
