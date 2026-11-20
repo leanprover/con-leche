@@ -675,7 +675,7 @@ inductive LoadsAt (sp : Roots) (fs : FS) (g : Bool) (imps0 : Array ImportRec) : 
 
 /-- **Module `m`'s header loads part `p` of `m'`**: the private part where some path loads it
 whole, else the exported part (`LoadsAt`, from `m`'s private view's header). -/
-def Loads (sp : Roots) (fs : FS) (m m' : Name) (p : OLeanLevel) : Prop :=
+@[expose] def Loads (sp : Roots) (fs : FS) (m m' : Name) (p : OLeanLevel) : Prop :=
   ∃ d, ViewOf sp fs m d ∧
     match p with
     | .private => LoadsAt sp fs (!d.isModule) d.imports m' true
