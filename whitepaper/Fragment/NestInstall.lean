@@ -11,8 +11,9 @@ The model of the installed nested environment (`mInstallN`): the final
 assignment with the two recursors' type laws and the ι laws of both
 rule sets (`NestIota.lean`) on top of the model with the former and
 the constructors (`InstallNest.lean`); the block laws survive
-(`blocksN`); `install_nest`, and the one installation theorem for any
-accepted block (`install_ind_any`).
+(`blocksN`); `install_nest`.  The one installation theorem for any
+accepted block, with the block's constants holding, is
+`install_ind_holds` (`Holds.lean`).
 -/
 
 namespace Fragment open NestInfo (nPK nK memberVar isMember Positive memberLevel)
@@ -254,21 +255,13 @@ end IndSpec
 
 /-- **Installing a nested block preserves having a block model.**
 Every stored constant keeps its set; the new block, being nested,
-stores no block law of its own. -/
+stores no block law of its own.  The assignment is `S.M₃N`. -/
 theorem install_nest {env : Env} {S : IndSpec} {N : NestInfo} (hs : Env.Scoped env)
     (m : BlockModel V env) (hok : S.OkN N env) :
-    ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+    ∃ m' : BlockModel V (S.install env), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      m'.M = S.M₃N m.M N := by
   exact ⟨{ toEnvModel := IndSpec.mInstallN hs m hok, blocks := IndSpec.blocksN m hok },
-    fun n hn ls => (IndSpec.agree_M₃N hok m.M n hn ls).symm⟩
-
-/-- **Installing any accepted block preserves having a block model.** -/
-theorem install_ind_any {env : Env} {S : IndSpec} (hs : Env.Scoped env) (m : BlockModel V env)
-    (hok : IndOk env S) :
-    ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-  unfold IndOk at hok
-  split at hok
-  · exact install_ind' ‹_› hs m hok
-  · exact install_nest hs m hok
+    fun n hn ls => (IndSpec.agree_M₃N hok m.M n hn ls).symm, rfl⟩
 
 /-- A closed environment stays closed under any accepted block. -/
 theorem _root_.Fragment.Env.Scoped.install_any {env : Env} {S : IndSpec} (hs : Env.Scoped env)

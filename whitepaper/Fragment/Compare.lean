@@ -8,16 +8,21 @@ public import Fragment.ModularInstance
 # Comparing a challenge with a solution
 
 A **challenge** states what is asked; its **holes** are its assumptions
-(Lean's axioms, and the declarations whose value uses `sorry`, read as
-the assumptions of their statements).  A **solution** is a second,
-checked environment.
+(`Decl.hole`: Lean's axioms, and the declarations whose value uses
+`sorry`, read as the assumptions of their statements).  A **solution**
+is a second, checked list of declarations.
 
-**Justified assumptions.**  The challenge is checked like any input,
-except that a hole may be added to its environment when the solution
-justifies it: the solution stores the hole's name with the same
-statement, up to the names of the level parameters, and the two models
-agree on every constant the statement reads.  The model of the
-challenge then takes the solution model's value at the hole.
+**Justified assumptions.**  The challenge is checked like any input
+(`ChallengeChecks`), except that a hole is accepted when the solution
+justifies it (`Justified`): its name lies in a set of names **shared**
+between the two environments (`Shared`) — each stored by the solution,
+and by the challenge either with the same entry or as an assumption of
+the solution's type with its level parameters renamed position by
+position, everything its type and value read shared again.  The
+theorem (`solution_model_exists`) is over the input: the challenge has
+a model of its constants.  The proof builds the challenge's model
+along its check, agreeing with the solution's on the shared names: a
+justified hole and a shared constant take the solution model's value.
 
 * `denote_agree`: two assignments that agree on every constant a term
   reads give it the same denotation, and make it well-denoted alike.
@@ -28,7 +33,8 @@ challenge then takes the solution model's value at the hole.
   `install_shared`: likewise for a constant the two environments store
   alike, whose type and value read only constants on which the models
   agree.  Together these keep the models in agreement on the shared
-  constants along the challenge's check.
+  constants along the challenge's check (`step_shared`,
+  `ChallengeChecks.model`).
 * `Expr.instL_rename`: renaming a constant's level parameters
   position by position changes none of its instances, so it changes
   none of its laws in a model, whose values are read off lists of
@@ -48,10 +54,11 @@ declaration of the challenge is its own, and is checked.
 * `Checks.find?_context` (`ModularModel.lean`): an entry of the
   context is an entry of the module's own environment.
 * `compare_solves`: if the modules up to the challenge pass their local
-  checks, there is a compatible family of models in which every entry
-  of the challenge's context, every copy among them, has its type
-  inhabited by the value of the module it is read from, also with its
-  level parameters renamed.
+  checks, every module has a model of its own constants, the models
+  agree on every name a module sees as another's (`Sees`), and every
+  entry of the challenge's context holds in the challenge's model as a
+  copy (`ConstInfo.copyAt`): renamed to distinct level parameters, an
+  assumption by its statement, a definition with its value.
 * `LocalOk.redeclared_is_proof`: a view of a module other than the one
   a name is read from, which stores the name without that module
   having it in its context (the module declares it itself), agrees
@@ -338,6 +345,344 @@ theorem install_shared {E ES : Env} (hs : Env.Scoped E) (m : EnvModel V E)
 
 end Justified
 
+/-! ## The challenge check -/
+
+section Challenge
+
+variable {V : Type u} [IndLib V] [LevelOracle]
+
+/-- **A shared set of names** between the challenge's environment `EC`
+and the solution's `ES`: for every name `d` of the set, `EC` stores a
+definition or an assumption at `d` and `ES` stores `d`, and either the
+two entries are the same, or `EC`'s is an assumption whose type is
+`ES`'s type with `ES`'s level parameters renamed, position by position,
+to `EC`'s distinct ones; and every constant the type or the value of
+`EC`'s entry reads is in the set again. -/
+def Shared (EC ES : Env) (Sh : Name → Prop) : Prop :=
+  ∀ d, Sh d → ∃ ci ciS, EC.find? d = some ci ∧ ES.find? d = some ciS ∧ ci.IsStmt ∧
+    (ci = ciS ∨ (ci.kind = .assumed ∧ ci.lparams.Nodup ∧ ci.lparams.length = ciS.lparams.length ∧
+      ci.type = ciS.type.instL ciS.lparams (ci.lparams.map .param))) ∧
+    (∀ c ∈ ci.type.consts, Sh c) ∧ (∀ v, ci.value? = some v → ∀ c ∈ v.consts, Sh c)
+
+/-- **A hole is justified** by the solution when its name lies in a
+shared set. -/
+def Justified (EC ES : Env) (n : Name) : Prop := ∃ Sh, Shared EC ES Sh ∧ Sh n
+
+/-- **The challenge check**: the challenge's declarations checked one
+after another, as `Checks` does, except that a hole (`Decl.hole`) is
+accepted when the solution's environment `ES` justifies it in the
+challenge's final environment `EC` — its name fresh and its type in
+scope. -/
+inductive ChallengeChecks (ES EC : Env) : Env → List Decl → Prop
+  | nil {E : Env} : ChallengeChecks ES EC E []
+  | cons {E : Env} {d : Decl} {ds : List Decl} : d.Ok E → ChallengeChecks ES EC (d.apply E) ds →
+      ChallengeChecks ES EC E (d :: ds)
+  | hole {E : Env} {c : Name} {ps : List Name} {T : Expr} {ds : List Decl} :
+      E.find? c = none → Expr.Scoped E ps 0 T → Justified EC ES c →
+      ChallengeChecks ES EC ((Decl.hole c ps T).apply E) ds →
+      ChallengeChecks ES EC E (.hole c ps T :: ds)
+
+omit [IndLib V] [LevelOracle] in
+/-- The union of all shared sets is shared. -/
+theorem Shared.union {EC ES : Env} : Shared EC ES (Justified EC ES) := by
+  intro d ⟨Sh, hSh, hd⟩
+  obtain ⟨ci, ciS, h1, h2, h3, h4, h5, h6⟩ := hSh d hd
+  exact ⟨ci, ciS, h1, h2, h3, h4, fun c hc => ⟨Sh, hSh, h5 c hc⟩,
+    fun v hv c hc => ⟨Sh, hSh, h6 v hv c hc⟩⟩
+
+omit [IndLib V] in
+/-- The challenge check stores only fresh names. -/
+theorem ChallengeChecks.find?_context {ES EC E : Env} {ds : List Decl}
+    (hc : ChallengeChecks ES EC E ds) {n : Name} {ci : ConstInfo} (h : E.find? n = some ci) :
+    (applyAll ds E).find? n = some ci := by
+  induction hc with
+  | nil => exact h
+  | @cons E d ds hd _ ih =>
+    apply ih
+    rw [Decl.apply_eq]
+    cases hl : d.stores.lookup n with
+    | none => simpa only [Env.find?, lookup_append_of_none hl] using h
+    | some e =>
+      have hm : n ∈ d.names := (Decl.mem_names_iff d n).mpr ⟨e, key_of_lookup hl⟩
+      rw [hd.fresh n hm] at h; cases h
+  | @hole E c ps T ds hf _ _ _ ih =>
+    apply ih
+    show (E.add c _).find? n = some ci
+    rw [Env.find?_add]
+    split
+    · rename_i h'; subst h'; rw [hf] at h; cases h
+    · exact h
+
+omit [IndLib V] in
+theorem ChallengeChecks.find?_of_stores {ES EC E : Env} {ds : List Decl}
+    (hc : ChallengeChecks ES EC E ds) {d : Decl} {n : Name} {ci : ConstInfo} (hd : d ∈ ds)
+    (hm : (n, ci) ∈ d.stores) : (applyAll ds E).find? n = some ci := by
+  induction hc with
+  | nil => cases hd
+  | @cons E d' ds hd' hc' ih =>
+    rcases List.mem_cons.mp hd with rfl | hd
+    · apply hc'.find?_context
+      rw [Decl.apply_eq]
+      exact lookup_append_of_some (lookup_of_mem_nodup hd'.keys_nodup hm)
+    · exact ih hd
+  | @hole E c ps T ds _ _ _ hc' ih =>
+    rcases List.mem_cons.mp hd with rfl | hd
+    · apply hc'.find?_context
+      simp only [Decl.stores, Decl.apply, Env.add, Env.empty, List.mem_singleton,
+        Prod.mk.injEq] at hm
+      obtain ⟨rfl, rfl⟩ := hm
+      simp [Decl.apply, Env.find?_add]
+    · exact ih hd
+
+omit [IndLib V] in
+/-- A checked list keeps its environment closed. -/
+theorem Checks.scoped {E : Env} {ds : List Decl} (hc : Checks E ds) (hs : Env.Scoped E) :
+    Env.Scoped (applyAll ds E) := by
+  induction hc with
+  | nil => exact hs
+  | @cons E d ds hd _ ih =>
+    apply ih
+    cases d with
+    | defn c ci => exact hs.add_def hd
+    | thm c ci v => exact hs.add_thm hd
+    | ind S => exact hs.install_any hd
+    | hole _ _ _ => exact hd.elim
+
+/-- **A model extends to a fresh constant other than a type former**,
+given a model of the environment with it that keeps every stored
+constant's set: the block laws carry over. -/
+def BlockModel.ofAdd {E : Env} (m : BlockModel V E) {c : Name} {ci : ConstInfo}
+    (hfresh : E.find? c = none) (hk : ∀ nP nI cs S, ci.kind ≠ .induct nP nI cs S)
+    (m' : EnvModel V (E.add c ci)) (hag : ∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) :
+    BlockModel V (E.add c ci) where
+  toEnvModel := m'
+  blocks := by
+    intro K ci' nP nI cs spec hfind hkind
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · cases hfind; exact absurd hkind (hk nP nI cs spec)
+    · exact spec.BlockLaw_add (spec.BlockLaw_transport (fun n hn ls => (hag n hn ls).symm)
+        (m.blocks K ci' nP nI cs spec hfind hkind)) c ci hfresh
+
+/-- **A checked declaration's own step**: a model of the environment
+extends to the declaration's, keeping every stored constant's set, with
+every stored constant holding. -/
+theorem Decl.Ok.step {E : Env} {d : Decl} (hd : d.Ok E) (hs : Env.Scoped E) (m : BlockModel V E)
+    (hh : Holds E m.M) : ∃ m₁ : BlockModel V (d.apply E),
+      (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) ∧ Holds (d.apply E) m₁.M := by
+  have hone : ∀ (m₁ : BlockModel V (d.apply E)) (c : Name) (ci : ConstInfo),
+      (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) → d.stores = [(c, ci)] →
+      ci.IsStmt → Holds (d.apply E) m₁.M := by
+    intro m₁ c ci hag hst hk
+    refine Holds.apply hs hh (fun n hn ls => (hag n hn ls).symm) fun n ci' hl => ?_
+    rw [hst] at hl
+    simp only [List.lookup] at hl
+    split at hl
+    · cases hl
+      rename_i hnc
+      have hnc' : n = c := beq_iff_eq.mp hnc
+      subst hnc'
+      refine m₁.toEnvModel.modelOf ?_ fun _ _ _ _ _ h => ?_
+      · rw [Decl.apply_eq, hst]; simp [Env.find?]
+      · rcases hk with h' | ⟨v, h'⟩ <;> rw [h'] at h <;> cases h
+    · cases hl
+  cases d with
+  | defn c ci =>
+    obtain ⟨m₁, hag, -⟩ := install_def' hs m hd
+    obtain ⟨v, -, hk, -⟩ := hd.2.2.1
+    exact ⟨m₁, hag, hone m₁ c ci hag rfl (.inr ⟨v, hk⟩)⟩
+  | thm c ci v =>
+    obtain ⟨m₁, hag, -⟩ := install_thm hs m hd
+    exact ⟨m₁, hag, hone m₁ c ci hag rfl (.inl hd.1)⟩
+  | ind S =>
+    obtain ⟨m₁, hag, hnewS⟩ := install_ind_holds hs m hd
+    exact ⟨m₁, hag, Holds.apply hs hh (fun n hn ls => (hag n hn ls).symm) hnewS⟩
+  | hole _ _ _ => exact hd.elim
+
+omit [LevelOracle] in
+/-- **A shared statement takes the solution's set**: a fresh name of a
+shared set, stored as a statement whose type and value are in scope,
+extends a model agreeing with the solution's on the shared names
+stored so far to one that agrees at the new name too. -/
+theorem step_shared {ES EC E : Env} (mS : EnvModel V ES) (hSs : Env.Scoped ES)
+    (hs : Env.Scoped E) (m : BlockModel V E) (hh : Holds E m.M)
+    (hinv : ∀ d, Justified EC ES d → (E.find? d).isSome → m.M d = mS.M d)
+    {c : Name} {ci : ConstInfo} (hfresh : E.find? c = none) (hk : ci.IsStmt)
+    (hty : Expr.Scoped E ci.lparams 0 ci.type)
+    (hvs : ∀ v, ci.value? = some v → Expr.Scoped E ci.lparams 0 v)
+    (hEC : EC.find? c = some ci) (hJ : Justified EC ES c) :
+    ∃ m₁ : BlockModel V (E.add c ci),
+      (∀ n, (E.find? n).isSome → ∀ ls, m₁.M n ls = m.M n ls) ∧ (∀ ls, m₁.M c ls = mS.M c ls) ∧
+      Holds (E.add c ci) m₁.M := by
+  obtain ⟨ci', ciS, hEC', hS, -, hcase, hT, hV⟩ := Shared.union c hJ
+  rw [hEC] at hEC'; cases hEC'
+  have hag : ∀ d ∈ ci.type.consts, ∀ ls, m.M d ls = mS.M d ls := fun d hd ls => by
+    rw [hinv d (hT d hd) (hty.2.1 d hd)]
+  obtain ⟨m', hag', hc'⟩ : ∃ m' : EnvModel V (E.add c ci),
+      (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧ ∀ ls, m'.M c ls = mS.M c ls := by
+    rcases hcase with rfl | ⟨hka, hnd, hlen, hren⟩
+    · refine install_shared hs m.toEnvModel mS hfresh hk hty hvs hS fun d hd ls => ?_
+      rcases hd with hd | ⟨v, hv, hd⟩
+      · exact hag d hd ls
+      · rw [hinv d (hV v hv d hd) ((hvs v hv).2.1 d hd)]
+    · exact install_justified hs m.toEnvModel mS hfresh hka hty hS hnd hlen
+        ((hSs c ciS hS).1.2.2) hren hag
+  have hnk : ∀ nP nI cs S, ci.kind ≠ .induct nP nI cs S := fun _ _ _ _ h => by
+    rcases hk with h' | ⟨v, h'⟩ <;> rw [h'] at h <;> cases h
+  let m₁ := m.ofAdd hfresh hnk m' hag'
+  refine ⟨m₁, hag', hc', ?_⟩
+  have hsub : (E.add c ci) = (Decl.defn c ci).apply E := rfl
+  intro n ci₀ hf
+  rw [Env.find?_add] at hf
+  split at hf
+  · cases hf
+    rename_i hn; subst hn
+    exact m'.modelOf (by simp [Env.find?_add]) fun _ _ _ _ _ h => by
+      rcases hk with h' | ⟨v, h'⟩ <;> rw [h'] at h <;> cases h
+  · exact (hh n ci₀ hf).congr_env hs hf fun d hd ls => (hag' d hd ls).symm
+
+/-- **The challenge's model, built along its check**: a model of the
+environment, agreeing with the solution's on the shared names stored
+so far, extends along the challenge check to a model of its end in
+which every stored constant holds. -/
+theorem ChallengeChecks.model {ES EC : Env} (mS : EnvModel V ES) (hSs : Env.Scoped ES)
+    {E : Env} {ds : List Decl} (hc : ChallengeChecks ES EC E ds)
+    (hEC : ∀ n ci, (applyAll ds E).find? n = some ci → EC.find? n = some ci) :
+    Env.Scoped E → ∀ m : BlockModel V E, Holds E m.M →
+      (∀ d, Justified EC ES d → (E.find? d).isSome → m.M d = mS.M d) →
+      ∃ m' : BlockModel V (applyAll ds E), Holds (applyAll ds E) m'.M := by
+  induction hc with
+  | nil => intro _ m hh _; exact ⟨m, hh⟩
+  | @cons E d ds hd hc' ih =>
+    intro hs m hh hinv
+    have hEC' : ∀ n ci, (d.apply E).find? n = some ci → EC.find? n = some ci :=
+      fun n ci hf => hEC n ci (hc'.find?_context hf)
+    -- the next model, agreeing with the solution's on the shared names
+    obtain ⟨m₁, hh₁, hinv₁⟩ : ∃ m₁ : BlockModel V (d.apply E), Holds (d.apply E) m₁.M ∧
+        ∀ x, Justified EC ES x → ((d.apply E).find? x).isSome → m₁.M x = mS.M x := by
+      -- a statement at a shared name
+      have hshared : ∀ (c : Name) (ci : ConstInfo), d.apply E = E.add c ci → E.find? c = none →
+          ci.IsStmt → Expr.Scoped E ci.lparams 0 ci.type →
+          (∀ v, ci.value? = some v → Expr.Scoped E ci.lparams 0 v) → Justified EC ES c →
+          ∃ m₁ : BlockModel V (d.apply E), Holds (d.apply E) m₁.M ∧
+            ∀ x, Justified EC ES x → ((d.apply E).find? x).isSome → m₁.M x = mS.M x := by
+        intro c ci hap hfresh hk hty hvs hJ
+        rw [hap] at hEC' ⊢
+        obtain ⟨m₁, hag, hcS, hh₁⟩ := step_shared mS hSs hs m hh hinv hfresh hk hty hvs
+          (hEC' c ci (by simp [Env.find?_add])) hJ
+        refine ⟨m₁, hh₁, fun x hx hxs => ?_⟩
+        by_cases hxc : x = c
+        · subst hxc; exact funext hcS
+        · have hxE : (E.find? x).isSome := by rwa [Env.find?_add, ite_eq_right hxc] at hxs
+          exact (funext (hag x hxE)).trans (hinv x hx hxE)
+      -- a declaration storing no shared name: its own step
+      have hown : (∀ x, Justified EC ES x → ((d.apply E).find? x).isSome → (E.find? x).isSome) →
+          ∃ m₁ : BlockModel V (d.apply E), Holds (d.apply E) m₁.M ∧
+            ∀ x, Justified EC ES x → ((d.apply E).find? x).isSome → m₁.M x = mS.M x := by
+        intro hno
+        obtain ⟨m₁, hag, hh₁⟩ := hd.step hs m hh
+        exact ⟨m₁, hh₁, fun x hx hxs => (funext (hag x (hno x hx hxs))).trans
+          (hinv x hx (hno x hx hxs))⟩
+      have hnew : ∀ x, ((d.apply E).find? x).isSome → ¬ (E.find? x).isSome →
+          ∃ e, d.stores.lookup x = some e := by
+        intro x hx hnx
+        rw [Decl.apply_eq] at hx
+        cases hl : d.stores.lookup x with
+        | some e => exact ⟨e, rfl⟩
+        | none =>
+          simp only [Env.find?, lookup_append_of_none hl] at hx
+          exact absurd hx hnx
+      cases d with
+      | defn c ci =>
+        by_cases hJ : Justified EC ES c
+        · obtain ⟨v, -, hk, -⟩ := hd.2.2.1
+          exact hshared c ci rfl hd.1 (.inr ⟨v, hk⟩) hd.type_scoped
+            (fun v hv => hd.value_scoped v (by
+              simp only [ConstInfo.value?, ConstKind.value?] at hv; revert hv
+              cases ci.kind <;> simp_all)) hJ
+        · refine hown fun x hx hxs => ?_
+          by_cases hnx : (E.find? x).isSome = true
+          · exact hnx
+          exfalso
+          obtain ⟨e, hl⟩ := hnew x hxs hnx
+          simp only [Decl.stores, Decl.apply, Env.add, Env.empty, List.lookup] at hl
+          split at hl
+          · rename_i h; rw [beq_iff_eq.mp h] at hx; exact hJ hx
+          · cases hl
+      | thm c ci v =>
+        by_cases hJ : Justified EC ES c
+        · exact hshared c ci rfl hd.2.1.1 (.inl hd.1) hd.2.1.type_scoped
+            (fun v hv => by simp [ConstInfo.value?, hd.1, ConstKind.value?] at hv) hJ
+        · refine hown fun x hx hxs => ?_
+          by_cases hnx : (E.find? x).isSome = true
+          · exact hnx
+          exfalso
+          obtain ⟨e, hl⟩ := hnew x hxs hnx
+          simp only [Decl.stores, Decl.apply, Env.add, Env.empty, List.lookup] at hl
+          split at hl
+          · rename_i h; rw [beq_iff_eq.mp h] at hx; exact hJ hx
+          · cases hl
+      | ind S =>
+        -- a block stores no statement, so none of its names is shared
+        refine hown fun x hx hxs => ?_
+        by_cases hnx : (E.find? x).isSome = true
+        · exact hnx
+        exfalso
+        obtain ⟨e, hl⟩ := hnew x hxs hnx
+        obtain ⟨ci, -, hECx, -, hst, -⟩ := Shared.union x hx
+        have hf : ((Decl.ind S).apply E).find? x = some e := by
+          rw [Decl.apply_eq]; exact lookup_append_of_some hl
+        rw [hEC' x e hf] at hECx
+        cases hECx
+        exact ind_stores_not_stmt hl hst
+      | hole _ _ _ => exact hd.elim
+    have hs₁ : Env.Scoped (d.apply E) := by
+      cases d with
+      | defn c ci => exact hs.add_def hd
+      | thm c ci v => exact hs.add_thm hd
+      | ind S => exact hs.install_any hd
+      | hole _ _ _ => exact hd.elim
+    exact ih hEC hs₁ m₁ hh₁ hinv₁
+  | @hole E c ps T ds hfresh hty hJ hc' ih =>
+    intro hs m hh hinv
+    have hEC' : ∀ n ci, ((Decl.hole c ps T).apply E).find? n = some ci → EC.find? n = some ci :=
+      fun n ci hf => hEC n ci (hc'.find?_context hf)
+    obtain ⟨m₁, hag, hcS, hh₁⟩ := step_shared (ci := ⟨ps, T, .assumed⟩) mS hSs hs m hh hinv hfresh
+      (.inl rfl) hty (fun v hv => by simp [ConstInfo.value?, ConstKind.value?] at hv)
+      (hEC' c _ (by simp [Decl.apply, Env.find?_add])) hJ
+    have hs₁ : Env.Scoped ((Decl.hole c ps T).apply E) :=
+      hs.add hfresh hty (fun v hv => by simp [ConstInfo.value?, ConstKind.value?] at hv)
+        (fun _ _ _ _ _ h => by cases h)
+    refine ih hEC hs₁ m₁ hh₁ fun x hx hxs => ?_
+    by_cases hxc : x = c
+    · subst hxc; exact funext hcS
+    · have hxE : (E.find? x).isSome := by
+        simpa [Decl.apply, Env.find?_add, hxc] using hxs
+      exact (funext (hag x hxE)).trans (hinv x hx hxE)
+
+variable (V) in
+/-- **The main theorem, with a solution.**  A challenge whose holes the
+solution's environment justifies, the solution itself accepted, has a
+model of its constants, in any set theory with libraries.  The
+statement does not mention the solution's model: the agreement on the
+shared names is the proof's invariant.
+
+Simplified relative to con-leche (`ConLeche/Model/Solution`): a shared
+name is a definition or an assumption — the fragment does not share
+inductive blocks, whose sets con-leche shows determined by what they
+read — and the shared sets are read in the challenge's final
+environment, where con-leche's check computes them along the fold. -/
+theorem solution_model_exists {dsS dsC : List Decl} (hS : Checks Env.empty dsS)
+    (hC : ChallengeChecks (applyAll dsS Env.empty) (applyAll dsC Env.empty) Env.empty dsC) :
+    ∃ M : Name → List Nat → V, IsModel V M (constantsOf dsC) := by
+  obtain ⟨mS, -, -, -⟩ := hS.blockModel Env.Scoped.empty (BlockModel.empty (V := V) fun _ _ => pt)
+    (fun _ _ hf => by simp at hf) (Holds.empty _)
+  obtain ⟨m, hh⟩ := hC.model mS.toEnvModel (hS.scoped Env.Scoped.empty) (fun _ _ h => h)
+    Env.Scoped.empty (BlockModel.empty fun _ _ => pt) (Holds.empty _) (fun _ _ h => by simp at h)
+  exact ⟨m.M, fun n ci ⟨d, hd, hm⟩ => hh n ci (hC.find?_of_stores hd hm)⟩
+
+end Challenge
+
 /-! ## The agreement of copies -/
 
 variable [LevelOracle]
@@ -363,47 +708,80 @@ theorem LocalOk.redeclared_is_proof {dev : Nat → Module} {i : Nat} (hv : Local
 
 variable {V : Type u} [IndLib V]
 
+/-- **A copy of a constant at the level parameters `ps`**: its level
+parameters renamed, position by position — an assumption by its
+statement, a definition with its value renamed too; an inductive
+block's constants are copied unchanged. -/
+def ConstInfo.copyAt (ci : ConstInfo) (ps : List Name) : ConstInfo :=
+  match ci.kind with
+  | .defn v => ⟨ps, ci.type.instL ci.lparams (ps.map .param),
+      .defn (v.instL ci.lparams (ps.map .param))⟩
+  | .assumed => ⟨ps, ci.type.instL ci.lparams (ps.map .param), .assumed⟩
+  | _ => ci
+
+omit [LevelOracle] in
+/-- A renamed term read at the renamed parameters' values is the term
+read at the original ones. -/
+theorem interp_rename {M : Name → List Nat → V} {lp ps : List Name} {vals : List Nat}
+    (hnd : ps.Nodup) (hlen : ps.length = lp.length) (hv : vals.length = ps.length) {e : Expr}
+    (he : e.lparamsIn lp = true) (ρ : Nat → V) :
+    interp M (valOf ps vals) ρ (e.instL lp (ps.map .param)) = interp M (valOf lp vals) ρ e := by
+  rw [interp_instL]
+  refine interp_lparams he fun n hn => ?_
+  obtain ⟨q, hq, h1, h2⟩ := Level.lookupLevel_rename (ls := vals.map Level.ofNat) hnd hlen
+    (by simp [hv, hlen]) hn
+  simp only [Level.substVal, h1, Level.eval_param]
+  have e1 := valOf_map_eval (valOf ps vals) (ls := vals.map Level.ofNat) (by simp [hv]) hq
+  have e2 := valOf_map_eval (valOf ps vals) (ls := vals.map Level.ofNat) (ps := lp)
+    (by simp [hv, hlen]) hn
+  rw [Level.map_eval_ofNat] at e1 e2
+  rw [e1, e2]
+  simp only [Level.substVal, h2]
+
+omit [LevelOracle] in
+/-- **A copy holds where the constant does.** -/
+theorem ModelOf.copyAt {M : Name → List Nat → V} {n : Name} {ci : ConstInfo} (h : ModelOf M n ci)
+    (hT : ci.type.lparamsIn ci.lparams = true)
+    (hV : ∀ v, ci.value? = some v → v.lparamsIn ci.lparams = true)
+    {ps : List Name} (hnd : ps.Nodup) (hlen : ps.length = ci.lparams.length) :
+    ModelOf M n (ci.copyAt ps) := by
+  obtain ⟨lp, T, k⟩ := ci
+  cases k with
+  | defn v =>
+    intro vals hvals
+    simp only [ConstInfo.copyAt] at hvals ⊢
+    obtain ⟨hmem, hval⟩ := h vals (hvals.trans hlen)
+    exact ⟨by rw [interp_rename hnd hlen hvals hT]; exact hmem,
+      by rw [interp_rename hnd hlen hvals (hV v rfl)]; exact hval⟩
+  | assumed =>
+    intro vals hvals
+    simp only [ConstInfo.copyAt] at hvals ⊢
+    exact ⟨by rw [interp_rename hnd hlen hvals hT]; exact (h vals (hvals.trans hlen)).1, trivial⟩
+  | _ => exact h
+
 variable (V) in
 /-- **An accepted comparison solves the challenge.**  If the modules up
-to the challenge `c` pass their local checks, there is a compatible
-family of models, one of each module's own environment, in which the
-challenge gives every name of its context the value of the module it
-reads the name from, and every entry of the challenge's context, every
-copy among them, has its type inhabited, at every correctly sized level
-list, by that module's value; so does its type with the level
-parameters renamed, position by position, to distinct names. -/
+to the challenge `c` pass their local checks, every module has a model
+of its own declarations' constants, the models agree on every name a
+module sees as another module's (`Sees`) — the challenge sees the
+solution's names, so its copies take the solution's sets —, and every
+entry of the challenge's context holds in the challenge's model as a
+copy, at any distinct level parameters (`ConstInfo.copyAt`): a copy
+of a statement by its statement, of a definition by its value too. -/
 theorem compare_solves (dev : Nat → Module) (c : Nat) (h : ∀ j ≤ c, LocalOk dev j) :
-    ∃ m : (i : Nat) → i < c + 1 → BlockModel V (dev i).own,
-      (∀ j (hj : j < c + 1) n, ((dev j).context.find? n).isSome = true →
-        ∃ h : (dev j).src n < c + 1, (m j hj).M n = (m ((dev j).src n) h).M n) ∧
-      ∀ n ci, (dev c).context.find? n = some ci →
-        ∃ h : (dev c).src n < c + 1,
-          (∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-            (m ((dev c).src n) h).M n (ls.map (Level.eval φ)) ∈ˢ
-              interp (m c (Nat.lt_succ_self c)).M φ ρ (ci.type.instL ci.lparams ls)) ∧
-          ∀ ps : List Name, ps.Nodup → ps.length = ci.lparams.length →
-            ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ps.length →
-              (m ((dev c).src n) h).M n (ls.map (Level.eval φ)) ∈ˢ
-                interp (m c (Nat.lt_succ_self c)).M φ ρ
-                  ((ci.type.instL ci.lparams (ps.map .param)).instL ps ls) := by
-  obtain ⟨m, hcomp, -⟩ := modular V dev (c + 1) fun j hj => h j (Nat.le_of_lt_succ hj)
-  refine ⟨m, hcomp, fun n ci hf => ?_⟩
+    ∃ model : Nat → Name → List Nat → V,
+      (∀ j ≤ c, IsModel V (model j) (constantsOf (dev j).decls)) ∧
+      (∀ j ≤ c, ∀ n j', Sees dev j n j' → model j n = model j' n) ∧
+      ∀ n ci ps, (dev c).context.find? n = some ci → ps.Nodup → ps.length = ci.lparams.length →
+        ModelOf (model c) n (ci.copyAt ps) := by
+  have h' : ∀ j < c + 1, LocalOk dev j := fun j hj => h j (Nat.le_of_lt_succ hj)
+  obtain ⟨model, hh, hsees⟩ := modular_holds V dev (c + 1) h'
+  refine ⟨model, fun j hj n ci ⟨d, hd, hm⟩ =>
+      hh j (Nat.lt_succ_of_le hj) n ci ((h j hj).checks.find?_of_stores hd hm),
+    fun j hj => hsees j (Nat.lt_succ_of_le hj), fun n ci ps hf hnd hlen => ?_⟩
   have hok := h c (Nat.le_refl c)
-  -- the context's entry is the own environment's
-  have ho : (dev c).own.find? n = some ci := hok.checks.find?_context hf
-  obtain ⟨hs, he⟩ := hcomp c (Nat.lt_succ_self c) n (by rw [hf]; rfl)
-  have hplain : ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level),
-      ls.length = ci.lparams.length →
-      (m ((dev c).src n) hs).M n (ls.map (Level.eval φ)) ∈ˢ
-        interp (m c (Nat.lt_succ_self c)).M φ ρ (ci.type.instL ci.lparams ls) := by
-    intro φ ρ ls hls
-    rw [← he]
-    exact ((m c (Nat.lt_succ_self c)).type_ok n ci ho φ ρ ls hls).2.2
-  refine ⟨hs, hplain, fun ps hnd hlen φ ρ ls hls => ?_⟩
-  -- renaming the level parameters changes no instance
-  have hpar : ci.type.lparamsIn ci.lparams = true :=
-    (hok.importOk.reads.1.scoped n ci hf).1.2.2
-  rw [Expr.instL_rename hnd hlen (hls.trans hlen) ci.type hpar]
-  exact hplain φ ρ ls (hls.trans hlen)
+  have hsc := hok.importOk.reads.1.scoped n ci hf
+  exact (hh c (Nat.lt_succ_self c) n ci (hok.checks.find?_context hf)).copyAt hsc.1.2.2
+    (fun v hv => (hsc.2.1 v hv).2.2) hnd hlen
 
 end Fragment

@@ -1,16 +1,19 @@
 module
 
 public import Fragment.Consistency
+public import Fragment.IsModel
 
 @[expose] public section
 
 /-!
 # Modules: declarations and what they store
 
-The syntactic half of modular checking (`ModularModel.lean` has the
+The syntactic half of modular checking (`ModularInstance.lean` has the
 theorem): a module's **declarations** — definitions, theorems,
-inductive blocks — checked one after another against an environment
-(`Checks`), what they store (`applyAll`, `Decl.stores`), and
+inductive blocks, holes — checked one after another against an
+environment (`Checks`), what they store (`applyAll`, `Decl.stores`),
+the input's constants (`constantsOf`, of which the main theorem gives a
+model, `Main.lean`), and
 **refinement** of constants (`ConstInfo.Le`): a constant refines
 another when it is the other, or an assumption with the other's level
 parameters and type (`ConstKind.assumed`).
@@ -142,32 +145,42 @@ section Checking
 variable [LevelOracle]
 
 /-- **A declaration** of a module: a definition, a theorem (its
-statement `ci`, an assumption, and its proof) or an inductive block. -/
+statement `ci`, an assumption, and its proof), an inductive block, or
+a **hole** — an assumption with no value: a name, level parameters and
+a type (in Lean an axiom, or a declaration whose value uses `sorry`,
+read as the assumption of its statement). -/
 inductive Decl where
   | defn (c : Name) (ci : ConstInfo)
   | thm (c : Name) (ci : ConstInfo) (proof : Expr)
   | ind (S : IndSpec)
+  | hole (c : Name) (lparams : List Name) (type : Expr)
   deriving DecidableEq
 
 namespace Decl
 
-/-- What the declaration stores. -/
+/-- What the declaration stores: a hole, the assumption of its type. -/
 def apply : Decl → Env → Env
   | defn c ci, E => E.add c ci
   | thm c ci _, E => E.add c ci
   | ind S, E => S.install E
+  | hole c ps T, E => E.add c ⟨ps, T, .assumed⟩
 
-/-- The check the declaration passes (`Decl.lean`). -/
+/-- The check the declaration passes (`Decl.lean`).  A hole passes
+none: an assumption can state anything, an empty proposition included
+(a challenge accepts a hole that a solution justifies,
+`Compare.lean`). -/
 def Ok (E : Env) : Decl → Prop
   | defn c ci => DefOk E c ci
   | thm c ci v => ThmOk E c ci v
   | ind S => IndOk E S
+  | hole _ _ _ => False
 
 /-- The names the declaration stores. -/
 def names : Decl → List Name
   | defn c _ => [c]
   | thm c _ _ => [c]
   | ind S => S.names
+  | hole c _ _ => [c]
 
 /-- The entries the declaration stores, whatever the environment. -/
 def stores (d : Decl) : List (Name × ConstInfo) := (d.apply Env.empty).consts
@@ -180,6 +193,7 @@ theorem apply_eq (d : Decl) (E : Env) : d.apply E = ⟨d.stores ++ E.consts⟩ :
   | ind S =>
     show S.install E = ⟨(S.install Env.empty).consts ++ E.consts⟩
     rw [← IndSpec.install_consts]
+  | hole c ps T => rfl
 
 omit [LevelOracle] in
 /-- **The names a declaration stores are the keys of its entries.** -/
@@ -187,6 +201,7 @@ theorem mem_names_iff (d : Decl) (n : Name) : n ∈ d.names ↔ ∃ e, (n, e) �
   cases d with
   | defn c ci => simp [Decl.names, Decl.stores, Decl.apply, Env.add, Env.empty, eq_comm]
   | thm c ci v => simp [Decl.names, Decl.stores, Decl.apply, Env.add, Env.empty, eq_comm]
+  | hole c ps T => simp [Decl.names, Decl.stores, Decl.apply, Env.add, Env.empty]
   | ind S =>
     have hC : (S.envCtors Env.empty).consts =
         (S.ctors.map fun c => (c.name, S.ctorInfo c)).reverse ++ [(S.name, S.indInfo)] :=
@@ -196,6 +211,13 @@ theorem mem_names_iff (d : Decl) (n : Name) : n ∈ d.names ↔ ∃ e, (n, e) �
     cases hn : S.nest <;> simp [Env.add, hC] <;> grind
 
 end Decl
+
+/-- **The constants of the declarations `ds`**: the entries the
+declarations store, each at its name — the input's constants, of which
+the main theorem (`Main.lean`) gives a model (`IsModel`,
+`IsModel.lean`). -/
+def constantsOf (ds : List Decl) (n : Name) (ci : ConstInfo) : Prop :=
+  ∃ d ∈ ds, (n, ci) ∈ d.stores
 
 /-- **A list of declarations checks** against an environment: each
 declaration accepted on top of it and the declarations before it. -/

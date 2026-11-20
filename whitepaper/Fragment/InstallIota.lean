@@ -150,6 +150,27 @@ theorem block_valuation_eq (hS : S.Scoped env) (φ : Name → Nat) {us usj : Lis
       = S.lparams.map (Level.substVal φ S.recLparams us) := by
   rw [map_substVal_eq φ hS.2.2.2.2.2.1 husj, lparams_map_substVal_rec hS φ hus, hlv, husj]
 
+omit [LevelOracle] in
+/-- **The motive's fibre is a truth value** where the eliminator is into
+`Prop`: at indices fitting the index context and a member of the family
+there, the motive (a member of its type) applied is in `univ 0`. -/
+theorem Reader.fibre_univ_zero {M M' : Name → List Nat → V} {φ φ' : Name → Nat}
+    (hS : S.Scoped env) (R : S.Reader (env := env) M φ (S.Fam M) M' φ') (hq : S.qv φ' = true)
+    {ps : List V} {m' : V} {is : List V} {t : V} {ρ : Nat → V} (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hm : m' ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy)
+    (his : FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is)
+    (ht : t ∈ˢ S.Fam M (S.lparams.map φ) ps is) :
+    appList m' (is.reverse ++ [t]) ∈ˢ univ 0 := by
+  rw [R.read_motiveTy hS hps hp] at hm
+  have hi : is.length = S.nI := by have := FitsVals_length M _ his; simpa [nI] using this
+  have h1 := appList_mem_of_piCtx _ _ hm his
+  rw [readEnv_consList hi] at h1
+  have h2 := app_mem_piV h1 ht
+  rw [q_holds, beq_iff_eq] at hq
+  rw [appList_append, appList_cons, appList_nil, ← mem_typeU_zero, ← hq]
+  exact h2
+
 variable (hpl : S.nest = none) (hs : Env.Scoped env) (m : EnvModel V env) (hok : S.Ok env)
 include hpl hs m hok
 
@@ -646,8 +667,7 @@ second half of `rec_rule_law`, shared with the K law
 `rec_rule_lawK`): at parameters, a motive and minors fitting the
 recursor's context and fields fitting constructor `j` at the family,
 the recursor's set applied to the spine ending in the constructor's
-index values and value is, where it is not the point, the rule's
-right-hand side at the parameters, motive, minors and fields; the
+index values and value is the rule's right-hand side at the parameters, motive, minors and fields; the
 right-hand side is well-denoted with a well-formed application
 chain. -/
 theorem rec_rule_core (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
@@ -659,12 +679,7 @@ theorem rec_rule_core (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     (hmn : FitsVals (S.M₃ m.M) (Level.substVal φ S.recLparams us) (cons m' (consList ps ρ))
       S.minorsCtx mins)
     (hfitF : S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-      (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps) ps c.fields fs)
-    (hne : appList (S.M₃ m.M S.recName (us.map (Level.eval φ)))
-        (ps.reverse ++ [m'] ++ mins.reverse ++
-          (S.idxVals m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-            (consList fs (envP ps)) c.idx).reverse ++
-          [S.ctorVal (S.lparams.map (Level.substVal φ S.recLparams us)) j fs]) ≠ pt) :
+      (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps) ps c.fields fs) :
     appList (S.M₃ m.M S.recName (us.map (Level.eval φ)))
         (ps.reverse ++ [m'] ++ mins.reverse ++
           (S.idxVals m.M (S.lparams.map (Level.substVal φ S.recLparams us))
@@ -788,10 +803,15 @@ theorem rec_rule_core (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
       congr 2
       exact List.map_congr_left fun kf hkf =>
         ((ihVal_ok hpl hs m hok φ ρ hus hcm hkf hf hmins hps hp hm hmn hfitF).2.2 hq).symm
-    · -- into `Prop` the recursor is the point, and the law asks nothing of it
-      exfalso
-      apply hne
+    · -- into `Prop` the recursor is the point, and so is the right-hand
+      -- side: it lies in the motive's fibre at the constructor value, a
+      -- truth value
+      have hmem := appList_mem_of_piCtx _ _ (by rw [← interp_mkPis]; exact hrhs.2) hfitRule
+      rw [henv, hty fs mins m' ps hf hmins hps hp hfitF] at hmem
+      have hF := R₃.R.fibre_univ_zero hS hq hps hp hm his ht
       rw [recSet_eq hpl hs m hok φ ρ hus, lamCtx_eq_pt _ _ (fun _ _ => by simp [hq]), appList_pt]
+      unfold ruleRhs
+      exact (eq_pt_of_mem_univ_zero hF hmem).symm
   · -- the invariant
     rw [WellDenoted_instL]
     exact hrhs.1
@@ -922,7 +942,7 @@ theorem rec_rule_law {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
   subst hisv
   simp only at hne
   rw [hmajor] at hne ⊢
-  exact rec_rule_core hpl hs m hok φ ρ hus hc hps hmins hf hp hm hmn hfitF hne
+  exact rec_rule_core hpl hs m hok φ ρ hus hc hps hmins hf hp hm hmn hfitF
 
 
 omit [IndLib V] [LevelOracle] hpl hs m hok in
@@ -1022,7 +1042,7 @@ theorem rec_rule_lawK {c : CtorSpec} (hK : S.ctors = [c]) (hnf : c.fields = []) 
     simp [hps]
   subst hisv htv
   have hc0 : S.ctors[0]? = some c' := by rw [hK]; rfl
-  have core := rec_rule_core hpl hs m hok φ ρ hus hc0 hps hmins hf hp hm hmn hfitF hne
+  have core := rec_rule_core hpl hs m hok φ ρ hus hc0 hps hmins hf hp hm hmn hfitF
   rw [h2] at core
   rw [h1]
   exact core

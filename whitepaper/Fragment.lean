@@ -9,6 +9,7 @@ public import Fragment.Lib
 public import Fragment.Interp
 public import Fragment.WellDenoted
 public import Fragment.EnvModel
+public import Fragment.IsModel
 public import Fragment.Univ
 public import Fragment.LfpSet
 public import Fragment.IndLib
@@ -43,6 +44,8 @@ public import Fragment.InstallThm
 public import Fragment.InstallNest
 public import Fragment.NestIota
 public import Fragment.NestInstall
+public import Fragment.IotaRead
+public import Fragment.NestIotaRead
 public import Fragment.Motive
 public import Fragment.Sound
 public import Fragment.UniformBeta
@@ -53,7 +56,9 @@ public import Fragment.IOGrade
 public import Fragment.IOWitness
 public import Fragment.Consistency
 public import Fragment.Modular
+public import Fragment.Holds
 public import Fragment.ModularModel
+public import Fragment.Main
 public import Fragment.ModularSemantics
 public import Fragment.ModularInstance
 public import Fragment.ModularSyntactic

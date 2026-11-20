@@ -7,24 +7,23 @@ public import Fragment.InstallThm
 @[expose] public section
 
 /-!
-# Consistency of the accepted environments
+# The empty proposition
 
-The environments the checker accepts (`Accepted`: the empty one, and
-the two steps `DefOk` and `IndOk`) all have a model
-(`accepted_model`), by `install_def` and `install_ind`.  With the
-soundness of the rules (`closed_infer`, `Sound.lean`) that gives the
-consistency statement: **no closed term inhabits an empty inductive
-type** (`no_empty_inductive_inhabitant`), in particular an empty
-proposition such as `False` (`no_empty_prop_inhabitant`).
+What makes an inductive type without constructors empty in a model:
+its **recursor's membership in its type** (`empty_of_rec_mem`), not
+the family's construction.  Any set in the recursor's type lies in the
+set of `∀ (motive : I → Sort ℓ) (t : I), motive t`; at the motive with
+the empty fibre, a member of `I` would give a member of the empty set.
+So the consistency corollaries need no knowledge of how a model was
+built, only that one exists: over the input's constants
+(`IsModel.no_false`, `Main.lean`), and over the internal invariant
+with the soundness of the rules (`no_empty_inductive_inhabitant_of_model`,
+by `closed_infer`, `Sound.lean`: no closed term has the type).
 
-The emptiness is read off the **recursor's type law** in an arbitrary
-model — not the family's construction: any model's recursor for the
-block lies in the set of `∀ (motive : I → Sort ℓ) (t : I), motive t`;
-at the motive with the empty fibre, a member of `I` would give a
-member of the empty set.  So the corollary needs no knowledge of how
-the model was built, only that one exists.
+`falseSpec` is the empty proposition as a block.
 
-Con-leche's counterparts: `ConLeche/Model/Capstone.lean`.
+Con-leche's counterparts: `ConLeche/Semantics/IsModelBasis.lean`
+(`IsModel.no_false_record`) and `ConLeche/Model/Capstone.lean`.
 -/
 
 namespace Fragment
@@ -33,50 +32,6 @@ open SetLib IndLib
 universe u
 
 variable (V : Type u) [IndLib V] [LevelOracle]
-
-/-- **The environments the checker accepts**: the empty environment,
-a definition the definition check passes, an inductive block the
-block check passes, a theorem the theorem check passes (con-leche's
-`addDecl`, `ConLeche/Kernel/Env.lean`, run to completion). -/
-inductive Accepted : Env → Prop
-  /-- Nothing is stored. -/
-  | empty : Accepted Env.empty
-  /-- A definition (`DefOk`, `Decl.lean`). -/
-  | defn {env : Env} {c : Name} {ci : ConstInfo} :
-      Accepted env → DefOk env c ci → Accepted (env.add c ci)
-  /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
-  | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
-  /-- A theorem (`ThmOk`, `Decl.lean`), stored as its statement. -/
-  | thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr} :
-      Accepted env → ThmOk env c ci v → Accepted (env.add c ci)
-
-omit [IndLib V] in
-/-- An accepted environment is closed: its stored terms mention only
-stored constants, at their own level parameters. -/
-theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
-  | _, .empty => Env.Scoped.empty
-  | _, .defn h hok => h.scoped.add_def hok
-  | _, .ind S h hok => h.scoped.install_any hok
-  | _, .thm h hok => h.scoped.add_thm hok
-
-/-- **Every accepted environment has a model** (in any `IndLib`) — a
-block model, which remembers its blocks for the nestings to come
-(`BlockModel.lean`). -/
-theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V env) := by
-  induction h with
-  | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩
-  | defn h hok ih =>
-    obtain ⟨m⟩ := ih
-    obtain ⟨m', -, -⟩ := install_def' h.scoped m hok
-    exact ⟨m'⟩
-  | ind S h hok ih =>
-    obtain ⟨m⟩ := ih
-    obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
-    exact ⟨m'⟩
-  | thm h hok ih =>
-    obtain ⟨m⟩ := ih
-    obtain ⟨m', -, -⟩ := install_thm h.scoped m hok
-    exact ⟨m'⟩
 
 namespace IndSpec
 
@@ -94,23 +49,17 @@ section Corollaries
 library is the proof's device, so it is an explicit parameter of
 them: any `IndLib` will do. -/
 
-/-- **No closed term inhabits an empty inductive type**, in any
-environment with a model.  For a block
-without constructors, parameters, indices and level parameters whose
-recursor the environment stores, no closed term has the type former's
-type: in a model, the recursor's set lies in the function space over the
-motives and the fibre, and at the motive with the empty fibre a
-member of the type would be a member of the empty set. -/
-theorem no_empty_inductive_inhabitant_of_model {env : Env} (m : EnvModel V env) {S : IndSpec}
+omit [LevelOracle] in
+/-- **The recursor of an empty inductive type empties it**: for a block
+without constructors, parameters, indices and level parameters, a set
+in the recursor's type at the all-zero valuation makes the type
+former's set empty — at the motive with the empty fibre, a member of
+the type would give a member of the empty set.  Any assignment `M`:
+nothing about how the model was built is read. -/
+theorem empty_of_rec_mem {M : Name → List Nat → V} {S : IndSpec}
     (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
-    (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
-    ¬ Infer env [] e (.const S.name []) := by
-  intro he
-  -- the recursor at the identity instantiation and the all-zero valuation
-  have hR := (m.type_ok S.recName S.recInfo hrec (fun _ => 0) base (S.recLparams.map .param)
-    (by simp [IndSpec.recInfo])).2.2
-  simp only [IndSpec.recInfo] at hR
-  rw [interp_instL, Level.substVal_self] at hR
+    (hlp : S.lparams = []) {r : V} (hR : r ∈ˢ interp M (fun _ => 0) base S.recType)
+    {x : V} (hx : x ∈ˢ M S.name []) : False := by
   -- the elimination level is zero
   have hℓ : Level.eval (fun _ => 0) S.ℓ = 0 := by
     unfold IndSpec.ℓ
@@ -124,39 +73,32 @@ theorem no_empty_inductive_inhabitant_of_model {env : Env} (m : EnvModel V env) 
     interp_pi, interp_sort, interp_const, hℓ, Nat.add_zero, cons_zero,
     cons_succ] at hR
   -- the motive with the empty fibre
-  have hmo : lamV (m.M S.name []) (fun _ => truthVal False) ∈ˢ
-      piV (m.M S.name []) fun _ => (typeU 0 : V) :=
+  have hmo : lamV (M S.name []) (fun _ => truthVal False) ∈ˢ
+      piV (M S.name []) fun _ => (typeU 0 : V) :=
     lamV_mem (fun _ _ => mem_typeU_zero.mpr (truthVal_mem_univ_zero _)) fun _ _ => IsTy_typeU 0
   have h₁ := app_mem_piV hR hmo
-  -- a member of the type would be a member of the empty set
-  have ht := closed_infer m (fun _ => 0) he base
-  simp only [interp_const, List.map_nil] at ht
-  have h₂ := app_mem_piV h₁ ht
-  rw [app_lamV ht] at h₂
+  have h₂ := app_mem_piV h₁ hx
+  rw [app_lamV hx] at h₂
   exact of_mem_truthVal h₂
 
-include V in
-/-- **No closed term inhabits an empty inductive type.**  For a block
+/-- **No closed term inhabits an empty inductive type**, in any
+environment with a model.  For a block
 without constructors, parameters, indices and level parameters whose
 recursor the environment stores, no closed term has the type former's
-type (`no_empty_inductive_inhabitant_of_model`, at a model of the
-accepted environment). -/
-theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : IndSpec}
+type (`empty_of_rec_mem`). -/
+theorem no_empty_inductive_inhabitant_of_model {env : Env} (m : EnvModel V env) {S : IndSpec}
     (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
     (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
     ¬ Infer env [] e (.const S.name []) := by
-  obtain ⟨m⟩ := accepted_model V hacc
-  exact no_empty_inductive_inhabitant_of_model V m.toEnvModel hctors hparams hidx hlp hrec e
-
-include V in
-/-- **No closed term inhabits an empty proposition**: the block
-`inductive False : Prop`, installed in an accepted environment, has
-no closed inhabitant. -/
-theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
-    (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
-    ¬ Infer env [] e (.const name []) :=
-  no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
-    hrec e
+  intro he
+  -- the recursor at the identity instantiation and the all-zero valuation
+  have hR := (m.type_ok S.recName S.recInfo hrec (fun _ => 0) base (S.recLparams.map .param)
+    (by simp [IndSpec.recInfo])).2.2
+  simp only [IndSpec.recInfo] at hR
+  rw [interp_instL, Level.substVal_self] at hR
+  have ht := closed_infer m (fun _ => 0) he base
+  simp only [interp_const, List.map_nil] at ht
+  exact empty_of_rec_mem V hctors hparams hidx hlp hR ht
 
 end Corollaries
 
