@@ -100,7 +100,7 @@ _application_]. Their laws:
 - #src("whitepaper/Fragment/Lib.lean", 113, 116)[Closure]: for $n != 0$, if $A in cal(U)_n$ and $B(x) in cal(U)_n$ for
   every $x in A$, then $Pi(A, B) in cal(U)_n$.
 
-This is all this section needs. When inductive types arrive, §4
+This is all this section needs. When inductive types arrive, @sec:ind
 extends the theory.
 
 Two of these laws are design choices. The first is that _application
@@ -113,7 +113,7 @@ that _a graph is never the point_: a function and a proof are never
 the same set. Together with domain uniqueness this makes "the domain
 of $f$" a meaningful phrase for every value $f$ that may be applied:
 everything if $f$ is the point, $A$ if $f$ is the graph
-$graph(F, A)$. This is what lets β fire with no premise at all.
+$graph(F, A)$. This is what lets the reduction rule β fire with no premise at all.
 
 One law is deliberately restricted: closure of a universe under
 function spaces is stated for $cal(U)_1, cal(U)_2, dots$ and not for
@@ -161,25 +161,26 @@ $
 
 Here $Pi_0(A, B)$ is
 #src("whitepaper/Fragment/Lib.lean", 190, 196)[the _propositional function space_],
-$tv(forall v in A. thin B(v) = {pt})$. When the fibres $B(v)$ are
-truth values it is their intersection $inter.big_(v in A) B(v)$ (the
+$tv(forall v in A. thin B(v) = {pt})$. When the _fibres_ $B(v)$, for
+$v in A$, are truth values it is their intersection $inter.big_(v in A) B(v)$ (the
 empty intersection being ${pt}$), which is ${pt}$ exactly when every
 fibre is and $emptyset$ otherwise: the function space of subsets of a
 singleton.
 A `let` reads its body at the value's value, and its type is not read,
 as no type is read anywhere.
 
-So a binder has two readings. When the body is not a proposition, a
-lambda is a graph and a $forall$ is a set of such graphs, a function
-space. When it is, a lambda is a proof, hence the point, and a
-$forall$ is a proposition, true when every _fibre_ (the set
-$lden B rden_(rho, x |-> v)$ at a $v in lden A rden_rho$) is ${pt}$.
-Which reading applies is decided by the values the body takes over the
-domain, and by nothing else. The interpretation does not know the sort
+So a binder has two interpretations, chosen by the values of its
+body over the domain. The fibres of $forall x : A. thin B$ are the
+sets $lden B rden_(rho, x |-> v)$ for $v in lden A rden_rho$. If every
+fibre is a truth value, the Π-type is a proposition, true when every
+fibre is ${pt}$; otherwise it is a function space, a set of graphs.
+Likewise a lambda whose body is the point at every member of the
+domain is itself the point, a proof; otherwise it is a graph. The
+choice depends on these values and on nothing else. The interpretation does not know the sort
 of $B$, and does not compute it.
 
-*The empty domain.* Over a non-empty domain the values choose the
-reading the sort of the body would choose. Over an _empty_ domain
+*The empty domain.* For a well-typed body over a non-empty domain,
+the values choose the interpretation the sort of the body would choose. Over an _empty_ domain
 there are no values, and both clauses take their first case: a
 function space over an empty domain
 #src("whitepaper/Fragment/Lib.lean", 676, 682)[is ${pt}$], and an abstraction over one
@@ -196,9 +197,14 @@ fact about the syntax, not about any value, and reading an empty
 `False → False` denote a one-element set of graphs, which no truth
 value is.
 
-*What a sort denotes.* A set is a
+*What a sort denotes.* A set $X in V$ is a
 #src("whitepaper/Fragment/Lib.lean", 297, 301)[_type_] when it is a truth value or
-_strict_, that is, neither the point nor a set holding the point. The
+_strict_, that is, neither the point nor a set holding the point:
+$
+  X "a type" quad <==> quad X in cal(U)_0
+  quad or quad (X != pt and pt in.not X).
+$
+The
 members of a type are
 #src("whitepaper/Fragment/Lib.lean", 358, 363)[all the point or none of it],
 and this is the one fact about types the soundness proof reads. A sort
@@ -212,7 +218,7 @@ space over an empty domain is ${pt}$,
 The point is no type, so no sort holds it.
 
 #real[
-  Con-leche's sorts denote the same sets:
+  con-leche's sorts denote the same sets:
   #src("ConLeche/SetTheory/Derive/Univ.lean", 34, 35)[a sort's universe]
   is #src("ConLeche/SetTheory/Derive/TypeU.lean", 195, 197)[the universe of types],
   read off the same notions of a
@@ -241,7 +247,8 @@ valuation $phi$ and an environment $rho$, like the interpretation, by
 recursion on the term: it holds of a term when it holds of the
 subterms and one condition on the term's own shape is met. We write
 $rho models e$ for "$e$ is well-denoted under $rho$" ($phi$ is fixed
-throughout). Variables and sorts are always well-denoted, and
+throughout). Variables and sorts are always well-denoted, and, with
+$F$ a function from sets to sets and $A$ a set in app-graph,
 
 #rules(
   rule(name: "app-pt",
@@ -274,7 +281,7 @@ throughout). Variables and sorts are always well-denoted, and
 
 In words: the point may be applied to anything, and a graph to the
 members of its domain, which is a type; a binder's domain is a type;
-and a $forall$'s fibres are types. Nothing is asked of a lambda's
+and a Π-type's fibres are types. Nothing is asked of a lambda's
 values beyond the body being well-denoted.
 
 The two app rules mention no function space and no type of $f$ or $a$:
@@ -291,7 +298,7 @@ to arguments that are equal where neither is the point must be equal,
 and that needs the two arguments to be both the point or neither,
 which their common domain, a type, provides.
 
-The invariant records which sets are types; that is what lets the
+The semantic invariant records which sets are types; that is what lets the
 proof conclude that two values in one type are both the point or
 neither. Where a lambda is typed, its inference rule supplies a family
 of types holding the body's values, and then the choice between the
@@ -308,10 +315,14 @@ $rho, x |-> lden a rden_rho$, provided $a$ itself is. The proof is by
 induction on the term, using the interpretation's substitution
 lemma; no typing derivation is involved.
 
-A context $Gamma$, the list of the types of the variables in scope,
-is #src("whitepaper/Fragment/WellDenoted.lean", 234, 241)[_satisfied_] by $rho$ when every entry is well-denoted under the
-environment beyond it, denotes a type there, and has the variable's
-value as a member.
+A context $Gamma = x_1 : A_1, dots, x_n : A_n$, where each type $A_i$
+mentions only the variables before it,
+is #src("whitepaper/Fragment/WellDenoted.lean", 234, 241)[_satisfied_] by $rho$ when every entry is well-denoted, denotes a
+type, and holds the variable's value:
+$
+  rho models A_i, quad lden A_i rden_rho "a type", quad
+  rho(x_i) in lden A_i rden_rho quad "for" i = 1, dots, n.
+$
 This is the semantic reading of "$Gamma$ is a well-formed context", and
 it is the only thing the claims below assume about the context.
 
@@ -354,7 +365,7 @@ shows that the other rules need no more than such a claim.
 
 *Why no sort holds the point.* The claims below rely on one fact: an
 inferred type is a type, so it is never the point. It also keeps β
-sound on stored values. A stored constant $c : Sort 1$ whose value is
+sound on stored values. A stored constant (@sec:env) $c : Sort 1$ whose value is
 the ill-typed redex
 $(lambda h : (forall P : sans("Prop"). thin P). thin h) thick sans("Prop")$
 reduces by δ and β to $sans("Prop")$. The redex denotes the point
@@ -396,11 +407,11 @@ premise's claim has that premise not the point, or does not need the
 claim there. Every rule falls into one of four cases.
 
 + _The subject is a type, never the point._ The reductions of an
-  inferred type to a sort or a $forall$ (in the binder rules, in app,
+  inferred type to a sort or a Π-type (in the binder rules, in app,
   in $eta$, in proof irrelevance), the comparisons of two types (an
   argument's type with a domain in app, a domain with a domain in
   the congruences, the checker's type comparisons in $iota$), the
-  fibres compared in $forall$-congruence. The third claim made each
+  fibres compared in the congruence for Π-types. The third claim made each
   subject a type, so the conditional claim applies outright.
 + _The subject is not the point by hypothesis._ trans passes the
   first claim's denotation on to the second; head reduces the head of
@@ -415,7 +426,7 @@ claim there. Every rule falls into one of four cases.
   lambda congruence and $eta$ are the one place where nothing else
   supplies a common type, and that is why those rules compare the
   bodies' types (@sec:tax).
-+ _The step is an identity everywhere._ β on a redex that is not the
++ _The step has its own semantic lemma._ β on a redex that is not the
   point (@lem:beta), $zeta$ and δ (@sec:env) claim nothing beyond what
   holds at every environment.
 
@@ -429,7 +440,7 @@ declaration is accepted when its value's inferred type is
 definitionally equal to its declared type, and the corollary, with the
 second claim, puts the value's set into the declared type's set.
 
-*Proofs that are not proofs.* The proof asks whether a term's value is
+*Terms whose value is the point.* The proof asks whether a term's value is
 the point, never whether the term is a proof in Lean's sense (except
 in the proof-irrelevance rule, whose claim turns out to be empty), and
 it learns that only through a type the term lies in. So a term whose
@@ -472,18 +483,18 @@ The routine cases are listed at the end; the others follow.
 
   *#src("whitepaper/Fragment/Sound.lean", 174, 191)[Rule pi]*, $forall x : A_1. thin B_1 equiv forall x : A_2. thin B_2$ from
   $Gamma tack A_1 equiv A_2$ and $Gamma, x : A_2 tack B_1 equiv B_2$: \
-  Both $forall$s are well-denoted, so their domains are types, never
+  Both Π-types are well-denoted, so their domains are types, never
   the point, and the second claim on the domains gives
   $lden A_1 rden_rho = lden A_2 rden_rho$. At every $v$ in that domain
   the fibres are types too, so the claim on the bodies makes them
-  equal. A $forall$'s set is a function of its domain's set and its
+  equal. A Π-type's set is a function of its domain's set and its
   fibres, the choice of reading included, since that is read off the
-  fibres; so the two $forall$s are equal. No comparison of the two
+  fibres; so the two Π-types are equal. No comparison of the two
   sides' sorts is needed.
 
   *#src("whitepaper/Fragment/Sound.lean", 193, 213)[Rule lam]*, $lambda x : A_1. thin b_1 eqlam lambda x : A_2. thin b_2$ from
   the domains, the bodies, and the bodies' types $t_1 equiv t_2$: \
-  The domains are equal as for $forall$. Fix $v$ in the domain. The
+  The domains are equal as for Π-types. Fix $v$ in the domain. The
   third claim puts $lden b_1 rden$ in $lden t_1 rden$ and $lden b_2
   rden$ in $lden t_2 rden$ (at $rho, x |-> v$), both types, and the
   second claim on the types, which are not the point, makes them one
@@ -510,7 +521,7 @@ The routine cases are listed at the end; the others follow.
   $Gamma tack A_2 equiv A_1$, $Gamma, x : A_1 tack b_1 equiv b thick x$,
   and the body's type agrees with $B$: \
   $b$ is not the point, so the third claim, then the first, put
-  $lden b rden_rho$ in the denotation of the $forall$, which is
+  $lden b rden_rho$ in the denotation of the Π-type, which is
   well-denoted; the domains are equal as before. Fix $v$ in the
   domain. The lambda's body lies in its inferred type, which the
   type premise makes the fibre $lden B rden_(rho, x |-> v)$; the term
@@ -536,7 +547,7 @@ The routine cases are listed at the end; the others follow.
   $TyU_(phi(u))$, so it is a type, and for every $v' in lden A rden_rho$
   the environment $rho, x |-> v'$ satisfies $Gamma, x : A$; the same
   claims for $B$ put every fibre in $TyU_(phi(v))$. That is the
-  $forall$ rule of the semantic invariant, and $PiV(A, B)$
+  pi rule of the semantic invariant, and $PiV(A, B)$
   #src("whitepaper/Fragment/Lib.lean", 646, 652)[lies in $TyU_(phi(imax(u, v)))$].
   If $phi(v) = 0$, every fibre is a truth value, so is $PiV(A, B)$,
   and $phi(imax(u, v)) = 0$. Otherwise $PiV(A, B)$ is a truth value
@@ -551,7 +562,7 @@ The routine cases are listed at the end; the others follow.
   The same argument one level down. The domain is a type, and for
   every $v'$ in it the third claim for $b$ gives $b$ and $B$
   well-denoted, $lden B rden$ a type and $lden b rden in lden B rden$.
-  That is the lambda rule, and the $forall$ rule of the inferred type
+  That is the lambda rule, and the pi rule of the inferred type
   is met too; and as the $lden B rden$ are types holding the body's
   values, the introduction law for values puts the abstraction into
   $PiV(A, B)$. Nothing about the sort of $B$ is
@@ -561,11 +572,11 @@ The routine cases are listed at the end; the others follow.
   $Gamma tack f => T red forall x : A. thin B$,
   $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$: \
   By the third claim, $f$ and $T$ are well-denoted and $lden f rden_rho in lden T rden_rho$;
-  $T$ is a type, so by the first claim the $forall$ is well-denoted and
+  $T$ is a type, so by the first claim the Π-type is well-denoted and
   $lden T rden_rho = lden forall x : A. thin B rden_rho$. By the
   third claim for $a$, $a$ and $T_a$ are well-denoted, $lden T_a rden$ is
   a type and $lden a rden_rho in lden T_a rden_rho$; $A$ is a type by
-  the $forall$ rule, so the second claim gives $lden T_a rden_rho =
+  the pi rule, so the second claim gives $lden T_a rden_rho =
   lden A rden_rho$ and $lden a rden_rho in lden A rden_rho$. Now $f thick a$ is well-denoted, by
   an app rule of @sec:inv: $lden f rden_rho$ lies in
   $PiV(A, B)$ with $A$ a type holding the argument, so it is the point
@@ -575,9 +586,9 @@ The routine cases are listed at the end; the others follow.
   is $lden B[x := a] rden_rho$ by the substitution lemma.
 
   A syntactic proof would here invert a derivation of $f : T$ to
-  learn the domain and the codomain, using the injectivity of
-  $forall$ that @sec:rules discussed. Our proof inverts nothing. The
-  checker itself reduced $T$ to a syntactic $forall$, the first claim
+  learn the domain and the codomain, using the
+  Π-injectivity that @sec:rules discussed. Our proof inverts nothing. The
+  checker itself reduced $T$ to a syntactic Π-type, the first claim
   says that the reduction did not change the set, and that set _is_
   $PiV(A, B)$ by the interpretation's rule.
 
@@ -695,6 +706,24 @@ type at all, so #src("whitepaper/Fragment/Sound.lean", 706, 723)[the claim propa
 any number of levels. A δ step or a reduction between two levels ends
 the telescope, and the level below it is an innermost level again.
 
+*Where the comparison could be skipped.* The fragment also proves
+#src("whitepaper/Fragment/Rules.lean", 591, 635)[three weaker forms of the rules] sound;
+con-leche does not use them. Each drops the coloured premises where
+something else makes the bodies both the point or neither at every
+value of the variable:
+- when the domain $A_2$ is inferred to have a sort $Sort u$ with
+  $u eq.dot 0$ (in lambda congruence and in $eta$): the domain is a
+  truth value, with at most one member, so whether a body is the
+  point cannot vary;
+- when neither body mentions the bound variable (in lambda
+  congruence): each body is one set at every value;
+- when the two lambdas are the arguments $a_1, a_2$ of applications
+  $f_1 thick a_1$ and $f_2 thick a_2$ with $Gamma tack f_1 equiv f_2$
+  and $Gamma tack f_1 => T red forall x : S. thin B$: they are
+  compared at the known type $S$, which holds both, by a variant of
+  the equality relation whose lambda and $eta$ rules reduce the known
+  type to a Π-type and compare the bodies at its body.
+
 *Full inference.* The bodies' types are inferred by full inference
 (@sec:infer), not by `infer_only` (@sec:io). With `infer_only` there
 is a typed definition at which
@@ -717,10 +746,23 @@ $(lambda h : sans("False"). thin (h.sans("elim") : sans("Nat"))) thick 0$
 gets the type `Nat`, is well-denoted, and denotes the point (the
 lambda is an abstraction over an empty domain), which is no member
 of the set `Nat` denotes. What holds is
-#src("whitepaper/Fragment/IOGrade.lean", 149, 173)[a hereditary claim]:
-the value is the point, or a member of the type, or, when the type is
-a $forall$, a graph over its domain whose applications satisfy the
-claim at the $forall$'s body. It is
+#src("whitepaper/Fragment/IOGrade.lean", 149, 173)[a hereditary claim]
+$H_rho (T, w)$ about the inferred type $T$ and the value
+$w = lden e rden_rho$: the value is the point, or a member of the
+type, or, when the type is syntactically a Π-type, a graph over its
+domain whose applications satisfy the claim at the Π-type's body.
+For a term $T$, an environment $rho$ and a set $w$,
+$
+  H_rho (T, w) quad <==> quad w = pt
+  quad or quad (rho models T, lden T rden_rho "a type", w in lden T rden_rho)
+  quad or quad H'_rho (T, w),
+$
+where $H'_rho (T, w)$ holds only when $T$ is a Π-type
+$forall x : A. thin B$, $lden A rden_rho$ is a type, $w$ is a graph
+over $lden A rden_rho$ with $w dot.op v' != pt$ for some
+$v' in lden A rden_rho$, and
+$H_(rho, x |-> v) (B, w dot.op v)$ for every $v in lden A rden_rho$.
+It is
 #src("whitepaper/Fragment/IOGrade.lean", 362, 363)[proved for every rule]
 of `infer_only`.
 
@@ -728,7 +770,7 @@ The claim serves two consumers. One is proof irrelevance with both
 types inferred by `infer_only`
 (#src("whitepaper/Fragment/IOGrade.lean", 419, 422)[the rule's case]):
 a value whose type has sort `Prop` is the point, the hereditary case
-included, because the body of a $forall$ of sort `Prop` has sort
+included, because the body of a Π-type of sort `Prop` has sort
 `Prop`. The other is $eta$ against a term whose head is a variable or
 a constant, whose claim is
 #src("whitepaper/Fragment/IOGrade.lean", 440, 443)[never the hereditary one]
@@ -751,7 +793,8 @@ Three points of this section run through the rest of the paper. The claims of re
 equality are conditional: they say nothing about a term that denotes
 the point. The checks of the certification tax are exactly what a
 typing judgement would otherwise supply: a common type for the two
-sides of a comparison where nothing else gives one. And the proof uses
+bodies at lambda congruence and $eta$, and, at the certified case of
+ι, the typing of the constructor application. And the proof uses
 no subject reduction, no confluence, no injectivity of Π-types and no
 unique typing; it needs only the laws of the set theory and the
 derivations of the checker's three relations.

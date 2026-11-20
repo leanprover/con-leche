@@ -52,11 +52,16 @@ $
   u colon.double.eq 0 | u + 1 | max(u, v) | imax(u, v) | p
 $
 
-with $p$ a level parameter of the enclosing declaration.  A level
-#src("whitepaper/Fragment/Level.lean", 50, 56)[means a natural number] once a _valuation_ $phi$ fixes the parameters:
-$0$, successor, maximum, and $imax(u, v)$ is $0$ when $v$ is $0$ and
-$max(u, v)$ otherwise
-(#src("ConLeche/Verify/Level.lean", 26, 31)[as in con-leche]).
+with $u, v$ levels and $p$ a level parameter of the enclosing
+declaration.  A _valuation_ $phi$ maps each level parameter to a
+natural number, and a level
+#src("whitepaper/Fragment/Level.lean", 50, 56)[means the natural number] $phi(u)$
+(#src("ConLeche/Verify/Level.lean", 26, 31)[as in con-leche]):
+$
+  phi(0) = 0, quad phi(u + 1) = phi(u) + 1, quad
+  phi(max(u, v)) = max(phi(u), phi(v)), \
+  phi(imax(u, v)) = cases(0 & "if" phi(v) = 0\,, max(phi(u), phi(v)) & "otherwise.")
+$
 The impredicative maximum is what makes $forall x : A. thin B$ a
 proposition whenever $B$ is one, whatever the level of $A$: its sort
 is $Sort (imax(u, v))$ (rule pi in @sec:rules).
@@ -64,9 +69,11 @@ is $Sort (imax(u, v))$ (rule pi in @sec:rules).
 *The level oracle.*  The checker decides $u <= v$ and $u = v$ between
 levels with an algorithm.  This paper does not present that algorithm
 and does not verify it.  It #src("whitepaper/Fragment/Level.lean", 130, 145)[_assumes_ two Boolean functions] with a
-specification: $u <= v$ is answered yes exactly when the value of $u$
-is at most the value of $v$ at every valuation, and $u = v$ exactly
-when the values agree at every valuation
+specification:
+$
+  u <= v "answered yes" & <==> forall phi. thin phi(u) <= phi(v), \
+  u = v "answered yes" & <==> forall phi. thin phi(u) = phi(v)
+$
 (#src("ConLeche/Kernel/Level.lean", 144, 146)[the real $<=$],
 #src("ConLeche/Kernel/Level.lean", 164, 167)[the real $=$] and their
 #src("ConLeche/Verify/Level.lean", 173, 174)[soundness]
@@ -149,7 +156,7 @@ are #src("ConLeche/Rules/Rel.lean", 362, 364)[compared through the level oracle]
 
 The congruences descend into the two binders and into applications.
 Domains are compared first, then the bodies, under the right-hand
-domain.  #src("whitepaper/Fragment/Rules.lean", 567, 575)[For $forall$] that is all.
+domain.  #src("whitepaper/Fragment/Rules.lean", 567, 575)[For Π-types] that is all.
 
 #rules(
   rule(name: "pi",
@@ -187,11 +194,11 @@ explains why they are there, and why the outer levels need none.
 
 (Two syntactically equal terms are also related by $eqlam$.)
 A lambda against a term $b$ that is not a lambda is #src("whitepaper/Fragment/Rules.lean", 640, 653)[tried by $eta$]. The
-type of $b$ is inferred and reduced to a $forall$, its domain is
+type of $b$ is inferred and reduced to a Π-type, its domain is
 compared with the lambda's, and the body is compared with $b$
 applied to the bound variable. As at the innermost level of
 lambda congruence, the type of the lambda's body is inferred and compared
-with the $forall$'s body.  Two terms are
+with the Π-type's body.  Two terms are
 #src("whitepaper/Fragment/Rules.lean", 654, 663)[equal by proof irrelevance] when both are proofs: each one's type has type
 $Sort u$ with $u$ oracle-equal to $0$.
 
@@ -212,8 +219,8 @@ $Sort u$ with $u$ oracle-equal to $0$.
 *Proof irrelevance.*  The rule compares the sorts of the two types,
 and never the two types. The official kernel also compares $T_a$ with
 $T_b$, so that $a$ and $b$ are proofs of the same proposition. This
-checker does not, and so accepts strictly more than Lean at this one
-site. The model justifies it: every proof denotes the point, so two
+checker does not, and so accepts strictly more than the official kernel at this one
+site. The model justifies it (@sec:interp): every proof denotes the point, so two
 proofs of two propositions denote the same set.
 
 The list has #src("whitepaper/Fragment/Rules.lean", 529, 546)[no transitivity rule], and
@@ -246,10 +253,10 @@ checks; @sec:io presents it.
 )
 
 The two #src("whitepaper/Fragment/Rules.lean", 754, 771)[binder rules] are Lean's own.  For a
-$forall$, the domain's type must reduce to a sort $Sort u$ and the
+Π-type, the domain's type must reduce to a sort $Sort u$ and the
 body's type, under the domain, to a sort $Sort v$; the result is
 $Sort (imax(u, v))$.  For a lambda, the domain's type must reduce to
-a sort, and the result is the $forall$ of the body's inferred type;
+a sort, and the result is the Π-type over the body's inferred type;
 the sort of that type is not computed.
 
 #rules(
@@ -263,10 +270,10 @@ the sort of that type is not computed.
     $Gamma tack lambda x : A. thin b => forall x : A. thin B$),
 )
 
-An #src("whitepaper/Fragment/Rules.lean", 772, 781)[application infers the head's type], reduces it to a $forall$,
+An #src("whitepaper/Fragment/Rules.lean", 772, 781)[application infers the head's type], reduces it to a Π-type,
 infers the argument's type and #src("ConLeche/Rules/Rel.lean", 657, 661)[compares it with the domain].
 A #src("whitepaper/Fragment/Rules.lean", 782, 796)[let-expression] checks that its type has a
-sort and that its value's type agrees with it, as Lean does, and then
+sort and that its value's type agrees with it, as the official kernel does, and then
 infers the type of the body with the value substituted.
 
 #rules(
@@ -283,24 +290,28 @@ infers the type of the body with the value substituted.
     $Gamma tack (elet x : T := v; thin b) => B$),
 )
 
-*Reducing to a $forall$.*  The application rule reduces the inferred
-type of $f$ until a $forall$ is syntactically there. It does not take
-a type of $f$ that is a $forall$ up to definitional equality and argue
+*Reducing to a Π-type.*  The application rule reduces the inferred
+type of $f$ until a Π-type is syntactically there. It does not take
+a type of $f$ that is a Π-type up to definitional equality and argue
 that its domain is the right one. That argument is where a syntactic
-soundness proof needs injectivity of $forall$, the property that
-$forall x : A. thin B equiv forall x : A'. thin B'$ forces
-$A equiv A'$. Our proof never needs it, and the model does not
+soundness proof needs Π-injectivity, the property that for terms
+$A, A', B, B'$
+$
+  Gamma tack forall x : A. thin B equiv forall x : A'. thin B'
+  quad "implies" quad Gamma tack A equiv A'.
+$
+Our proof never needs it, and the model does not
 validate it: $forall x : A. thin sans("True")$ and
 $forall x : A'. thin sans("True")$ denote the same truth value whatever
 $A$ and $A'$ are. Our proof argues instead that the head denotes a
-member of what the $forall$ denotes, because reduction preserves
+member of what the Π-type denotes, because reduction preserves
 denotations; that the argument denotes a member of the domain, by the
 comparison premise; and that applying a member of a function space to
 a member of its domain lands in the fibre. The second half of this
 section carries this out.
 
-*The let-expression.*  The two checks on the value are what Lean
-runs, and they decide verdicts: they reject a let-expression whose
+*The let-expression.*  The two checks on the value are what the
+official kernel runs, and they decide verdicts: they reject a let-expression whose
 value does not have the stated type even where the body ignores it.
 The soundness proof does not use them (@sec:claims): the
 interpretation reads no type, and the body is inferred with the value

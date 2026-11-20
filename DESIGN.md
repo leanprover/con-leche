@@ -125526,3 +125526,83 @@ the guard: everything passes (olean gate 555/555, e2e 635/635, 76 theorems' axio
 layering, shake, trust-surface, plain-reach, binary-link, challenge, no-local-paths,
 overview-links); `tests/quote-gate.sh` passes after the README deletions; whitepaper links and
 fragment gates pass.  Landed on `compare` (nothing new there since the lane's base).
+
+## TASK #625 — the whitepaper's prose, reviewed with Codex (2026-11-20, agent/625-wp-prose)
+
+The maintainer's goal: "best ICFP paper" style, carefully dosed formalism, helpful concise
+prose. Method: the OpenAI Codex CLI (`codex exec -s read-only`) reviewed each section against
+that standard and PLAN.md's writing rules; each criticism was judged, the good ones applied in
+the paper's voice, the rest answered; then the revised section and the answers went back to
+Codex, until a round brought no substantive point (§1, §4, §7, §8, §9: two rounds; §2, §3, §6:
+three; §5: four). The reviews and every judgement are in `_tmp/625/reviews/` (not committed).
+No claim changed except where a sentence was inaccurate (listed); the fragment is unchanged.
+
+*Rejected across all sections (Codex's systematic over-readings):* wrapping the introduction's
+thesis, citation phrases such as "(as in con-leche)", one-clause design comparisons with the
+official kernel, and all of §9 in `#real` blocks (the rule is about implementation digressions
+inside the argument); boilerplate "let a, b, e range over terms" paragraphs (ranges are given in
+the sentence of first use); displaying every rule instance of the proof walk; Codex's rewrites
+verbatim (generic, they drop the examples).
+
+*Per section.*
+- §1: inaccurate "the real checker pins these rather than reading them from the stream"
+  corrected (a stream block is checked and stored, then compared with its pin); the Gödel
+  remark made conditional ("unless Lean is inconsistent"); "the terms are Lean's own"
+  explained; scope and itinerary shortened, references by label (new `<sec:fragment>`);
+  the Π-type's variables introduced. Rejected: a formal main theorem in the introduction (its
+  notation arrives in §3/§4), dropping the metatheory contrast and the Gödel remark.
+- §2: level semantics and the oracle specification displayed; context satisfaction, the type
+  predicate and the cheaper mode's hereditary claim displayed (checked against `IOHered`; a
+  round-2 slip, "not the point at every member", corrected to "some member" in round 3); the
+  two interpretations named by their value conditions, "fibre" defined at first use;
+  "a $forall$" as a noun replaced by Π-type throughout; Π-injectivity displayed; the official
+  kernel named instead of "Lean"; the fourth proof case retitled ("has its own semantic
+  lemma": β is conditional); the brief names both kinds of the certification tax; a new
+  paragraph in the tax subsection on the fragment's weaker, sound forms of the lambda/η rules
+  (`lamProp`, `lamConst`, `etaProp`, `appIn`), which con-leche does not use — the paper had
+  not mentioned them. Rejected: cutting the proof walk to representative cases (PLAN.md asks
+  for the point-sensitive cases in full); moving the Lean4Lean/nanoda clause; Codex's round-3
+  claim that the proof-irrelevance paragraph is wrong (a misreading: the official kernel does
+  compare the two types).
+- §3: the installation theorem as a formula; why the extended model is well defined and why
+  the equality claim applies (types are never the point); the level-instantiation lemma
+  displayed; "a stored term is closed" limited to a definition's type and value; round 2
+  caught a wrong closing sentence (the checks are not all premises of the corollary) — now
+  says what each check contributes. Rejected: displaying the four checks.
+- §4: the laws named by content; a roadmap of the chain positivity → accessibility → closed
+  family → least fixed point → recursor and ι law → main theorem; families, index values and
+  constructor values with ranges; the recursion equation displayed; the ι law's level lists
+  and application chain spelled out as the fragment defines them; the certificate cases with
+  their laws; the closed-family theorem and the main theorem as formulas. Rejected: moving
+  the universe-bound argument out, reordering the ι subsection (rule before law), renumbering
+  §3's laws.
+- §5: Π-types in prose; holes and frames introduced with a `Tree` trace; the recursor
+  example's motives and variables named; the model sketch's approximant and container
+  operator with ranges; a closing sentence. Rejected: moving the positivity walk into `#real`
+  (PLAN.md's §5 ruling puts con-leche's full check in the text); Codex's round-4 claim of a
+  joint induction (con-leche's `SetModel/NestRec.lean` runs each class's own induction).
+- §6: a false sentence corrected ("a set with at most one member takes one of two shapes"; now:
+  at given parameters the family has at most one member); the structure-η rule and lemma
+  displayed with ranges, existence and uniqueness separated; projection-ι names introduced;
+  a boasting phrase removed. Rejected: cutting the recap of §4 (both results use it).
+- §7: the module-input theorem as a formula; ranges at first use; the compatibility formula's
+  scope made explicit; the four-module example displayed; the rank argument stated directly
+  (no "the proof is not circular"); the empty-proposition consequence given its missing
+  hypothesis (the modules up to i pass their checks); no "source". Rejected: moving the Lean
+  module-system table into `#real` (it maps Lean, not con-leche), dropping the syntactic
+  remark.
+- §8: the agreement convention ($M(d) = M'(d)$ at every list of naturals) stated once; the
+  lemmas with their full hypotheses and displayed conclusions — the challenge's level
+  parameters distinct, which the fragment's `Shared` requires and the paper had omitted; no
+  bare "the invariant"; imported views; the modular theorem retitled after what it proves
+  ("The challenge has a model, module by module"). Rejected: cutting the `#real` blocks to
+  three facts.
+- §9: "one sentence each" became "a short account" (also in §1); the `IsModel` and modular
+  paragraphs split; jargon ("the binary", "checker site", "clone") replaced; "Lean's kernel" →
+  the official kernel; the frontend's trust boundary stated plainly. Rejected: wrapping §9 in
+  `#real`, strict one-sentence entries.
+- Throughout: sentence-initial "Con-leche" lowercased, "this proof" → "our proof".
+
+*Gates:* `whitepaper/build.sh` (PDF + HTML, no warnings), `whitepaper/links-gate.sh` (575
+links; `--update` after re-reading: one new citation of the fragment's weaker rules, one moved
+citation in §4), `whitepaper/fragment-gate.sh`. HTML synced to `_out/whitepaper/`.

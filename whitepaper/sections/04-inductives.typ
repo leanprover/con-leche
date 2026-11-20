@@ -27,16 +27,23 @@
 The second kind of declaration is an inductive block: a type former
 with its constructors and its recursor. It is checked and installed by
 the same shape of argument as a definition (@sec:env), and its
-reduction rule $iota$ reads the environment as $delta$ does. Two
-pieces of work are new. The constructed sets (the family, the
-constructors, the recursor) must be members of their generated types,
-which is law 1. And the $iota$ law must be stated and proved: it is a
-third law of the contract of @sec:env, and three more laws let most
-$iota$ steps go without checking the constructor application. This
-section says what the checker checks for a block and what it stores,
-how the model grows by a least fixed point so that the laws keep
-holding, when $iota$ needs a certificate, and then the consistency
-corollary.
+reduction rule $iota$ reads the environment as $delta$ does. What is
+new is the model. The family, the constructors and the recursor need
+sets that lie in their generated types (the typing law, law 1 of
+@def:model), and the recursor's set must compute by its rules: the
+_$iota$ law_, a third law of the contract.
+
+The construction is one chain. Strict positivity makes the block's
+operator on families _accessible_ (@sec:ind-model); an accessible
+operator has a closed family in the universe (@thm:closed-of-acc);
+below a closed family the least fixed point is a set construction,
+and the family is that fixed point. Read backwards, its fixed-point
+equation says that every member of the family is built by a
+constructor; this inversion and the fixed point's induction give the
+recursor, and with it the $iota$ law (@thm:iota). Three further laws
+let most $iota$ steps go without checking the constructor application
+(@sec:iota-cases). The section ends with the main theorem and the
+consistency corollary (@sec:consistency).
 
 == What is checked <sec:ind-checks>
 
@@ -391,10 +398,12 @@ the hereditarily finite sets satisfy every other law in this list.
 
 Fix a block as in @sec:ind-checks, a valuation
 $phi$, and values $arrow(X)$ for the parameters. A _family_ is a
-function $W$ from index values $arrow(Y)$ to sets, its _fibres_. The
+function $W$ that assigns a set $W(arrow(Y))$, its _fibre_, to every
+list of index values $arrow(Y)$. The
 block's operator $Phi$ sends a family to a family: its fibre at
-$arrow(Y)$ is the set of _constructor values_ whose fields fit a
-constructor relative to $W$ and whose index expressions read as
+$arrow(Y)$ is the set of _constructor values_ $tag(j, arrow(F))$, for
+a constructor $c_j$ and values $arrow(F)$ for its fields, whose fields
+fit $c_j$ relative to $W$ and whose index expressions read as
 $arrow(Y)$,
 $ Phi(W)(arrow(Y)) = { tag(j, arrow(F)) mid(|) arrow(F) "fit the fields of" c_j "relative to" W, "and" arrow(Y) = arrow(e)_j (arrow(F)) }, $
 where $arrow(e)_j$ are the index expressions of $c_j$'s result
@@ -435,15 +444,15 @@ so every fibre of $Phi(W)$ is a subset of ${pt}$: the truth value
 the closed family the least fixed point needs, asks for
 _accessibility_. An _occurrence_ in a family $W$ is a pair
 $(arrow(Y), v)$ of index values and a member $v in W(arrow(Y))$ of the
-fibre there; write $(arrow(Y), v) in W$. Call $Phi$ #src("whitepaper/Fragment/Access.lean", 68, 78)[_accessible with
+fibre there; write $(arrow(Y), v) in W$. For $n >= 1$ write
+$W in cal(U)_n$ when every fibre of $W$ is a member of $cal(U)_n$. Call $Phi$ #src("whitepaper/Fragment/Access.lean", 68, 78)[_accessible with
 the bound_ $A$], a set, when every element $x$ of a fibre of $Phi(W)$
 has a _support_: a subset $B subset.eq A$ together with a map $g$ that
 names, for each $a in B$, an occurrence $g(a)$ in $W$, such that $x$
 is produced from every family in the universe that contains those
 occurrences:
 $ forall W in cal(U)_n, arrow(Y), x in Phi(W)(arrow(Y)). thick exists B subset.eq A, g. thick & (forall a in B. thin g(a) in W) \
-  & and forall W' in cal(U)_n. thin (forall a in B. thin g(a) in W') => x in Phi(W')(arrow(Y)) $
-($W in cal(U)_n$: every fibre of $W$ is a member of $cal(U)_n$).
+  & and forall W' in cal(U)_n. thin (forall a in B. thin g(a) in W') => x in Phi(W')(arrow(Y)). $
 Whether an element is produced depends on at most $A$-many elements
 of the input and on nothing else, for the one set $A$. The
 fixed-point equation below also needs a monotone operator;
@@ -488,9 +497,10 @@ naturals into a fibre of $W$. Three things have to be shown.
 Hence #src("whitepaper/Fragment/IndSem.lean", 1304, 1311)[the operator is accessible with this bound],
 and so #src("whitepaper/Fragment/IndSem.lean", 1418, 1423)[monotone].
 
-For a type-valued family, that the bound is a member of
-$cal(U)_(phi(u))$, and that $Phi$ maps families in $cal(U)_(phi(u))$
-to families in $cal(U)_(phi(u))$, follows from the semantic form of
+For a type-valued family, @thm:closed-of-acc below needs two more
+facts besides accessibility, at $n = phi(u)$:
+$ A in cal(U)_(phi(u)) quad "and" quad Phi(W) in cal(U)_(phi(u)) "for every" W in cal(U)_(phi(u)). $
+Both follow from the semantic form of
 the checker's universe bound, the
 #src("whitepaper/Fragment/IndSem.lean", 601, 622)[_universe bound on the fields_]:
 along any instance of any family
@@ -498,7 +508,7 @@ in the universe, every ordinary domain and every entry of a reflexive
 field's telescope is a member of $cal(U)_(phi(u))$
 (#src("whitepaper/Fragment/IndSem.lean", 1105, 1109)[the bound is a member],
 #src("whitepaper/Fragment/IndSem.lean", 768, 775)[the operator maps the universe to itself]).
-It comes from the checker's field-sort check, $v <= u$, read in a
+The universe bound on the fields comes from the checker's field-sort check, $v <= u$, read in a
 model in which the type former denotes the one-fibre family: the type
 former's type
 $ forall arrow(x) : arrow(P). thin forall arrow(y) : arrow(J). thin Sort u $
@@ -556,7 +566,8 @@ member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise.
   Let $n >= 1$. An operator $Phi$ on families that maps families in
   $cal(U)_n$ to families in $cal(U)_n$ and is accessible with a bound
   $A in cal(U)_n$ #src("whitepaper/Fragment/Access.lean", 292, 303)[has a closed family] in $cal(U)_n$
-  (#src("ConLeche/SetModel/Access.lean", 240, 244)[as in con-leche]).
+  (#src("ConLeche/SetModel/Access.lean", 240, 244)[as in con-leche]):
+  $ exists L in cal(U)_n. thin Phi(L) subset.eq L. $
 ] <thm:closed-of-acc>
 
 #proof[
@@ -664,13 +675,18 @@ every constructor denotes the point.
 === The recursor
 
 Fix values $C$ for the motive and $arrow(S)$ for the
-minor premises. The recursor's value on a member of the family is
-determined by the rules. On $tag(j, arrow(F))$ it must be
-$S_j$ applied to $arrow(F)$ and to the inductive hypotheses; at
-each reflexive field $f$ the hypothesis is the function sending
-$arrow(z)$ to the recursor's own value at $f dot.op arrow(z)$, and at
-the empty telescope it is just the recursor's value at $f$. That this
-equation has exactly one solution is the _recursion theorem_. In the
+minor premises, fitting the recursor's telescope. The rules determine
+the recursor's value $psi(arrow(Y), x) in C dot.op arrow(Y) dot.op x$
+on every member $x$ of the family's fibre at index values $arrow(Y)$.
+On a constructor value it must be the minor premise
+applied to the fields and to the inductive hypotheses,
+$ psi(arrow(Y), tag(j, arrow(F))) = S_j dot.op arrow(F) dot.op arrow(h), $
+where $arrow(h)$ has one entry per reflexive field $f$ of $c_j$, with
+index expressions $arrow(e)$: the function
+$arrow(z) |-> psi(arrow(e)(arrow(z)), f dot.op arrow(z))$ over the
+field's telescope, and simply $psi(arrow(e), f)$ when the telescope is
+empty. That this equation has exactly one solution is the _recursion
+theorem_. In the
 fragment it is proved by the same device as the family. The
 recursor's _graph_, the relation "the value at $(arrow(Y), x)$ is
 $v$", is
@@ -743,10 +759,7 @@ and the major $t$ reduces to a constructor application
 $c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
 a rule with right-hand side $R_j$. The reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
-minors from $arrow(a)$ and to the fields $arrow(f)$; con-leche
-substitutes those values into $R_j$'s body under its leading lambdas at once,
-the application's β steps
-(#src("ConLeche/Rules/Rel.lean", 190, 242)[the rule there]). Besides
+minors from $arrow(a)$ and to the fields $arrow(f)$. Besides
 finding $r$, $c_j$ and the rule in the environment, the fragment's
 rule has three _comparisons_ as premises:
 
@@ -778,6 +791,9 @@ the graph in a function space, and as a graph determines its domain,
 that is the function space's domain, which therefore holds the argument.
 
 #real[
+  The checker substitutes the arguments and fields into $R_j$'s body
+  under its leading lambdas at once, the application's β steps
+  (#src("ConLeche/Rules/Rel.lean", 190, 242)[the rule there]).
   In the checker's rule every premise on the constructor application
   is conditional on the certified case. A K rule, and a family that is
   never a proposition, fire comparing nothing, as in the official
@@ -796,7 +812,8 @@ and these conditional equalities as premises:
 #definition(name: [the $iota$ law of a rule])[
   Let $r$ be a stored recursor and $R_j$ the right-hand side of its
   rule for the constructor $c_j$. Take a valuation, levels
-  $arrow(ell)$ and $arrow(ell)'$ of the right lengths, values for
+  $arrow(ell)$ for $r$'s level parameters and $arrow(ell)'$ for
+  $c_j$'s, values for
   the recursor's arguments before the major (parameters $arrow(X)$,
   motive $C$, minors $arrow(M)$, indices $arrow(Y)$), and values for
   the constructor's arguments (parameters $arrow(X)'$ and fields
@@ -813,8 +830,10 @@ and these conditional equalities as premises:
   Then
   $ lden r.\{arrow(ell)\} rden dot.op arrow(X) dot.op C dot.op arrow(M) dot.op arrow(Y) dot.op (lden c_j.\{arrow(ell)'\} rden dot.op arrow(X)' dot.op arrow(F))
     = lden R_j [arrow(p) := arrow(ell)] rden dot.op arrow(X) dot.op C dot.op arrow(M) dot.op arrow(F), $
-  and the right-hand side $R_j$ is well-denoted with a well-formed
-  application chain along those values.
+  and $R_j$ is well-denoted, and each of its partial applications to
+  $arrow(X), C, arrow(M), arrow(F)$ is the point or a graph over a
+  type that holds the next value, as app-pt and app-graph of
+  @sec:inv ask along the spine.
 ] <def:iota-law>
 
 The second conjunct makes the reduct well-denoted, as the first claim
@@ -897,8 +916,11 @@ well-typed, so the constructor application it reduces to and that
 application's fields are well-typed too. The semantic proof needs the
 reduct to be well-denoted and the constructor's arguments to fit its
 type wherever the redex is not the point. What supplies that depends
-on the major's family at the instance. The model has three more laws
-for it, each proved when the block is installed.
+on the major's family at the instance, in three cases: a family that
+is never a proposition needs nothing (the _fibre law_), a family that
+may be one needs the certificate (with the _major-premise law_), and
+a K-like block needs neither (the _K law_). The three laws are facts
+about the model, each proved when the block is installed.
 
 *A family that is never a proposition.* If the family's sort is
 at least $1$ at every valuation (one oracle test on the levels at
@@ -1000,7 +1022,8 @@ valuation that sends the level parameters $arrow(p)$ of a constant to
 the values $arrow(n)$.
 
 #definition(name: "Model of the input")[
-  An assignment $M$ is
+  An assignment $M$, a set $M(c, arrow(n))$ for every constant name
+  $c$ and list of natural numbers $arrow(n)$, is
   #src("whitepaper/Fragment/IsModel.lean", 189, 190)[a model of a set of constants]
   when #src("whitepaper/Fragment/IsModel.lean", 176, 183)[every one of them holds in $M$],
   each on its own: for $(c.\{arrow(p)\} : T)$ and every list of values
@@ -1037,9 +1060,11 @@ block's auxiliary recursor reads the minor premises of its own motive,
 @sec:nest-rec.)
 
 #theorem(name: "Every accepted input has a model")[
-  For every model of the extended theory, the constants of every
-  accepted list of declarations
-  #src("whitepaper/Fragment/Main.lean", 46, 47)[have a model in it]
+  For every model of the extended theory and every list of
+  declarations $D$ that the checker accepts from the empty environment,
+  the constants of $D$
+  #src("whitepaper/Fragment/Main.lean", 46, 47)[have a model in it]:
+  $ exists M. thin M "is a model of the constants of" D $
   (#src("ConLeche/MainTheorem.lean", 96, 102)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
