@@ -11,7 +11,7 @@ stream, checking what the official kernel checks (on a few features
 it declines instead; @sec:left-out). It comes with a proof, written in
 Lean itself, of what an acceptance means: every stream the
 checker accepts
-#src("ConLeche/MainTheorem.lean", 122, 128)[has a model in set theory].
+#src("ConLeche/MainTheorem.lean", 101, 107)[has a model in set theory].
 #src("ConLeche/IsModel.lean", 212, 213)[Each constant is assigned a set], each type denotes a set, and every
 constant of the stream holds in the model on its own: it is a member
 of the set its type denotes, a definition is what its value denotes,
@@ -20,10 +20,10 @@ and a recursor computes by its rules, read off its own type. A hole
 assumption of its statement. Nothing is fixed by name: the prelude's
 `False` denotes the empty set, and its `Eq` denotes equality, by
 their declarations' own clauses, so every equation the checker
-accepts is an equality of sets. Hence no accepted stream holds a
-proof of `False`, and every accepted theorem is true in the model. Checked module by module from Lean's `.olean`
+accepts is an equality of sets. Hence a model of an accepted stream has
+no constant of type `False`, since `False` denotes the empty set, and every accepted theorem is true in the model. Checked module by module from Lean's `.olean`
 files, every module of an import closure
-#src("ConLeche/MainTheorem.lean", 280, 291)[has a model of its own constants],
+#src("ConLeche/MainTheorem.lean", 192, 203)[has a model of its own constants],
 and a name a module sees as another module's means there what that
 module's model says. A challenge, a module with holes, checked
 with a solution that fills them, has a model of its own constants
