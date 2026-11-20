@@ -124505,7 +124505,9 @@ which needs the generated recursor type's minor shape from the inductive install
 the recursor generator, not a restatement.  Both forms read the same to a reader; the
 pointwise one is shorter and needs no "where its rules find their constructors".
 
-*Gates at e12ea6914:* `lake build`, `lake test` warning-free; quote-gate, overview-links,
-whitepaper links-gate pass; olean, layering, shake, trust-surface, plain-reach, binary-link,
-challenge run (see the report).  Not run: `tests/arena.sh` in full, the whitepaper fragment
-gate.
+*Gates at 5e61c0eb2:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard exit 0 (olean gate 546/546); layering (fixed: `Verify/Frontend/Olean/Input.lean`,
+which imported outside the reader's fence since 2261d97f6, is `Verify/OleanInput.lean`), shake
+(the measured proposals allowlisted), trust-surface, plain-reach, binary-link, challenge,
+overview-links, quote-gate, the whitepaper's links and fragment gates pass.  Not merged into
+`compare`, not landed: `main_modular` is open.
