@@ -124511,3 +124511,84 @@ which imported outside the reader's fence since 2261d97f6, is `Verify/OleanInput
 (the measured proposals allowlisted), trust-surface, plain-reach, binary-link, challenge,
 overview-links, quote-gate, the whitepaper's links and fragment gates pass.  Not merged into
 `compare`, not landed: `main_modular` is open.
+
+**#618 cont. (2026-11-20, fourth) — `main_modular` proved; the pointwise `IsModel` and the
+`False` corollaries' re-derivation need rulings.**
+
+*`main_modular`, `main_modular_one`* (`ConLeche/MainTheorem.lean`, one-line citations of
+`ConLeche/Model/Modular/SeesMain.lean`): in the ruled shape
+`∃ model : Name → (Name → List Nat → V), (∀ m, InClosure sp fs #[r] m → IsModel V (model m)
+(moduleConstants sp fs m)) ∧ (∀ m n m', InClosure sp fs #[r] m → Sees sp fs m n m' →
+model m n = model m' n)`, from `--check-graph` plus `--olean --module` at every module of the
+headers' closure, resp. from `--olean --modular`.  Axioms pinned (propext, Classical.choice,
+Quot.sound).  The proof:
+* `Run.sees_isModel` (`Model/Modular/Sees.lean`): the compatible family read positionally
+  (`modular_posModels`: a model of each module's own environment, context names valued as their
+  source, and — new — as every earlier module that agrees on them, from `Compatible`'s
+  sources clause); module `M`'s model is the member at `M`'s rank on the names `M`'s own
+  environment stores, the unique seen module's member on a name `M` sees but does not store, else
+  `M`'s member.
+* the bridge generalized (`Model/IsModelBridge.lean`): `isModel_of_agree` — any model agreeing
+  with `posModel` on the stored names (`AgreesOn`) and reading `Eq` as equality (`EqReads`) is a
+  model of the stored records; `isModel_of_envModelM` is its instance.  `Eq`'s value in a
+  module's model is always some member's that `EqReads` (a stored `Eq` is pinned; an absent one is
+  `eqRel`).
+* the run facts (`Verify/Driver/Sees{Loads,Own,Ctx}.lean`, no model): `sees_copy` (a seen name is
+  a copy of the worker's index, of the seen module: `LoadsAt` completeness over the fixpoint's
+  worklist, name tables against the decoded part, an exported constant's name a private one's);
+  `sees_rank`; `own_covers` (every constant of `moduleConstants M` is `StoredAs` by a constant of
+  `M`'s own records: the home merge's `MergeFacts`, `covers_entry`/`covers_block`); `part_own`
+  (every constant of every part of a module of the run is stored in its own environment under its
+  name, quotients by `quotAt_name_of_hit`); `sees_ctx` (a stored seen name is a context name:
+  freshness); `sees_unique` (outside the context a name is seen from one module: two copies are a
+  clash, and every clash's name is stored in the context, `reach_clash`); `sees_agree`
+  (`agree_loaded` with `Run.agreeAll`).  `Loads` is now `@[expose]` (specification).
+
+*The pointwise `IsModel` (item 2): false under the current checker, NOT done; needs a ruling.*
+A stored recursor type is installed when it is `isDefEq` to the generated one
+(`streamRecCompare`/`recTyCheck`, `Kernel/Inductives/StreamRecs.lean`: domain by domain, each
+minor premise whole), not only when it is equal.  A minor premise read off the stored type is so
+only definitionally the generated `(fields) → (IHs) → motive idx (C params fields)`: e.g. a
+conclusion `K (motive idx (C ps fs)) junk (C ps' fs)` with `K := fun a b c => a` passes the check,
+and the minor-built equation would read `idx := [motive …, junk]`, major `C ps' fs` — an
+equation no model need satisfy, so an accepted stream would have no pointwise `IsModel`.
+Equal meanings of two minor types do not give equal meanings of their parts either.  Measured
+(spike, not kept; `dbgTrace` in `streamRecCompareC`, `--olean -- Std`, v4.35.0's own oleans):
+116 recursors of Init + Std are not syntactically the generated type (every one a class or
+structure with `outParam`-style binders: `HAdd.rec`, `Coe.rec`, `GetElem.rec`, …), and 137 rules
+not syntactically the generated right-hand side.  Options: (a) install only an equal type
+(rejects those 116 today, unless the generator is first made to reproduce Lean's types exactly —
+the differences need a look); (b) keep the constructor-reading `RuleHolds`; (c) install the
+generated type and state the spec over it — then the spec's reading of the stored record is not
+what is installed.  The standing olean rule does not decide it.
+
+*Re-deriving `main_modular_no_False`/`main_modular_one_no_False` from `main_modular`: false for
+crafted input, NOT done; they keep their internal proof (`run_no_False`).*  The derivation needs
+`False`'s value at the theorem's module to be a module's that declares `False` (a `Sees` fact from
+the worker's index — the converse of `sees_copy`).  `Sees` asks the seen part to decode at its
+level (`decodeModuleSpec f .exported`), and no accepted worker decodes an exported view in its own
+region: `checkViews` decodes in the region of all three files, and an exported constant that is
+the private one's object is not decoded at all.  So a module whose exported `foo` points into its
+`.olean.private` is accepted, and an importer loading it at the exported level sees nothing of it
+by the specification.  `main_modular` stays true (its `Sees` clause is then vacuous there), but
+reads less than the checker does.  A fix would be a home check that the exported view decodes on
+its own (`parseView f .exported`, one more parse per module; Lean itself maps the exported file
+alone), plus about two thousand lines (`LoadsAt` soundness, `ViewOf` from a worker, the converse
+of `own_covers`, the pinned `False` block in a `DeclsRun`).  For the maintainer.
+
+*Docs.*  OVERVIEW: the `main_modular` paragraph (§1's modular part) and the module map;
+whitepaper §1 and §7 state the modular theorem over `Sees`/`Loads` and the generalized bridge;
+the whitepaper's fragment is unchanged (its model notion did not change).  README (the
+maintainer's): only anchors repointed.  Stale README lines: 60 ("every accepted environment has
+a model": it is a model of the input stream now), 69 (`Model V env` is no longer the statement;
+`IsModel` over `Expr.eval`), 71 (`Denotes` is the proofs' relation, the statement reads
+`Expr.eval`), 73 ("does not contain the delta and iota equations": `IsModel` has both), 75
+("only talks about `checkDecls` and its output `env`": it talks about the input `ds`); and README
+has no word on `main_oleans`' model or on `main_modular`.
+
+*Gates at the lane's head:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard exit 0 (olean gate 546/546, e2e 634/634, 87 theorems' axioms pinned); layering, shake
+(unused imports dropped, the measured moves allowlisted, three measured public-import fallbacks),
+trust-surface, plain-reach, binary-link, challenge, no-local-paths, overview-links, quote-gate,
+the whitepaper's links and fragment gates pass.  Landed on `compare` (nothing new there since
+the lane's base).
