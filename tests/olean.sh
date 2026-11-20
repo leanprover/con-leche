@@ -673,9 +673,10 @@ work_ "two modules of one name never loaded together" 0 "accepted" "$MSP" NlM
 # axiom) and CxB's cn (a theorem of CxX2's proposition cc := True), one statement expression
 # meaning two things; CxM reads neither and does not load CxX1.  Lean accepts it (its merge
 # compares the statement expressions; CxA compiled against a stand-in, tests/olean/build.sh).
+# CxA exports cn : cc while its cc comes from a private import (a dangling name, which a
+# correct build rejects: the fixture needs the stand-in), a bug in Lean's module system.
 # Rejected (task #618): every clashing name is reached, so every copy's statement is
-# capture-checked, and CxA's cc is not CxM's.  A departure: only a stale or hand-made build
-# makes such a pair (OVERVIEW §14)
+# capture-checked at CxM, and CxA's cc is not CxM's.  A departure (OVERVIEW §14)
 for m in CxX1 CxX2 CxZ CxA CxB; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done

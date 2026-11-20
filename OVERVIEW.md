@@ -804,7 +804,9 @@ its home declares a theorem at an exported axiom, or it is a definition, opaque 
 whose type is a proposition; copies of one statement of which one is a theorem need no inference
 (a theorem's type is a proposition, and the copies read their one statement alike), and otherwise
 the kernel infers the type to be a proposition over the part of the context below the name. Every
-name two loaded modules hold must agree so, which merges every pair Lean's import merges. The context's records are sorted in
+name two loaded modules hold must agree so, which merges every pair Lean's import merges, and
+is reached, so that every copy's statement is checked as its module reads it and the name has
+one meaning (§14). The context's records are sorted in
 read order (`readOrder`: each after the records storing what it reads; records that read each
 other are a reject, which Lean's output never has) and validated as untrusted input (`recordOk`:
 every constant's and table's syntactic clauses, a constructor's stored family is the one its
@@ -2289,6 +2291,14 @@ each of these.
   rule prefix and the constructor's fields), and context records that
   read each other are rejected (§2). Lean's own output always passes
   these; the official kernel trusts the imported files.
+* In modular checking, every name two loaded modules store has the
+  statement of each copy checked as its own module reads it, and a
+  name whose statement means two things there is rejected (§2). Lean's
+  import accepts the pair, since it compares the two statements as
+  expressions. This is a bug in Lean's module system: such a pair
+  arises only where a module exports a constant whose statement reads
+  a name of a private import, which a correct build rejects; only a
+  stale or hand-made build produces it.
 * Where the opaque theorems and the rescue order of the renovation
   leave a conversion incomplete, the checker rejects what the released
   kernel accepts by reducing a proof (§3).
