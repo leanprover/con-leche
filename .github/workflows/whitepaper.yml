@@ -23,6 +23,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v16
@@ -34,6 +37,29 @@ jobs:
         with:
           name: whitepaper
           path: whitepaper/_build
+      # The HTML once more, as an artifact of its own and not zipped
+      # (`archive: false`, from upload-artifact v7.0.0 on; the artifact is
+      # named after the file), so that its page opens it in the browser.
+      # build.sh makes it self-contained: CSS inline, MathML, SVG.
+      - id: html
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: whitepaper/_build/con-leche-proof-idea.html
+          archive: false
+      # A commit status `whitepaper` on the commit the run built (the PR's
+      # head, not the merge commit), its link the HTML artifact's URL.  That
+      # URL is GitHub's artifact download link: it needs a signed-in viewer,
+      # and it lasts as long as the artifact (90 days by default).
+      - name: Commit status with the HTML's link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          URL: ${{ steps.html.outputs.artifact-url }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$SHA" \
+            -f state=success -f context=whitepaper \
+            -f description="The whitepaper, rendered (HTML)" \
+            -f target_url="$URL"
       - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@v3
         with:
