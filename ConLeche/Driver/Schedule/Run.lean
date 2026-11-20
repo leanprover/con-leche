@@ -538,11 +538,14 @@ def run (parse : String → Option Name) (app : System.FilePath) (args : Name �
     err.putStrLn s!"con-leche: schedule: from the log: {s0.peaks.size} peaks (typical peak \
       {gib s0.typ}), {s0.again.length} killed modules to run again"
   let stRef ← IO.mkRef { st0 with nDone := total - todo.length, lastLine := t0, lastTick := t0 }
-  -- SIGINT and SIGTERM, polled every tick; where they cannot be set up the run has no handler
+  -- SIGINT and SIGTERM, polled every tick; where they cannot be set up the run has no handler.
+  -- The waiters repeat: a one-shot one gives the signal back its default action once it fired, and
+  -- a second SIGINT (`timeout -s INT` sends it to the child and to its process group, a user may
+  -- press Ctrl-C twice) then ended the scheduler before it killed the workers and printed anything
   let sigs : Array (Std.Async.AsyncTask Int × String × UInt8) ←
     try
       let mkW (s : Std.Async.Signal) (name : String) (code : UInt8) := do
-        let w ← Std.Async.Signal.Waiter.mk s false
+        let w ← Std.Async.Signal.Waiter.mk s true
         return ((← w.wait), name, code)
       pure #[← mkW .sigint "SIGINT" 130, ← mkW .sigterm "SIGTERM" 143]
     catch _ => pure #[]
