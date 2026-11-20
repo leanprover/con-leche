@@ -124592,3 +124592,72 @@ the guard exit 0 (olean gate 546/546, e2e 634/634, 87 theorems' axioms pinned); 
 trust-surface, plain-reach, binary-link, challenge, no-local-paths, overview-links, quote-gate,
 the whitepaper's links and fragment gates pass.  Landed on `compare` (nothing new there since
 the lane's base).
+
+## TASK #621 — the public parts of a module read on their own; the modular `False` corollaries from `main_modular` (2026-11-20, agent/621-public-selfcontained; base `compare`)
+
+(#620 was taken by agent/620-sched-spawn, so this lane is #621.)
+
+*The ruling.*  A module's public part must be self-contained: no pointer from its `M.olean` into
+`M.olean.private`; the private part may point into the public one.  A format check on every file
+the parser reads, not a semantic check.
+
+*What the reader did before.*  Every pointer the reader follows is checked to point below the
+object holding it (`Region.down`), so a part whose root lies in the files up to its own reads in
+them alone (`Region.Sub`, `decodeAt_sub`).  Measured on crafted copies of `Tiny`
+(`_tmp/621/exp`): (1) `M.olean`'s root pointed at the private part's root: `ModFiles.isModule`
+reads `M.olean` alone and fails, so `readFilesAt` gave the misleading `internal` "a module outside
+the module system, with Tiny.olean.private beside it", exit 3, in every mode; an exported
+constants array pointed into the private part, the same.  (2) `M.olean.server`'s root pointed at
+the private root: ACCEPTED (exit 0) by `--olean --module`, `--olean --modular` and `--olean`, the
+home's `checkViews` reading the server part in the region of all three files, every server
+constant then `.same`.  So the escape the #618 record describes for the exported part was already
+refused (with the wrong message and exit); the server part's was a real hole.
+
+*The check.*  (a) `outsideOrEscaping` (`Frontend/Olean/Files.lean`): an `M.olean` with a part
+beside it that does not read on its own (`moduleSkel` in its own region) is `.invalid` "module M:
+its exported part M.olean does not read on its own: it points outside that file, into its
+.olean.server or .olean.private", exit 1; one that reads as a classic module keeps the
+`internal` stray-part message.  A pure choice of the error value, so `readFilesAt`'s proofs are
+unchanged.  (b) `checkViews` (`Frontend/Olean/Module.lean`): the server part's root, where it is
+located in the region, must lie in `M.olean` + `M.olean.server`, else `.invalid` "module M: its
+server part M.olean.server points into its .olean.private", exit 1.  One range check per module.
+An importer's worker reads `M.olean` alone and cannot see where its root points: there the file
+does not read (exit 3, as any malformed file read alone); the module's own home rejects it.
+Proofs: `checkViews_expo`/`checkViews_server` (`Verify/Driver/Provenance.lean`) step over the
+new `unless`.  Lean's import, which maps `M.olean` alone, fails on such files too, so no §14
+departure.
+
+*Fixtures* (`tests/olean.sh`, "the public parts read on their own"): exported root into the
+private part, exit 1 at `--olean`, `--olean --module`, `--olean --modular`; an importer's worker,
+exit 3; an exported constants array in the private part, exit 1; server root into the private
+part, `--olean` 0 (the private view), `--module`/`--modular` 1, a home's read (`olean-compare
+--home`) 1.  Real files: every other case of the gate, and the arena's Init runs.  Gate 555/555.
+
+*The corollaries from `main_modular`.*  `main_modular_no_False` and `main_modular_one_no_False`
+are restated so that they follow from `main_modular`/`main_modular_one` alone: the module `m` of
+the closure (now `Olean.InClosure`, as in `main_modular`) holds a theorem of type `False` in its
+private view, and declares the prelude's `False` or sees `False` as a module `m'` that does
+(`hF : m' = m ∨ Olean.Sees … m falseName m'`, `hD : DeclaresFalse (Olean.moduleConstants … m')`).
+Proof (`Model/Modular/SeesFalse.lean`, `family_no_False`, `no_False_graph`, `no_False_one`):
+`m'`'s model makes `⟦False⟧` empty (`IsModel.false_empty`), `m` gives `False` that value (`Sees`
+clause), and `m`'s model puts the theorem in `⟦False⟧`.  `MainTheorem` cites them in one line
+each.  `run_no_False` and `Run.thm_own` (only it used it) are gone.  The check is not needed by
+these proofs; what it would take to drop `hF`/`hD` (the converse of `sees_copy`, the exported view
+decoding at its home, the pinned `False` block) is unchanged from the #618 record — the range
+check does not give the exported view's full decode (`decodeModuleSpec f .exported = some _`),
+which `checkViews` still does not establish (the exported imports are not compared with
+`importsPre`, a hidden-by-pointer constant is not decoded whole).
+
+*Cost* (`perf stat -e instructions:u`, one run each, `--olean --modular --search-path=<v4.35.0
+lib/lean>`): Init 436 065 845 296 → 436 081 934 324 (+0.004 %), Std 773 937 101 924 →
+773 991 605 001 (+0.007 %); noise level.
+
+*Docs.*  OVERVIEW: the format check in the views paragraph; the corollary paragraph; the module
+map (`SeesFalse.lean`); two anchors repointed.  Whitepaper §7: the corollary moved after the
+modular theorem over the files, stated from it; four §6c anchors repointed.  README untouched.
+
+*Gates at the lane's head:* `lake build`, `lake test` warning-free; `tests/arena.sh` in full under
+the guard exit 0 (olean gate 555/555, e2e 634/634, 87 theorems' axioms pinned); layering, shake
+(SeesFalse's imports as the criterion asks), trust-surface, plain-reach, binary-link, challenge,
+no-local-paths, overview-links, quote-gate, the whitepaper's links and fragment gates pass.
+Landed on `compare` (nothing new there since the lane's base).

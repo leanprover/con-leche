@@ -841,6 +841,10 @@ theorem checkViews_expo {m : Name} {f : ModFiles} {l : Loaded} {expo : Array Exp
   | ok r =>
   refine ⟨r, rfl, ?_⟩
   simp only [hr, bind, Except.bind] at h
+  cases hsc : (r.loc sv.moduleDataAddr).all (· < f.exported.bytes.size + sv.bytes.size) with
+  | false => simp [hsc] at h
+  | true =>
+  simp only [hsc, ↓reduceIte] at h
   generalize (forIn [("server", sv.moduleDataAddr), ("private", p.moduleDataAddr)] PUnit.unit _ :
     Except CheckError PUnit) = x at h
   cases x with
@@ -875,6 +879,10 @@ theorem checkViews_server {m : Name} {f : ModFiles} {l : Loaded} {expo : Array E
   | error e => simp [hr, bind, Except.bind] at h
   | ok r =>
   simp only [hr, bind, Except.bind] at h
+  cases hsc : (r.loc sv.moduleDataAddr).all (· < f.exported.bytes.size + sv.bytes.size) with
+  | false => simp [hsc] at h
+  | true =>
+  simp only [hsc, ↓reduceIte] at h
   generalize (forIn [("server", sv.moduleDataAddr), ("private", p.moduleDataAddr)] PUnit.unit _ :
     Except CheckError PUnit) = x at h
   cases x with

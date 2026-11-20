@@ -12,6 +12,10 @@ public import Std.Data.HashMap.Basic
 private view (`loadAt`, its theorems' values left in the file).  A mismatch is a
 malformed file at its home (`.invalid`, exit 1):
 
+* the server part reads with `M.olean` alone: its root lies in the two files, and so does
+  every object it reaches, the reader following pointers only downwards (the exported part
+  reads on its own already where `M.olean` is of a module of the module system,
+  `outsideOrEscaping`);
 * the server and private parts are of a module of the module system, and the server
   part's imports are those at the start of `M.olean` (the private view's are, or it
   would not load);
@@ -159,6 +163,12 @@ def checkViews (m : Name) (f : ModFiles) (l : Loaded) : Except CheckError (Array
   | some s, some p =>
     unless f.isModule do return cs.map fun _ => .same
     let r ← Region.ofParts #[f.exported, s, p]
+    -- the server part reads with `M.olean` alone, as Lean's server level maps the two files:
+    -- its root lies in them, and every pointer the reader follows points below its object
+    -- (`M.olean` reads on its own, or `f.isModule` would not hold: `outsideOrEscaping`)
+    unless (r.loc s.moduleDataAddr).all (· < f.exported.bytes.size + s.bytes.size) do
+      .error (bad s!"its server part {m}.olean.server points into its .olean.private: \
+        the server part must read with its .olean alone")
     for (part, a) in [("server", s.moduleDataAddr), ("private", p.moduleDataAddr)] do
       unless (moduleSkel r a).any (·.isModule) do
         .error (bad s!"the {part} part is not of a module of the module system, the exported \
