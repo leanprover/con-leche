@@ -124338,3 +124338,34 @@ The internal `Model`'s `false_empty`/`eq_equality`: after this lane still read b
 #619's side (the compare capstones).  **Note for whichever of #618/#619 lands second:** once those
 are restated over `IsModel`, drop the two fields (`ConLeche/Denotes.lean`) and their proofs
 (`Model/OfEnvModelM.lean`, `Model/Copies.lean`).
+
+**#618 cont. (2026-11-20) — reading (b) is false; stopped for a spec ruling.**  The maintainer
+ruled reading (b): for every `M` of the closure, every `n` a record of `M`'s view mentions and
+`M`'s view does not store, and every `M'` of `M`'s import closure whose view stores `n`,
+`model M n = model M' n`.  On the committed fixture `NlM` (`tests/olean/src/Nl*.lean`) that
+statement has no model family, and the run's hypotheses hold: `--olean --modular -- NlM` and
+the worker at every module of its closure exit 0 (`tests/olean.sh`, "--modular at NlM", "the
+worker at NlX/NlY/NlB", "two modules of one name never loaded together"), as Lean accepts it.
+`NlX` and `NlY` both declare `def nl : Nat` (`1` and `2`); `NlB` imports `NlX` privately;
+`NlM` imports `NlB` and `NlY` publicly and mentions `nl`.  `NlX` is in `NlM`'s header closure
+but is never loaded at `NlM` (Lean's `importModulesCore` does not follow a private import of an
+exported-level import).  So reading (b) demands `model NlM nl = model NlX nl = model NlY nl`.
+But `IsModel` of `NlX`'s and `NlY`'s own records forces the two values to `⟦1⟧` and `⟦2⟧`.  These
+are read through `Init.Prelude`'s agreed `Nat.zero`/`Nat.succ`/`OfNat`, and every model of the
+prelude's records makes them different (the `Nat.rec` rules at a `Nat`-valued and a
+`Prop`-valued motive, with `False` empty).  Neither suggested fix applies: this is not a
+duplicate that the reader's merge admits (no worker loads the two together), Lean accepts it
+(rejecting it would be a departure), and the construction cannot make it hold.  A crafted
+variant gives the same failure with "view": a name that only `M'`'s private part stores, where
+`M` loads `M'` at the exported level.
+**Candidate (b')**, provable with the run's existing proofs (`Run.agree_loaded` +
+`Run.agree_all`: every loaded copy of a context name agrees, `Agree.same`/`.thm`/`.proof`):
+`M'` ranges over the modules that `M`'s header LOADS (Lean's `importModulesCore` lattice:
+`headerFixpoint`'s flags), and "stores `n`" reads `M'`'s part at the level it is loaded
+(exported, or private where loaded whole).  For a root outside the module system, every module
+of the closure is loaded at its private part, so (b') is (b) there.  The spec choice that needs
+the maintainer: the loaded set and level as a spec notion (a declarative inductive of the lattice
+rules over `moduleImports`, or `headerFixpoint` itself), and the parts as `readFiles … level`
+decoded.
+Nothing else changed since 7f1ed7685; still not done: the olean-level modular theorems, docs,
+axiom pins (`main_oleans` and the modular ones), gates, landing.
