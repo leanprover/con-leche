@@ -278,6 +278,22 @@ def moduleImports {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) :
   | .error e => pure (.error e)
   | .ok loc => readImportsAt loc m
 
+/-- **An `M.olean` that is not a module of the module system, with a part beside it.**  Where
+`M.olean` does not read on its own (`moduleSkel` in its own region), it is a malformed exported
+part (`.invalid`): the public part of a module must read on its own, as Lean's import maps it,
+and an exported part that points into `M.olean.server` or `M.olean.private` is the case this
+names.  Otherwise it is a module outside the module system with a stray part beside
+it. -/
+def outsideOrEscaping (loc : Located) (m : Name) (ex : Part) (hasPrivate : Bool) : CheckError :=
+  if (moduleSkel (Region.single ex) ex.moduleDataAddr).isNone then
+    .invalid s!"module {m}: its exported part {m}.olean does not read on its own (an \
+      exported part must not point outside its file, into its .olean.server or .olean.private), \
+      in {loc.dir}"
+  else
+    .internal s!"module {m}: a module outside the module system (its {m}.olean), with \
+      {if hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
+      in {loc.dir}"
+
 /-- **The files of a module a view reads at its location**, each validated
 (`ModFiles.viewRegion`).  A part beside a classic `.olean` is no part of it,
 and a module of the module system has all three: reading the parts a view
@@ -294,9 +310,7 @@ def readFilesAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (m : Name) (
       let hasServer ← CheckerIO.pathExists (modFile loc.dir m "olean.server")
       let hasPrivate ← CheckerIO.pathExists (modFile loc.dir m "olean.private")
       if hasServer || hasPrivate then
-        return .error (bad s!"a module outside the module system (its {m}.olean), with \
-          {if hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
-          in {loc.dir}")
+        return .error (outsideOrEscaping loc m ex hasPrivate)
       return .ok { exported := ex }
     match ← readPartOr (modFile loc.dir m "olean.server") (partFailed loc m "olean.server") with
     | .error e => pure (.error e)
