@@ -47,6 +47,12 @@ theorem CmpReq.chalRoots_eta (r : CmpReq) : r.chalRoots = { path := r.chalRoots.
   unfold CmpReq.chalRoots
   split <;> rfl
 
+/-- The challenge's lookup is its directories' (`trustedOr`). -/
+theorem CmpReq.chalRoots_trustedOr (r : CmpReq) :
+    r.chalRoots = ((trustedOr r.trusted r.path : SearchPath) : Roots) := by
+  unfold CmpReq.chalRoots trustedOr
+  split <;> rfl
+
 theorem CmpReq.solRoots_bare (r : CmpReq) : r.solRoots.bare = r.solRoots := by
   unfold CmpReq.solRoots
   split <;> rfl

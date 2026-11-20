@@ -146,6 +146,10 @@ structure CmpReq where
   path : SearchPath
   constants : Option (Array Name)
 
+/-- **The challenge's directories**: the trusted path, or the search path where none is given. -/
+def trustedOr (trusted path : SearchPath) : SearchPath :=
+  if trusted.isEmpty then path else trusted
+
 /-- **The challenge's lookup**: the trusted path, never anything else. -/
 def CmpReq.chalRoots (r : CmpReq) : Roots :=
   if r.trusted.isEmpty then { path := r.path } else { path := r.trusted }

@@ -59,10 +59,10 @@ structure AttackEnv (env : Env) : Prop where
 
 /-- **No model of the attack's environment**: `f` denotes `T.a`, so the hole's type denotes
 `eqv ⟦T.a⟧ ⟦T.b⟧`, which is empty. -/
-theorem no_model {env : Env} (M : Model V env) (h : AttackEnv env) : False := by
+theorem no_model {env : Env} (M : Model V env) (heq : EqLaw M) (h : AttackEnv env) : False := by
   obtain ⟨_, hEq, hEqLps⟩ := h.hEq
   obtain ⟨_, hfd⟩ := h.hF
-  have hne := T_a_ne_T_b M h.hT h.hTa h.hTb h.hRec hEq hEqLps
+  have hne := T_a_ne_T_b M heq h.hT h.hTa h.hTb h.hRec hEq hEqLps
   -- `f` denotes `T.a`
   have hfv : M.cval fN one = M.cval taN one :=
     M.cval_of_defn (List.mem_of_find?_eq_some hfd) (φ := one) (ρ := fun _ => empty)
@@ -87,7 +87,7 @@ theorem no_model {env : Env} (M : Model V env) (h : AttackEnv env) : False := by
     rw [substFn_nil]; exact mem_ctor M h.hT rfl rfl h.hTb
   change _ ∈ˢ app (app (app E (M.cval tN one)) (M.cval fN (Level.substFn one [] [])))
     (M.cval tbN (Level.substFn one [] [])) at hm
-  rw [M.eq_equality l1 one _ E _ _ _ hE hTU ha hb] at hm
+  rw [heq l1 one _ E _ _ _ hE hTU ha hb] at hm
   have he := eq_of_mem_eqv hm
   have he' : M.cval fN one = M.cval tbN one := he
   exact hne (hfv ▸ he')

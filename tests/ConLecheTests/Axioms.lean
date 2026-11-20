@@ -208,34 +208,28 @@ info: 'ConLeche.main_compare_json_no_False' depends on axioms: [propext, Classic
 #print axioms ConLeche.main_compare_json_no_False
 
 /--
-info: 'ConLeche.main_compare_modular_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_solves
+#print axioms ConLeche.main_modular_compare
 
 /--
-info: 'ConLeche.main_compare_modular_one_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare_one' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_one_solves
+#print axioms ConLeche.main_modular_compare_one
 
 /--
-info: 'ConLeche.main_compare_modular_trusted_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_trusted_solves
+#print axioms ConLeche.main_modular_compare_no_False
 
 /--
-info: 'ConLeche.main_compare_modular_one_trusted_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare_one_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_one_trusted_solves
-
-/--
-info: 'ConLeche.main_compare_modular_trusted' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.main_compare_modular_trusted
+#print axioms ConLeche.main_modular_compare_one_no_False
 
 /--
 info: 'ConLeche.main_modular' depends on axioms: [propext, Classical.choice, Quot.sound]

@@ -16,11 +16,10 @@ import Std.Data.HashMap.Lemmas
 `runArgs_compare_stored`: an exit 0 of `--olean --compare --trusted-search-path=<T>
 --search-path=<D> -- <c> <s>` checked a solution stream (`checkDecls … = .ok envS`), and the fold
 with `envS` as the solution has an accepting run whose environment stores every constant of the
-closure of `C` through `T` (`Olean.closureConstants`).  Every record of the challenge's read
+closure of `C` through `T`, or `D` where `T` names no directory (`Driver.trustedOr`, the lookup the
+challenge is read through; `Olean.closureConstants`).  Every record of the challenge's read
 stands in that run as itself, or a theorem or a hole as the axiom of its statement
 (`holeRecord`, `sideRecord`), and `StoredAs` compares a statement kind by its statement alone.
-Where `T` names no directory the challenge is read through `D`, and the closure through `T` is
-empty (`closureConstants_nil`: nothing resolves on the empty path).
 
 `closureConstants_local`: the closure's constants through a search path are the same on two
 snapshots that agree on every path the reader forms under it.
@@ -136,18 +135,6 @@ theorem chalChecked_inputStored {R : Roots} (hR : R.bare = R) {C : Name} {jobs :
 
 /-! ## The closure through a path -/
 
-/-- **Nothing resolves on the empty path**: the closure through it has no constant. -/
-theorem closureConstants_nil {fs : FS} {roots : Array Name} {c : ConstantInfo} :
-    ¬ closureConstants ({ path := [] } : Roots) fs roots c := by
-  rintro ⟨m, -, f, d, e, ⟨hs, hs', hf⟩, -⟩
-  obtain ⟨loc, -, -, hfind, -⟩ := readFiles_ok hf
-  obtain ⟨hs₁, h1⟩ := hfind hs
-  have hR : RootsIn [] ({ path := [] } : Roots) :=
-    ⟨fun _ h => h, fun _ h => by simp at h, fun _ _ h => by simp at h⟩
-  have hx : (findModule ({ path := [] } : Roots) m : ModelIO _) fs hs (.ok (.ok loc)) hs₁ := by
-    rw [h1]; exact ⟨rfl, rfl⟩
-  exact absurd ((findModule_local hR m).2 fs hs _ hs₁ hx loc rfl) (by simp)
-
 /-- **The closure's constants through a path are local to it**: the same on two snapshots that
 agree on every path the reader forms under it. -/
 theorem closureConstants_local {dirs : SearchPath} {fs₁ fs₂ : FS}
@@ -191,18 +178,15 @@ theorem Driver.runArgs_compare_stored {T D c s : String} {C S : Name} {fs : FS} 
       checkDecls .verified natOpPinSets maxNatSizeDefault dsS = .ok envS ∧
       DeclsRun .verified natOpPinSets maxNatSizeDefault (solutionOf (some envS) rs) rs.toList
         (0, mkFEnv Env.empty) (n, fe) ∧
-      RecordsStored (closureConstants (Driver.searchPathOf T) fs #[C]) fe.env := by
+      RecordsStored (closureConstants
+        (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs #[C]) fe.env := by
   obtain ⟨pre, rdC, rdS, n, fe, -, ⟨hs₁, hs₂, hrd⟩, -, hS, hrun⟩ :=
     Driver.runArgs_compare_accept hc hsol h
   refine ⟨_, _, _, n, fe, hS, hrun, ?_⟩
-  by_cases ht : (Driver.searchPathOf T).isEmpty = true
-  · rw [List.isEmpty_iff.mp ht]
-    exact fun c hc => (closureConstants_nil hc).elim
-  · have e : (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).chalRoots
-        = (Driver.searchPathOf T : Roots) := by
-      simp [Driver.CmpReq.chalRoots, ht]
-    have hb := Driver.CmpReq.chalRoots_bare ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
-    rw [e] at hrd hrun hb
-    exact chalChecked_inputStored hb hrd hrun
+  have e := Driver.CmpReq.chalRoots_trustedOr
+    ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+  have hb := Driver.CmpReq.chalRoots_bare ⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩
+  rw [e] at hrd hrun hb
+  exact chalChecked_inputStored hb hrd hrun
 
 end ConLeche

@@ -100,7 +100,7 @@ constructor head matched by name denotes the pinned built-in.
 
 **The declaration clause is unconditional** (task #283): a stored
 reserved name holds a copy of the pin whatever its kind — which is what
-lets `Model.eq_equality` (`ConLeche/Denotes.lean`)
+lets `Model.eq_equality_of` (`ConLeche/Model/OfEnvModelM.lean`)
 speak about the stored `Eq` without hypothesising its declaration. -/
 @[expose] def BasisPinnedTT (env : Env) (cval : Name → (Name → Nat) → Term) : Prop :=
   ∀ (n : Name) (ci : ConstantInfo),

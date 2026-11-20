@@ -34,8 +34,8 @@ theorem compare_isModel (V : Type w) [SetTheory V] {T D c s : String} {C S : Nam
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
       "--search-path=" ++ D, "--", c, s]) fs 0) :
-    ∀ fs', FS.AgreeUnder (Driver.searchPathOf T) fs fs' →
-      ∃ model, IsModel V model (Olean.closureConstants (Driver.searchPathOf T) fs' #[C]) := by
+    ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
+      ∃ model, IsModel V model (Olean.closureConstants (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) := by
   intro fs' hag
   obtain ⟨_, _, h⟩ := h
   obtain ⟨_, _, _, _, fe, hS, hrun, hst⟩ := Driver.runArgs_compare_stored hc hs h
@@ -48,8 +48,8 @@ accepted `.olean` comparison.** -/
 theorem compare_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S m : Name} {fs : FS}
     {d : Olean.ModDecoded} {e : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    (hcl : Olean.InClosure (Driver.searchPathOf T) fs #[C] m)
-    (hv : Olean.ViewOf (Driver.searchPathOf T) fs m d)
+    (hcl : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs #[C] m)
+    (hv : Olean.ViewOf (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs m d)
     (hmem : e ∈ d.constants) (hk : e.kind = .thm v all) (hty : e.type = .const falseName []) :
     ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
       "--search-path=" ++ D, "--", c, s]) fs 0 := by
@@ -57,7 +57,7 @@ theorem compare_no_False (V : Type w) [SetTheory V] {T D c s : String} {C S m : 
   obtain ⟨_, _, _, _, fe, hS, hrun, hst⟩ := Driver.runArgs_compare_stored hc hs h
   obtain ⟨mo⟩ := Model.Solution.solution_envModel_run (V := V) hS hrun
   obtain ⟨f, hf, hd⟩ := hv
-  have hin : Olean.closureConstants (Driver.searchPathOf T) fs #[C] (.thmInfo e.cv) :=
+  have hin : Olean.closureConstants (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs #[C] (.thmInfo e.cv) :=
     ⟨m, hcl, f, d, e, hf, hd, hmem, by simp [Olean.entryConstants, hk, Olean.declOfEntry,
       Declaration.constants]⟩
   obtain ⟨ci, hfi, hsa⟩ := hst _ hin
