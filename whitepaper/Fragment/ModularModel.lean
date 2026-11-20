@@ -49,10 +49,9 @@ This file holds what the fragment's instance of the modular interface
   one the module reads, `ReadsOk`), and the module's own (`LocalOk`:
   acceptance).
 
-**A module may instead be validated by comparison** (`Compared`): its
-whole own environment is its context, assembled from its imports'
-views — every constant is an import's constant, or an assumption of its
-type (a hole).  A challenge compared with its solution is such a module.
+A context entry stays in the module's own environment unchanged
+(`Checks.find?_context`): a checked declaration stores only fresh
+names.
 -/
 
 namespace Fragment
@@ -136,6 +135,42 @@ theorem isSome_find?_applyAll {E : Env} {n : Name} (h : (E.find? n).isSome) :
     ∀ ds : List Decl, ((applyAll ds E).find? n).isSome
   | [] => h
   | d :: ds => isSome_find?_applyAll (isSome_find?_apply h d) ds
+
+omit [IndLib V] in
+/-- **A checked declaration stores only fresh names.** -/
+theorem Decl.Ok.fresh {E : Env} {d : Decl} (h : d.Ok E) : ∀ n ∈ d.names, E.find? n = none := by
+  cases d with
+  | defn c ci =>
+    intro n hn
+    simp only [Decl.names, List.mem_singleton] at hn
+    subst hn; exact h.1
+  | thm c ci v =>
+    intro n hn
+    simp only [Decl.names, List.mem_singleton] at hn
+    subst hn; exact h.2.1.1
+  | ind S =>
+    simp only [Decl.Ok, IndOk] at h
+    simp only [Decl.names, IndSpec.names]
+    cases hn : S.nest with
+    | none => rw [hn] at h; exact h.fresh
+    | some N => rw [hn] at h; exact h.fresh
+
+omit [IndLib V] in
+/-- **A context entry stays in the own environment**: a checked list
+stores only fresh names, so it keeps every entry of the environment it
+is checked against. -/
+theorem Checks.find?_context {E : Env} {ds : List Decl} (hc : Checks E ds) {n : Name}
+    {ci : ConstInfo} (h : E.find? n = some ci) : (applyAll ds E).find? n = some ci := by
+  induction hc with
+  | nil => exact h
+  | @cons E d ds hd _ ih =>
+    apply ih
+    rw [Decl.apply_eq]
+    cases hl : d.stores.lookup n with
+    | none => simpa only [Env.find?, lookup_append_of_none hl] using h
+    | some e =>
+      have hm : n ∈ d.names := (Decl.mem_names_iff d n).mpr ⟨e, key_of_lookup hl⟩
+      rw [hd.fresh n hm] at h; cases h
 
 omit [IndLib V] [LevelOracle] in
 /-- A block stores no constant of a statement kind. -/
@@ -720,17 +755,6 @@ structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
   iface : InterfaceOk dev i
   importOk : ImportOk dev i
   checks : Checks (dev i).context (dev i).decls
-
-/-- **Validation by comparison**: module `i`'s whole own environment is
-its context, assembled from its imports' views by agreement — every
-constant is an import's, or an assumption of its type. -/
-structure Compared (dev : Nat → Module) (i : Nat) : Prop where
-  iface : InterfaceOk dev i
-  importOk : ImportOk dev i
-  own : (dev i).own = (dev i).context
-
-/-- **A validated module**: checked, or compared. -/
-def Valid (dev : Nat → Module) (i : Nat) : Prop := LocalOk dev i ∨ Compared dev i
 
 /-! ## Checking over a closed part of the context -/
 

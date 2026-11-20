@@ -78,8 +78,7 @@ it **agrees** (`Agrees`): it is that module, or it and the module both
 read the name from one earlier module, or it and that module's copy are
 proofs (each `ProofIn` over the part, or each `ProofBy` a source's
 theorem copy); and the module's declarations
-are accepted over its context, or the module is **compared** (its own
-environment is its context).  If every module is valid, there is a
+are accepted over its context.  If every module is valid, there is a
 **compatible family** of models, one of each module's own environment:
 each module gives every context name the value the module it is read
 from gives it.  The proof goes module by module: the earlier modules'
@@ -233,17 +232,14 @@ structure Reads (i : Nat) (n : S.Name) : Prop where
 /-- **A checked module**: its declarations accepted over its context. -/
 def Checked (i : Nat) : Prop := S.Accepts (dev.ctx i) (dev.decls i) (dev.own i)
 
-/-- **A compared module**: its own environment is its context. -/
-def Compared (i : Nat) : Prop := dev.own i = dev.ctx i
-
 /-- **A valid module**: each source is a view of an earlier module that
 refines its own environment, its context is assembled from the sources
-and read from them, and the module is checked or compared. -/
+and read from them, and the module is checked. -/
 structure Valid (i : Nat) : Prop where
   sources : ∀ x ∈ dev.sources i, x.1 < i ∧ S.Refines x.2 (dev.own x.1)
   assembled : dev.Assembled i (dev.ctx i)
   reads : ∀ n, S.Stores (dev.ctx i) n → dev.Reads i n
-  checked_or_compared : dev.Checked i ∨ dev.Compared i
+  checked : dev.Checked i
 
 /-- **A compatible family** of models below `k`: each module gives every
 context name the value the module it is read from gives it, and so does
@@ -342,12 +338,8 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
       rw [hread _ n hn rfl x hs, hread _ n hn rfl x' hs']
     obtain ⟨mk, hmk⟩ : ∃ mk : S.Mod (dev.own k), ∀ n, S.Stores (dev.ctx k) n →
         S.val mk n = S.val mC n := by
-      rcases hk.checked_or_compared with hacc | hcmp
-      · obtain ⟨mk, hmk⟩ := S.step hacc mC
-        exact ⟨mk, fun n hn => (hmk n hn).2⟩
-      · unfold Compared at hcmp
-        rw [hcmp]
-        exact ⟨mC, fun _ _ => rfl⟩
+      obtain ⟨mk, hmk⟩ := S.step hk.checked mC
+      exact ⟨mk, fun n hn => (hmk n hn).2⟩
     -- the new module's context values are its sources'
     have hnew : ∀ n (hn : S.Stores (dev.ctx k) n),
         S.val mk n = S.val (m (dev.src k n) (hsrc n hn)) n := by

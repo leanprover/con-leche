@@ -30,8 +30,9 @@ modular theorem (`modular`) read off the generic one
   and proofs stay the point.
 
 A development of modules (`Module`) is a development over the instance
-(`toDev`), and a validated module is a valid one (`toDev_valid`): the
-local checks are checks of one module and its imports' views.
+(`toDev`), and a module that passes its local checks is a valid one
+(`toDev_valid`): the local checks are checks of one module and its
+imports' views.
 -/
 
 namespace Fragment
@@ -100,19 +101,9 @@ def toDev (dev : Nat → Module) : Development (fragmentSemantics V) where
   rank i := (dev i).rank
   part i := (dev i).part
 
-theorem Valid.importOk {dev : Nat → Module} {j : Nat} (h : Valid dev j) : ImportOk dev j := by
-  rcases h with h | h
-  · exact h.importOk
-  · exact h.importOk
-
-theorem Valid.iface {dev : Nat → Module} {j : Nat} (h : Valid dev j) : InterfaceOk dev j := by
-  rcases h with h | h
-  · exact h.iface
-  · exact h.iface
-
-/-- **A validated module, its imports validated, is valid over the
-instance.** -/
-theorem toDev_valid (dev : Nat → Module) (i : Nat) (hv' : ∀ j ≤ i, Valid dev j) :
+/-- **A module that passes its local checks, as its imports do, is
+valid over the instance.** -/
+theorem toDev_valid (dev : Nat → Module) (i : Nat) (hv' : ∀ j ≤ i, LocalOk dev j) :
     (toDev V dev).Valid i := by
   have hv := hv' i (Nat.le_refl i)
   have hi := hv.importOk
@@ -121,21 +112,19 @@ theorem toDev_valid (dev : Nat → Module) (i : Nat) (hv' : ∀ j ≤ i, Valid d
     exact ⟨hi.imports _ hj, (hv' _ (Nat.le_of_lt (hi.imports _ hj))).iface _ hE⟩
   · have r := hi.reads.2 n hn
     exact ⟨r.read, r.part, r.below, r.agree⟩
-  · rcases hv with h | h
-    · exact .inl ⟨rfl, h.checks, h.importOk.reads.1.scoped⟩
-    · exact .inr h.own
+  · exact ⟨rfl, hv.checks, hi.reads.1.scoped⟩
 
 /-! ## The theorem -/
 
 variable (V) in
-/-- **Modular checking** (the theorem): if every module below `k` is
-validated, there is a family of models, one of each module's own
-environment, that is **compatible**: every module gives each name of
-its context the set the module it is read from gives it, and every
-proof (a constant the module's own environment infers to be a
-proposition) the point.  It is the generic theorem
+/-- **Modular checking** (the theorem): if every module below `k`
+passes its local checks, there is a family of models, one of each
+module's own environment, that is **compatible**: every module gives
+each name of its context the set the module it is read from gives it,
+and every proof (a constant the module's own environment infers to be
+a proposition) the point.  It is the generic theorem
 (`Development.modular`) at the fragment's semantics. -/
-theorem modular (dev : Nat → Module) (k : Nat) (h : ∀ i < k, Valid dev i) :
+theorem modular (dev : Nat → Module) (k : Nat) (h : ∀ i < k, LocalOk dev i) :
     ∃ m : (i : Nat) → i < k → BlockModel V (dev i).own,
       (∀ j (hj : j < k) n, ((dev j).context.find? n).isSome = true →
         ∃ h : (dev j).src n < k, (m j hj).M n = (m ((dev j).src n) h).M n) ∧
@@ -148,8 +137,9 @@ theorem modular (dev : Nat → Module) (k : Nat) (h : ∀ i < k, Valid dev i) :
   · exact congrFun (hp.eq_dflt (m j hj).1.toEnvModel (m j hj).1.M (m j hj).2 fun _ _ _ => rfl) ls
 
 variable (V) in
-/-- **Every validated module's own environment has a model.** -/
-theorem modular_model (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, Valid dev j) :
+/-- **Every module's own environment has a model**, the modules up to
+it passing their local checks. -/
+theorem modular_model (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j) :
     Nonempty (BlockModel V (dev i).own) := by
   obtain ⟨m, -⟩ := modular V dev (i + 1) fun j hj => h j (Nat.le_of_lt_succ hj)
   exact ⟨m i (Nat.lt_succ_self i)⟩
@@ -158,7 +148,7 @@ variable (V) in
 include V in
 /-- **No closed term of a module inhabits an empty proposition** that
 its own environment stores. -/
-theorem modular_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, Valid dev j)
+theorem modular_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j)
     {name recName elim : Name}
     (hrec : (dev i).own.find? recName = some (IndSpec.falseSpec name recName elim).recInfo)
     (e : Expr) : ¬ Infer (dev i).own [] e (.const name []) := by
@@ -167,10 +157,9 @@ theorem modular_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : �
     (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl hrec e
 
 variable (V) in
-/-- **Every statement a module stores holds in its model** — in
-particular every assumption of a compared module (a hole): its type,
+/-- **Every statement a module stores holds in its model**: its type,
 at every instantiation, has a member. -/
-theorem modular_statements_hold (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, Valid dev j) :
+theorem modular_statements_hold (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j) :
     ∃ m : BlockModel V (dev i).own, ∀ c ci, (dev i).own.find? c = some ci →
       ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
         ∃ x, x ∈ˢ interp m.M φ ρ (ci.type.instL ci.lparams ls) := by

@@ -622,7 +622,7 @@ comment block at the top of `lib.typ`.
 40. **The home rule as agreement.**  In the fragment a challenge is one
     more module of the development, importing its own imports and the
     solution; the home rule is then the agreement of copies that every
-    module already checks (`Valid.redeclared_is_proof`,
+    module already checks (`LocalOk.redeclared_is_proof`,
     `Fragment/Compare.lean`), and `compare_solves` is the modular
     theorem plus the typing law.  The merged `--olean --compare` mode
     makes the solution's whole closure one module and checks the homes

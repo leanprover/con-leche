@@ -137,8 +137,13 @@ are recorded here so every lane works from the same spec. Task #324.
    shared constant taking the solution model's value (locality of
    denotation); the attack (`f := 3` in the challenge, `f := 5` in the
    solution); then the module comparison of the modular modes (the
-   challenge as a module validated by comparison, the home rule, the
-   compatible family); the CLI, comparator and con-leche's blocks only
+   challenge an ordinary module passing the local checks, the solution
+   among its imports; its records the views store are copies, read
+   into its context, compared up to level renaming; every other record
+   checked, an own hole rejected; one context, so the agreement of
+   copies replaces the closure condition and rejects the attack; the
+   theorem: every context entry inhabited by the value of the module it
+   is read from); the CLI, comparator and con-leche's blocks only
    in the `#real` blocks.
 8. What we left out, and how the real proof differs from the fragment
    (fvar, `Term` layer, bridge, ...), with links.
