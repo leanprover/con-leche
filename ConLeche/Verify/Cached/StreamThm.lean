@@ -48,7 +48,7 @@ constant of that type. -/
 theorem declsRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
     ∃ c ∈ q.2.env.consts, c.toConstantVal.type = .const n ls := by
   induction h with
   | nil p => exact absurd hmem (List.not_mem_nil)

@@ -83,9 +83,11 @@ and the worker count.
 checks, the peak resident set.  Performance-only: printed after the verdict is known, from timings the
 workers accumulate beside their proofs; stdout and the exit code do not see them. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
-    {ds : Array ConLeche.Declaration} (J : Jobs ds) :
+    {ds : Array ConLeche.Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify)
+    (hds : ConLeche.Cached.sideRecords justify ds = ds) :
     IO (Except (ConLeche.CheckError × Nat)
-      (PLift (∃ env, ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets maxNatSize ds = .ok env))) := do
+      (PLift (∃ env, ConLeche.Cached.checkDeclsWith mode ConLeche.natOpPinSets maxNatSize ds justify
+        = .ok env))) := do
   checkStarts err pace t0 ds.size jobs
   let (chkRep, res) ← checkPool mode maxNatSize err pace t0 jobs J
   match res with
@@ -94,7 +96,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Str
     return .error e
   | .ok ⟨hall⟩ =>
     checkDone err pace t0 tIndex tParse jobs ds ds.size chkRep none
-    return .ok ⟨⟨_, ConLeche.Cached.checkDecls_of_jobs (J.hI ▸ hall)⟩⟩
+    return .ok ⟨⟨_, ConLeche.Cached.checkDecls_of_jobs hds (J.hI ▸ J.hside ▸ hall)⟩⟩
 
 /-! ## What an `--olean` run does at the runtime
 

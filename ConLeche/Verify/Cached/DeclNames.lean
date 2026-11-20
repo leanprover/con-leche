@@ -43,7 +43,7 @@ open ConLeche
   simp only [streamEnv, streamEnvC, declConstantsC_eq, declTablesC_eq]
 
 /-- **A constant at other level-parameter names is the cached twin's** (the compared run's
-renaming, `Driver.sameCvUpToLevels`). -/
+renaming, `Cached.sameCvUpToLevels`). -/
 @[csimp] theorem ConstantVal.atLps_eq_atLpsC : @ConstantVal.atLps = @ConstantVal.atLpsC := by
   funext cv ps
   simp only [ConstantVal.atLps, ConstantVal.atLpsC, Expr.instLevelParams_spec]

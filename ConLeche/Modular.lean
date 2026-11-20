@@ -96,17 +96,6 @@ def declNames (d : Declaration) : List Name :=
 
 /-! ## What a record reads -/
 
-/-- **The names a pinned constant's fast path reads**, beyond its own type and value: a certified
-`Nat` operation's dependencies, the `Nat` basis and, for the `Bool`-valued and `ble`-guarded ones,
-the `Bool` type and constructors; a `reduce*` opaque's element type. -/
-def pinFootprint (n : Name) : List Name :=
-  (if natOpNames.contains n || natDivModNames.contains n then
-    natOpDeps n ++ [natName, natZeroName, natSuccName] ++
-      (if n = natBeqName || n = natBleName || natDivModNames.contains n then
-        [boolName, boolTrueName, boolFalseName] else [])
-   else []) ++
-  (if reduceOpNames.contains n then [reduceElemName n] else [])
-
 /-- **What a constant's laws read is stored in `R`**: the constants of its type, a definition's
 value, a recursor's rules (right-hand sides, nested pins, constructors), a type former's block
 members, and the names its fast path reads.  A projection's structure and a
@@ -233,7 +222,7 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Na
   ordered : ∀ k (h : k < (dev i).ctx.length),
     RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
   /-- the own records, accepted from the context by the fold's step -/
-  accepted : ∃ q, DeclsRun mode pins maxNatSize (dev i).decls
+  accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
     ((dev i).ctx.length, mkFEnv (dev i).context) q
 
 /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A

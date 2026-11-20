@@ -607,6 +607,26 @@ theorem readOleansAt_covers {sp : Roots} (hsp : sp.bare = sp) {roots : Array Nam
     obtain ⟨d', hd', c', hc', hst'⟩ := covers_block F he (by omega) hrc
     exact ⟨d', hd', fun _ => ⟨c', hc', hst'⟩⟩
 
+/-- **A read's closure is stored where records standing for the read's records are stored**: an
+environment storing the constants of records `D`, each passing the reserved names' check, where
+every prepared record `d` of the read stands in `D` as `g d` — the same reserved names' verdict,
+every constant of `d` stored by one of `g d`'s. -/
+theorem inputStored_of {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
+    {jobs : Nat} {pace : Pace} {lenient homes : Bool} {fs : FS} {rd : OleanRead} {hs hs' : HS}
+    (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
+    {pre : PreludeIx} {used : Declaration → Array Name} {g : Declaration → Declaration}
+    {D : List Declaration} {env : Env} (hst : RecordsStored (· ∈ constantsOf D) env)
+    (hmem : ∀ d ∈ (prepareD pre rd.decls used).decls, g d ∈ D)
+    (hb : ∀ d ∈ D, basisNamesOk d = true) (hg : ∀ d, basisNamesOk (g d) = basisNamesOk d)
+    (hcov : ∀ d, ∀ c ∈ d.constants, ∃ c' ∈ (g d).constants, StoredAs c' c) :
+    RecordsStored (closureConstants sp fs roots) env := by
+  refine hst.mono fun r hr => ?_
+  obtain ⟨d, hd, hcv⟩ := readOleansAt_covers hsp h hr
+  have hd' := hmem _ (Frontend.mem_prepareD (used := used) (pre := pre) hd)
+  obtain ⟨c', hc', hs⟩ := hcv (hg d ▸ hb _ hd')
+  obtain ⟨c'', hc'', hs''⟩ := hcov d c' hc'
+  exact ⟨c'', mem_constantsOf.2 ⟨_, hd', hc''⟩, hs''.trans hs⟩
+
 /-- **An accepted read of a closure stores its input**: the fold accepted the reader's records,
 prepared with a prelude and with the theorems' values in place, so every record of every
 constant of the closure's views is stored as `StoredAs` says. -/
@@ -618,18 +638,10 @@ theorem checkDecls_inputStored {sp : Roots} (hsp : sp.bare = sp) {roots : Array 
     (hc : Cached.checkDecls mode pins maxNatSize
       ((prepareD pre rd.decls used).decls.map (Cached.fillDecl F)) = .ok env) :
     RecordsStored (closureConstants sp fs roots) env := by
-  have hst := Cached.checkDecls_recordsStored hc
-  obtain ⟨n, fe, run, -⟩ := Cached.checkDecls_run mode hc
-  have hb := Cached.declsRun_basisNamesOk run
-  have hrec : ∀ d, (Cached.fillDecl F d).constants = d.constants := by intro d; cases d <;> rfl
-  have hbn : ∀ d, basisNamesOk (Cached.fillDecl F d) = basisNamesOk d := by
-    intro d; cases d <;> rfl
-  have hmem : ∀ {d}, d ∈ (prepareD pre rd.decls used).decls →
-      Cached.fillDecl F d ∈ ((prepareD pre rd.decls used).decls.map (Cached.fillDecl F)).toList :=
-    fun hd => Array.mem_toList_iff.mpr (Array.mem_map_of_mem hd)
-  refine hst.mono fun r hr => ?_
-  obtain ⟨d, hd, hcov⟩ := readOleansAt_covers hsp h hr
-  have hd' := hmem (Frontend.mem_prepareD (used := used) (pre := pre) hd)
-  obtain ⟨c', hc', hs⟩ := hcov (hbn d ▸ hb _ hd')
-  exact ⟨c', mem_constantsOf.2 ⟨_, hd', (hrec d).symm ▸ hc'⟩, hs⟩
+  obtain ⟨n, fe, run, rfl⟩ := Cached.checkDecls_run mode hc
+  refine inputStored_of hsp h (g := Cached.fillDecl F) (Cached.declsRun_recordsStored run)
+    (fun d hd => Array.mem_toList_iff.mpr (Array.mem_map_of_mem hd))
+    (Cached.declsRun_basisNamesOk run) (fun d => by cases d <;> rfl) fun d c hc => ?_
+  have hrec : (Cached.fillDecl F d).constants = d.constants := by cases d <;> rfl
+  exact ⟨c, hrec ▸ hc, StoredAs.refl c⟩
 end ConLeche.Frontend.Olean

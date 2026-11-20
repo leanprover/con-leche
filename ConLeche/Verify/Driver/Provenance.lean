@@ -329,8 +329,8 @@ theorem entryDecl_congr {a b : CEntry} (h : a.toCEntryF = b.toCEntryF) : entryDe
 the check of its views), the merge of its own constants and their emission, and for every
 skeleton of its private part not filtered out, the constant the load read there, which the
 merge holds under its name. -/
-theorem home_records {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs h jobs w) :
+theorem home_records {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
+    (hw : WorkerFacts sp fs h jobs w x) :
     ∃ f r a sk skels, ModelIO.CanGive (readFiles sp h .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
       sk.consts.mapM (constSkel r) = some skels ∧ constNamesOk r a = true ∧

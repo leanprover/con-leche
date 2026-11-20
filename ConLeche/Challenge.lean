@@ -151,7 +151,7 @@ not change while the runs read them.
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (checkDecls)
+open ConLeche.Cached (checkDecls checkChallenge)
 
 universe w
 
@@ -160,6 +160,16 @@ model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
     (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
+  sorry
+
+/-- **The main theorem, with a solution.**  A challenge stream the checker
+accepts with its axioms justified by a solution stream (`checkChallenge`),
+the solution itself accepted, has a model in every set theory. -/
+theorem solution_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration)
+    (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
+    (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
     ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
   sorry
 

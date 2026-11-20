@@ -14,9 +14,6 @@ public section
 
 * `mem` from `type_reads` and `mem_type` at depth `0` (a stored type has no `fvar`, so it is its
   own closure);
-* `false_empty` from the pinned `False` leaf (`EnvModel.acval_pinned`: the leaf is
-  `.const .empty [0]`, whose interpretation is the empty set);
-* `eq_equality` from the invariant's `eq_law` (`eq_equality_of`);
 * `rule_eqs` from the rules' forward fit and law (`RecRuleFit`, the last conjunct of every
   stored rule's `RecRuleLaw`) and `Eq`'s law (`ruleEqsHold_of`, `Model/RuleEqsSound.lean`);
 * `defn_eq` from `defn_reads`.
@@ -77,22 +74,6 @@ noncomputable def Model.ofEnvModelM {env : Env}
     refine ⟨interp V ρ ta, hbr, ?_⟩
     rw [← interp_cvalOf m.base2.cval_closed]
     exact m.mem_type c hc φ ta hta ρ
-  false_empty := by
-    intro φ ρ F h
-    suffices hs : ∀ (ψ : Name → Nat) (ci : ConstantInfo),
-        env.find? falseName = some ci →
-        cvalOf (V := V) m.base2.acval falseName ψ = SetTheory.empty by
-      cases h with
-      | const hf hlen => exact hs _ _ hf
-    intro ψ ci hf
-    have hpd : ∀ ψ' : Name → Nat, ConLeche.Verify.pinnedStructT falseName ψ'
-        = some (Term.const .empty [0]) := fun _ => by
-      simp +decide [ConLeche.Verify.pinnedStructT]
-    have he : (m.base2.acval falseName ψ) = Term.const .empty [0] :=
-      m.base2.acval_pinned_free hf (by decide) hpd
-    rw [cvalOf, he, interp_const]
-    rfl
-  eq_equality := eq_equality_of m
   rule_eqs := ruleEqsHold_of m
     (fun φ n cv mI rP isK rules hf rl hrl => (m.rec_rules φ n cv mI rP isK rules hf rl hrl).2.2.2)
     (eq_equality_of m)

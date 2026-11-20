@@ -258,25 +258,31 @@ def memLog : String :=
   ["/bin/con-leche --check-graph --search-path=/l:/i -- '«R»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«B»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«R»'"]
--- a compared challenge (task #608): the graph with the solution added, the compare worker at it
-#guard commandLines "/bin/con-leche" (pathArgs "" "/l:/i") (nm "C") (some (nm "S")) [nm "S", nm "C"]
-    (fun m => if m == nm "C" then cmpWorkerArgs .verified (pathArgs "" "/l:/i") none (nm "C") (nm "S")
-      else workerArgs .verified 99 (pathArgs "" "/l:/i") none m) =
-  ["/bin/con-leche --check-graph --compare --search-path=/l:/i -- '«C»' '«S»'",
-   "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/l:/i -- '«S»'",
-   "/bin/con-leche --olean --module --compare --verified --search-path=/l:/i -- '«C»' '«S»'"]
--- with a trusted path: the challenge's closure through it alone, the rest through it, then the
--- search path
+-- a compared challenge (tasks #608, #619): the graph with the solution added, the compare worker
+-- at it, both lookups' flags on every command, the trusted path's empty where none is given
+#guard commandLines "/bin/con-leche" #["--trusted-search-path=", "--search-path=/l:/i"] (nm "C")
+    (some (nm "S")) [nm "S", nm "C"]
+    (fun m => if m == nm "C" then
+        cmpWorkerArgs .verified 99 #["--trusted-search-path=", "--search-path=/l:/i"] none (nm "C")
+          (nm "S")
+      else workerArgs .verified 99 #["--trusted-search-path=", "--search-path=/l:/i"] none m) =
+  ["/bin/con-leche --check-graph --compare --trusted-search-path= --search-path=/l:/i -- '«C»' \
+'«S»'",
+   "/bin/con-leche --olean --module --verified --max-nat-size=99 --trusted-search-path= \
+--search-path=/l:/i -- '«S»'",
+   "/bin/con-leche --olean --module --compare --verified --max-nat-size=99 --trusted-search-path= \
+--search-path=/l:/i -- '«C»' '«S»'"]
+-- with a trusted path: every module through it, then the search path
 #guard commandLines "/bin/con-leche" (pathArgs "/t" "/l") (nm "C") (some (nm "S")) [nm "A", nm "S", nm "C"]
-    (fun m => if m == nm "C" then cmpWorkerArgs .verified (pathArgs "/t" "/l") none (nm "C") (nm "S")
-      else if m == nm "A" then workerArgs .verified 99 (pathArgs "" "/t") none m
+    (fun m => if m == nm "C" then cmpWorkerArgs .verified 99 (pathArgs "/t" "/l") none (nm "C") (nm "S")
       else workerArgs .verified 99 (pathArgs "/t" "/l") none m) =
   ["/bin/con-leche --check-graph --compare --trusted-search-path=/t --search-path=/l -- '«C»' '«S»'",
-   "/bin/con-leche --olean --module --verified --max-nat-size=99 --search-path=/t -- '«A»'",
+   "/bin/con-leche --olean --module --verified --max-nat-size=99 --trusted-search-path=/t \
+--search-path=/l -- '«A»'",
    "/bin/con-leche --olean --module --verified --max-nat-size=99 --trusted-search-path=/t \
 --search-path=/l -- '«S»'",
-   "/bin/con-leche --olean --module --compare --verified --trusted-search-path=/t --search-path=/l \
--- '«C»' '«S»'"]
+   "/bin/con-leche --olean --module --compare --verified --max-nat-size=99 \
+--trusted-search-path=/t --search-path=/l -- '«C»' '«S»'"]
 -- `--jobs=N` only where given; the scheduler's own workers get their share
 #guard workerArgs .trusted 7 (pathArgs "" "d") (some 4) (nm "M") =
   #["--olean", "--module", "--jobs=4", "--trusted", "--max-nat-size=7", "--search-path=d", "--",

@@ -287,13 +287,21 @@ theorem den_tEq {env : Env} (M : Model V env)
     (den_app (den_app (den_app (den_app hrec (hb 2)) (hb 1)) (hb 0)) (hc hl hf)))
     (den_app (den_app (den_app hrhs (hb 2)) (hb 1)) (hb 0))))) ρ
 
+/-- **`Eq` read as equality** by a model (what `Model.eq_equality_of` proves of the invariant's
+model, and `IsModel.eq_eqv` of every `IsModel` of a stream declaring `Eq`). -/
+@[expose] def EqLaw {env : Env} (M : Model V env) : Prop :=
+  ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
+    Denotes M.cval env φ ρ (.const eqName [u]) E →
+    A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
+    app (app (app E A) a) b = eqv a b
+
 /-- **In every model of `inductive T | a | b` with its recursor, `T.a` and `T.b` denote
 different sets**, at the level assignment `1` (which the constructors,
 having no level parameters, are read at alongside the motive's universe
 `Type`): the ι equations hold by `Model.rule_eqs`.  At the motive
 `fun _ => Prop` and the minors `False` (`∅`) and `True` (`{pt}`), the two
 rule equations make `T.rec` send `T.a` to `∅` and `T.b` to `{pt}`. -/
-theorem T_a_ne_T_b {env : Env} (M : Model V env)
+theorem T_a_ne_T_b {env : Env} (M : Model V env) (heq : EqLaw M)
     (hT : env.find? tN = some (.indInfo ⟨tN, [], srt (.succ .zero)⟩ {}))
     (hTa : env.find? taN = some (.ctorInfo taCV 0 0 tN))
     (hTb : env.find? tbN = some (.ctorInfo tbCV 0 0 tN))
@@ -355,7 +363,7 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env)
       exact .app (.app (.app (.app h .bvar) .bvar) .bvar) (show Denotes _ _ _ _ (cnst c) _ from Denotes_const0 (ρ := ρ3) hf hl)
     obtain rfl := Denotes_functional hL hL'
     rw [show push unitSet (push empty (push m ρ)) 2 = m from rfl, substFn_nil, app_lamV hc] at hy
-    rw [M.eq_equality u one ρ3 E _ _ _ hE (univ_mem_univ 0) (hrecTy hn hl ht hf) hselU] at hy
+    rw [heq u one ρ3 E _ _ _ hE (univ_mem_univ 0) (hrecTy hn hl ht hf) hselU] at hy
     exact eq_of_mem_eqv hy
   -- the right-hand sides: the first and the second minor
   have hlam : ∀ (r : Expr) (sel : V → V → V), (∀ a b (ρ' : BVarIdx → V), Denotes M.cval env one

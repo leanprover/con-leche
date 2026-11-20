@@ -4,6 +4,8 @@ public import ConLeche.Model.Modular.IsModel
 public import ConLeche.Verify.Driver.SeesCtx
 import ConLeche.Verify.Driver.SeesOwn
 import ConLeche.Model.OfEnvModelM
+import ConLeche.Model.IsModelRename
+import ConLeche.Verify.Driver.Reach
 
 public section
 
@@ -132,13 +134,15 @@ universe w
 
 variable {V : Type w} [SetTheory V] {sp : Roots} {fs : FS} {maxNatSize : Nat}
 
-/-- **The modular theorem over what each module sees**, at an accepted run (see the module
-docstring). -/
+/-- **The modular theorem over what each module sees**, at an accepted run read through one
+lookup (see the module docstring), with imports added at some modules (a compared challenge's
+solution, task #619): what a module sees with them (`SeesX`) is valued as its seen module values
+it. -/
 theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs maxNatSize)
-    (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) :
+    (hl : ∀ M, R.look M = sp) :
     ∃ model : Name → (Name → List Nat → V),
       (∀ M ∈ R.names, IsModel V (model M) (moduleConstants sp fs M)) ∧
-      (∀ M ∈ R.names, ∀ n m', Sees sp fs M n m' → model M n = model m' n) := by
+      (∀ M ∈ R.names, ∀ n m', SeesX sp fs (R.x M) M n m' → model M n = model m' n) := by
   classical
   let i := (R.names.map R.rk).sum
   have hle : ∀ M ∈ R.names, R.rk M ≤ i := fun M hM =>
@@ -148,30 +152,59 @@ theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs maxNatSize)
   let own : Name → Env := fun M => (R.dev (R.rk M)).own
   let model : Name → Name → List Nat → V := fun M n =>
     if ((own M).find? n).isSome then base (R.rk M) n
-    else if h : ∃ m', Sees sp fs M n m' then base (R.rk h.choose) n
+    else if h : ∃ m', SeesX sp fs (R.x M) M n m' then base (R.rk h.choose) n
     else base (R.rk M) n
-  have hpart : ∀ {M n m'}, Sees sp fs M n m' → m' ∈ R.names →
+  have hpart : ∀ {M n m'}, M ∈ R.names → SeesX sp fs (R.x M) M n m' →
       ((own m').find? n).isSome = true := by
-    rintro M n m' ⟨p, c, -, hc, rfl⟩ hm'
-    have := R.part_own hm' (hx m') (p := p) (by rw [hl]; exact hc)
+    rintro M n m' hM hs
+    obtain ⟨hm', -, hxm'⟩ := R.sees_rank hl hM hs
+    obtain ⟨p, c, -, hc, rfl⟩ := hs
+    have := R.part_own hm' hxm' (p := p) (by rw [hl]; exact hc)
     exact this
   have hmodel_own : ∀ {M n}, ((own M).find? n).isSome = true → model M n = base (R.rk M) n := by
     intro M n h; simp only [model, h, ↓reduceIte]
   refine ⟨model, fun M hM => ?_, fun M hM n m' hs => ?_⟩
   · obtain ⟨mp, hmpe⟩ := hmp (R.rk M) (hle M hM)
-    -- the module's constants are stored in its own environment
-    have hrec : RecordsStored (moduleConstants sp fs M) (own M) :=
-      (own_recordsStored (hok _ (hle M hM)).importOk).mono fun c hc => by
-        have := R.own_covers hM (hx M) (c := c) (by rw [hl]; exact hc)
-        obtain ⟨c', hc', hst⟩ := this
-        exact ⟨c', hc', hst⟩
-    refine isModel_of_agree mp hrec (fun n ci hf => ?_) ?_
-    · rw [hmodel_own (by rw [hf]; rfl), hmpe]
-    · -- `Eq`'s value is a member's that stores it, or `M`'s own
+    have hnd := (ImportOk.chain (hok _ (hle M hM)).importOk).1
+    -- every constant of the module is stored, as itself or renamed
+    have hcov : ∀ c, moduleConstants sp fs M c → ∃ ci, (own M).find? c.name = some ci ∧
+        ((StoredAs ci c ∧ ∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
+            RecReads (own M).find? ci ∨ ∃ k cv, ci = quotAt k cv) ∨ RenamedAs ci c) := by
+      intro c hc
+      rcases R.own_covers_x hM (c := c) (by rw [hl]; exact hc) with ⟨c', hc', hst⟩ |
+        ⟨ci, hci, hn, hst⟩
+      · obtain ⟨ci, hf, hst', hrd⟩ := own_recordsStored (hok _ (hle M hM)).importOk c' hc'
+        have hn : c'.name = c.name := by
+          show c'.toConstantVal.name = c.toConstantVal.name
+          rw [hst.1]
+        refine ⟨ci, hn ▸ hf, .inl ⟨hst'.trans hst, fun cv mI rP isK rules hc1 => ?_⟩⟩
+        obtain ⟨isK', rules', h', -⟩ := hst.2.2.1 cv mI rP isK rules hc1
+        exact hrd cv mI rP isK' rules' h'
+      · have hctx : ∀ c', c' ∈ (streamEnv (R.w M).reach.ctx.toList).consts → c' ∈ (own M).consts :=
+          fun c' hc' => by
+            show c' ∈ (R.dev (R.rk M)).own.consts
+            rw [R.dev_rk hM]
+            exact (ConLeche.Driver.mem_streamEnv_consts _ _).2 (.inr hc')
+        refine ⟨ci, hn ▸ Driver.find?_of_nodup hnd (hctx ci hci), ?_⟩
+        rcases hst with ⟨hst, f, hf, hrd⟩ | hren
+        · refine .inl ⟨hst, fun cv mI rP isK rules hc1 => .inl ?_⟩
+          refine RecReads.mono (fun n c' h => ?_) (hrd cv mI rP isK rules hc1)
+          obtain ⟨hm, rfl⟩ := hf n c' h
+          exact Driver.find?_of_nodup hnd (hctx c' hm)
+        · exact .inr hren
+    have hag : AgreesOn (model M) (cvalOf mp.base2.acval) (own M) := fun n ci hf => by
+      rw [hmodel_own (by rw [hf]; rfl), hmpe]
+    let Rs : ConstantInfo → Prop := fun c => moduleConstants sp fs M c ∧
+      ∃ ci, (own M).find? c.name = some ci ∧ StoredAs ci c ∧
+        ∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
+          RecReads (own M).find? ci ∨ ∃ k cv, ci = quotAt k cv
+    have hRs : RecordsStored Rs (own M) := fun c ⟨_, ci, hf, hst, hrd⟩ => ⟨ci, hf, hst, hrd⟩
+    have heq : EqReads (model M) := by
+      -- `Eq`'s value is a member's that stores it, or `M`'s own
       by_cases h1 : ((own M).find? eqName).isSome = true
       · exact EqReads.congr (by rw [hmodel_own h1, hmpe]) (eqReads_envModelM mp)
-      · by_cases h2 : ∃ m', Sees sp fs M eqName m'
-        · have hm₀ := (R.sees_rank hl hx hM h2.choose_spec).1
+      · by_cases h2 : ∃ m', SeesX sp fs (R.x M) M eqName m'
+        · have hm₀ := (R.sees_rank hl hM h2.choose_spec).1
           obtain ⟨mp₀, hmp₀⟩ := hmp (R.rk h2.choose) (hle _ hm₀)
           refine EqReads.congr (model' := base (R.rk h2.choose)) ?_ (by
             rw [hmp₀]; exact eqReads_envModelM mp₀)
@@ -181,18 +214,23 @@ theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs maxNatSize)
             rw [hmpe]; exact eqReads_envModelM mp)
           funext vals
           simp only [model, h1, h2, ↓reduceDIte, Bool.false_eq_true, ↓reduceIte]
-  · obtain ⟨hm', hlt⟩ := R.sees_rank hl hx hM hs
-    rw [hmodel_own (hpart hs hm')]
+    have hRsM := isModel_of_agree mp hRs hag heq
+    intro c hc
+    obtain ⟨ci, hf, ⟨hst, hrd⟩ | hren⟩ := hcov c hc
+    · exact hRsM c ⟨hc, ci, hf, hst, hrd⟩
+    · exact modelOf_renamed mp hag hf hren
+  · obtain ⟨hm', hlt, -⟩ := R.sees_rank hl hM hs
+    rw [hmodel_own (hpart hM hs)]
     by_cases h1 : ((own M).find? n).isSome = true
     · rw [hmodel_own h1]
-      have hc := R.sees_ctx hl hx hM hs h1
-      exact hagr _ (hle M hM) _ hlt n hc (R.sees_agree hl hx hM hs hc) (hpart hs hm')
+      have hc := R.sees_ctx hl hM hs h1
+      exact hagr _ (hle M hM) _ hlt n hc (R.sees_agree hl hM hs hc) (hpart hM hs)
     · have hc : ((R.dev (R.rk M)).context.find? n).isSome = false := by
         cases h : ((R.dev (R.rk M)).context.find? n).isSome
         · rfl
         · exact absurd (own_stored_of_context hok (hle M hM) h) h1
-      have hex : ∃ m', Sees sp fs M n m' := ⟨m', hs⟩
-      have hu := R.sees_unique hl hx hM hex.choose_spec hs hc
+      have hex : ∃ m', SeesX sp fs (R.x M) M n m' := ⟨m', hs⟩
+      have hu := R.sees_unique hl hM hex.choose_spec hs hc
       simp only [model, h1, hex, ↓reduceDIte, Bool.false_eq_true, ↓reduceIte]
       rw [hu]
 

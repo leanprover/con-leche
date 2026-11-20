@@ -862,7 +862,7 @@ the wrapper crosses it.
 
 `DeclAxiomRun`'s tolerated skip needs none of this: it stores nothing
 (`env₂ = env`), so its P invariant is `mp` itself. -/
-theorem harvestAxiom
+theorem harvestAxiomAt
     (mp : EnvModelM V env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
     (hopn : natOpName cv.name = false)
@@ -883,9 +883,11 @@ theorem harvestAxiom
     -- the nose), and none of the pinned names is a reduce operation —
     -- the operations are installed as `opaque`s, never as axioms.
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
-    CoverStepLeaf mp
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
-      (SemPropType V mp.base2.acval env cv.type) := by
+    ∃ mp' : EnvModelM V ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩,
+      CoverRel mp mp' ∧
+      (SemPropType V mp.base2.acval env cv.type → mp'.base2.acval cv.name = fun _ => .prf) ∧
+      (¬ SemPropType V mp.base2.acval env cv.type → mp'.base2.acval cv.name = A) ∧
+      (LfpCover mp [] → LfpCover mp' []) := by
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     hrunT, hcvShape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
@@ -976,8 +978,16 @@ theorem harvestAxiom
         (A := L) hfresh
         ψ 0 hcb h
   -- assemble
-  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ _ h => nomatch h) hLP
-    (declStep_preserves_of_cons mp
+  suffices hex : ∃ mp' : EnvModelM V
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval cv.name L by
+    obtain ⟨mp', hac, hrel, hc⟩ := coverA_cons (ex := []) (ex' := []) hfresh (fun _ h => h)
+      (fun _ _ h => ConstantInfo.noConfusion h) hex (fun _ h => Or.inl h)
+      (fun _ _ _ _ h => ConstantInfo.noConfusion h)
+    have hself : mp'.base2.acval cv.name = L := by
+      rw [hac]; exact acvalWith_self
+    exact ⟨mp', hrel, fun hp => hself.trans (hLP hp), fun hp => hself.trans (hLA hp), hc⟩
+  refine (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := L) hfresh
     (ConsHead.ofFresh
@@ -1054,6 +1064,30 @@ theorem harvestAxiom
     exact fun φ => towerOk_cons_fresh mp
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := L) hfresh _ rfl φ
+
+
+/-- **The axiom kind's harvest**, through the funnel (`harvestAxiomAt` with its leaf). -/
+theorem harvestAxiom
+    (mp : EnvModelM V env)
+    {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
+    (hopn : natOpName cv.name = false)
+    (hcv : ConstantValRun F env cv type')
+    (hwf₂ : EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩)
+    (hnres : ConLeche.reservedBasisNames.contains cv.name = false)
+    (hAvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
+    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ p ∈ cv.levelParams, ψ₁ p = ψ₂ p) → A ψ₁ = A ψ₂)
+    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A ψ))
+    (hmemA : ∀ (ψ : Name → Nat) (ta : Term),
+      denote mp.base2.acval env ψ 0 type' = some ta →
+      ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
+    (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
+    CoverStepLeaf mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
+      (SemPropType V mp.base2.acval env cv.type) := by
+  obtain ⟨mp', hrel, hP, -, hc⟩ := harvestAxiomAt mp hopn hcv hwf₂ hnres hAvclosed hAparams hAok
+    hmemA hnotreduce
+  exact ⟨mp', hrel, hP, hc⟩
 
 
 /-! ## The `opaque` kind

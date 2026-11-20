@@ -124593,6 +124593,439 @@ trust-surface, plain-reach, binary-link, challenge, no-local-paths, overview-lin
 the whitepaper's links and fragment gates pass.  Landed on `compare` (nothing new there since
 the lane's base).
 
+## TASK #619 — the sidecar: axioms justified by a second checked stream (2026-11-19, agent/619-sidecar; base `compare`, lands on `compare`)
+
+**Status: in progress (first session).  The core CODE is in (a5b9ef45a, `lake build` green); no
+sidecar proof yet; the JSON/olean/modular modes still run the old comparison.**
+
+**The maintainer's design** (brief of #619): the compare "solution" becomes a SIDECAR.  An axiom of
+the input (a non-built-in axiom, or a definition/theorem/opaque constant whose value uses
+`sorryAx`) is accepted when JUSTIFIED: built in (`propext`, `Classical.choice`, `Quot.sound`, the
+trust family, as today) or by the sidecar's environment, checked as usual, holding a constant of
+the same name and type up to positional level renaming, everything the type reads being the SAME
+constant in both, closed under reads.  The challenge is checked like any input; the comparison
+machinery goes.  Main theorem: `checkDecls … dsS = .ok envS → checkDecls (justify := some envS)
+… ds = .ok env → ∃ model, IsModel V model ds`; without a sidecar exactly `model_exists`.
+
+**Code as landed in the first commit** (`ConLeche/Cached/Justify.lean`, `Cached/Decls.lean`):
+* `checkDecls mode pins maxNatSize ds (justify : Option Env := none)`; the fold runs over
+  `sideRecords justify ds` (none: `ds`; some: `ds.map sideRecord`, a definition whose value uses
+  `sorryAx` — name not a built-in axiom's — becomes `.axiomDecl cv`; `IsModel`'s
+  `Declaration.records` reads it the same, so `IsModel ds ↔ IsModel (ds.map sideRecord)` is the
+  bridge to prove).  `declConstants` is UNCHANGED (a first attempt changed it for sorry
+  definitions; it broke `Presents`/`defn_presents` in the modular proofs and was reverted).
+* `declStep mode pins maxNatSize (J : Option FEnv)`, `DeclsRun … J`, `recordJob … J`, all through
+  `checkRecordC mode pins J fe pd`: with `some J` and `justifiable pd = some cv` (non-built-in
+  axiom; theorem/opaque whose value uses `sorryAx`) → `flushC`, `justifyWhy J fe cv` (reject,
+  `.invalid`, with the reason, if not justified), `checkConstantValC`, the reserved names' check,
+  push `justifiedInfo pd cv` (theorem → `thmInfo`, else `axiomInfo` = `declConstants pd`);
+  otherwise `checkDeclStepC` (so `checkRecordC … none = checkDeclStepC` by `rfl`).
+* `justifyWhy J fe cv`: the sidecar has `cv.name`, `sameCvUpToLevels` (moved from
+  `Driver/Compare.lean`), and `coneGo J fe.find? fe.findTable? (J.idx.size+1) {} (type's needs)`:
+  every reached name is in both, `refinesB` (same `ConstantInfo` by `beqP`, or the input's
+  `axiomInfo cv` statement of a sidecar stmt-kind constant with the SAME `ConstantVal`), same
+  table (`tableBeqP`), and its `entryNeeds` (= `NeedsSt.const` + a former's `caps.ctors` and
+  `caps.all.map (·.str "rec")` + its table's names) pushed.  The recursor names make a block
+  shared whole (every block constant reads a former): needed by the model proof below.
+  SPEC CHOICE to report: a read name that is itself a justified hole counts as shared when its
+  input copy is the statement of the sidecar's constant at the same level names (`refinesB`'s
+  second clause) — needed by `cmp_hole`/`cmp_kind` (`theorem big_lt : 37 < big` with
+  `def big := sorry`).
+* Driver: `Jobs ds (justify : Option Env := none)` carries `side := justify.map mkFEnv` with its
+  equation; `checkDeclsIO … J (hds : sideRecords justify ds = ds)` concludes
+  `checkDecls … ds justify`.  `checkDecls_of_jobs (hds) (jobs at justify.map mkFEnv)`.
+* Proved so far (general in `J`): `declStep_ok` (→ `checkRecordC`), `justifiable_constants`,
+  `checkRecordC_pushes`, `declsRun_env`, `checkDecls_env` (env = `streamEnv (sideRecords …)`),
+  `justifyWhy_congr`, `checkRecordC_twin`, `checkRecordC_push` (PushChain), `declsRun_chain`,
+  `jobs_run_from`, `checkDecls_of_jobs`.  Every other `DeclsRun` consumer is stated at `none`.
+
+**The model proof — the plan** (not started; a new `ConLeche/Model/Sidecar.lean`):
+* Sidecar model `mS : EnvModelM V envS`, covered, `NatFacts` (`declsRun_model`).
+* Fold over the challenge's run at `some (mkFEnv envS)` with the invariant: a covered model `mp`
+  of `E_k`, `NatFacts`, and `∀ x ∈ E_k, Shared Ef envS x → mp.acval x = mS.acval x`, where `Ef`
+  is the FINAL env and `Shared` the coinductive closure `coneGo` certifies (a set `S` of names,
+  each in both with `Refines`, same table, its `entryNeeds` in `S`).  Using `Ef` avoids any
+  monotonicity of `Shared` along the fold.
+* Step kinds: (S) every constant of the record `Shared Ef` → the regular step's model `mReg`
+  (keeps old leaves: `declStep_agrees`/`CoveredRel`), then `Model.Modular.ctxModel` over
+  `C := E_{k+1}` with sources old names `(E_{k+1}, mReg, R := E_k)` and new names
+  `(envS, mS, R := the shared cone)`, leaves `aC := new ↦ mS, old ↦ mp` (CtxRead: `entry` by
+  `Refines`, `alike` by identity/`Alike`, `scope`/`ctors`/`deep` by the closure, `table` by the
+  table check).  A block with one constant shared has all shared: every block constant reads a
+  former, a former's `entryNeeds` lists the members, `caps.ctors` and the members' `.rec` — the
+  block's recursors exactly by `blockRecNameSetOk` (a per-record fact of the accepted block).
+  (J) a justified record → `harvestAxiom` (`Model/AxiomPin.lean`'s wrapper) with leaf
+  `A ψ := mS.acval a (substFn ψ lpsS (lpsC.map param))`, membership by: `denote_alike` on the
+  type's reads (all shared, so `mp = mS` there), a localized `denote_ren` (`Model/BasisRename`,
+  over `LpsCopy` on the reads only), and the instantiation lemma (`denotePInstLevels`); then
+  `mS.mem_type`.  (R) any other record: the regular step.
+* Then `isModel_of_envModelM` needs `RecordsStored` for the sidecar fold (redo
+  `checkDecls_recordsStored` over `checkRecordC`), `checkDecls_envWF` for the sidecar fold
+  (J route: `checkConstantValC` → the axiom's `ConstantValRun`), and the `sideRecord` bridge.
+* `MainTheorem.model_exists` then follows from the sidecar theorem at `dsS := #[]`?  No:
+  `checkDecls #[] = .ok Env.empty`, and `justify := some Env.empty` is NOT `none` (every axiom
+  is then rejected).  Keep `model_exists` as is; add `sidecar_model_exists`.
+
+**Order still to do:** the model proof above; JSON `--compare` as checking with a sidecar (the
+driver: parse/prepare/check S, then C with `Jobs.build (sideRecords (some envS) recsC) (some
+envS)`), its accept lemma, `main_compare_json_*` restated; delete the old JSON comparison
+(`Driver/CompareJson`'s `compareRecords` path, `Model/Modular/CompareJson`,
+`Verify/Driver/CompareJsonRun`); then olean and modular after #618; fixtures, docs, gates.
+
+### #619 cont. — state at the end of the first session (2026-11-19)
+
+**Commits on `agent/619-sidecar`** (each `lake build` green; `lake test` and the other gates NOT
+yet run): a5b9ef45a (the core code), f83dad70e (this record), f374e2758 (JSON mode).
+
+**JSON `--compare` is the sidecar check** (`Driver/CompareJson.lean`, rewritten): parse both,
+check the solution's prepared records (`Jobs.build recsS`, `checkDeclsIO`), `envS := streamEnv
+recsS.toList`, then the challenge's `sideRecords (some envS) recsC` with `Jobs.build … (some envS)`
+(premise `sideRecords_idem`, `Verify/Cached/Justify.lean`, with `checkDecls_sideRecords`).  Output:
+`accepted N declarations, K axioms justified by the sidecar S (M declarations accepted)`, then one
+line per justified record.  `compareJsonG_accept`/`runArgs_compare_json_accept`
+(`Verify/Driver/CompareJsonRun.lean`) restated: `checkDecls … (preparePrelude pre rS.decls) =
+.ok (streamEnv …)` and `checkDecls … (preparePrelude pre rC.decls) (some (streamEnv …)) = .ok env`.
+Deleted: `Model/Modular/CompareJson.lean`, `main_compare_json_solves`, `main_compare_json_no_False`
+(and their axiom pins).  The rest of the old machinery (olean/modular compare: `Driver/Compare*`,
+`Model/Copies`, `Model/Modular/Compare{,Run}`, `Verify/Driver/Compare{Run,Local,Module}`,
+`ComposeCompare`, the `main_compare_*` olean/modular capstones, `OleanCompare.lean`,
+`tests/ConLecheTests/{CompareAttack,CondCompare}.lean`) still builds unchanged.
+
+**e2e verdict changes so far** (`tests/e2e-expected.txt` updated, comments say why):
+cmp_kind_c/cmp_kind_bad_s 1 → 0 and cmp_missing 1 → 0 (the challenge's own declarations are
+checked by the challenge); cmp_lv 0 → 1 (`idd_eq`'s type reads `idd`, declared at other
+level-parameter names in the solution: not the same record; comparator rejects this too).  The
+e2e battery itself was not run beyond the `--compare` lines.
+
+**Next, in order:**
+1. `main_compare_json_no_False` needs NO model: an accepted `checkDecls … (some envS)` whose
+   records hold a non-built-in axiom `x : False` went through `checkRecordC`'s justification arm
+   (the only arm that pushes such an axiom: `checkDeclStepC` rejects it), so `justifyWhy = none`,
+   so `envS.find? x = some cS` with `sameCvUpToLevels` (renaming `.const False []` is itself), so
+   `no_proof_of_False_cached` on the sidecar's accept.  Lemma to write: `checkRecordC` ok on a
+   `justifiable` record with `some J` → `justifyWhy J fe cv = none` ∧ checkConstantValC passed.
+2. The sidecar model theorem (plan in the record above), then `sidecar_model_exists` in
+   `MainTheorem.lean`/`Challenge.lean` and the JSON capstone over `IsModel`.
+3. Olean (`--olean --compare`) as checking with a sidecar, trusted path for the challenge, T1 —
+   after #618 lands; then the modular modes; delete the old machinery; fixtures; docs (OVERVIEW,
+   whitepaper §8, usage text); gates; landing.
+
+### #619 cont. 2 — the maintainer's rulings in; the model-free half proved (2026-11-19)
+
+**Rulings** (maintainer, on the first session's two spec choices): (A) ACCEPTED — a constant the
+justified axiom's type reads may itself be a justified hole, provided its copy in the challenge is
+the statement of the sidecar's constant.  (B) LIBERAL — level-parameter renaming applies to the
+constants the type reads too: a read constant matches when it is the sidecar's up to positional
+renaming (`ConstCopy`, #607/#613); blocks are matched whole.
+
+**As implemented** (`ConLeche/Cached/Justify.lean`): `copyB cS c` is `ConstCopy cS c` restricted to
+the statement kinds — the same constant, or for a definition, theorem or axiom the sidecar's at the
+input's level-parameter names (`levelsRenaming`, `atLpsC`, pointer-first `beqP`).  `refinesB` is
+`copyB` of the constant, or (A) `copyB` of the sidecar constant's statement (`.axiomInfo
+cS.toConstantVal`), so (A) is up to renaming too.  An inductive block is matched as it is: `ConstCopy`
+already excludes constructors and recursors (`RuleFree`: ι reads them at their own names), and a
+block's constants share its level-parameter names, so a renamed former alone never matches either;
+restricting to statement kinds says so in the code and keeps the model proof's renaming off blocks.
+INTERPRETATION TO REPORT: "blocks up to renaming" is not possible under `ConstCopy`; a block at
+other level-parameter names rejects (fixture `cmp_lvind`, 1).
+
+**Every hole is an axiom record.**  `sideRecord` now reads a theorem or opaque constant whose value
+uses `sorryAx` (not at a built-in axiom's name) as `.axiomDecl cv` too, so `justifiable` is the
+non-built-in axioms only and the route always pushes `.axiomInfo cv` (`justifiedInfo` is gone).
+Reasons: `IsModel` reads every theorem and opaque constant by its statement already, the checker
+reads a theorem and an axiom alike (neither unfolds), and the route does not check that a
+theorem's type is a proposition, so a `thmInfo` of a non-proposition from a sidecar would break the
+model's theorem leaf (`.prf`).  The report still labels a justified record as declared ("theorem
+big_lt justified by the sidecar").  No verdict changes.
+
+**Verdict changes this session:** `cmp_lv` 1 → 0 (ruling B; `idd` read at other level names is a
+copy).  New fixture `cmp_lvind` (1): a hole reading a universe-polymorphic block the solution
+declares at other level-parameter names.  All 18 `--compare` lines of `tests/e2e-expected.txt` pass.
+
+**Proved (all builds green, `lake test` green):**
+* `Verify/Cached/JustifyRun.lean`: `checkRecordC_justified`, `declsRun_justified`,
+  `justifyWhy_none`, `sameCvUpToLevels_false`, `justified_false`.
+* `MainTheorem.main_compare_json_no_False` (no model: the sidecar would store a constant of type
+  `False`, `no_proof_of_False_cached`); axioms pinned in `tests/ConLecheTests/Axioms.lean`.
+* `Verify/IsModelSide.lean`: `isModel_sideRecords` — `IsModel V m (sideRecords j ds).toList ↔
+  IsModel V m ds.toList` (not yet imported by a root; the model module will).
+* At any sidecar: `checkRecordC_own`/`checkRecordC_yields` (`DeclPushes`), `declsRun_blockRead`,
+  `declsRun_basisNamesOk`, `checkDecls_recordsStored` (over `sideRecords justify ds`),
+  `checkDecls_pinned`, `checkDecls_declaresFalse/Eq` (`mem_sideRecords_ind`), `declsRun_envWF`,
+  `checkDecls_envWF`.
+* `Verify/Cached/JustifyBridge.lean`: `checkRecordC_justified_run` — the route from a canonical
+  index of a well-formed env is `justifyWhy = none`, `basisNamesOk`, `∃ F, ConstantValRun F env cv
+  cv.type`, and `fe' = mkFEnv (env with .axiomInfo cv pushed)`.
+
+**The model theorem — exact plan for the next session** (`sidecar_model_exists`, new
+`ConLeche/Model/Sidecar.lean`, citation in `MainTheorem`/`Challenge` beside `model_exists`):
+1. *The renamed sidecar model.*  `envS'` := `envS` with each constant the challenge holds renamed
+   (`copyB` second clause) replaced by `c.atLps ps`.  Build `mS' : EnvModelM V envS'` with
+   `acval := renAcval mS.acval envS envS'` (`Model/BasisRename`), `LfpCover`, `NatFacts`, from
+   `mS` (`declsRun_model` on the sidecar's run).  Only statement kinds move, so blocks, rules and
+   `lfp` data are the same constants whose terms read alike (`denote_ren`); types and values by
+   `denote_copy`/`denote_copy_value` (`Model/Copies.lean`); the pinned fields read unrenamed
+   names (`renAcval_same`) — if a pinned/reserved statement-kind name (`Classical.choice`,
+   `Quot.sound`) at other level names is a problem there, restrict `copyB`'s renaming to
+   unreserved names (no fixture verdict depends on it) and record it.
+2. *Shared.*  The set certified by the `coneGo` runs of the accepted fold (each name in both
+   indices, `refinesB`, same table, `entryNeeds` closed), read in the FINAL env (entries never
+   change along the run: fresh pushes).  A record has all its constants shared or none (a block:
+   `entryNeeds` of a former lists its constructors and the block's recursors).
+3. *Fold invariant* over the challenge's run at `some (mkFEnv envS)`: covered `mp : EnvModelM V
+   E_k`, `NatFacts`, `∀ x ∈ E_k, x ∈ Shared → mp.acval x = mS'.acval x`.
+   (R) a record with no shared constant: `checkRecordC_own` + `checkDeclStepC_model` +
+   `declStep_agrees` (old leaves kept).  (S) a shared record: `Model.Modular.ctxModel` with
+   `C := E_{k+1}`, sources old ↦ `(E_k, mp, R := E_k)`, new ↦ `(envS', mS', R := Shared)`;
+   `CtxRead` from the certificate (copies are exact in `envS'`, `Refines` for (A)).  (J) a
+   justified axiom: `checkRecordC_justified_run`, then `harvestAxiom` with `A ψ := mS'.acval
+   cv.name ψ`; `hmemA` by `denote_alike` over the shared cone of `cv.type` (`mp = mS'` there)
+   and `mS'.mem_type` at `envS'`'s copy of `cv.name` (whose statement is `cv`); `hnres` from
+   `basisNamesOk` and `justifiable` (no built-in name); the new leaf is `mS'`'s, so the
+   invariant holds if `cv.name` is shared.
+4. *Conclusion:* `isModel_of_envModelM` + `checkDecls_recordsStored` (sideRecords) +
+   `isModel_sideRecords`; `False`/`Eq` from `checkDecls_declaresFalse/Eq` (names of
+   `sideRecords` = names of `ds`, `records_sideRecord`).
+
+**Then, in order:** the JSON capstone (exit 0 of `--compare C S` ⇒ `∃ model, IsModel V model
+(preparePrelude pre rC.decls).toList` with the `False`/`Eq` facts, from
+`runArgs_compare_json_accept`); drop `Model.false_empty`/`eq_equality` if unread (move
+`CompareAttack`/`IotaEqTests` to `IsModel`); olean `--olean --compare` and the modular modes after
+#618 lands (not landed at this record; do not depend on it); delete the old machinery
+(`Driver/Compare*`, `Model/Copies` if unused after step 1 — it is used by it —,
+`Model/Modular/Compare{,Run}`, `Verify/Driver/Compare{Run,Local,Module}`, `ComposeCompare`, the
+`main_compare_*` olean/modular capstones, `tests/ConLecheTests/{CompareAttack,
+CondCompare}`; NOT `OleanCompare.lean`: that is the olean reader's test tool README cites, not
+the challenge comparison — the first record's list was wrong there); docs (OVERVIEW, whitepaper §8 around justified axioms, usage text; README lines
+listed, not edited); gates; land on `compare` with `--no-ff`.
+
+**Commits this session:** 7132afb47 (ruling B, cmp_lvind), b23bf2040 (holes are axiom records;
+statement-kind renaming), 71e08a155 (`main_compare_json_no_False`), 929ce6fd7
+(`isModel_sideRecords`), 5e6e3f18b (records/pins/False/Eq at any sidecar), 3212b2bc4
+(`checkRecordC_justified_run`, envWF).  Gates run: `lake build`, `lake test` (warning-free); the
+`--compare` e2e lines.  Not run: `tests/arena.sh`, the other gates.
+
+### #619 cont. 3 — `sidecar_model_exists` proved; the JSON capstone; blocked on #618 (2026-11-19)
+
+**Rulings applied** (coordinator, on cont. 2): blocks match whole and at the same level-parameter
+names (a block at other names does not match, `cmp_lvind` 1; noted in OVERVIEW as today's limit
+of the renaming); sorried theorems and opaque constants are the axioms of their statements; the
+fallback "rename only unreserved names" is TAKEN (see below).
+
+**Code changes this session** (`ConLeche/Cached/Justify.lean`; no e2e verdict changes: all 18
+`--compare` rows pass unchanged):
+* `Sidecar` = the sidecar's index + the input's **record mates** (`recordMates ds`: every name an
+  inductive block declares ↦ every name that block declares); `entryNeeds` adds a constant's
+  mates, so a justification's cone holds whole records.  REASON: the model's step for a shared
+  record needs all of its names shared or none (`record_shared`), and a recursor has no in-data
+  link to its block (an auxiliary recursor `T.rec_1` is read by nothing in its block, and a
+  recursor's type reading its formers is a fact about the generated recursor, not provable
+  cheaply); the mates make the closure record-level by construction.  `sidecarOf justify ds`
+  builds it; `checkDecls` and `Jobs.side` use it.
+* `copyB`'s renaming branch only at a name no pin reserves (the FALLBACK: a pinned statement —
+  `Classical.choice`, `Quot.sound` at other level names — would need `EnvModelM.renameCore`'s
+  pinned transport inside the sidecar's renaming; no fixture verdict depends on it, and such
+  inputs cannot be exported from Lean sources, Init declaring those names).
+* `justifiable` excludes certified `Nat` operation names and compiler-trust operation names
+  (`natOpName`, `reduceOpNames`): the checker computes with those constants and the model's
+  `nat_ops`/`reduce_ops` laws hold only of their own installs (`harvestAxiom` takes
+  `natOpName = false` and `∉ reduceOpNames`).  Such an axiom now takes its own check, which
+  rejects it.  VERDICT CHANGE for hand-written streams only (Init declares those names; no Lean
+  source can export a challenge axiom `Nat.add`), so no fixture.
+* `refinesB`'s statement clause is not taken at a compiler-trust name (`CtxRead.reduce` needs the
+  context's copy of such a name to be its source's).
+* `harvestAxiomAt` (`Model/Harvest.lean`) is `harvestAxiom` with the installed leaf exposed.
+
+**Proved** (all build warning-free):
+* `Verify/Cached/Cone.lean` `justifyWhy_cone`: the accept read as a closed shared set
+  (`ConeGood`, `ConeClosed`).
+* `Verify/Cached/Mates.lean` `recordMates_spec`.
+* `Model/CopyStmt.lean` (subagent): `EnvModelM.copyStmt`, `NatFacts.copies`,
+  `ProofLeaves.copies` — the model across a `CopiesEnv` renaming only unreserved statements.
+* `Model/Sidecar/Rename.lean`: `renEnv Ef envS`, `renEnv_copies`, `renEnv_stmt`, `Shared` (union of
+  the cones, read in the final environment), `coneClosed_lift`, `refines_ren`.
+* `Model/Sidecar/Shared.lean` `sharedStep`: a record of shared names, through `ctxModel` with two
+  sources (the environment before it, read as itself; the renamed sidecar, read on the shared
+  names stored so far).
+* `Model/Sidecar/Justified.lean` `justStep`: the justified axiom gets `mS'`'s value at its name,
+  read at the input's level parameters; `denote_alike` over the cone; a shared justified name
+  keeps the sidecar's leaf (`ProofLeaves` of the sidecar for the proof case).
+* `Model/Sidecar/Fold.lean` `sideFold`, `Model/Sidecar.lean` `sidecar_envModel`,
+  `sidecar_isModel`.
+* `Verify/Cached/Scoped.lean` (subagent) `declsRun_scoped`, `Scoped.empty`; bridge
+  `Model/Modular/Scoped.lean` `Scoped.entryScopedP`: every environment an accepted fold reaches
+  (with or without a sidecar) is read-scoped — each stored constant's laws, its table and its pin
+  footprint read stored names (model-free; `CtxRead.scope` for the environment before a shared
+  record needs it).
+* **The capstones** (`ConLeche/MainTheorem.lean`, axioms pinned in `tests/ConLecheTests/Axioms.lean`):
+  `sidecar_model_exists` (stated beside `model_exists` in `Challenge.lean`, listed in
+  `comparator.json`; a one-line citation of `Model.Sidecar.sidecar_isModel`) and
+  `main_compare_json_model` (exit 0 of `--compare -- <c> <s>` ⇒ the challenge's prepared records
+  have a model, with the `False`/`Eq` facts).
+
+**The proof's shape, as built** (differs from cont. 2's plan in two places): (1) `Shared` is the
+union of ALL closed shared sets read in the final environment (`Shared JS Ef`), and each
+justification's cone is lifted to it (`coneClosed_lift`), so no monotonicity is needed; (2) the
+shared step's `CtxRead` needs the earlier environment read-scoped (`Scoped`), which is why
+`declsRun_scoped` exists.  `renEnv` renames by the input's FINAL environment.
+
+**Driver/plain-reach:** `recordReads` moved back to `Driver/Reach.lean` (as
+`ConLeche.Cached.recordReads`): compiled in `Cached/Needs.lean` it ran the plain `declConstants`
+(no `csimp` from `Verify/Cached/DeclNames` there) — a plain-reach regression of the first session.
+Allowlist: `ConLeche.pinFootprint` (moved from `ConLeche.Modular`), `ConstantInfo.isStmtKind`.
+
+**BLOCKED on #618** (`agent/618-views-ismodel`, not landed at this record):
+* Item 3 (drop `Model.false_empty`/`eq_equality`): NOT done.  The fields are still part of the
+  advertised `modular_model_exists` (`∃ m : ∀ j ≤ i, Model V (dev j).own, …`): dropping them weakens
+  that capstone until #618 restates the modular theorem over `IsModel`.  Readers otherwise:
+  `tests/ConLecheTests/{CompareAttack,IotaEqTests}.lean` (to move to `IsModel`),
+  `Model/Copies.lean`'s `Model.ofCopies` (constructs them; old compare machinery).
+* Items 4/5: `--olean --compare` and the modular compare modes still run the old comparison
+  (`Driver/Compare*`, `Model/Modular/Compare{,Run}`, `Verify/Driver/Compare{Run,Local,Module}`,
+  `ComposeCompare`, the `main_compare_*` olean/modular capstones, `Model/Copies.lean`'s
+  `ofCopies`), so none of it is deletable yet.  (`Model/Copies.lean`'s `CopiesEnv`/`ConstCopy`/
+  `denote_copy*` stay: `Model/CopyStmt.lean` uses them.)
+* Item 6: OVERVIEW (JSON mode, module map, checkDecls' sidecar) and the usage text are at the
+  sidecar rule.  Whitepaper §8 (`whitepaper/sections/06c-compare.typ`, `Fragment/Compare.lean`)
+  NOT rewritten: it describes the module comparison of `--olean --compare`, which is unchanged
+  until the olean mode moves to the sidecar; rewrite it then, around justified axioms.  README:
+  no line describes the JSON comparison (only links repointed: `MainTheorem.lean` and
+  `Decls.lean`/`Cli.lean` anchors).
+
+**Gates run on the final tree of this session:** `lake build`, `lake test` (warning-free);
+`tests/{challenge,trust-surface,plain-reach,binary-link,layering,quote-gate,no-local-paths,
+overview-links}.sh` pass; all 18 `--compare` e2e rows pass unchanged.  `tests/shake.sh`: 13 new
+proposals (imports of the new modules), being resolved in a subagent lane (see the commits).
+`tests/arena.sh` in full: see the end of this record.  Not run: the whitepaper gates (whitepaper
+untouched).
+
+**Next session, in order:** wait for #618; then the olean `--olean --compare` and modular modes
+as checking with a sidecar (their specs from #618), their capstones over `IsModel`; delete the old
+machinery (list above); drop the `Model` fields once the modular theorem is over `IsModel`
+(move `CompareAttack`/`IotaEqTests`); whitepaper §8; full gates; land on `compare` with `--no-ff`.
+
+**Gates run on the final tree of this session:** `lake build`, `lake test` (warning-free);
+`tests/arena.sh` in full under guard.sh (arena tutorial, every e2e fixture incl. the 18
+`--compare` rows unchanged, the trusted sweep, the `--jobs=4` sweep, the self-check — all pass;
+its two failures, whitepaper links and shake, fixed after it and re-run alone);
+`tests/{shake,layering,plain-reach,binary-link,trust-surface,challenge,quote-gate,
+no-local-paths,overview-links}.sh` and `whitepaper/links-gate.sh` pass.  Whitepaper: citations
+repointed, the lean4export paragraph of §8 states the sidecar rule; the module-comparison text of
+§8 is unchanged (the olean mode is).  Shake: imports of the new modules minimized (subagent),
+five fallback pairs added to `scripts/pub-import-plan.py`'s `FALLBACK` table.
+
+### #619 cont. 4 — `--olean --compare` checks the challenge with the solution (2026-11-20, agent/619-olean)
+
+**The run** (`compareG`, `ConLeche/Driver/Compare.lean`): the challenge's closure read through the
+trusted lookup alone (`CmpReq.chalRoots`; `D` when `T` is empty, as before), the solution's
+through `T`, then `D` (under `--constant`: the constants the challenge's prepared records name);
+a solution importing its challenge rejected (exit 1, as before); the solution's closure prepared
+and checked in full as an `--olean` run (`checkOleansG`, `Jobs.build recsS`); then the challenge's
+prepared records as `chalRecords envS`: every theorem whose FILE says its value uses `sorryAx`
+(`holeRecord`, from `OleanRead.thmUses`) the axiom of its statement, then `sideRecords (some envS)`
+(definitions, opaque constants), checked with `Jobs.build … (some envS)`.  Output as the JSON mode:
+`accepted N declarations, K axioms justified by the solution S (M declarations accepted)`, one
+`… justified by the solution` line per justified record; the solution's failure prefixed
+`the solution S: `.  `checkOleansG`/`oleanJobRun`/`JobFact` are generic in `Jobs ds justify`.
+
+**The hint needs no proof.**  The brief's route was: prove that an accepted job of an UNHINTED
+theorem has a value not mentioning `sorryAx` (so `sideRecords (some envS) D = D` and
+`checkDeclsWith D (some envS) = .ok …`).  That needs "no accepted environment stores a constant
+named `sorryAx`" through every install path (blocks included), which no lemma states today.  It is
+not needed: `Model.Solution.solution_envModel_run` takes the fold's accepting RUN over any records
+`rs` at `solutionOf (some envS) rs` (the old `solution_envModel` is its corollary), and
+`checkOleansG_run` (`Verify/Driver/Oleans.lean`) gives that run over the filled records from the
+jobs (`buildIndex_fill`, `solutionOf_fill`/`recordMates_fill`).  An unhinted theorem whose value
+uses sorry is then a theorem record of the run, whatever its check did; a hinted theorem without
+sorry the axiom of its statement.  So `compareG_accept` (`Verify/Driver/CompareRun.lean`) states a
+`DeclsRun`, not a `checkDeclsWith`; no runtime check was added.
+
+**The capstones** (`ConLeche/MainTheorem.lean`, proofs `ConLeche/Model/IsModelCompare.lean`,
+model-free half `ConLeche/Verify/CompareInput.lean`; axioms pinned):
+`main_compare_model`: exit 0 of `["--olean", "--compare", "--trusted-search-path=" ++ T,
+"--search-path=" ++ D, "--", c, s]` → `∀ fs', FS.AgreeUnder (searchPathOf T) fs fs' → ∃ model,
+IsModel V model (closureConstants (searchPathOf T) fs' #[C])`; `main_compare_no_False`: a theorem
+of type `False` in a module of the closure of `C` through `T` (`InClosure`, `ViewOf`) → no exit 0
+(the theorem's record is stored in the run's environment, which has an `EnvModelM`:
+`no_constant_of_False`).  Route: `runArgs_compare_stored` — the challenge's prepared record `d`
+stands in the run as `fill (sideRecord (holeRecord d))`, which keeps `d`'s constants or reads a
+theorem as the axiom of its statement (`StoredAs` compares statement kinds by `toConstantVal`), with
+the same reserved-names verdict (`inputStored_of`, the generalization of `checkDecls_inputStored`,
+`Verify/OleanInput.lean`); `closureConstants_local` from `readFiles_local`.
+**T empty:** `closureConstants` over the empty path is empty (`closureConstants_nil`: nothing
+resolves), so the capstone holds vacuously there and the driver keeps reading the challenge
+through `D` when `T` is empty.
+
+**Deleted** (the merged comparison): `cmpRecord`, `chalRecord`, `recIndex`, `readCone(Go)`,
+`chalRoot`, `chalRecs`, `compareRecords`, `ctxScoped` (`Driver/Compare.lean`); `cmpRecs`,
+`chalCmpRecs`, `challengeEnv`, `solutionEnv` (`Verify/Driver/CompareRun.lean`);
+`Model/Modular/Compare.lean` down to `RecCopy` and `records_copy` (the modular compare's);
+`main_compare_solves`, `main_compare_trusted`; `challengeView`, `challenge_local`;
+`CompareAttackTest.compare_attack_rejected` (its `no_model` stays, `IsModelTests` reads it).
+
+**Fixture verdict changes** (`tests/olean.sh`, each with its reason beside the row): opaque of
+another value 1→0; hole filled by an inductive type 2→1; holes at `Quot.sound`/`sorryAx` 2→0 and
+the compiler-trust definition 2→1 (all three the target verdicts the old comments named); an
+imported name redeclared with its body 1→0; upstream simple-mismatch 1→2 and
+def-hole-type-mismatch 1→2 (the solution's own check declines first); upstream check-multi 1→0.
+Every message re-pinned.  Cost: a module both closures hold is now checked twice.
+
+### #619 cont. 5 — the merge of #618, the renaming, `checkChallenge`; the modular modes need a ruling (2026-11-20)
+
+**Repair first.** 5ca96b589 (the third session's last commit) held a 6 GB `DESIGN.md`: an edit
+had inserted the gates paragraph before every character. The file was restored (the original
+plus the paragraph at the end of cont. 3, recovered exactly) and that commit amended (7daa4c46a;
+it had not been pushed).
+
+**Done this session** (on `agent/619-sidecar`; `lake build`, `lake test` warning-free):
+* merge of `compare` (9cfb6cb31, #618) — 71bb6d781; `isModel_sideRecords` over constants
+  (`IsModel V m (· ∈ constantsOf (sideRecords j ds).toList)`), no `False`/`Eq` conjuncts;
+* the ruled renaming "sidecar" → "solution" everywhere (code, theorem names, `Model/Solution*`,
+  docs, usage text) — 4f950ed75.  Left alone: the prelude's "sidecar file" (`PinGen/Dump.lean`,
+  `pins/*.json`, `tests/pindump.sh`), a different thing (the embedded prelude file);
+* `checkChallenge mode pins maxNatSize dsS ds` (`Cached/Decls.lean`), its own spec function:
+  `checkDeclsWith … ds (some (streamEnv dsS.toList))`; `checkDecls … ds := checkDeclsWith … ds
+  none`; the fold is shared (`checkDeclsWith`, the former optional argument).
+  `solution_model_exists (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
+  (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) : ∃ model, IsModel V model
+  (· ∈ constantsOf ds.toList)` (`Model.Solution.challenge_isModel`); `main_compare_json_model`
+  over the challenge file's own records `rC.decls` (no prelude declarations; `IsModel.anti`);
+* `--olean --compare` (cont. 4, subagent lane `agent/619-olean`, merged): `main_compare_model`,
+  `main_compare_no_False`;
+* whitepaper §8 around justified axioms (subagent lane `agent/619-wp`, merged): the fragment's
+  `denote_agree`, `EnvModel.extend_stmt`, `install_justified`, `install_shared`
+  (`whitepaper/Fragment/Compare.lean`); the modular comparison kept as a subsection (current);
+* OVERVIEW §1/§2 at the new rule for the lean4export and merged modes; anchors repointed
+  (README: anchors only).
+
+**NOT done; the lane does not land:** the modular compare modes (item 3), and so the deletion of
+the modular comparison machinery (`Driver/CompareModule`, `Verify/Driver/CompareModule`,
+`ComposeCompare`, `Model/Modular/Compare{,Run}`, `Model/Copies`' `ofCopies`, the
+`main_compare_modular_*` capstones) and of `Model.false_empty`/`eq_equality` (still read by
+`Model.ofCopies` and the modular compare proofs).
+
+**The spec choice for the modular modes (for the maintainer).** "The challenge's worker is a
+`--module` worker whose axioms are justified against the solution" needs a solution environment
+in the worker, and a model of it agreeing with the challenge's context on the shared cone:
+(a) *the solution checked merged*: the schedule adds one `--olean S` run (S's closure checked in
+    one process), and the challenge's worker reads S's closure merged (unchecked there; the same
+    files give the same read) as its solution, its own context from C's own imports through T.
+    The proof reuses `solution_envModel_run` started from the worker's context model (a
+    `sideFold` from a context instead of the empty environment, plus the modular development's
+    step for one such module).  Cost: S's closure is checked merged as well as module by module
+    where it overlaps C's (Init, Mathlib…), so a solution over Mathlib means a merged Mathlib
+    check in one process;
+(b) *the solution's modules*: the worker's solution is the reach of the holes' statements read
+    from S's closure modules (checked by their own workers), its model the modular family's.  Keeps
+    S modular, but "the same constant in both" must then mean the same module's copy (two modules
+    can store one axiom with two values in the family), and C's own hole names coexist with S's
+    copies of them in one header (the old compare worker made C's own names S's for that reason).
+    This is the larger proof (the old `Model/Modular/Compare{,Run}` scale or more).
+Recommendation: (a) for now (the statement is the same either way), (b) later if solutions over
+large closures are common.
+||||||| 9cfb6cb31
+
+
 ## TASK #621 — the public parts of a module read on their own; the modular `False` corollaries from `main_modular` (2026-11-20, agent/621-public-selfcontained; base `compare`)
 
 (#620 was taken by agent/620-sched-spawn, so this lane is #621.)
@@ -124662,6 +125095,117 @@ the guard exit 0 (olean gate 555/555, e2e 634/634, 87 theorems' axioms pinned); 
 no-local-paths, overview-links, quote-gate, the whitepaper's links and fragment gates pass.
 Landed on `compare` (nothing new there since the lane's base).
 
+### #619 cont. 6 — the modular modes: the challenge's worker with the solution loaded whole (2026-11-20)
+
+**Ruling in** (maintainer, on cont. 5): option (a) is out — no process loads either closure
+merged.  The statement (`main_modular_compare`) was fixed; the design was ours, to be justified
+against it.  The suggested design (the challenge's worker loads `S` like an extra `import all`,
+its holes copies of `S`'s names, the clash check on every clashing name) is taken, generalized
+to every redeclared name, FOR THE REASON BELOW.
+
+**The design.**  The compare worker (`--olean --module --compare`) is the challenge `C`'s ordinary
+worker with `import all S` added to its header (`checkModuleG … x`, `x = #[Graph.solutionImport S]`;
+`workerRead … x`).  It loads what Lean loads for a module importing `C`'s imports and the whole of
+`S`, under Lean's clash rule over every loaded name (every clashing name a reach root, #618).  Each
+emitted record of `C` is split (`ConLeche/Driver/Worker.lean`, "A compared challenge's copies"):
+* **own** (`ownRecs`): no name of it is loaded — checked against the context as any worker checks
+  its module's records (the same `DeclsRun none`); an own hole (`isHoleRec`: an axiom other than a
+  built-in one, a definition/opaque/theorem whose value uses `sorryAx`) is a reject before the reach
+  ("a hole of C no loaded module fills");
+* **copy** (`copyRecs`): some name of it is loaded; its names are read into the context from the
+  loads (reach roots), and `copyCheck` asks it to be what the loaded constant is: a hole, a theorem
+  or an opaque constant by its statement (`copyStmt?`, `Cached.sameCvUpToLevels`, ruling B), a
+  definition by its value too (`sameDefUpToLevels`), an inductive block the context's record
+  itself (`copyRecEq`) and one the kernel's reader reads (`blockReadB`, i.e. `BlockRead`); never at
+  `Quot.sound`/`sorryAx` (decline), always passing `basisNamesOk`.
+Every worker of a compared run reads through the trusted path, then the search path (the trusted
+path finds every module of the challenge's closure first); the challenge's closure is walked
+through the trusted path alone first (`chalWalk`) for the "only on the search path" reject.  The
+schedule prints both lookups' flags on every compared command (`--trusted-search-path=` empty where
+none is given), the form the theorem reads.
+
+**Why it establishes each part of the statement** (`main_modular_compare`: on every snapshot
+agreeing under the challenge's directories `Driver.trustedOr T D`, every module of `C`'s closure
+has a model of its constants and agrees with every module it sees):
+* *The family exists and agrees on what each module sees*: the compared run is a run of accepted
+  workers, `C`'s with imports added (`Run.ofCompare`); every module passes the local checks
+  (`Run.localOk`, unchanged: it was general in `x`), so the modular family exists, and the #618
+  argument (`Run.sees_isModel`) goes through with `Sees` over the header with `x` added (`SeesX`,
+  positive loads only): `sees_copy`/`sees_rank`/`sees_ctx`/`sees_unique`/`sees_agree` now hold at
+  any `x` (`loads_rank`; freshness at `C` from the `ownRecs` filter, `stored_of_own_find`,
+  `ownNamesOf_loaded`).  `C`'s real header loads less than `C` with `S`, so `Sees` ⊆ `SeesX`
+  (`sees_toX`), through the trusted directories or the full lookup (`sees_trims`).
+* *`C`'s own constants hold*: as any module's (`own_covers_x`, first case).
+* *`C`'s copies hold* — **the reason the design is right, not accidental**: there is ONE context.
+  A copy's name is a context name, so its value in `C`'s model is the context constant's, and that
+  constant is an entry of `C`'s own environment, whose laws hold in `C`'s model (`isModel_of_agree`
+  for the same constant, `satisfies_renamed` for one at other level-parameter names: `Satisfies`
+  reads level parameters positionally, `eval_instantiateLevelParams`, the stored constant's scoping
+  from `EnvWF`).  The copy's statement is that constant's syntactically (up to renaming), and every
+  name it reads is read in the same context: so "the names the statement reads mean the same
+  constants on both sides" is not a separate comparison but a consequence of there being one
+  environment, in which every two loaded copies of a name are one constant (the clash check on
+  every clashing name, #618) and every context name agrees with every module it is seen from.
+  Concretely: `C` imports `A` (`def f := 3`) with a hole `t : f = 5`; a solution declaring its own
+  `f := 5` is a second loaded copy of `f`, which the clash rule rejects (two definitions); a
+  solution importing `A` cannot prove `f = 5`.
+* *Locality*: every spec notion (`ViewOf`, `InClosure`, `LoadsAt`, `InModulePart`, `Sees`) reads
+  files through `readFiles` only (`SeesMoves`: `readFiles_iff_of_agree`, `inClosure_of_files`,
+  `sees_of_files`, `inModulePart_iff`), so the family built on the run's snapshot serves every
+  snapshot agreeing under `trustedOr T D`; through the trim (`Roots.Trims`) the run's full lookup
+  reads every module of that closure alike (`viewOf_trims`, `loadsAt_trims`, `inModulePart_trims`,
+  `hdrClosure_trims`).
+
+**Spec choice to report:** a solution may redeclare a challenge's definitions and inductive types
+only identically (up to level-parameter names for definitions); a different definition at a
+challenge's name is a reject even where no hole reads it ("one name, one meaning").  An opaque
+constant is matched by its statement only (`IsModel` never reads its value): a solution's opaque
+constant of another value is accepted (verdict change below).
+
+**The theorems** (`ConLeche/MainTheorem.lean`, proofs `ConLeche/Model/Modular/SeesCompare.lean`):
+`main_modular_compare`, `main_modular_compare_one` (`--olean --modular --compare`),
+`main_modular_compare_no_False`, `main_modular_compare_one_no_False` (a theorem of type `False` in
+the closure: the theorem, as itself or as the copy it is, is a constant of its module's own
+environment, which has a model; `compare_no_False`).  Axioms pinned (propext, Classical.choice,
+Quot.sound).  `main_compare_model`/`main_compare_no_False` (merged `--olean --compare`) now read the
+closure through `trustedOr T D` (no longer vacuous with `T` empty; `CmpReq.chalRoots_trustedOr`,
+`closureConstants_nil` deleted).
+
+**Deleted:** `Verify/Driver/CompareModule.lean` (`CmpFacts`), `Verify/Driver/CompareLocal.lean`,
+`Model/Modular/Compare{,Run}.lean`, the old compare worker (`cmpModuleRead`, `cmpCtxRecord`,
+`importedAt`, `cmpRoots`, …), `Run.ofCompare`'s per-module lookups (`cmpLook`), the
+`main_compare_modular_*` capstones and `compare_closure_solves`, `Model.ofCopies` and its helpers,
+the `Model` fields `false_empty`/`eq_equality` (the tests `IotaEqTest.T_a_ne_T_b` and
+`CompareAttackTest.no_model` take the `Eq` law as a hypothesis, `EqLaw`), the driver's record
+comparisons (`sameRecord`, `sameRecordUpToLevels`, `sameUpToLevels`, the driver's
+`sameCvUpToLevels`/`levelsRenaming`, `isHole`, `Filled`, `recCv?`, `declined`), the non-trusted
+`runArgs_{graphCmp,cmpModule,modularCmp}_accept` (the commands carry both path flags).
+
+**Verdict changes** (`tests/olean.sh`, the `mcmp` rows; schedule, one process, compare worker):
+* `CmpOpq`/`CmpOpqSolK` (opaque constant of another value) 1/1/1 → 0/0/0: an opaque constant is its
+  statement;
+* `CmpIndC`/`CmpIndS` (hole filled by an inductive type) 2/2/2 → 0/0/0: the hole's statement is
+  the inductive constant's (the target verdict);
+* `CmpSorryC`/`CmpSorryS` (a prelude declaring `sorryAx`) 2/2/2 → 0/0/0: the challenge's own
+  `sorryAx` is checked as `Init.Prelude`'s is, its `Bool` the solution's same block (as the merged
+  mode since cont. 4);
+* `CmpTrustC`/`CmpTrustS` (compiler-trust hole filled by a definition) 2/2/2 → 1/1/0: the hole is
+  justified; the solution's own worker rejects its definition at a compiler-trust name;
+* `UpMultiA`/`UpMultiB` (upstream check-multi) 1/1/1 → 0/0/0: the challenge's own theorem is checked
+  by its worker (as in the merged mode);
+* `CmpChal`/`CmpSolMissing` stays 1 with a new message ("easy: a hole of CmpChal no loaded module
+  fills"); every other row keeps its exit code, messages re-pinned ("justified by …").
+* the commands' rows: every compared worker carries `--trusted-search-path=T --search-path=D`.
+
+**Docs:** OVERVIEW (§1's modular comparison theorem, §2's "a challenge module by module", the module
+map), the usage text (`--compare` with the modular modes, `--trusted-search-path`), whitepaper §8's
+"Comparing modules" rewritten to the rule (subagent lane `agent/619-wp2`, merged): the fragment's
+validation by comparison (`Compared`) is gone, `compare_solves` quantifies over the challenge's
+context (plain and renamed), `LocalOk.redeclared_is_proof` kept for the attack paragraph; §7's
+"or compared" removed.  README: anchors only; stale line 69 (`Model V env` no longer says that
+`False` denotes the empty set and `Eq` set equality: those fields are gone).
+
+## TASK #622 — the pointwise `IsModel`: the ι equations read off the recursor's own type (2026-11-20, agent/622-pointwise-ismodel; base `compare`)
 
 **#622 (2026-11-20) — the pointwise `IsModel` read off the recursor's own type: measured;
 stopped for a ruling on the bridge; nothing changed in the code.**  (Briefed as #621; #621 is
@@ -124730,3 +125274,93 @@ constructor's.  Our checker rejects such a stream (the defeq comparison fails). 
 *State.*  No code change; the lane's only commit is this record.  The spike and the script are
 not kept (they are described above).  Not landed.
 ||||||| 9cfb6cb31
+
+**#622 cont. (2026-11-20) — option (B) ruled and done.**
+
+*Ruling (coordinator, within the maintainer's standing "a recursor whose type does not let us
+read off the ι equations is ruled out a priori").*  Option (B): a stored recursor's minor
+premises must state the constructors' fields syntactically, up to Lean's consumed annotations,
+each consumed only where stored as the identity; a recursor failing it is rejected (exit 1).
+
+*A false premise of the ruling, settled within it.*  The ruling expected 0 failures on
+Mathlib + Stacks for syntactic field domains up to annotations.  Measured again (a Lean script
+over `importModules`, v4.35.0; field domains of every rule against the constructor's, opened at
+fvars): Init/Std/Lean 0 of 4949 rules; Mathlib + Stacks 17 of 10768 rules differ, every one only
+in its universe levels (`Nonempty.{max 1 (succ u)}` against `Nonempty.{succ u}`: `ContractibleSpace`,
+`Small`, `IsPullback`, `IsZero`, `FormalGroup`, `DFinsupp`, …), equal after `Level.normalize`.  So
+the rule compares up to equivalent levels (`Level.isEquiv`, sound for `Level.eval`) as well: no
+recursor of Init, Std, Lean, Mathlib or Stacks is rejected.  The conclusions' indices are equal
+syntactically everywhere (0 failures).  Stripped fields occur only in plain rules (0 nested), and
+the recursor's parameter domains are the constructor's up to the same stripping in every rule
+with a stripped field (1 Mathlib rule, `Cat.FreeReflRel.mk`, has a parameter that is neither,
+and no stripped field).
+
+*The checker's rule* (`blockReadsOk`, `ConLeche/Kernel/Inductives/IotaRead.lean`; the binary runs
+its twin `blockReadsOkC`, `Cached/IotaReadC.lean`, `blockReadsOkC_eq`), after a block's install,
+against the environment after it, at every recursor the block installs and every rule `i`: the
+statement's reading (`iotaPartsOf`: the `i`-th minor premise of the motive the type's body
+applies, its first `nfields` binders the fields lifted past the later prefix, its conclusion's
+first `mI - rP` arguments the indices; the major premise's type `C'.{us} params is` gives `us` and
+`params`) is the proofs' reading through the constructor the environment stores under the rule's
+name (`iotaPartsAt`, the old `iotaEqAt`'s parts): the same indices, levels and parameters; the
+fields' domains up to equivalent levels (`Expr.lvlEq`, `==` first at every node), or, in a
+`.plain` rule whose recursor parameter domains are the constructor's up to the same
+(`paramsAnnEq`), up to consumed annotations (`annEq`: `optParam`/`autoParam` with two arguments,
+`outParam`/`semiOutParam` with one, at the head, repeatedly — Lean's `consume_type_annotations`,
+`src/kernel/inductive.cpp`).  An annotation is consumed only where its stored definition is
+`fun (α : Sort p) => α`, resp. `fun (α : Sort p) (_ : D) => α` with `D` either `α` or a constant
+type with a stored `D.missing : D` (`annIdent`, `annWitness`).  *Checked on the stored definition,
+not pinned*: the meaning comes from the definition's own clause in the model, no reserved names
+or pin semantics are added, and a stream defining its own `outParam` differently is affected only
+where one of its recursors relies on the consumption.  *Why the witness*: over an empty `D` the
+reading of `fun _ : D => α` is the proof point, not `α`, so `autoParam` is the identity only when
+its tactic argument's type is inhabited — `Lean.Syntax.missing`.  Rejection message: "the recursor
+R's minor premise for C does not state the constructor's fields, indices and parameters as the
+constructor's type does".  Runs in both modes and in the pure `checkDeclKind`.
+
+*The statement* (`ConLeche/IsModel.lean`): `ModelOf model c` (V implicit) reads `c` alone —
+membership in its type, a definition's value, a recursor's rules by position (`RuleHolds V model φ
+cv mI rP i rl := ∀ e, iotaEqOf cv mI rP i rl = some e → ∃ x, x ∈ˢ Expr.eval model φ ρ₀ e`);
+`IsModel V model C := ∀ c, C c → ModelOf model c`.  `iotaEqOf`, `iotaEqMk`, `iotaFrame`,
+`motiveLevel?` live in the kernel file (the checker runs the statement's own reading).
+`iotaEqAt`, `RecRule.ctorLevels`, `RecRule.iotaParams` moved there as the proofs' reading;
+`inputFire`, `blockFormerNames`, `blockFired`, `recFire_eq_inputFire`, `blockSplit_formers` are
+gone: a block's constants are its records (`Declaration.constants`), an `.olean` recursor's rules
+carry the reader's `.plain` placeholder (`entryConstants`), and `StoredAs` compares rules up to
+their firing modes (`RecRule.unfired`).  Quot.lift's rule reads too (its minor `f : α → β`, the
+major's type `Quot α r`).  `RecordsStored` now also carries, per constant, `RecReads env.find? ci
+∨ ∃ k cv, ci = quotAt k cv` (`declsRun_reads`: the step's `blockReadsOk` at its output, carried to
+the run's end by `PushChain.find?_some`, `RecReads.mono`).
+
+*The bridge.*  `iotaEqOf_holds` (`Model/IsModelBridge.lean`): from `ruleReadsB`, the statement's
+equation and the stored one (`∈ ruleEqs env`) are `iotaEqMk` of parts with the same indices,
+levels and parameters (`iotaEqMk_sides`), so telescopes `pre ++ fd'` and `pre ++ fd` over one body;
+`Model.ruleEq_sides` gives the sides at every fit of the stored one, and `fits_rule_transfer`
+turns a fit of the statement's into one of the stored one: up to levels by `Denotes_lvlEq`; with
+consumed annotations by `annEq_mem` — an annotation's application is the identity on a type where
+its applications apply (`ann1_app`, `ann2_app`: `defn_eq` of the stored identity definition, the
+graph of `lamV (univ k) …` never the point, its argument in `univ k`), and `AppsApply` of the
+annotated domain comes from the invariant's `type_wellDenotedTy` of the constructor's type
+(`gradedTele_of_wd`), descended along the parameters (fit through the recursor's parameter domains,
+shifted by `Fits_shift`, transferred by `fits_annEq`) and instantiated at the rule's parameters
+(`gradedTele_inst`).  `Model/IotaReadSem.lean` holds the semantic lemmas.  Quotients:
+`quot_reads` — a stored `Quot.lift`/`Quot.ind` is its pin at its names and so is the stored
+`Quot.mk` (`basis_pinned`, `rec_ctors`); the pins' rules read at any names by computation
+(`quotLift_reads`, `quotInd_reads`, `simp` over the pins).
+
+*Users.*  `model_exists`, `main_oleans`, `main_modular` and the compare capstones state `IsModel`
+unchanged in text; proofs repaired (`own_recordsStored`, `checkDecls_recordsStored`,
+`declsRun_recordsStored`).  `IsModel.anti` (#619) is now one line.  Demonstrations
+(`IsModelTests`): `T.rec`'s rules read off its type (`iotaEqOf_ruleA/B` by `rfl`).
+
+*Fixtures; verdict changes.*  `stored_type_dom_redex` (a `succ` minor premise whose field domain is
+the β-redex `(fun T : Type => T) Nat'`): 0 → 1, official (syntactic) 1; its old target was 0.
+`stored_rec_outparam` (outParam parameter, autoParam and optParam fields) stays 0 through the
+annotation path.  No other e2e, arena or olean verdict changed.  (Two new fixtures were written,
+then dropped as duplicates of these.)  The DAG towers (`tower_*`) first blew up (plain
+`instantiateLevelParams`/`liftLooseBVars` walks and an `lvlEq` without the `==` shortcut): the twin
+now uses `instLevelParams`, `liftLooseBVarsC`, `instantiateLiftC`, `dropVarsC`.
+
+*Departure (OVERVIEW §14).*  Lean's kernel consumes the four annotations by name; here only where
+stored as the identity, in a rule at the recursor's own parameters whose types are the
+constructor's up to the same.  No recursor Lean writes is rejected.

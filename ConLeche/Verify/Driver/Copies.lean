@@ -51,7 +51,7 @@ open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLech
 /-- **The own records accepted from the context** (`worker_local`'s run). -/
 @[expose] def OwnRun (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
     Prop :=
-  ∃ q, DeclsRun mode natOpPinSets maxNatSize (ownDeclsOf sp fs M w)
+  ∃ q, DeclsRun mode natOpPinSets maxNatSize none (ownDeclsOf sp fs M w)
     (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList)) q
 
 theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci ∈ E.consts) :
@@ -319,7 +319,7 @@ theorem checkDeclStepC_stmt {mode : CheckMode} {pins : List NatOpPinSet} {fe : F
 
 /-- **An accepted statement record's type does not read its own name.** -/
 theorem declsRun_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
     ∀ d ∈ ds, ∀ cv, StmtRecord d cv → cv.name ∉ cv.type.readNames := by
   induction h with
   | nil => exact fun _ h => nomatch h
@@ -355,7 +355,7 @@ theorem find?_isSome_append {E E' : Env} {new : List ConstantInfo}
 
 /-- **The names an accepted statement record's type reads are stored after the run.** -/
 theorem declsRun_stmt_stored {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) (hp : p.2 = mkFEnv p.2.env) :
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) (hp : p.2 = mkFEnv p.2.env) :
     ∀ d ∈ ds, ∀ cv, StmtRecord d cv → ∀ n ∈ cv.type.readNames, (q.2.env.find? n).isSome = true := by
   induction h with
   | nil => exact fun _ h => nomatch h
@@ -404,7 +404,7 @@ theorem own_reads_ctx {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worker
     (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) {y : Name}
     (hy : y ∈ recordReads p) (ho : (ownNames w.home).contains y = false)
     (hk : (w.reads.index.first.contains y || !(w.home.constants.foldl
-      (fun s c => (Modular.pinFootprint c.name).foldl (fun s n => s.insert n) s)
+      (fun s c => (pinFootprint c.name).foldl (fun s n => s.insert n) s)
       ({} : Std.HashSet Name)).contains y) = true) :
     ((streamEnv w.reach.ctx.toList).find? y).isSome = true := by
   obtain ⟨_, _, hr⟩ := hw.reach

@@ -63,6 +63,9 @@ equation the compiled equality rests on.
 | theorem | what it says |
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input) |
+| `ConLeche.solution_model_exists` | **THE MAIN THEOREM, WITH A SOLUTION**: a stream `checkDecls` accepts with the environment of another accepted stream as its solution (its own axioms justified by it) has a model in every `SetTheory V`, and declares `False` and `Eq`, where it declares them at all, as the prelude's |
+| `ConLeche.main_compare_json_model` | an exit 0 of `--compare -- <c> <s>` parsed `c`, and the challenge's records prepared with the prelude have such a model |
+| `ConLeche.main_compare_model` | an exit 0 of `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`: on every snapshot that agrees under `T`, the constants of the closure of `C` through `T` have such a model (`main_compare_no_False`: where that closure holds a theorem of type `False`, no exit 0) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
 | `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
 | `ConLeche.modular_model_exists` | **THE MODULAR THEOREM**: a development every module of which passes the local checks has a compatible family of models of the own environments |
@@ -117,6 +120,30 @@ info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quo
 -/
 #guard_msgs in
 #print axioms ConLeche.model_exists
+
+/--
+info: 'ConLeche.solution_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.solution_model_exists
+
+/--
+info: 'ConLeche.main_compare_json_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_json_model
+
+/--
+info: 'ConLeche.main_compare_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_model
+
+/--
+info: 'ConLeche.main_compare_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_no_False
 
 /--
 info: 'ConLeche.modular_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -175,64 +202,34 @@ info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.cho
 #print axioms ConLeche.main_oleans_no_False
 
 /--
-info: 'ConLeche.main_compare_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.main_compare_solves
-
-/--
-info: 'ConLeche.main_compare_trusted' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.main_compare_trusted
-
-/--
-info: 'ConLeche.main_compare_json_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.main_compare_json_solves
-
-/--
 info: 'ConLeche.main_compare_json_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.main_compare_json_no_False
 
 /--
-info: 'ConLeche.main_compare_modular_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_solves
+#print axioms ConLeche.main_modular_compare
 
 /--
-info: 'ConLeche.main_compare_modular_one_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare_one' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_one_solves
+#print axioms ConLeche.main_modular_compare_one
 
 /--
-info: 'ConLeche.main_compare_modular_trusted_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_trusted_solves
+#print axioms ConLeche.main_modular_compare_no_False
 
 /--
-info: 'ConLeche.main_compare_modular_one_trusted_solves' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare_one_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_compare_modular_one_trusted_solves
-
-/--
-info: 'ConLeche.main_compare_modular_trusted' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.main_compare_modular_trusted
-
-/--
-info: 'ConLeche.Frontend.Olean.challenge_local' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.Frontend.Olean.challenge_local
+#print axioms ConLeche.main_modular_compare_one_no_False
 
 /--
 info: 'ConLeche.main_modular' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -661,11 +658,5 @@ info: 'ConLeche.CompareAttackTest.no_model' depends on axioms: [propext, Classic
 -/
 #guard_msgs in
 #print axioms ConLeche.CompareAttackTest.no_model
-
-/--
-info: 'ConLeche.CompareAttackTest.compare_attack_rejected' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.CompareAttackTest.compare_attack_rejected
 
 end ConLecheTests.Axioms

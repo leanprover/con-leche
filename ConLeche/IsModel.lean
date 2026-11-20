@@ -144,9 +144,6 @@ noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam �
 /-- The variable environment a closed term is read at (it reads none of it). -/
 noncomputable def ρ₀ : BVarIdx → V := fun _ => empty
 
-/-- Does a value use a hole (`sorryAx`)? -/
-def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
-
 /-- **The constants a declaration (a record of the input) contributes to the model's clauses.**
 
 * An axiom is its statement.  `sorryAx`, the hole, contributes nothing: a hole is read where it

@@ -1,8 +1,7 @@
 module
 
-public import ConLeche.Driver.Graph
 public import ConLeche.Driver.Schedule.Run
-public import ConLeche.Driver.Compare
+public import ConLeche.Driver.CompareModule
 
 @[expose] public section
 
@@ -84,29 +83,23 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (tp sp : SearchPath) (root : N
       diagLine s!"con-leche: graph: {e}"
       return e.exitCode
     | .ok (C, _) =>
-      let chal ← match cmp with
-        | some _ =>
-          if tp.isEmpty then pure (some {}) else do
-          match ← Graph.graphOf r.chalRoots [root] jobs with
-          | .ok (CC, _) => pure (some (Graph.namesOf CC.toList))
-          | .error e =>
-            if let some why := ← fallbackOnly r then
-              diagLine s!"con-leche: graph: {why}"
-            else diagLine s!"con-leche: graph: {e}"
-            pure none
-        | none => pure (some {})
-      let some chal := chal | return 1
+      -- a compared run's challenge closure, through the trusted path alone
+      if cmp.isSome then
+        if let some e := ← chalWalk r jobs then
+          diagLine s!"con-leche: graph: {e}"
+          return e.exitCode
       let mods := C.map (·.1)
       let dirs := ":".intercalate (sp.map toString)
       let tdirs := ":".intercalate (tp.map toString)
-      let paths := Schedule.pathArgs (if cmp.isSome then tdirs else "") dirs
-      -- the challenge's worker is the compare worker (task #608); a module of the challenge's
-      -- closure reads through the trusted path alone
+      -- a compared run's commands carry both lookups' flags, the trusted path's empty where none
+      -- is given (the form `ConLeche.main_modular_compare` reads them in)
+      let paths := if cmp.isSome then #["--trusted-search-path=" ++ tdirs, "--search-path=" ++ dirs]
+        else Schedule.pathArgs "" dirs
+      -- the challenge's worker is the compare worker (tasks #608, #619); every worker of a
+      -- compared run reads through the trusted path, then the search path
       let args (t : Option Nat) (m : Name) : Array String :=
         match cmp with
-        | some s => if m == root then Schedule.cmpWorkerArgs mode paths t root s
-          else if chal.contains m then Schedule.workerArgs mode maxNatSize
-            (Schedule.pathArgs "" (if tp.isEmpty then dirs else tdirs)) t m
+        | some s => if m == root then Schedule.cmpWorkerArgs mode maxNatSize paths t root s
           else Schedule.workerArgs mode maxNatSize paths t m
         | none => Schedule.workerArgs mode maxNatSize paths t m
       if o.commands then

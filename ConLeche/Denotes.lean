@@ -223,32 +223,23 @@ def RuleEqsHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop 
 /-- **A model of the environment `env` in the set theory `V`**: one
 assignment `cval` of a set to every constant at every level
 assignment — fixed once, for the whole environment — under which every
-stored constant is a member of what its type denotes, the built-in
-`False` is the empty set, the built-in `Eq` is set equality, every
-stored definition means its value and every recursor rule holds.
+stored constant is a member of what its type denotes, every stored
+definition means its value and every recursor rule holds.
 
 The interpretation of the constants *is* the model: there is nothing
 else to choose (`Sort`, `∀`, `λ`, application and projection are read
 by fixed set operations).  `mem` is what makes every stored theorem
 true — a theorem `t : P` is a constant whose type `P` denotes a truth
-value, and `cval t φ ∈ˢ ⟦P⟧` says that truth value is `{pt}` — and
-`false_empty` is what makes truth mean something: a proof of `False`
-would be a member of `∅`.
-
-`False` and `Eq` are both built in (the checker installs them from its
-own pins and rejects a stream that declares them otherwise), so the
-last two fields are facts about the checker's own constants, not
-hypotheses about the input; each is stated of whatever the stored
-constant denotes, so it says nothing when nothing is stored.
+value, and `cval t φ ∈ˢ ⟦P⟧` says that truth value is `{pt}`.  What
+`False` and `Eq` denote is their declarations' business: the model the
+proofs build reads them as the empty set and as set equality
+(`Model.eq_equality_of`, `no_constant_of_False`), and every `IsModel`
+of a stream declaring them does (`IsModel.false_empty`, `IsModel.eq_eqv`).
 
 A model is also a model in the logician's sense for definitions:
 `defn_eq` makes every stored definition's defining equation hold, read
 off the environment's own data, so that a definition hidden behind an
-import still means its value.  Any other definitional equality a reader
-cares about can be stated as a theorem `h : a = b` proved by `rfl`;
-`mem` puts `cval h φ` in what `Eq A a b` denotes, which by
-`eq_equality` is `eqv ⟦a⟧ ⟦b⟧`, inhabited only when `⟦a⟧ = ⟦b⟧`
-(`SetTheory.eq_of_mem_eqv`).
+import still means its value.
 
 The recursors are free constants in this reading too, but their rules
 are not: `rule_eqs` makes every stored recursor rule's ι equation
@@ -263,19 +254,6 @@ structure Model (V : Type w) [SetTheory V] (env : Env) where
   is closed) -/
   mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
     ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-  /-- whatever the built-in `False` denotes is the empty set -/
-  false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-    Denotes cval env φ ρ (.const falseName []) F → F = empty
-  /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-  of the universe the level `u` names, and two of its members `a` and
-  `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-  membership premises are the graph's domains — `Eq`'s denotation is a
-  three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-  over `A` again, and a graph read off its domain says nothing -/
-  eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-    Denotes cval env φ ρ (.const eqName [u]) E →
-    A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-    app (app (app E A) a) b = eqv a b
   /-- **a stored definition means its value**: at every level
   assignment, the value denotes what the constant does.  The value is
   read at the definition's own level parameters (an instance `c.{us}`

@@ -141,37 +141,73 @@ theorem agreeAll : ∀ M ∈ R.names, R.AgreeAll M :=
     · exact R.route hM ih hP hy hs₁ hmod
 
 /-- **A name a module stores and sees is in its context.** -/
-theorem sees_ctx (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Name}
-    (hM : M ∈ R.names) {n m' : Name} (h : Sees sp fs M n m')
+theorem sees_ctx (hl : ∀ M, R.look M = sp) {M : Name}
+    (hM : M ∈ R.names) {n m' : Name} (h : SeesX sp fs (R.x M) M n m')
     (hn : ((R.dev (R.rk M)).own.find? n).isSome = true) :
     ((R.dev (R.rk M)).context.find? n).isSome = true := by
-  obtain ⟨cp, q, hq, hqn, -⟩ := R.sees_copy hl hx hM h
+  obtain ⟨cp, q, hq, hqn, -⟩ := R.sees_copy hl hM h
   have hf := first_of_at (R.facts M hM) hq
   rw [hqn] at hf
   have hn' : ((ownEnvOf (R.look M) fs M (R.w M)).find? n).isSome = true := by
     rw [R.dev_rk hM] at hn; exact hn
-  exact R.stored_of_own_find hM (hx M) hn' hf
+  exact R.stored_of_own_find hM hn' hf
+
+/-- At a compared challenge, a loaded name is no own name. -/
+theorem ownNamesOf_loaded {x : Array ImportRec} (hx : x.isEmpty = false) {ix : NameIndex}
+    {l : Loaded} {n : Name} (h : (ix.first[n]?).isSome = true) :
+    (ownNamesOf x ix l).contains n = false := by
+  simp only [ownNamesOf, hx, Bool.false_eq_true, ↓reduceIte]
+  rw [← Array.foldl_toList]
+  suffices ∀ (cs : List CEntry) (s0 : Std.HashSet Name), s0.contains n = false →
+      (cs.foldl (fun s c => if ix.first.contains c.name then s else s.insert c.name) s0).contains
+        n = false from this _ _ (by simp)
+  intro cs
+  induction cs with
+  | nil => intro s0 h0; exact h0
+  | cons c cs ih =>
+    intro s0 h0
+    simp only [List.foldl_cons]
+    apply ih
+    split
+    · exact h0
+    · rename_i hc
+      rw [Std.HashSet.contains_insert]
+      simp only [Bool.or_eq_false_iff]
+      refine ⟨?_, h0⟩
+      simp only [beq_eq_false_iff_ne]
+      rintro rfl
+      simp only [Std.HashMap.contains_eq_isSome_getElem?] at hc
+      exact hc h
 
 /-- **Outside the context, a name is seen from one module only.** -/
-theorem sees_unique (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Name}
-    (hM : M ∈ R.names) {n m₁ m₂ : Name} (h₁ : Sees sp fs M n m₁) (h₂ : Sees sp fs M n m₂)
+theorem sees_unique (hl : ∀ M, R.look M = sp) {M : Name}
+    (hM : M ∈ R.names) {n m₁ m₂ : Name} (h₁ : SeesX sp fs (R.x M) M n m₁)
+    (h₂ : SeesX sp fs (R.x M) M n m₂)
     (hn : ((R.dev (R.rk M)).context.find? n).isSome = false) : m₁ = m₂ := by
-  obtain ⟨cp₁, q₁, hq₁, hn₁, rfl⟩ := R.sees_copy hl hx hM h₁
-  obtain ⟨cp₂, q₂, hq₂, hn₂, rfl⟩ := R.sees_copy hl hx hM h₂
+  obtain ⟨cp₁, q₁, hq₁, hn₁, rfl⟩ := R.sees_copy hl hM h₁
+  obtain ⟨cp₂, q₂, hq₂, hn₂, rfl⟩ := R.sees_copy hl hM h₂
   refine Classical.byContradiction fun hne => ?_
   have hcp : cp₁ ≠ cp₂ := fun e => hne (by rw [e])
-  have hw := R.facts₀ hM (hx M)
+  have hw := R.facts M hM
   obtain ⟨_, _, hr⟩ := hw.reads
   obtain ⟨cl, hcl, hcln, ⟨cv, kd, hmem⟩, -⟩ := workerClash_complete hr hcp hq₁ hq₂ hn₁ hn₂
   -- the clash's name is loaded, so no own name
   have hf := first_of_at hw hq₁
   rw [hn₁] at hf
   have hown : (ownOf (R.x M) (R.w M)).contains cl.name = false := by
-    rw [hx M, hcln]
-    show (ownNames (R.w M).home).contains n = false
-    cases hc : (ownNames (R.w M).home).contains n
-    · rfl
-    · rw [first_none_of_ownNames hw hc] at hf; cases hf
+    rw [hcln]
+    by_cases hx : R.x M = #[]
+    · show (ownNamesOf (R.x M) _ (R.w M).home).contains n = false
+      rw [hx]
+      show (ownNames (R.w M).home).contains n = false
+      cases hc : (ownNames (R.w M).home).contains n
+      · rfl
+      · rw [first_none_of_ownNames (R.facts₀ hM hx) hc] at hf; cases hf
+    · have hxe : (R.x M).isEmpty = false := by
+        cases hxe : (R.x M).isEmpty
+        · rfl
+        · exact absurd (Array.isEmpty_iff.1 hxe) hx
+      exact ownNamesOf_loaded hxe hf
   obtain ⟨_, _, hreach⟩ := (R.facts M hM).reach
   have := reach_clash hreach hcl ⟨_, hmem, by rw [hq₁]; rfl⟩ hown
   rw [hcln] at this
@@ -181,11 +217,11 @@ theorem sees_unique (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : N
   cases hn'
 
 /-- **A context name agrees with every copy the module sees.** -/
-theorem sees_agree (hl : ∀ M, R.look M = sp) (hx : ∀ M, R.x M = #[]) {M : Name}
-    (hM : M ∈ R.names) {n m' : Name} (h : Sees sp fs M n m')
+theorem sees_agree (hl : ∀ M, R.look M = sp) {M : Name}
+    (hM : M ∈ R.names) {n m' : Name} (h : SeesX sp fs (R.x M) M n m')
     (hn : ((R.dev (R.rk M)).context.find? n).isSome = true) :
     Agree R.dev (R.rk M) (R.rk m') n := by
-  obtain ⟨cp, q, hq, hqn, rfl⟩ := R.sees_copy hl hx hM h
+  obtain ⟨cp, q, hq, hqn, rfl⟩ := R.sees_copy hl hM h
   exact R.agree_loaded hM (R.agreeAll M hM) hn hq hqn
 
 end Run

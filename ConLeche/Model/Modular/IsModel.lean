@@ -45,7 +45,7 @@ theorem own_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSi
   have hn : c.name = ci.name := by
     show c.toConstantVal.name = ci.toConstantVal.name
     rw [hst.1]
-  refine ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst, ?_⟩
+  refine ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst, fun _ _ _ _ _ _ => ?_⟩
   have := hr d hd ci hci
   rwa [henv] at this
 

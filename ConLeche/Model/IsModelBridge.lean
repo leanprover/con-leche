@@ -705,7 +705,7 @@ theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvM
       have he'' : iotaEqOf cv mI rP i rl' = some e' := by
         rw [← iotaEqOf_unfired, show { rl' with fire := .plain } = rl'.unfired from rfl, hu]
         exact he'
-      rcases hreads with hR | ⟨k, cvq, hq⟩
+      rcases hreads cv mI rP isK rules rfl with hR | ⟨k, cvq, hq⟩
       · exact iotaEqOf_holds m hag heq hf hrl' (hR cv mI rP isK' rules' rfl i rl' hrl') he'' φ
       · exact iotaEqOf_holds m hag heq hf hrl' (quot_reads m hf hq hrl') he'' φ
     | _ => trivial
