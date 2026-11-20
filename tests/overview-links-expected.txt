@@ -58,12 +58,12 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/Verify/Driver/Main.lean#L318-L322
-   318  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
-   319      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
-   320      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   321        parseChunks [b] = .ok r ∧
-   322        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L323-L327
+   323  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
+   324      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
+   325      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   326        parseChunks [b] = .ok r ∧
+   327        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Verify/Frontend/Chunks.lean#L363
    363  theorem parseChunks_ok_parseBytes {cs : List ByteArray}
@@ -165,12 +165,12 @@
 == ConLeche/Frontend/CheckerIO.lean#L310
    310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L318-L322
-   318  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
-   319      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
-   320      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   321        parseChunks [b] = .ok r ∧
-   322        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L323-L327
+   323  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
+   324      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
+   325      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   326        parseChunks [b] = .ok r ∧
+   327        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -1460,8 +1460,8 @@
    219        c.toConstantVal.levelParams = cv.levelParams ∧
    220        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Driver/Cli.lean#L382
-   382  here, not in `main`, so that the model sees it.  A verdict that is
+== ConLeche/Driver/Cli.lean#L403
+   403  here, not in `main`, so that the model sees it.  A verdict that is
 
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -1483,8 +1483,8 @@
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L382
-   382  here, not in `main`, so that the model sees it.  A verdict that is
+== ConLeche/Driver/Cli.lean#L403
+   403  here, not in `main`, so that the model sees it.  A verdict that is
 
 == Main.lean#L28
     28  def enableAbortOnNonlinear : IO Unit := do

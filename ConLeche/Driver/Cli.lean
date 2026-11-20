@@ -216,9 +216,11 @@ def helpText : String := String.intercalate "\n" [
   "                           others are killed and requeued at their place",
   "  --schedule-timeout=S     a time limit per worker",
   "                           a worker ended by a signal has it in its verdict;",
-  "                           stack = its stack overflowed: set LEAN_STACK_SIZE_KB",
-  "                           (in KiB; the workers inherit it), a resumed run",
-  "                           retries it only when the value changed",
+  "                           stack = its stack overflowed: rerun with a larger",
+  "  --worker-stack-size=SIZE the workers' thread stacks (with a unit: 8G), set",
+  "                           as their LEAN_STACK_SIZE_KB (without the flag they",
+  "                           inherit the environment; Lean's default is 1G); a",
+  "                           resumed run retries stack only at another size",
   "  --schedule-order=ORDER   shuffled (default; by a hash of the names) or graph:",
   "                           the order in which the modules start",
   "  --schedule-commands      start nothing; print on stdout, one per line and",
@@ -226,15 +228,19 @@ def helpText : String := String.intercalate "\n" [
   "                           the --check-graph run, then one --module run per",
   "                           module in the start order (--jobs=N only if given);",
   "                           the modular guarantee needs every one to exit 0 on",
-  "                           one unchanged snapshot of the files (deep checks may",
-  "                           need LEAN_STACK_SIZE_KB); -memory, -log and",
+  "                           one unchanged snapshot of the files (with",
+  "                           --worker-stack-size, each worker's line starts",
+  "                           with LEAN_STACK_SIZE_KB=K); -memory, -log and",
   "                           -timeout are ignored",
   "                      Every line starts with the status [done (p%), wrkr, thds,",
-  "                      RSS tot, RSS biggest, eta]: finished modules, the workers",
-  "                      running, their threads, their resident sets now (total",
-  "                      and largest); then, per finished module on stdout,",
-  "                      verdict, t, rss, module; with --progress=N (ms) or Ss,",
-  "                      after that long without a line, one on stderr:",
+  "                      RSS tot, RSS biggest, rsvd, eta]: finished modules, the",
+  "                      workers running, their threads, their resident sets now",
+  "                      (total and largest), with a memory limit what is",
+  "                      reserved for them of the planning budget (memory limits",
+  "                      the starts where the two are close); then, per finished",
+  "                      module on stdout, verdict, t, rss, module; with",
+  "                      --progress=N (ms) or Ss, after that long without a",
+  "                      line, one on stderr:",
   "                      waiting: the longest worker, requeued, waiting for room",
   "                      (reserved against the planning budget);",
   "                      the summary gives the peak total; at the end, statistics",
@@ -290,6 +296,9 @@ structure Args where
   /-- `--trusted-search-path=DIR:DIR…`: with `--compare`, where the challenge is read, and
   where the solution is read first -/
   trustedPath : List System.FilePath := []
+  /-- `--worker-stack-size=SIZE`: with `--schedule`, the workers' stack size in KiB (their
+  `LEAN_STACK_SIZE_KB`); `none`: they inherit the environment unchanged -/
+  workerStack : Option Nat := none
   files : Array String := #[]
   bad : Option String := none
 
@@ -307,11 +316,18 @@ def flagValue (pre s : String) : Option String :=
 def searchPathOf (dirs : String) : List System.FilePath :=
   ((dirs.splitOn ":").filter (· != "")).map System.FilePath.mk
 
+/-- The arguments once all are read: `--worker-stack-size` without `--schedule` is a usage
+error (no other run starts a worker). -/
+def Args.closed (a : Args) : Args :=
+  if a.workerStack.isSome && !a.scheduled then
+    { a with bad := some "--worker-stack-size takes --schedule" }
+  else a
+
 def parseArgs : List String → Args → Args
-  | [], a => a
+  | [], a => a.closed
   -- The end of the options: every argument after it is a file, so
   -- `con-leche -- <file>` is safe for any file name.
-  | "--" :: rest, a => { a with files := a.files ++ rest.toArray }
+  | "--" :: rest, a => { a with files := a.files ++ rest.toArray }.closed
   | "--verified" :: rest, a => parseArgs rest { a with mode := .verified }
   | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
   -- The progress heartbeat: a FLAG, in either order with
@@ -351,6 +367,11 @@ def parseArgs : List String → Args → Args
       parseArgs rest { a with trustedPath := a.trustedPath ++ searchPathOf v }
     else if let some v := flagValue "--schedule" s then
       parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
+    else if let some v := flagValue "--worker-stack-size=" s then
+      match Schedule.parseSize v with
+      | some (n + 1) => parseArgs rest { a with workerStack := some (n + 1) }
+      | _ => { a with bad := some s!"--worker-stack-size takes a size with a unit, K, M, G or T \
+          (e.g. 8G), got {Display.str v}" }
     else if s.startsWith "-" then
       { a with bad := some s!"unknown option {Display.str s}" }
     else parseArgs rest { a with files := a.files.push s }
@@ -481,7 +502,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
                 return ← runReq (.modular a.trustedPath a.searchPath c (some s) a.mode
                   a.maxNatSize a.progress jobs)
               return ← runReq (.schedule a.trustedPath a.searchPath c (some s) a.schedule.toList
-                a.mode a.maxNatSize a.progress jobs a.jobs.isSome)
+                a.mode a.maxNatSize a.progress jobs a.jobs.isSome a.workerStack)
             return ← runReq (.compare ⟨c, s, a.trustedPath, a.searchPath, a.rootConstants⟩
               a.mode a.maxNatSize a.progress jobs)
           | _ =>
@@ -499,7 +520,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
               a.module || a.modular with
           | [m], true, false =>
             return ← runReq (.schedule [] a.searchPath m none a.schedule.toList a.mode
-              a.maxNatSize a.progress jobs a.jobs.isSome)
+              a.maxNatSize a.progress jobs a.jobs.isSome a.workerStack)
           | _, _, _ =>
             eprintln "con-leche: --schedule takes one module name, and none of --constant, \
               --module and --modular"

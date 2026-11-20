@@ -71,7 +71,7 @@ theorem compareJsonG_accept {r : JCmpReq} {mode : CheckMode} {maxNatSize : Nat} 
 (the mode `.verified`). -/
 theorem parseArgs_compare_json (c s : String) :
     parseArgs ["--compare", "--", c, s] {} = { compare := true, files := #[c, s] } := by
-  simp [parseArgs]
+  simp [parseArgs, Args.closed]
 
 /-- The flags of the JSON compare arguments ask for no help. -/
 theorem helpWanted_compare_json (c s : String) :
