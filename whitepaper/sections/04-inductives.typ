@@ -1011,16 +1011,16 @@ the values $arrow(n)$.
   + if $c$ is a recursor, each of its rules
     #src("whitepaper/Fragment/IsModel.lean", 156, 164)[holds, read off the recursor's own type]:
     rule $j$ reads the $j$-th minor premise of the motive that $T$
-    concludes with. For all values $arrow(X), arrow(C), arrow(M)$
+    concludes with. For all values $arrow(X), arrow(C), arrow(H)$
     fitting the parameters, motives and minors of $T$, and all values
     $arrow(F)$ fitting the first $k$ binders of that minor premise ($k$
     the rule's field count), let the minor premise conclude with
     $C' thick arrow(Y) thick t$ behind its fields and its inductive
     hypotheses (which the conclusion does not mention). Then
     $
-      M(c, arrow(n)) dot.op arrow(X) dot.op arrow(C) dot.op arrow(M)
+      M(c, arrow(n)) dot.op arrow(X) dot.op arrow(C) dot.op arrow(H)
         dot.op lden arrow(Y) rden dot.op lden t rden
-      = lden R_j rden dot.op arrow(X) dot.op arrow(C) dot.op arrow(M) dot.op arrow(F).
+      = lden R_j rden dot.op arrow(X) dot.op arrow(C) dot.op arrow(H) dot.op arrow(F).
     $
   A theorem's statement, and a hole (@sec:compare), only the first
   clause.
