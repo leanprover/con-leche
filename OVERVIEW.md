@@ -49,8 +49,8 @@ every module of the root's closure so, in one process, and `--olean --schedule` 
 `--module` process per module (§2, every module of a closure; `--modular` is of limited use: every
 module redoes its own reach, so on Mathlib it took 3.0 times the merged run's instructions at a
 lower peak (2.4 against 3.1 GiB), and the merged run, or the scheduler for isolation and memory
-limits, is the better choice); `--olean --compare` says whether the module `SOLUTION` solves the
-module `CHALLENGE`, the challenge read through the directories `--trusted-search-path` lists alone
+limits, is the better choice); `--olean --compare` checks the module `CHALLENGE` with its axioms justified by the
+module `SOLUTION`, the challenge read through the directories `--trusted-search-path` lists alone
 (§2, a challenge and its solution), and with `--check-graph`, `--module`, `--modular` or
 `--schedule` the same question module by module, the challenge one more module of a modular run
 over both closures (§2, a challenge module by module; `--constant` is a usage error there);
@@ -219,7 +219,7 @@ where its body denotes a truth value at every value of its domain, a
 `λ` the graph of its body, or the proof point where its body denotes
 the proof point at every value of its domain, a projection a component
 of a pair chain. A model is
-[`IsModel` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L315-L316):
+[`IsModel` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L312-L313):
 every constant of every declaration of `ds` holds (`Satisfies`). So every
 theorem the stream proves is true in the model. A definition is what
 its value denotes, and a recursor computes by its rules: each rule's
@@ -239,7 +239,7 @@ constant whose type is `a = b`, and its membership clause makes that the
 truth value of `⟦a⟧ = ⟦b⟧` with a member.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L141-L148):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L151-L158):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -284,7 +284,7 @@ default mode, which is the verified one, and the default worker count;
 nothing is said about `--help` or the other flags. On a snapshot where
 the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
 `runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L193-L195)).
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L203-L205)).
 This is a theorem about the outcomes of `runArgs` in the model; that a
 run of the binary that exits 0 is one of those outcomes is assumed, not
 proved, and §2 states what the assumption is.
@@ -361,7 +361,7 @@ way.
 
 **Modular checking** has its own theorem, about a development of
 modules rather than one stream,
-[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L246-L253):
+[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L256-L263):
 if every module passes the local checks of `ConLeche/Modular.lean`
 (its interface presents its own records; as an importer, its context
 is made of presented records read as their homes read them, and its
@@ -391,7 +391,7 @@ same snapshot, no run of `--check-graph -- <root>` exits 0; and no run of
 `--olean --modular -- <root>` exits 0 (`main_modular_one_no_False`).
 
 Over the files, the modular theorem is
-[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L272-L283):
+[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L282-L293):
 where `--check-graph -- <root>` and `--olean --module` at every module of the headers' closure
 exit 0 on one snapshot (or `--olean --modular -- <root>` does, `main_modular_one`), there is one
 model per module of the closure of `root` (`Olean.InClosure`, over the private views), each a
@@ -407,35 +407,23 @@ clash, and every clash's name is read into the context. The clash check is neede
 copies of one name a module never reads, with different statements, would make the agreement
 false.
 
-**A challenge and its solution** have their own theorems, about the comparison
-`--olean --compare` makes (§2).
-[`main_compare_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L411-L433):
-every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` read
-the challenge `C` through `T` alone and the solution `S` through `T`, then `D`, and in every set
-theory there is a model of the challenge's environment (the records of `C` and what they read,
-closed under reads), at its own level-parameter names and with
-each hole of `C` the axiom of its statement, and a model of the solution's environment, such that
-every constant of the challenge's is the solution's constant of that name and takes the solution
-model's value, and every constant of the challenge's, every hole among them, is inhabited by the
-solution's constant. The challenge's environment holds what `C`'s records read, with the bodies,
-and a model makes every definition denote its value and every recursor rule hold, so the statement
-excludes the attacks by itself: a challenge that imports `def f : Nat := 3` and has a hole
-`t : f = 5` has no model with `t` inhabited, and where the challenge has `inductive T | a | b`, its
-constructors denote different sets, so a hole `T.a = T.b` cannot be inhabited, whatever `T` the
-solution declares. `tests/ConLecheTests/CompareAttack.lean` derives from the theorem that a
-challenge reading `def f : T := T.a` and with a hole `t : f = T.b` has no accepted solution at
-all. Which module a
-solution's constant comes from (the comparison's home rule) is a rule of the code, not part of
-the statement. The challenge's read depends on the
-files under the trusted directories and on nothing else
-([`challenge_local` in `ConLeche/Verify/Frontend/Olean/Local.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Olean/Local.lean#L469-L471)):
-on two snapshots that agree on every path the reader forms under them, it has the same outcomes,
-failure included. Together (`main_compare_trusted`), an accepted comparison is a property of the
-trusted files alone: on every snapshot that agrees with the run's under the trusted directories,
-the challenge's read gives an environment that has a model with every hole inhabited.
+**A challenge and its solution** have their own theorems, about `--olean --compare` (§2), which
+checks the solution's closure and then the challenge's, its axioms justified by the solution.
+[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L406-L411):
+every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` says of
+every snapshot that agrees with the run's under `T` (every path the reader forms there has the same
+real path, kind and bytes) that the closure of `C` read through `T` has a model in every set theory
+(`IsModel` over `Olean.closureConstants`, as `main_oleans`). The solution's files are not in the
+statement: the challenge's model takes, at each justified axiom, the value of the solution's model,
+but what the challenge means is fixed by the trusted files alone (`closureConstants_local`,
+`ConLeche/Verify/CompareInput.lean`). A model makes every definition of the closure denote its value
+and every recursor rule hold, so the statement excludes the attacks by itself: a challenge that
+holds `def f : Nat := 3` and a hole `t : f = 5` has no model, whatever the solution holds.
+`main_compare_no_False`: where a module of that closure holds a theorem of type `False`, no run at
+those arguments exits 0.
 
 The same question **module by module** has its own theorems.
-[`main_compare_modular_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L571-L579):
+[`main_compare_modular_solves` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L527-L535):
 on a snapshot where `--check-graph --compare -- <c> <s>`, `--olean --module` at every module of
 the headers' closure of `C` and `S` but `C`, and the compare worker `--olean --module --compare
 -- <c> <s>` exit 0, every module of the closure has a model of its own environment, a context name
@@ -452,23 +440,24 @@ and `main_compare_modular_trusted` is the corresponding locality statement: on e
 agrees with the run's under `T`, the challenge's records, its own view and every worker of its
 closure read and check alike.
 
-Two lean4export files (`--compare -- <c> <s>`, §2) are checked as one stream with the other as
-its solution, and the main theorem has a form for that:
-`solution_model_exists`: if `checkDecls` accepts a stream `dsS` at the environment `envS` and the
-stream `ds` with `envS` as its solution, then `ds` has a model in every set theory, and declares
-`False` and `Eq`, where it declares them at all, as the prelude's. Its axioms are justified, not
-assumed: the model takes, at each justified axiom, the value of the solution's model at that name,
-and the two models agree on everything its type reads. `main_compare_json_model`: on a snapshot
-where the file `c` holds the bytes `bC`, every exit 0 parsed `bC`, and the challenge's records
-prepared with the prelude have such a model. `main_compare_json_no_False`: if `bC` parses to
-records one of which is a hole of type `False` (an axiom other than the standard ones, or a
-declaration whose value uses `sorry`), no run at those arguments exits 0, whatever `s` holds.
+Two lean4export files (`--compare -- <c> <s>`, §2): the solution's records are checked by
+`checkDecls`, the challenge's by `checkChallenge` (`ConLeche/Cached/Decls.lean`), the same fold
+with the solution's environment justifying the challenge's axioms. The main theorem has a form for
+that, `solution_model_exists`: if `checkDecls` accepts the solution's records `dsS` and
+`checkChallenge` accepts the challenge's records `ds` with them, `ds` has a model in every set
+theory (`IsModel V model (· ∈ constantsOf ds.toList)`). Its axioms are justified, not assumed: the
+model takes, at each justified axiom, the value of the solution's model at that name, and the two
+models agree on everything its type reads. `main_compare_json_model`: on a snapshot where the file
+`c` holds the bytes `bC`, every exit 0 parsed `bC`, and the challenge file's records have such a
+model. `main_compare_json_no_False`: if `bC` parses to records one of which is a hole of type
+`False` (an axiom other than the standard ones, or a declaration whose value uses `sorry`), no run
+at those arguments exits 0, whatever `s` holds.
 
 `False` is not read off the stream: the checker installs it from a
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L114-L118)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L117-L121)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -960,57 +949,35 @@ glue: the closure, the workers' arguments and the `liftIO` call.
 **A challenge and its solution** (`ConLeche/Driver/Compare.lean`, `--olean --compare`). A
 challenge is a module `C` whose holes are its own axioms and its own definitions, theorems and
 opaque constants whose values use `sorry`; a solution is a module `S` that declares the holes'
-names. The two declare the same names, so there is no one merged environment: the challenge's
-closure is read through the trusted directories alone (`--trusted-search-path`, or the search
-path where none is given), the solution's through the trusted directories first and the search
-path after them, a root the trusted directories hold shadowing any other copy and each of the two
-holding each root once. A challenge module only the search path holds is a reject that says where
-it is; that message is looked for only after the challenge's read failed, and the read itself
-never looks at the search path. Nothing of the challenge is checked.
+names. The challenge's closure is read through the trusted directories alone
+(`--trusted-search-path`, or the search path where none is given), the solution's through the
+trusted directories first and the search path after them. A challenge module only the search path
+holds is a reject that says where it is; that message is looked for only after the challenge's
+read failed, and the read itself never looks at the search path. A solution whose closure holds
+the challenge is a reject. The solution's closure is checked in full, as an `--olean` run checks a
+closure; then the challenge's closure is checked in full, with its axioms justified by the
+solution's environment, by the rule of the lean4export comparison below (`checkDeclsWith`): a
+theorem whose file says its value uses `sorry` is read as the axiom of its statement before the
+check (`holeRecord`; the proof needs no promise that this reading is right: a theorem read so is
+just justified, and one that is not read so but uses `sorry` is a decline, as in any run). A module
+both closures hold is checked in both. The run prints `accepted N declarations, K axioms justified
+by the solution S (M declarations accepted)` and a line per justified record; an unjustified one is
+a reject with the reason. With `--constant`, each name must be a declaration of `C` itself, the
+challenge is read from those names, and the solution from the names the challenge's records
+install. Accepted, the solution's fold gives its environment a model, and the challenge's fold
+over the records it checked, its axioms justified, a model of the challenge's
+(`solution_envModel_run`, `ConLeche/Model/Solution.lean`; `compare_isModel`,
+`ConLeche/Model/IsModelCompare.lean`).
 
-What is compared is the same in every mode (this one, module by module and two lean4export files,
-below): the challenge's own records and what they read, closed under reads, each hole read as its
-statement (`chalRecs`, over `readCone`, which the lean4export comparison shares). What only a
-hole's value or a theorem's proof reads is not compared, nor a module `C` imports and never reads
-from: it cannot change what the holes say. leanprover/comparator walks from its targets'
-statements the same way. With `--constant`, each name must be a declaration of `C` itself, the
-challenge is read from those names, the comparison starts from their records instead of all of
-`C`'s, and the solution is read from the compared records' names. Each compared record is set
-against the solution's record of the same name (`compareRecords`):
-
-* a name `C` imports is identified by its home, the first module of the closure's order storing
-  it: the solution's constant of that name has the same home and is the same record, a theorem
-  excepted, which Lean keys by its statement; a solution that declares an imported name itself is
-  rejected, whatever it holds;
-* a hole of `C` is met by the solution's constant of its name and type, of any kind but an
-  inductive type's, constructor's, recursor's or quotient constant (a decline); the comparison
-  renames the solution's level parameters to the challenge's names, as many and none repeated;
-  a hole at `Quot.sound` or `sorryAx`, which install no axiom of their own, and a hole at a
-  compiler-trust name filled by a definition or a theorem decline;
-* every other record of `C` is the solution's, up to the same renaming.
-
-Records hold no binder names, binder information or metadata, so none of them is compared. What
-each challenge record stands for, a solution record or its statement, must read only names
-installed by itself or the records before it, each installed once (`ctxScoped`). Then the
-solution's closure is checked as an `--olean` run checks a closure, a module both closures hold
-once, and the run prints `accepted: S solves C` with the counts and a line per hole with what
-fills it. An accept makes the two a development of two modules passing the local checks, the
-solution's records presenting what the challenge's stand for, and the modular construction reads
-the challenge's model off the solution's (`compare_models`, `ConLeche/Model/Modular/Compare.lean`;
-`Model.ofCopies` in `ConLeche/Model/Copies.lean` carries a model across the level-parameter
-renaming).
-
-[leanprover/comparator](https://github.com/leanprover/comparator) asks for less freedom and
-compares more: its theorem targets must be theorems on both sides, a definition hole a definition
-of equal statement and safety, and every other constant the targets' statements reach is compared
+[leanprover/comparator](https://github.com/leanprover/comparator) makes the same kind of check with
+another rule: its theorem targets must be theorems on both sides, a definition hole a definition of
+equal statement and safety, and every other constant the targets' statements reach is compared
 with Lean's derived equality on `ConstantInfo`, level-parameter names, binder names, binder
-information and metadata included; a constant is looked up by its name, with no notion of a home,
-so a solution redeclaring an imported definition with the same body passes. Con-leche fills a hole
-with a constant of any of the four kinds and ignores the names and annotations the model does not
-read; it identifies an imported name by its home. `ConLeche/Challenge.lean` states the main
-theorems with `sorry` and `comparator.json` names them for comparator, which checks
-`ConLeche/MainTheorem.lean` against it; `--olean --compare ConLeche.Challenge ConLeche.MainTheorem`
-is the same check by con-leche itself.
+information and metadata included. Con-leche checks the challenge itself and justifies a hole with a
+constant of any of the four kinds, up to level-parameter renaming, everything its statement reads
+being the same constant in both. `ConLeche/Challenge.lean` states the main theorems with `sorry` and
+`comparator.json` names them for comparator, which checks `ConLeche/MainTheorem.lean` against it;
+`--olean --compare ConLeche.Challenge ConLeche.MainTheorem` is the same check by con-leche itself.
 
 **A challenge module by module** (`ConLeche/Driver/CompareModule.lean`, `--compare` with
 `--check-graph`, `--module`, `--modular` or `--schedule`). The challenge `C` is one more module of a
@@ -1043,11 +1010,11 @@ then gives the challenge's environment its model (`run_models`,
 **Two lean4export files** (`ConLeche/Driver/CompareJson.lean`, `--compare` without `--olean`).
 This is leanprover/comparator's own setting: two exports of the same targets, the challenge's
 and the solution's. The solution's file is checked in full, as a plain run checks a stream; the
-challenge's file is then checked with the solution's environment as its **solution**
-(`checkDecls … (some envS)`, `ConLeche/Cached/Justify.lean`). The challenge's own records are
+challenge's file is then checked with its axioms **justified** by the solution's environment
+(`checkChallenge`, `ConLeche/Cached/Decls.lean`, `ConLeche/Cached/Justify.lean`). The challenge's own records are
 checked as in a plain run, every one of them. Its axioms but the standard ones (`propext`,
 `Classical.choice`, `Quot.sound`, the compiler-trust family), and its declarations whose value
-uses `sorry`, are axioms of their statements, and each must be **justified**: the solution holds
+uses `sorry`, are axioms of their statements, and each must be justified: the solution holds
 a constant of that name whose statement is the axiom's up to a positional renaming of the level
 parameters, and everything the axiom's type reads is the same constant in both environments,
 closed under what those constants read (their types, values, rules, a type former's
@@ -2145,6 +2112,7 @@ and every such line carries its reason.
 | `ConLeche/Modular.lean`, `ConLeche/Modular/` | Modular checking's statement half: a module's context as the records its imports present, the local checks per home (`InterfaceOk`) and per importer (`ImportOk`), copies agreeing (`Agree`: one record, or two proofs of one statement); and the theorem over an abstract interface of models (`Modular/Generic.lean`, the whitepaper fragment's), whose instance for con-leche's models is `ConLeche/Model/Modular/`. |
 | `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`); a compared run as a development of two modules and the challenge's model read off the solution's (`Compare.lean`), a compared modular run's models (`CompareRun.lean`), the challenge's environment embedded into the solution's and the run of two lean4export files (`CompareJson.lean`), over the model of an environment of level-renamed copies (`ConLeche/Model/Copies.lean`); the family over what each module sees, at an accepted run and at the driver (`Sees.lean`, `SeesMain.lean`). |
 | `ConLeche/Model/Solution/`, `ConLeche/Model/Solution.lean` | A stream checked with a solution has a model: the solution's model renamed to the input's level-parameter names (`Rename.lean`, over `ConLeche/Model/CopyStmt.lean`), a record of shared names given the solution's leaves (`Shared.lean`, through the context reading of `Model/Modular`), a justified axiom given the solution's value (`Justified.lean`), the input's fold (`Fold.lean`) and the assembly (`Solution.lean`). The justification's accept read as a closed shared set is `ConLeche/Verify/Cached/Cone.lean`, the record mates `Mates.lean`. |
+| `ConLeche/Model/IsModelCompare.lean`, `ConLeche/Verify/CompareInput.lean` | `--olean --compare`'s accept has a model of the challenge's closure read through the trusted directories: the checked records store every constant of the closure (`chalChecked_inputStored`, a theorem read as a hole stored as the axiom of its statement), the closure's constants are the same on every snapshot agreeing under those directories (`closureConstants_local`), and a theorem of type `False` there is never accepted |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the main corollary lifted to the driver, and the comparison's theorems; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `native/` | `nat_hash.c`: the hash of a `Nat` literal of 2^64 and more, all its 64-bit words mixed; Lean's own function, vendored until the toolchain ships it. Compiled and linked by `lakefile.lean`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |

@@ -204,10 +204,12 @@ environment with $t$ has no model at all.
   `con-leche --olean --compare CHALLENGE SOLUTION`: the solution's
   closure is checked in full, then the challenge's closure, read from
   the trusted directories alone, is checked in full with its holes
-  justified by the solution's environment. The challenge's read
-  #src("ConLeche/Verify/Frontend/Olean/Local.lean", 465, 470)[depends only on the files under the trusted directories]:
-  on two file systems that agree on every path the reader forms there,
-  it has the same outcomes, failure included. In both modes,
+  justified by the solution's environment. What the challenge's
+  closure holds
+  #src("ConLeche/Verify/CompareInput.lean", 153, 155)[depends only on the files under the trusted directories]:
+  it is the same on two file systems that agree on every path the
+  reader forms there, so an accepted run speaks of the trusted files
+  alone. In both modes,
   everything the challenge imports is part of what is checked.
 
   A hole is an axiom other than the built-in ones (`propext`,
@@ -239,14 +241,14 @@ environment with $t$ has no model at all.
   and follows the challenge's check:
   #src("ConLeche/Model/Solution/Fold.lean", 17, 25)[a shared record takes the solution's sets, a justified hole the solution's value, any other record its own step].
   The capstone
-  #src("ConLeche/MainTheorem.lean", 135, 143)[states] @thm:cmp-model
+  #src("ConLeche/MainTheorem.lean", 134, 142)[states] @thm:cmp-model
   for the checker's functions: if `checkDecls` accepts the solution's
   records and `checkChallenge` accepts the challenge's with them, the
   challenge's own constants have a model.
-  #src("ConLeche/MainTheorem.lean", 972, 979)[Its corollary for the command line]
+  #src("ConLeche/MainTheorem.lean", 917, 924)[Its corollary for the command line]
   says the same of an exit 0 of
   `--compare CHALLENGE.ndjson SOLUTION.ndjson`, and
-  #src("ConLeche/MainTheorem.lean", 947, 958)[a challenge file with a hole of type `False` is never solved].
+  #src("ConLeche/MainTheorem.lean", 892, 903)[a challenge file with a hole of type `False` is never solved].
 
   The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
   different rule. A theorem must be a theorem on both sides, and a
@@ -320,7 +322,7 @@ solution that declares an imported name itself, since
   read from the solution, each name it imports from the module of the
   closure that declares it, and each module of the challenge's closure
   from the trusted directories alone.
-  #src("ConLeche/MainTheorem.lean", 560, 582)[The modular capstones]
+  #src("ConLeche/MainTheorem.lean", 505, 527)[The modular capstones]
   state @thm:cmp for an exit 0 of every command of such a run: every
   module has a model of its own environment, a name a module reads from
   another means the same in both models, and the challenge's model

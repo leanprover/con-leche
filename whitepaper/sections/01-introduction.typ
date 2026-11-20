@@ -11,7 +11,7 @@ stream, checking what the official kernel checks (on a few features
 it declines instead; @sec:left-out). It comes with a proof, written in
 Lean itself, of what an acceptance means: every stream the
 checker accepts
-#src("ConLeche/MainTheorem.lean", 125, 131)[has a model in set theory].
+#src("ConLeche/MainTheorem.lean", 124, 130)[has a model in set theory].
 #src("ConLeche/IsModel.lean", 312, 313)[Each constant is assigned a set], each type denotes a set, and every
 constant is a member of the set its type denotes. The prelude's `False`
 denotes the empty set, and its `Eq` denotes equality, so every
@@ -20,7 +20,7 @@ denotes its value and every recursor computes by its rules. Hence no accepted
 stream holds a proof of `False`, and every accepted theorem is
 true in the model. Checked module by module from Lean's `.olean`
 files, every module of an import closure
-#src("ConLeche/MainTheorem.lean", 283, 294)[has a model of its own constants],
+#src("ConLeche/MainTheorem.lean", 282, 293)[has a model of its own constants],
 and a name a module sees as another module's means there what that
 module's model says.
 
