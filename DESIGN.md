@@ -125094,3 +125094,113 @@ the guard exit 0 (olean gate 555/555, e2e 634/634, 87 theorems' axioms pinned); 
 (SeesFalse's imports as the criterion asks), trust-surface, plain-reach, binary-link, challenge,
 no-local-paths, overview-links, quote-gate, the whitepaper's links and fragment gates pass.
 Landed on `compare` (nothing new there since the lane's base).
+
+### #619 cont. 6 — the modular modes: the challenge's worker with the solution loaded whole (2026-11-20)
+
+**Ruling in** (maintainer, on cont. 5): option (a) is out — no process loads either closure
+merged.  The statement (`main_modular_compare`) was fixed; the design was ours, to be justified
+against it.  The suggested design (the challenge's worker loads `S` like an extra `import all`,
+its holes copies of `S`'s names, the clash check on every clashing name) is taken, generalized
+to every redeclared name, FOR THE REASON BELOW.
+
+**The design.**  The compare worker (`--olean --module --compare`) is the challenge `C`'s ordinary
+worker with `import all S` added to its header (`checkModuleG … x`, `x = #[Graph.solutionImport S]`;
+`workerRead … x`).  It loads what Lean loads for a module importing `C`'s imports and the whole of
+`S`, under Lean's clash rule over every loaded name (every clashing name a reach root, #618).  Each
+emitted record of `C` is split (`ConLeche/Driver/Worker.lean`, "A compared challenge's copies"):
+* **own** (`ownRecs`): no name of it is loaded — checked against the context as any worker checks
+  its module's records (the same `DeclsRun none`); an own hole (`isHoleRec`: an axiom other than a
+  built-in one, a definition/opaque/theorem whose value uses `sorryAx`) is a reject before the reach
+  ("a hole of C no loaded module fills");
+* **copy** (`copyRecs`): some name of it is loaded; its names are read into the context from the
+  loads (reach roots), and `copyCheck` asks it to be what the loaded constant is: a hole, a theorem
+  or an opaque constant by its statement (`copyStmt?`, `Cached.sameCvUpToLevels`, ruling B), a
+  definition by its value too (`sameDefUpToLevels`), an inductive block the context's record
+  itself (`copyRecEq`) and one the kernel's reader reads (`blockReadB`, i.e. `BlockRead`); never at
+  `Quot.sound`/`sorryAx` (decline), always passing `basisNamesOk`.
+Every worker of a compared run reads through the trusted path, then the search path (the trusted
+path finds every module of the challenge's closure first); the challenge's closure is walked
+through the trusted path alone first (`chalWalk`) for the "only on the search path" reject.  The
+schedule prints both lookups' flags on every compared command (`--trusted-search-path=` empty where
+none is given), the form the theorem reads.
+
+**Why it establishes each part of the statement** (`main_modular_compare`: on every snapshot
+agreeing under the challenge's directories `Driver.trustedOr T D`, every module of `C`'s closure
+has a model of its constants and agrees with every module it sees):
+* *The family exists and agrees on what each module sees*: the compared run is a run of accepted
+  workers, `C`'s with imports added (`Run.ofCompare`); every module passes the local checks
+  (`Run.localOk`, unchanged: it was general in `x`), so the modular family exists, and the #618
+  argument (`Run.sees_isModel`) goes through with `Sees` over the header with `x` added (`SeesX`,
+  positive loads only): `sees_copy`/`sees_rank`/`sees_ctx`/`sees_unique`/`sees_agree` now hold at
+  any `x` (`loads_rank`; freshness at `C` from the `ownRecs` filter, `stored_of_own_find`,
+  `ownNamesOf_loaded`).  `C`'s real header loads less than `C` with `S`, so `Sees` ⊆ `SeesX`
+  (`sees_toX`), through the trusted directories or the full lookup (`sees_trims`).
+* *`C`'s own constants hold*: as any module's (`own_covers_x`, first case).
+* *`C`'s copies hold* — **the reason the design is right, not accidental**: there is ONE context.
+  A copy's name is a context name, so its value in `C`'s model is the context constant's, and that
+  constant is an entry of `C`'s own environment, whose laws hold in `C`'s model (`isModel_of_agree`
+  for the same constant, `satisfies_renamed` for one at other level-parameter names: `Satisfies`
+  reads level parameters positionally, `eval_instantiateLevelParams`, the stored constant's scoping
+  from `EnvWF`).  The copy's statement is that constant's syntactically (up to renaming), and every
+  name it reads is read in the same context: so "the names the statement reads mean the same
+  constants on both sides" is not a separate comparison but a consequence of there being one
+  environment, in which every two loaded copies of a name are one constant (the clash check on
+  every clashing name, #618) and every context name agrees with every module it is seen from.
+  Concretely: `C` imports `A` (`def f := 3`) with a hole `t : f = 5`; a solution declaring its own
+  `f := 5` is a second loaded copy of `f`, which the clash rule rejects (two definitions); a
+  solution importing `A` cannot prove `f = 5`.
+* *Locality*: every spec notion (`ViewOf`, `InClosure`, `LoadsAt`, `InModulePart`, `Sees`) reads
+  files through `readFiles` only (`SeesMoves`: `readFiles_iff_of_agree`, `inClosure_of_files`,
+  `sees_of_files`, `inModulePart_iff`), so the family built on the run's snapshot serves every
+  snapshot agreeing under `trustedOr T D`; through the trim (`Roots.Trims`) the run's full lookup
+  reads every module of that closure alike (`viewOf_trims`, `loadsAt_trims`, `inModulePart_trims`,
+  `hdrClosure_trims`).
+
+**Spec choice to report:** a solution may redeclare a challenge's definitions and inductive types
+only identically (up to level-parameter names for definitions); a different definition at a
+challenge's name is a reject even where no hole reads it ("one name, one meaning").  An opaque
+constant is matched by its statement only (`IsModel` never reads its value): a solution's opaque
+constant of another value is accepted (verdict change below).
+
+**The theorems** (`ConLeche/MainTheorem.lean`, proofs `ConLeche/Model/Modular/SeesCompare.lean`):
+`main_modular_compare`, `main_modular_compare_one` (`--olean --modular --compare`),
+`main_modular_compare_no_False`, `main_modular_compare_one_no_False` (a theorem of type `False` in
+the closure: the theorem, as itself or as the copy it is, is a constant of its module's own
+environment, which has a model; `compare_no_False`).  Axioms pinned (propext, Classical.choice,
+Quot.sound).  `main_compare_model`/`main_compare_no_False` (merged `--olean --compare`) now read the
+closure through `trustedOr T D` (no longer vacuous with `T` empty; `CmpReq.chalRoots_trustedOr`,
+`closureConstants_nil` deleted).
+
+**Deleted:** `Verify/Driver/CompareModule.lean` (`CmpFacts`), `Verify/Driver/CompareLocal.lean`,
+`Model/Modular/Compare{,Run}.lean`, the old compare worker (`cmpModuleRead`, `cmpCtxRecord`,
+`importedAt`, `cmpRoots`, …), `Run.ofCompare`'s per-module lookups (`cmpLook`), the
+`main_compare_modular_*` capstones and `compare_closure_solves`, `Model.ofCopies` and its helpers,
+the `Model` fields `false_empty`/`eq_equality` (the tests `IotaEqTest.T_a_ne_T_b` and
+`CompareAttackTest.no_model` take the `Eq` law as a hypothesis, `EqLaw`), the driver's record
+comparisons (`sameRecord`, `sameRecordUpToLevels`, `sameUpToLevels`, the driver's
+`sameCvUpToLevels`/`levelsRenaming`, `isHole`, `Filled`, `recCv?`, `declined`), the non-trusted
+`runArgs_{graphCmp,cmpModule,modularCmp}_accept` (the commands carry both path flags).
+
+**Verdict changes** (`tests/olean.sh`, the `mcmp` rows; schedule, one process, compare worker):
+* `CmpOpq`/`CmpOpqSolK` (opaque constant of another value) 1/1/1 → 0/0/0: an opaque constant is its
+  statement;
+* `CmpIndC`/`CmpIndS` (hole filled by an inductive type) 2/2/2 → 0/0/0: the hole's statement is
+  the inductive constant's (the target verdict);
+* `CmpSorryC`/`CmpSorryS` (a prelude declaring `sorryAx`) 2/2/2 → 0/0/0: the challenge's own
+  `sorryAx` is checked as `Init.Prelude`'s is, its `Bool` the solution's same block (as the merged
+  mode since cont. 4);
+* `CmpTrustC`/`CmpTrustS` (compiler-trust hole filled by a definition) 2/2/2 → 1/1/0: the hole is
+  justified; the solution's own worker rejects its definition at a compiler-trust name;
+* `UpMultiA`/`UpMultiB` (upstream check-multi) 1/1/1 → 0/0/0: the challenge's own theorem is checked
+  by its worker (as in the merged mode);
+* `CmpChal`/`CmpSolMissing` stays 1 with a new message ("easy: a hole of CmpChal no loaded module
+  fills"); every other row keeps its exit code, messages re-pinned ("justified by …").
+* the commands' rows: every compared worker carries `--trusted-search-path=T --search-path=D`.
+
+**Docs:** OVERVIEW (§1's modular comparison theorem, §2's "a challenge module by module", the module
+map), the usage text (`--compare` with the modular modes, `--trusted-search-path`), whitepaper §8's
+"Comparing modules" rewritten to the rule (subagent lane `agent/619-wp2`, merged): the fragment's
+validation by comparison (`Compared`) is gone, `compare_solves` quantifies over the challenge's
+context (plain and renamed), `LocalOk.redeclared_is_proof` kept for the attack paragraph; §7's
+"or compared" removed.  README: anchors only; stale line 69 (`Model V env` no longer says that
+`False` denotes the empty set and `Eq` set equality: those fields are gone).
