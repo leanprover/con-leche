@@ -124969,3 +124969,57 @@ the compiler-trust definition 2→1 (all three the target verdicts the old comme
 imported name redeclared with its body 1→0; upstream simple-mismatch 1→2 and
 def-hole-type-mismatch 1→2 (the solution's own check declines first); upstream check-multi 1→0.
 Every message re-pinned.  Cost: a module both closures hold is now checked twice.
+
+### #619 cont. 5 — the merge of #618, the renaming, `checkChallenge`; the modular modes need a ruling (2026-11-20)
+
+**Repair first.** 5ca96b589 (the third session's last commit) held a 6 GB `DESIGN.md`: an edit
+had inserted the gates paragraph before every character. The file was restored (the original
+plus the paragraph at the end of cont. 3, recovered exactly) and that commit amended (7daa4c46a;
+it had not been pushed).
+
+**Done this session** (on `agent/619-sidecar`; `lake build`, `lake test` warning-free):
+* merge of `compare` (9cfb6cb31, #618) — 71bb6d781; `isModel_sideRecords` over constants
+  (`IsModel V m (· ∈ constantsOf (sideRecords j ds).toList)`), no `False`/`Eq` conjuncts;
+* the ruled renaming "sidecar" → "solution" everywhere (code, theorem names, `Model/Solution*`,
+  docs, usage text) — 4f950ed75.  Left alone: the prelude's "sidecar file" (`PinGen/Dump.lean`,
+  `pins/*.json`, `tests/pindump.sh`), a different thing (the embedded prelude file);
+* `checkChallenge mode pins maxNatSize dsS ds` (`Cached/Decls.lean`), its own spec function:
+  `checkDeclsWith … ds (some (streamEnv dsS.toList))`; `checkDecls … ds := checkDeclsWith … ds
+  none`; the fold is shared (`checkDeclsWith`, the former optional argument).
+  `solution_model_exists (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
+  (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) : ∃ model, IsModel V model
+  (· ∈ constantsOf ds.toList)` (`Model.Solution.challenge_isModel`); `main_compare_json_model`
+  over the challenge file's own records `rC.decls` (no prelude declarations; `IsModel.anti`);
+* `--olean --compare` (cont. 4, subagent lane `agent/619-olean`, merged): `main_compare_model`,
+  `main_compare_no_False`;
+* whitepaper §8 around justified axioms (subagent lane `agent/619-wp`, merged): the fragment's
+  `denote_agree`, `EnvModel.extend_stmt`, `install_justified`, `install_shared`
+  (`whitepaper/Fragment/Compare.lean`); the modular comparison kept as a subsection (current);
+* OVERVIEW §1/§2 at the new rule for the lean4export and merged modes; anchors repointed
+  (README: anchors only).
+
+**NOT done; the lane does not land:** the modular compare modes (item 3), and so the deletion of
+the modular comparison machinery (`Driver/CompareModule`, `Verify/Driver/CompareModule`,
+`ComposeCompare`, `Model/Modular/Compare{,Run}`, `Model/Copies`' `ofCopies`, the
+`main_compare_modular_*` capstones) and of `Model.false_empty`/`eq_equality` (still read by
+`Model.ofCopies` and the modular compare proofs).
+
+**The spec choice for the modular modes (for the maintainer).** "The challenge's worker is a
+`--module` worker whose axioms are justified against the solution" needs a solution environment
+in the worker, and a model of it agreeing with the challenge's context on the shared cone:
+(a) *the solution checked merged*: the schedule adds one `--olean S` run (S's closure checked in
+    one process), and the challenge's worker reads S's closure merged (unchecked there; the same
+    files give the same read) as its solution, its own context from C's own imports through T.
+    The proof reuses `solution_envModel_run` started from the worker's context model (a
+    `sideFold` from a context instead of the empty environment, plus the modular development's
+    step for one such module).  Cost: S's closure is checked merged as well as module by module
+    where it overlaps C's (Init, Mathlib…), so a solution over Mathlib means a merged Mathlib
+    check in one process;
+(b) *the solution's modules*: the worker's solution is the reach of the holes' statements read
+    from S's closure modules (checked by their own workers), its model the modular family's.  Keeps
+    S modular, but "the same constant in both" must then mean the same module's copy (two modules
+    can store one axiom with two values in the family), and C's own hole names coexist with S's
+    copies of them in one header (the old compare worker made C's own names S's for that reason).
+    This is the larger proof (the old `Model/Modular/Compare{,Run}` scale or more).
+Recommendation: (a) for now (the statement is the same either way), (b) later if solutions over
+large closures are common.
