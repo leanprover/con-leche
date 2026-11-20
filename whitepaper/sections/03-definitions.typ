@@ -9,14 +9,13 @@
 
 = Adding definitions <sec:env>
 
-§2 had no environment. This section adds one, together with the
-constants that refer to its entries, the reduction rule $delta$ that
-unfolds a definition, and the _model_ of the environment, from which
-the interpretation reads a constant. The environment grows one
-declaration at a time, and each step is checked by the relations
-of §2, extended by the rules below. We say what the checker checks at
-each step, what it stores, and how the model grows with the
-environment so that its laws keep holding. This section covers
+§2 had no environment. This section adds one: the constants that
+refer to its entries, the rule $delta$ that unfolds a definition, and
+the _model_ of the environment, from which the interpretation reads a
+constant. The environment grows one declaration at a time, each
+checked by the relations of §2 extended by the rules below. For each
+step we say what the checker checks, what it stores, and how the
+model grows so that its laws keep holding. This section covers
 definitions; inductive types, the rule $iota$ and the consistency
 corollary follow in @sec:ind.
 
@@ -28,11 +27,11 @@ term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 291, 314)[its _kind_]
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
-_definition_ carries a value. The other kinds (type former,
-constructor, recursor) are what an inductive block stores, and
-@sec:ind-checks introduces them. An assumption, a type without a
-value, is how @sec:modular stores a theorem and leaves a definition's value out. A name is
-stored at most once.
+_definition_ carries a value. The other kinds are the type former,
+constructor and recursor that an inductive block stores
+(@sec:ind-checks), and the _assumption_, a type without a value, which
+@sec:modular uses for a theorem and for a definition whose value is
+not shown. A name is stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]
 of the environment, used at a list of levels $arrow(ell)$,
@@ -88,12 +87,14 @@ and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
   type: $tack v => T'$ and $tack T' equiv T$;
 - both terms #src("whitepaper/Fragment/Decl.lean", 605, 606)[use only the level parameters] $arrow(p)$.
 
-A stored term is thus closed, mentions only stored constants and
-uses only the declared level parameters. These three facts
-let the model read a stored term without looking at anything
-that is added later, because the interpretation of a term depends only on
-the constants and the free variables it mentions and the level
-parameters it uses
+The type and value of an accepted definition are therefore closed,
+mention only constants stored before it and use only its declared
+level parameters: the first two follow from the inference
+derivations in the empty context (shown below), the third is checked.
+These three facts let the model read a stored term without looking at
+anything added later, because the interpretation of a term depends
+only on the constants and the free variables it mentions and the
+level parameters it uses
 (#src("whitepaper/Fragment/Hygiene.lean", 585, 587)[constants],
 #src("whitepaper/Fragment/Hygiene.lean", 466, 468)[variables],
 #src("whitepaper/Fragment/Hygiene.lean", 644, 646)[parameters]).
@@ -107,16 +108,25 @@ $
   lden c.\{arrow(ell)\} rden_rho & = M(c, phi(arrow(ell)))
 $
 
-with $phi(arrow(ell))$ the list of the levels' values. It
-stays term-directed. $M$ is a parameter like $rho$, consulted at a
-constant the way $rho$ is at a variable. The environment $E$ itself,
-with its stored types and values, is never read, and no derivation and
-no type is needed.
-A fourth lemma joins those of @sec:interp, by the same induction:
+with $phi(arrow(ell))$ the list of the levels' values. Like $phi$,
+the assignment stays implicit in $lden e rden_rho$ and in
+$rho models e$. The interpretation stays term-directed: $M$ is
+consulted at a constant the way $rho$ is at a variable, and the
+environment $E$ itself, with its stored types and values, is never
+read. The semantic invariant gains the clause that a constant, like a
+variable or a sort, is always well-denoted. A fourth lemma joins those
+of @sec:interp, by the same induction:
 #src("whitepaper/Fragment/Interp.lean", 256, 258)[instantiating
-level parameters] is changing the valuation. And the semantic
-invariant gains the clause that a constant, like a variable or a
-sort, is always well-denoted.
+level parameters is changing the valuation],
+
+$
+  lden e[arrow(p) := arrow(ell)] rden_rho^phi
+    = lden e rden_rho^(phi[arrow(p) |-> phi(arrow(ell))]),
+$
+
+where the superscript shows the valuation and
+$phi[arrow(p) |-> arrow(n)]$ sends the parameters $arrow(p)$ to the
+numbers $arrow(n)$ and agrees with $phi$ elsewhere.
 
 *The contract.* What the soundness theorem, extended below,
 assumes of the environment is #src("whitepaper/Fragment/EnvModel.lean", 300, 364)[a _model_]: an
@@ -138,13 +148,12 @@ the semantic invariant of @sec:inv.
       lden v[arrow(p) := arrow(ell)] rden_rho = M(c, phi(arrow(ell))). $
 ] <def:model>
 
-In words: every stored constant is a member of its type, which is a
-type in the sense of @sec:interp, and a
-definition's value denotes the constant, at every instantiation of
-the declared level parameters.
-This is the proof's notion of a model, of the environment the checker
-builds, with the semantic invariant the soundness induction needs.
-The main theorem is stated over the input itself, each declared
+In words: at every instantiation of the declared level parameters,
+every stored constant is a member of its type, which is well-denoted
+and a type in the sense of @sec:interp, and a definition's value is
+well-denoted and denotes the constant. The semantic invariant is part
+of the laws because the soundness induction needs it of every term it
+reads, stored ones included. The main theorem is stated over the input itself, each declared
 constant holding on its own (@def:input-model); a model of the
 environment gives one (@thm:accepted-model).
 
@@ -153,8 +162,9 @@ environment gives one (@thm:accepted-model).
   (#src("ConLeche/Model/Env/EnvModelM.lean", 229, 252)[the carrier's invariant]).
 ]
 
-The empty environment #src("whitepaper/Fragment/EnvModel.lean", 366, 375)[has a model
-trivially]: any assignment, and laws with nothing to say.
+The empty environment #src("whitepaper/Fragment/EnvModel.lean", 366, 375)[has a model]:
+every assignment is one, since both laws quantify over stored
+constants.
 
 *Soundness, extended.* @thm:sound holds for the relations extended by
 the three rules above, with one more hypothesis: fix a model of the
@@ -188,24 +198,34 @@ gains three cases, one per rule.
 ]
 
 #theorem(name: "Installing a definition")[
-  If the environment has a model and the definition $c$ passes the
-  checks above, then the environment
+  Let $M$ be a model of $E$, and let the definition $c$ with
+  parameters $arrow(p)$, type $T$ and value $v$ pass the four checks
+  above. Then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 351, 356)[extended with $c$ has a model]
-  (#src("ConLeche/Model/Install.lean", 353, 355)[as in con-leche]).
+  $M'$ (#src("ConLeche/Model/Install.lean", 353, 355)[as in con-leche])
+  that agrees with $M$ on every constant of $E$ and gives $c$ its
+  value's set: for every list $arrow(n)$ of natural numbers of the
+  length of $arrow(p)$, every valuation $phi$ and every variable
+  environment $rho$,
+  $
+    M'(c, arrow(n)) = lden v rden_rho^(phi[arrow(p) |-> arrow(n)]),
+  $
+  where $v$, which mentions no constant but old ones, is read under
+  $M$ (equivalently, under $M'$).
 ] <thm:install-def>
 
 #proof[
-  Let $M$ be the model. Define $M'$ as $M$ on every old constant and,
-  at $c$ and a list $arrow(n)$, as the set $lden v rden$ read at the
-  valuation that sends $arrow(p)$ to $arrow(n)$. Since $v$ is closed and
-  uses no other parameter, no $rho$ and no other part of $phi$
-  enters. The old laws hold for $M'$ because
-  #src("whitepaper/Fragment/InstallDef.lean", 267, 270)[no stored term mentions $c$]. For the new constant we use @cor:closed and the second claim of
+  Since $v$ is closed and uses no level parameter outside $arrow(p)$,
+  neither the variable environment nor the rest of $phi$ enters the
+  right-hand side, so $M'$ is well defined. The old laws hold for $M'$
+  because #src("whitepaper/Fragment/InstallDef.lean", 267, 270)[no stored term mentions $c$]. For the new constant we use @cor:closed and the second claim of
   @thm:sound. From $tack v => T'$ the value and $T'$ are
   well-denoted and $lden v rden in lden T' rden$, a type; from
-  $tack T => S red Sort u$ the type $T$ is well-denoted and a type;
-  two types are never the point, so the second claim applies to
-  $tack T' equiv T$ and gives $lden v rden in lden T rden$. This holds
+  $tack T => S red Sort u$ the type $T$ is well-denoted and a type.
+  The second claim holds only of sides that are not the point, and a
+  type is never the point (@sec:interp), so it applies to
+  $tack T' equiv T$ and gives $lden T' rden = lden T rden$, hence
+  $lden v rden in lden T rden$. This holds
   at every valuation, and instantiating the level parameters is the
   same as changing the valuation (above), so it holds at every
   $arrow(ell)$. Finally, $v$ and $T$ are closed and mention no constant but
@@ -216,7 +236,8 @@ gains three cases, one per rule.
   and law 2 is the definition of $M'$ at $c$.
 ]
 
-The proof is short because §2 did the work. The checks a definition
-passes are the premises of the corollary, and the corollary's
-conclusion is law 1.
+In this proof the value's inference supplies the
+premise of @cor:closed, the type's sort and the equality
+$tack T' equiv T$ carry its conclusion from $T'$ to $T$, which gives
+law 1, and law 2 holds by the choice of $M'$.
 

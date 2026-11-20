@@ -15,9 +15,9 @@
 The official kernel has two rules of definitional equality that the
 fragment does not have: η for structures, and unit-likeness.
 @sec:left-out lists them among the omissions. This section shows that
-adding either would cost one case of the induction of @sec:claims and
-no new idea. In the model, each rule follows from what the values
-are. A proof is the point, a function is the graph of its
+either could be added as one more case of the induction of
+@sec:claims, proved from laws the model already has: each rule follows
+from what the values are. A proof is the point, a function is the graph of its
 applications, a constructor value is a tagged tuple of its fields, and
 a member of an inductive family is a value that one constructor step
 produces. Each of these says that a set is determined by its parts,
@@ -29,8 +29,10 @@ applications], and §2 proved its case. The K rule of
 @sec:iota-cases, which the fragment also has, rests on a law of the
 same kind, inversion of the least fixed point.
 
-Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
-thick arrow(f)$ of a block whose family is type-valued denotes
+Recall what @sec:ind sets up. Fix a valuation $phi$. A constructor
+application $c thick arrow(p) thick arrow(f)$, with parameters
+$arrow(p)$ and fields $f_1, ..., f_n$, of a block whose family is
+type-valued denotes
 a #src("whitepaper/Fragment/IndLib.lean", 50, 64)[tagged tuple]
 $tag(i, lden f_1 rden, ..., lden f_n rden)$, the
 #src("whitepaper/Fragment/IndCommon.lean", 330, 332)[constructor's number $i$] followed by its fields.
@@ -41,7 +43,9 @@ under the constructor steps], so that
 family is a tagged tuple that one constructor step produces] from
 members of the field domains. This is the fixed-point equation of §4,
 #src("whitepaper/Fragment/LfpSet.lean", 137, 141)[read from left to
-right]. When the family is proposition-valued (its result sort
+right].
+
+When the family is proposition-valued (its result sort
 $Sort u$ has $u$ evaluating to $0$ at $phi$), the family denotes
 #src("whitepaper/Fragment/IndSem.lean", 592, 595)[a truth value]
 instead. The constructor step's tuple is not stored, only whether some
@@ -58,7 +62,7 @@ These two need no rule; they are built into the model, and §2 used
 the first already. A proposition denotes a
 #src("whitepaper/Fragment/Lib.lean", 141, 147)[truth value], a subset of
 ${pt}$, so any two proofs of any two propositions denote the same
-set. That is the proof-irrel case of @thm:sound, which
+set, the point. That is the proof-irrel case of @thm:sound, which
 #src("ConLeche/Model/Rules/DefEqSound.lean", 265, 267)[never compared the two propositions]. And two
 propositions that imply each other have
 #src("whitepaper/Fragment/Lib.lean", 172, 173)[the same truth value], by extensionality of sets. This is Lean's
@@ -68,13 +72,17 @@ axiom `propext`, which therefore
 == η for structures <sec:ext-eta>
 
 *The rule.* A _structure_ is a block with one constructor `mk`, no
-indices, no recursive field, and a type-valued family.
-The official kernel equates any $s$ of the structure type with the
-constructor applied to $s$'s projections: $s equiv$ `mk` $arrow(p)
-thick s.1 dots s.n$. The check is that $s$'s type reduces to the
-structure at the parameters $arrow(p)$, and compares each field of
-the constructor application with the corresponding projection of
-$s$. The fragment has no projection terms (@sec:left-out). Read $s.i$
+indices, no recursive field, and a type-valued family; let $n$ be the
+number of its fields. The official kernel equates any term $s$ of the
+structure type with the constructor applied to $s$'s projections,
+
+$
+  s equiv mono("mk") thick arrow(p) thick s.1 dots s.n.
+$
+
+The check is that $s$'s type reduces to the structure at some
+parameters $arrow(p)$, and it compares each field of the constructor
+application with the corresponding projection of $s$. The fragment has no projection terms (@sec:left-out). Read $s.i$
 below as the projection defined through the recursor,
 `S.rec` $(lambda arrow(f). thin f_i) thick s$, whose value is the
 $i$-th component of the tuple by the ι law, or as a primitive
@@ -82,19 +90,21 @@ projection, whose interpretation reads the component directly. The
 argument is the same either way.
 
 #lemma(name: "structure η")[
-  Let $s$ denote a member of the structure's family at $arrow(p)$,
-  and let $f_i$ denote the $i$-th component of that member's tuple
-  for each $i$. Then $lden$ `mk` $arrow(p) thick f_1 dots f_n rden =
-  lden s rden$.
+  Let the term $s$ denote a member of the structure's family at the
+  parameters $arrow(p)$, and for each $i in {1, ..., n}$ let the term
+  $f_i$ denote the $i$-th component of that member's tuple. Then
+  $
+    lden mono("mk") thick arrow(p) thick f_1 dots f_n rden = lden s rden.
+  $
 ] <lem:eta-struct>
 
 #proof[
   By the fixed-point equation, the member $lden s rden$ is a value one
   constructor step produces: $lden s rden = tag(0, x_1, ...,
-  x_n)$ for some $x_1, ..., x_n$ in the field domains. There
-  is only one constructor, so the tag is $0$. Tagged tuples are
-  injective, so the $i$-th component of $lden s rden$ is a function
-  of $lden s rden$, and it is $x_i$; that is what $f_i$ denotes. The
+  x_n)$ for some sets $x_1, ..., x_n$ in the field domains (there is
+  only one constructor, so the tag is $0$). Tagged tuples are
+  injective, so these components are unique: the $i$-th component of
+  $lden s rden$ is $x_i$, and that is what $f_i$ denotes. The
   constructor application denotes $tag(0, lden f_1 rden, ...,
   lden f_n rden) = tag(0, x_1, ..., x_n)$, the
   same set.
@@ -103,9 +113,10 @@ argument is the same either way.
 The lemma proves nothing specific to the structure. The equation is
 what membership in the family means, read from left to right, plus
 the fact that a tuple determines its components. In the soundness
-case the checker's field comparisons deliver
-$lden a_i rden = lden s.i rden$ for the fields $a_i$ the constructor
-was actually applied to, and the lemma does the rest. A block declared
+case the rule's field comparisons deliver
+$lden a_i rden = lden s.i rden$ for each $i in {1, ..., n}$, where
+$a_i$ is the field the constructor was actually applied to, and the
+lemma does the rest. A block declared
 in `Prop` is never granted the rule. Where an instance of a `Sort u`
 structure happens to be a proposition, both sides are the point, and
 the law's proposition case covers it.
@@ -114,13 +125,15 @@ the law's proposition case covers it.
 the constructor at its projections, gives a second way to fire $iota$
 on a block of a structure's shape (one constructor, no indices, no
 recursive field). For such a block whose instances may be
-propositions, $iota$ can go through the projections of the major instead of a
-constructor application:
+propositions, $iota$ can go through the projections of the major
+premise $x$ instead of a constructor application. With $S$ the block's
+type, $arrow(p)$ its parameters, $C$ the motive, $m$ the minor premise
+and $S.p_1, ..., S.p_k$ the projections of its $k$ fields, the step is
 $ S.sans("rec") thick arrow(p) thick C thick m thick x red m thick (S.p_1 thick arrow(p) thick x) dots (S.p_k thick arrow(p) thick x). $
 #src("whitepaper/Fragment/EtaIota.lean", 242, 260)[This step is sound] with no certificate,
 no comparison and no reduction of the major, given the plain $iota$
-law and the structure-η law on values. The redex is not the point, so
-the whole spine, the major included, fits the recursor's telescope
+law and the structure-η law on values. The reduction claim assumes
+a well-denoted redex that is not the point, so the whole spine, the major included, fits the recursor's telescope
 (@sec:iota). Where the structure is a proposition the major is the
 point, and
 #src("whitepaper/Fragment/EtaIota.lean", 402, 410)[so are its projections]
@@ -168,11 +181,13 @@ not a rule of its relations.
 *The rule.* A block with one constructor, no indices and no fields,
 such as `PUnit` or, at `Prop`, the proposition `True`, has one element
 up to definitional equality: the checker equates any two terms whose
-types reduce to it.
+types reduce to it. The lemma below covers these nullary blocks; the
+checker's rule reaches further (see the block after it), by the same
+laws applied field by field.
 
 #lemma(name: "unit-likeness")[
-  If $s$ and $t$ denote members of the family of such a block, at the
-  same parameters, then $lden s rden = lden t rden$.
+  If the terms $s$ and $t$ denote members of the family of such a
+  block, at the same parameters, then $lden s rden = lden t rden$.
 ] <lem:unit>
 
 #proof[
@@ -182,10 +197,9 @@ types reduce to it.
   and both members are the point.
 ]
 
-A set with at most one member takes one of two shapes in the model:
-the singleton of the empty tagged tuple for a type-valued family, and
-a truth value for a proposition-valued one. The lemma holds for both
-by the same argument.
+So at given parameters the family of such a block has at most one
+member in either case: it is ${tag(0)}$ when the family is
+type-valued, and a truth value when it is proposition-valued.
 
 #real[
   The checker has the rule for
