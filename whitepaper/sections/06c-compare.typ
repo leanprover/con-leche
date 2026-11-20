@@ -247,10 +247,10 @@ environment with $t$ has no model at all.
   for the checker's functions: if `checkDecls` accepts the solution's
   records and `checkChallenge` accepts the challenge's with them, the
   challenge's own constants have a model.
-  #src("ConLeche/MainTheorem.lean", 561, 568)[Its corollary for the command line]
+  #src("ConLeche/MainTheorem.lean", 518, 525)[Its corollary for the command line]
   says the same of an exit 0 of
   `--compare CHALLENGE.ndjson SOLUTION.ndjson`, and
-  #src("ConLeche/MainTheorem.lean", 536, 547)[a challenge file with a hole of type `False` is never solved].
+  #src("ConLeche/MainTheorem.lean", 493, 504)[a challenge file with a hole of type `False` is never solved].
 
   The tool #link("https://github.com/leanprover/comparator")[leanprover/comparator] makes the same kind of check with a
   different rule. A theorem must be a theorem on both sides, and a
@@ -359,9 +359,9 @@ model of the compatible family.
   constant, or the module is rejected. So a solution that declares its
   own $f$ beside the challenge's import of $a$ is rejected as the
   attack above is.
-  #src("ConLeche/Driver/Worker.lean", 106, 123)[A record of the challenge some name of which a loaded module stores is a copy],
+  #src("ConLeche/Driver/Worker.lean", 105, 122)[A record of the challenge some name of which a loaded module stores is a copy],
   and its names are read into the context like any imported name.
-  #src("ConLeche/Driver/Worker.lean", 191, 223)[The check of a copy]
+  #src("ConLeche/Driver/Worker.lean", 190, 222)[The check of a copy]
   asks a hole (an axiom, or a definition whose value uses `sorry`), a
   theorem or an opaque constant to have the loaded constant's
   statement, a definition its value too, both up to the names of the
@@ -369,16 +369,16 @@ model of the compatible family.
   model reads a constant's level parameters by position, so a renamed
   copy has the laws of the loaded constant. Every other record is
   checked as any module's, and
-  #src("ConLeche/Driver/Worker.lean", 233, 240)[a hole among them is rejected].
+  #src("ConLeche/Driver/Worker.lean", 232, 239)[a hole among them is rejected].
   Each module of the challenge's closure is read from the trusted
   directories alone.
 
-  #src("ConLeche/MainTheorem.lean", 447, 487)[The modular capstones]
+  #src("ConLeche/MainTheorem.lean", 404, 444)[The modular capstones]
   state @thm:cmp for an exit 0 of every command of such a run, and of
   the run in one process: on every snapshot that agrees with the run's
   under the challenge's directories, every module of the challenge's
   closure, the challenge with its copies among them, has a model of
   its constants, and a name a module sees as another module's has the
   value that module's model gives it. In particular,
-  #src("ConLeche/MainTheorem.lean", 490, 525)[a challenge whose closure holds a theorem of type `False` is never solved].
+  #src("ConLeche/MainTheorem.lean", 447, 482)[a challenge whose closure holds a theorem of type `False` is never solved].
 ]

@@ -7131,29 +7131,29 @@
    140      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
    141    Model.Solution.challenge_isModel solution challenge
 
-== ConLeche/MainTheorem.lean#L561-L568
-   561  /-- **The JSON comparison's accept has a model**: an exit 0 of `runArgs` at `--compare -- <c> <s>`
-   562  found the challenge file `c` parsing as one chunk, and the challenge's records have a model in
-   563  every set theory: its axioms are justified by the solution file's checked environment
-   564  (`solution_model_exists`). -/
-   565  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
-   566      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
-   567      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
-   568        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) := by
+== ConLeche/MainTheorem.lean#L518-L525
+   518  /-- **The JSON comparison's accept has a model**: an exit 0 of `runArgs` at `--compare -- <c> <s>`
+   519  found the challenge file `c` parsing as one chunk, and the challenge's records have a model in
+   520  every set theory: its axioms are justified by the solution file's checked environment
+   521  (`solution_model_exists`). -/
+   522  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+   523      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+   524      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+   525        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) := by
 
-== ConLeche/MainTheorem.lean#L536-L547
-   536  /-- **A challenge file with a hole of type `False` is never solved.**  On a snapshot where the
-   537  challenge file `c`'s bytes parse to records one of which is a hole (`Cached.justifiable
-   538  (Cached.sideRecord d)`: an axiom other than `propext`, `Classical.choice`, `Quot.sound`, the
-   539  compiler-trust family and `sorryAx`, or a definition, theorem or opaque constant whose value uses
-   540  `sorryAx`) of type `False`, no outcome of `runArgs` at `--compare -- <c> <s>` is an exit 0,
-   541  whatever the file `s` holds: the solution would store a constant of type `False`. -/
-   542  theorem main_compare_json_no_False (V : Type w) [SetTheory V] {c s : String} {fs : FS}
-   543      {bC : ByteArray} {rC : ParseResultD} {d : Declaration} {cv : ConstantVal}
-   544      (hbC : fs.file c = some bC) (hp : parseChunks [bC] = .ok rC) (hd : d ∈ rC.decls)
-   545      (hh : Cached.justifiable (Cached.sideRecord d) = some cv)
-   546      (hty : cv.type = .const falseName []) :
-   547      ¬ ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0 := by
+== ConLeche/MainTheorem.lean#L493-L504
+   493  /-- **A challenge file with a hole of type `False` is never solved.**  On a snapshot where the
+   494  challenge file `c`'s bytes parse to records one of which is a hole (`Cached.justifiable
+   495  (Cached.sideRecord d)`: an axiom other than `propext`, `Classical.choice`, `Quot.sound`, the
+   496  compiler-trust family and `sorryAx`, or a definition, theorem or opaque constant whose value uses
+   497  `sorryAx`) of type `False`, no outcome of `runArgs` at `--compare -- <c> <s>` is an exit 0,
+   498  whatever the file `s` holds: the solution would store a constant of type `False`. -/
+   499  theorem main_compare_json_no_False (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+   500      {bC : ByteArray} {rC : ParseResultD} {d : Declaration} {cv : ConstantVal}
+   501      (hbC : fs.file c = some bC) (hp : parseChunks [bC] = .ok rC) (hd : d ∈ rC.decls)
+   502      (hh : Cached.justifiable (Cached.sideRecord d) = some cv)
+   503      (hty : cv.type = .const falseName []) :
+   504      ¬ ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0 := by
 
 == whitepaper/Fragment/Compare.lean#L366-L407
    366  variable (V) in
@@ -7250,83 +7250,126 @@
     22  the solution's checked constants, and a name a hole's statement reads means one constant on both
     23  sides: there is one context.
 
-== ConLeche/Driver/Worker.lean#L106-L123
-   106  /-! ## A compared challenge's copies (task #619)
-   107  
-   108  At a compared challenge (`x`, the imports a run adds to its header: `import all` of its solution,
-   109  `Graph.solutionImport`), the worker loads the solution with the challenge's own imports, under
-   110  Lean's clash rule over every loaded name.  A record of the challenge some name of which a loaded
-   111  module stores is a **copy**: not the challenge's own record, its names read from the loads into
-   112  the context, as any name the challenge imports.  A copy must be what the loaded constant is
-   113  (`copyCheck`), up to the names of its level parameters (ruling B of #619):
-   114  
-   115  * a hole (an axiom; a definition whose value uses `sorryAx`), a theorem or an opaque constant: one
-   116    constant that only its statement describes (`IsModel` reads it so), of the loaded constant's
-   117    statement.  For a theorem, Lean's own rule for two loaded copies of one name (`subsumesInfo`);
-   118  * a definition: the loaded definition, its value too;
-   119  * an inductive block: the context's record of its names, the same record, one the kernel's reader
-   120    reads (`BlockRead`); a quotient record never.
-   121  
-   122  Every other record is the challenge's own, checked as any module's; a hole among them is one the
-   123  solution does not fill (`ownHoleOk`). -/
+== ConLeche/Driver/Worker.lean#L105-L122
+   105  /-! ## A compared challenge's copies (task #619)
+   106  
+   107  At a compared challenge (`x`, the imports a run adds to its header: `import all` of its solution,
+   108  `Graph.solutionImport`), the worker loads the solution with the challenge's own imports, under
+   109  Lean's clash rule over every loaded name.  A record of the challenge some name of which a loaded
+   110  module stores is a **copy**: not the challenge's own record, its names read from the loads into
+   111  the context, as any name the challenge imports.  A copy must be what the loaded constant is
+   112  (`copyCheck`), up to the names of its level parameters (ruling B of #619):
+   113  
+   114  * a hole (an axiom; a definition whose value uses `sorryAx`), a theorem or an opaque constant: one
+   115    constant that only its statement describes (`IsModel` reads it so), of the loaded constant's
+   116    statement.  For a theorem, Lean's own rule for two loaded copies of one name (`subsumesInfo`);
+   117  * a definition: the loaded definition, its value too;
+   118  * an inductive block: the context's record of its names, the same record, one the kernel's reader
+   119    reads (`BlockRead`); a quotient record never.
+   120  
+   121  Every other record is the challenge's own, checked as any module's; a hole among them is one the
+   122  solution does not fill (`ownHoleOk`). -/
 
-== ConLeche/Driver/Worker.lean#L191-L223
-   191  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
-   192  the record of each of its names). -/
-   193  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
-   194      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
-   195    let n := recKey d
-   196    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
-   197    if n == quotSoundName || n == sorryAxName then
-   198      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
-   199      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
-   200        con-leche cannot fill it")
-   201    else if !basisNamesOk d then
-   202      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
-   203    else
-   204    match owner[n]? with
-   205    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
-   206    | some k =>
-   207      let e := r.ctx.getD k default
-   208      let h := r.homes.getD k .anonymous
-   209      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
-   210      match copyStmt? d, d, ci? with
-   211      | some cv, _, some ci =>
-   212        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
-   213        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
-   214          {recKind d}")
-   215      | none, .defnDecl cv v hint, some ci =>
-   216        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
-   217        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
-   218      | none, .indDecl .., _ =>
-   219        if copyRecEq d e && blockReadB d then .ok ()
-   220        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
-   221      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
-   222      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
-   223          loads stores")
+== ConLeche/Driver/Worker.lean#L190-L222
+   190  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
+   191  the record of each of its names). -/
+   192  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
+   193      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
+   194    let n := recKey d
+   195    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
+   196    if n == quotSoundName || n == sorryAxName then
+   197      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
+   198      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
+   199        con-leche cannot fill it")
+   200    else if !basisNamesOk d then
+   201      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
+   202    else
+   203    match owner[n]? with
+   204    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
+   205    | some k =>
+   206      let e := r.ctx.getD k default
+   207      let h := r.homes.getD k .anonymous
+   208      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
+   209      match copyStmt? d, d, ci? with
+   210      | some cv, _, some ci =>
+   211        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
+   212        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
+   213          {recKind d}")
+   214      | none, .defnDecl cv v hint, some ci =>
+   215        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
+   216        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
+   217      | none, .indDecl .., _ =>
+   218        if copyRecEq d e && blockReadB d then .ok ()
+   219        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
+   220      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
+   221      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
+   222          loads stores")
 
-== ConLeche/Driver/Worker.lean#L233-L240
-   233  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
-   234  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
-   235  file): the solution does not fill it. -/
-   236  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
-   237      Except CheckError Unit :=
-   238    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
-   239      solution has no constant of this name)")
-   240    else .ok ()
+== ConLeche/Driver/Worker.lean#L232-L239
+   232  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
+   233  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
+   234  file): the solution does not fill it. -/
+   235  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
+   236      Except CheckError Unit :=
+   237    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
+   238      solution has no constant of this name)")
+   239    else .ok ()
 
-== ConLeche/MainTheorem.lean#L447-L487
-   447  /-- **An accepted modular comparison: the challenge's closure has a family of models**
-   448  (the shape of `main_modular`).  On a snapshot where every command `--schedule-commands --compare`
-   449  prints for the challenge `C` and its solution `S` exits 0 (the graph check, a worker at every
-   450  module of the headers' closure of `C` and `S` but `C`, the compare worker at `C`), on every
-   451  snapshot `fs'` that agrees with it under the challenge's directories, every module of the
-   452  closure of `C` through them has a model of its constants, and a name a module sees as another
-   453  module's has the value that module's model gives it. -/
-   454  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   455      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   456      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   457        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+== ConLeche/MainTheorem.lean#L404-L444
+   404  /-- **An accepted modular comparison: the challenge's closure has a family of models**
+   405  (the shape of `main_modular`).  On a snapshot where every command `--schedule-commands --compare`
+   406  prints for the challenge `C` and its solution `S` exits 0 (the graph check, a worker at every
+   407  module of the headers' closure of `C` and `S` but `C`, the compare worker at `C`), on every
+   408  snapshot `fs'` that agrees with it under the challenge's directories, every module of the
+   409  closure of `C` through them has a model of its constants, and a name a module sees as another
+   410  module's has the value that module's model gives it. -/
+   411  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   412      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   413      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   414        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   415      (hwork : ∀ m, Driver.Graph.HdrClosure
+   416          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   417          [C, S] m → m ≠ C →
+   418        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   419          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   420            root']) fs 0)
+   421      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   422        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   423      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   424      ∀ fs', FS.AgreeUnder sp fs fs' →
+   425        ∃ model : Name → (Name → List Nat → V),
+   426          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   427          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   428            model m n = model m' n) :=
+   429    Driver.Compose.modular_compare_graph V hc hs hgraph hwork hcmp
+   430  
+   431  open Frontend in
+   432  /-- **An accepted modular comparison in one process** (`--olean --modular --compare`): the family
+   433  of `main_modular_compare`. -/
+   434  theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   435      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   436      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
+   437        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   438      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   439      ∀ fs', FS.AgreeUnder sp fs fs' →
+   440        ∃ model : Name → (Name → List Nat → V),
+   441          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   442          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   443            model m n = model m' n) :=
+   444    Driver.Compose.modular_compare_one V hc hs h
+
+== ConLeche/MainTheorem.lean#L447-L482
+   447  /-- **A challenge holding a theorem of type `False` is never solved, module by module.**  On a
+   448  snapshot where the private view of a module of the closure of `C` through the challenge's
+   449  directories, by the specification, holds a theorem of type `False`, and where the workers and the
+   450  compare worker of `main_modular_compare` exit 0, the graph check does not. -/
+   451  theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
+   452      {C S m : Name} {fs : FS} {d : Olean.ModDecoded} {e : Olean.CEntryF Name Expr} {v : Expr}
+   453      {all : List Name} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   454      (hcl : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
+   455        #[C] m)
+   456      (hv : Olean.ViewOf (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs m d)
+   457      (hmem : e ∈ d.constants) (hk : e.kind = .thm v all) (hty : e.type = .const falseName [])
    458      (hwork : ∀ m, Driver.Graph.HdrClosure
    459          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
    460          [C, S] m → m ≠ C →
@@ -7335,66 +7378,23 @@
    463            root']) fs 0)
    464      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
    465        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   466      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   467      ∀ fs', FS.AgreeUnder sp fs fs' →
-   468        ∃ model : Name → (Name → List Nat → V),
-   469          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   470          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   471            model m n = model m' n) :=
-   472    Driver.Compose.modular_compare_graph V hc hs hgraph hwork hcmp
-   473  
-   474  open Frontend in
-   475  /-- **An accepted modular comparison in one process** (`--olean --modular --compare`): the family
-   476  of `main_modular_compare`. -/
-   477  theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   478      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   479      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
-   480        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   481      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   482      ∀ fs', FS.AgreeUnder sp fs fs' →
-   483        ∃ model : Name → (Name → List Nat → V),
-   484          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   485          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   486            model m n = model m' n) :=
-   487    Driver.Compose.modular_compare_one V hc hs h
-
-== ConLeche/MainTheorem.lean#L490-L525
-   490  /-- **A challenge holding a theorem of type `False` is never solved, module by module.**  On a
-   491  snapshot where the private view of a module of the closure of `C` through the challenge's
-   492  directories, by the specification, holds a theorem of type `False`, and where the workers and the
-   493  compare worker of `main_modular_compare` exit 0, the graph check does not. -/
-   494  theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
-   495      {C S m : Name} {fs : FS} {d : Olean.ModDecoded} {e : Olean.CEntryF Name Expr} {v : Expr}
-   496      {all : List Name} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   497      (hcl : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
-   498        #[C] m)
-   499      (hv : Olean.ViewOf (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs m d)
-   500      (hmem : e ∈ d.constants) (hk : e.kind = .thm v all) (hty : e.type = .const falseName [])
-   501      (hwork : ∀ m, Driver.Graph.HdrClosure
-   502          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   503          [C, S] m → m ≠ C →
-   504        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   505          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   506            root']) fs 0)
-   507      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   508        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   509      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   510        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0 :=
-   511    fun hgraph => Driver.Compose.modular_compare_graph_no_False V hc hs hgraph hwork hcmp hcl hv hmem
-   512      hk hty
-   513  
-   514  open Frontend in
-   515  /-- **A challenge holding a theorem of type `False` is never solved in one process.** -/
-   516  theorem main_modular_compare_one_no_False (V : Type w) [SetTheory V] {T D c s : String}
-   517      {C S m : Name} {fs : FS} {d : Olean.ModDecoded} {e : Olean.CEntryF Name Expr} {v : Expr}
-   518      {all : List Name} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   519      (hcl : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
-   520        #[C] m)
-   521      (hv : Olean.ViewOf (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs m d)
-   522      (hmem : e ∈ d.constants) (hk : e.kind = .thm v all) (hty : e.type = .const falseName []) :
-   523      ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
-   524        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0 :=
-   525    fun h => Driver.Compose.modular_compare_one_no_False V hc hs h hcl hv hmem hk hty
+   466      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   467        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0 :=
+   468    fun hgraph => Driver.Compose.modular_compare_graph_no_False V hc hs hgraph hwork hcmp hcl hv hmem
+   469      hk hty
+   470  
+   471  open Frontend in
+   472  /-- **A challenge holding a theorem of type `False` is never solved in one process.** -/
+   473  theorem main_modular_compare_one_no_False (V : Type w) [SetTheory V] {T D c s : String}
+   474      {C S m : Name} {fs : FS} {d : Olean.ModDecoded} {e : Olean.CEntryF Name Expr} {v : Expr}
+   475      {all : List Name} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   476      (hcl : Olean.InClosure (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs
+   477        #[C] m)
+   478      (hv : Olean.ViewOf (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs m d)
+   479      (hmem : e ∈ d.constants) (hk : e.kind = .thm v all) (hty : e.type = .const falseName []) :
+   480      ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
+   481        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0 :=
+   482    fun h => Driver.Compose.modular_compare_one_no_False V hc hs h hcl hv hmem hk hty
 
 >>> whitepaper/sections/07-left-out.typ
 
@@ -7854,19 +7854,6 @@
    346  theorem localOk (j : Nat) : LocalOk .verified natOpPinSets maxNatSize R.dev j :=
    347    R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
 
-== ConLeche/MainTheorem.lean#L341-L351
-   341  theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name}
-   342      {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
-   343      (hr : Olean.parseModName root = some r)
-   344      (hcl : Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m)
-   345      (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
-   346      (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
-   347      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   348        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   349          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   350      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   351        fs 0 := by
-
 == ConLeche/MainTheorem.lean#L281-L292
    281  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
    282      (hr : Olean.parseModName root = some r)
@@ -7881,21 +7868,21 @@
    291        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
    292          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
-== ConLeche/MainTheorem.lean#L307-L320
-   307  theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m m' : Name}
-   308      {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
-   309      (hr : Olean.parseModName root = some r)
-   310      (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
-   311      (hF : m' = m ∨ Olean.Sees (Driver.searchPathOf dirs) fs m falseName m')
-   312      (hD : DeclaresFalse (Olean.moduleConstants (Driver.searchPathOf dirs) fs m'))
-   313      (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
-   314      (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
-   315      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   316        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   317          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   318      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   319        fs 0 :=
-   320    Driver.Compose.no_False_graph V hr hcl hF hD hv hmem hk hty hwork
+== ConLeche/MainTheorem.lean#L316-L329
+   316  theorem main_modular_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m m' : Name}
+   317      {fs : FS} {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+   318      (hr : Olean.parseModName root = some r)
+   319      (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
+   320      (hF : m' = m ∨ Olean.Sees (Driver.searchPathOf dirs) fs m falseName m')
+   321      (hD : DeclaresFalse (Olean.moduleConstants (Driver.searchPathOf dirs) fs m'))
+   322      (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+   323      (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName [])
+   324      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   325        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   326          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   327      ¬ ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   328        fs 0 :=
+   329    Driver.Compose.no_False_graph V hr hcl hF hD hv hmem hk hty hwork
 
 == ConLeche/Frontend/Prepare.lean#L173-L174
    173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
