@@ -54,11 +54,6 @@ beside the conclusion; `checkDeclStepC_model`
 share, and its extra conjunct — the step IS a pure `checkDecl` run — is
 what lets the per-record reasoning happen entirely at the pure checker's
 own run relation (`Semantics.DeclRun`).
-
-`ConLeche/Verify/Cached/StreamThm.lean` proves the bare-constant special
-case a second and cheaper way, with no model and no `V`.  That is why
-the main corollary at the stream (`no_False_theorem_accepted`) does not
-go through this module.
 -/
 namespace ConLeche
 

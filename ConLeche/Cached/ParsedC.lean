@@ -17,9 +17,8 @@ straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 (`ConLeche/Driver/*`) runs it as a job at a view of the stream's index and returns the fold's
 environment together with the proof that `checkDecls` returns it.  It runs at `.verified` and at
 `.trusted` alike (the trusted mode is the same fold at the other mode, and nothing else):
-acceptance at `.verified` is covered by the main corollary `no_False_declaration`
-(`ConLeche/MainTheorem.lean`, through `no_False_theorem_accepted` in
-`ConLeche/Verify/Cached/StreamThm.lean`), and two modes that both accept end in the same
+acceptance at `.verified` is covered by the main theorem `model_exists` and its corollary
+`no_False_declaration` (`ConLeche/MainTheorem.lean`), and two modes that both accept end in the same
 environment (`checkDecls_agree`, `ConLeche/Verify/Cached/DeclPushes.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185): the knot it

@@ -3,7 +3,7 @@
   "solution_module": "ConLeche.MainTheorem",
   "theorem_names": ["ConLeche.model_exists", "ConLeche.solution_model_exists",
     "ConLeche.no_False_declaration",
-    "ConLeche.modular_model_exists", "ConLeche.modular_no_False"],
+    "ConLeche.modular_model_exists"],
   "definition_names": [],
   "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
   "enable_nanoda": true

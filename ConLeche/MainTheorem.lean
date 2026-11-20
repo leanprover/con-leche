@@ -2,12 +2,9 @@ module
 
 import ConLeche.Verify.Cached.MainC
 import ConLeche.Denotes
-public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
 import ConLeche.Cached.Decls
-import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
-import ConLeche.Verify.Frontend.FileFalse
 import ConLeche.Driver.Cli
 import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
@@ -15,7 +12,6 @@ import ConLeche.Modular
 import ConLeche.Model.Modular.Main
 import ConLeche.Model.Capstone
 import ConLeche.Verify.Driver.CompareJsonRun
-import ConLeche.Verify.Cached.JustifyRun
 import ConLeche.Model.Copies
 import ConLeche.Verify.Frontend.Olean.Local
 import ConLeche.Verify.Driver.Graph
@@ -36,28 +32,19 @@ import ConLeche.OleanInput
 public section
 
 /-!
-# The main theorem and the main corollary
+# The main theorems and their corollaries
 
-What the checker accepts has a model; hence a file that declares a
-theorem of type `False` is rejected — the form a reader can check
-without knowing what an `Env` is.  Those two theorems, and the main
-corollary lifted to the driver (`main_no_False`, at the end), are all
-this file holds.  The corollary's hypothesis is the file: the chunks the binary
-read are the UTF-8 of `jsonWithTheoremFalse`'s template, ONE way of
-writing a theorem of type `False` into a JSON export.  Its conclusion
-is the binary's accept path itself, erroring: the three pure functions
-the driver's phases compute, chained — the built-in prelude parses, the
-chunks parse, the verified fold accepts the parsed records prepared
-with the prelude — return an error.  The steps between are imported:
-the parser reads such chunks into records holding a theorem record of
-type `False` (`Frontend.parseChunks_jsonWithTheoremFalse`), the
-preparation keeps every parsed record (`Frontend.mem_preparePrelude`),
-and a stream holding such a record is never accepted: its type names
-`False`, so the accepted stream declares the prelude's `False`
-(`Cached.checkDecls_declaresFalse`), and no model of such a stream has
-a theorem of type `False` (`IsModel.no_false_record`).  The statements,
-with a plain-words account of every name in them, are in `ConLeche/Challenge.lean`; the reading
-of terms and the notion of model in `ConLeche/IsModel.lean`.
+What the checker accepts has a model (`model_exists`); hence an accepted stream holds no constant
+of type `False` (`no_False_declaration`).  The corollary follows from the theorem and one fact
+about the stream, model-free: a constant of type `False` is stored with its type, so its type's
+`False` is stored, and the checker stores at that name only the prelude's `False`, so the stream
+declares it (`checkDecls_declaresFalse_of_constant`); in a model of such a stream `⟦False⟧` is
+empty (`IsModel.no_False_constant`).  Each run of the binary has its main theorem below and its
+corollary in the same shape: the run's acceptance hypotheses and a constant of type `False` of
+its input — a theorem, an axiom, an opaque constant, a definition, or a hole read as the axiom of
+its statement — give `False`.  The statements, with a plain-words account of every name in them,
+are in `ConLeche/Challenge.lean`; the reading of terms and the notion of model in
+`ConLeche/IsModel.lean`.
 
 * `checkDecls` (`ConLeche/Cached/Decls.lean`) is the declaration
   fold: it checks every parsed declaration in order, each against the
@@ -67,24 +54,14 @@ of terms and the notion of model in `ConLeche/IsModel.lean`.
   from the records, and returns the proof that `checkDecls` accepts
   (`Cached.checkDecls_of_jobs`), so the success line is printed
   from an accept of `checkDecls` and from nothing else.
-* `Frontend.builtinPreludeE` is the parsed built-in prelude,
-  `Frontend.parseChunks` the streaming parse of the file's chunks (the
-  driver's parse returns its result with the proof that it is this), and
-  `Frontend.preparePrelude` the preparation of the parsed records for
-  the fold.  The three fail in ONE error type — the checker's own
-  `CheckError` with the position of the failure (the input's line
-  number for the first two, the fold position for the fold) — so the
-  chain is a plain `Except` `do` block with no conversion in it, and
-  the conclusion is simply that it errors, with no claim about which
-  step erred or why.
+* `Frontend.parseChunks` is the streaming parse of a file's chunks (the
+  driver's parse returns its result with the proof that it is this); a
+  run checks the parsed records prepared with the built-in prelude
+  (`Frontend.preparePrelude`), which keeps every one of them.
 * `Declaration` is a parsed declaration, and the records travel as an
   `Array` of them — what the parse returns and what the fold folds;
   `Env` is the environment the checker builds; `env.consts` are the
   constants it accepted; `.verified` is the default mode.
-* `jsonWithTheoremFalse` (`ConLeche/Accepts.lean`) is one particular
-  JSON file declaring a theorem of type `False`, as a whole-file
-  template over the chunks' concatenation — not every proof of `False`,
-  one shape of one.
 * `False` and `Eq` are pinned: a stream that declares them other than
   as the prelude's is rejected, so where a stream declares them it
   declares the prelude's (`DeclaresFalse`, `DeclaresEq`), whose own

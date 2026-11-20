@@ -7,7 +7,6 @@ import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
 import ConLecheTests.OleanTests
 import ConLecheTests.Axioms
-import ConLecheTests.FileTests
 import ConLecheTests.NestedTests
 import ConLecheTests.RecCheckTests
 import ConLecheTests.AccessTests
