@@ -74,10 +74,10 @@ equation of the two sides' denotations.
   kernel does.  The statements hold at every `maxNatSize`.  The shipped
   binary runs the fold at the official default, 128 MiB, unless
   `--max-nat-size` sets another.
-* `IsModel V model R` (`ConLeche/IsModel.lean`) says that `model` is
-  a model of the records `R` in `V` — here `recordsOf ds`, every
-  record of every declaration of `ds`, as a membership predicate — :
-  every record holds, its terms read by `Expr.eval`, a total function
+* `IsModel V model C` (`ConLeche/IsModel.lean`) says that `model` is
+  a model of the constants `C` in `V` — here `constantsOf ds`, every
+  constant of every declaration of `ds`, as a membership predicate — :
+  every constant holds, its terms read by `Expr.eval`, a total function
   from a checker term to a set.  `model : Name → List Nat → V` is the
   set a constant denotes at the values of its universe levels, given
   positionally.  That file is the whole of what the main theorem's
@@ -160,7 +160,7 @@ model in every set theory. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
     (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
-    ∃ model, IsModel V model (· ∈ recordsOf ds.toList) :=
+    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
   sorry
 
 open Frontend in
@@ -183,7 +183,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ model : Nat → Name → List Nat → V,
-      (∀ j ≤ i, IsModel V (model j) (· ∈ recordsOf (dev j).decls)) ∧
+      (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
         (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
   sorry

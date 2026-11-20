@@ -12,7 +12,7 @@ public import ConLeche.Verify.Cached.Fill
 /-!
 # The reader's records cover the input
 
-`closureRecords` (`ConLeche/OleanInput.lean`) is the `.olean` input as a set of records, read off
+`closureConstants` (`ConLeche/OleanInput.lean`) is the `.olean` input as a set of records, read off
 the closure's views.  The reader (`readOleansAt`) loads the closure's modules in an order,
 merges their constants by Lean's rule, emits the merged constants in lean4export's order and
 builds the stream reader's records from them.  `readOleansAt_covers`: every record of the
@@ -258,7 +258,7 @@ theorem blockFormerNames_append (a b : List ConstantInfo) :
   simp [blockFormerNames, List.filterMap_append]
 
 /-- **What a block's record holds**: each type former's record; each recursor's, its rules
-firing `.plain` until `blockRecords` reads them; a constructor record for each constructor a
+firing `.plain` until `blockConstants` reads them; a constructor record for each constructor a
 type lists; and the formers' names are the types'. -/
 theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
     {ts : List IndTypeRec} {cts : List IndCtorRec} {rs : List IndRecRec}
@@ -387,11 +387,11 @@ theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : N
 /-- **`r` is stored by a record of a declaration of `ds`** (`StoredAs`), where that declaration
 passes the reserved names' check. -/
 @[expose] def CoveredBy (ds : Array Declaration) (r : ConstantInfo) : Prop :=
-  ∃ d ∈ ds, basisNamesOk d = true → ∃ c' ∈ d.records, StoredAs c' r
+  ∃ d ∈ ds, basisNamesOk d = true → ∃ c' ∈ d.constants, StoredAs c' r
 
 /-- A constant that is no part of a block has its declaration's records. -/
 theorem entryRecords_low {c : CEntryF Name Expr} (ht : c.kind.tag < 5) :
-    entryRecords c = ((declOfEntry c).map Declaration.records).getD [] := by
+    entryConstants c = ((declOfEntry c).map Declaration.constants).getD [] := by
   rcases c with ⟨n, l, t, k⟩
   cases k <;> first | rfl | (simp [CKindF.tag] at ht)
 
@@ -428,7 +428,7 @@ theorem stmt_storedAs {cv : ConstantVal} {r : ConstantInfo}
 merged copy's: the constant's own, or a theorem's of its statement. -/
 theorem covers_entry {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg ds) {e' : CEntry}
     {c : CEntryF Name Expr} (he : mg.map[c.name]? = some e') (hst : EntryStands e' c)
-    (ht : c.kind.tag < 5) {r : ConstantInfo} (hr : r ∈ entryRecords c) : CoveredBy ds r := by
+    (ht : c.kind.tag < 5) {r : ConstantInfo} (hr : r ∈ entryConstants c) : CoveredBy ds r := by
   rw [entryRecords_low ht] at hr
   cases hdc : declOfEntry c with
   | none => rw [hdc] at hr; cases hr
@@ -468,7 +468,7 @@ theorem covers_entry {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
         | thm v' a' =>
           simp only [declOfEntry, Option.some.injEq] at hdc
           subst hdc
-          simp only [Declaration.records, List.mem_singleton] at hr
+          simp only [Declaration.constants, List.mem_singleton] at hr
           exact .inl hr
         | _ => simp [CKindF.tag] at hc2
       · simp only [declOfEntry, Option.some.injEq] at hdc
@@ -477,7 +477,7 @@ theorem covers_entry {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
           List.contains_eq_mem, decide_eq_false_iff_not] at hb
         have hn : n = e'.toCEntryF.cv.name := by
           rw [hcv]; rfl
-        simp only [Declaration.records, CEntryF.cv] at hr
+        simp only [Declaration.constants, CEntryF.cv] at hr
         by_cases hq : n = quotSoundName
         · exfalso; apply hb
           rw [← hn, hq]
@@ -517,11 +517,11 @@ constructor at its parameter count, a recursor with its rules firing against the
 formers, which are its `all`. -/
 theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg ds) {e' : CEntry}
     (he : mg.map[e'.name]? = some e') (ht : 5 ≤ e'.kind.tag) {r : ConstantInfo}
-    (hr : r ∈ entryRecords e'.toCEntryF) : ∃ d ∈ ds, ∃ c' ∈ d.records, StoredAs c' r := by
+    (hr : r ∈ entryConstants e'.toCEntryF) : ∃ d ∈ ds, ∃ c' ∈ d.constants, StoredAs c' r := by
   have hG := blocksOk_good F.blocks F.order
   -- a member of a block's record has its record in the block's records
   have inRecs : ∀ {block nP c}, c ∈ block → (∀ cv mI rP isK rules, c ≠ .recInfo cv mI rP isK rules) →
-      c ∈ (Declaration.indDecl block nP).records := by
+      c ∈ (Declaration.indDecl block nP).constants := by
     intro block nP c hc hnr
     refine List.mem_map.mpr ⟨c, hc, ?_⟩
     cases c with
@@ -535,7 +535,7 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
   | induct np ni all cs nn ir iu irf =>
     cases iu
     rotate_left
-    · simp [entryRecords, hk, declOfEntry] at hr
+    · simp [entryConstants, hk, declOfEntry] at hr
     have hsk : e'.skipped = false := by unfold CEntry.skipped; rw [hk]; rfl
     have hI : IsInd e' all cs := ⟨np, ni, nn, ir, false, irf, hk⟩
     obtain ⟨p, hp, ts, cts, rs, hdp, h1, h2, h3⟩ :=
@@ -543,16 +543,16 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
     obtain ⟨block, nP, rfl, hT, -, -, -⟩ :=
       declOfF_ind_records hdp (tys_res h1) (ctors_res h2) (recs_res h3)
     have hr' : r = .indInfo e'.toCEntryF.cv {} := by
-      simpa [entryRecords, hk] using hr
+      simpa [entryConstants, hk] using hr
     subst hr'
     refine ⟨_, hp, _, inRecs (hT _ (tysMem (hG.ind he hI).1 he (by rw [hk]; rfl)))
       (fun _ _ _ _ _ h => nomatch h), StoredAs.refl _⟩
   | ctor ind cidx np nf iu =>
     cases iu
     rotate_left
-    · simp [entryRecords, hk, declOfEntry] at hr
+    · simp [entryConstants, hk, declOfEntry] at hr
     have hr' : r = .ctorInfo e'.toCEntryF.cv np nf ind := by
-      simpa [entryRecords, hk] using hr
+      simpa [entryConstants, hk] using hr
     subst hr'
     obtain ⟨m, all, cs, hm, hmI, hncs⟩ := hG.ctor he ⟨cidx, np, nf, false, hk⟩
     obtain ⟨hind, -, hcsm⟩ := hG.ind hm hmI
@@ -591,7 +591,7 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
   | recur all np ni nmo nmi rules k iu =>
     cases iu
     rotate_left
-    · simp [entryRecords, hk, declOfEntry] at hr
+    · simp [entryConstants, hk, declOfEntry] at hr
     obtain ⟨t, rest, m, cs, hall, hm, hmI, hsm⟩ := hG.recur he ⟨np, ni, nmo, nmi, rules, k, false, hk⟩
     have hsk : m.skipped = false := by
       rw [hsm]; unfold CEntry.skipped; rw [hk]; rfl
@@ -617,7 +617,7 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
         (rules.map fun (cn, nf, rhs) =>
           { ctor := cn, nfields := nf,
             fire := inputFire all e'.toCEntryF.cv (np + nmo + nmi + ni) (np + nmo + nmi), rhs }) := by
-      simpa [entryRecords, hk] using hr
+      simpa [entryConstants, hk] using hr
     subst hr'
     have hrules : (rules.map fun r => (⟨r.1, r.2.1, .plain, r.2.2⟩ : RecRule)).map
         (fun rl => { rl with fire := (inputFire (blockFormerNames block) e'.toCEntryF.cv
@@ -641,7 +641,7 @@ passes the reserved names' check). -/
 theorem readOleansAt_covers {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name} {jobs : Nat}
     {pace : Pace} {lenient homes : Bool} {fs : FS} {rd : OleanRead} {hs hs' : HS}
     (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
-    {r : ConstantInfo} (hr : closureRecords sp fs roots r) : CoveredBy rd.decls r := by
+    {r : ConstantInfo} (hr : closureConstants sp fs roots r) : CoveredBy rd.decls r := by
   obtain ⟨mg, F, hentry⟩ := readOleansAt_entry hsp h
   obtain ⟨m, hcl, f, d, c, hf, hd, hc, hrc⟩ := hr
   obtain ⟨e', he, hst⟩ := hentry hcl ⟨f, hf, hd⟩ hc
@@ -666,11 +666,11 @@ theorem checkDecls_inputStored {sp : Roots} (hsp : sp.bare = sp) {roots : Array 
     {used : Declaration → Array Name} {F : Expr → Expr} {env : Env}
     (hc : Cached.checkDecls mode pins maxNatSize
       ((prepareD pre rd.decls used).decls.map (Cached.fillDecl F)) = .ok env) :
-    RecordsStored (closureRecords sp fs roots) env := by
+    RecordsStored (closureConstants sp fs roots) env := by
   have hst := Cached.checkDecls_recordsStored hc
   obtain ⟨n, fe, run, -⟩ := Cached.checkDecls_run mode hc
   have hb := Cached.declsRun_basisNamesOk run
-  have hrec : ∀ d, (Cached.fillDecl F d).records = d.records := by intro d; cases d <;> rfl
+  have hrec : ∀ d, (Cached.fillDecl F d).constants = d.constants := by intro d; cases d <;> rfl
   have hbn : ∀ d, basisNamesOk (Cached.fillDecl F d) = basisNamesOk d := by
     intro d; cases d <;> rfl
   have hmem : ∀ {d}, d ∈ (prepareD pre rd.decls used).decls →
@@ -680,5 +680,5 @@ theorem checkDecls_inputStored {sp : Roots} (hsp : sp.bare = sp) {roots : Array 
   obtain ⟨d, hd, hcov⟩ := readOleansAt_covers hsp h hr
   have hd' := hmem (Frontend.mem_prepareD (used := used) (pre := pre) hd)
   obtain ⟨c', hc', hs⟩ := hcov (hbn d ▸ hb _ hd')
-  exact ⟨c', mem_recordsOf.2 ⟨_, hd', (hrec d).symm ▸ hc'⟩, hs⟩
+  exact ⟨c', mem_constantsOf.2 ⟨_, hd', (hrec d).symm ▸ hc'⟩, hs⟩
 end ConLeche.Frontend.Olean

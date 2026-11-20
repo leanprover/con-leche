@@ -28,9 +28,9 @@ universe w
 
 variable {V : Type w} [SetTheory V] {model : Name → List Nat → V} {R : ConstantInfo → Prop}
 
-/-- A record's membership clause, off `HasRecord`. -/
+/-- A record's membership clause, off `HasConstant`. -/
 theorem IsModel.mem_of_hasRecord (h : IsModel V model R) {n : Name} {ps : List LevelParam}
-    {T : Expr} (hr : HasRecord R n ps T) (vals : List Nat) (hl : vals.length = ps.length) :
+    {T : Expr} (hr : HasConstant R n ps T) (vals : List Nat) (hl : vals.length = ps.length) :
     model n vals ∈ˢ Expr.eval model (Level.assign ps vals) ρ₀ T := by
   obtain ⟨c, hc, hcv⟩ := hr
   have hs := (h c hc vals (by rw [hcv]; exact hl)).1
@@ -134,7 +134,7 @@ theorem IsModel.eq_eqv (h : IsModel V model R) (hE : DeclaresEq R) {k : Nat} {A 
 /-- **No model of a stream declaring the prelude's `False` has a theorem of type `False`**, at
 any level parameters. -/
 theorem IsModel.no_false_record (h : IsModel V model R) (hF : DeclaresFalse R) {t : Name}
-    {ps : List LevelParam} (ht : HasRecord R t ps (.const falseName [])) : False := by
+    {ps : List LevelParam} (ht : HasConstant R t ps (.const falseName [])) : False := by
   have hm := h.mem_of_hasRecord ht (ps.map fun _ => 0) (by simp)
   have he : Expr.eval model (Level.assign ps (ps.map fun _ => 0)) ρ₀ (.const falseName []) =
       model falseName [] := rfl

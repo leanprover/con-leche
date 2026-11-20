@@ -18,7 +18,7 @@ public section
 # An accepted stream stores the records `IsModel` reads
 
 `IsModel` (`ConLeche/IsModel.lean`) states one clause per record of the INPUT
-(`Declaration.records`); the proofs' model is a model of the environment the checker builds.  The
+(`Declaration.constants`); the proofs' model is a model of the environment the checker builds.  The
 bridge between the two needs that every record of an accepted stream is stored, under its name, as
 the record says (`RecordsStored`): its level parameters and type, a definition with its value, a
 recursor with its rules and their firing modes, a constructor with its parameter count.
@@ -49,8 +49,8 @@ a recursor with its rules (firing modes included), a constructor with its parame
   (∀ cvj cnP nF T, c = .ctorInfo cvj cnP nF T → ∃ nF' T', ci = .ctorInfo cvj cnP nF' T')
 
 /-- A record of a stream is a record of one of its declarations. -/
-theorem mem_recordsOf {ds : List Declaration} {c : ConstantInfo} :
-    c ∈ recordsOf ds ↔ ∃ d ∈ ds, c ∈ d.records := List.mem_flatMap
+theorem mem_constantsOf {ds : List Declaration} {c : ConstantInfo} :
+    c ∈ constantsOf ds ↔ ∃ d ∈ ds, c ∈ d.constants := List.mem_flatMap
 
 /-- **Every record of the input is stored** under its name (`StoredAs`). -/
 @[expose] def RecordsStored (R : ConstantInfo → Prop) (env : Env) : Prop :=
@@ -242,7 +242,7 @@ def BlockRead (nP : Nat) (block : List ConstantInfo) : Prop :=
 
 /-- **A read block's records are stored** among its constants. -/
 theorem blockRecords_stored {nP : Nat} {block : List ConstantInfo} (h : BlockRead nP block) :
-    ∀ c ∈ blockRecords block, ∃ ci ∈ declConstants (.indDecl block nP), StoredAs ci c := by
+    ∀ c ∈ blockFired block, ∃ ci ∈ declConstants (.indDecl block nP), StoredAs ci c := by
   obtain ⟨p, hp, hnd, hg⟩ := h
   have hd := readBlock_declared hp
   obtain ⟨-, -, -, -, -, -, -, cvTs, cs, rs, nIdxs, hsp, hk, -, hnl, -, hcsP, hmem, hrecs⟩ :=
@@ -321,17 +321,17 @@ theorem blockRecords_stored {nP : Nat} {block : List ConstantInfo} (h : BlockRea
 /-- **A declaration's records are stored** among its constants, given that a block reads. -/
 theorem records_stored {d : Declaration}
     (hb : ∀ block nP, d = .indDecl block nP → BlockRead nP block) :
-    ∀ c ∈ d.records, ∃ ci ∈ declConstants d, StoredAs ci c := by
+    ∀ c ∈ d.constants, ∃ ci ∈ declConstants d, StoredAs ci c := by
   intro c hc
   cases d with
   | axiomDecl cv =>
     refine ⟨c, ?_, StoredAs.refl c⟩
-    simp only [Declaration.records] at hc
+    simp only [Declaration.constants] at hc
     simp only [declConstants]
     exact hc
   | defnDecl cv v hint =>
     refine ⟨.defnInfo cv v hint, List.mem_singleton_self _, ?_⟩
-    simp only [Declaration.records] at hc
+    simp only [Declaration.constants] at hc
     split at hc
     · obtain rfl := List.mem_singleton.mp hc
       refine ⟨rfl, ?_, ?_, ?_⟩
@@ -489,7 +489,7 @@ theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
 /-- **An accepted stream stores its records** (`RecordsStored`). -/
 theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env) :
-    RecordsStored (· ∈ recordsOf ds.toList) env := by
+    RecordsStored (· ∈ constantsOf ds.toList) env := by
   have henv := checkDecls_env h
   obtain ⟨n, fe, run, hfe⟩ := checkDecls_run mode h
   have hnd : NodupNames env := by
@@ -497,7 +497,7 @@ theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {m
     exact (declsRun_chain mode run (PushChain.refl Env.empty)).2.2.1 List.nodup_nil
   have hb := declsRun_blockRead run
   intro c hc
-  obtain ⟨d, hd, hc⟩ := mem_recordsOf.1 hc
+  obtain ⟨d, hd, hc⟩ := mem_constantsOf.1 hc
   obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
   have hmem : ci ∈ env.consts := by
     rw [henv]
@@ -670,15 +670,15 @@ theorem pinCopyOk_cv {c pin : ConstantInfo} (h : pinCopyOk c pin = true)
   exact this.symm.trans (by rw [hd])
 
 /-- A block's records carry its records' names, level parameters and types. -/
-theorem mem_blockRecords_cv {block : List ConstantInfo} {b : ConstantInfo} (hb : b ∈ block) :
-    ∃ c ∈ blockRecords block, c.toConstantVal = b.toConstantVal := by
+theorem mem_blockFired_cv {block : List ConstantInfo} {b : ConstantInfo} (hb : b ∈ block) :
+    ∃ c ∈ blockFired block, c.toConstantVal = b.toConstantVal := by
   refine ⟨_, List.mem_map_of_mem hb, ?_⟩
   cases b <;> rfl
 
 /-- **An accepted stream that stores `False` declares the prelude's `False`.** -/
 theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
-    (hs : (env.find? falseName).isSome = true) : DeclaresFalse (· ∈ recordsOf ds.toList) := by
+    (hs : (env.find? falseName).isSome = true) : DeclaresFalse (· ∈ constantsOf ds.toList) := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .falseK) (by decide)
     (n := falseName) (by decide) hs
   match block, hok with
@@ -687,8 +687,8 @@ theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {m
     obtain ⟨hcv, -, hl⟩ := pinCopyOk_cv hok.2.1 rfl
     match hq : b2.toConstantVal.levelParams, hl with
     | [p], _ =>
-      obtain ⟨c, hc, hcc⟩ := mem_blockRecords_cv (block := [b1, b2]) (b := b2) (by simp)
-      refine ⟨p, c, mem_recordsOf.2 ⟨_, hmem, hc⟩, ?_⟩
+      obtain ⟨c, hc, hcc⟩ := mem_blockFired_cv (block := [b1, b2]) (b := b2) (by simp)
+      refine ⟨p, c, mem_constantsOf.2 ⟨_, hmem, hc⟩, ?_⟩
       rw [hcc, hcv, hq]
       rfl
   | [], hok | [_], hok | _ :: _ :: _ :: _, hok =>
@@ -697,7 +697,7 @@ theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {m
 /-- **An accepted stream that stores `Eq` declares the prelude's `Eq`.** -/
 theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
-    (hs : (env.find? eqName).isSome = true) : DeclaresEq (· ∈ recordsOf ds.toList) := by
+    (hs : (env.find? eqName).isSome = true) : DeclaresEq (· ∈ constantsOf ds.toList) := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .eqK) (by decide)
     (n := eqName) (by decide) hs
   match block, hok with
@@ -709,11 +709,11 @@ theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxN
     match hq1 : b1.toConstantVal.levelParams, hl1, hq2 : b2.toConstantVal.levelParams, hl2,
       hq3 : b3.toConstantVal.levelParams, hl3, hnd3 with
     | [p], _, [p'], _, [p₁, p₃], _, hnd =>
-      obtain ⟨c1, hc1, hcc1⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b1) (by simp)
-      obtain ⟨c2, hc2, hcc2⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b2) (by simp)
-      obtain ⟨c3, hc3, hcc3⟩ := mem_blockRecords_cv (block := [b1, b2, b3]) (b := b3) (by simp)
-      refine ⟨⟨p, c1, mem_recordsOf.2 ⟨_, hmem, hc1⟩, ?_⟩, ⟨p', c2, mem_recordsOf.2 ⟨_, hmem, hc2⟩, ?_⟩,
-        ⟨p₁, p₃, ?_, c3, mem_recordsOf.2 ⟨_, hmem, hc3⟩, ?_⟩⟩
+      obtain ⟨c1, hc1, hcc1⟩ := mem_blockFired_cv (block := [b1, b2, b3]) (b := b1) (by simp)
+      obtain ⟨c2, hc2, hcc2⟩ := mem_blockFired_cv (block := [b1, b2, b3]) (b := b2) (by simp)
+      obtain ⟨c3, hc3, hcc3⟩ := mem_blockFired_cv (block := [b1, b2, b3]) (b := b3) (by simp)
+      refine ⟨⟨p, c1, mem_constantsOf.2 ⟨_, hmem, hc1⟩, ?_⟩, ⟨p', c2, mem_constantsOf.2 ⟨_, hmem, hc2⟩, ?_⟩,
+        ⟨p₁, p₃, ?_, c3, mem_constantsOf.2 ⟨_, hmem, hc3⟩, ?_⟩⟩
       · rw [hcc1, hcv1, hq1]; rfl
       · rw [hcc2, hcv2, hq2]; rfl
       · simpa [Name.nodup] using hnd

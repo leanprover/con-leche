@@ -54,7 +54,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ model : Nat → Name → List Nat → V,
-      (∀ j ≤ i, IsModel V (model j) (recordsOf (dev j).decls)) ∧
+      (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
         (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n
 ```

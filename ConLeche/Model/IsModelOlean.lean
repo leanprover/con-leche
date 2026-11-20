@@ -26,12 +26,12 @@ universe w
 
 /-- **An accepted `.olean` run's input has a model**: every exit 0 of `runArgs` at
 `--olean --search-path=<dirs> -- <root>` has a model of every record of every constant of the
-private views of the closure of `root`'s module (`closureRecords`).  The prelude declarations the
+private views of the closure of `root`'s module (`closureConstants`).  The prelude declarations the
 preparation adds are checked with them, and the model is one of the closure's records alone. -/
 theorem oleans_isModel (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
     (hr : Olean.parseModName root = some r)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0) :
-    ∃ model, IsModel V model (Olean.closureRecords (Driver.searchPathOf dirs) fs #[r]) := by
+    ∃ model, IsModel V model (Olean.closureConstants (Driver.searchPathOf dirs) fs #[r]) := by
   obtain ⟨_, _, h⟩ := h
   obtain ⟨pre, rd, env, -, hrd, hchk⟩ := Driver.runArgs_olean_accept h
   have hroots : (#[root].filterMap Olean.parseModName) = #[r] := by simp [hr]

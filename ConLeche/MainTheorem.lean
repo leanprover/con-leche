@@ -124,7 +124,7 @@ binary runs the fold at `natOpPinSets`. -/
 theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
     (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
-    ∃ model, IsModel V model (· ∈ recordsOf ds.toList) := by
+    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
   cases h : checkDecls .verified pins maxNatSize ds with
   | error e => rw [h] at accepted; cases accepted
   | ok env =>
@@ -153,14 +153,14 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   have hmem' := Array.mem_toList_iff.mpr (Frontend.mem_preparePrelude (pre := pre) hmem)
   obtain ⟨model, hM⟩ := model_exists V pins maxNatSize _ (by rw [hcheck]; rfl)
   -- the theorem is a record of type `False`
-  have hrec : HasRecord (· ∈ recordsOf (preparePrelude pre r.decls).toList) cv.name
+  have hrec : HasConstant (· ∈ constantsOf (preparePrelude pre r.decls).toList) cv.name
       cv.levelParams (.const falseName []) :=
-    ⟨.thmInfo cv, mem_recordsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩, by rw [← hty]; rfl⟩
+    ⟨.thmInfo cv, mem_constantsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩, by rw [← hty]; rfl⟩
   -- its type reads `False`, so the accepted environment stores it, as the prelude's
-  have hF : DeclaresFalse (· ∈ recordsOf (preparePrelude pre r.decls).toList) := by
+  have hF : DeclaresFalse (· ∈ constantsOf (preparePrelude pre r.decls).toList) := by
     refine Cached.checkDecls_declaresFalse hcheck ?_
     obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck (.thmInfo cv)
-      (mem_recordsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩)
+      (mem_constantsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩)
     obtain ⟨-, -, hres, -⟩ := (Semantics.checkDecls_envWF hcheck).consts ci (Env.find?_mem hf)
     rw [hcv] at hres
     change Expr.constsResolve env cv.type = true at hres
@@ -201,13 +201,13 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
 
 open Frontend in
 /-- **The main theorem, on `.olean` files.**  Every exit 0 of `runArgs` at the arguments
-`--olean --search-path=<dirs> -- <root>` has a model of its input (`Olean.closureRecords`,
-`ConLeche/OleanInput.lean`): every record of every constant of the private views of the modules
-of the closure of `root`. -/
+`--olean --search-path=<dirs> -- <root>` has a model of its input (`Olean.closureConstants`,
+`ConLeche/OleanInput.lean`): every constant of the private views of the modules of the closure
+of `root`. -/
 theorem main_oleans (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
     (hr : Olean.parseModName root = some r)
     (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0) :
-    ∃ model, IsModel V model (Olean.closureRecords (Driver.searchPathOf dirs) fs #[r]) :=
+    ∃ model, IsModel V model (Olean.closureConstants (Driver.searchPathOf dirs) fs #[r]) :=
   oleans_isModel V hr h
 
 open Frontend in
@@ -235,7 +235,7 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
 /-! ## Modular checking (task #463)
 
 A development of modules (`ConLeche/Modular.lean`) every module of which passes the local checks
-has, for every module, a model of its own records (`IsModel`, over the input), and every module
+has, for every module, a model of its own constants (`IsModel`, over the input), and every module
 gives each name of its context the value the module it reads it from gives it.  Each module's
 model is built from its sources' models alone (`ConLeche/Modular/Generic.lean`'s
 `Development.modular`, at con-leche's models: `ConLeche/Model/Modular/Instance.lean`), and read
@@ -247,7 +247,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ model : Nat → Name → List Nat → V,
-      (∀ j ≤ i, IsModel V (model j) (· ∈ recordsOf (dev j).decls)) ∧
+      (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
         (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
   Model.Modular.modular_isModel V pins maxNatSize dev i hok

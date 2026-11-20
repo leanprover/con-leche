@@ -7,29 +7,29 @@ public import ConLeche.Verify.Frontend.Olean.Files
 @[expose] public section
 
 /-!
-# The `.olean` input as records
+# The `.olean` input as constants
 
 `con-leche --olean -- M` checks the module `M` and everything it imports, read from the
 `.olean` files on a snapshot of the file system.  This module says, with the specification's
-notions of `ConLeche/Verify/Frontend/Olean/Files.lean`, which records that input is — the set
+notions of `ConLeche/Verify/Frontend/Olean/Files.lean`, which constants that input is — the set
 `IsModel` (`ConLeche/IsModel.lean`) is stated over — with nothing of how the reader reads them:
 
 * **the closure** (`InClosure`): the roots, and every import of the private view of a module of
   it;
 * **a module's view** (`ViewOf`): what its files hold at the private level, its imports and
   constants among it;
-* **a constant's record** (`entryRecords`): its declaration's records, as the stream reader
+* **a stored constant's constants** (`entryConstants`): its declaration's, as the stream reader
   would read them from lean4export's output.  Unsafe and partial constants have none: lean4export
   leaves them out.  A recursor's rules fire as its own type says against its block's type
   formers, the names its `all` lists (`inputFire`);
-* **a part's records** (`PartRecord`): those of the constants of a module's part, exported or
-  private; a module's records (`moduleRecords`) are its private part's, the closure's
-  (`closureRecords`) those of its modules.
+* **a part's constants** (`InModulePart`): those of a module's part, exported or private; a
+  module's constants (`moduleConstants`) are its private part's, the closure's
+  (`closureConstants`) those of its modules.
 
 There is no order and no merge here.  A name two modules store is one of Lean's: Lean's import
 keeps one copy, and refuses the closure unless the two copies are one constant, or proofs of
 one statement (a theorem for a theorem or for its axiom, an axiom for an axiom of a proposition;
-`subsumesInfo`).  Two such copies have records with one statement, which hold in a model
+`subsumesInfo`).  Two such copies are constants of one statement, which hold in a model
 together, so the set of both is the input.
 -/
 
@@ -60,11 +60,11 @@ def declOfEntry (c : CEntryF Name Expr) : Option Declaration :=
   | .quot "ind" => some (.quotDecl .ind c.cv)
   | _ => none
 
-/-- **The records of a stored constant**: a type former, a constructor and a recursor of a safe
-inductive block are one record each, the recursor's rules firing as its type says against its
-block's type formers (`all`); any other constant has the records of its declaration
+/-- **The constants of a stored constant**: a type former, a constructor and a recursor of a safe
+inductive block are one constant each, the recursor's rules firing as its type says against its
+block's type formers (`all`); any other constant has the constants of its declaration
 (`declOfEntry`), an unsafe or partial one none. -/
-def entryRecords (c : CEntryF Name Expr) : List ConstantInfo :=
+def entryConstants (c : CEntryF Name Expr) : List ConstantInfo :=
   match c.kind with
   | .induct _ _ _ _ _ _ false _ => [.indInfo c.cv {}]
   | .ctor ind _ np nf false => [.ctorInfo c.cv np nf ind]
@@ -73,30 +73,30 @@ def entryRecords (c : CEntryF Name Expr) : List ConstantInfo :=
     let rP := np + nmo + nmi
     [.recInfo c.cv mI rP k (rules.map fun (cn, nf, rhs) =>
       { ctor := cn, nfields := nf, fire := inputFire all c.cv mI rP, rhs })]
-  | _ => ((declOfEntry c).map Declaration.records).getD []
+  | _ => ((declOfEntry c).map Declaration.constants).getD []
 
-/-- **Part `p` of module `m` holds the record `r`**: `m`'s files on the search path, decoded at
-the level `p` (`.exported`, or `.private`: the whole module), hold a constant whose record is `r`
-(`entryRecords`).  Every record is one `ConstantInfo` of one constant: a type former, a
-constructor and a recursor of a block are one record each, every other kind of constant at most
-one, so `r.name` is its single name.  It is the constant's own name except at a quotient
-constant (and the axiom `Quot.sound`), whose record is the quotient package's constant of its
-kind (`quotAt`), under that constant's name. -/
-def PartRecord (sp : Roots) (fs : FS) (m : Name) (p : OLeanLevel) (r : ConstantInfo) : Prop :=
-  ∃ f d c, ModelIO.CanGive (readFiles sp m p) fs (.ok f) ∧ decodeModuleSpec f p = some d ∧
-    c ∈ d.constants ∧ r ∈ entryRecords c
+/-- **The constant `c` is in part `p` of module `m`**: `m`'s files on the search path, decoded
+at the level `p` (`.exported`, or `.private`: the whole module), hold a stored constant `e` with
+`c` among its constants (`entryConstants`).  Every `ConstantInfo` is one constant: a type former,
+a constructor and a recursor of a block are one each, and every other kind of stored constant
+gives at most one, so `c.name` is its single name.  It is the stored constant's own name except
+at a quotient constant (and the axiom `Quot.sound`), which is the quotient package's constant of
+its kind (`quotAt`), under that constant's name. -/
+def InModulePart (sp : Roots) (fs : FS) (m : Name) (p : OLeanLevel) (c : ConstantInfo) : Prop :=
+  ∃ f d e, ModelIO.CanGive (readFiles sp m p) fs (.ok f) ∧ decodeModuleSpec f p = some d ∧
+    e ∈ d.constants ∧ c ∈ entryConstants e
 
-/-- **A module's records**: those of its private part, the whole module. -/
-def moduleRecords (sp : Roots) (fs : FS) (m : Name) : ConstantInfo → Prop :=
-  PartRecord sp fs m .private
+/-- **A module's constants**: those of its private part, the whole module. -/
+def moduleConstants (sp : Roots) (fs : FS) (m : Name) : ConstantInfo → Prop :=
+  InModulePart sp fs m .private
 
-/-- **The closure's records**: every record of every module of the closure of `roots`. -/
-def closureRecords (sp : Roots) (fs : FS) (roots : Array Name) : ConstantInfo → Prop := fun r =>
-  ∃ m, InClosure sp fs roots m ∧ moduleRecords sp fs m r
+/-- **The closure's constants**: every constant of every module of the closure of `roots`. -/
+def closureConstants (sp : Roots) (fs : FS) (roots : Array Name) : ConstantInfo → Prop := fun c =>
+  ∃ m, InClosure sp fs roots m ∧ moduleConstants sp fs m c
 
 /-- **Module `m` sees `n` as `m'`'s**: `m`'s header loads a part of `m'` (`Loads`) that holds a
-record named `n`. -/
+constant named `n`. -/
 def Sees (sp : Roots) (fs : FS) (m n m' : Name) : Prop :=
-  ∃ p r, Loads sp fs m m' p ∧ PartRecord sp fs m' p r ∧ r.name = n
+  ∃ p c, Loads sp fs m m' p ∧ InModulePart sp fs m' p c ∧ c.name = n
 
 end ConLeche.Frontend.Olean

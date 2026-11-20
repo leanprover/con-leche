@@ -62,7 +62,7 @@ equation the compiled equality rests on.
 
 | theorem | what it says |
 |---|---|
-| `ConLeche.model_exists` | **THE MAIN THEOREM**: every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input), and declares `False` and `Eq`, where it declares them at all, as the prelude's |
+| `ConLeche.model_exists` | **THE MAIN THEOREM**: every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
 | `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
 | `ConLeche.modular_model_exists` | **THE MODULAR THEOREM**: a development every module of which passes the local checks has a compatible family of models of the own environments |
@@ -160,6 +160,12 @@ The other direction of the same relation between input and output:
 every record of the stream that declares a constant leaves that
 constant, under its own name, with its own level parameters and its
 own declared type, in the environment the fold returns. -/
+
+/--
+info: 'ConLeche.main_oleans' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_oleans
 
 /--
 info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
