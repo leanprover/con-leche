@@ -156,7 +156,7 @@ are #src("ConLeche/Rules/Rel.lean", 362, 364)[compared through the level oracle]
 
 The congruences descend into the two binders and into applications.
 Domains are compared first, then the bodies, under the right-hand
-domain.  #src("whitepaper/Fragment/Rules.lean", 567, 575)[For $forall$] that is all.
+domain.  #src("whitepaper/Fragment/Rules.lean", 567, 575)[For Π-types] that is all.
 
 #rules(
   rule(name: "pi",
@@ -253,10 +253,10 @@ checks; @sec:io presents it.
 )
 
 The two #src("whitepaper/Fragment/Rules.lean", 754, 771)[binder rules] are Lean's own.  For a
-$forall$, the domain's type must reduce to a sort $Sort u$ and the
+Π-type, the domain's type must reduce to a sort $Sort u$ and the
 body's type, under the domain, to a sort $Sort v$; the result is
 $Sort (imax(u, v))$.  For a lambda, the domain's type must reduce to
-a sort, and the result is the $forall$ of the body's inferred type;
+a sort, and the result is the Π-type over the body's inferred type;
 the sort of that type is not computed.
 
 #rules(

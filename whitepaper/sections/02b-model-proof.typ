@@ -197,9 +197,14 @@ fact about the syntax, not about any value, and reading an empty
 `False → False` denote a one-element set of graphs, which no truth
 value is.
 
-*What a sort denotes.* A set is a
+*What a sort denotes.* A set $X in V$ is a
 #src("whitepaper/Fragment/Lib.lean", 297, 301)[_type_] when it is a truth value or
-_strict_, that is, neither the point nor a set holding the point. The
+_strict_, that is, neither the point nor a set holding the point:
+$
+  X "a type" quad <==> quad X in cal(U)_0
+  quad or quad (X != pt and pt in.not X).
+$
+The
 members of a type are
 #src("whitepaper/Fragment/Lib.lean", 358, 363)[all the point or none of it],
 and this is the one fact about types the soundness proof reads. A sort
@@ -242,7 +247,8 @@ valuation $phi$ and an environment $rho$, like the interpretation, by
 recursion on the term: it holds of a term when it holds of the
 subterms and one condition on the term's own shape is met. We write
 $rho models e$ for "$e$ is well-denoted under $rho$" ($phi$ is fixed
-throughout). Variables and sorts are always well-denoted, and
+throughout). Variables and sorts are always well-denoted, and, with
+$F$ a function from sets to sets and $A$ a set in app-graph,
 
 #rules(
   rule(name: "app-pt",
@@ -405,7 +411,7 @@ claim there. Every rule falls into one of four cases.
   in $eta$, in proof irrelevance), the comparisons of two types (an
   argument's type with a domain in app, a domain with a domain in
   the congruences, the checker's type comparisons in $iota$), the
-  fibres compared in $forall$-congruence. The third claim made each
+  fibres compared in the congruence for Π-types. The third claim made each
   subject a type, so the conditional claim applies outright.
 + _The subject is not the point by hypothesis._ trans passes the
   first claim's denotation on to the second; head reduces the head of
@@ -420,7 +426,7 @@ claim there. Every rule falls into one of four cases.
   lambda congruence and $eta$ are the one place where nothing else
   supplies a common type, and that is why those rules compare the
   bodies' types (@sec:tax).
-+ _The step is an identity everywhere._ β on a redex that is not the
++ _The step has its own semantic lemma._ β on a redex that is not the
   point (@lem:beta), $zeta$ and δ (@sec:env) claim nothing beyond what
   holds at every environment.
 
@@ -488,7 +494,7 @@ The routine cases are listed at the end; the others follow.
 
   *#src("whitepaper/Fragment/Sound.lean", 193, 213)[Rule lam]*, $lambda x : A_1. thin b_1 eqlam lambda x : A_2. thin b_2$ from
   the domains, the bodies, and the bodies' types $t_1 equiv t_2$: \
-  The domains are equal as for $forall$. Fix $v$ in the domain. The
+  The domains are equal as for Π-types. Fix $v$ in the domain. The
   third claim puts $lden b_1 rden$ in $lden t_1 rden$ and $lden b_2
   rden$ in $lden t_2 rden$ (at $rho, x |-> v$), both types, and the
   second claim on the types, which are not the point, makes them one
@@ -541,7 +547,7 @@ The routine cases are listed at the end; the others follow.
   $TyU_(phi(u))$, so it is a type, and for every $v' in lden A rden_rho$
   the environment $rho, x |-> v'$ satisfies $Gamma, x : A$; the same
   claims for $B$ put every fibre in $TyU_(phi(v))$. That is the
-  $forall$ rule of the semantic invariant, and $PiV(A, B)$
+  pi rule of the semantic invariant, and $PiV(A, B)$
   #src("whitepaper/Fragment/Lib.lean", 646, 652)[lies in $TyU_(phi(imax(u, v)))$].
   If $phi(v) = 0$, every fibre is a truth value, so is $PiV(A, B)$,
   and $phi(imax(u, v)) = 0$. Otherwise $PiV(A, B)$ is a truth value
@@ -556,7 +562,7 @@ The routine cases are listed at the end; the others follow.
   The same argument one level down. The domain is a type, and for
   every $v'$ in it the third claim for $b$ gives $b$ and $B$
   well-denoted, $lden B rden$ a type and $lden b rden in lden B rden$.
-  That is the lambda rule, and the $forall$ rule of the inferred type
+  That is the lambda rule, and the pi rule of the inferred type
   is met too; and as the $lden B rden$ are types holding the body's
   values, the introduction law for values puts the abstraction into
   $PiV(A, B)$. Nothing about the sort of $B$ is
@@ -570,7 +576,7 @@ The routine cases are listed at the end; the others follow.
   $lden T rden_rho = lden forall x : A. thin B rden_rho$. By the
   third claim for $a$, $a$ and $T_a$ are well-denoted, $lden T_a rden$ is
   a type and $lden a rden_rho in lden T_a rden_rho$; $A$ is a type by
-  the $forall$ rule, so the second claim gives $lden T_a rden_rho =
+  the pi rule, so the second claim gives $lden T_a rden_rho =
   lden A rden_rho$ and $lden a rden_rho in lden A rden_rho$. Now $f thick a$ is well-denoted, by
   an app rule of @sec:inv: $lden f rden_rho$ lies in
   $PiV(A, B)$ with $A$ a type holding the argument, so it is the point
@@ -701,14 +707,22 @@ any number of levels. A δ step or a reduction between two levels ends
 the telescope, and the level below it is an innermost level again.
 
 *Where the comparison could be skipped.* The fragment also proves
-#src("whitepaper/Fragment/Rules.lean", 591, 635)[weaker forms of the rule] sound, which
-con-leche does not use. Over a domain that is a proposition, the
-domain has at most one member, so whether a body is the point cannot
-vary, and no body types are needed (for $eta$ too). Two bodies that do
-not mention the bound variable are the same set at every value, and
-need none either. And two lambdas that are the arguments of one head
-can be compared at the domain of the head's type, where membership in
-that type supplies what the bodies' types would.
+#src("whitepaper/Fragment/Rules.lean", 591, 635)[three weaker forms of the rules] sound;
+con-leche does not use them. Each drops the coloured premises where
+something else makes the bodies both the point or neither at every
+value of the variable:
+- when the domain $A_2$ is inferred to have a sort $Sort u$ with
+  $u eq.dot 0$ (in lambda congruence and in $eta$): the domain is a
+  truth value, with at most one member, so whether a body is the
+  point cannot vary;
+- when neither body mentions the bound variable (in lambda
+  congruence): each body is one set at every value;
+- when the two lambdas are the arguments $a_1, a_2$ of applications
+  $f_1 thick a_1$ and $f_2 thick a_2$ with $Gamma tack f_1 equiv f_2$
+  and $Gamma tack f_1 => T red forall x : S. thin B$: they are
+  compared at the known type $S$, which holds both, by a variant of
+  the equality relation whose lambda and $eta$ rules reduce the known
+  type to a Π-type and compare the bodies at its body.
 
 *Full inference.* The bodies' types are inferred by full inference
 (@sec:infer), not by `infer_only` (@sec:io). With `infer_only` there
@@ -732,10 +746,22 @@ $(lambda h : sans("False"). thin (h.sans("elim") : sans("Nat"))) thick 0$
 gets the type `Nat`, is well-denoted, and denotes the point (the
 lambda is an abstraction over an empty domain), which is no member
 of the set `Nat` denotes. What holds is
-#src("whitepaper/Fragment/IOGrade.lean", 149, 173)[a hereditary claim]:
-the value is the point, or a member of the type, or, when the type is
-a Π-type, a graph over its domain whose applications satisfy the
-claim at the Π-type's body. It is
+#src("whitepaper/Fragment/IOGrade.lean", 149, 173)[a hereditary claim]
+$H_rho (T, w)$ about the inferred type $T$ and the value
+$w = lden e rden_rho$: the value is the point, or a member of the
+type, or, when the type is syntactically a Π-type, a graph over its
+domain whose applications satisfy the claim at the Π-type's body.
+For a term $T$, an environment $rho$ and a set $w$,
+$
+  H_rho (T, w) quad <==> quad w = pt
+  quad or quad (rho models T, lden T rden_rho "a type", w in lden T rden_rho)
+  quad or quad H'_rho (T, w),
+$
+where $H'_rho (T, w)$ holds only when $T$ is a Π-type
+$forall x : A. thin B$, $lden A rden_rho$ is a type, $w$ is a graph
+over $lden A rden_rho$ that is not the point at every member, and
+$H_(rho, x |-> v) (B, w dot.op v)$ for every $v in lden A rden_rho$.
+It is
 #src("whitepaper/Fragment/IOGrade.lean", 362, 363)[proved for every rule]
 of `infer_only`.
 
