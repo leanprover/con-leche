@@ -222,7 +222,7 @@ makes $f$ the set $3$, so $lden f = 5 rden$ is empty there, and the
 environment with $t$ has no model at all.
 
 #real[
-  Con-leche compares two `lean4export` files,
+  con-leche compares two `lean4export` files,
   `con-leche --compare CHALLENGE.ndjson SOLUTION.ndjson`. It checks
   the solution's file in full, then the challenge's file
   #src("ConLeche/Cached/Decls.lean", 110, 116)[with the solution's environment justifying its holes].
@@ -279,7 +279,7 @@ environment with $t$ has no model at all.
   stricter rule. A theorem must be a theorem on both sides, and a
   definition a definition; every other constant the statements reach is
   compared with Lean's own equality on declarations, level-parameter
-  names, binder names and annotations included. Con-leche accepts as
+  names, binder names and annotations included. con-leche accepts as
   the justification of a hole a constant of any kind that states the
   same, compares only what the statement reads, closed under reads, and
   compares definitions, theorems and axioms up to the names of their

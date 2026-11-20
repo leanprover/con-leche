@@ -200,11 +200,11 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, its imported
 views, and the module each context name is read from are given, and
 the local checks of @sec:mod-local say what they must satisfy.
-Con-leche states
+con-leche states
 #src("ConLeche/Modular.lean", 209, 229)[the same checks] over its own
 records. A context there is a list of the records its imports present,
 in an order in which every record reads only itself and earlier
-records. Con-leche proves #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
+records. con-leche proves #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
 models gives #src("ConLeche/MainTheorem.lean", 171, 178)[the modular
 theorem]. The executable computes a module's context from the `.olean`

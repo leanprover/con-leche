@@ -236,7 +236,7 @@ gains three cases, one per rule.
   and law 2 is the definition of $M'$ at $c$.
 ]
 
-In this proof the value's inference supplies the
+In our proof the value's inference supplies the
 premise of @cor:closed, the type's sort and the equality
 $tack T' equiv T$ carry its conclusion from $T'$ to $T$, which gives
 law 1, and law 2 holds by the choice of $M'$.

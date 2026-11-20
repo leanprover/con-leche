@@ -2337,6 +2337,53 @@
    722    exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, h₂.2.1, hx⟩) (h₁.2.2 x hx₁)
    723      (h₂.2.2 x hx)
 
+== whitepaper/Fragment/Rules.lean#L591-L635
+   591    /-- **Lambda congruence over a propositional domain**: no
+   592    comparison of the bodies' types.  The domain is a truth value, so it
+   593    has at most one member, and a body's point-ness cannot vary with
+   594    the variable: a lambda that is not the point has its one body value not
+   595    the point, and the bodies' claim applies there (`Sound.lean`,
+   596    `DefEq.lamProp_sound`).  The checker infers the domain's sort, not
+   597    the bodies' types. -/
+   598    | lamProp {Γ : List Expr} {A₁ b₁ A₂ b₂ s : Expr} {u : Level} :
+   599        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   600        Infer env Γ A₂ s → Red env Γ s (sort u) → LevelOracle.eq u .zero = true →
+   601        DefEq env Γ (lam A₁ b₁) (lam A₂ b₂)
+   602    /-- **Lambda congruence of two constant bodies**: neither body
+   603    uses the bound variable, so each body's value, and its point-ness,
+   604    is the same at every value of the variable; a lambda that is not the
+   605    point has a body that is not the point anywhere (`Sound.lean`,
+   606    `DefEq.lamConst_sound`).  One constant body is not enough: the right
+   607    body of `lam_congr_untyped_unsound` is the constant `n`. -/
+   608    | lamConst {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} :
+   609        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   610        b₁.usesVar 0 = false → b₂.usesVar 0 = false →
+   611        DefEq env Γ (lam A₁ b₁) (lam A₂ b₂)
+   612    /-- **η over a propositional domain**: `DefEq.eta`
+   613    without the lambda's body's type, for the reason of `lamProp`: over a
+   614    domain with at most one member, the lambda and `b` that are not the point
+   615    have their one body value not the point (`Sound.lean`,
+   616    `DefEq.etaProp_sound`). -/
+   617    | etaProp {Γ : List Expr} {A₁ b₁ b tb A₂ B s : Expr} {u : Level} :
+   618        Infer env Γ b tb → Red env Γ tb (pi A₂ B) →
+   619        DefEq env Γ A₂ A₁ →
+   620        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
+   621        Infer env Γ A₁ s → Red env Γ s (sort u) → LevelOracle.eq u .zero = true →
+   622        DefEq env Γ (lam A₁ b₁) b
+   623    /-- **Application congruence at the head's type**: the
+   624    heads are equal and the head's type reduces to a `∀` whose domain
+   625    `S` is the arguments' common type, so the arguments are compared
+   626    *at* `S` (`DefEqIn`) — lambda congruence and η between them need neither
+   627    the bodies' types nor a domain comparison (`Sound.lean`,
+   628    `DefEq.appIn_sound`).  The checker has the head's type for free when
+   629    the head is a constant or a variable (con-leche's arguments of a
+   630    constant-headed spine: the stored type instantiated along the
+   631    earlier arguments). -/
+   632    | appIn {Γ : List Expr} {f₁ a₁ f₂ a₂ tf S B : Expr} :
+   633        DefEq env Γ f₁ f₂ → Infer env Γ f₁ tf → Red env Γ tf (pi S B) →
+   634        DefEqIn env Γ S a₁ a₂ →
+   635        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+
 == whitepaper/Fragment/IOWitness.lean#L433-L445
    433  /-- **Lambda congruence with io-inferred bodies' types is unsound.**  In a
    434  model of `ioEnv` (both definitions typed): the domains by `refl`, the
@@ -4581,6 +4628,23 @@
    173          (mkAppN (rl.rhs.instL ci.lparams us)
    174            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
 
+== whitepaper/Fragment/Sound.lean#L805-L819
+   805  /-- **A spine that is not the point fits its head's telescope, with no
+   806  certificate** (the argument of the paper's ι rule, iterated).  At each step
+   807  the application is not the point, so neither is its head
+   808  (`app_pt`); the invariant's application clause (`AppliesTo`) then puts
+   809  the argument in the domain of the head's graph, and the head's membership
+   810  in its type — a function space, not the point — makes that the type's
+   811  domain (`AppliesTo.mem`), the binder's.
+   812  This is why `Red.iota` carries no certificate on the recursor's
+   813  telescope: the reduction claims nothing of a redex that is the point. -/
+   814  theorem teleFit_of_ne_pt {ρ : Nat → V} :
+   815      ∀ {xs : List Expr} {f T : Expr},
+   816        WellDenoted m.M φ ρ T → interp m.M φ ρ f ∈ˢ interp m.M φ ρ T →
+   817        T.hasPis xs.length = true →
+   818        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
+   819        TeleFit m.M φ ρ T xs
+
 == ConLeche/Rules/Rel.lean#L190-L242
    190    /-- **ι** (`iotaRec`, `Kernel/Core.lean`): a stored recursor
    191    applied to exactly its telescope, whose prepared major (the `Red`
@@ -4635,23 +4699,6 @@
    240            ((e.getAppArgs.take mI).drop rP)) →
    241        Red env d e
    242          (rl.iotaReduct cv.levelParams us rP (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP))
-
-== whitepaper/Fragment/Sound.lean#L805-L819
-   805  /-- **A spine that is not the point fits its head's telescope, with no
-   806  certificate** (the argument of the paper's ι rule, iterated).  At each step
-   807  the application is not the point, so neither is its head
-   808  (`app_pt`); the invariant's application clause (`AppliesTo`) then puts
-   809  the argument in the domain of the head's graph, and the head's membership
-   810  in its type — a function space, not the point — makes that the type's
-   811  domain (`AppliesTo.mem`), the binder's.
-   812  This is why `Red.iota` carries no certificate on the recursor's
-   813  telescope: the reduction claims nothing of a redex that is the point. -/
-   814  theorem teleFit_of_ne_pt {ρ : Nat → V} :
-   815      ∀ {xs : List Expr} {f T : Expr},
-   816        WellDenoted m.M φ ρ T → interp m.M φ ρ f ∈ˢ interp m.M φ ρ T →
-   817        T.hasPis xs.length = true →
-   818        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
-   819        TeleFit m.M φ ρ T xs
 
 == ConLeche/Model/Env/Laws.lean#L516-L548
    516  /-- **The ι case split's environment facts, one rule**.
