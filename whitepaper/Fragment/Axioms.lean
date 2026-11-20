@@ -586,7 +586,7 @@ info: 'Fragment.compare_solves' depends on axioms: [propext, Classical.choice, Q
 #guard_msgs in #print axioms Fragment.compare_solves
 
 /--
-info: 'Fragment.LocalOk.redeclared_is_proof' depends on axioms: [propext]
+info: 'Fragment.LocalOk.redeclared_is_proof' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.LocalOk.redeclared_is_proof
 
