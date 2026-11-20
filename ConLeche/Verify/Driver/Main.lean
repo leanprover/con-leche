@@ -37,7 +37,7 @@ open ConLeche ConLeche.Frontend
 /-- The arguments `-- <file>`: that one file, whatever it is called, and
 every setting at its default (the mode `.verified`). -/
 theorem parseArgs_file (file : String) : parseArgs ["--", file] {} = { files := #[file] } := by
-  simp [parseArgs]
+  simp [parseArgs, Args.closed]
 
 theorem flagValue_append (pre d : String) : flagValue pre (pre ++ d) = some d := by
   simp [flagValue]
@@ -87,6 +87,11 @@ theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ 
         parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
       else if let some v := flagValue "--schedule" s then
         parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
+      else if let some v := flagValue "--worker-stack-size=" s then
+        match Schedule.parseSize v with
+        | some (n + 1) => parseArgs rest { a with workerStack := some (n + 1) }
+        | _ => { a with bad := some s!"--worker-stack-size takes a size with a unit, K, M, G or T \
+            (e.g. 8G), got {Display.str v}" }
       else if s.startsWith "-" then
         { a with bad := some s!"unknown option {Display.str s}" }
       else parseArgs rest { a with files := a.files.push s } := by
@@ -117,7 +122,7 @@ theorem parseArgs_olean (dirs root : String) :
     simp only [beq_eq_false_iff_ne]
     exact append_ne _ (by decide)
   simp only [hj, Bool.false_eq_true, ↓reduceIte]
-  simp [parseArgs]
+  simp [parseArgs, Args.closed]
 
 /-- A `--help` after `--` is a file. -/
 theorem helpWanted_file (file : String) : helpWanted ["--", file] = false := by
@@ -211,7 +216,7 @@ theorem parseArgs_graph (dirs root : String) :
     simp only [beq_eq_false_iff_ne]
     exact append_ne _ (by decide)
   simp only [hj, Bool.false_eq_true, ↓reduceIte]
-  simp [parseArgs]
+  simp [parseArgs, Args.closed]
 
 /-- The flags of `--check-graph --search-path=<dirs> -- <root>` ask for no help. -/
 theorem helpWanted_graph (dirs root : String) :
@@ -284,7 +289,7 @@ theorem parseArgs_module (dirs root : String) :
     simp only [beq_eq_false_iff_ne]
     exact append_ne _ (by decide)
   simp only [hj, Bool.false_eq_true, ↓reduceIte]
-  simp [parseArgs]
+  simp [parseArgs, Args.closed]
 
 /-- The flags of `--olean --module --search-path=<dirs> -- <root>` ask for no help. -/
 theorem helpWanted_module (dirs root : String) :
@@ -345,7 +350,7 @@ theorem parseArgs_modular (dirs root : String) :
     simp only [beq_eq_false_iff_ne]
     exact append_ne _ (by decide)
   simp only [hj, Bool.false_eq_true, ↓reduceIte]
-  simp [parseArgs]
+  simp [parseArgs, Args.closed]
 
 /-- The flags of `--olean --modular --search-path=<dirs> -- <root>` ask for no help. -/
 theorem helpWanted_modular (dirs root : String) :

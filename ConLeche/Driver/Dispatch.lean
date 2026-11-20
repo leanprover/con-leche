@@ -36,9 +36,10 @@ inductive Req where
   | modular (searchPath : List System.FilePath) (root : Name) (mode : CheckMode)
       (maxNatSize : Nat) (pace : Pace) (jobs : Nat)
   /-- every module of a closure, one worker process each (`scheduleG`, outside the theorem);
-  `jobsGiven`: `--jobs` was given -/
+  `jobsGiven`: `--jobs` was given; `stackKb`: the workers' stack size, KiB -/
   | schedule (searchPath : List System.FilePath) (root : Name) (opts : List String)
       (mode : CheckMode) (maxNatSize : Nat) (pace : Pace) (jobs : Nat) (jobsGiven : Bool)
+      (stackKb : Option Nat)
   /-- one module against its context (`checkModuleG`) -/
   | module (searchPath : List System.FilePath) (m : Name) (mode : CheckMode) (maxNatSize : Nat)
       (pace : Pace) (jobs : Nat)
@@ -50,8 +51,8 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
     checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
   | .graph sp roots jobs => Graph.checkGraphG sp roots jobs
   | .modular sp root mode maxNatSize pace jobs => checkModularG sp root mode maxNatSize pace jobs
-  | .schedule sp root opts mode maxNatSize pace jobs jobsGiven =>
-    scheduleG sp root opts mode maxNatSize pace jobs jobsGiven
+  | .schedule sp root opts mode maxNatSize pace jobs jobsGiven stackKb =>
+    scheduleG sp root opts mode maxNatSize pace jobs jobsGiven stackKb
   | .module sp m mode maxNatSize pace jobs => do
     let (R, T) ← workerTables sp m
     checkModuleG (T.reads R) R m mode maxNatSize pace jobs

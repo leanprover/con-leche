@@ -123331,3 +123331,119 @@ Files (in `_tmp/616/`): `run.sh`, `guard.sh`, `sample.sh` (per-minute load and s
 `load.samples`), `stacks.log`, `sched2.out`, `sched2.err` (run 2), `attempt1-stacks.log`,
 `sched1.*` (attempt 1), `probe.sh`, `probe-{a,b,c,d}.*` (the 40 s probes at 8 GiB, 8 GiB, the
 default and 1 GiB stacks, with the scheduler's large mappings per half second in `.maps`).
+
+## TASK #620 — a failed worker start requeues; `--worker-stack-size`; the reserved memory in the status (2026-11-20, agent/620-sched-spawn)
+
+**The task (maintainer's rulings on #616's ENOMEM).**  With `LEAN_STACK_SIZE_KB=8388608` in the
+scheduler's own environment, `--schedule --jobs=80` on Stacks ended with verdict 3 after 59 modules:
+`spawnW` reads each worker's stdout and stderr on a dedicated thread each, the threads inherit the
+8 GiB stack, the adjacent stacks merge into mappings above RAM plus swap, and `fork` fails with
+ENOMEM under the overcommit heuristic.  Rulings: (1) a failed start while workers run requeues;
+(2) a flag for the workers' stack, set in their environment; (3) can the output be read without
+threads or files?; (4) the status line shows the reserved memory, the statistics what held the
+starts back.
+
+**(1) A failed start** (`Engine.lean`: `spawnFailAct`, `requeueFailed`, `startsHeld`; `Run.lean`'s
+`start`).  While other workers run, a start that fails is no verdict: the module goes back to its
+position (among the never started ones, or the killed ones where it came from there), `hold`
+records the number running, and no start happens until fewer run (a worker finished or was
+killed).  One line for the first failure of a series (`no worker started: E; requeued, the starts
+wait for one of the N running workers to end`), the rest counted (`spawnFails`).  With none
+running it is the module's verdict 3 and the end of the starts, as before.
+
+**(2) `--worker-stack-size=SIZE`** (`Cli.lean`; `parseSize`, moved to `Worker.lean`, a unit
+required, a positive size; without `--schedule` a usage error, `Args.closed`, so the theorems'
+`bad = none` premises cover it and no statement changed).  The scheduler passes it as the worker's
+`LEAN_STACK_SIZE_KB` (`stackEnv`, `SpawnArgs.env`); its own threads keep Lean's default.
+**Without the flag** the workers inherit the environment unchanged (the maintainer's suggestion):
+a user who sets `LEAN_STACK_SIZE_KB` for the scheduler gets it in the workers as before, and only
+the flag avoids the reader stacks' cost.  The log's stack field and the `stack` retry rule key on
+the size the worker ran at (`stackUsed`: the flag's KiB, else the inherited value, else `-`); the
+hint names the flag (`rerun with a larger --worker-stack-size (now 1024 KiB; …`).
+`--schedule-commands` prefixes every worker line with `LEAN_STACK_SIZE_KB=K ` where the flag is
+given (not the graph check's line).  `Req.schedule` and `scheduleG` take the size.
+
+**(3) Reading the workers' output without threads or files: not possible on this toolchain
+(v4.35.0, also v4.36.0 and nightly-2026-11-16).**  What is read today, and why: stdout's
+`accepted N declarations` (the log's declarations field); stderr's `stats:` lines (`peak RSS`, the
+exact peak that feeds the typical peak and admission, else the last /proc sample, a lower bound;
+phases, busy and slowest check for the log), `Stack overflow detected` (the `stack` verdict: SIGABRT
+alone is also a panic, `main` sets `LEAN_ABORT_ON_PANIC`), and every other line, passed on for a
+non-zero verdict.  A worker writes about 650 bytes (a Stacks module: 48 on stdout, 597 on stderr),
+a rejecting one more, unbounded.  The toolchain offers:
+* `IO.Process.Stdio` is `piped | inherit | null`: no redirection to a file, no shared pipe;
+* `IO.FS.Handle`: blocking `read`/`getLine`/`readToEnd` over a `FILE*`; no non-blocking mode, no
+  `poll`/`select`, no `fcntl` (so neither `O_NONBLOCK` nor `F_SETPIPE_SZ`), no `FIONREAD`;
+* `Std.Internal.UV` / `Std.Async`: libuv bindings for TCP, UDP, DNS, timers, signals and system
+  queries only; no `uv_pipe`, `uv_spawn` or `uv_poll`.  `Std.Async.Select` selects over async
+  tasks, not handles;
+* `IO.asTask` has no stack-size parameter; a non-dedicated task blocks a pool thread instead.
+So every read of a pipe blocks its thread, and a C shim or an `unsafe` escape is ruled out (trust
+surface).  The options, least bad first:
+* **keep the reader threads** (now): at the default stack they are address space, not memory.
+  Measured with the fix, `--jobs=80`, scheduler at Lean's default, workers at 8 GiB: at most 156
+  scheduler threads, its largest mapping 58 GiB, the mappings above 0.5 GiB summing to 155 GiB at
+  most (sampled every 2 s over 240 s); the heuristic's bound is one mapping above RAM plus swap
+  (188 GiB here), which 80 jobs keep below.  At about 94 jobs or more (every reader stack merged
+  into one mapping) a fork could fail again, and (1) then only holds the starts until a worker
+  ends; the statistics line shows it;
+* **read after the exit**: no thread, no file: a pipe holds 64 KiB, and a worker writing less
+  never blocks, so `tryWait` then `readToEnd` reads it all.  A worker writing more blocks in
+  `write` and never exits: it needs a detection (`/proc/<pid>/wchan` = `pipe_write`) and a reader
+  thread for that one worker as a fallback.  Workable, but two code paths for a rare case;
+* one thread for all workers: impossible without `poll` (a blocking read on one pipe stalls the
+  others);
+* files: a worker flag writing its statistics to a file would serve stdout and the `stats:` lines,
+  but the runtime's `Stack overflow detected` and a panic go to stderr, which still needs a pipe.
+**Recommendation**: keep the threads; with (2) the scheduler never runs at a large stack, and with
+(1) a fork failure is a delay, not a verdict.  Not implemented beyond (2).
+
+**(4) The status part and the statistics.**  Candidates for the reserved memory, from #616's line
+`[59773 ( 79.0%)  49 wrkr  55 thds  RSS  18.9G tot   1.2G biggest   15m57s eta]`:
+* `RSS  18.9G/ 34.8G res   1.2G biggest` (the maintainer's): compact, but `res` reads as
+  "resident", the very word RSS spells out;
+* `RSS  18.9G tot   1.2G biggest  rsvd  34.8G` : the reservation, without its bound;
+* **`RSS  18.9G tot   1.2G biggest   34.8G of  36.0G rsvd`** (chosen): the reservation against
+  the planning budget it fits into, so "34.8 of 36.0" says that memory, not `--jobs`, limits the
+  starts; fixed width (`gibCol`), only with `--schedule-memory` (without a limit admission
+  reserves nothing).
+The statistics gain `starts held back: by memory 3m54s (98.5 %), by --jobs 3.4s (1.4 %) of the
+wall time` (`heldBy` at the end of each tick: nothing where no module waits or the starts
+stopped; a failed start's hold; the threads at `--jobs`; else memory), with `, by N failed starts
+…` where there were some.
+
+**A second fix: the signal waiters repeat.**  The after-run's first SIGINT ended the scheduler
+silently (no `killed` lines, no statistics).  `Std.Async.Signal.Waiter.mk s false` is one-shot,
+and libuv gives the signal its default action back once it fired; `timeout -s INT` sends SIGINT
+to the child and to its process group, so the second one killed the scheduler.  3 of 6 interrupted
+runs (Stacks, `--jobs=4`, 10–14 s) printed nothing; with `mk s true`, 4 of 4 handled it.
+
+**Reproduction (Stacks, `_tmp/606/stacks`, root `Stacks`, `--jobs=80 --schedule-memory=40G`).**
+* Before (the #616 binary, `LEAN_STACK_SIZE_KB=8388608` for the scheduler): exit 3 after 6.6 s,
+  twice: 59 then 58 modules, `no worker started: resource exhausted (error code: 12, not enough
+  memory)`; the scheduler's largest mapping 104 GiB at 114 threads in the 2 s samples.
+* After (this branch, `--worker-stack-size=8G`, `LEAN_STACK_SIZE_KB` unset): 3 895 modules
+  accepted in 3 min 57 s, then SIGINT (`timeout -s INT 240`): 52 running workers killed and logged,
+  the statistics printed, exit 130; no failed start.  The scheduler's environment holds no
+  `LEAN_STACK_SIZE_KB`, a worker's holds `LEAN_STACK_SIZE_KB=8388608` and shows an 8 GiB `rw-p`
+  stack mapping; every verdict line logs 8388608.  The status read `[ 4946 (  6.5%)  44 wrkr  54 thds
+  RSS  21.7G tot   1.3G biggest   35.2G of  36.0G rsvd    1h10m eta]` (the first after-run, before
+  the waiter fix: 4 946 modules in 300 s).  Statistics: 49.5 workers on average (61 % of 80),
+  starts held back by memory 98.5 % of the wall time, by `--jobs` 1.4 %: #616's reading, now in
+  the output.
+* The e2e stack fixture (`tests/olean.sh`): `StackDeep` is `stack` at `--worker-stack-size=1M`
+  and 2M, accepted at `--worker-stack-size=1G` with `LEAN_STACK_SIZE_KB=1024` in the scheduler's
+  environment (the flag wins), `stack` again without the flag (inherited); the log's field 1024;
+  `--schedule-commands` with the flag; a bare number and the flag without `--schedule` exit 3.
+
+**Tests.**  `ScheduleTests`: `stackEnv`, `stackUsed`, the retry rule at the flag's size, the hint,
+`commandLines` with the prefix, `parseSize`, `spawnFailAct`, `requeueFailed`, `startsHeld`,
+`heldBy`, `statusText` with and without a limit, the held-back statistics line.
+`CheckerIOTests`: the flag's parse and its usage errors, the help names it.  Docs: the usage text,
+OVERVIEW (the status part, the stack paragraph, the failed start, the statistics, the commands),
+the draft PR body's example.  README does not mention the stack size or the scheduler: nothing to
+report.
+
+Files: `_tmp/620/repro/` (`run.sh`, `before.*`, `first-before.*`, `after1.*` (300 s, before the
+waiter fix), `after.*` (240 s), `int.sh`, `int2.*` (the SIGINT probes), `w.out`, `w.err` (one
+worker's output)).
