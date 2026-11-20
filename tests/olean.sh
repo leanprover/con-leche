@@ -950,20 +950,31 @@ case_grep "--schedule: a failing module's finish line" 1 "s .*FAILED 1  NpAx" \
 # log holds the stack size, and a resumed run retries the module only at another size.
 # StackDeep needs a deeper stack than 1 MiB; the default 1 GiB takes it)
 case_ "--schedule: a deep module at the default stack" 0 --olean --schedule --search-path=$LIB -- StackDeep
-export LEAN_STACK_SIZE_KB=1024
+# (task #620: the workers' stack size is `--worker-stack-size`, set as each worker's
+# LEAN_STACK_SIZE_KB; the scheduler's own threads keep the default)
 case_grep "--schedule: a stack overflow is the verdict stack" 3 "FAILED stack  StackDeep" --olean \
-  --schedule --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
-case_grep "--schedule: …with the hint" 3 "rerun with a larger LEAN_STACK_SIZE_KB" --olean \
-  --schedule --schedule-log="$d/stack2" --search-path=$LIB -- StackDeep
+  --schedule --worker-stack-size=1M --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
+case_grep "--schedule: …with the hint" 3 "rerun with a larger --worker-stack-size (now 1024 KiB" \
+  --olean --schedule --worker-stack-size=1M --schedule-log="$d/stack2" --search-path=$LIB -- StackDeep
 total=$((total+1))
 if grep -qP "^stack\t«StackDeep»\t.*\t1024$" "$d/stack"; then ok=$((ok+1))
 else echo "OLEAN FAIL (--schedule: the stack log line)"; fail=1; fi
 case_grep "--schedule: a stack verdict resumed at the same size" 3 "1 modules logged, 0 to run" --olean \
-  --schedule --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
-export LEAN_STACK_SIZE_KB=2048
+  --schedule --worker-stack-size=1M --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
 case_grep "--schedule: …retried at another size" 3 "FAILED stack  StackDeep" --olean \
-  --schedule --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
+  --schedule --worker-stack-size=2M --schedule-log="$d/stack" --search-path=$LIB -- StackDeep
+# the flag, not the scheduler's environment, sets the workers' stack
+export LEAN_STACK_SIZE_KB=1024
+case_ "--schedule: the flag over the scheduler's environment" 0 --olean --schedule \
+  --worker-stack-size=1G --search-path=$LIB -- StackDeep
+# without the flag the workers inherit the environment
+case_grep "--schedule: without the flag the workers inherit it" 3 "FAILED stack  StackDeep" --olean \
+  --schedule --search-path=$LIB -- StackDeep
 unset LEAN_STACK_SIZE_KB
+case_grep "--worker-stack-size: a bare number is no size" 3 "takes a size with a unit" --olean \
+  --schedule --worker-stack-size=8388608 --search-path=$LIB -- Tiny
+case_grep "--worker-stack-size takes --schedule" 3 "takes --schedule" --olean \
+  --worker-stack-size=8G --search-path=$LIB -- Tiny
 case_ "--schedule: an unknown option" 3 --olean --schedule-frobnicate --search-path=$LIB -- Tiny
 # (task #505: the module lines carry the counts; a budget takes a unit; a heartbeat in ms or s)
 case_grep "--schedule: the last module's line, its counts" 0 "\[4 (100.0%)  0 wrkr" \
@@ -988,6 +999,8 @@ if [ "$(wc -l < "$TMPDIR/olean-case.out")" = 6 ] &&
 else echo "OLEAN FAIL (--schedule-commands: six lines, the graph check first)"; fail=1; fi
 case_grep "--schedule-commands: --jobs where given" 0 "^/.* --module --jobs=3 " --olean \
   --schedule-commands --jobs=3 --search-path=$MSP -- NlM
+case_grep "--schedule-commands: the workers' stack size" 0 "^LEAN_STACK_SIZE_KB=8388608 /.* --module " \
+  --olean --schedule-commands --worker-stack-size=8G --search-path=$MSP -- NlM
 rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"
