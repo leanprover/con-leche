@@ -1266,6 +1266,11 @@ theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   all_goals first
     | exact checkBlockKS_twin ht block _
     | exact RelRun.ofThrow
+    | refine RelRun.bind_push ht (checkBlockKS_twin ht block _) fun L Q ht' => ?_
+      rw [ht'.find]
+      split
+      · exact RelRun.pure ⟨L, Q, rfl, rfl⟩
+      · exact RelRun.ofThrow
 
 /-- **A declaration's own checks at twin indices push the same constants onto each, or fail
 alike.** -/

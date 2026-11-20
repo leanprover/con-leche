@@ -4,6 +4,7 @@ public import ConLeche.IsModel
 import ConLeche.Cached.Decls
 public import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Cached.PushChain
+public import ConLeche.Verify.Inductives.IotaRead
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Cached.IndPositivityC
@@ -28,9 +29,8 @@ The fold pushes each declaration's `declConstants` (`checkDecls_env`) and the na
 pushed constants, except for an inductive block, read through `readBlock`:
 
 * a type former is pushed as declared (`readBlock_declared`);
-* a recursor is pushed with its rules firing as `recFire` says, which is what `inputFire` reads off
-  its type: the major's head is a type former of the block exactly when its member index is in
-  range (`recFire_eq_inputFire`);
+* a recursor is pushed with its rules, each with the firing mode `recFire` computes (which the
+  statement does not read: `StoredAs` compares rules up to it, `RecRule.unfired`);
 * a constructor is pushed in the group of the member its result names (`blockGroups`); at two or
   more members a constructor in no group is not pushed, and the recursor check's pin
   (`targetRecPins`, "constructor grouping") rejects that block: an accepted block's grouped
@@ -39,25 +39,32 @@ pushed constants, except for an inductive block, read through `readBlock`:
 
 namespace ConLeche
 
+/-- A rule without its firing mode (the install computes it; the statement reads none). -/
+@[expose] def RecRule.unfired (rl : RecRule) : RecRule := { rl with fire := .plain }
+
 /-- **`ci` stores the record `c`**: the same level parameters and type, a definition with its value,
-a recursor with its rules (firing modes included), a constructor with its parameter count. -/
+a recursor with its rules (up to their firing modes), a constructor with its parameter count. -/
 @[expose] def StoredAs (ci c : ConstantInfo) : Prop :=
   ci.toConstantVal = c.toConstantVal ∧
   (∀ cv v h, c = .defnInfo cv v h → ci = c) ∧
   (∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
-    ∃ isK', ci = .recInfo cv mI rP isK' rules) ∧
+    ∃ isK' rules', ci = .recInfo cv mI rP isK' rules' ∧
+      rules'.map RecRule.unfired = rules.map RecRule.unfired) ∧
   (∀ cvj cnP nF T, c = .ctorInfo cvj cnP nF T → ∃ nF' T', ci = .ctorInfo cvj cnP nF' T')
 
 /-- A record of a stream is a record of one of its declarations. -/
 theorem mem_constantsOf {ds : List Declaration} {c : ConstantInfo} :
     c ∈ constantsOf ds ↔ ∃ d ∈ ds, c ∈ d.constants := List.mem_flatMap
 
-/-- **Every record of the input is stored** under its name (`StoredAs`). -/
+/-- **Every record of the input is stored** under its name (`StoredAs`), a recursor reading its
+ι equations off its own type (`RecReads`, the checker's rule) or being a quotient constant. -/
 @[expose] def RecordsStored (R : ConstantInfo → Prop) (env : Env) : Prop :=
-  ∀ c, R c → ∃ ci, env.find? c.name = some ci ∧ StoredAs ci c
+  ∀ c, R c → ∃ ci, env.find? c.name = some ci ∧ StoredAs ci c ∧
+    (RecReads env.find? ci ∨ ∃ k cv, ci = quotAt k cv)
 
 theorem StoredAs.refl (c : ConstantInfo) : StoredAs c c :=
-  ⟨rfl, fun _ _ _ _ => rfl, fun _ _ _ isK _ h => ⟨isK, h⟩, fun _ _ nF T h => ⟨nF, T, h⟩⟩
+  ⟨rfl, fun _ _ _ _ => rfl, fun _ _ _ isK rules h => ⟨isK, rules, h, rfl⟩,
+    fun _ _ nF T h => ⟨nF, T, h⟩⟩
 
 theorem StoredAs.trans {a b c : ConstantInfo} (hab : StoredAs a b) (hbc : StoredAs b c) :
     StoredAs a c := by
@@ -66,8 +73,9 @@ theorem StoredAs.trans {a b c : ConstantInfo} (hab : StoredAs a b) (hbc : Stored
   refine ⟨a1.trans b1, fun cv v h hc => ?_, fun cv mI rP isK rules hc => ?_,
     fun cvj cnP nF T hc => ?_⟩
   · rw [a2 cv v h ((b2 cv v h hc).trans hc), b2 cv v h hc]
-  · obtain ⟨isK', hb⟩ := b3 cv mI rP isK rules hc
-    exact a3 cv mI rP isK' rules hb
+  · obtain ⟨isK', rules', hb, hr⟩ := b3 cv mI rP isK rules hc
+    obtain ⟨isK'', rules'', ha, hr'⟩ := a3 cv mI rP isK' rules' hb
+    exact ⟨isK'', rules'', ha, hr'.trans hr⟩
   · obtain ⟨nF', T', hb⟩ := b4 cvj cnP nF T hc
     obtain ⟨nF'', T'', ha⟩ := a4 cvj cnP nF' T' hb
     exact ⟨nF'', T'', ha⟩
@@ -77,9 +85,9 @@ theorem RecordsStored.mono {R R' : ConstantInfo → Prop} {env : Env} (h : Recor
     (hsub : ∀ c, R c → ∃ c', R' c' ∧ StoredAs c' c) : RecordsStored R env := by
   intro c hc
   obtain ⟨c', hc', hst⟩ := hsub c hc
-  obtain ⟨ci, hf, hci⟩ := h c' hc'
+  obtain ⟨ci, hf, hci, hr⟩ := h c' hc'
   have hn : c'.name = c.name := congrArg ConstantVal.name hst.1
-  exact ⟨ci, hn ▸ hf, hci.trans hst⟩
+  exact ⟨ci, hn ▸ hf, hci.trans hst, hr⟩
 
 /-! ## The block's records -/
 
@@ -149,72 +157,6 @@ theorem mem_of_blockSplit :
     cases he
     exact .inr (mem_of_blockSplitCtors h' b hb)
 
-/-- The block's type formers' names, read off the records. -/
-theorem blockSplit_formers :
-    ∀ {block : List ConstantInfo} {cvTs : List ConstantVal} {cs : List (ConstantVal × Nat × Nat)}
-      {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)},
-      blockSplit block = some (cvTs, cs, rs) → blockFormerNames block = cvTs.map (·.name)
-  | .indInfo cvT caps :: rest, cvTs, cs, rs, h => by
-    simp only [blockSplit, Option.map_eq_some_iff] at h
-    obtain ⟨⟨cvTs', cs', rs'⟩, h', he⟩ := h
-    simp only [Prod.mk.injEq] at he
-    obtain ⟨rfl, rfl, rfl⟩ := he
-    have ih := blockSplit_formers h'
-    unfold blockFormerNames at ih ⊢
-    simp only [List.filterMap_cons, List.map_cons]
-    rw [ih]
-  | [], cvTs, cs, rs, h | .recInfo .. :: _, cvTs, cs, rs, h
-  | .axiomInfo .. :: _, cvTs, cs, rs, h | .defnInfo .. :: _, cvTs, cs, rs, h
-  | .thmInfo .. :: _, cvTs, cs, rs, h | .ctorInfo .. :: _, cvTs, cs, rs, h => by
-    simp only [blockSplit] at h
-    obtain ⟨⟨cs', rs'⟩, h', he⟩ := Option.map_eq_some_iff.mp h
-    cases he
-    unfold blockFormerNames
-    rw [List.map_nil, List.filterMap_eq_nil_iff]
-    intro b hb
-    rcases mem_of_blockSplitCtors h' b hb with ⟨_, _, _, _, rfl, -⟩ | ⟨_, _, _, _, _, rfl, -⟩ <;> rfl
-
-theorem findIdx?_getD_lt_iff (names : List Name) (n : Name) :
-    (names.findIdx? (· == n)).getD names.length < names.length ↔ names.contains n = true := by
-  induction names with
-  | nil => simp
-  | cons a l ih =>
-    by_cases h : a = n
-    · subst h; simp [List.findIdx?_cons]
-    · have hb : (a == n) = false := by simpa using h
-      have hb' : (n == a) = false := by simpa using Ne.symm h
-      simp only [List.findIdx?_cons, hb, Bool.false_eq_true, ↓reduceIte, List.length_cons,
-        List.contains_cons, hb', Bool.false_or]
-      rw [← ih]
-      cases l.findIdx? (· == n) <;> simp
-
-/-- **A recursor's rules fire as its type says**: the install's `recFire` (the member index of the
-major's head in range) is `inputFire` at the block's formers (the major's head among them). -/
-theorem recFire_eq_inputFire (p : BlockShape) (rc : RecShape)
-    (htgt : rc.tgt = recTargetOf p.memberNames rc.mI rc.cvR.type) :
-    recFire p rc = inputFire p.memberNames rc.cvR rc.mI rc.rP := by
-  have hk : p.k = p.memberNames.length := by simp [BlockShape.k, BlockShape.memberNames]
-  unfold recFire inputFire
-  rw [htgt, hk]
-  unfold recTargetOf
-  cases rc.cvR.type.stripPis rc.mI with
-  | none => simp
-  | some r =>
-    obtain ⟨pre, b⟩ := r
-    cases b with
-    | forallE dom body =>
-      simp only
-      cases dom.getAppFn with
-      | const c us =>
-        simp only
-        by_cases hc : p.memberNames.contains c = true
-        · have h1 := (findIdx?_getD_lt_iff _ _).mpr hc
-          simp only [h1, hc, ↓reduceIte]
-        · have h1 : ¬ _ := fun h => hc ((findIdx?_getD_lt_iff p.memberNames c).mp h)
-          simp only [h1, hc, ↓reduceIte, Bool.false_eq_true]
-      | _ => simp
-    | _ => simp
-
 theorem mem_blockRecs (p : BlockShape) {rc : RecShape} :
     ∀ {l : List RecShape}, rc ∈ l →
       ConstantInfo.recInfo rc.cvR rc.mI rc.rP rc.isK
@@ -242,7 +184,7 @@ def BlockRead (nP : Nat) (block : List ConstantInfo) : Prop :=
 
 /-- **A read block's records are stored** among its constants. -/
 theorem blockRecords_stored {nP : Nat} {block : List ConstantInfo} (h : BlockRead nP block) :
-    ∀ c ∈ blockFired block, ∃ ci ∈ declConstants (.indDecl block nP), StoredAs ci c := by
+    ∀ c ∈ block, ∃ ci ∈ declConstants (.indDecl block nP), StoredAs ci c := by
   obtain ⟨p, hp, hnd, hg⟩ := h
   have hd := readBlock_declared hp
   obtain ⟨-, -, -, -, -, -, -, cvTs, cs, rs, nIdxs, hsp, hk, -, hnl, -, hcsP, hmem, hrecs⟩ :=
@@ -258,9 +200,7 @@ theorem blockRecords_stored {nP : Nat} {block : List ConstantInfo} (h : BlockRea
   rw [← hmem] at e1 e3
   have hnames : p.memberNames = cvTs.map (·.name) := by
     rw [BlockShape.memberNames, ← e1, List.map_map]; rfl
-  have hformers := blockSplit_formers hsp
-  intro c hc
-  obtain ⟨b, hb, rfl⟩ := List.mem_map.mp hc
+  intro b hb
   rcases mem_of_blockSplit hsp b hb with ⟨cv, caps, rfl, hcv⟩ | ⟨cv, nP', nF, T, rfl, hcv⟩ |
     ⟨cv, mI, rP, isK, rules, rfl, hcv⟩
   · -- a type former: pushed as declared
@@ -303,19 +243,18 @@ theorem blockRecords_stored {nP : Nat} {block : List ConstantInfo} (h : BlockRea
       have hn := hcsP _ hcv
       simp only at hn
       exact ⟨nF, ms.cvT.name, by rw [hn]⟩
-  · -- a recursor: pushed with its rules firing as its type says
+  · -- a recursor: pushed with its rules, each with its firing mode
     have hrc : (⟨cv, rP, mI, recTargetOf p.memberNames mI cv.type, rules, isK⟩ : RecShape)
         ∈ p.recs := by
       rw [hrecs]; exact List.mem_map.mpr ⟨_, hcv, rfl⟩
-    have hfire := recFire_eq_inputFire p
-      ⟨cv, rP, mI, recTargetOf p.memberNames mI cv.type, rules, isK⟩ rfl
     refine ⟨_, List.mem_append_right _ (mem_blockRecs p hrc), ⟨rfl, ?_, ?_, ?_⟩⟩
     · intro _ _ _ h; exact nomatch h
     · intro cv' mI' rP' isK' rules' h
       simp only [ConstantInfo.recInfo.injEq] at h
       obtain ⟨rfl, rfl, rfl, rfl, rfl⟩ := h
-      refine ⟨isK, ?_⟩
-      rw [hfire, hformers, ← hnames]
+      refine ⟨isK, _, rfl, ?_⟩
+      simp only [List.map_map]
+      rfl
     · intro _ _ _ _ h; exact nomatch h
 
 /-- **A declaration's records are stored** among its constants, given that a block reads. -/
@@ -466,8 +405,11 @@ theorem checkDeclStepC_blockRead (mode : CheckMode) (pins : List NatOpPinSet) (f
     · cases hbp : readBlock nP block with
       | error e => exact Yields.ofThrow
       | ok p =>
-        exact Yields.mono (checkBlockKS_grouping mode _ block p (readBlock_declared hbp))
-          fun _ h => ⟨p, hbp, h⟩
+        refine Yields.bind' (checkBlockKS_grouping mode _ block p (readBlock_declared hbp))
+          fun _ h => ?_
+        split
+        · exact Yields.pure ⟨p, hbp, h⟩
+        · exact Yields.ofThrow
     · exact Yields.ofThrow
   · yields
     all_goals exact Yields.pure h
@@ -486,6 +428,97 @@ theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
       exact checkDeclStepC_blockRead mode pins _ block nP _ fe₁ s₁ hC
     · exact ih d hd block nP hdb
 
+/-- **An accepted block step applied the ι reading rule** (`blockReadsOk`) at its output. -/
+theorem checkDeclStepC_reads (mode : CheckMode) (pins : List NatOpPinSet) (fe : FEnv)
+    (block : List ConstantInfo) (nP : Nat) :
+    Yields (checkDeclStepC mode pins fe (.indDecl block nP))
+      (fun fe' => ∀ p, readBlock nP block = .ok p → blockReadsOk fe'.find? p = .ok ()) := by
+  unfold checkDeclStepC
+  ybind
+  unfold checkDeclC
+  refine Yields.bind' (Q := fun fe' => ∀ p, readBlock nP block = .ok p →
+    blockReadsOk fe'.find? p = .ok ()) ?_ fun _ h => ?_
+  · unfold checkDeclKindC
+    simp only []
+    unfold checkIndDeclC
+    split
+    · cases hbp : readBlock nP block with
+      | error e => exact Yields.ofThrow
+      | ok p =>
+        refine Yields.bind fun fe' => ?_
+        split
+        · next u hu =>
+          refine Yields.pure fun p' hp' => ?_
+          cases hp'
+          cases u
+          exact hu
+        · exact Yields.ofThrow
+    · exact Yields.ofThrow
+  · yields
+    all_goals exact Yields.pure h
+
+/-- A constant a block installs is a type former, a constructor or one of its recursors. -/
+theorem blockConstants_rec {p : BlockShape} {ci : ConstantInfo} (h : ci ∈ blockConstants p)
+    {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
+    (hci : ci = .recInfo cv mI rP isK rules) : ci ∈ blockRecs p p.recs := by
+  unfold blockConstants at h
+  rcases List.mem_append.mp h with h | h
+  · rcases List.mem_append.mp h with h | h
+    · unfold blockFormers at h
+      obtain ⟨_, -, rfl⟩ := List.mem_map.mp h
+      exact nomatch hci
+    · unfold blockCtors at h
+      obtain ⟨_, -, h⟩ := List.mem_flatMap.mp h
+      obtain ⟨_, -, rfl⟩ := List.mem_map.mp h
+      exact nomatch hci
+  · exact h
+
+/-- **Every recursor an accepting run installs reads** at the run's end, or is a quotient
+constant. -/
+theorem declsRun_reads {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
+    {ds : List Declaration} {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q)
+    {env₀ : Env} (hc : PushChain env₀ p.2) :
+    ∀ d ∈ ds, ∀ ci ∈ declConstants d, RecReads q.2.env.find? ci ∨ ∃ k cv, ci = quotAt k cv := by
+  induction h with
+  | nil => intro _ h; exact nomatch h
+  | @cons pd ds p p₁ q hstep rest ih =>
+    obtain ⟨fe₁, s₁, rfl, hC⟩ := declStep_ok hstep
+    have hc₁ : PushChain env₀ fe₁ := checkDeclStepC_push mode hc pd _ fe₁ s₁ hC
+    have hq : PushChain fe₁.env q.2 := declsRun_chain mode rest (PushChain.self hc₁.canon)
+    intro d hd ci hci
+    rcases List.mem_cons.mp hd with rfl | hd
+    · cases d with
+      | indDecl block nP =>
+        simp only [declConstants] at hci
+        split at hci
+        · next p' hp' =>
+          left
+          intro cv mI rP isK rules hcr
+          have hR := blockReadsOk_reads
+            (checkDeclStepC_reads mode pins _ block nP _ fe₁ s₁ hC p' hp') ci
+            (blockConstants_rec hci hcr)
+          rw [show fe₁.find? = fe₁.env.find? from funext hc₁.find?] at hR
+          exact RecReads.mono (fun n c h => PushChain.find?_some hq h) hR cv mI rP isK rules hcr
+        · exact nomatch hci
+      | quotDecl k cv =>
+        simp only [declConstants, List.mem_singleton] at hci
+        exact .inr ⟨k, cv, hci⟩
+      | axiomDecl cv =>
+        left; intro _ _ _ _ _ hcr
+        simp only [declConstants] at hci
+        split at hci
+        · rw [List.mem_singleton] at hci; subst hci
+          simp [quotAt, quotPin, BasisKind.decls, quotBasis, quotSoundA, QuotKind.slot,
+            ConstantInfo.atLps] at hcr
+        · split at hci
+          · exact nomatch hci
+          · rw [List.mem_singleton] at hci; subst hci; exact nomatch hcr
+      | defnDecl | thmDecl | opaqueDecl =>
+        left; intro _ _ _ _ _ hcr
+        simp only [declConstants, List.mem_singleton] at hci
+        subst hci; exact nomatch hcr
+    · exact ih hc₁ d hd ci hci
+
 /-- **An accepted stream stores its records** (`RecordsStored`). -/
 theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env) :
@@ -496,6 +529,7 @@ theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {m
     rw [← hfe]
     exact (declsRun_chain mode run (PushChain.refl Env.empty)).2.2.1 List.nodup_nil
   have hb := declsRun_blockRead run
+  have hr := declsRun_reads run (PushChain.refl Env.empty)
   intro c hc
   obtain ⟨d, hd, hc⟩ := mem_constantsOf.1 hc
   obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
@@ -505,7 +539,10 @@ theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {m
   have hn : c.name = ci.name := by
     show c.toConstantVal.name = ci.toConstantVal.name
     rw [hst.1]
-  exact ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst⟩
+  refine ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst, ?_⟩
+  have := hr d hd ci hci
+  simp only at this
+  rwa [hfe] at this
 
 /-! ## The pinned blocks an accepted stream declares -/
 
@@ -669,12 +706,6 @@ theorem pinCopyOk_cv {c pin : ConstantInfo} (h : pinCopyOk c pin = true)
   have : c.dropCaps.toConstantVal = c.toConstantVal := by cases c <;> rfl
   exact this.symm.trans (by rw [hd])
 
-/-- A block's records carry its records' names, level parameters and types. -/
-theorem mem_blockFired_cv {block : List ConstantInfo} {b : ConstantInfo} (hb : b ∈ block) :
-    ∃ c ∈ blockFired block, c.toConstantVal = b.toConstantVal := by
-  refine ⟨_, List.mem_map_of_mem hb, ?_⟩
-  cases b <;> rfl
-
 /-- **An accepted stream that stores `False` declares the prelude's `False`.** -/
 theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {env : Env} (h : checkDecls mode pins maxNatSize ds = .ok env)
@@ -687,7 +718,8 @@ theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {m
     obtain ⟨hcv, -, hl⟩ := pinCopyOk_cv hok.2.1 rfl
     match hq : b2.toConstantVal.levelParams, hl with
     | [p], _ =>
-      obtain ⟨c, hc, hcc⟩ := mem_blockFired_cv (block := [b1, b2]) (b := b2) (by simp)
+      obtain ⟨c, hc, hcc⟩ : ∃ c ∈ ([b1, b2] : List ConstantInfo), c.toConstantVal = b2.toConstantVal :=
+        ⟨b2, by simp, rfl⟩
       refine ⟨p, c, mem_constantsOf.2 ⟨_, hmem, hc⟩, ?_⟩
       rw [hcc, hcv, hq]
       rfl
@@ -709,9 +741,12 @@ theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxN
     match hq1 : b1.toConstantVal.levelParams, hl1, hq2 : b2.toConstantVal.levelParams, hl2,
       hq3 : b3.toConstantVal.levelParams, hl3, hnd3 with
     | [p], _, [p'], _, [p₁, p₃], _, hnd =>
-      obtain ⟨c1, hc1, hcc1⟩ := mem_blockFired_cv (block := [b1, b2, b3]) (b := b1) (by simp)
-      obtain ⟨c2, hc2, hcc2⟩ := mem_blockFired_cv (block := [b1, b2, b3]) (b := b2) (by simp)
-      obtain ⟨c3, hc3, hcc3⟩ := mem_blockFired_cv (block := [b1, b2, b3]) (b := b3) (by simp)
+      obtain ⟨c1, hc1, hcc1⟩ : ∃ c ∈ ([b1, b2, b3] : List ConstantInfo),
+          c.toConstantVal = b1.toConstantVal := ⟨b1, by simp, rfl⟩
+      obtain ⟨c2, hc2, hcc2⟩ : ∃ c ∈ ([b1, b2, b3] : List ConstantInfo),
+          c.toConstantVal = b2.toConstantVal := ⟨b2, by simp, rfl⟩
+      obtain ⟨c3, hc3, hcc3⟩ : ∃ c ∈ ([b1, b2, b3] : List ConstantInfo),
+          c.toConstantVal = b3.toConstantVal := ⟨b3, by simp, rfl⟩
       refine ⟨⟨p, c1, mem_constantsOf.2 ⟨_, hmem, hc1⟩, ?_⟩, ⟨p', c2, mem_constantsOf.2 ⟨_, hmem, hc2⟩, ?_⟩,
         ⟨p₁, p₃, ?_, c3, mem_constantsOf.2 ⟨_, hmem, hc3⟩, ?_⟩⟩
       · rw [hcc1, hcv1, hq1]; rfl

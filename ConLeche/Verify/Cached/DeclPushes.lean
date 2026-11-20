@@ -691,7 +691,11 @@ theorem checkDeclKindC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
     split
     · cases hbp : readBlock nP block with
       | error e => exact Yields.ofThrow
-      | ok p => exact checkBlockKS_pushes mode fe block p
+      | ok p =>
+        refine Yields.bind' (checkBlockKS_pushes mode fe block p) fun fe' h => ?_
+        split
+        · exact Yields.pure h
+        · exact Yields.ofThrow
     · exact Yields.ofThrow
 
 /-- **An accepting step pushes what the declaration installs**, at every mode. -/

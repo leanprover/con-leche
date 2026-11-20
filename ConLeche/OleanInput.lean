@@ -19,8 +19,8 @@ notions of `ConLeche/Verify/Frontend/Olean/Files.lean`, which constants that inp
   constants among it;
 * **a stored constant's constants** (`entryConstants`): its declaration's, as the stream reader
   would read them from lean4export's output.  Unsafe and partial constants have none: lean4export
-  leaves them out.  A recursor's rules fire as its own type says against its block's type
-  formers, the names its `all` lists (`inputFire`);
+  leaves them out.  A recursor is one constant with its rules as stored (their firing mode is
+  the reader's placeholder: the statement reads none);
 * **a part's constants** (`InModulePart`): those of a module's part, exported or private; a
   module's constants (`moduleConstants`) are its private part's, the closure's
   (`closureConstants`) those of its modules.
@@ -60,18 +60,17 @@ def declOfEntry (c : CEntryF Name Expr) : Option Declaration :=
   | _ => none
 
 /-- **The constants of a stored constant**: a type former, a constructor and a recursor of a safe
-inductive block are one constant each, the recursor's rules firing as its type says against its
-block's type formers (`all`); any other constant has the constants of its declaration
+inductive block are one constant each (a recursor with its rules as stored); any other constant has the constants of its declaration
 (`declOfEntry`), an unsafe or partial one none. -/
 def entryConstants (c : CEntryF Name Expr) : List ConstantInfo :=
   match c.kind with
   | .induct _ _ _ _ _ _ false _ => [.indInfo c.cv {}]
   | .ctor ind _ np nf false => [.ctorInfo c.cv np nf ind]
-  | .recur all np ni nmo nmi rules k false =>
+  | .recur _ np ni nmo nmi rules k false =>
     let mI := np + nmo + nmi + ni
     let rP := np + nmo + nmi
     [.recInfo c.cv mI rP k (rules.map fun (cn, nf, rhs) =>
-      { ctor := cn, nfields := nf, fire := inputFire all c.cv mI rP, rhs })]
+      { ctor := cn, nfields := nf, fire := .plain, rhs })]
   | _ => ((declOfEntry c).map Declaration.constants).getD []
 
 /-- **The constant `c` is in part `p` of module `m`**: `m`'s files on the search path, decoded

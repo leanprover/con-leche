@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockTail
+public import ConLeche.Kernel.Inductives.IotaRead
 
 @[expose] public section
 
@@ -158,7 +159,12 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
       -- (task #219).  A block it cannot read is rejected with the
       -- reason `readBlock` gives.
       match readBlock nP block with
-      | .ok p => checkBlock ops env block p
+      | .ok p => do
+        let env' ← checkBlock ops env block p
+        -- the recursors' ι equations read off their own types (`blockReadsOk`)
+        match blockReadsOk env'.find? p with
+        | .ok _ => pure env'
+        | .error e => throw e
       | .error e => throw e
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv => checkQuotRecord env k cv

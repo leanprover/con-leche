@@ -253,14 +253,9 @@ theorem ctorAt_of_mem {nm : Nat → M Name} {ex : Nat → M Expr} {cts : List In
     · rw [hcn', List.getElem?_map, h2] at hkn
       exact Option.some.inj hkn
 
-/-- The type formers of a block: a block's former records' names. -/
-theorem blockFormerNames_append (a b : List ConstantInfo) :
-    blockFormerNames (a ++ b) = blockFormerNames a ++ blockFormerNames b := by
-  simp [blockFormerNames, List.filterMap_append]
-
 /-- **What a block's record holds**: each type former's record; each recursor's, its rules
 firing `.plain` until `blockConstants` reads them; a constructor record for each constructor a
-type lists; and the formers' names are the types'. -/
+type lists. -/
 theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
     {ts : List IndTypeRec} {cts : List IndCtorRec} {rs : List IndRecRec}
     {L1 L2 L3 : List (CEntryF Name Expr)} {p : Declaration}
@@ -269,7 +264,6 @@ theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : N
     (hr : Forall₂ (RecRes nm ex) rs L3) :
     ∃ block nP, p = .indDecl block nP ∧
       (∀ x ∈ L1, ConstantInfo.indInfo x.cv {} ∈ block) ∧
-      blockFormerNames block = L1.map (·.name) ∧
       (∀ x ∈ L3, ∀ all np ni nmo nmi rules k iu,
         x.kind = .recur all np ni nmo nmi rules k iu →
         ConstantInfo.recInfo x.cv (np + nmo + nmi + ni) (np + nmo + nmi) k
@@ -327,34 +321,9 @@ theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : N
     obtain ⟨cv, -, hf⟩ := bind_ok_inv hf
     simp only [pure, Except.pure, Except.ok.injEq] at hf
     exact ⟨_, _, _, _, hf.symm⟩
-  refine ⟨_, nPd, rfl, fun x hx => ?_, ?_, fun x hx all np ni nmo nmi rules k iu hk => ?_, ?_⟩
+  refine ⟨_, nPd, rfl, fun x hx => ?_, fun x hx all np ni nmo nmi rules k iu hk => ?_, ?_⟩
   · rw [hty]
     exact List.mem_append_left _ (List.mem_append_left _ (List.mem_map_of_mem hx))
-  · rw [blockFormerNames_append, blockFormerNames_append, hty, hrecs]
-    have e1 : ∀ L : List (CEntryF Name Expr),
-        blockFormerNames (L.map fun x => ConstantInfo.indInfo x.cv {}) = L.map (·.name) := by
-      intro L
-      induction L with
-      | nil => rfl
-      | cons x l ih =>
-        simp only [blockFormerNames, List.map_cons, List.filterMap_cons] at ih ⊢
-        rw [ih]; rfl
-    have e2 : blockFormerNames ctors = [] := by
-      simp only [blockFormerNames, List.filterMap_eq_nil_iff]
-      intro y hy
-      obtain ⟨cv, nP, nF, T, rfl⟩ := hctors y hy
-      rfl
-    have e3 : ∀ L : List (CEntryF Name Expr), blockFormerNames (L.map fun x => match x.kind with
-        | .recur _ np ni nmo nmi rules k _ =>
-          ConstantInfo.recInfo x.cv (np + nmo + nmi + ni) (np + nmo + nmi) k
-            (rules.map fun r => ⟨r.1, r.2.1, .plain, r.2.2⟩)
-        | _ => default) = [] := by
-      intro L
-      simp only [blockFormerNames, List.filterMap_eq_nil_iff, List.mem_map]
-      rintro y ⟨x, -, rfl⟩
-      rcases x with ⟨n, l, t, k⟩
-      cases k <;> rfl
-    rw [e1, e2, e3]; simp
   · rw [hrecs]
     refine List.mem_append_right _ (List.mem_map.mpr ⟨x, hx, ?_⟩)
     simp only [hk]
@@ -522,12 +491,7 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
   have hG := blocksOk_good F.blocks F.order
   -- a member of a block's record has its record in the block's records
   have inRecs : ∀ {block nP c}, c ∈ block → (∀ cv mI rP isK rules, c ≠ .recInfo cv mI rP isK rules) →
-      c ∈ (Declaration.indDecl block nP).constants := by
-    intro block nP c hc hnr
-    refine List.mem_map.mpr ⟨c, hc, ?_⟩
-    cases c with
-    | recInfo cv mI rP isK rules => exact absurd rfl (hnr cv mI rP isK rules)
-    | _ => rfl
+      c ∈ (Declaration.indDecl block nP).constants := fun hc _ => hc
   have tysMem : ∀ {all : List Name} {x : Name} {m : CEntry}, x ∈ all → mg.map[x]? = some m →
       m.kind.tag = 5 → m.toCEntryF ∈ ((blockTys mg all).filter (·.kind.tag == 5)).map (·.toCEntryF) :=
     fun hx hm ht5 => List.mem_map_of_mem (List.mem_filter.mpr
@@ -541,7 +505,7 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
     have hI : IsInd e' all cs := ⟨np, ni, nn, ir, false, irf, hk⟩
     obtain ⟨p, hp, ts, cts, rs, hdp, h1, h2, h3⟩ :=
       home_group hG F.names F.order F.nodup F.decls he hI hsk
-    obtain ⟨block, nP, rfl, hT, -, -, -⟩ :=
+    obtain ⟨block, nP, rfl, hT, -, -⟩ :=
       declOfF_ind_records hdp (tys_res h1) (ctors_res h2) (recs_res h3)
     have hr' : r = .indInfo e'.toCEntryF.cv {} := by
       simpa [entryConstants, hk] using hr
@@ -563,7 +527,7 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
       rw [← hsm]; unfold CEntry.skipped; rw [hk]; rfl
     obtain ⟨p, hp, ts, cts, rs, hdp, h1, h2, h3⟩ :=
       home_group hG F.names F.order F.nodup F.decls hm hmI hsk
-    obtain ⟨block, nP, rfl, -, -, -, hC⟩ :=
+    obtain ⟨block, nP, rfl, -, -, hC⟩ :=
       declOfF_ind_records hdp (tys_res h1) (ctors_res h2) (recs_res h3)
     obtain ⟨mnp, mni, mnn, mir, miu, mirf, hmk⟩ := hmI
     have hmT : m.toCEntryF ∈ ((blockTys mg all).filter (·.kind.tag == 5)).map (·.toCEntryF) :=
@@ -598,7 +562,7 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
       rw [hsm]; unfold CEntry.skipped; rw [hk]; rfl
     obtain ⟨p, hp, ts, cts, rs, hdp, h1, h2, h3⟩ :=
       home_group hG F.names F.order F.nodup F.decls hm hmI hsk
-    obtain ⟨block, nP, rfl, -, hnames, hR, -⟩ :=
+    obtain ⟨block, nP, rfl, -, hR, -⟩ :=
       declOfF_ind_records hdp (tys_res h1) (ctors_res h2) (recs_res h3)
     have heR : e' ∈ blockRecs mg (recMapOf mg) t := by
       rw [blockRecs_order mg F.nodup t]
@@ -607,31 +571,17 @@ theorem covers_block {mg : Merged} {ds : Array Declaration} (F : MergeFacts mg d
       · simp [he, recUnder, hk, hall]
     have hrb := hR e'.toCEntryF (List.mem_map_of_mem (List.mem_filter.mpr
       ⟨heR, by simp [hk, CKindF.tag]⟩)) all np ni nmo nmi rules k false hk
-    have hformers : blockFormerNames block = all := by
-      rw [hnames]
-      refine blockTys_names F.names (fun x hx => ?_)
-      obtain ⟨m', cs', hm', hI', -⟩ := (hG.ind hm hmI).2.1 x hx
-      obtain ⟨_, _, _, _, _, _, hk'⟩ := hI'
-      exact ⟨m', hm', by rw [hk']; rfl⟩
-    refine ⟨_, hp, _, List.mem_map_of_mem hrb, ?_⟩
+    refine ⟨_, hp, _, hrb, ?_⟩
     have hr' : r = .recInfo e'.toCEntryF.cv (np + nmo + nmi + ni) (np + nmo + nmi) k
-        (rules.map fun (cn, nf, rhs) =>
-          { ctor := cn, nfields := nf,
-            fire := inputFire all e'.toCEntryF.cv (np + nmo + nmi + ni) (np + nmo + nmi), rhs }) := by
+        (rules.map fun (cn, nf, rhs) => { ctor := cn, nfields := nf, fire := .plain, rhs }) := by
       simpa [entryConstants, hk] using hr
     subst hr'
-    have hrules : (rules.map fun r => (⟨r.1, r.2.1, .plain, r.2.2⟩ : RecRule)).map
-        (fun rl => { rl with fire := (inputFire (blockFormerNames block) e'.toCEntryF.cv
-          (np + nmo + nmi + ni) (np + nmo + nmi)) }) =
-        rules.map fun (cn, nf, rhs) =>
-          { ctor := cn, nfields := nf,
-            fire := inputFire all e'.toCEntryF.cv (np + nmo + nmi + ni) (np + nmo + nmi), rhs } := by
-      rw [hformers, List.map_map]
+    have hrules : (rules.map fun r => (⟨r.1, r.2.1, .plain, r.2.2⟩ : RecRule)) =
+        rules.map fun (cn, nf, rhs) => { ctor := cn, nfields := nf, fire := .plain, rhs } := by
       apply List.map_congr_left
       rintro ⟨cn, nf, rhs⟩ -
       rfl
-    show StoredAs (.recInfo _ _ _ _ ((rules.map _).map _)) _
-    rw [hrules]
+    rw [← hrules]
     exact StoredAs.refl _
   | _ => rw [hk] at ht; simp [CKindF.tag] at ht
 

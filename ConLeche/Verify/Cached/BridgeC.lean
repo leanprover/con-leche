@@ -313,7 +313,11 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
     -- throws on both sides, so only the passing branch reaches the bridge
     have hd : (if indParamsOk nP block = true then
           (match readBlock nP block with
-            | .ok p => checkBlockKS .verified (mkFEnv env) block p
+            | .ok p => do
+              let fe' ← checkBlockKS .verified (mkFEnv env) block p
+              match blockReadsOk fe'.find? p with
+              | .ok _ => pure fe'
+              | .error e => throw e
             | .error e => throw e)
         else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe₂, s₂) := hk

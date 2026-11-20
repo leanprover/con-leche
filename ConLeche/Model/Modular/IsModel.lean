@@ -35,6 +35,8 @@ theorem own_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSi
   obtain ⟨q, hq⟩ := h.accepted
   have hnd := (ImportOk.chain h).1
   have hb := declsRun_blockRead hq
+  have hr := declsRun_reads hq (PushChain.refl (dev j).context)
+  have henv : q.2.env = (dev j).own := by rw [declsRun_env mode hq]; rfl
   intro c hc
   obtain ⟨d, hd, hc⟩ := mem_constantsOf.1 hc
   obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
@@ -43,7 +45,9 @@ theorem own_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSi
   have hn : c.name = ci.name := by
     show c.toConstantVal.name = ci.toConstantVal.name
     rw [hst.1]
-  exact ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst⟩
+  refine ⟨ci, hn ▸ Driver.find?_of_nodup hnd hmem, hst, ?_⟩
+  have := hr d hd ci hci
+  rwa [henv] at this
 
 /-- **The modular theorem, over the input** (see the module docstring). -/
 theorem modular_isModel (V : Type w) [SetTheory V]

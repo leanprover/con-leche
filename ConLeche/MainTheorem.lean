@@ -159,7 +159,7 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   -- its type reads `False`, so the accepted environment stores it, as the prelude's
   have hF : DeclaresFalse (· ∈ constantsOf (preparePrelude pre r.decls).toList) := by
     refine Cached.checkDecls_declaresFalse hcheck ?_
-    obtain ⟨ci, hf, hcv, -⟩ := Cached.checkDecls_recordsStored hcheck (.thmInfo cv)
+    obtain ⟨ci, hf, ⟨hcv, -⟩, -⟩ := Cached.checkDecls_recordsStored hcheck (.thmInfo cv)
       (mem_constantsOf.2 ⟨_, hmem', List.mem_singleton_self _⟩)
     obtain ⟨-, -, hres, -⟩ := (Semantics.checkDecls_envWF hcheck).consts ci (Env.find?_mem hf)
     rw [hcv] at hres

@@ -4,6 +4,7 @@ public import ConLeche.Verify.Denote
 public import ConLeche.Verify.Close
 public import ConLeche.IsModel
 import ConLeche.Verify.Denote.Lemmas
+import ConLeche.Verify.Inductives.IotaRead
 import ConLeche.Verify.Shift
 import ConLeche.Verify.Abstract
 
@@ -283,17 +284,8 @@ theorem iotaEqAt_parts {env : Env} {cvj : ConstantVal} {cnP : Nat} {cv : Constan
     ∃ (ds : List Expr) (u : Level) (ty lhs rhs : Expr),
       e = ds.foldr .forallE (.app (.app (.app (.const eqName [u]) ty) lhs) rhs) ∧
       (∀ d ∈ ds, d.Resolves env) ∧ ty.Resolves env ∧ lhs.Resolves env ∧ rhs.Resolves env := by
-  unfold iotaEqAt at he
-  simp only [bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at he
-  obtain ⟨⟨pre, rest⟩, hpre, he⟩ := he
-  obtain ⟨⟨idx, body⟩, hbody, he⟩ := he
-  obtain ⟨u, -, he⟩ := he
-  obtain ⟨⟨pd, ctorBody⟩, hcb, he⟩ := he
-  obtain ⟨⟨fd, concl⟩, hfd, he⟩ := he
-  obtain ⟨_, hg, rfl⟩ := he
-  simp only [guard] at hg
-  split at hg
-  case isFalse => exact nomatch hg
+  obtain ⟨pre, idx, pd, fd, rest, body, ctorBody, concl, u, hpre, hbody, -, hcb, hfd, -, -, -,
+    rfl⟩ := iotaEqAt_inv he
   -- the pieces
   have hbv : ∀ (l : List Nat) (f : Nat → Nat), ∀ x ∈ l.map (fun i => Expr.bvar (f i)),
       x.Resolves env := by
@@ -340,5 +332,56 @@ theorem iotaEqAt_parts {env : Env} {cvj : ConstantVal} {cnP : Nat} {cv : Constan
       · rw [List.mem_singleton.mp ha]; exact hmajor
   · refine (Expr.resolves_mkAppN _ _).mpr ⟨hrhs, fun a ha => ?_⟩
     rcases List.mem_append.mp ha with ha | ha <;> exact hbv _ _ a ha
+
+/-- **A term equal up to equivalent levels to a resolving one resolves.** -/
+theorem Expr.resolves_of_lvlEq {env : Env} : ∀ (s c : Expr), s.lvlEq c = true →
+    c.Resolves env → s.Resolves env := by
+  intro s
+  induction s with
+  | bvar i => intro c _ _; trivial
+  | sort u => intro c _ _; trivial
+  | fvar i t => intro c h hc; cases c <;> simp [Expr.lvlEq] at h; simp_all [Resolves]
+  | const n us =>
+    intro c h hc
+    cases c <;> simp [Expr.lvlEq] at h
+    obtain ⟨rfl, h⟩ := h
+    obtain ⟨ci, hf, hl⟩ := hc
+    exact ⟨ci, hf, (isEquivList_length h).trans hl⟩
+  | app f a ihf iha =>
+    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    exact ⟨ihf _ h.1 hc.1, iha _ h.2 hc.2⟩
+  | lam t b iht ihb =>
+    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    exact ⟨iht _ h.1 hc.1, ihb _ h.2 hc.2⟩
+  | forallE t b iht ihb =>
+    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    exact ⟨iht _ h.1 hc.1, ihb _ h.2 hc.2⟩
+  | letE t v b iht ihv ihb =>
+    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    exact ⟨ihv _ h.1.2 hc.1, ihb _ h.2 hc.2⟩
+  | lit l => intro c h hc; cases c <;> simp [Expr.lvlEq] at h; subst h; exact hc
+  | proj T i e ihe =>
+    intro c h hc; cases c <;> simp [Expr.lvlEq] at h
+    obtain ⟨⟨rfl, rfl⟩, h⟩ := h
+    exact ⟨hc.1, ihe _ h hc.2⟩
+
+/-- **A term an annotated resolving one consumes to resolves.** -/
+theorem Expr.resolves_of_annEq {env : Env} {f : Name → Option ConstantInfo} {s c : Expr}
+    (h : annEq f s c = true) (hc : c.Resolves env) : s.Resolves env := by
+  revert h hc
+  fun_induction annEq f s c with
+  | case1 n l a b ih =>
+    intro h hc
+    simp only [Bool.or_eq_true, Bool.and_eq_true] at h
+    rcases h with h | ⟨-, hr⟩
+    · exact Expr.resolves_of_lvlEq _ _ h hc
+    · exact ih hr hc.1.2
+  | case2 n l a ih =>
+    intro h hc
+    simp only [Bool.or_eq_true, Bool.and_eq_true] at h
+    rcases h with h | ⟨-, hr⟩
+    · exact Expr.resolves_of_lvlEq _ _ h hc
+    · exact ih hr hc.2
+  | case3 c _ _ => intro h hc; exact Expr.resolves_of_lvlEq _ _ h hc
 
 end ConLeche

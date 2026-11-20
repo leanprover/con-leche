@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Denotes
+import ConLeche.Verify.Inductives.IotaRead
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Model.IndTele
@@ -802,20 +803,10 @@ theorem iotaEq_inv {find? : Name → Option ConstantInfo} {cv : ConstantVal} {mI
   obtain ⟨ci, hc, h⟩ := h
   · cases ci with
     | ctorInfo cvj cnP cnF iT =>
-      unfold ConLeche.iotaEqAt at h
-      simp only [bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at h
-      obtain ⟨⟨pre, rest⟩, hpre, h⟩ := h
-      obtain ⟨⟨idx, body⟩, hbody, h⟩ := h
-      obtain ⟨u, hu, h⟩ := h
-      obtain ⟨⟨pd, ctorBody⟩, hcb, h⟩ := h
-      obtain ⟨⟨fd, concl⟩, hfd, h⟩ := h
-      obtain ⟨_, hg, he⟩ := h
-      simp only [guard] at hg
-      split at hg
-      · rename_i hg'
-        exact ⟨cvj, cnP, cnF, iT, pre, idx, pd, fd, rest, body, ctorBody, concl, u, hc, hpre, hbody,
-          hu, hcb, hfd, hg'.1, hg'.2.1, hg'.2.2, he.symm⟩
-      · exact nomatch hg
+      obtain ⟨pre, idx, pd, fd, rest, body, ctorBody, concl, u, hpre, hbody, hu, hcb, hfd, h1, h2,
+        h3, rfl⟩ := ConLeche.iotaEqAt_inv h
+      exact ⟨cvj, cnP, cnF, iT, pre, idx, pd, fd, rest, body, ctorBody, concl, u, hc, hpre, hbody,
+        hu, hcb, hfd, h1, h2, h3, rfl⟩
     | _ => exact nomatch h
 
 /-! ## 6. Environments -/

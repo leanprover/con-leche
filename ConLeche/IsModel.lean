@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Install
+public import ConLeche.Kernel.Inductives.IotaRead
 public import ConLeche.Verify.Level
 public import ConLeche.SetModel.Ops
 public import ConLeche.SetTheory.Derive.Sigma
@@ -14,21 +15,21 @@ This module is the *statement* half of the main theorem: what it means for a set
 `model` to be a model of the declarations `ds` the checker reads.  It reads the INPUT: every
 clause below is about one constant of `ds`, as the stream carries it, and nothing here looks at
 the environment the checker builds.  It is written to be read top to bottom in one sitting —
-the reading `Expr.eval` of a term as a set, the recursors' rules as propositions (`iotaEqAt`),
-one clause per constant (`Satisfies`), and the definition `IsModel` — and it imports nothing
-from the proof tiers.  The theorem is stated in `ConLeche/Challenge.lean` (with `sorry`) and
+the reading `Expr.eval` of a term as a set, the recursors' rules as propositions read off their
+own types (`RuleHolds`), one clause per constant (`ModelOf`), and the definition `IsModel` — and
+it imports nothing from the proof tiers.  The theorem is stated in `ConLeche/Challenge.lean` (with `sorry`) and
 proved in `ConLeche/MainTheorem.lean`.
 
 ## The model
 
 A model is one function `model : Name → List Nat → V`: the set a constant denotes, given the
 values of its universe levels, positionally.  `IsModel V model C` says: every constant of `C`
-holds in `model`, where `C : ConstantInfo → Prop` is a set of constants, as its membership
-predicate; of a stream `ds` it is `(· ∈ constantsOf ds)`, every constant of every declaration
-(record) of `ds`.  It is a conjunction over the
-constants — their order does not matter, a constant listed twice is one, and a name two
-constants declare must satisfy both clauses.  The `.olean` input is such a set too: the
-constants of the
+holds in `model` (`ModelOf model c`), where `C : ConstantInfo → Prop` is a set of constants, as
+its membership predicate; of a stream `ds` it is `(· ∈ constantsOf ds)`, every constant of every
+declaration (record) of `ds`.  It is pointwise: `ModelOf model c` reads the constant `c` and
+nothing else — not even a recursor's constructors, as a recursor's rules are read off its own
+type.  So the order of the constants does not matter, a constant listed twice is one, and a name
+two constants declare must satisfy both clauses.  The `.olean` input is such a set too: the
 constants of the closure's views (`ConLeche/OleanInput.lean`).
 
 ## The reading
@@ -144,116 +145,6 @@ noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam �
 /-- The variable environment a closed term is read at (it reads none of it). -/
 noncomputable def ρ₀ : BVarIdx → V := fun _ => empty
 
-/-! ## The recursor rules as propositions -/
-
-/-- The levels a recursor rule's constructor is used at, over the
-recursor's own level parameters: the rule's recorded levels where it
-records them (a nested or a quotient rule), else the constructor's
-own parameters, which are the recursor's. -/
-def RecRule.ctorLevels (rl : RecRule) (ctorLps : List Name) : List Level :=
-  match rl.fire with
-  | .nested lvls _ => lvls
-  | .levels lvls => lvls
-  | .plain => ctorLps.map .param
-
-/-- The sort level of a recursor's motive: the motive application `body`
-(under the rule prefix `pre`, the `nIdx` indices and the major) has a
-prefix variable as its head, and that binder's domain ends in `Sort u`. -/
-def motiveLevel? (pre : List Expr) (nIdx : Nat) (body : Expr) : Option Level :=
-  match body.getAppFn with
-  | .bvar k =>
-    if nIdx + 1 ≤ k ∧ k < nIdx + 1 + pre.length then
-      match (pre.getD (pre.length - 1 - (k - (nIdx + 1))) default).piResult with
-      | .sort u => some u
-      | _ => none
-    else none
-  | _ => none
-
-/-- The parameters a recursor rule applies its constructor to, in the rule prefix's context
-(`rP` binders): a nested rule's recorded pins, else the prefix's first `cnP` variables (as many
-as the prefix has: `iotaEqAt` asks for `cnP` of them). -/
-def RecRule.iotaParams (rl : RecRule) (rP cnP : Nat) : List Expr :=
-  match rl.fire with
-  | .nested _ pins => pins
-  | _ => (List.range (min cnP rP)).map fun i => .bvar (rP - 1 - i)
-
-/-- **A recursor rule's ι equation, as a proposition.**  For the
-recursor `cv` (major position `mI`, rule prefix `rP`), its rule `rl`
-and the constructor constant `cvj` (with `cnP` parameters) the rule names,
-at the recursor's own level parameters:
-
-    ∀ (prefix : the recursor's first rP binders) (fields : C's fields),
-      @Eq.{u} (motive indices (C params fields))
-        (rec prefix indices (C params fields)) (rl.rhs prefix fields)
-
-`params` are the constructor's parameters in the prefix context: the
-recursor's leading arguments, or a nested rule's recorded instantiations;
-the field binders are the constructor's, at those parameters; `indices`
-are the arguments of the constructor type's conclusion behind its
-parameters.  The equation's type is the recursor type's body at the indices
-and the major, and `u` the sort of the motive it applies.  `none` where
-the constants do not have this shape. -/
-def iotaEqAt (cvj : ConstantVal) (cnP : Nat) (cv : ConstantVal) (mI rP : Nat)
-    (rl : RecRule) : Option Expr := do
-  let nF := rl.nfields
-  let nIdx := mI - rP
-  -- the recursor's telescope: the rule prefix, the indices and the major, the body
-  let (pre, rest) ← cv.type.stripPis rP
-  let (_, body) ← rest.stripPis (nIdx + 1)
-  let u ← motiveLevel? pre nIdx body
-  -- the constructor at the rule's levels, its parameters in the prefix context
-  let lvls := rl.ctorLevels cvj.levelParams
-  let params := rl.iotaParams rP cnP
-  let (_, ctorBody) ← (cvj.type.instantiateLevelParams cvj.levelParams lvls).stripPis cnP
-  let (fieldDoms, concl) ← (ctorBody.instantiateLift params.reverse).stripPis nF
-  let indices := concl.getAppArgs.drop cnP
-  guard (params.length = cnP ∧ rP ≤ mI ∧ indices.length = nIdx)
-  -- under the prefix and the fields
-  let xs := (List.range rP).map fun i => Expr.bvar (rP + nF - 1 - i)
-  let fs := (List.range nF).map fun j => Expr.bvar (nF - 1 - j)
-  let major := Expr.mkAppN (.const rl.ctor lvls) (params.map (·.liftLooseBVars nF 0) ++ fs)
-  let lhs := Expr.mkAppN (.const cv.name (cv.levelParams.map .param)) (xs ++ indices ++ [major])
-  let rhs := Expr.mkAppN rl.rhs (xs ++ fs)
-  let ty := (body.liftLooseBVars nF (nIdx + 1)).instantiateLift (major :: indices.reverse)
-  pure <| (pre ++ fieldDoms).foldr .forallE
-    (.app (.app (.app (.const eqName [u]) ty) lhs) rhs)
-
-/-- **How a recursor's rules fire, read off its own type**: its major binder (behind the `mI`
-binders) has a domain `C us args`.  Where `C` is a type former of the recursor's own block
-(`formers`), the rules are plain: the constructor is used at the recursor's levels and its
-leading arguments.  Otherwise the major is a container of a nested block and the rules use
-the constructor at `us` and at the container's parameters (`args` without the `mI - rP`
-index variables, moved from under the index binders to the rule prefix). -/
-def inputFire (formers : List Name) (cv : ConstantVal) (mI rP : Nat) : RecRuleFire :=
-  match cv.type.stripPis mI with
-  | some (_, .forallE dom _) =>
-    match dom.getAppFn with
-    | .const c us =>
-      if formers.contains c then .plain
-      else
-        let nI := mI - rP
-        let args := dom.getAppArgs
-        .nested us ((args.take (args.length - nI)).map (Expr.dropVars nI))
-    | _ => .plain
-  | _ => .plain
-
-/-! ## The constants of a declaration -/
-
-/-- The names of a block's type formers. -/
-def blockFormerNames (block : List ConstantInfo) : List Name :=
-  block.filterMap fun
-    | .indInfo cv _ => some cv.name
-    | _ => none
-
-/-- The block's constants, its recursors' rules with their firing mode (`inputFire`, read off
-the recursor's type against the block's type formers). -/
-def blockFired (block : List ConstantInfo) : List ConstantInfo :=
-  block.map fun
-    | .recInfo cv mI rP isK rules =>
-      .recInfo cv mI rP isK
-        (rules.map ({ · with fire := inputFire (blockFormerNames block) cv mI rP }))
-    | c => c
-
 /-- Does a value use a hole (`sorryAx`)? -/
 def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
 
@@ -265,8 +156,8 @@ def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
   as an axiom of its statement.
 * A theorem and an `opaque` are their statements: the value is never read, so an opaque
   constant stays free.
-* An inductive block is its constants, its recursors' rules firing as their types say
-  (`blockFired`).
+* An inductive block is its constants: type formers, constructors and recursors, each read on
+  its own.
 * A quotient constant, and the axiom `Quot.sound`, are the quotient package's constant at the
   record's level-parameter names (`quotAt`): `Quot.lift` and `Quot.ind` carry their ι rule
   there. -/
@@ -279,42 +170,52 @@ def Declaration.constants : Declaration → List ConstantInfo
   | .thmDecl cv _ => [.thmInfo cv]
   | .opaqueDecl cv _ => [.axiomInfo cv]
   | .quotDecl k cv => [quotAt k cv]
-  | .indDecl block _ => blockFired block
+  | .indDecl block _ => block
 
 /-! ## The clauses -/
 
 /-- **The constants of the declarations `ds`**: every constant of every one of them, in order. -/
 def constantsOf (ds : List Declaration) : List ConstantInfo := ds.flatMap Declaration.constants
 
-/-- **A recursor rule holds** at the level assignment `φ`: for every constructor constant of
-`C` the rule names, the rule's ι equation denotes an inhabited set (a true proposition). -/
-def RuleHolds (V : Type w) [SetTheory V] (model : Name → List Nat → V) (C : ConstantInfo → Prop)
-    (φ : LevelParam → Nat) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
-  ∀ cvj cnP nF T, C (.ctorInfo cvj cnP nF T) → cvj.name = rl.ctor →
-    ∀ e, iotaEqAt cvj cnP cv mI rP rl = some e → ∃ x, x ∈ˢ Expr.eval model φ ρ₀ e
+/-- **A recursor's rule `i` holds** at the level assignment `φ`: its ι equation, read off the
+recursor's own type (`iotaEqOf`, `ConLeche/Kernel/Inductives/IotaRead.lean`), denotes an
+inhabited set (a true proposition).  The rule `i` reads the `i`-th minor premise of the motive the
+recursor's type applies:
 
-/-- **A constant holds in `model`** (of the constants `C`, where its rules find their
-constructors): at every list of level values `vals`, one per level parameter, read through
-`φ := Level.assign ps vals`,
+    ∀ (prefix) (fields), @Eq.{u} (motive idx (C.{us} params fields))
+      (rec prefix idx (C.{us} params fields)) (rhs prefix fields)
+
+where `prefix` are the recursor's first `rP` binders, `fields` the minor premise's first
+`nfields` binders (its induction hypotheses are not quantified), `idx` its conclusion's index
+arguments, `C` the rule's constructor at the levels `us` and the parameters `params` of the major
+premise's type, `rhs` the rule's right-hand side and `u` the motive's sort level.  Nothing else
+is read: no constructor constant, no firing mode. -/
+def RuleHolds (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+    (φ : LevelParam → Nat) (cv : ConstantVal) (mI rP i : Nat) (rl : RecRule) : Prop :=
+  ∀ e, iotaEqOf cv mI rP i rl = some e → ∃ x, x ∈ˢ Expr.eval model φ ρ₀ e
+
+/-- **The constant `c` holds in `model`**: at every list of level values `vals`, one per level
+parameter, read through `φ := Level.assign ps vals`,
 
 * the constant is a member of what its type denotes;
 * a definition is what its value denotes;
-* every rule of a recursor holds (`RuleHolds`). -/
-def Satisfies (V : Type w) [SetTheory V] (model : Name → List Nat → V) (C : ConstantInfo → Prop)
-    (c : ConstantInfo) : Prop :=
+* every rule of a recursor holds (`RuleHolds`), by its position.
+
+It reads `c` alone. -/
+def ModelOf {V : Type w} [SetTheory V] (model : Name → List Nat → V) (c : ConstantInfo) : Prop :=
   ∀ vals : List Nat, vals.length = c.toConstantVal.levelParams.length →
     let φ := Level.assign c.toConstantVal.levelParams vals
     model c.name vals ∈ˢ Expr.eval model φ ρ₀ c.toConstantVal.type ∧
     match c with
     | .defnInfo _ value _ => model c.name vals = Expr.eval model φ ρ₀ value
-    | .recInfo cv mI rP _ rules => ∀ rl ∈ rules, RuleHolds V model C φ cv mI rP rl
+    | .recInfo cv mI rP _ rules => ∀ i rl, rules[i]? = some rl → RuleHolds V model φ cv mI rP i rl
     | _ => True
 
-/-- **`model` is a model of the constants `C`**: every one of them holds.  Of a declaration
-stream `ds`, it is a model of `(· ∈ constantsOf ds)`. -/
+/-- **`model` is a model of the constants `C`**: every one of them holds, each on its own
+(`ModelOf`).  Of a declaration stream `ds`, it is a model of `(· ∈ constantsOf ds)`. -/
 def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
     (C : ConstantInfo → Prop) : Prop :=
-  ∀ c, C c → Satisfies V model C c
+  ∀ c, C c → ModelOf model c
 
 /-! ## The prelude's `False` and `Eq`
 

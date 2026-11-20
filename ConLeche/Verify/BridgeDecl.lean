@@ -1242,7 +1242,10 @@ theorem checkDeclKind_datF (env : Env) (d : Declaration) (F : Nat) :
     -- sides take the same branch, and the guard's `throw` is fuel-free
     split
     · split
-      · exact checkBlock_datF env block _ F
+      · rw [FueledM.atF_bind, checkBlock_datF env block _ F]
+        congr 1
+        funext env₂
+        split <;> simp only [FueledM.atF_pure, FueledM.atF_throw]
       · rfl
     · rfl
 
