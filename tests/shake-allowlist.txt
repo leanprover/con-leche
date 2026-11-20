@@ -724,3 +724,10 @@ ConLeche/Model/IsModelOlean.lean	public import ConLeche.Verify.OleanInput	# meas
 ConLeche/Model/Modular/IsModel.lean	import ConLeche.Model.OfEnvModelM	# measured (task #618): removing the three breaks the module (unknown SetTheory, CheckMode, NatOpPinSet); a minimization move with compensating adds
 ConLeche/Model/Modular/IsModel.lean	public import ConLeche.Model.IsModelBridge	# measured (task #618): as the line above
 ConLeche/Model/Modular/IsModel.lean	public import ConLeche.Model.Modular.Main	# measured (task #618): as the line above
+ConLeche/Model/Modular/Sees.lean	import ConLeche.Model.OfEnvModelM	# measured (task #618): shake moves Sees.lean's imports to narrower modules with compensating adds; removing them breaks the module (unknown EnvModelM, posModel, Run)
+ConLeche/Model/Modular/Sees.lean	public import ConLeche.Model.Modular.IsModel	# measured (task #618): as the line above
+ConLeche/Model/Modular/Sees.lean	public import ConLeche.Verify.Driver.SeesCtx	# measured (task #618): as the line above
+ConLeche/Model/Modular/SeesMain.lean	public import ConLeche.Model.Modular.Sees	# measured (task #618): removing it breaks the module (unknown Run.sees_isModel); a minimization move with compensating adds
+ConLeche/Verify/Driver/SeesCtx.lean	public import ConLeche.Verify.Driver.SeesLoads	# measured (task #618): removing it breaks the module (unknown Run.sees_copy); a minimization move with compensating adds
+ConLeche/Verify/Driver/SeesLoads.lean	public import ConLeche.Verify.Driver.Routes	# measured (task #618): removing it breaks the module (unknown Run); a minimization move with compensating adds
+ConLeche/Verify/Driver/SeesOwn.lean	public import ConLeche.Verify.Driver.Routes	# measured (task #618): removing it breaks the module (a stuck Membership Name at R.names); a minimization move with compensating adds

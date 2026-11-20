@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Driver.Loads
-import ConLeche.Verify.Frontend.ModelIO
 public import ConLeche.Verify.Frontend.Olean.Files
 import Std.Data.HashSet.Lemmas
 import Std.Data.HashMap.Lemmas

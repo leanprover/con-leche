@@ -6,13 +6,11 @@ public import ConLeche.Verify.IsModelRecords
 import ConLeche.Verify.OleanInput
 import ConLeche.Verify.Driver.Provenance
 import ConLeche.Verify.Frontend.Olean.GroupSame
-import ConLeche.Verify.Frontend.Olean.Group
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Prefix
 import ConLeche.Verify.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Prepare
-import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.PinRen
 
 /-!

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Modular.IsModel
 public import ConLeche.Verify.Driver.SeesCtx
-public import ConLeche.Verify.Driver.SeesOwn
+import ConLeche.Verify.Driver.SeesOwn
 import ConLeche.Model.OfEnvModelM
 
 public section
