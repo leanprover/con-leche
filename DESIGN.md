@@ -125381,3 +125381,55 @@ links and fragment gates pass.  Not measured: the rule's cost (one pass per recu
 its minor premise; `minorsOf` is linear in the prefix per rule).  README (the maintainer's): only
 anchors repointed by the gates; stale lines 60, 69, 73 ("does not contain the delta and iota
 equations": `IsModel` states the ι equations, read off each recursor's own type), 75.
+
+## TASK #623 — the whitepaper and its fragment over the input (2026-11-20, agent/623-wp-sync; base `compare`)
+
+Brings the whitepaper and `whitepaper/Fragment` in line with the main theorems on `compare`
+after #610/#617/#618/#619/#621/#622.
+
+*The fragment's statement* (`whitepaper/Fragment/IsModel.lean`, new, imports only
+`Fragment.EnvModel`): `ModelOf M c ci` — at every list of level values, membership in the type,
+a definition equal to its value, and every recursor rule holding read off the recursor's OWN
+type (`RuleHolds`: the `i`-th minor premise of the motive the type concludes with, `minorsOf`;
+its first `nfields` binders the fields; its conclusion behind fields and inductive hypotheses,
+`conclV`, gives the indices and the major; the equation `rec xs idx maj = rhs xs ys` holds
+unconditionally at every fit; no constructor constant, no `rl.ctor`/`inst`/`k`); `IsModel V M C`
+pointwise; `constantsOf ds` the entries the declarations store (`Modular.lean`).  Holes:
+`Decl.hole` stores an assumption, the plain check never accepts it.  `model_exists :
+Checks Env.empty ds → ∃ M, IsModel V M (constantsOf ds)` (`Main.lean`), with `IsModel.no_false`,
+`no_false_constant`, `no_empty_prop_inhabitant`.  `Accepted`/`accepted_model` are gone (the
+`Checks` list is the input).  The proof: `Holds E M` (every stored constant holds) carried by
+every install (`install_ind_holds`, `Checks.blockModel`); the rule clause by `IotaRead.lean`
+(`rule_holds`) and `NestIotaRead.lean` (`rule_holdsN`, `rule_holds1`: the auxiliary recursor's
+rule `j` reads minor `n + j`, which the motive filter finds); the ι equation at a constructor
+value made unconditional (`rec_rule_core` without `≠ pt`, `rec_rule_coreN`, `rule1_coreB`): at
+the point both sides are the point, the right-hand side lying in the motive's fibre.
+
+*Modular, `Sees` form* (`ModularInstance.lean`): `Sees dev j n j'` — `n` a context name of `j`
+and a view of `j'` that `j` imports stores it (no import rules at this level: the imported views
+are the loaded parts); `modular`: each module's model is an `IsModel` of its own declarations'
+constants, and `Sees → model j n = model j' n`.  The semantics' models carry `Holds`
+(`Assembled.holds`, `ModelOf.of_le`).
+
+*Compare* (`Compare.lean`): `Shared`, `Justified`, `ChallengeChecks` (a justified hole stored as
+an assumption); `solution_model_exists` over the input, never mentioning the solution (the
+agreement on shared names is the invariant of `ChallengeChecks.model`).  Simplified against
+con-leche: shared names are definitions or assumptions (no shared inductive blocks); shared sets
+read in the challenge's final environment.  `compare_solves`: the modular shape plus every copy
+(`ConstInfo.copyAt`, a context entry renamed to distinct level parameters) holding in the
+challenge's model (`ModelOf.copyAt`).
+
+*The paper.*  §1: the statement over the input, holes as assumptions, `False`/`Eq` by their own
+clauses, the challenge's theorem without the solution.  §3: the environment model named as the
+proof's own.  §4 Consistency: `def:input-model`, `thm:accepted-model` over the input with the
+rule-clause proof, the corollary over any model of the input; the `#real` block on `False`/`Eq`
+(no fixed meanings).  §7: `thm:mod-input` (Sees, how it specialises), models carrying the
+clauses, the empty-`Prop` remark over the input; the old `Mod(E_i)` corollary gone.  §8: the
+justification definitions linked to the fragment, `thm:cmp-model` over the input, `thm:cmp` with
+copies holding.  §9: pinned blocks, axioms (holes), the statement over `Expr.eval` and modular
+paragraphs.  NOTES.md: one unconditional ι law at a constructor value.
+
+*Gates:* `whitepaper/fragment-gate.sh` OK (warning-free, axioms pinned, no sorry);
+`whitepaper/build.sh` (nix dev shell) PDF + HTML without diagnostics; `whitepaper/links-gate.sh`
+after `--update` (citing paragraphs re-read).  Nothing outside `whitepaper/` changed (`git diff
+--stat compare.. -- ':!whitepaper'` empty, so `lake build` and the OVERVIEW gates are unaffected).
