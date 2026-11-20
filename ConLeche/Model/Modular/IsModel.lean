@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Modular.Main
 public import ConLeche.Model.IsModelBridge
 import ConLeche.Model.OfEnvModelM
+import ConLeche.Model.Capstone
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Copies
 
@@ -92,5 +93,17 @@ theorem modular_isModel (V : Type w) [SetTheory V]
       exact he
     funext vals
     rw [posModel_of_find hJ, posModel_of_find hB, hcv, hcval]
+
+/-- **No module's own environment stores a constant of type `False`** in a development every
+module of which passes the local checks: each own environment has a model
+(`modularModels`), in which `False` is empty (`Model.no_constant_of_False`). -/
+theorem modular_no_False (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
+    ∀ j ≤ i, ∀ c ∈ (dev j).own.consts, c.toConstantVal.type = .const falseName [] → False := by
+  intro j hj c hc hty
+  obtain ⟨mm, -⟩ := modularModels (V := V) (pins := pins) hok
+  obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2.2
+  exact Model.no_constant_of_False mp c hc hty
 
 end ConLeche.Model.Modular

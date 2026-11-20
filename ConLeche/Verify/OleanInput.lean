@@ -607,10 +607,28 @@ theorem readOleansAt_covers {sp : Roots} (hsp : sp.bare = sp) {roots : Array Nam
     obtain ⟨d', hd', c', hc', hst'⟩ := covers_block F he (by omega) hrc
     exact ⟨d', hd', fun _ => ⟨c', hc', hst'⟩⟩
 
-/-- **A read's closure is stored where records standing for the read's records are stored**: an
-environment storing the constants of records `D`, each passing the reserved names' check, where
-every prepared record `d` of the read stands in `D` as `g d` — the same reserved names' verdict,
-every constant of `d` stored by one of `g d`'s. -/
+/-- **A read's closure is covered by records standing for the read's records**: where every
+prepared record `d` of the read stands in `D` as `g d` — the same reserved names' verdict, every
+constant of `d` stored by one of `g d`'s, each passing the reserved names' check — every constant
+of the closure is stored by a constant of `D` (`StoredAs`). -/
+theorem inputCovered_of {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
+    {jobs : Nat} {pace : Pace} {lenient homes : Bool} {fs : FS} {rd : OleanRead} {hs hs' : HS}
+    (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
+    {pre : PreludeIx} {used : Declaration → Array Name} {g : Declaration → Declaration}
+    {D : List Declaration}
+    (hmem : ∀ d ∈ (prepareD pre rd.decls used).decls, g d ∈ D)
+    (hb : ∀ d ∈ D, basisNamesOk d = true) (hg : ∀ d, basisNamesOk (g d) = basisNamesOk d)
+    (hcov : ∀ d, ∀ c ∈ d.constants, ∃ c' ∈ (g d).constants, StoredAs c' c)
+    {r : ConstantInfo} (hr : closureConstants sp fs roots r) :
+    ∃ c ∈ constantsOf D, StoredAs c r := by
+  obtain ⟨d, hd, hcv⟩ := readOleansAt_covers hsp h hr
+  have hd' := hmem _ (Frontend.mem_prepareD (used := used) (pre := pre) hd)
+  obtain ⟨c', hc', hs⟩ := hcv (hg d ▸ hb _ hd')
+  obtain ⟨c'', hc'', hs''⟩ := hcov d c' hc'
+  exact ⟨c'', mem_constantsOf.2 ⟨_, hd', hc''⟩, hs''.trans hs⟩
+
+/-- **A read's closure is stored where records standing for the read's records are stored**
+(`inputCovered_of`). -/
 theorem inputStored_of {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
     {jobs : Nat} {pace : Pace} {lenient homes : Bool} {fs : FS} {rd : OleanRead} {hs hs' : HS}
     (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
@@ -619,13 +637,8 @@ theorem inputStored_of {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
     (hmem : ∀ d ∈ (prepareD pre rd.decls used).decls, g d ∈ D)
     (hb : ∀ d ∈ D, basisNamesOk d = true) (hg : ∀ d, basisNamesOk (g d) = basisNamesOk d)
     (hcov : ∀ d, ∀ c ∈ d.constants, ∃ c' ∈ (g d).constants, StoredAs c' c) :
-    RecordsStored (closureConstants sp fs roots) env := by
-  refine hst.mono fun r hr => ?_
-  obtain ⟨d, hd, hcv⟩ := readOleansAt_covers hsp h hr
-  have hd' := hmem _ (Frontend.mem_prepareD (used := used) (pre := pre) hd)
-  obtain ⟨c', hc', hs⟩ := hcv (hg d ▸ hb _ hd')
-  obtain ⟨c'', hc'', hs''⟩ := hcov d c' hc'
-  exact ⟨c'', mem_constantsOf.2 ⟨_, hd', hc''⟩, hs''.trans hs⟩
+    RecordsStored (closureConstants sp fs roots) env :=
+  hst.mono fun _ hr => inputCovered_of hsp h hmem hb hg hcov hr
 
 /-- **An accepted read of a closure stores its input**: the fold accepted the reader's records,
 prepared with a prelude and with the theorems' values in place, so every record of every
@@ -644,4 +657,23 @@ theorem checkDecls_inputStored {sp : Roots} (hsp : sp.bare = sp) {roots : Array 
     (Cached.declsRun_basisNamesOk run) (fun d => by cases d <;> rfl) fun d c hc => ?_
   have hrec : (Cached.fillDecl F d).constants = d.constants := by cases d <;> rfl
   exact ⟨c, hrec ▸ hc, StoredAs.refl c⟩
+/-- **An accepted read of a closure covers its input**: every constant of the closure's views is
+stored, as `StoredAs` says, by a constant of the records the fold accepted. -/
+theorem checkDecls_inputCovered {sp : Roots} (hsp : sp.bare = sp) {roots : Array Name}
+    {jobs : Nat} {pace : Pace} {lenient homes : Bool} {fs : FS} {rd : OleanRead} {hs hs' : HS}
+    (h : (readOleansAt sp roots none jobs pace lenient homes : ModelIO _) fs hs (.ok (.ok rd)) hs')
+    {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat} {pre : PreludeIx}
+    {used : Declaration → Array Name} {F : Expr → Expr} {env : Env}
+    (hc : Cached.checkDecls mode pins maxNatSize
+      ((prepareD pre rd.decls used).decls.map (Cached.fillDecl F)) = .ok env)
+    {r : ConstantInfo} (hr : closureConstants sp fs roots r) :
+    ∃ c ∈ constantsOf ((prepareD pre rd.decls used).decls.map (Cached.fillDecl F)).toList,
+      StoredAs c r := by
+  obtain ⟨n, fe, run, rfl⟩ := Cached.checkDecls_run mode hc
+  refine inputCovered_of hsp h (g := Cached.fillDecl F)
+    (fun d hd => Array.mem_toList_iff.mpr (Array.mem_map_of_mem hd))
+    (Cached.declsRun_basisNamesOk run) (fun d => by cases d <;> rfl) (fun d c hc => ?_) hr
+  have hrec : (Cached.fillDecl F d).constants = d.constants := by cases d <;> rfl
+  exact ⟨c, hrec ▸ hc, StoredAs.refl c⟩
+
 end ConLeche.Frontend.Olean
