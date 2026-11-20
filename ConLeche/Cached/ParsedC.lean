@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Cached.CheckerC
 public import ConLeche.Cached.IotaReadC
 
 @[expose] public section

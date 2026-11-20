@@ -3,8 +3,7 @@ module
 public import ConLeche.IsModel
 import ConLeche.Verify.Cached.IotaReadC
 import ConLeche.Cached.Decls
-public import ConLeche.Verify.Cached.DeclPushes
-import ConLeche.Verify.Cached.PushChain
+import ConLeche.Verify.Cached.DeclPushes
 public import ConLeche.Verify.Inductives.IotaRead
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.IndBlockC

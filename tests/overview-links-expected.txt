@@ -29,9 +29,9 @@
    128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
    129      (BVarIdx → V) → Expr → V
 
-== ConLeche/IsModel.lean#L315-L316
-   315  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   316      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L215-L216
+   215  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   216      (C : ConstantInfo → Prop) : Prop :=
 
 == ConLeche/MainTheorem.lean#L141-L148
    141  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -256,8 +256,8 @@
     96      | .error _ => []
 
 == ConLeche/Verify/Cached/DeclPushes.lean#L698-L699
-   698  theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
-   699      Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+   698          · exact Yields.ofThrow
+   699      · exact Yields.ofThrow
 
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
@@ -267,11 +267,11 @@
     97      (k : Nat) (pd : Declaration) : Except CheckError Unit :=
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1340-L1344
-  1340  theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-  1341     
-  1342      (pd : Declaration) :
-  1343      RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
-  1344        (checkDeclStepC mode pins fe₂ pd) := by
+  1340    unfold checkDeclC
+  1341    refine RelRun.bind (checkDeclKindC_twin pins ht pd) fun a₁ a₂ h => ?_
+  1342    relrun
+  1343    all_goals exact RelRun.pure h
+  1344  
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L525-L527
    525  theorem checkDecls_of_jobs {ds : Array Declaration}
@@ -979,6 +979,9 @@
 == ConLeche/Kernel/Install.lean#L45
     45    if rc.tgt < p.k then .plain
 
+== ConLeche/Kernel/Inductives/IotaRead.lean#L307
+   307  def blockReadsOk (find? : Name → Option ConstantInfo) (p : BlockShape) :
+
 == ConLeche/SetModel/Value.lean#L387-L388
    387  /-- `I → Sort w`, the family space, as the value reading has it. -/
    388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piV I fun _ => univ w
@@ -1385,7 +1388,7 @@
 
 == ConLeche/Cached/ParsedC.lean#L305-L306
    305          else throw (.notImplemented
-   306            s!"unsupported compiler-trust axiom environment ({cv.name})")
+   306            s!"unsupported Lean.trustCompiler shape ({cv.name})")
 
 == ConLeche/Driver/Cli.lean#L146
    146    "  --jobs=N            Worker threads (default: one per hardware thread)",

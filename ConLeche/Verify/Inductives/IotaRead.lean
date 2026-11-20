@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.IotaRead
 public import ConLeche.Verify.Cached.PushChain
 
 public section

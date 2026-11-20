@@ -38,9 +38,9 @@
    129    | error e => rw [h] at accepted; cases accepted
    130    | ok env =>
 
-== ConLeche/IsModel.lean#L315-L316
-   315  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   316      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L215-L216
+   215  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   216      (C : ConstantInfo → Prop) : Prop :=
 
 == ConLeche/MainTheorem.lean#L272-L283
    272  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
@@ -7531,28 +7531,27 @@
     54            InferClaimIO m φ fuel := by
     55    have hin : RulesInputs V m φ := h
 
-== ConLeche/IsModel.lean#L315-L316
-   315  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   316      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L215-L216
+   215  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   216      (C : ConstantInfo → Prop) : Prop :=
 
 == ConLeche/IsModel.lean#L128-L129
    128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
    129      (BVarIdx → V) → Expr → V
 
-== ConLeche/IsModel.lean#L196-L197
-   196  def iotaEqAt (cvj : ConstantVal) (cnP : Nat) (cv : ConstantVal) (mI rP : Nat)
-   197      (rl : RecRule) : Option Expr := do
+== ConLeche/Kernel/Inductives/IotaRead.lean#L188
+   188  def iotaEqOf (cv : ConstantVal) (mI rP i : Nat) (rl : RecRule) : Option Expr := do
 
-== ConLeche/Model/IsModelBridge.lean#L115-L117
-   115  theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
-   116      (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
-   117      {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
+== ConLeche/Model/IsModelBridge.lean#L116-L118
+   116  theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
+   117      (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
+   118      {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
 
-== ConLeche/Model/IsModelBridge.lean#L310-L313
-   310  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
-   311      (hrec : RecordsStored R env) {model : Name → List Nat → V}
-   312      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
-   313      IsModel V model R := by
+== ConLeche/Model/IsModelBridge.lean#L665-L668
+   665  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
+   666      (hrec : RecordsStored R env) {model : Name → List Nat → V}
+   667      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
+   668      IsModel V model R := by
 
 == ConLeche/Cached/CoreC.lean#L8-L11
      8  # The cached checker core

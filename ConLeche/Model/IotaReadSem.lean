@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.RuleEqsSound
-public import ConLeche.Verify.Inductives.IotaRead
+import ConLeche.Verify.Inductives.IotaRead
 
 public section
 

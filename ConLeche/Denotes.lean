@@ -197,7 +197,7 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
 
 /-! ### The recursor rules as propositions -/
 
-/-- **A stored recursor rule's ι equation** (`iotaEqAt`, `ConLeche/IsModel.lean`), at the
+/-- **A stored recursor rule's ι equation** (`iotaEqAt`, `ConLeche/Kernel/Inductives/IotaRead.lean`), at the
 constructor record the environment stores under the rule's constructor name. -/
 def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Nat)
     (rl : RecRule) : Option Expr := do

@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Install
 public import ConLeche.Kernel.Inductives.IotaRead
 public import ConLeche.Verify.Level
 public import ConLeche.SetModel.Ops

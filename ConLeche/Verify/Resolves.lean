@@ -2,9 +2,9 @@ module
 
 public import ConLeche.Verify.Denote
 public import ConLeche.Verify.Close
-public import ConLeche.IsModel
 import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Verify.Inductives.IotaRead
+public import ConLeche.Kernel.Inductives.IotaRead
 import ConLeche.Verify.Shift
 import ConLeche.Verify.Abstract
 
