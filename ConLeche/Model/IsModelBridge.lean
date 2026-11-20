@@ -26,8 +26,11 @@ the second.
   `Expr.eval` at `posModel` agrees with it.  The one fact this needs of `cval` is that a
   constant reads only its own level parameters (`CvalLocal`; the invariant's `acval_params`).
 * `Denotes_of_resolves`: a term every part of which reads (`Expr.Resolves`) denotes.
-* `isModel_of_envModelM`: the clauses, from the invariant, given what the checker establishes
-  about the records (`RecordsStored`, `ConLeche/Verify/IsModelRecords.lean`).  A recursor rule
+* `isModel_of_agree`: the clauses, from the invariant, given what the checker establishes
+  about the records (`RecordsStored`, `ConLeche/Verify/IsModelRecords.lean`), at every model that
+  agrees with `posModel` on the stored names (`AgreesOn`) and reads `Eq` as equality
+  (`EqReads`): what a model gives a name the environment does not store is free.  At `posModel`
+  itself, `isModel_of_envModelM`.  A recursor rule
   holds because at every fit of its equation's telescope the two sides are one member of a type
   (`Model.ruleEq_sides`), and `Eq` — stored or not — reads as equality there.
 -/
@@ -98,15 +101,27 @@ theorem eval_strLitToConstructor (model : Name → List Nat → V) (φ : LevelPa
     rw [ih]
     rfl
 
-/-- **The total reading agrees with `Denotes`** wherever that reads. -/
+/-- **A model agreeing with `posModel` on the stored names**: it reads every stored constant
+as the positional valuation does (what it gives an unstored name is free). -/
+@[expose] def AgreesOn (model : Name → List Nat → V) (cval : Name → (LevelParam → Nat) → V) (env : Env) :
+    Prop :=
+  ∀ n ci, env.find? n = some ci → model n = posModel cval env n
+
+theorem agreesOn_posModel (cval : Name → (LevelParam → Nat) → V) (env : Env) :
+    AgreesOn (posModel cval env) cval env := fun _ _ _ => rfl
+
+/-- **The total reading agrees with `Denotes`** wherever that reads, at every model agreeing
+with `posModel` on the stored names. -/
 theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
-    (hloc : CvalLocal cval env) {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
-    (h : Denotes cval env φ ρ e v) : Expr.eval (posModel cval env) φ ρ e = v := by
+    (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
+    {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
+    (h : Denotes cval env φ ρ e v) : Expr.eval model φ ρ e = v := by
   induction h with
   | bvar => rfl
   | sort => rfl
   | @const ρ n us ci hf hlen =>
-    show posModel cval env n (us.map (Level.eval φ)) = _
+    show model n (us.map (Level.eval φ)) = _
+    rw [hag n ci hf]
     unfold posModel
     rw [hf]
     exact hloc n ci hf _ _ (assign_map_eval φ _ us hlen)
@@ -232,24 +247,24 @@ theorem ctorLevels_length (rl : RecRule) (lps : List Name) :
 /-- **A telescope of resolving domains reads as a true proposition** where its body does at every
 fit of the domains. -/
 theorem eval_tele {cval : Name → (LevelParam → Nat) → V} {env : Env} (hloc : CvalLocal cval env)
-    {φ : LevelParam → Nat} {B : Expr} :
+    {model : Name → List Nat → V} (hag : AgreesOn model cval env) {φ : LevelParam → Nat} {B : Expr} :
     ∀ (ds : List Expr) (ρ : BVarIdx → V), (∀ d ∈ ds, d.Resolves env) →
       (∀ (vs : List V) (ρ' : BVarIdx → V), vs.length = ds.length →
         Model.Fits cval env φ ρ (ds.foldr .forallE B) vs ρ' B →
-        Expr.eval (posModel cval env) φ ρ' B ∈ˢ (univZero : V) ∧
-          (pt : V) ∈ˢ Expr.eval (posModel cval env) φ ρ' B) →
-      Expr.eval (posModel cval env) φ ρ (ds.foldr .forallE B) ∈ˢ (univZero : V) ∧
-        (pt : V) ∈ˢ Expr.eval (posModel cval env) φ ρ (ds.foldr .forallE B)
+        Expr.eval model φ ρ' B ∈ˢ (univZero : V) ∧
+          (pt : V) ∈ˢ Expr.eval model φ ρ' B) →
+      Expr.eval model φ ρ (ds.foldr .forallE B) ∈ˢ (univZero : V) ∧
+        (pt : V) ∈ˢ Expr.eval model φ ρ (ds.foldr .forallE B)
   | [], ρ, _, h => h [] ρ rfl .nil
   | d :: ds, ρ, hr, h => by
     obtain ⟨A, hA⟩ := Denotes_of_resolves (cval := cval) φ d ρ (hr d List.mem_cons_self)
     have hz : ∀ x, x ∈ˢ A →
-        Expr.eval (posModel cval env) φ (push x ρ) (ds.foldr .forallE B) ∈ˢ (univZero : V) ∧
-          (pt : V) ∈ˢ Expr.eval (posModel cval env) φ (push x ρ) (ds.foldr .forallE B) :=
-      fun x hx => eval_tele hloc ds (push x ρ) (fun d' h' => hr d' (List.mem_cons_of_mem _ h'))
+        Expr.eval model φ (push x ρ) (ds.foldr .forallE B) ∈ˢ (univZero : V) ∧
+          (pt : V) ∈ˢ Expr.eval model φ (push x ρ) (ds.foldr .forallE B) :=
+      fun x hx => eval_tele hloc hag ds (push x ρ) (fun d' h' => hr d' (List.mem_cons_of_mem _ h'))
         fun vs ρ' hl hf => h (x :: vs) ρ' (by simp [hl]) (.cons hA hx hf)
     show piV (Expr.eval _ φ ρ d) _ ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ piV (Expr.eval _ φ ρ d) _
-    rw [eval_of_Denotes hloc hA]
+    rw [eval_of_Denotes hloc hag hA]
     refine ⟨?_, ?_⟩
     · rw [piV_eq_zero fun x hx => (hz x hx).1]; exact piR_zero_mem_univZero
     · exact (pt_mem_piV_iff fun x hx => Or.inl (hz x hx).1).mpr fun x hx => (hz x hx).2
@@ -274,42 +289,56 @@ theorem eval_eq {env : Env} (m : Model.EnvModelM V env) {φ : LevelParam → Nat
     have hD : Denotes (Model.cvalOf m.base2.acval) env φ ρ (.const eqName [u]) _ :=
       .const hfe (by rw [hl]; rfl)
     have hE : posModel (Model.cvalOf m.base2.acval) env eqName [Level.eval φ u] = _ :=
-      eval_of_Denotes (cvalLocal_ofEnvModelM m) hD
+      eval_of_Denotes (cvalLocal_ofEnvModelM m) (agreesOn_posModel _ _) hD
     rw [hE]
     exact Model.eq_equality_of m u φ ρ _ T L R hD hT hL hR
 
-/-- **The bridge**: the invariant's model is a model of the input, given that the records are
-stored. -/
-theorem isModel_of_envModelM {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
-    (hrec : RecordsStored R env) :
-    IsModel V (posModel (Model.cvalOf m.base2.acval) env) R := by
+/-- **`Eq` reads as equality** in `model`: at a type of a universe and two of its members, the
+triple application of `Eq`'s value at that universe is the truth value of their equality. -/
+@[expose] def EqReads (model : Name → List Nat → V) : Prop :=
+  ∀ (k : Nat) (T L R : V), T ∈ˢ (univ k : V) → L ∈ˢ T → R ∈ˢ T →
+    app (app (app (model eqName [k]) T) L) R = eqv L R
+
+/-- The invariant's model reads `Eq` as equality. -/
+theorem eqReads_envModelM {env : Env} (m : Model.EnvModelM V env) :
+    EqReads (V := V) (posModel (Model.cvalOf m.base2.acval) env) := by
+  intro k T L R hT hL hR
+  exact eval_eq m (φ := fun _ => k) (ρ := ρ₀) (u := .param .anonymous) hT hL hR
+
+/-- **The bridge**: a model agreeing with the invariant's on the stored names, and reading `Eq` as
+equality, is a model of the input, given that the records are stored. -/
+theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
+    (hrec : RecordsStored R env) {model : Name → List Nat → V}
+    (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
+    IsModel V model R := by
   let M := Model.Model.ofEnvModelM m
   have hloc := cvalLocal_ofEnvModelM m
-  rw [← Model.Model.ofEnvModelM_cval m] at hloc ⊢
+  rw [← Model.Model.ofEnvModelM_cval m] at hloc hag
   intro c hc vals hl
   obtain ⟨ci, hf, hcv, hdef, hrc, -⟩ := hrec c hc
   have hmem : ci ∈ env.consts := Env.find?_mem hf
   have hname : c.name = ci.name := (find?_name hf).symm
-  have hval : posModel M.cval env c.name vals =
+  have hval : model c.name vals =
       M.cval c.name (Level.assign c.toConstantVal.levelParams vals) := by
+    rw [hag c.name ci hf]
     unfold posModel; rw [hf]; dsimp only; rw [hcv]
   refine ⟨?_, ?_⟩
   · obtain ⟨T, hT, hmT⟩ := M.mem ci hmem (Level.assign c.toConstantVal.levelParams vals) ρ₀
     rw [hcv] at hT
-    rw [hval, eval_of_Denotes hloc hT, hname]
+    rw [hval, eval_of_Denotes hloc hag hT, hname]
     exact hmT
   · cases c with
     | defnInfo cv value hint =>
       obtain rfl := hdef cv value hint rfl
       have hD := M.defn_eq cv value hint hmem (Level.assign cv.levelParams vals) ρ₀
-      show posModel M.cval env cv.name vals =
-        Expr.eval (posModel M.cval env) (Level.assign cv.levelParams vals) ρ₀ value
-      rw [eval_of_Denotes hloc hD]
+      show model cv.name vals =
+        Expr.eval model (Level.assign cv.levelParams vals) ρ₀ value
+      rw [eval_of_Denotes hloc hag hD]
       exact hval
     | recInfo cv mI rP isK rules =>
       obtain ⟨isK', rfl⟩ := hrc cv mI rP isK rules rfl
       intro rl hrl cvj cnP nF T hcj hcn e he
-      rw [Model.Model.ofEnvModelM_cval m] at hloc ⊢
+      rw [Model.Model.ofEnvModelM_cval m] at hloc hag
       generalize Level.assign _ vals = φ
       obtain ⟨cj, hfj, -, -, -, hcjc⟩ := hrec _ hcj
       obtain ⟨nF', T', rfl⟩ := hcjc cvj cnP nF T rfl
@@ -366,7 +395,7 @@ theorem isModel_of_envModelM {R : ConstantInfo → Prop} {env : Env} (m : Model.
       injection h7 with h8
       subst h8 he'
       -- the telescope reads as a true proposition
-      refine ⟨pt, (eval_tele hloc ds' ρ₀ hdsR fun vs ρ' hvl hvf => ?_).2⟩
+      refine ⟨pt, (eval_tele hloc hag ds' ρ₀ hdsR fun vs ρ' hvl hvf => ?_).2⟩
       obtain ⟨T₀, hT₀⟩ := Denotes_of_resolves (cval := Model.cvalOf m.base2.acval) φ ty
         ρ' htyR
       obtain ⟨L₀, hL₀⟩ := Denotes_of_resolves (cval := Model.cvalOf m.base2.acval) φ
@@ -374,14 +403,20 @@ theorem isModel_of_envModelM {R : ConstantInfo → Prop} {env : Env} (m : Model.
       obtain ⟨R₀, hR₀⟩ := Denotes_of_resolves (cval := Model.cvalOf m.base2.acval) φ
         rhs ρ' hrhsR
       obtain ⟨hTu, hLT, hRT, hLR⟩ := H φ ρ₀ vs ρ' hvl hvf T₀ L₀ R₀ hT₀ hL₀ hR₀
-      have hbody : Expr.eval (posModel (Model.cvalOf m.base2.acval) env) φ ρ'
+      have hbody : Expr.eval model φ ρ'
           (.app (.app (.app (.const eqName [u]) ty) lhs) rhs) = eqv L₀ L₀ := by
         show app (app (app (Expr.eval _ φ ρ' (.const eqName [u])) (Expr.eval _ φ ρ' ty))
           (Expr.eval _ φ ρ' lhs)) (Expr.eval _ φ ρ' rhs) = _
-        rw [eval_of_Denotes hloc hT₀, eval_of_Denotes hloc hL₀, eval_of_Denotes hloc hR₀,
-          eval_eq m hTu hLT hRT, ← hLR]
+        rw [eval_of_Denotes hloc hag hT₀, eval_of_Denotes hloc hag hL₀, eval_of_Denotes hloc hag hR₀]
+        exact (heq _ _ _ _ hTu hLT hRT).trans (by rw [← hLR])
       rw [hbody]
       exact ⟨eqv_mem_univZero _ _, pt_mem_eqv_self _⟩
     | _ => trivial
+
+/-- **The bridge**, at the invariant's own model. -/
+theorem isModel_of_envModelM {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
+    (hrec : RecordsStored R env) :
+    IsModel V (posModel (Model.cvalOf m.base2.acval) env) R :=
+  isModel_of_agree m hrec (agreesOn_posModel _ _) (eqReads_envModelM m)
 
 end ConLeche
