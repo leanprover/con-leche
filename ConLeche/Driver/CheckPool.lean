@@ -46,13 +46,13 @@ namespace ConLeche.Driver
 
 open ConLeche
 
-/-- The records' frozen index, and the sidecar's environment and index if there is one: what
+/-- The records' frozen index, and the solution's environment and index if there is one: what
 the check phase reads. -/
 structure Jobs (ds : Array Declaration) (justify : Option ConLeche.Env := none) where
   I : ConLeche.Cached.FrozenIndex
   hI : I = (ConLeche.Cached.buildIndex ds).freeze
-  side : Option ConLeche.Cached.Sidecar
-  hside : side = ConLeche.Cached.sidecarOf justify ds
+  side : Option ConLeche.Cached.Solution
+  hside : side = ConLeche.Cached.solutionOf justify ds
 
 /-- **The step between the read and the check**: the frozen index of the records, built here, and
 the records and the index marked PERSISTENT.  Both are read-only from here on.  The check phase runs
@@ -70,7 +70,7 @@ def Jobs.build (ds : Array Declaration) (justify : Option ConLeche.Env := none) 
     IO (Jobs ds justify) := do
   let _ ← unsafe Runtime.markPersistent ds
   let J : Jobs ds justify := ⟨(ConLeche.Cached.buildIndex ds).freeze, rfl,
-    ConLeche.Cached.sidecarOf justify ds, rfl⟩
+    ConLeche.Cached.solutionOf justify ds, rfl⟩
   let _ ← unsafe Runtime.markPersistent J
   return J
 

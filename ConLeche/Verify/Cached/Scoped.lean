@@ -330,7 +330,7 @@ theorem checkDeclKind_axiom_ccv {F : Nat} {env env₂ : Env} {cv : ConstantVal}
   | error e => rw [hccv] at h; exact nomatch h
   | ok u => rfl
 
-/-- A statement a sidecar justifies takes no pinned name. -/
+/-- A statement a solution justifies takes no pinned name. -/
 theorem justifiable_names {pd : Declaration} {cv : ConstantVal} (h : justifiable pd = some cv) :
     natOpName cv.name = false ∧ reduceOpNames.contains cv.name = false := by
   cases pd with
@@ -768,7 +768,7 @@ theorem checkDecl_scoped {F : Nat} {env env₂ : Env} {d : Declaration} (henv : 
 /-- **Every environment an accepting run reaches is read-scoped**, from a read-scoped,
 well-formed start: each record's cached check is a pure `checkDecl` run (`checkDeclStepC_run`), or
 the justification route's axiom, whose statement takes no pinned name (`justifiable`). -/
-theorem declsRun_scoped {maxNatSize : Nat} {J : Option Sidecar} {ds : List Declaration}
+theorem declsRun_scoped {maxNatSize : Nat} {J : Option Solution} {ds : List Declaration}
     {p q : Nat × FEnv} (hrun : DeclsRun .verified pins maxNatSize J ds p q) :
     p.2 = mkFEnv p.2.env → EnvWF p.2.env → Scoped p.2.env → Scoped q.2.env := by
   induction hrun with

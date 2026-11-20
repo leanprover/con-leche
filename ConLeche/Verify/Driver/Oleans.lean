@@ -360,8 +360,8 @@ theorem checkOleansG_accept {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
   -- every record's job passed, at the records with their values in place
   refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) rfl fun k hk => ?_⟩
   have hk' : k < ds.size := by simpa using hk
-  rw [buildIndex_fill, Array.getElem_map, ← J.hI, show sidecarOf none _ = none from rfl,
-    show (none : Option Sidecar) = sidecarOf none ds from rfl, ← J.hside]
+  rw [buildIndex_fill, Array.getElem_map, ← J.hI, show solutionOf none _ = none from rfl,
+    show (none : Option Solution) = solutionOf none ds from rfl, ← J.hside]
   exact hfacts k (Nat.zero_le _) hk' hk'
 
 /-- **An accepted `--olean` run, in the model**: every outcome of the driver's run on the import

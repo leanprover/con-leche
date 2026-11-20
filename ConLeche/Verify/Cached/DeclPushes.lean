@@ -710,7 +710,7 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ybind
   exact checkDeclC_pushes mode fe pd
 
-/-! ## The record check, with a sidecar -/
+/-! ## The record check, with a solution -/
 
 /-- **A record that offers a statement installs it alone, as an axiom.** -/
 theorem justifiable_constants {pd : Declaration} {cv : ConstantVal}
@@ -728,15 +728,15 @@ theorem justifiable_constants {pd : Declaration} {cv : ConstantVal}
       simp [declConstants, declTables, h1, h2]
   | _ => simp [justifiable] at h
 
-/-- **A record that offers no statement takes its own check**, sidecar or not. -/
-theorem checkRecordC_own (mode : CheckMode) (J : Option Sidecar) (fe : FEnv) {pd : Declaration}
+/-- **A record that offers no statement takes its own check**, solution or not. -/
+theorem checkRecordC_own (mode : CheckMode) (J : Option Solution) (fe : FEnv) {pd : Declaration}
     (h : justifiable pd = none) : checkRecordC mode pins J fe pd = checkDeclStepC mode pins fe pd := by
   unfold checkRecordC
   cases J <;> simp [h]
 
 /-- **A fact both routes yield, the record check yields**: the record's own check, and the
 justification route of a record offering a statement. -/
-theorem checkRecordC_yields (mode : CheckMode) (J : Option Sidecar) (fe : FEnv) (pd : Declaration)
+theorem checkRecordC_yields (mode : CheckMode) (J : Option Solution) (fe : FEnv) (pd : Declaration)
     {P : FEnv → Prop} (hown : Yields (checkDeclStepC mode pins fe pd) P)
     (hjust : ∀ J' cv, J = some J' → justifiable pd = some cv →
       Yields (checkRecordC mode pins J fe pd) P) :
@@ -748,8 +748,8 @@ theorem checkRecordC_yields (mode : CheckMode) (J : Option Sidecar) (fe : FEnv) 
     | none => exact hown
     | some J' => exact hjust J' cv rfl hj
 
-/-- **An accepting record check pushes what the declaration installs**, sidecar or not. -/
-theorem checkRecordC_pushes (mode : CheckMode) (J : Option Sidecar) (fe : FEnv) (pd : Declaration) :
+/-- **An accepting record check pushes what the declaration installs**, solution or not. -/
+theorem checkRecordC_pushes (mode : CheckMode) (J : Option Solution) (fe : FEnv) (pd : Declaration) :
     Yields (checkRecordC mode pins J fe pd)
       (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
   unfold checkRecordC
@@ -763,7 +763,7 @@ theorem checkRecordC_pushes (mode : CheckMode) (J : Option Sidecar) (fe : FEnv) 
 
 /-! ## The environment of an accepted stream -/
 
-theorem declsRun_env (mode : CheckMode) {J : Option Sidecar} {ds : List Declaration}
+theorem declsRun_env (mode : CheckMode) {J : Option Solution} {ds : List Declaration}
     {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize J ds p q) :
     q.2.env = streamEnv ds p.2.env := by
   induction h with
@@ -778,7 +778,7 @@ theorem declsRun_env (mode : CheckMode) {J : Option Sidecar} {ds : List Declarat
 
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
 theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {justify : Option Env}
-    {env : Env} (h : checkDecls mode pins maxNatSize ds justify = .ok env) :
+    {env : Env} (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env) :
     env = streamEnv (sideRecords justify ds).toList := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
   exact declsRun_env mode r

@@ -258,13 +258,13 @@ these must come from a source the reader trusts.
   `con-leche --compare CHALLENGE.ndjson SOLUTION.ndjson`. An export
   has no modules and so no homes; there the solution's file is checked
   in full, and the challenge's file is then checked like any stream,
-  with the solution's environment as its _sidecar_: a hole is accepted
-  as an axiom of its statement when the sidecar holds a constant of
+  with the solution's environment as its _solution_: a hole is accepted
+  as an axiom of its statement when the solution holds a constant of
   that name and statement, and everything the statement reads is the
   same constant in both, whole records at a time. So the solution's
   `f := 5` does not justify a hole that reads a challenge file's
   `f := 3`. The model of the challenge then takes, at each hole, the
-  sidecar model's value, which inhabits the hole's statement because
+  solution model's value, which inhabits the hole's statement because
   the two models agree on everything it reads;
   #src("ConLeche/MainTheorem.lean", 958, 972)[its capstone] states that
   the challenge file's records have a model.

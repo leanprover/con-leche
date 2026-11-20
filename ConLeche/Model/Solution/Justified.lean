@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Sidecar.Shared
+public import ConLeche.Model.Solution.Shared
 import ConLeche.Model.Harvest
 import ConLeche.Model.Modular.Proofs
 import ConLeche.Verify.Driver.Reach
@@ -15,13 +15,13 @@ public section
 /-!
 # A justified axiom's step
 
-A justified axiom `cv` of the input is installed with the renamed sidecar model's value at its
-name, read at the input's level parameters: the sidecar's constant is `cv` up to those names, and
-everything `cv`'s type reads is shared, where the input's model and the sidecar's agree, so the
-type reads alike on both sides and the sidecar's value inhabits it (`harvestAxiomAt`).
+A justified axiom `cv` of the input is installed with the renamed solution model's value at its
+name, read at the input's level parameters: the solution's constant is `cv` up to those names, and
+everything `cv`'s type reads is shared, where the input's model and the solution's agree, so the
+type reads alike on both sides and the solution's value inhabits it (`harvestAxiomAt`).
 -/
 
-namespace ConLeche.Model.Sidecar
+namespace ConLeche.Model.Solution
 
 open ConLeche ConLeche.Cached ConLeche.Model ConLeche.Model.Modular ConLeche.Verify
 open ConLeche.Semantics SetTheory
@@ -30,7 +30,7 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- **The sidecar's constant at the input's statement**: the renamed sidecar's constant of a
+/-- **The solution's constant at the input's statement**: the renamed solution's constant of a
 justified statement's name reads, at the input's level parameters, as the statement's type. -/
 theorem justified_type {Ef : Env} {cv : ConstantVal} {cS : ConstantInfo}
     (hEf : Ef.find? cv.name = some (.axiomInfo cv)) (hn : cS.name = cv.name)
@@ -100,7 +100,7 @@ private theorem needs_mem {e : Expr} {n : Name} (h : n ∈ e.needs) : n ∈ (nee
   exact (NeedsSt.expr_spec h0 e).2.2 n h
 
 /-- **A justified axiom's step** (see the module docstring). -/
-theorem justStep {JS : Sidecar} {Ef envS E : Env} (hJ : JS.idx = mkFEnv envS)
+theorem justStep {JS : Solution} {Ef envS E : Env} (hJ : JS.idx = mkFEnv envS)
     (mp : EnvModelM V E) (hcov : LfpCover mp []) (hN : NatFacts E)
     (mS : EnvModelM V (renEnv Ef envS))
     (hPL : ProofLeaves V (renEnv Ef envS) mS.base2.acval)
@@ -212,7 +212,7 @@ theorem justStep {JS : Sidecar} {Ef envS E : Env} (hJ : JS.idx = mkFEnv envS)
       rw [h, hm] at hnres; exact nomatch hnres
     exact ⟨hne _ (by decide), hne _ (by decide), hne _ (by decide)⟩
   refine ⟨mp', hrel, hc hcov, hnat, fun hsh => ?_⟩
-  -- a shared justified name: the sidecar's statement is the input's
+  -- a shared justified name: the solution's statement is the input's
   obtain ⟨ci, ci', g1, g2, g3, -⟩ := hfS' cv.name hsh
   rw [hEf] at g1
   obtain rfl := Option.some.inj g1
@@ -235,4 +235,4 @@ theorem justStep {JS : Sidecar} {Ef envS E : Env} (hJ : JS.idx = mkFEnv envS)
     exact hp ψ Ta hTa ρ
   · rw [hnP hp, hA]
 
-end ConLeche.Model.Sidecar
+end ConLeche.Model.Solution

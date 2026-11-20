@@ -3509,7 +3509,7 @@
 # which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
 0 lit_hash_low_bits.ndjson
 
-# --compare on two lean4export files: CHALLENGE checked with SOLUTION as its sidecar
+# --compare on two lean4export files: CHALLENGE checked, its axioms justified by SOLUTION
 # (task #619; pairs exported from tests/e2e/src/cmp_*.lean by scripts/mk_cmp_fixtures.sh).  The
 # solution's file is checked in full; the challenge's too, its axioms other than the built-in
 # ones and its declarations whose value uses sorry justified by the solution's constant of the
@@ -3547,7 +3547,7 @@
 # cmp_ind: `inductive T | a | b` against the solution's `| a` (1).
 1 --compare -- cmp_ind_c.ndjson cmp_ind_s.ndjson
 # cmp_false: a hole `axiom x : False` (never 0: an axiom of type False is never justified,
-# the sidecar's check accepting no constant of that type): the solution's own axiom declines
+# the solution's check accepting no constant of that type): the solution's own axiom declines
 # (2), another statement rejects (1).
 2 --compare -- cmp_false_c.ndjson cmp_false_ax_s.ndjson
 1 --compare -- cmp_false_c.ndjson cmp_false_other_s.ndjson

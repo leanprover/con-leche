@@ -49,7 +49,7 @@ The pin comes first (`andPinOk`, `ConLeche/Kernel/Basis.lean`): a record that de
 the name `And` in an accepted environment is the pinned block, and the stuck-proof rescue that
 serves it (`majorToCtor`'s `And` branch) is always available.  The soundness proofs never read it
 (the rescue is sound for any `And`), so `checkDecl` does not repeat it. -/
-def declStep (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Sidecar) (p : Nat × FEnv)
+def declStep (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution) (p : Nat × FEnv)
     (pd : Declaration) : Except (CheckError × Nat) (Nat × FEnv) :=
   if andPinOk pd then
     match checkRecordC mode pins J p.2 pd { maxNatSize := maxNatSize } with
@@ -58,7 +58,7 @@ def declStep (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Sidecar) (
   else .error (.invalid "`And` must be the standard `And`", p.1)
 
 /-- An accepting run of the fold: a chain of accepting `declStep`s. -/
-inductive DeclsRun (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Sidecar) :
+inductive DeclsRun (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution) :
     List Declaration → Nat × FEnv → Nat × FEnv → Prop where
   | nil (p : Nat × FEnv) : DeclsRun pins maxNatSize J [] p p
   | cons {pd : Declaration} {ds : List Declaration} {p p₁ p' : Nat × FEnv}
@@ -68,7 +68,7 @@ inductive DeclsRun (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Side
 
 /-- The accepting step's result, unfolded. -/
 theorem declStep_ok {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {J : Option Sidecar} {p q : Nat × FEnv}
+    {J : Option Solution} {p q : Nat × FEnv}
     {pd : Declaration} (h : declStep mode pins maxNatSize J p pd = .ok q) :
     ∃ fe' s', q = (p.1 + 1, fe') ∧
       checkRecordC mode pins J p.2 pd { maxNatSize := maxNatSize } = .ok (fe', s') := by
@@ -83,24 +83,40 @@ theorem declStep_ok {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : N
     simp only [Except.ok.injEq] at h
     exact ⟨fe', s₁, h.symm, rfl⟩
 
-/-- **The declaration fold.**
+/-- **The declaration fold, with or without a solution** (the two checkers below).
 
-`justify` is the sidecar's environment, if any: the records that offer a statement are checked
-by its justification (`checkRecordC`, `ConLeche/Cached/Justify.lean`).  Without one the fold is
-plain checking.
+`justify` is the solution's environment, if any.  With one, every record whose value uses a hole
+(`sorryAx`) is read as the axiom of its statement (`sideRecords`), and an axiom other than the
+built-in ones is accepted when the solution holds a constant of its name and statement,
+everything the statement reads being the same constant in both (`checkRecordC`,
+`ConLeche/Cached/Justify.lean`); every other record is checked as without one.
 
 The records are the array the frontend produces (`Frontend.preparePrelude`); the proofs read the
 fold as `ds.toList.foldlM` (`Array.foldlM_toList`), which is where `DeclsRun` lives.  The `× Nat` of
 the error is the failure's position: here the record's position in the fold, in the frontend's half
 of the same error type the input's line number (`ConLeche/Frontend/Export.lean`). -/
-def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
-    (justify : Option Env := none) : Except (CheckError × Nat) Env := do
-  let p ← (sideRecords justify ds).foldlM (declStep mode pins maxNatSize (sidecarOf justify (sideRecords justify ds)))
+def checkDeclsWith (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+    (ds : Array Declaration) (justify : Option Env) : Except (CheckError × Nat) Env := do
+  let p ← (sideRecords justify ds).foldlM
+    (declStep mode pins maxNatSize (solutionOf justify (sideRecords justify ds)))
     (0, mkFEnv Env.empty)
   pure p.2.env
 
+/-- **The checker**: the declaration fold, every axiom other than the built-in ones rejected. -/
+def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+    (ds : Array Declaration) : Except (CheckError × Nat) Env :=
+  checkDeclsWith mode pins maxNatSize ds none
+
+/-- **A challenge checked with its axioms justified by a solution**: the fold over the
+challenge's records `ds`, with the environment of the solution's records `dsS` justifying its
+axioms (`checkDeclsWith`).  The solution itself is not checked here: the main theorem asks for
+`checkDecls` on `dsS` too. -/
+def checkChallenge (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+    (dsS ds : Array Declaration) : Except (CheckError × Nat) Env :=
+  checkDeclsWith mode pins maxNatSize ds (some (streamEnv dsS.toList))
+
 /-- An accepting run is an accepting `foldlM`. -/
-theorem DeclsRun.foldlM {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option Sidecar}
+theorem DeclsRun.foldlM {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option Solution}
     {ds : List Declaration} {p p' : Nat × FEnv}
     (h : DeclsRun mode pins maxNatSize J ds p p') :
     ds.foldlM (declStep mode pins maxNatSize J) p = .ok p' := by
@@ -112,7 +128,7 @@ theorem DeclsRun.foldlM {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option
     exact ih
 
 /-- An accepting `foldlM` is an accepting run. -/
-theorem DeclsRun.of_foldlM {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option Sidecar} :
+theorem DeclsRun.of_foldlM {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option Solution} :
     ∀ (ds : List Declaration) (p : Nat × FEnv) {p' : Nat × FEnv},
       ds.foldlM (declStep mode pins maxNatSize J) p = .ok p' → DeclsRun mode pins maxNatSize J ds p p'
   | [], p, p', h => by
@@ -129,7 +145,7 @@ theorem DeclsRun.of_foldlM {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Opt
       exact .cons hstep (DeclsRun.of_foldlM ds p₁ h)
 
 /-- A run extends at its end by one accepting step. -/
-theorem DeclsRun.snoc {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option Sidecar}
+theorem DeclsRun.snoc {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option Solution}
     {ds : List Declaration} {p p' p₁ : Nat × FEnv}
     (h : DeclsRun mode pins maxNatSize J ds p p') {pd : Declaration}
     (hstep : declStep mode pins maxNatSize J p' pd = .ok p₁) :
@@ -139,16 +155,16 @@ theorem DeclsRun.snoc {pins : List NatOpPinSet} {maxNatSize : Nat} {J : Option S
   | cons h₀ _ ih => exact .cons h₀ (ih hstep)
 
 /-- **Every accept of the fold is an accepting run from the empty index**, over the records the
-fold checks (`sideRecords`: the input's, without a sidecar). -/
+fold checks (`sideRecords`: the input's, without a solution). -/
 theorem checkDecls_run {pins : List NatOpPinSet} {maxNatSize : Nat} {ds : Array Declaration}
     {justify : Option Env} {env : Env}
-    (h : checkDecls mode pins maxNatSize ds justify = .ok env) :
-    ∃ n fe, DeclsRun mode pins maxNatSize (sidecarOf justify (sideRecords justify ds)) (sideRecords justify ds).toList
+    (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env) :
+    ∃ n fe, DeclsRun mode pins maxNatSize (solutionOf justify (sideRecords justify ds)) (sideRecords justify ds).toList
       (0, mkFEnv Env.empty) (n, fe) ∧ fe.env = env := by
-  unfold checkDecls at h
+  unfold checkDeclsWith at h
   rw [← Array.foldlM_toList] at h
   cases hrun : (sideRecords justify ds).toList.foldlM
-      (declStep mode pins maxNatSize (sidecarOf justify (sideRecords justify ds))) (0, mkFEnv Env.empty) with
+      (declStep mode pins maxNatSize (solutionOf justify (sideRecords justify ds))) (0, mkFEnv Env.empty) with
   | error e => rw [hrun] at h; exact nomatch h
   | ok r =>
     obtain ⟨n, fe⟩ := r
@@ -159,10 +175,10 @@ theorem checkDecls_run {pins : List NatOpPinSet} {maxNatSize : Nat} {ds : Array 
 /-- **An accepting run is an accept of the fold.** -/
 theorem checkDecls_of_run {pins : List NatOpPinSet} {maxNatSize : Nat} {ds : Array Declaration}
     {justify : Option Env} {n : Nat} {fe : FEnv}
-    (h : DeclsRun mode pins maxNatSize (sidecarOf justify (sideRecords justify ds)) (sideRecords justify ds).toList
+    (h : DeclsRun mode pins maxNatSize (solutionOf justify (sideRecords justify ds)) (sideRecords justify ds).toList
       (0, mkFEnv Env.empty) (n, fe)) :
-    checkDecls mode pins maxNatSize ds justify = .ok fe.env := by
-  unfold checkDecls
+    checkDeclsWith mode pins maxNatSize ds justify = .ok fe.env := by
+  unfold checkDeclsWith
   rw [← Array.foldlM_toList, h.foldlM]
   rfl
 

@@ -52,6 +52,18 @@ a recursor with its rules (firing modes included), a constructor with its parame
 theorem mem_constantsOf {ds : List Declaration} {c : ConstantInfo} :
     c ∈ constantsOf ds ↔ ∃ d ∈ ds, c ∈ d.constants := List.mem_flatMap
 
+/-- **A model of a set of constants is a model of every subset.** -/
+theorem IsModel.anti {V : Type w} [SetTheory V] {model : Name → List Nat → V}
+    {C C' : ConstantInfo → Prop} (h : IsModel V model C) (hsub : ∀ c, C' c → C c) :
+    IsModel V model C' := by
+  intro c hc vals hl
+  obtain ⟨h1, h2⟩ := h c (hsub c hc) vals hl
+  refine ⟨h1, ?_⟩
+  cases c with
+  | recInfo cv mI rP isK rules =>
+    exact fun rl hrl cvj cnP nF T hC hn e he => h2 rl hrl cvj cnP nF T (hsub _ hC) hn e he
+  | _ => exact h2
+
 /-- **Every record of the input is stored** under its name (`StoredAs`). -/
 @[expose] def RecordsStored (R : ConstantInfo → Prop) (env : Env) : Prop :=
   ∀ c, R c → ∃ ci, env.find? c.name = some ci ∧ StoredAs ci c
@@ -474,7 +486,7 @@ theorem checkDeclStepC_blockRead (mode : CheckMode) (pins : List NatOpPinSet) (f
 
 /-- Every block of an accepting run read. -/
 theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {J : Option Sidecar} {ds : List Declaration} {p q : Nat × FEnv}
+    {J : Option Solution} {ds : List Declaration} {p q : Nat × FEnv}
     (h : DeclsRun mode pins maxNatSize J ds p q) :
     ∀ d ∈ ds, ∀ block nP, d = .indDecl block nP → BlockRead nP block := by
   induction h with
@@ -489,10 +501,10 @@ theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
     · exact ih d hd block nP hdb
 
 /-- **An accepted stream stores its records** (`RecordsStored`), the records the fold read (with
-a sidecar, `sideRecords`). -/
+a solution, `sideRecords`). -/
 theorem checkDecls_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {justify : Option Env} {env : Env}
-    (h : checkDecls mode pins maxNatSize ds justify = .ok env) :
+    (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env) :
     RecordsStored (· ∈ constantsOf (sideRecords justify ds).toList) env := by
   have henv := checkDecls_env h
   obtain ⟨n, fe, run, hfe⟩ := checkDecls_run mode h
@@ -531,7 +543,7 @@ theorem checkDeclStepC_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet}
 
 /-- Every record of an accepting run passed the reserved names' check. -/
 theorem declsRun_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {J : Option Sidecar} {ds : List Declaration} {p q : Nat × FEnv}
+    {J : Option Solution} {ds : List Declaration} {p q : Nat × FEnv}
     (h : DeclsRun mode pins maxNatSize J ds p q) :
     ∀ d ∈ ds, basisNamesOk d = true := by
   induction h with
@@ -560,7 +572,7 @@ theorem declsRun_basisNamesOk {mode : CheckMode} {pins : List NatOpPinSet} {maxN
 /-- The four pinned inductive blocks. -/
 @[expose] def pinnedKinds : List BasisKind := [.eqK, .natK, .emptyK, .falseK]
 
-/-- A block the fold reads with a sidecar is the input's. -/
+/-- A block the fold reads with a solution is the input's. -/
 theorem mem_sideRecords_ind {j : Option Env} {ds : Array Declaration}
     {block : List ConstantInfo} {nP : Nat}
     (h : Declaration.indDecl block nP ∈ (sideRecords j ds).toList) :
@@ -582,7 +594,7 @@ theorem mem_sideRecords_ind {j : Option Env} {ds : Array Declaration}
 block that is the pin up to its level-parameter names. -/
 theorem checkDecls_pinned {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {justify : Option Env} {env : Env}
-    (h : checkDecls mode pins maxNatSize ds justify = .ok env)
+    (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env)
     {kind : BasisKind} (hk : kind ∈ pinnedKinds) {n : Name} (hn : n ∈ kind.decls.map (·.name))
     (hs : (env.find? n).isSome = true) :
     ∃ block nP, Declaration.indDecl block nP ∈ ds.toList ∧
@@ -717,7 +729,7 @@ theorem mem_blockFired_cv {block : List ConstantInfo} {b : ConstantInfo} (hb : b
 /-- **An accepted stream that stores `False` declares the prelude's `False`.** -/
 theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {justify : Option Env} {env : Env}
-    (h : checkDecls mode pins maxNatSize ds justify = .ok env)
+    (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env)
     (hs : (env.find? falseName).isSome = true) : DeclaresFalse (· ∈ constantsOf ds.toList) := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .falseK) (by decide)
     (n := falseName) (by decide) hs
@@ -737,7 +749,7 @@ theorem checkDecls_declaresFalse {mode : CheckMode} {pins : List NatOpPinSet} {m
 /-- **An accepted stream that stores `Eq` declares the prelude's `Eq`.** -/
 theorem checkDecls_declaresEq {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
     {ds : Array Declaration} {justify : Option Env} {env : Env}
-    (h : checkDecls mode pins maxNatSize ds justify = .ok env)
+    (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env)
     (hs : (env.find? eqName).isSome = true) : DeclaresEq (· ∈ constantsOf ds.toList) := by
   obtain ⟨block, nP, hmem, hok⟩ := checkDecls_pinned h (kind := .eqK) (by decide)
     (n := eqName) (by decide) hs

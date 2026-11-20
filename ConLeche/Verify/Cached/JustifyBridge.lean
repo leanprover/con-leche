@@ -11,7 +11,7 @@ import ConLeche.Semantics.Bridge.DeclRun
 /-!
 # The justification route, as a pure run
 
-`checkRecordC`'s justification route (a record offering a statement, a sidecar given) is, from a
+`checkRecordC`'s justification route (a record offering a statement, a solution given) is, from a
 canonical index of a well-formed environment: the statement justified (`justifyWhy`), its type's
 front door as the pure checker runs it (`ConstantValRun`), the reserved names' check, and the
 statement pushed as an axiom.  The model's step for a justified axiom starts here.
@@ -26,7 +26,7 @@ open ConLeche ConLeche.Semantics
 variable {pins : List NatOpPinSet}
 
 /-- **A justified record's check, run.** -/
-theorem checkRecordC_justified_run {env : Env} (henv : EnvWF env) {J : Sidecar} {pd : Declaration}
+theorem checkRecordC_justified_run {env : Env} (henv : EnvWF env) {J : Solution} {pd : Declaration}
     {cv : ConstantVal} (hj : justifiable pd = some cv) {s₀ : CState} (hres : CSOKF s₀)
     {fe' : FEnv} {s' : CState}
     (h : checkRecordC .verified pins (some J) (mkFEnv env) pd s₀ = .ok (fe', s')) :

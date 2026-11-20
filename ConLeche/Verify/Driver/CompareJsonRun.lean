@@ -5,12 +5,12 @@ public import ConLeche.Driver.Cli
 import ConLeche.Verify.Cached.DeclPushes
 
 /-!
-# A lean4export file checked with a sidecar, in the model
+# A lean4export file checked with a solution, in the model
 
 `compareJsonG_accept`: every outcome of `compareJsonG` that is an exit 0 found the challenge
 file's bytes `bC` and the solution file's bytes `bS` in the snapshot, each parsing as one chunk;
 `checkDecls` accepts the solution's prepared records, at the environment they denote (the
-sidecar `envS`), and the challenge's prepared records with `envS` as their sidecar.
+solution `envS`), and the challenge's prepared records with `envS` as their solution.
 -/
 
 public section
@@ -19,7 +19,7 @@ namespace ConLeche.Driver
 
 open ConLeche Frontend Cached
 
-/-- **An exit 0 of a run with a sidecar** (see the module docstring). -/
+/-- **An exit 0 of a run with a solution** (see the module docstring). -/
 theorem compareJsonG_accept {r : JCmpReq} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {hs hs' : HS}
     (h : (compareJsonG r mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
@@ -28,8 +28,8 @@ theorem compareJsonG_accept {r : JCmpReq} {mode : CheckMode} {maxNatSize : Nat} 
       fs.file r.solution = some bS ∧ parseChunks [bS] = .ok rS ∧
       checkDecls mode natOpPinSets maxNatSize (preparePrelude pre rS.decls)
         = .ok (streamEnv (preparePrelude pre rS.decls).toList) ∧
-      checkDecls mode natOpPinSets maxNatSize (preparePrelude pre rC.decls)
-        (some (streamEnv (preparePrelude pre rS.decls).toList)) = .ok env := by
+      checkChallenge mode natOpPinSets maxNatSize (preparePrelude pre rS.decls)
+        (preparePrelude pre rC.decls) = .ok env := by
   suffices H : ModelIO.AllOk (compareJsonG r mode maxNatSize pace jobs) fs hs
       (fun c => c = 0 → _) from H 0 hs' h rfl
   cases hp : Frontend.builtinPreludeE with
@@ -57,7 +57,7 @@ theorem compareJsonG_accept {r : JCmpReq} {mode : CheckMode} {maxNatSize : Nat} 
     · exact fun c hs6 hc h0 => absurd (verdictG_ok hc h0) (by simp)
     have hS : checkDecls mode natOpPinSets maxNatSize (prepareD pre' rS.decls).decls
         = .ok (streamEnv (prepareD pre' rS.decls).decls.toList) := by
-      rw [henvS, checkDecls_env henvS]; rfl
+      rw [checkDecls, henvS, checkDecls_env henvS]; rfl
     dsimp only
     simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_eq]
     intro _ _ _ _ _ _ vC
@@ -102,7 +102,7 @@ theorem runArgs_compare_json_run {c s : String} {fs : FS} {hs hs' : HS}
 /-- **`runArgs` on `--compare -- <c> <s>`, in the model**: every outcome that is an exit 0 found
 the challenge file's bytes and the solution file's in the snapshot, each parsing as one chunk;
 `checkDecls .verified` accepts the solution's records prepared with the built-in prelude, at the
-environment they denote, and the challenge's with that environment as their sidecar. -/
+environment they denote, and the challenge's with that environment as their solution. -/
 theorem runArgs_compare_json_accept {c s : String} {fs : FS} {hs hs' : HS}
     (h : (runArgs ["--compare", "--", c, s] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre bC rC bS rS env, builtinPreludeE = .ok pre ∧
@@ -110,8 +110,8 @@ theorem runArgs_compare_json_accept {c s : String} {fs : FS} {hs hs' : HS}
       fs.file s = some bS ∧ parseChunks [bS] = .ok rS ∧
       checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre rS.decls)
         = .ok (streamEnv (preparePrelude pre rS.decls).toList) ∧
-      checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre rC.decls)
-        (some (streamEnv (preparePrelude pre rS.decls).toList)) = .ok env := by
+      checkChallenge .verified natOpPinSets Cached.maxNatSizeDefault
+        (preparePrelude pre rS.decls) (preparePrelude pre rC.decls) = .ok env := by
   obtain ⟨jobs, _, _, hg⟩ := runArgs_compare_json_run h
   exact compareJsonG_accept hg
 

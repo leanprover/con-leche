@@ -5,9 +5,9 @@ public import ConLeche.Cached.Justify
 import ConLeche.Verify.Cached.IndWalksC
 
 /-!
-# A model of the records a fold with a sidecar checks is a model of the input
+# A model of the records a fold with a solution checks is a model of the input
 
-With a sidecar, the fold reads a definition, theorem or opaque constant whose value uses
+With a solution, the fold reads a definition, theorem or opaque constant whose value uses
 `sorryAx` as the axiom of its statement (`sideRecord`).  `IsModel` reads such a definition, and
 every theorem and opaque constant, by its statement already (`Declaration.constants`), so the two
 streams have the same models (`isModel_sideRecords`): a theorem's constant and an axiom's constant

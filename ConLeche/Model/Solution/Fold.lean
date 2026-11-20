@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Sidecar.Justified
+public import ConLeche.Model.Solution.Justified
 import ConLeche.Model.DeclsRun
 public import ConLeche.Model.Modular.Scoped
 import ConLeche.Verify.Cached.JustifyBridge
@@ -15,16 +15,16 @@ import ConLeche.Semantics.Bridge.DeclRun
 public section
 
 /-!
-# The input's fold, with a sidecar
+# The input's fold, with a solution
 
-The input's accepted fold with the sidecar `JS` carries a covered model whose leaves on every
-shared name (`Shared`) are the renamed sidecar model's: a record whose names are shared takes
-the sidecar's leaves (`sharedStep`), a justified axiom the sidecar's value (`justStep`), any other
+The input's accepted fold with the solution `JS` carries a covered model whose leaves on every
+shared name (`Shared`) are the renamed solution model's: a record whose names are shared takes
+the solution's leaves (`sharedStep`), a justified axiom the solution's value (`justStep`), any other
 record its own step (`declStep_agrees`).  A record has all its names shared or none: its names
 are each other's mates (`recordMates`), and the justification's cone follows a name's mates.
 -/
 
-namespace ConLeche.Model.Sidecar
+namespace ConLeche.Model.Solution
 
 open ConLeche ConLeche.Cached ConLeche.Model ConLeche.Model.Modular ConLeche.Verify
 open ConLeche.Semantics
@@ -51,8 +51,8 @@ theorem declConstants_single {pd : Declaration} (hk : ∀ block nP, pd ≠ .indD
     simp only [declConstants, List.mem_singleton] at hc hc'
     rw [hc, hc']
 
-/-- **A record's names are each other's mates**, where the sidecar's mates hold its blocks. -/
-theorem record_mates {JS : Sidecar} {pd : Declaration}
+/-- **A record's names are each other's mates**, where the solution's mates hold its blocks. -/
+theorem record_mates {JS : Solution} {pd : Declaration}
     (hmat : ∀ block nP, pd = .indDecl block nP → ∀ b ∈ block, ∀ b' ∈ block,
       b'.name ∈ JS.mates.getD b.name #[])
     {c c' : ConstantInfo} (hc : c ∈ declConstants pd) (hc' : c' ∈ declConstants pd) :
@@ -72,7 +72,7 @@ theorem record_mates {JS : Sidecar} {pd : Declaration}
   · exact .inl (declConstants_single (fun b n h => hk ⟨b, n, h⟩) hc hc')
 
 /-- **A record's names are all shared or none.** -/
-theorem record_shared {JS : Sidecar} {Ef : Env} {pd : Declaration}
+theorem record_shared {JS : Solution} {Ef : Env} {pd : Declaration}
     (hmat : ∀ block nP, pd = .indDecl block nP → ∀ b ∈ block, ∀ b' ∈ block,
       b'.name ∈ JS.mates.getD b.name #[])
     (hst : ∀ c ∈ declConstants pd, Ef.find? c.name = some c)
@@ -94,8 +94,8 @@ theorem stream_ctors {L : List Declaration} {d : Name} {cv : ConstantVal} {caps 
 
 /-! ## The fold -/
 
-/-- **The input's fold, with the sidecar** (see the module docstring). -/
-theorem sideFold {JS : Sidecar} {envS Ef : Env} (hJ : JS.idx = mkFEnv envS)
+/-- **The input's fold, with the solution** (see the module docstring). -/
+theorem sideFold {JS : Solution} {envS Ef : Env} (hJ : JS.idx = mkFEnv envS)
     (mS : EnvModelM V (renEnv Ef envS)) (hcovS : LfpCover mS []) (hNS : NatFacts (renEnv Ef envS))
     (hPLS : ProofLeaves V (renEnv Ef envS) mS.base2.acval)
     (htS : ∀ t ∈ envS.tables, envS.findTable? t.structName = some t ∧
@@ -231,4 +231,4 @@ theorem sideFold {JS : Sidecar} {envS Ef : Env} (hJ : JS.idx = mkFEnv envS)
         · obtain ⟨c, hc, rfl⟩ := hnew x hx (by simpa using hxo)
           exact absurd ⟨c, hc, hsx⟩ hsh
 
-end ConLeche.Model.Sidecar
+end ConLeche.Model.Solution

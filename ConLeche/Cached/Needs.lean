@@ -10,7 +10,7 @@ public import ConLeche.Kernel.Install
 The names a term, a constant's laws and a record read, as `Expr.constsResolve` and
 `Modular.RecordScoped` ask them stored (`Expr.needs`, the specification), and the walk that
 computes them, one memoized walk of each expression's DAG (`needsGo`).  Shared by the
-sidecar's justification (`ConLeche/Cached/Justify.lean`) and the modular worker's reach
+solution's justification (`ConLeche/Cached/Justify.lean`) and the modular worker's reach
 (`ConLeche/Driver/Reach.lean`).
 -/
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Sidecar.Fold
+public import ConLeche.Model.Solution.Fold
 import ConLeche.IsModel
 import ConLeche.Model.Modular.Step
 import ConLeche.Model.Modular.Valid
@@ -14,16 +14,16 @@ import ConLeche.Verify.Cached.DeclPushes
 public section
 
 /-!
-# A stream checked with a sidecar has a model
+# A stream checked with a solution has a model
 
-The sidecar's accepted fold carries a covered model with the canonical proofs' leaves
+The solution's accepted fold carries a covered model with the canonical proofs' leaves
 (`declsRun_proofs`); renamed to the input's level-parameter names (`renEnv`), it is a model of the
-renamed sidecar (`EnvModelM.copyStmt`).  The input's fold with the sidecar then carries a model
+renamed solution (`EnvModelM.copyStmt`).  The input's fold with the solution then carries a model
 (`sideFold`), and the records the fold checked have a model (`isModel_of_envModelM`), which is a
 model of the input (`isModel_sideRecords`).
 -/
 
-namespace ConLeche.Model.Sidecar
+namespace ConLeche.Model.Solution
 
 open ConLeche ConLeche.Cached ConLeche.Model ConLeche.Model.Modular ConLeche.Verify
 open ConLeche.Semantics SetTheory
@@ -32,12 +32,12 @@ universe w
 
 variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
 
-/-- **The input's environment, checked with a sidecar, carries a model.** -/
-theorem sidecar_envModel {dsS ds : Array Declaration} {envS env : Env}
+/-- **The input's environment, checked with a solution, carries a model.** -/
+theorem solution_envModel {dsS ds : Array Declaration} {envS env : Env}
     (hS : checkDecls .verified pins maxNatSize dsS = .ok envS)
-    (hC : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
+    (hC : checkDeclsWith .verified pins maxNatSize ds (some envS) = .ok env) :
     Nonempty (EnvModelM V env) := by
-  -- the sidecar's model
+  -- the solution's model
   obtain ⟨nS, feS, runS, hfeS⟩ := checkDecls_run .verified hS
   have runS' : DeclsRun .verified pins maxNatSize none (sideRecords none dsS).toList
       (0, mkFEnv Env.empty) (nS, feS) := runS
@@ -54,10 +54,10 @@ theorem sidecar_envModel {dsS ds : Array Declaration} {envS env : Env}
   -- the input's run
   obtain ⟨n, fe, run, hfe⟩ := checkDecls_run .verified hC
   let rs := sideRecords (some feS.env) ds
-  let JS : Sidecar := ⟨mkFEnv feS.env, recordMates rs⟩
+  let JS : Solution := ⟨mkFEnv feS.env, recordMates rs⟩
   have run' : DeclsRun .verified pins maxNatSize (some JS) rs.toList (0, mkFEnv Env.empty) (n, fe) :=
     run
-  -- the renamed sidecar's model
+  -- the renamed solution's model
   obtain ⟨mS, hac, hcovS⟩ := EnvModelM.copyStmt mS₀ hcovS₀ (renEnv_copies (Ef := env) hndS)
     (renEnv_stmt env feS.env)
   have hNS : NatFacts (renEnv env feS.env) := NatFacts.copies (renEnv_copies hndS) hNS₀
@@ -69,13 +69,28 @@ theorem sidecar_envModel {dsS ds : Array Declaration} {envS env : Env}
     (EnvModelM.empty V) lfpCover_empty (EnvModelOk.empty (V := V)).2 (fun x hx => nomatch hx)
   exact ⟨mq⟩
 
-/-- **A stream checked with a sidecar has a model.** -/
-theorem sidecar_isModel {dsS ds : Array Declaration} {envS env : Env}
+/-- **A stream checked with a solution has a model.** -/
+theorem solution_isModel {dsS ds : Array Declaration} {envS env : Env}
     (hS : checkDecls .verified pins maxNatSize dsS = .ok envS)
-    (hC : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
+    (hC : checkDeclsWith .verified pins maxNatSize ds (some envS) = .ok env) :
     ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
-  obtain ⟨m⟩ := sidecar_envModel (V := V) hS hC
+  obtain ⟨m⟩ := solution_envModel (V := V) hS hC
   exact ⟨_, (isModel_sideRecords _ (some envS) ds).mp
     (isModel_of_envModelM m (checkDecls_recordsStored hC))⟩
 
-end ConLeche.Model.Sidecar
+/-- **A challenge checked with an accepted solution has a model** (`checkChallenge`). -/
+theorem challenge_isModel {dsS ds : Array Declaration}
+    (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
+    (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
+    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
+  cases hS : checkDecls .verified pins maxNatSize dsS with
+  | error e => rw [hS] at solution; cases solution
+  | ok envS =>
+    cases hC : checkChallenge .verified pins maxNatSize dsS ds with
+    | error e => rw [hC] at challenge; cases challenge
+    | ok env =>
+      have henv : envS = streamEnv dsS.toList := checkDecls_env hS
+      subst henv
+      exact solution_isModel hS hC
+
+end ConLeche.Model.Solution

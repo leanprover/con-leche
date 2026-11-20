@@ -458,7 +458,7 @@ theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec
 
 /-- **Every job from position `s` on passing is an accepting run from the environment of the
 records before `s`**, position by position, where the names of those records are distinct. -/
-theorem jobs_run_from {J : Option Sidecar} {ds : Array Declaration} {s : Nat}
+theorem jobs_run_from {J : Option Solution} {ds : Array Declaration} {s : Nat}
     (hnd : NodupNames (streamEnv (ds.toList.take s)))
     (h : ∀ k (hk : k < ds.size), s ≤ k →
       recordJob mode pins maxNatSize J (buildIndex ds).freeze k ds[k] = .ok ()) :
@@ -522,13 +522,13 @@ theorem jobs_run_from {J : Option Sidecar} {ds : Array Declaration} {s : Nat}
       rw [hD]; exact hrun.snoc mode hstep
 
 /-- **Every job passing is an accept of the fold**, at the environment the records denote, with
-the sidecar's environment `justify`, if any, the jobs' sidecar index, over records the fold
+the solution's environment `justify`, if any, the jobs' solution index, over records the fold
 checks as they are (`sideRecords`). -/
 theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
     (hds : sideRecords justify ds = ds)
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (sidecarOf justify ds)
+    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
       (buildIndex ds).freeze k ds[k] = .ok ()) :
-    checkDecls mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
+    checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
   obtain ⟨fe, hrun, -, hfe⟩ := jobs_run_from (s := 0) (by simp [NodupNames, streamEnv, Env.empty])
     (fun k hk _ => h k hk) ds.size (Nat.zero_le _) (Nat.le_refl _)
   rw [List.take_of_length_le (by simp)] at hrun hfe

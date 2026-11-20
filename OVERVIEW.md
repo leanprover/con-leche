@@ -55,7 +55,7 @@ module `CHALLENGE`, the challenge read through the directories `--trusted-search
 `--schedule` the same question module by module, the challenge one more module of a modular run
 over both closures (§2, a challenge module by module; `--constant` is a usage error there);
 `--compare` without `--olean` checks the export `SOLUTION.ndjson`, then the export
-`CHALLENGE.ndjson` with it as a sidecar that justifies its axioms (§2, two lean4export files);
+`CHALLENGE.ndjson` with it as a solution that justifies its axioms (§2, two lean4export files);
 `--check-graph` reads only
 the headers of those modules' import closure and checks that its import graph is acyclic and
 every import is on the search path (§2, the import graph); `--` ends the options, every argument after it being a
@@ -350,8 +350,8 @@ block and are left out with it.
 ([function `checkDecls` in `ConLeche/Cached/Decls.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L96-L97))
 checks every declaration of `ds` in order, each against the environment
 of the declarations before it, and pushes what the declaration says.
-Given a sidecar (`justify`, §2, two lean4export files), an axiom of `ds` other than the
-standard ones, and a declaration whose value uses `sorry`, is instead justified by the sidecar
+Given a solution (`justify`, §2, two lean4export files), an axiom of `ds` other than the
+standard ones, and a declaration whose value uses `sorry`, is instead justified by the solution
 and pushed as the axiom of its statement.
 The driver runs the same checks independently, against views of an index
 built from the records, and returns a proof that `checkDecls`
@@ -453,11 +453,11 @@ agrees with the run's under `T`, the challenge's records, its own view and every
 closure read and check alike.
 
 Two lean4export files (`--compare -- <c> <s>`, §2) are checked as one stream with the other as
-its sidecar, and the main theorem has a form for that:
-`sidecar_model_exists`: if `checkDecls` accepts a stream `dsS` at the environment `envS` and the
-stream `ds` with `envS` as its sidecar, then `ds` has a model in every set theory, and declares
+its solution, and the main theorem has a form for that:
+`solution_model_exists`: if `checkDecls` accepts a stream `dsS` at the environment `envS` and the
+stream `ds` with `envS` as its solution, then `ds` has a model in every set theory, and declares
 `False` and `Eq`, where it declares them at all, as the prelude's. Its axioms are justified, not
-assumed: the model takes, at each justified axiom, the value of the sidecar's model at that name,
+assumed: the model takes, at each justified axiom, the value of the solution's model at that name,
 and the two models agree on everything its type reads. `main_compare_json_model`: on a snapshot
 where the file `c` holds the bytes `bC`, every exit 0 parsed `bC`, and the challenge's records
 prepared with the prelude have such a model. `main_compare_json_no_False`: if `bC` parses to
@@ -1043,20 +1043,20 @@ then gives the challenge's environment its model (`run_models`,
 **Two lean4export files** (`ConLeche/Driver/CompareJson.lean`, `--compare` without `--olean`).
 This is leanprover/comparator's own setting: two exports of the same targets, the challenge's
 and the solution's. The solution's file is checked in full, as a plain run checks a stream; the
-challenge's file is then checked with the solution's environment as its **sidecar**
+challenge's file is then checked with the solution's environment as its **solution**
 (`checkDecls … (some envS)`, `ConLeche/Cached/Justify.lean`). The challenge's own records are
 checked as in a plain run, every one of them. Its axioms but the standard ones (`propext`,
 `Classical.choice`, `Quot.sound`, the compiler-trust family), and its declarations whose value
-uses `sorry`, are axioms of their statements, and each must be **justified**: the sidecar holds
+uses `sorry`, are axioms of their statements, and each must be **justified**: the solution holds
 a constant of that name whose statement is the axiom's up to a positional renaming of the level
 parameters, and everything the axiom's type reads is the same constant in both environments,
 closed under what those constants read (their types, values, rules, a type former's
 constructors and recursors, projection tables) and under whole records: a constant of an
 inductive block brings every name its block declares. A constant read this way may be the
-sidecar's at other level-parameter names when it is a definition, theorem or axiom at a name no
+solution's at other level-parameter names when it is a definition, theorem or axiom at a name no
 pin reserves; an inductive block must be at the same names (today's limit of the renaming: a
 block declared at other level-parameter names does not match, `cmp_lvind`). A read constant may
-itself be a justified axiom of the challenge when it is the statement of the sidecar's constant.
+itself be a justified axiom of the challenge when it is the statement of the solution's constant.
 An axiom at a name whose constant the checker computes with (a certified `Nat` operation, a
 compiler-trust operation) is never justified. An unjustified axiom is a reject, with the reason;
 the output lists every justified one. So a solution that declares a challenge constant with the
@@ -2144,7 +2144,7 @@ and every such line carries its reason.
 | `ConLeche/Denotes.lean` | The proofs' model of an environment: what a term denotes (`Denotes`) and what a model of an environment is (`Model`), still the statement of the modular, olean and comparison theorems. |
 | `ConLeche/Modular.lean`, `ConLeche/Modular/` | Modular checking's statement half: a module's context as the records its imports present, the local checks per home (`InterfaceOk`) and per importer (`ImportOk`), copies agreeing (`Agree`: one record, or two proofs of one statement); and the theorem over an abstract interface of models (`Modular/Generic.lean`, the whitepaper fragment's), whose instance for con-leche's models is `ConLeche/Model/Modular/`. |
 | `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`); a compared run as a development of two modules and the challenge's model read off the solution's (`Compare.lean`), a compared modular run's models (`CompareRun.lean`), the challenge's environment embedded into the solution's and the run of two lean4export files (`CompareJson.lean`), over the model of an environment of level-renamed copies (`ConLeche/Model/Copies.lean`); the family over what each module sees, at an accepted run and at the driver (`Sees.lean`, `SeesMain.lean`). |
-| `ConLeche/Model/Sidecar/`, `ConLeche/Model/Sidecar.lean` | A stream checked with a sidecar has a model: the sidecar's model renamed to the input's level-parameter names (`Rename.lean`, over `ConLeche/Model/CopyStmt.lean`), a record of shared names given the sidecar's leaves (`Shared.lean`, through the context reading of `Model/Modular`), a justified axiom given the sidecar's value (`Justified.lean`), the input's fold (`Fold.lean`) and the assembly (`Sidecar.lean`). The justification's accept read as a closed shared set is `ConLeche/Verify/Cached/Cone.lean`, the record mates `Mates.lean`. |
+| `ConLeche/Model/Solution/`, `ConLeche/Model/Solution.lean` | A stream checked with a solution has a model: the solution's model renamed to the input's level-parameter names (`Rename.lean`, over `ConLeche/Model/CopyStmt.lean`), a record of shared names given the solution's leaves (`Shared.lean`, through the context reading of `Model/Modular`), a justified axiom given the solution's value (`Justified.lean`), the input's fold (`Fold.lean`) and the assembly (`Solution.lean`). The justification's accept read as a closed shared set is `ConLeche/Verify/Cached/Cone.lean`, the record mates `Mates.lean`. |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the main corollary lifted to the driver, and the comparison's theorems; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `native/` | `nat_hash.c`: the hash of a `Nat` literal of 2^64 and more, all its 64-bit words mixed; Lean's own function, vendored until the toolchain ships it. Compiled and linked by `lakefile.lean`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |

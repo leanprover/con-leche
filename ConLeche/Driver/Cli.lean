@@ -153,7 +153,7 @@ def helpText : String := String.intercalate "\n" [
   "",
   "lean4export input:",
   "  --compare           CHALLENGE.ndjson SOLUTION.ndjson: check SOLUTION, then",
-  "                      check CHALLENGE with SOLUTION as its sidecar: each",
+  "                      check CHALLENGE, its axioms justified by SOLUTION: each",
   "                      axiom of CHALLENGE (but the standard ones) and each",
   "                      declaration whose value uses sorry is accepted as an",
   "                      axiom of its statement when SOLUTION holds a constant",

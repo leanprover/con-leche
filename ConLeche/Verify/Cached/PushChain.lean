@@ -606,7 +606,7 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   ybind
   exact checkDeclC_push mode h pd
 
-theorem checkRecordC_push (mode : CheckMode) (J : Option Sidecar) {env : Env} {fe : FEnv}
+theorem checkRecordC_push (mode : CheckMode) (J : Option Solution) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : Declaration) :
     Yields (checkRecordC mode pins J fe pd) (fun fe' => PushChain env fe') := by
   unfold checkRecordC
@@ -623,7 +623,7 @@ theorem checkRecordC_push (mode : CheckMode) (J : Option Sidecar) {env : Env} {f
 
 /-- **An accepting run is a fresh chain**: from a canonical index, it returns a canonical index
 whose constants extend the start by fresh names. -/
-theorem declsRun_chain (mode : CheckMode) {J : Option Sidecar} {ds : List Declaration} {env : Env}
+theorem declsRun_chain (mode : CheckMode) {J : Option Solution} {ds : List Declaration} {env : Env}
     {p q : Nat × FEnv}
     (h : DeclsRun mode pins maxNatSize J ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
   induction h with

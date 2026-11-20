@@ -93,8 +93,8 @@ def FrozenIndex.view (F : FrozenIndex) (k : Nat) : FEnv :=
       exact FBase.fromLe_litFrom { F.I.base with below := c, belowRec := k } strLitNames⟩
 
 /-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view, with
-the sidecar's index `J`, if any. -/
-def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Sidecar)
+the solution's index `J`, if any. -/
+def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution)
     (F : FrozenIndex) (k : Nat) (pd : Declaration) : Except CheckError Unit :=
   if andPinOk pd then
     match checkRecordC mode pins J (F.view k) pd { maxNatSize := maxNatSize } with

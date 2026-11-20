@@ -8,21 +8,21 @@ import ConLeche.Verify.Cached.DeclNames
 public section
 
 /-!
-# The sidecar at the input's level-parameter names
+# The solution at the input's level-parameter names
 
-A justified input reads a sidecar statement at its own level-parameter names (`copyB`'s second
-branch).  `renEnv Ef envS` is the sidecar's environment with each such statement renamed to the
+A justified input reads a solution statement at its own level-parameter names (`copyB`'s second
+branch).  `renEnv Ef envS` is the solution's environment with each such statement renamed to the
 input's names (read off the input's final environment `Ef`); `Model/CopyStmt.lean` carries the
-sidecar's model across.  Every name the input shares with the sidecar (`Shared`, the union of the
-justifications' cones read in `Ef`) then has its input copy refine the renamed sidecar's
+solution's model across.  Every name the input shares with the solution (`Shared`, the union of the
+justifications' cones read in `Ef`) then has its input copy refine the renamed solution's
 (`Refines`, exactly as the context reading of `Model/Modular` asks).
 -/
 
-namespace ConLeche.Model.Sidecar
+namespace ConLeche.Model.Solution
 
 open ConLeche ConLeche.Cached ConLeche.Model ConLeche.Model.Modular ConLeche.Verify
 
-/-- **A sidecar constant at the input's names**: a statement at a name no pin reserves, renamed
+/-- **A solution constant at the input's names**: a statement at a name no pin reserves, renamed
 to the level parameters of the input's constant of its name where those are other names, as
 many, neither list with a repeat. -/
 @[expose] def renS (Ef : Env) (c : ConstantInfo) : ConstantInfo :=
@@ -34,7 +34,7 @@ many, neither list with a repeat. -/
     then c.atLps ci.toConstantVal.levelParams else c
   | none => c
 
-/-- **The renamed sidecar environment.** -/
+/-- **The renamed solution environment.** -/
 @[expose] def renEnv (Ef envS : Env) : Env := ⟨envS.consts.map (renS Ef), envS.tables⟩
 
 theorem renS_name (Ef : Env) (c : ConstantInfo) : (renS Ef c).name = c.name := by
@@ -65,7 +65,7 @@ theorem levelsRenaming_spec {ps ps' : List Name} (h : levelsRenaming ps ps' = tr
   simp only [levelsRenaming, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h
   exact ⟨h.1.1, h.1.2, h.2⟩
 
-/-- A renamed constant is a copy of the sidecar's, and only a statement at an unreserved name
+/-- A renamed constant is a copy of the solution's, and only a statement at an unreserved name
 moves. -/
 theorem renS_copy (Ef : Env) (c : ConstantInfo) :
     ConstCopy c (renS Ef c) ∧
@@ -86,7 +86,7 @@ theorem constsCopy_map (Ef : Env) : ∀ l : List ConstantInfo, ConstsCopy l (l.m
   | [] => .nil
   | c :: l => .cons (renS_copy Ef c).1 (constsCopy_map Ef l)
 
-/-- **The renamed sidecar is a copy of the sidecar.** -/
+/-- **The renamed solution is a copy of the solution.** -/
 theorem renEnv_copies {Ef envS : Env} (hnd : NodupNames envS) : CopiesEnv envS (renEnv Ef envS) :=
   ⟨constsCopy_map Ef envS.consts, rfl, hnd⟩
 
@@ -101,12 +101,12 @@ theorem renEnv_stmt (Ef envS : Env) : StmtCopies envS (renEnv Ef envS) := by
 
 /-! ## The shared names -/
 
-/-- **The names the input shares with the sidecar**: those of some shared cone read in the
+/-- **The names the input shares with the solution**: those of some shared cone read in the
 input's final environment. -/
-@[expose] def Shared (JS : Sidecar) (Ef : Env) (n : Name) : Prop :=
+@[expose] def Shared (JS : Solution) (Ef : Env) (n : Name) : Prop :=
   ∃ T, ConeClosed JS Ef.find? Ef.findTable? T ∧ T n
 
-theorem shared_closed (JS : Sidecar) (Ef : Env) :
+theorem shared_closed (JS : Solution) (Ef : Env) :
     ConeClosed JS Ef.find? Ef.findTable? (Shared JS Ef) := by
   intro n ⟨T, hT, hn⟩
   obtain ⟨hg, hc⟩ := hT n hn
@@ -120,7 +120,7 @@ theorem entryNeeds_congr {mates : Std.HashMap Name (Array Name)}
 
 /-- **A cone read at an earlier environment is one of the final environment**, whose entries and
 tables at the earlier names are the earlier ones. -/
-theorem coneClosed_lift {JS : Sidecar} {E Ef : Env} {T : Name → Prop}
+theorem coneClosed_lift {JS : Solution} {E Ef : Env} {T : Name → Prop}
     (hfind : ∀ x ci, E.find? x = some ci → Ef.find? x = some ci)
     (htab : ∀ x, (E.find? x).isSome = true → Ef.findTable? x = E.findTable? x)
     (h : ConeClosed JS E.find? E.findTable? T) : ConeClosed JS Ef.find? Ef.findTable? T := by
@@ -134,7 +134,7 @@ theorem coneClosed_lift {JS : Sidecar} {E Ef : Env} {T : Name → Prop}
   rw [entryNeeds_congr (g := E.findTable?) (by rw [hnm]; exact htab n hs)] at hm
   exact hc ci h1 m hm
 
-theorem cone_shared {JS : Sidecar} {Ef : Env} {T : Name → Prop}
+theorem cone_shared {JS : Solution} {Ef : Env} {T : Name → Prop}
     (h : ConeClosed JS Ef.find? Ef.findTable? T) {n : Name} (hn : T n) : Shared JS Ef n :=
   ⟨T, h, hn⟩
 
@@ -161,8 +161,8 @@ theorem copyB_spec {ci' ci : ConstantInfo} (h : copyB ci' ci = true) :
 
 theorem cv_name_eq (c : ConstantInfo) : c.toConstantVal.name = c.name := by cases c <;> rfl
 
-/-- **A shared name's input copy refines the renamed sidecar's.** -/
-theorem refines_ren {JS : Sidecar} {Ef envS : Env} (hJ : JS.idx = mkFEnv envS) {n : Name}
+/-- **A shared name's input copy refines the renamed solution's.** -/
+theorem refines_ren {JS : Solution} {Ef envS : Env} (hJ : JS.idx = mkFEnv envS) {n : Name}
     (hg : ConeGood JS Ef.find? Ef.findTable? n) :
     ∃ ci ci', Ef.find? n = some ci ∧ (renEnv Ef envS).find? n = some ci' ∧ Refines ci ci' ∧
       (reduceOpNames.contains n = true → ci' = ci) := by
@@ -208,4 +208,4 @@ theorem refines_ren {JS : Sidecar} {Ef envS : Env} (hJ : JS.idx = mkFEnv envS) {
         rfl
     | _ => simp at h3
 
-end ConLeche.Model.Sidecar
+end ConLeche.Model.Solution

@@ -3,7 +3,7 @@ module
 public import ConLeche.Cached.Decls
 
 /-!
-# The records a fold with a sidecar checks
+# The records a fold with a solution checks
 
 `sideRecord` reads a definition, theorem or opaque constant whose value uses `sorryAx` as the axiom of its statement; doing so
 twice is doing it once (`sideRecords_idem`), so the driver may hand the fold the records it
@@ -33,8 +33,9 @@ theorem sideRecords_idem (j : Option Env) (ds : Array Declaration) :
 /-- The fold reads its records through `sideRecords` itself. -/
 theorem checkDecls_sideRecords (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
     (j : Option Env) (ds : Array Declaration) :
-    checkDecls mode pins maxNatSize (sideRecords j ds) j = checkDecls mode pins maxNatSize ds j := by
-  unfold checkDecls
+    checkDeclsWith mode pins maxNatSize (sideRecords j ds) j =
+      checkDeclsWith mode pins maxNatSize ds j := by
+  unfold checkDeclsWith
   rw [sideRecords_idem]
 
 end ConLeche.Cached

@@ -1,7 +1,7 @@
 {
   "challenge_module": "ConLeche.Challenge",
   "solution_module": "ConLeche.MainTheorem",
-  "theorem_names": ["ConLeche.model_exists", "ConLeche.sidecar_model_exists",
+  "theorem_names": ["ConLeche.model_exists", "ConLeche.solution_model_exists",
     "ConLeche.no_False_declaration",
     "ConLeche.modular_model_exists", "ConLeche.modular_no_False"],
   "definition_names": [],

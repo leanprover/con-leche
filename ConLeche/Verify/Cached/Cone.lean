@@ -5,11 +5,11 @@ public import ConLeche.Cached.Justify
 /-!
 # The justification's cone, read
 
-`justifyWhy J fe cv = none` says: the sidecar has a constant of `cv`'s name with `cv`'s statement
+`justifyWhy J fe cv = none` says: the solution has a constant of `cv`'s name with `cv`'s statement
 up to level names, and there is a set of names, holding everything `cv`'s type reads, each of
 whose names is the same constant in both indices (`ConeGood`) and whose constants' laws, tables
 and record mates read only names of the set (`ConeClosed`).  The model's step for a justified
-axiom reads the sidecar model's values on that set.
+axiom reads the solution model's values on that set.
 -/
 
 public section
@@ -18,22 +18,22 @@ namespace ConLeche.Cached
 
 open ConLeche
 
-/-- **A name the two indices share**: the input's copy is the sidecar's (`refinesB`), with the
+/-- **A name the two indices share**: the input's copy is the solution's (`refinesB`), with the
 same projection table. -/
-@[expose] def ConeGood (J : Sidecar) (find : Name → Option ConstantInfo)
+@[expose] def ConeGood (J : Solution) (find : Name → Option ConstantInfo)
     (findT : Name → Option ProjTable) (n : Name) : Prop :=
   ∃ ci ci', find n = some ci ∧ J.idx.find? n = some ci' ∧ refinesB ci ci' = true ∧
     tableBeqP (findT n) (J.idx.findTable? n) = true
 
 /-- **A shared cone**: every name of `T` is shared, and what its constant follows reads only names
 of `T`. -/
-@[expose] def ConeClosed (J : Sidecar) (find : Name → Option ConstantInfo)
+@[expose] def ConeClosed (J : Solution) (find : Name → Option ConstantInfo)
     (findT : Name → Option ProjTable) (T : Name → Prop) : Prop :=
   ∀ n, T n → ConeGood J find findT n ∧
     ∀ ci, find n = some ci → ∀ m ∈ entryNeeds J.mates findT ci, T m
 
 /-- **The walk's accept, read** (generalized over the names already compared). -/
-theorem coneGo_none_gen (J : Sidecar) (find : Name → Option ConstantInfo)
+theorem coneGo_none_gen (J : Solution) (find : Name → Option ConstantInfo)
     (findT : Name → Option ProjTable) :
     ∀ (fuel : Nat) (seen : Std.HashSet Name) (work : List Name),
       coneGo J find findT fuel seen work = none →
@@ -108,9 +108,9 @@ theorem coneGo_none_gen (J : Sidecar) (find : Name → Option ConstantInfo)
     simp only [hs, Bool.false_eq_true, ↓reduceIte] at h
     exact nomatch h
 
-/-- **A justified statement**: the sidecar's constant of its name, the same statement up to level
+/-- **A justified statement**: the solution's constant of its name, the same statement up to level
 names, and a shared cone holding everything its type reads. -/
-theorem justifyWhy_cone {J : Sidecar} {fe : FEnv} {cv : ConstantVal}
+theorem justifyWhy_cone {J : Solution} {fe : FEnv} {cv : ConstantVal}
     (h : justifyWhy J fe cv = none) :
     ∃ cS, J.idx.find? cv.name = some cS ∧ sameCvUpToLevels cv cS.toConstantVal = true ∧
       ∃ T : Name → Prop, ConeClosed J fe.find? fe.findTable? T ∧

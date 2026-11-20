@@ -151,7 +151,7 @@ not change while the runs read them.
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (checkDecls)
+open ConLeche.Cached (checkDecls checkChallenge)
 
 universe w
 
@@ -163,15 +163,13 @@ theorem model_exists (V : Type w) [SetTheory V]
     ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
   sorry
 
-/-- **The main theorem, with a sidecar.**  A stream the checker accepts
-with a sidecar — the environment `envS` of another accepted stream, which
-justifies the stream's own axioms — has a model in every set theory, and
-declares `False` and `Eq`, where it declares them at all, as the
-prelude's. -/
-theorem sidecar_model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration) (envS env : Env)
-    (sidecar : checkDecls .verified pins maxNatSize dsS = .ok envS)
-    (accepted : checkDecls .verified pins maxNatSize ds (some envS) = .ok env) :
+/-- **The main theorem, with a solution.**  A challenge stream the checker
+accepts with its axioms justified by a solution stream (`checkChallenge`),
+the solution itself accepted, has a model in every set theory. -/
+theorem solution_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration)
+    (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
+    (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
     ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
   sorry
 

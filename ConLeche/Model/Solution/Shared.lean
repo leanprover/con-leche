@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Sidecar.Rename
+public import ConLeche.Model.Solution.Rename
 import ConLeche.Model.Modular.Restrict
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Model.Modular.Valid
@@ -10,15 +10,15 @@ public section
 /-!
 # A shared record's step
 
-A record of the input all of whose constants are shared with the sidecar (`Shared`) is given the
-renamed sidecar model's leaves: the environment after it is a context (`CtxRead`) read from two
-sources, the environment before it (its own names, read as themselves) and the renamed sidecar
+A record of the input all of whose constants are shared with the solution (`Shared`) is given the
+renamed solution model's leaves: the environment after it is a context (`CtxRead`) read from two
+sources, the environment before it (its own names, read as themselves) and the renamed solution
 (the record's names, read on the shared names stored so far).  `ctxModel` then gives the
 environment after the record a covered model whose leaves are the earlier model's on the earlier
-names and the sidecar model's on the record's.
+names and the solution model's on the record's.
 -/
 
-namespace ConLeche.Model.Sidecar
+namespace ConLeche.Model.Solution
 
 open ConLeche ConLeche.Cached ConLeche.Model ConLeche.Model.Modular ConLeche.Verify
 
@@ -152,7 +152,7 @@ theorem renS_of_not_stmt (Ef : Env) {c : ConstantInfo} (h : c.isStmtKind = false
 variable {V : Type w} [SetTheory V]
 
 /-- The two sources of a shared record's step: the environment before it (`true`) and the
-renamed sidecar (`false`). -/
+renamed solution (`false`). -/
 @[expose] def srcEnv (E S : Env) : Bool → Env
   | true => E
   | false => S
@@ -168,7 +168,7 @@ theorem srcModel_acval {E S : Env} (mp : EnvModelM V E) (mS : EnvModelM V S) (b 
   cases b <;> rfl
 
 open Classical in
-/-- **The shared part of the sidecar stored in `C`.** -/
+/-- **The shared part of the solution stored in `C`.** -/
 noncomputable def sharedPart (Sh : Name → Prop) (C S : Env) : Env :=
   ⟨S.consts.filter fun c => decide (Sh c.toConstantVal.name) && (C.find? c.toConstantVal.name).isSome,
     []⟩
@@ -210,7 +210,7 @@ theorem srcEnv_nat {E S : Env} (h1 : NatFacts E) (h2 : NatFacts S) : ∀ b, NatF
   | false => h2
 
 /-- **A shared record's step** (see the module docstring). -/
-theorem sharedStep {JS : Sidecar} {Ef envS E C : Env} (hJ : JS.idx = mkFEnv envS)
+theorem sharedStep {JS : Solution} {Ef envS E C : Env} (hJ : JS.idx = mkFEnv envS)
     (mp : EnvModelM V E) (hcov : LfpCover mp []) (hN : NatFacts E)
     (mS : EnvModelM V (renEnv Ef envS)) (hcovS : LfpCover mS []) (hNS : NatFacts (renEnv Ef envS))
     (hagree : ∀ x, (E.find? x).isSome = true → Shared JS Ef x →
@@ -420,4 +420,4 @@ theorem sharedStep {JS : Sidecar} {Ef envS E C : Env} (hJ : JS.idx = mkFEnv envS
   · rw [hleaf' x hx]
     simp only [aC, old, hxo, Bool.false_eq_true, ↓reduceIte]
 
-end ConLeche.Model.Sidecar
+end ConLeche.Model.Solution

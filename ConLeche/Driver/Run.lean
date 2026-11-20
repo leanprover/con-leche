@@ -86,7 +86,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Str
     {ds : Array ConLeche.Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify)
     (hds : ConLeche.Cached.sideRecords justify ds = ds) :
     IO (Except (ConLeche.CheckError × Nat)
-      (PLift (∃ env, ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets maxNatSize ds justify
+      (PLift (∃ env, ConLeche.Cached.checkDeclsWith mode ConLeche.natOpPinSets maxNatSize ds justify
         = .ok env))) := do
   checkStarts err pace t0 ds.size jobs
   let (chkRep, res) ← checkPool mode maxNatSize err pace t0 jobs J
