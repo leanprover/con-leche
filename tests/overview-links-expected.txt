@@ -1389,6 +1389,9 @@
    304          else throw (.notImplemented
    305            s!"unsupported Lean.trustCompiler shape ({cv.name})")
 
+== ConLeche/Driver/Cli.lean#L155
+   155    "  --compare           CHALLENGE.ndjson SOLUTION.ndjson: check SOLUTION, then",
+
 == ConLeche/Driver/Cli.lean#L146
    146    "  --jobs=N            Worker threads (default: one per hardware thread)",
 
@@ -1396,10 +1399,18 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
+== ConLeche/Accepts.lean#L53
+    53  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
+
 == ConLeche/MainTheorem.lean#L55-L57
     55  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
     56      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
     57      (hF : jsonWithTheoremFalse [b]) : False :=
+
+== ConLeche/MainTheorem.lean#L47-L49
+    47  theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    48      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b) :
+    49      ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList) :=
 
 == ConLeche/IsModel.lean#L212-L213
    212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
@@ -1423,6 +1434,13 @@
 
 == ConLeche/Frontend/CheckerIO.lean#L310
    310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
+
+== ConLeche/Driver/Run.lean#L85
+    85  def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
+
+== ConLeche/Cached/Decls.lean#L106-L107
+   106  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+   107      (ds : Array Declaration) : Except (CheckError × Nat) Env :=
 
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do
@@ -1488,6 +1506,9 @@
 == ConLeche/Driver/Cli.lean#L145
    145    "  --trusted           Skip the checks only the proof needs; outside the theorem",
 
+== ConLeche/Driver/Cli.lean#L167
+   167    "  --constant=NAME     Check only NAME and what it mentions; repeatable",
+
 == ConLeche/Frontend/Olean/View.lean#L81
     81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do
 
@@ -1495,4 +1516,101 @@
     83  def InModulePart (sp : Roots) (fs : FS) (m : Name) (p : OLeanLevel) (c : ConstantInfo) : Prop :=
     84    ∃ f d e, ModelIO.CanGive (readFiles sp m p) fs (.ok f) ∧ decodeModuleSpec f p = some d ∧
     85      e ∈ d.constants ∧ c ∈ entryConstants e
+
+== ConLeche/MainTheorem.lean#L126-L134
+   126  theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   127      (hr : Olean.parseModName root = some r)
+   128      (h : ModelIO.CanGive
+   129        (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0) :
+   130      ∃ model : Name → (Name → List Nat → V),
+   131        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   132          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   133        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   134          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+
+== ConLeche/OleanInput.lean#L97-L98
+    97  def Sees (sp : Roots) (fs : FS) (m n m' : Name) : Prop :=
+    98    ∃ p c, Loads sp fs m m' p ∧ InModulePart sp fs m' p c ∧ c.name = n
+
+== ConLeche/Frontend/Olean/Snapshot.lean#L52-L66
+    52  inductive LoadsAt (sp : Roots) (fs : FS) (g : Bool) (imps0 : Array ImportRec) : Name → Bool → Prop
+    53    | root {i : ImportRec} : i ∈ imps0 → LoadsAt sp fs g imps0 i.module (g || i.importAll)
+    54    | step {a : Name} {all : Bool} {d : ModDecoded} {i : ImportRec} :
+    55        LoadsAt sp fs g imps0 a all → ViewOf sp fs a d → i ∈ d.imports →
+    56        (i.isExported || all) = true → LoadsAt sp fs g imps0 i.module (g || all && i.importAll)
+    57  
+    58  /-- **Module `m`'s header loads part `p` of `m'`**: the private part where some path loads it
+    59  whole, else the exported part (`LoadsAt`, from `m`'s private view's header). -/
+    60  def Loads (sp : Roots) (fs : FS) (m m' : Name) (p : OLeanLevel) : Prop :=
+    61    ∃ d, ViewOf sp fs m d ∧
+    62      match p with
+    63      | .private => LoadsAt sp fs (!d.isModule) d.imports m' true
+    64      | .exported => LoadsAt sp fs (!d.isModule) d.imports m' false ∧
+    65          ¬ LoadsAt sp fs (!d.isModule) d.imports m' true
+    66      | .server => False
+
+== ConLeche/Driver/Cli.lean#L201
+   201    "  --modular           Check every module of MODULE's closure as --module",
+
+== ConLeche/Driver/Cli.lean#L165
+   165    "  --olean             Read modules and their import closure from .olean files",
+
+== ConLeche/Driver/Cli.lean#L206
+   206    "  --schedule          Check every module of MODULE's closure by a --module",
+
+== ConLeche/MainTheorem.lean#L109-L120
+   109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   110      (hr : Olean.parseModName root = some r)
+   111      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   112        fs 0)
+   113      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   114        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   115          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   116      ∃ model : Name → (Name → List Nat → V),
+   117        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   118          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+
+== ConLeche/Driver/Cli.lean#L226
+   226    "  --schedule-commands      start nothing; print on stdout, one per line and",
+
+== ConLeche/Cached/Justify.lean#L73
+    73  def justifiable : Declaration → Option ConstantVal
+
+== ConLeche/Cached/Justify.lean#L187
+   187  def justifyWhy (J : Solution) (fe : FEnv) (cv : ConstantVal) : Option String :=
+
+== ConLeche/MainTheorem.lean#L63-L66
+    63  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    64      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    65      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+    66        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
+
+== ConLeche/Driver/Cli.lean#L189
+   189    "  --trusted-search-path=DIRS",
+
+== ConLeche/MainTheorem.lean#L88-L94
+    88  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+    89      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    90      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+    91        "--search-path=" ++ D, "--", c, s]) fs 0) :
+    92      ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
+    93        ∃ model, IsModel V model (Olean.closureConstants
+    94          (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
+
+== ConLeche/MainTheorem.lean#L143-L155
+   143  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   144      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   145      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   146        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   147      (hwork : ∀ m, Olean.HdrClosure
+   148          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   149          [C, S] m → m ≠ C →
+   150        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   151          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   152            root']) fs 0)
+   153      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   154        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   155      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
 
