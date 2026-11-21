@@ -126030,3 +126030,71 @@ overview links (169), whitepaper links (575), fragment, quote, no-local-paths, c
 560/560, self-check 62 564 declarations, olean compare 0 differences, axioms pinned (76 theorems),
 arena tutorial 90/92, e2e 635/635, the trusted and `--jobs` sweeps without divergence; whitepaper
 `build.sh` warning-free.
+
+## TASK #627 — the challenge states the runs' theorems with the binary's functions as holes; the self-compare (2026-11-21, agent/627-challenge; base `compare` 5dc36dc15)
+
+**The maintainer's goals** (brief of #627, with the rulings that came in during the lane):
+`ConLeche/Challenge.lean` states the main theorems with `sorry`, the implementation functions the
+statements name as holes (`def … := sorry` at their exact types and real names), importing
+specification only; a self-check `--olean --compare -- ConLeche.Challenge ConLeche.MainTheorem`
+in `tests/challenge.sh`; `modular_model_exists` off the public face; `MainTheorem.lean`,
+`Challenge.lean` and `IsModel.lean` as readable as OVERVIEW, without task numbers or history.
+Rulings during the lane: the challenge's closure as small as low-hanging moves make it; the
+theorems ordered by source (lean4export JSON, `.olean` in one process, module by module); the
+challenge and `MainTheorem.lean` state ONLY the `runArgs` theorems, with a new
+`main_json_model`; `model_exists` and `solution_model_exists` move out, unchanged;
+`lake comparator` (the toolchain's), not leanprover/comparator, linked to the reference manual;
+README's TODO quotes, links and typos filled on the lane after merging `compare` (d8e948956).
+
+**The challenge.**  Holes: `Driver.runArgs`, `Frontend.parseChunks`, `Driver.searchPathOf`,
+`Driver.trustedOr`, `Driver.CmpReq.solRoots`.  Theorems: `main_json_model`, `main_no_False`,
+`main_compare_json_model`; `main_oleans`, `main_compare_model`; `main_modular`,
+`main_modular_one`, `main_modular_compare`, `main_modular_compare_one`,
+`main_modular_compare_no_False`.  No statement needs to unfold a hole.  `comparator.json` lists
+the ten theorems and the five holes (`definition_names`); its keys match `lake comparator`'s help
+text in the v4.36.0 Lake source (`Lake/CLI/Help.lean`); `enable_nanoda: true` is still accepted
+there, as the legacy spelling of `external_kernels: {"nanoda": ["nanoda_bin"]}`.  Not run here:
+`lake comparator` needs `bwrap`.
+
+**The import closure**: 99 modules before (`Cached.Decls`, `Modular`, `Verify.Level`, and through
+`Kernel/Inductives/IotaRead` the whole kernel: `Core`, `TypeChecker`, `Install`, …); 54 after
+(`tests/layering.sh --list-challenge`): `IsModel`, `OleanInput`, `Accepts`, `Driver/CmpReq`, the
+kernel's data and basis (`Expr`, `Level`, `Name`, `Env`, `Error`, `ExprOps`, `Basis/*`, `Canon`,
+`Inductives/IotaEq`, …), the olean reader's specification and file lookup
+(`Frontend/Olean/{Spec,Region,Header,Reads,Sparse,View,Files,Module,Lazy,Fast,Snapshot}`,
+`Scan/Types`), `Frontend/{CheckerIO,ParseResult}`, `SetModel/Ops`, `SetTheory/*`.  The moves:
+* the ι statement reading (`iotaEqOf` and its helpers) from `IotaRead` to
+  `Kernel/Inductives/IotaEq.lean`; `Expr.dropVars`, `Expr.mentionsAnyConst`, `usesSorry` to
+  `Kernel/ExprOps.lean`; `Level.eval` from `Verify/Level` to `Kernel/Level.lean`;
+* `ModelIO.CanGive` to `Frontend/CheckerIO.lean`; `ViewOf`, `InClosure`, `LoadsAt`, `Loads`,
+  `HdrClosure` (was `Driver.Graph.HdrClosure`, now `Frontend.Olean.HdrClosure`), `Under`,
+  `FS.AgreeUnder` from the Verify modules to `Frontend/Olean/Snapshot.lean`, the olean tree's
+  second door in `tests/layering.sh`;
+* `concatBytes`, `ParseResultD` to `Frontend/ParseResult.lean`; `CmpReq` to `Driver/CmpReq.lean`.
+Not done (not low-hanging): `Frontend/Olean/Files` pulls `Module`/`Lazy`/`Fast` with it.
+`tests/layering.sh` gains the challenge fence: no `Verify/Model/Semantics/Term/Complete/Rules/
+Cached/PinGen` module in the closure, no `Driver` module but `CmpReq`, none of
+`Kernel/{Core,TypeChecker,CoreIO,DeclCheck,Install,Checker*}`, `ExportC`, `Olean/Records`,
+`Modular`, `Denotes`, `MainTheorem`.  The imports the moves left: by `tests/shake.sh` and the
+#223 criterion (`StructParts` from `CheckerBase` to `SumInstall`; unused edges dropped; private
+edges demoted; four measured fallbacks in `scripts/pub-import-plan.py`; `Driver/CmpReq`'s
+Snapshot door allowlisted).
+
+**`MainTheorem.lean`**: the ten theorems in three by-source sections, short plain docstrings,
+one-line proofs; the JSON ones from the new `Model/IsModelJson.lean` (`json_isModel`,
+`json_no_False`, `compare_json_isModel`).  `model_exists`, `solution_model_exists`:
+`Model/PureChecker.lean`, pinned in `Axioms.lean` as the pure-checker lemmas.
+`modular_model_exists` is gone; its statement is `Model.Modular.modular_isModel`
+(`Model/Modular/IsModel.lean`), pinned as a lemma, quoted under that name in `Modular.lean`'s
+docstring (it cannot be proved in `Modular.lean`: a base module does not import the model lane).
+
+**The self-compare** (`tests/challenge.sh`, in `tests/arena.sh`; replaces the `#check` diff):
+`con-leche --olean --compare --search-path=<tree>:<toolchain> -- ConLeche.Challenge
+ConLeche.MainTheorem` exits 0: 95 586 challenge declarations, the solution's 257 345, 15 axioms
+justified (the five holes, by ruling (A) of #619 where a theorem reads them, and the ten
+theorems); **1.92 T instructions:u, 6.75 GiB peak RSS, ~15 s wall at 96 threads**.  The gate
+requires the justified names to be exactly `comparator.json`'s.  `--modular` runs it through
+`--olean --schedule --compare`: 3 162 modules accepted, **7.37 T instructions:u, 13.2 GiB of
+workers at the peak, ~23 s wall**; not in the battery (proposal: a release gate).  No gap in the
+justification rule showed.  `tests/quote-gate.sh` now reads a name the challenge and the solution
+both declare as the solution's.
