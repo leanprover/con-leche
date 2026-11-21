@@ -48,18 +48,18 @@
     56      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
     57      (hF : jsonWithTheoremFalse [b]) : False :=
 
-== ConLeche/Accepts.lean#L62-L72
-    62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
-    63    ∃ (before between₁ between₂ between₃ after name : String) (i j k v : Nat),
-    64      Frontend.concatBytes chunks = (s!"{before}
-    65  \{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}
-    66  {between₁}
-    67  \{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}
-    68  {between₂}
-    69  \{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}
-    70  {between₃}
-    71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
-    72  {after}").toUTF8
+== ConLeche/Accepts.lean#L53-L63
+    53  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
+    54    ∃ (before between₁ between₂ between₃ after name : String) (i j k v : Nat),
+    55      Frontend.concatBytes chunks = (s!"{before}
+    56  \{\"in\":{i},\"str\":\{\"pre\":0,\"str\":\"False\"}}
+    57  {between₁}
+    58  \{\"ie\":{j},\"const\":\{\"name\":{i},\"us\":[]}}
+    59  {between₂}
+    60  \{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}
+    61  {between₃}
+    62  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
+    63  {after}").toUTF8
 
 == ConLeche/Verify/Driver/Main.lean#L323-L327
    323  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
@@ -1027,8 +1027,8 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L52
     52  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L76
-    76  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+== ConLeche/Kernel/Inductives/SumInstall.lean#L77
+    77  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L522
    522  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
@@ -1396,72 +1396,18 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
-== ConLeche/MainTheorem.lean#L144-L151
-   144    obtain ⟨ds, ha, c, hc, hty⟩ := Driver.runArgs_json_false h hb hF
-   145    exact IsModel.no_False_constant (model_exists V _ _ ds ha)
-   146      (checkDecls_declaresFalse_of_constant ha hc hty) hc hty
-   147  
-   148  open Frontend in
-   149  /-- **The main theorem, on `.olean` files.**  Every exit 0 of `runArgs` at the arguments
-   150  `--olean --search-path=<dirs> -- <root>` has a model of its input (`Olean.closureConstants`,
-   151  `ConLeche/OleanInput.lean`): every constant of the private views of the modules of the closure
+== ConLeche/MainTheorem.lean#L55-L57
+    55  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    56      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
+    57      (hF : jsonWithTheoremFalse [b]) : False :=
 
-== ConLeche/Denotes.lean#L249-L269
-   249  structure Model (V : Type w) [SetTheory V] (env : Env) where
-   250    /-- the set a constant denotes, per level assignment -/
-   251    cval : Name → (LevelParam → Nat) → V
-   252    /-- every stored constant is a member of what its type denotes, at
-   253    every level assignment (and every variable environment — the type
-   254    is closed) -/
-   255    mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
-   256      ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-   257    /-- **a stored definition means its value**: at every level
-   258    assignment, the value denotes what the constant does.  The value is
-   259    read at the definition's own level parameters (an instance `c.{us}`
-   260    is the same equation at the assignment `us` induces).  Definitions
-   261    only: a theorem is stored by its statement (its record carries no
-   262    value), and an opaque constant's value is never unfolded, so it stays
-   263    free -/
-   264    defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
-   265      ConstantInfo.defnInfo cv value hint ∈ env.consts →
-   266      ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
-   267    /-- **a recursor computes by its rules**: every stored rule's ι
-   268    equation denotes an inhabited truth value, at every level assignment -/
-   269    rule_eqs : RuleEqsHold cval env
+== ConLeche/IsModel.lean#L212-L213
+   212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   213      (C : ConstantInfo → Prop) : Prop :=
 
-== ConLeche/Denotes.lean#L102-L103
-   102  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
-   103      (BVarIdx → V) → Expr → V → Prop
-
-== ConLeche/Cached/Decls.lean#L106-L107
-   106  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
-   107      (ds : Array Declaration) : Except (CheckError × Nat) Env :=
-
-== ConLeche/Frontend/Prepare.lean#L168-L175
-   168  the prelude's declarations first (the stream's own copies where it has
-   169  them), the rest of the stream after them, every pinned `Nat`
-   170  operation's stream-certified ground ahead of it.  Total, pure, and the
-   171  fold's input — an array in and an array out, the shape the parse
-   172  returns and the fold consumes. -/
-   173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   174    (prepareD pre ds).decls
-   175  
-
-== ConLeche/Verify/Frontend/Prepare.lean#L171-L176
-   171  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
-   172  input plus additional declarations, but nothing missing"* — and the
-   173  additional declarations are the built-in prelude's own records. -/
-   174  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
-   175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
-   176        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
-
-== ConLeche/Model/StreamConsts.lean#L215-L220
-   215  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   216      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins maxNatSize ds = .ok env)
-   217      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   218      ∃ c, env.find? cv.name = some c ∧
-   219        c.toConstantVal.levelParams = cv.levelParams ∧
-   220        c.toConstantVal.type = cv.type := by
+== ConLeche/IsModel.lean#L128-L129
+   128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
+   129      (BVarIdx → V) → Expr → V
 
 == ConLeche/Driver/Cli.lean#L403
    403  here, not in `main`, so that the model sees it.  A verdict that is
@@ -1478,11 +1424,6 @@
 == ConLeche/Frontend/CheckerIO.lean#L310
    310  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/MainTheorem.lean#L141-L143
-   141  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   142      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
-   143      (hF : jsonWithTheoremFalse [b]) : False := by
-
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do
 
@@ -1491,6 +1432,12 @@
 
 == Main.lean#L28
     28  def enableAbortOnNonlinear : IO Unit := do
+
+== ConLeche/Model/PureChecker.lean#L31-L34
+    31  theorem model_exists (V : Type w) [SetTheory V]
+    32      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
+    33      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    34      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
 
 == ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:
@@ -1543,4 +1490,9 @@
 
 == ConLeche/Frontend/Olean/View.lean#L81
     81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do
+
+== ConLeche/OleanInput.lean#L83-L85
+    83  def InModulePart (sp : Roots) (fs : FS) (m : Name) (p : OLeanLevel) (c : ConstantInfo) : Prop :=
+    84    ∃ f d e, ModelIO.CanGive (readFiles sp m p) fs (.ok f) ∧ decodeModuleSpec f p = some d ∧
+    85      e ∈ d.constants ∧ c ∈ entryConstants e
 
