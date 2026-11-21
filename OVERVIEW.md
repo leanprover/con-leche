@@ -264,7 +264,7 @@ of `runArgs` is an exit 0 on a snapshot where the file's bytes are a
 `jsonWithTheoremFalse` file, then `False` holds
 ([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L55-L57)).
 The file is described at the level of its text
-([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L62-L72)):
+([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L53-L63)):
 a name entry for `False`, an expression entry for the constant `False`,
 a name entry for the theorem's own name, and a theorem record whose
 type is that expression, four lines in the exporter's own shapes, in

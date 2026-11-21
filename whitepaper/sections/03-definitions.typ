@@ -78,7 +78,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 #src("whitepaper/Fragment/Decl.lean", 592, 606)[checks four things]
-(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 107, 131)[the common checks]
+(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 106, 130)[the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 
 - the name $c$ is fresh;
