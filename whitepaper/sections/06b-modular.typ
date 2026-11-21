@@ -535,9 +535,9 @@ satisfy the scope conditions.
 
 #real[
   The checks are stated over con-leche's own records
-  (#src("ConLeche/Modular.lean", 209, 229)[the local checks]): a context is a
+  (#src("ConLeche/Modular.lean", 210, 230)[the local checks]): a context is a
   list of records each of which an earlier module
-  #src("ConLeche/Modular.lean", 82, 92)[presents], as itself or as its
+  #src("ConLeche/Modular.lean", 83, 93)[presents], as itself or as its
   statement, so an inductive type reaches an importer with its whole block;
   every context name is read from one module; what a context record reads
   is stored in the context. A record of module $h$ means by a name it reads
@@ -548,7 +548,7 @@ satisfy the scope conditions.
   passes when the context's copy is that one, and otherwise the copy $h$'s
   view locates must agree with the context's. So the copy $h$'s view locates
   for each such name
-  #src("ConLeche/Modular.lean", 168, 192)[agrees] with the context's: it is
+  #src("ConLeche/Modular.lean", 169, 193)[agrees] with the context's: it is
   the copy of the module the name is read from, or one record loaded through two paths, or both are proofs
   of one statement whose names agree: an earlier module's copy of it, its
   names agreeing too, is a theorem, or else its type is inferred to be a

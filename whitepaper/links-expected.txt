@@ -11,14 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L121-L127
-   121  class `CheckerIO`, the code computed outside its `liftIO` escape.  The
-   122  theorem below is about every outcome of `runArgs` in the model
-   123  `ModelIO`, at the fixed arguments `-- <file>`: the default mode, which
-   124  is `.verified`, the default worker count; nothing is said about
-   125  `--help` or the other flags.  It is a statement about the binary's
-   126  exit code under the assumption `ConLeche/Frontend/CheckerIO.lean`
-   127  states and argues for: the binary's file operations give the model's
+== ConLeche/MainTheorem.lean#L47-L50
+    47  theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    48      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b) :
+    49      ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList) :=
+    50    json_isModel V h hb
 
 == whitepaper/Fragment/Sound.lean#L2293-L2297
   2293  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -29,32 +26,29 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L96-L102
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
-    98      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
-    99      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
-   100    cases h : checkDecls .verified pins maxNatSize ds with
-   101    | error e => rw [h] at accepted; cases accepted
-   102    | ok env =>
+== ConLeche/Model/PureChecker.lean#L31-L34
+    31  theorem model_exists (V : Type w) [SetTheory V]
+    32      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
+    33      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    34      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
 
 == ConLeche/IsModel.lean#L212-L213
    212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
    213      (C : ConstantInfo → Prop) : Prop :=
 
-== ConLeche/MainTheorem.lean#L187-L198
-   187  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
-   188      (hr : Olean.parseModName root = some r)
-   189      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   190        fs 0)
-   191      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   192        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   193          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   194      ∃ model : Name → (Name → List Nat → V),
-   195        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   196          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
-   197        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   198          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L109-L120
+   109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   110      (hr : Olean.parseModName root = some r)
+   111      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   112        fs 0)
+   113      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   114        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   115          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   116      ∃ model : Name → (Name → List Nat → V),
+   117        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   118          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
 == ConLeche/SetTheory/Core.lean#L95-L100
     95  /-- A model of set theory of exactly the strength the checker needs:
@@ -188,13 +182,13 @@
     55    | imax a b => imaxNat (eval φ a) (eval φ b)
     56    | param n => φ n
 
-== ConLeche/Verify/Level.lean#L26-L31
-    26  @[expose] def eval (φ : Name → Nat) : Level → Nat
-    27    | .zero => 0
-    28    | .succ l => eval φ l + 1
-    29    | .max l r => Max.max (eval φ l) (eval φ r)
-    30    | .imax l r => if eval φ r = 0 then 0 else Max.max (eval φ l) (eval φ r)
-    31    | .param n => φ n
+== ConLeche/Kernel/Level.lean#L273-L278
+   273  def eval (φ : Name → Nat) : Level → Nat
+   274    | .zero => 0
+   275    | .succ l => eval φ l + 1
+   276    | .max l r => Max.max (eval φ l) (eval φ r)
+   277    | .imax l r => if eval φ r = 0 then 0 else Max.max (eval φ l) (eval φ r)
+   278    | .param n => φ n
 
 == whitepaper/Fragment/Level.lean#L130-L145
    130  /-- **The level oracle** — the checker's decision procedures for `≤` and
@@ -225,13 +219,13 @@
    166    else if simplify l = simplify r then pure true
    167    else if ← leq l r then leq r l else pure false
 
-== ConLeche/Verify/Level.lean#L173-L174
-   173  theorem leq_sound {l r : Level} (h : leq l r = some true) :
-   174      ∀ φ, eval φ l ≤ eval φ r := by
+== ConLeche/Verify/Level.lean#L165-L166
+   165  theorem leq_sound {l r : Level} (h : leq l r = some true) :
+   166      ∀ φ, eval φ l ≤ eval φ r := by
 
-== ConLeche/Verify/Level.lean#L201-L202
-   201  theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
-   202      ∀ φ, eval φ l = eval φ r := by
+== ConLeche/Verify/Level.lean#L193-L194
+   193  theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
+   194      ∀ φ, eval φ l = eval φ r := by
 
 == whitepaper/Fragment/Rules.lean#L56-L798
     56  mutual
@@ -5256,14 +5250,11 @@
     46  theorem model_exists {ds : List Decl} (h : Checks Env.empty ds) :
     47      ∃ M : Name → List Nat → V, IsModel V M (constantsOf ds) := by
 
-== ConLeche/MainTheorem.lean#L96-L102
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
-    98      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
-    99      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
-   100    cases h : checkDecls .verified pins maxNatSize ds with
-   101    | error e => rw [h] at accepted; cases accepted
-   102    | ok env =>
+== ConLeche/Model/PureChecker.lean#L31-L34
+    31  theorem model_exists (V : Type w) [SetTheory V]
+    32      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
+    33      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
+    34      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
 
 == whitepaper/Fragment/Holds.lean#L247-L250
    247  theorem install_ind_holds {env : Env} {S : IndSpec} (hs : Env.Scoped env) (m : BlockModel V env)
@@ -6849,68 +6840,68 @@
    343      -- the new module's context values are its sources'
    344      have hnew : ∀ n (hn : S.Stores (dev.ctx k) n),
 
-== ConLeche/Modular.lean#L209-L229
-   209  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
-   210      (dev : Nat → Module) (i : Nat) : Prop where
-   211    below : ∀ b ∈ (dev i).imports, b < i
-   212    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
-   213    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
-   214    /-- every context record is a presentation of the module its names are read from -/
-   215    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
-   216    /-- a context record is read from one module: its names have one source -/
-   217    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
-   218      (dev i).src n = (dev i).src n'
-   219    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
-   220    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
-   221    /-- a context record reads only itself and the records before it -/
-   222    ordered : ∀ k (h : k < (dev i).ctx.length),
-   223      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
-   224    /-- the own records, accepted from the context by the fold's step -/
-   225    accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
-   226      ((dev i).ctx.length, mkFEnv (dev i).context) q
-   227  
-   228  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
-   229  development every module of which passes them is the hypothesis of the modular theorem. -/
+== ConLeche/Modular.lean#L210-L230
+   210  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+   211      (dev : Nat → Module) (i : Nat) : Prop where
+   212    below : ∀ b ∈ (dev i).imports, b < i
+   213    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   214    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
+   215    /-- every context record is a presentation of the module its names are read from -/
+   216    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+   217    /-- a context record is read from one module: its names have one source -/
+   218    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+   219      (dev i).src n = (dev i).src n'
+   220    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
+   221    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
+   222    /-- a context record reads only itself and the records before it -/
+   223    ordered : ∀ k (h : k < (dev i).ctx.length),
+   224      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
+   225    /-- the own records, accepted from the context by the fold's step -/
+   226    accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
+   227      ((dev i).ctx.length, mkFEnv (dev i).context) q
+   228  
+   229  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
+   230  development every module of which passes them is the hypothesis of the modular theorem. -/
 
-== ConLeche/Modular.lean#L82-L92
-    82  and the same tables (a theorem record, whatever value it carries, installs its statement), or the
-    83  record's statement.  The order is free because a record installs its constants as a set, its
-    84  names distinct: an inductive group read from its home's exported part lists its recursors in that
-    85  part's order, which is sorted by name, where the home's own record lists them in declaration
-    86  order.  A record at a `reduce*` name is presented as itself: the compiler-trust axioms
-    87  (`ofReduceNat`, `ofReduceBool`) are accepted at an importer by that name's pinned statement, which
-    88  is true only of the identity its home's opaque install certified. -/
-    89  def Presents (e p : Declaration) : Prop :=
-    90    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
-    91      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
-    92  
+== ConLeche/Modular.lean#L83-L93
+    83  and the same tables (a theorem record, whatever value it carries, installs its statement), or the
+    84  record's statement.  The order is free because a record installs its constants as a set, its
+    85  names distinct: an inductive group read from its home's exported part lists its recursors in that
+    86  part's order, which is sorted by name, where the home's own record lists them in declaration
+    87  order.  A record at a `reduce*` name is presented as itself: the compiler-trust axioms
+    88  (`ofReduceNat`, `ofReduceBool`) are accepted at an importer by that name's pinned statement, which
+    89  is true only of the identity its home's opaque install certified. -/
+    90  def Presents (e p : Declaration) : Prop :=
+    91    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
+    92      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
+    93  
 
-== ConLeche/Modular.lean#L168-L192
-   168  inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
-   169    /-- `b` is the module `i` reads `n` from -/
-   170    | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
-   171    /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
-   172    record, loaded through two paths -/
-   173    | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
-   174        Agree dev b t n → Agree dev i t n → Agree dev i b n
-   175    /-- two proofs of one statement, whose names agree: `i` infers it to be a proposition over the
-   176    part of its context below `n` -/
-   177    | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
-   178        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
-   179        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
-   180        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
-   181        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
-   182        TypeIsProp .verified ((dev i).part n) ci.toConstantVal.type → Agree dev i b n
-   183    /-- two proofs of one statement, whose names agree: an earlier module `t` stores it as a
-   184    theorem, whose names agree too (a theorem's type is a proposition) -/
-   185    | thm {i b t : Nat} {n : Name} {ci ci' : ConstantInfo} {cv : ConstantVal} :
-   186        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
-   187        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
-   188        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
-   189        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
-   190        t < i → (dev t).own.find? n = some (.thmInfo cv) → cv = ci.toConstantVal →
-   191        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i t c) → Agree dev i b n
-   192  
+== ConLeche/Modular.lean#L169-L193
+   169  inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
+   170    /-- `b` is the module `i` reads `n` from -/
+   171    | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
+   172    /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
+   173    record, loaded through two paths -/
+   174    | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
+   175        Agree dev b t n → Agree dev i t n → Agree dev i b n
+   176    /-- two proofs of one statement, whose names agree: `i` infers it to be a proposition over the
+   177    part of its context below `n` -/
+   178    | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
+   179        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
+   180        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
+   181        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+   182        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
+   183        TypeIsProp .verified ((dev i).part n) ci.toConstantVal.type → Agree dev i b n
+   184    /-- two proofs of one statement, whose names agree: an earlier module `t` stores it as a
+   185    theorem, whose names agree too (a theorem's type is a proposition) -/
+   186    | thm {i b t : Nat} {n : Name} {ci ci' : ConstantInfo} {cv : ConstantVal} :
+   187        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
+   188        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
+   189        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+   190        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
+   191        t < i → (dev t).own.find? n = some (.thmInfo cv) → cv = ci.toConstantVal →
+   192        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i t c) → Agree dev i b n
+   193  
 
 == ConLeche/Modular/Generic.lean#L278-L279
    278  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
@@ -7124,26 +7115,22 @@
     24  are each other's mates (`recordMates`), and the justification's cone follows a name's mates.
     25  -/
 
-== ConLeche/MainTheorem.lean#L106-L114
-   106  /-- **The main theorem, with a solution.**  A challenge stream the checker
-   107  accepts with its axioms justified by a solution stream (`checkChallenge`),
-   108  the solution itself accepted, has a model in every set theory. -/
-   109  theorem solution_model_exists (V : Type w) [SetTheory V]
-   110      (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration)
-   111      (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
-   112      (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
-   113      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
-   114    Model.Solution.challenge_isModel solution challenge
+== ConLeche/Model/PureChecker.lean#L41-L47
+    41  /-- **A challenge stream accepted with its axioms justified by an accepted solution stream has
+    42  a model in every set theory.** -/
+    43  theorem solution_model_exists (V : Type w) [SetTheory V]
+    44      (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration)
+    45      (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
+    46      (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
+    47      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
 
-== ConLeche/MainTheorem.lean#L332-L339
-   332  /-- **The JSON comparison's accept has a model**: an exit 0 of `runArgs` at `--compare -- <c> <s>`
-   333  found the challenge file `c` parsing as one chunk, and the challenge's records have a model in
-   334  every set theory: its axioms are justified by the solution file's checked environment
-   335  (`solution_model_exists`). -/
-   336  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
-   337      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
-   338      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
-   339        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) := by
+== ConLeche/MainTheorem.lean#L61-L66
+    61  /-- **An accepted comparison's challenge file has a model**: an exit 0 of `--compare -- <c> <s>`
+    62  read the file `c` as records that have a model in every set theory. -/
+    63  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    64      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    65      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+    66        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
 
 == whitepaper/Fragment/Compare.lean#L771-L776
    771  theorem compare_solves (dev : Nat → Module) (c : Nat) (h : ∀ j ≤ c, LocalOk dev j) :
@@ -7258,84 +7245,79 @@
    256      solution has no constant of this name)")
    257    else .ok ()
 
-== ConLeche/MainTheorem.lean#L255-L294
-   255  /-- **An accepted modular comparison: the challenge's closure has a family of models**
-   256  (the shape of `main_modular`).  On a snapshot where every command `--schedule-commands --compare`
-   257  prints for the challenge `C` and its solution `S` exits 0 (the graph check, a worker at every
-   258  module of the headers' closure of `C` and `S` but `C`, the compare worker at `C`), on every
-   259  snapshot `fs'` that agrees with it under the challenge's directories, every module of the
-   260  closure of `C` through them has a model of its constants, and a name a module sees as another
-   261  module's has the value that module's model gives it. -/
-   262  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   263      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   264      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   265        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   266      (hwork : ∀ m, Driver.Graph.HdrClosure
-   267          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   268          [C, S] m → m ≠ C →
-   269        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   270          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   271            root']) fs 0)
-   272      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   273        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   274      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   275      ∀ fs', FS.AgreeUnder sp fs fs' →
-   276        ∃ model : Name → (Name → List Nat → V),
-   277          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   278          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   279            model m n = model m' n) :=
-   280    Driver.Compose.modular_compare_graph V hc hs hgraph hwork hcmp
-   281  
-   282  open Frontend in
-   283  /-- **An accepted modular comparison in one process** (`--olean --modular --compare`): the family
-   284  of `main_modular_compare`. -/
-   285  theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   286      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   287      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
-   288        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   289      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   290      ∀ fs', FS.AgreeUnder sp fs fs' →
-   291        ∃ model : Name → (Name → List Nat → V),
-   292          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   293          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   294            model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L138-L175
+   138  /-- **An accepted modular comparison's challenge closure has a family of models**: on a
+   139  snapshot where every command `--schedule-commands --compare` prints for the challenge `C` and
+   140  its solution `S` exits 0 (the graph check, a worker at every module of the headers' closure of
+   141  `C` and `S` but `C`, the compare worker at `C`), on every snapshot that agrees with it under the
+   142  challenge's directories, the family of `main_modular` for the closure of `C`. -/
+   143  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   144      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   145      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   146        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   147      (hwork : ∀ m, Olean.HdrClosure
+   148          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   149          [C, S] m → m ≠ C →
+   150        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   151          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   152            root']) fs 0)
+   153      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   154        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   155      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   156      ∀ fs', FS.AgreeUnder sp fs fs' →
+   157        ∃ model : Name → (Name → List Nat → V),
+   158          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   159          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   160            model m n = model m' n) :=
+   161    Driver.Compose.modular_compare_graph V hc hs hgraph hwork hcmp
+   162  
+   163  open Frontend in
+   164  /-- **The same, in one process**: every exit 0 of `--olean --modular --compare` has the family
+   165  of `main_modular_compare`. -/
+   166  theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   167      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   168      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
+   169        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   170      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   171      ∀ fs', FS.AgreeUnder sp fs fs' →
+   172        ∃ model : Name → (Name → List Nat → V),
+   173          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   174          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   175            model m n = model m' n) :=
 
-== ConLeche/MainTheorem.lean#L298-L320
-   298  /-- **A challenge holding a constant of type `False` is never solved, module by module.**  No
-   299  snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` —
-   300  a hole, an axiom, a theorem, an opaque constant or a definition — in the private part of the
-   301  challenge module `C`, read through the challenge's directories.  Proved from the run's own
-   302  environments (`Driver.Compose.modular_compare_graph_no_False`): not from `main_modular_compare`
-   303  alone, whose family covers the challenge's closure, while the compare worker reads `C` with the
-   304  solution loaded whole, so a crafted `C` may see `False` through `S` alone. -/
-   305  theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
-   306      {C S : Name} {fs : FS} {ci : ConstantInfo}
-   307      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   308      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   309        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   310      (hwork : ∀ m, Driver.Graph.HdrClosure
-   311          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   312          [C, S] m → m ≠ C →
-   313        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   314          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   315            root']) fs 0)
-   316      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   317        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   318      (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
-   319        fs C .private ci)
-   320      (hty : ci.type = .const falseName []) : False :=
+== ConLeche/MainTheorem.lean#L179-L198
+   179  /-- **No accepted modular comparison's challenge module holds a constant of type `False`**: no
+   180  snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` in
+   181  the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
+   182  through its solution too, which the family of `main_modular_compare` does not. -/
+   183  theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
+   184      {C S : Name} {fs : FS} {ci : ConstantInfo}
+   185      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   186      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   187        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   188      (hwork : ∀ m, Olean.HdrClosure
+   189          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   190          [C, S] m → m ≠ C →
+   191        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   192          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   193            root']) fs 0)
+   194      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   195        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   196      (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
+   197        fs C .private ci)
+   198      (hty : ci.type = .const falseName []) : False :=
 
 >>> whitepaper/sections/07-left-out.typ
 
-== ConLeche/Kernel/Install.lean#L68-L75
-    68  def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
-    69    | [] => some []
-    70    | ms :: rest =>
-    71      match ms.structCtor? with
-    72      | some c =>
-    73        (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
-    74          (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
-    75      | none => blockTables p rest
+== ConLeche/Kernel/Install.lean#L63-L70
+    63  def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
+    64    | [] => some []
+    65    | ms :: rest =>
+    66      match ms.structCtor? with
+    67      | some c =>
+    68        (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+    69          (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
+    70      | none => blockTables p rest
 
 == ConLeche/Rules/Rel.lean#L174-L189
    174    /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
@@ -7707,8 +7689,8 @@
    128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
    129      (BVarIdx → V) → Expr → V
 
-== ConLeche/Kernel/Inductives/IotaRead.lean#L188
-   188  def iotaEqOf (cv : ConstantVal) (mI rP i : Nat) (rl : RecRule) : Option Expr := do
+== ConLeche/Kernel/Inductives/IotaEq.lean#L119
+   119  def iotaEqOf (cv : ConstantVal) (mI rP i : Nat) (rl : RecRule) : Option Expr := do
 
 == ConLeche/Model/IsModelBridge.lean#L116-L118
    116  theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
@@ -7741,60 +7723,59 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Modular.lean#L209-L229
-   209  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
-   210      (dev : Nat → Module) (i : Nat) : Prop where
-   211    below : ∀ b ∈ (dev i).imports, b < i
-   212    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
-   213    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
-   214    /-- every context record is a presentation of the module its names are read from -/
-   215    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
-   216    /-- a context record is read from one module: its names have one source -/
-   217    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
-   218      (dev i).src n = (dev i).src n'
-   219    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
-   220    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
-   221    /-- a context record reads only itself and the records before it -/
-   222    ordered : ∀ k (h : k < (dev i).ctx.length),
-   223      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
-   224    /-- the own records, accepted from the context by the fold's step -/
-   225    accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
-   226      ((dev i).ctx.length, mkFEnv (dev i).context) q
-   227  
-   228  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
-   229  development every module of which passes them is the hypothesis of the modular theorem. -/
+== ConLeche/Modular.lean#L210-L230
+   210  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
+   211      (dev : Nat → Module) (i : Nat) : Prop where
+   212    below : ∀ b ∈ (dev i).imports, b < i
+   213    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   214    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
+   215    /-- every context record is a presentation of the module its names are read from -/
+   216    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+   217    /-- a context record is read from one module: its names have one source -/
+   218    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+   219      (dev i).src n = (dev i).src n'
+   220    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
+   221    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
+   222    /-- a context record reads only itself and the records before it -/
+   223    ordered : ∀ k (h : k < (dev i).ctx.length),
+   224      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
+   225    /-- the own records, accepted from the context by the fold's step -/
+   226    accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
+   227      ((dev i).ctx.length, mkFEnv (dev i).context) q
+   228  
+   229  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
+   230  development every module of which passes them is the hypothesis of the modular theorem. -/
 
 == ConLeche/Modular/Generic.lean#L278-L279
    278  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    279      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
-== ConLeche/MainTheorem.lean#L171-L178
-   171  theorem modular_model_exists (V : Type w) [SetTheory V]
-   172      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
-   173      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
-   174      ∃ model : Nat → Name → List Nat → V,
-   175        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
-   176        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
-   177          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n :=
-   178    Model.Modular.modular_isModel V pins maxNatSize dev i hok
+== ConLeche/Model/Modular/IsModel.lean#L53-L59
+    53  theorem modular_isModel (V : Type w) [SetTheory V]
+    54      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Module) (i : Nat)
+    55      (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
+    56      ∃ model : Nat → Name → List Nat → V,
+    57        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
+    58        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+    59          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
 
 == ConLeche/Verify/Driver/Routes.lean#L346-L347
    346  theorem localOk (j : Nat) : LocalOk .verified natOpPinSets maxNatSize R.dev j :=
    347    R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
 
-== ConLeche/MainTheorem.lean#L187-L198
-   187  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
-   188      (hr : Olean.parseModName root = some r)
-   189      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   190        fs 0)
-   191      (hwork : ∀ m', Driver.Graph.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   192        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   193          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   194      ∃ model : Name → (Name → List Nat → V),
-   195        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   196          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
-   197        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   198          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L109-L120
+   109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   110      (hr : Olean.parseModName root = some r)
+   111      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   112        fs 0)
+   113      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   114        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   115          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   116      ∃ model : Name → (Name → List Nat → V),
+   117        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   118          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
 == ConLeche/Frontend/Prepare.lean#L173-L174
    173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=

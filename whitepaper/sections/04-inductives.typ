@@ -1065,7 +1065,7 @@ block's auxiliary recursor reads the minor premises of its own motive,
   the constants of $D$
   #src("whitepaper/Fragment/Main.lean", 46, 47)[have a model in it]:
   $ exists M. thin M "is a model of the constants of" D $
-  (#src("ConLeche/MainTheorem.lean", 96, 102)[con-leche's main theorem]).
+  (#src("ConLeche/Model/PureChecker.lean", 31, 34)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[

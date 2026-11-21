@@ -12,7 +12,7 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value `e`. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 68, 75)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 63, 70)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 174, 189)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 676, 684)[infers its type from
@@ -167,7 +167,7 @@ function on the checker's own terms with one equation per syntax form. A constan
 member of what its type denotes, a definition is what its value denotes, and every recursor
 rule's ι equation holds.
 
-#src("ConLeche/Kernel/Inductives/IotaRead.lean", 188, 188)[The ι equation]
+#src("ConLeche/Kernel/Inductives/IotaEq.lean", 119, 119)[The ι equation]
 is read off the recursor's own type, as a closed `Eq` between the recursor applied to a
 constructor and the rule's right-hand side, and what it denotes is inhabited. The rule's minor
 premise gives the fields and the indices, its major premise's type the constructor's levels and
@@ -201,12 +201,12 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 views, and the module each context name is read from are given, and
 the local checks of @sec:mod-local say what they must satisfy.
 con-leche states
-#src("ConLeche/Modular.lean", 209, 229)[the same checks] over its own
+#src("ConLeche/Modular.lean", 210, 230)[the same checks] over its own
 records. A context there is a list of the records its imports present,
 in an order in which every record reads only itself and earlier
 records. con-leche proves #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 171, 178)[the modular
+models gives #src("ConLeche/Model/Modular/IsModel.lean", 53, 59)[the modular
 theorem]. The executable computes a module's context from the `.olean`
 files and checks the module's own records against it, one module per
 run, and
@@ -214,7 +214,7 @@ run, and
 of an import closure together give the local checks].
 
 Over the files themselves,
-#src("ConLeche/MainTheorem.lean", 187, 198)[the modular theorem] gives one model per module
+#src("ConLeche/MainTheorem.lean", 109, 120)[the modular theorem] gives one model per module
 of the closure, each a model of its module's constants as the `.olean` files hold them, and a
 name a module sees as another module's (its header loads a part of that module holding a
 constant of that name: `Sees`, over `Loads`, Lean's import lattice) has the value that

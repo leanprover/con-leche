@@ -56,7 +56,7 @@ with $u, v$ levels and $p$ a level parameter of the enclosing
 declaration.  A _valuation_ $phi$ maps each level parameter to a
 natural number, and a level
 #src("whitepaper/Fragment/Level.lean", 50, 56)[means the natural number] $phi(u)$
-(#src("ConLeche/Verify/Level.lean", 26, 31)[as in con-leche]):
+(#src("ConLeche/Kernel/Level.lean", 273, 278)[as in con-leche]):
 $
   phi(0) = 0, quad phi(u + 1) = phi(u) + 1, quad
   phi(max(u, v)) = max(phi(u), phi(v)), \
@@ -76,8 +76,8 @@ $
 $
 (#src("ConLeche/Kernel/Level.lean", 144, 146)[the real $<=$],
 #src("ConLeche/Kernel/Level.lean", 164, 167)[the real $=$] and their
-#src("ConLeche/Verify/Level.lean", 173, 174)[soundness]
-#src("ConLeche/Verify/Level.lean", 201, 202)[proofs]).  We write
+#src("ConLeche/Verify/Level.lean", 165, 166)[soundness]
+#src("ConLeche/Verify/Level.lean", 193, 194)[proofs]).  We write
 $u eq.dot v$ for "the oracle says $u = v$".
 
 == The three relations <sec:rules>
