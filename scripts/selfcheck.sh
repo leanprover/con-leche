@@ -1,150 +1,143 @@
 #!/usr/bin/env bash
-# scripts/selfcheck.sh — THE SELF-CHECK (task #199).
+# scripts/selfcheck.sh — THE SELF-CHECK.
 #
-# Export con-leche's own Lean development with the toolchain's `leanexport` and
-# run con-leche on the result.  The checker whose consistency the tree proves is asked to
-# accept the proof that says so.
+# The checker checks that its own main theorems hold for the implementation
+# the shipped binary is built from.  `comparator.json` names the pair:
+# `ConLeche.Challenge` states the main theorems about the binary's runs with
+# `sorry`, and the binary's functions they name (`runArgs`, `parseChunks`,
+# `searchPathOf`, `trustedOr`, `CmpReq.solRoots`) are holes there,
+# `def … := sorry` at their real names and types; `ConLeche.MainTheorem` is the
+# solution, which proves the theorems over the real definitions.  Con-leche
+# checks the challenge against the solution with `--compare`: both sides are
+# checked in full, and every hole and every theorem of the challenge must be
+# justified by the solution's constant of the same name and statement,
+# everything the statement reads being the same constant in both or itself a
+# justified hole.
 #
-# WHAT IS EXPORTED.  Not "the whole imported environment": `ConLeche` reaches
-# `Lean` (through `ConLeche/PinGen`'s elaborators and
-# `ConLeche/Frontend/Export.lean`'s JSON reader), and that environment holds
-# ~233k constants, the overwhelming majority of them elaborator internals
-# no declaration of ours depends on.  What is exported is **every
-# non-internal constant declared by a con-leche module, plus its transitive
-# dependency cone** — `scripts/SelfcheckDecls.lean` prints the root list,
-# the exporter walks the cone.  On master `2d36855d` (task #199) that
-# is 15,738 roots and 34,417 exported declarations (17,062 theorems,
-# 16,315 definitions, 781 inductive blocks, 252 opaques, 4 quotient
-# constants, and exactly the 3 standard axioms `propext`, `Quot.sound`,
-# `Classical.choice`), 533 MB / 9.64M NDJSON lines.
+# WHY IT MEANS SOMETHING.  The theorems constrain the solution's
+# implementation of the hole functions, and the binary is built from that
+# implementation (`Main.lean` runs `runArgs`).  An accept says: the
+# statements a reader trusts (the challenge, specification imports only) are
+# proved, over the code the binary runs, and the proofs pass this checker.
 #
-# THE VERDICT at that tree, both modes: **exit 0, 37,198 declarations
-# accepted**, ~3.5 min, 1.5 GB peak RSS, ~1.5 T instructions:u — no
-# declines, no rejections, no internal errors.  See DESIGN.md
-# "TASK #199 — THE SELF-CHECK".
+# THE TWO FORMS.  Both run by default; each must exit 0 and justify exactly
+# `comparator.json`'s `theorem_names` and `definition_names`.
 #
-# On uniform-inds at lane KEEPPROJ (2026-09-29): 17,915 roots, a 708 MB /
-# 13.26M-line export, **exit 0, 44,811 declarations accepted**
-# (`--verified --jobs=8`), 20.5 s wall, 1.3 GB peak RSS, 893 G
-# instructions:u.  Before that lane the check ran out of memory on
-# `ConLeche.nestRoot_datF._f` (a stuck projection's structure argument
-# was replaced by its WHNF, losing the head the defeq check needed; see
-# DESIGN.md "KEEPPROJ").
+#   1. `.olean`: `con-leche --olean --compare -- ConLeche.Challenge
+#      ConLeche.MainTheorem` over the built tree's `.olean` files and the
+#      toolchain's.  Both import closures are checked whole.
+#   2. lean4export JSON: the toolchain's `leanexport` exports the dependency
+#      cone of the listed names from each side (the challenge declares nothing
+#      else), and `con-leche --compare -- challenge.ndjson solution.ndjson`
+#      checks them.  This runs the exporter and the JSON reader at scale.  The
+#      exporter skips `unsafe` declarations (the `@[implemented_by]` fast
+#      paths); an accept also shows that no exported constant refers to one
+#      (an unknown constant is a rejection).
 #
-# WHAT IS NOT EXPORTED, and why.
+# THE VERDICT AND THE COST at `compare` 274f01384 (task #628), `--verified`,
+# instructions:u, peak RSS as the checker reports it, wall on a 96-thread
+# machine:
 #
-#   * `ConLeche.Challenge` — the Palomar challenge statement is a deliberate
-#     `sorry` (see `tests/trust-surface.sh`).  It roots its own library,
-#     is in no default target, has no `.olean` in a normal build, and
-#     nothing imports it, so it cannot enter the cone.
-#   * `ConLecheTests` — fixtures, not the development.
-#   * `unsafe` declarations.  The exporter skips them unless
-#     `--export-unsafe` is given, and skips them even when they are
-#     reached as dependencies.  This is SAFE here and it was checked:
-#     the only `isUnsafe` constants in the cone are `ConLeche.Expr.beqB`,
-#     `ConLeche.Expr.beqFast`, `ConLeche.Expr.beqGo` (the `@[implemented_by]`
-#     pointer-equality fast path, `ConLeche/Kernel/Expr.lean`) and
-#     `ptrAddrUnsafe` itself, and **no safe constant in the cone refers
-#     to any of them** — an `@[implemented_by]` attribute is not part of
-#     the kernel declaration, so `ConLeche.Expr.beq` exports as the ordinary
-#     definition it is.  The stream therefore has no dangling reference.
-#     `ConLeche/Kernel/Expr.lean`'s `@[computed_field]` words are likewise
-#     invisible to the kernel and so to the export.
-#   * `partial def` bodies.  Each `partial def f` is two declarations:
-#     the internal `f._unsafe_rec` (`unsafe`, skipped as above) and `f`
-#     itself, an `opaque` constant.  The opaques ARE exported — 252 of
-#     them — and con-leche installs opaques as non-unfoldable constants
-#     (task #95).  There are no `.partial`-safety definitions in the
-#     cone at all.
+#   .olean   exit 0, challenge 95,586 declarations, solution 257,344,
+#            15 justified; 1.92 T; 1.22 GiB / 48 s at --jobs=4,
+#            6.15 GiB / 16 s at 96 workers.
+#   export   challenge 32 MB, solution 0.92 GB / 16.5M lines; 0.35 T,
+#            3.4 GB peak, 35 s (single-threaded).
+#   JSON     exit 0, challenge 6,221 declarations, solution 48,683,
+#            15 justified; 0.64 T; 0.92 GiB / 16 s at --jobs=4.
 #
 # USAGE
-#     scripts/selfcheck.sh [--trusted] [--fresh] [OUTDIR]
+#     scripts/selfcheck.sh [--jobs=N] [--no-json] [OUTDIR]
 #
-#   The script's exit code is the checker's (0 = the self-check accepts).
-#   `--fresh` deletes OUTDIR's root list and export first, so the check
-#   is of THIS tree — what
-#   `tests/arena.sh --selfcheck` runs.
+#   The exit code is the checker's: the first form's that is not 0 (1 reject,
+#   2 decline, 3 error); 1 also when an accepting run's justified names are
+#   not `comparator.json`'s; 3 when the build or the export fails.
+#   `--jobs=N` (default: 8, or the core count if lower) bounds the worker
+#   pool, and with it the memory (one memo state per worker).  There is no
+#   `ulimit -v` (CLAUDE.md); the bound is the `timeout`.  `--no-json` skips
+#   the second form.
 #
-#   OUTDIR defaults to `_tmp/selfcheck`.  Steps are skipped when their
-#   output is already there, so a re-run only redoes the check:
-#     $OUTDIR/con-leche-decls.txt the root declaration list
-#     $OUTDIR/con-leche-export.ndjson  the export
-#     $OUTDIR/check.log      the checker's stderr, timestamped
-#
-# THE EXPORTER.  `leanexport` in the repository toolchain's own `bin/`:
-# Lean ships an exporter since lean4#14885 (in releases after
-# v4.34.0-rc2), with lean4export's command line, and the toolchain's own
-# exporter is the one whose output format matches the tree's Lean.
-set -euo pipefail
+#   OUTDIR (default `_tmp/selfcheck`) receives, every run anew:
+#     names.txt                         comparator.json's names
+#     build.log                         the build of both sides and the binary
+#     olean.out, olean.err              the first form's verdict and stats
+#     challenge.ndjson, solution.ndjson the exports
+#     json.out, json.err                the second form's verdict and stats
+set -uo pipefail
 cd "$(dirname "$0")/.."
-ROOT=$PWD
 
-MODE=--verified
+usage() { echo "usage: scripts/selfcheck.sh [--jobs=N] [--no-json] [OUTDIR]" >&2; exit 3; }
 OUTDIR=_tmp/selfcheck
-FRESH=no
+JSON=on
+JOBS=$(nproc 2>/dev/null || echo 8); [ "$JOBS" -gt 8 ] && JOBS=8
 for a in "$@"; do
   case "$a" in
-    --trusted)  MODE=--trusted ;;
-    --verified) MODE=--verified ;;
-    --fresh)    FRESH=yes ;;
-    -*) echo "usage: scripts/selfcheck.sh [--trusted] [--fresh] [OUTDIR]" >&2; exit 3 ;;
+    --jobs=*)  JOBS=${a#--jobs=} ;;
+    --no-json) JSON=off ;;
+    -*) usage ;;
     *)  OUTDIR=$a ;;
   esac
 done
 mkdir -p "$OUTDIR"
 OUTDIR=$(cd "$OUTDIR" && pwd)
-if [ "$FRESH" = yes ]; then
-  rm -f "$OUTDIR/con-leche-decls.txt" "$OUTDIR/con-leche-export.ndjson"
+say() { echo "[selfcheck] $*"; }
+
+read -r C S <<< "$(python3 -c '
+import json; c=json.load(open("comparator.json"))
+print(c["challenge_module"], c["solution_module"])')" || { say "cannot read comparator.json"; exit 3; }
+python3 -c '
+import json; c=json.load(open("comparator.json"))
+print("\n".join(sorted(c["theorem_names"]+c["definition_names"])))' > "$OUTDIR/names.txt" \
+  || { say "cannot read comparator.json"; exit 3; }
+mapfile -t NAMES < "$OUTDIR/names.txt"
+
+# The challenge is in no default target, so a plain `lake build` leaves a
+# stale `.olean` of it in place; build both sides here.
+say "building $C $S con-leche"
+timeout 3600 lake build "$C" "$S" con-leche > "$OUTDIR/build.log" 2>&1 \
+  || { say "build FAILED"; tail -20 "$OUTDIR/build.log"; exit 3; }
+LIBDIR=$(timeout 120 lake env lean --print-libdir) || { say "no toolchain libdir"; exit 3; }
+BIN=.lake/build/bin/con-leche
+
+verdict=0
+# $1: form, $2: exit code, $3: output file
+judge() {
+  local code=$2
+  if [ "$code" != 0 ]; then
+    say "$1: exit $2"; grep -v '^con-leche: stats' "$3" | tail -10
+  elif ! diff <(sed -n 's/^con-leche: [a-z]* \(.*\) justified by the solution$/\1/p' "$3" | sort) \
+              "$OUTDIR/names.txt" > "$OUTDIR/names.diff"; then
+    say "$1: the justified names are not comparator.json's (< run, > config):"
+    head -20 "$OUTDIR/names.diff"
+    code=1
+  else
+    say "$1: $(grep -o 'accepted [0-9]* declarations, [0-9]* axioms justified' "$3") \
+($(grep -o '[0-9]* declarations accepted' "$3") in the solution)"
+  fi
+  if [ "$verdict" = 0 ]; then verdict=$code; fi
+}
+
+# ---------------------------------------------------------------- the .olean form
+say "olean: --olean --compare -- $C $S (--verified --jobs=$JOBS)"
+timeout 3600 "$BIN" --verified --jobs="$JOBS" --olean --compare \
+  --search-path="$PWD/.lake/build/lib/lean:$LIBDIR" -- "$C" "$S" \
+  > "$OUTDIR/olean.out" 2> "$OUTDIR/olean.err"
+judge olean $? "$OUTDIR/olean.out"
+
+# ---------------------------------------------------------------- the JSON form
+if [ "$JSON" = on ]; then
+  EXPORT_BIN="$(timeout 120 lake env lean --print-prefix)/bin/leanexport"
+  [ -x "$EXPORT_BIN" ] || { say "the toolchain ships no leanexport ($EXPORT_BIN)"; exit 3; }
+  say "exporting the cones of ${#NAMES[@]} names from $C and $S"
+  timeout 1800 lake env "$EXPORT_BIN" "$C" -- "${NAMES[@]}" > "$OUTDIR/challenge.ndjson" \
+    && timeout 1800 lake env "$EXPORT_BIN" "$S" -- "${NAMES[@]}" > "$OUTDIR/solution.ndjson" \
+    || { say "export FAILED"; exit 3; }
+  say "json: --compare -- challenge.ndjson solution.ndjson (--verified --jobs=$JOBS)"
+  timeout 3600 "$BIN" --verified --jobs="$JOBS" --compare \
+    -- "$OUTDIR/challenge.ndjson" "$OUTDIR/solution.ndjson" \
+    > "$OUTDIR/json.out" 2> "$OUTDIR/json.err"
+  judge json $? "$OUTDIR/json.out"
 fi
 
-TOOLCHAIN=$(cat lean-toolchain)
-# The library roots (the lakefile's `defaultTargets` plus the certificate
-# library and the `con-leche` executable's root).  `ConLeche.Challenge` and the
-# test library are deliberately absent; see the header.
-ROOTS=(ConLeche ConLeche.Term ConLeche.SetModel ConLeche.Semantics ConLeche.Model
-       ConLeche.Verify.Cached ConLeche.MainTheorem ConLeche.PinGen.Certs Main)
-
-# ---------------------------------------------------------------- 1/4
-EXPORT_BIN="$(lean --print-prefix)/bin/leanexport"
-[ -x "$EXPORT_BIN" ] || {
-  echo "[selfcheck] $TOOLCHAIN ships no leanexport ($EXPORT_BIN)" >&2; exit 3; }
-echo "[selfcheck] exporter: $EXPORT_BIN"
-
-# ---------------------------------------------------------------- 2/4
-if [ ! -s "$OUTDIR/con-leche-decls.txt" ]; then
-  echo "[selfcheck] collecting the root declaration list"
-  lake env lean --run scripts/SelfcheckDecls.lean "${ROOTS[@]}" \
-    > "$OUTDIR/con-leche-decls.txt"
-fi
-echo "[selfcheck] $(wc -l < "$OUTDIR/con-leche-decls.txt") root declarations"
-
-# ---------------------------------------------------------------- 3/4
-# The exporter is cheap (2.4 GB peak RSS, ~25 s at task #199) — it is the
-# CHECK that is Mathlib-scale, not this.
-if [ ! -s "$OUTDIR/con-leche-export.ndjson" ]; then
-  echo "[selfcheck] exporting"
-  timeout 3600 lake env "$EXPORT_BIN" "${ROOTS[@]}" \
-    -- $(cat "$OUTDIR/con-leche-decls.txt") > "$OUTDIR/con-leche-export.ndjson"
-fi
-echo "[selfcheck] export: $(du -h "$OUTDIR/con-leche-export.ndjson" | cut -f1), \
-$(wc -l < "$OUTDIR/con-leche-export.ndjson") lines"
-
-# ---------------------------------------------------------------- 4/4
-lake build con-leche
-echo "[selfcheck] checking ($MODE)"
-# `--progress` is not passed by default; add it by hand for a
-# diagnostic run (it changes no verdict: the heartbeat is printed
-# between the steps of the one driver, Main.lean).  `--jobs=8` keeps
-# the pool's memory modest on a large shared machine (one memo state
-# per worker).  There is NO `ulimit -v` (CLAUDE.md): it caps address
-# space, which the worker threads' stack reservations exhaust long
-# before any real memory is used (`failed to create thread`, exit 134
-# at the default job count); the bound is the `timeout`.
-set +e
-timeout 4h ./.lake/build/bin/con-leche "$MODE" --jobs=8 \
-  "$OUTDIR/con-leche-export.ndjson" \
-  2> >(while IFS= read -r l; do printf '%s %s\n' "$(date +%H:%M:%S)" "$l"; done \
-        | tee "$OUTDIR/check.log" >&2)
-code=$?
-echo "[selfcheck] exit $code"
-exit $code
+say "exit $verdict"
+exit $verdict

@@ -200,14 +200,12 @@ if tests/quote-gate.sh; then :; else fail=1; fi
 # Repo content must not reference local (absolute home) paths.
 if tests/no-local-paths.sh; then :; else fail=1; fi
 
-# THE CHALLENGE GATE (tasks #281, #627).  `ConLeche/Challenge.lean` is a
+# THE CHALLENGE GATE (tasks #281, #627, #628).  `ConLeche/Challenge.lean` is a
 # deliberate dead end — not in `defaultTargets`, imported by nothing — so
-# `lake build` and `lake test` never look at it.  This gate builds it (sorry
-# warnings and no other diagnostic) and runs the self-compare: con-leche checks
-# the challenge against `ConLeche.MainTheorem` (`--olean --compare`), every hole
-# and stated theorem justified by the solution, the justified names exactly
-# `comparator.json`'s.  1.9 T instructions:u; the modular form
-# (`tests/challenge.sh --modular`, 7.4 T) is not run here.
+# `lake build` and `lake test` never look at it.  This gate builds it: the sorry
+# warnings and no other diagnostic.  Its comparison with the solution is the
+# self-check below; the modular form (`tests/challenge.sh --modular`, 7.4 T) is
+# not run here.
 if tests/challenge.sh; then :; else fail=1; fi
 
 # THE IMPORT GATE (task #235).  Two questions no other gate asks and the
@@ -231,15 +229,16 @@ if tests/binary-link.sh; then :; else fail=1; fi
 # on corrupted copies of them, every verdict pinned.
 if tests/olean.sh; then :; else fail=1; fi
 
-# THE SELF-CHECK (task #199; a sub-gate since task #342 R1).
-# `scripts/selfcheck.sh --fresh` exports this tree's own development
-# (every con-leche declaration and its dependency cone, ~0.7 GB of
-# NDJSON) and runs the checker on it at `--verified --jobs=8`: under a
-# minute with the export (2 CPU-minutes); the exporter is the toolchain's
-# own `leanexport`.  The gate is the checker's exit 0.
+# THE SELF-CHECK (tasks #199, #628; a sub-gate since task #342 R1).
+# `scripts/selfcheck.sh` checks the challenge against the solution with
+# `--compare`, from the built `.olean` files and from the toolchain
+# exporter's JSON of both cones: each exit 0, the justified names exactly
+# `comparator.json`'s.  2.9 T instructions:u in all, ~1.6 GiB peak at
+# `--jobs=8` (the exporter's 3.4 GB is the run's peak).  The gate is the
+# script's exit 0.
 if [ "$SELFCHECK" = on ]; then
-  if scripts/selfcheck.sh --fresh _tmp/selfcheck-gate > _tmp/selfcheck-gate.log 2>&1; then
-    echo "selfcheck: $(grep -o 'accepted [0-9]* declarations' _tmp/selfcheck-gate.log | tail -1)"
+  if scripts/selfcheck.sh _tmp/selfcheck-gate > _tmp/selfcheck-gate.log 2>&1; then
+    grep -E '^\[selfcheck\] (olean|json): accepted' _tmp/selfcheck-gate.log | sed 's/^\[selfcheck\] /selfcheck: /'
   else
     echo "SELFCHECK FAIL: see _tmp/selfcheck-gate.log"; tail -5 _tmp/selfcheck-gate.log
     fail=1

@@ -953,10 +953,13 @@ names and types, and its imports are specification only: the statements' notions
 import closure). The theorems therefore constrain the solution's implementation of those
 functions, and a reader who takes them as facts about the binary trusts that the binary is built
 from it. `comparator.json` names the theorems and the holes for [`lake comparator`](https://lean-lang.org/doc/reference/latest/ValidatingProofs/#validating-comparator), which checks
-`ConLeche/MainTheorem.lean` against the challenge; `tests/challenge.sh` makes the same check with
-con-leche itself, `--olean --compare -- ConLeche.Challenge ConLeche.MainTheorem` over the built
-tree's `.olean` files, every hole and every theorem justified by the solution's constant
-(`--modular` runs it through the scheduler).
+`ConLeche/MainTheorem.lean` against the challenge. The self-check (`scripts/selfcheck.sh`, in the
+battery and CI) makes the same check with con-leche itself: `--olean --compare --
+ConLeche.Challenge ConLeche.MainTheorem` over the built tree's `.olean` files, and `--compare`
+over the toolchain exporter's JSON of the cones of the names `comparator.json` lists, each
+justifying exactly those names. The checker so checks that its own main theorems hold for the
+implementation the binary is built from (`tests/challenge.sh --modular` runs the check through
+the scheduler).
 
 **A challenge module by module** (`ConLeche/Driver/CompareModule.lean`, `--compare` with
 `--check-graph`, `--module`, `--modular` or `--schedule`). No process loads either closure merged:
@@ -2103,7 +2106,7 @@ and every such line carries its reason.
 | `ConLeche/Model/Modular/` | The modular theorem at con-leche's models: a module's own records installed on its context's model, keeping every context leaf and every proof's leaf the canonical proof (`ProofLeaves`, `Proofs.lean`, `Step.lean`); a context read from its sources, stated without modules (`Read.lean`), and derived from the local checks (`Valid.lean`); the context's model built from its sources' models, every law of a context constant read off its source's (`Restrict*.lean`); the instance of the abstract interface (`Instance.lean`) and the compatible family (`Main.lean`); the family over what each module sees, at an accepted run and at the driver (`Sees.lean`, `SeesMain.lean`), and at a compared run, over the challenge's closure (`SeesCompare.lean`); a copy at other level-parameter names holds where its stored constant does (`ConLeche/Model/IsModelRename.lean`). |
 | `ConLeche/Model/Solution/`, `ConLeche/Model/Solution.lean` | A stream checked with a solution has a model: the solution's model renamed to the input's level-parameter names (`Rename.lean`, over `ConLeche/Model/CopyStmt.lean`), a record of shared names given the solution's leaves (`Shared.lean`, through the context reading of `Model/Modular`), a justified axiom given the solution's value (`Justified.lean`), the input's fold (`Fold.lean`) and the assembly (`Solution.lean`). The justification's accept read as a closed shared set is `ConLeche/Verify/Cached/Cone.lean`, the record mates `Mates.lean`. |
 | `ConLeche/Model/IsModelCompare.lean`, `ConLeche/Verify/CompareInput.lean` | `--olean --compare`'s accept has a model of the challenge's closure read through the trusted directories: the checked records store every constant of the closure (`chalChecked_inputStored`, a theorem read as a hole stored as the axiom of its statement), the closure's constants are the same on every snapshot agreeing under those directories (`closureConstants_local`), and a theorem of type `False` there is never accepted |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorems: for each way of running the binary, its accepted input has a model, and some say that it holds no constant of type `False`. The JSON ones' proofs are `ConLeche/Model/IsModelJson.lean`'s, over the checking function's own theorems (`model_exists`, `solution_model_exists`, `ConLeche/Model/PureChecker.lean`). `Challenge.lean` states the theorems about the runs with `sorry`, with the binary's functions they name as holes and specification imports only; `tests/challenge.sh` checks it against `MainTheorem.lean` with con-leche itself. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorems: for each way of running the binary, its accepted input has a model, and some say that it holds no constant of type `False`. The JSON ones' proofs are `ConLeche/Model/IsModelJson.lean`'s, over the checking function's own theorems (`model_exists`, `solution_model_exists`, `ConLeche/Model/PureChecker.lean`). `Challenge.lean` states the theorems about the runs with `sorry`, with the binary's functions they name as holes and specification imports only; `scripts/selfcheck.sh` checks it against `MainTheorem.lean` with con-leche itself. |
 | `native/` | `nat_hash.c`: the hash of a `Nat` literal of 2^64 and more, all its 64-bit words mixed; Lean's own function, vendored until the toolchain ships it. Compiled and linked by `lakefile.lean`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
@@ -2130,10 +2133,12 @@ listed one no longer reached fails too; a definition with a cached twin is reach
 nothing executed and is not listed), the
 binary link gate (`tests/binary-link.sh`: the compiled binary links no module of the `Lean`
 package, so no proof module the driver imports brings `Lean.Meta` along), the pin
-dump freshness, the challenge comparison (`tests/challenge.sh`: the
-challenge module builds with its `sorry` warnings and nothing else,
-and con-leche's `--olean --compare` of it against the solution accepts,
-justifying exactly the names `comparator.json` lists),
+dump freshness, the challenge gate (`tests/challenge.sh`: the
+challenge module builds with its `sorry` warnings and nothing else),
+the self-check (`scripts/selfcheck.sh`: con-leche's `--compare` of the
+challenge against the solution, from the `.olean` files and from the
+exporter's JSON, accepts both and justifies exactly the names
+`comparator.json` lists),
 the arena tutorial tests, the end-to-end fixtures and the legacy
 binder-field fixtures with
 pinned verdicts, the `.olean` gate (`tests/olean.sh`: the committed
