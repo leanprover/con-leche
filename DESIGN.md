@@ -126269,3 +126269,9 @@ and the hoist read them, but no lemma needs their content, so `LoadOf` leaves th
 `workerFacts_load`, `home_records`, `home_rows`, `readPartNames_header`, `copy_behind`,
 `part_behind`, `behind_sub` take `LoadOf` instead of `loadAt … = some l`.  Option (b) (fuel for
 `usesGo`/`frontierWalk`) was not needed.
+
+*Gates* at 8ce712e34: `lake build`, `lake test` warning-free; `tests/arena.sh` in full, exit 0
+(olean 560/560, e2e 635/635, sweeps clean, self-check both forms, shake and pub-imports clean,
+link and quote gates).  *Cost* (the only binary change is `ownRoots`' argument):
+`--olean --modular --jobs=8 -- Init` 445 245 695 901 instructions:u (base 445 201 529 652,
++0.010 %); verdict lines identical.
