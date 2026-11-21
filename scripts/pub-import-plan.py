@@ -54,7 +54,7 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
-    # con-ron #166: `PureRun.lean`'s statements name `BlockRun` (through `Scoped`) and
+    # task #629 (con-ron #166): `PureRun.lean`'s statements name `BlockRun` (through `Scoped`) and
     # `FreshNames` (`PushChain`, through `IotaRead`); `IsModelRecords.lean`'s name `constantsOf`
     # (`IsModel`), `checkDecl` (`Kernel.CheckDecl`) and reach `ConstantInfo.dropCaps` by
     # dot-notation (`BasisBlock`).  Each measured by demoting it alone (unknown identifier

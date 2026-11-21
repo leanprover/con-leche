@@ -126150,7 +126150,7 @@ the self-check; CLAUDE.md's battery line is still right; README untouched.
 (the self-check's two `accepted` lines, the trusted and `--jobs` sweeps as recorded); the new
 `scripts/selfcheck.sh` on its own, exit 0; `actionlint` on `ci.yml`, clean.
 
-## con-ron #166: the modular proof over the pure fold (2026-11-21, con-ron/166-pure-worker; base master 5ea446d5c)
+## TASK #629 — the modular proof over the pure fold (con-ron #166) (2026-11-21, con-ron/166-pure-worker; base master 5ea446d5c)
 
 **Why** (con-ron task #166, the Rust port's modular checking).  con-ron's Theorem 1 relates its
 checker to the pure specification fold (`checkDecl` at the fueled operations).  The modular
@@ -126232,10 +126232,10 @@ allowlisted, one entry added; no public import demotable, five measured fallback
 trust-surface, plain-reach, binary-link, challenge, no-local-paths, quote gate, fragment gate; the
 overview and whitepaper link gates after re-anchoring (`IsModel.lean`, `Modular.lean`, re-read
 the citing paragraphs; the whitepaper's "accepted … by the declaration fold's own step" now says
-the pure fold's steps, which the cached fold is proved to give).  Not landed (an upstream proposal
-for con-ron's sync).
+the pure fold's steps, which the cached fold is proved to give).  First an upstream proposal
+for con-ron's sync; landed on master as task #629, below.
 
-### con-ron #166 cont.: the pin list a parameter, and the home's load stated relationally (2026-11-21)
+### Task #629 cont. (con-ron #166): the pin list a parameter, and the home's load stated relationally (2026-11-21)
 
 Two more facts a port could not reproduce, found by con-ron's lane L6.
 
@@ -126275,3 +126275,10 @@ and the hoist read them, but no lemma needs their content, so `LoadOf` leaves th
 link and quote gates).  *Cost* (the only binary change is `ownRoots`' argument):
 `--olean --modular --jobs=8 -- Init` 445 245 695 901 instructions:u (base 445 201 529 652,
 +0.010 %); verdict lines identical.
+
+*Landed* on master as task #629 (2026-11-21) at con-ron's 6fa2f307e (`con-ron/166-pins-home`,
+which contains `con-ron/166-pure-worker`), with the record numbered.  Gates re-run at the landed
+tree: `lake build`, `lake test` warning-free; `tests/arena.sh` in full, exit 0 (olean 560/560,
+e2e 635/635, arena tutorial 90/92 as recorded, trusted/`--jobs=1`/`--jobs=4` sweeps clean,
+self-check both forms, 77 axiom pins, shake, pub-imports, plain-reach, binary-link, link and
+quote gates).
