@@ -36,7 +36,7 @@ theorem _root_.ConLeche.Driver.PubReach.first {sp : Roots} {fs : FS} {a b : Name
 
 namespace Run
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS} (R : Run pins sp fs)
 
 /-- **The importer's copy of a name is a copy of it on the snapshot.** -/
 theorem importerSpot_copyAt {M : Name} (hM : M ∈ R.names) {y : Name} {i : Nat} {s : Spot}

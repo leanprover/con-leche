@@ -54,6 +54,17 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #629 (con-ron #166): `PureRun.lean`'s statements name `BlockRun` (through `Scoped`) and
+    # `FreshNames` (`PushChain`, through `IotaRead`); `IsModelRecords.lean`'s name `constantsOf`
+    # (`IsModel`), `checkDecl` (`Kernel.CheckDecl`) and reach `ConstantInfo.dropCaps` by
+    # dot-notation (`BasisBlock`).  Each measured by demoting it alone (unknown identifier
+    # `BlockRun`, `PureRun.lean:195`; `FreshNames`, `:82`; `constantsOf`, `IsModelRecords.lean:77`;
+    # `checkDecl`, `:467`; invalid field `dropCaps`, `:798`).
+    ('ConLeche.Verify.Cached.PureRun', 'ConLeche.Verify.Cached.Scoped'),
+    ('ConLeche.Verify.Cached.PureRun', 'ConLeche.Verify.Inductives.IotaRead'),
+    ('ConLeche.Verify.IsModelRecords', 'ConLeche.IsModel'),
+    ('ConLeche.Verify.IsModelRecords', 'ConLeche.Kernel.CheckDecl'),
+    ('ConLeche.Verify.IsModelRecords', 'ConLeche.Verify.BasisBlock'),
     # task #627: the Verify olean files' statements name the specification's `ViewOf`,
     # `InClosure` (`Files.lean:643`, `:653`) and `Under`, `FS.AgreeUnder` (`Local.lean:149`,
     # `:150`) through these.  Each measured by demoting it alone (unknown identifier at the line).

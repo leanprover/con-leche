@@ -375,10 +375,10 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
     (h : (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs hs
       (.ok 0) hs') :
     ∃ m jobs, Olean.parseModName root = some m ∧
-      WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs m jobs := by
+      WorkerAccepted natOpPinSets (searchPathOf dirs) fs m jobs := by
   suffices H : ModelIO.AllOk (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root])
       fs hs (fun c => c = 0 → ∃ m jobs, Olean.parseModName root = some m ∧
-        WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs m jobs) from H 0 hs' h rfl
+        WorkerAccepted natOpPinSets (searchPathOf dirs) fs m jobs) from H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [helpWanted_module, parseArgs_module, List.isEmpty_nil, Bool.and_true,
       Bool.not_true, Bool.false_eq_true, ite_false, ite_true]
@@ -398,7 +398,7 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS} {hs hs' : HS}
           simp only [runReq] at hc
           rcases hc with ⟨⟨R, T⟩, _, hT, hc⟩ | ⟨e, he, -⟩
           · obtain ⟨hR, hp, hT⟩ := workerTables_ok (CmpReq.solRoots_bare _) hT
-            exact ⟨m, _, rfl, checkModuleG_accept (modTables_within hR hp hT) hR hp hc⟩
+            exact ⟨m, _, rfl, (checkModuleG_accept (modTables_within hR hp hT) hR hp hc).accepted⟩
           · cases he
   · simp
 
@@ -444,7 +444,7 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
       m ∈ C.map (·.1) ∧
       (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
       (C.map fun e => rk e.1).Nodup ∧
-      ∀ e ∈ C, WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs e.1 1 := by
+      ∀ e ∈ C, WorkerAccepted natOpPinSets (searchPathOf dirs) fs e.1 1 := by
   suffices H : ModelIO.AllOk (runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root])
       fs hs (fun c => c = 0 → ∃ m, Olean.parseModName root = some m ∧ ∃ C : List Graph.Node,
         ∃ rk : Name → Nat,
@@ -452,7 +452,7 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
         m ∈ C.map (·.1) ∧
         (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
         (C.map fun e => rk e.1).Nodup ∧
-        ∀ e ∈ C, WorkerAccepted .verified Cached.maxNatSizeDefault (searchPathOf dirs) fs e.1 1) from H 0 hs' h rfl
+        ∀ e ∈ C, WorkerAccepted natOpPinSets (searchPathOf dirs) fs e.1 1) from H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [helpWanted_modular, parseArgs_modular, List.isEmpty_nil, Bool.and_true,
       Bool.not_true, Bool.false_eq_true, ite_false, ite_true]
@@ -475,7 +475,7 @@ theorem runArgs_modular_accept {dirs root : String} {fs : FS} {hs hs' : HS}
             (sp := searchPathOf dirs) rfl hc
           obtain ⟨rk, h1, h2, h3, h4, -⟩ := Graph.graphOf_ok rfl hC
           exact ⟨m, rfl, C.toList, rk, fun e he => (h1 e he).plain, h2 m (by simp), h3, h4,
-            fun e he => hall e he⟩
+            fun e he => (hall e he).accepted⟩
   · simp
 
 /-- **`runArgs` on `--olean --compare` arguments, in the model**: at any arguments that ask for
@@ -687,13 +687,13 @@ theorem runArgs_moduleT_accept {T D root : String} {fs : FS} {hs hs' : HS}
     (h : (runArgs ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D,
       "--", root] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ m jobs, Olean.parseModName root = some m ∧ ∀ C S : Name,
-      WorkerAccepted .verified Cached.maxNatSizeDefault
+      WorkerAccepted natOpPinSets
         (⟨C, S, searchPathOf T, searchPathOf D, none⟩ : CmpReq).solRoots fs m jobs := by
   obtain ⟨n1, n2, n3, n4⟩ := paths_ne T D
   suffices H : ModelIO.AllOk (runArgs ["--olean", "--module", "--trusted-search-path=" ++ T,
       "--search-path=" ++ D, "--", root]) fs hs (fun c => c = 0 → ∃ m jobs,
         Olean.parseModName root = some m ∧ ∀ C S : Name,
-        WorkerAccepted .verified Cached.maxNatSizeDefault
+        WorkerAccepted natOpPinSets
           (⟨C, S, searchPathOf T, searchPathOf D, none⟩ : CmpReq).solRoots fs m jobs) from
     H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
@@ -717,7 +717,7 @@ theorem runArgs_moduleT_accept {T D root : String} {fs : FS} {hs hs' : HS}
             Bool.false_eq_true, ↓reduceIte, runReq] at hc
           rcases hc with ⟨⟨R, Tb⟩, _, hT, hc⟩ | ⟨e, he, -⟩
           · obtain ⟨hR, hp, hT⟩ := workerTables_ok (CmpReq.solRoots_bare _) hT
-            exact ⟨m, _, rfl, fun _ _ => checkModuleG_accept (modTables_within hR hp hT) hR hp hc⟩
+            exact ⟨m, _, rfl, fun _ _ => (checkModuleG_accept (modTables_within hR hp hT) hR hp hc).accepted⟩
           · cases he
   · simp
 
@@ -745,7 +745,7 @@ theorem runArgs_cmpModuleT_accept {T D c s : String} {fs : FS} {hs hs' : HS}
     (h : (runArgs ["--olean", "--module", "--compare", "--trusted-search-path=" ++ T,
       "--search-path=" ++ D, "--", c, s] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ C S jobs, Olean.parseModName c = some C ∧ Olean.parseModName s = some S ∧
-      WorkerAccepted .verified Cached.maxNatSizeDefault
+      WorkerAccepted natOpPinSets
         (⟨C, S, searchPathOf T, searchPathOf D, none⟩ : CmpReq).solRoots fs C jobs
         #[Graph.solutionImport S] := by
   obtain ⟨n1, n2, n3, n4⟩ := paths_ne T D
@@ -753,7 +753,7 @@ theorem runArgs_cmpModuleT_accept {T D c s : String} {fs : FS} {hs hs' : HS}
       "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs hs
       (fun v => v = 0 → ∃ C S jobs, Olean.parseModName c = some C ∧
         Olean.parseModName s = some S ∧
-        WorkerAccepted .verified Cached.maxNatSizeDefault
+        WorkerAccepted natOpPinSets
           (⟨C, S, searchPathOf T, searchPathOf D, none⟩ : CmpReq).solRoots fs C jobs
           #[Graph.solutionImport S]) from
     H 0 hs' h rfl
@@ -793,7 +793,7 @@ theorem runArgs_cmpModuleT_accept {T D c s : String} {fs : FS} {hs hs' : HS}
           simp only [checkCmpModuleG, ModelIO.bind_ok] at hv
           obtain ⟨w, _, -, hv⟩ := hv
           rcases w with _ | e
-          · exact ⟨C, S, _, rfl, rfl, checkModuleG_accept (modTables_within hR hp hT) hR hp hv⟩
+          · exact ⟨C, S, _, rfl, rfl, (checkModuleG_accept (modTables_within hR hp hT) hR hp hv).accepted⟩
           · simp only [diagLine, ModelIO.bind_ok, ModelIO.liftIO_iff, ModelIO.pure_iff,
               Except.ok.injEq] at hv
             obtain ⟨_, _, -, hv, -⟩ := hv
@@ -827,7 +827,7 @@ theorem runArgs_modularCmpT_accept {T D c s : String} {fs : FS} {hs hs' : HS}
       let r : CmpReq := ⟨C, S, searchPathOf T, searchPathOf D, none⟩
       ∃ jobs Cg Tg, ModelIO.CanGive (Graph.graphOf r.solRoots [C] jobs
         (Graph.cmpExtra C S)) fs (.ok (Cg, Tg)) ∧
-      ∀ e ∈ Cg.toList, WorkerAccepted .verified Cached.maxNatSizeDefault r.solRoots fs e.1 1
+      ∀ e ∈ Cg.toList, WorkerAccepted natOpPinSets r.solRoots fs e.1 1
         (Graph.cmpExtra C S e.1) := by
   obtain ⟨n1, n2, n3, n4⟩ := paths_ne T D
   suffices H : ModelIO.AllOk (runArgs ["--olean", "--modular", "--compare",
@@ -836,7 +836,7 @@ theorem runArgs_modularCmpT_accept {T D c s : String} {fs : FS} {hs hs' : HS}
         let r : CmpReq := ⟨C, S, searchPathOf T, searchPathOf D, none⟩
         ∃ jobs Cg Tg, ModelIO.CanGive (Graph.graphOf r.solRoots [C] jobs
           (Graph.cmpExtra C S)) fs (.ok (Cg, Tg)) ∧
-        ∀ e ∈ Cg.toList, WorkerAccepted .verified Cached.maxNatSizeDefault r.solRoots fs e.1 1
+        ∀ e ∈ Cg.toList, WorkerAccepted natOpPinSets r.solRoots fs e.1 1
           (Graph.cmpExtra C S e.1)) from H 0 hs' h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · have hhelp : helpWanted ["--olean", "--modular", "--compare", "--trusted-search-path=" ++ T,
@@ -871,7 +871,7 @@ theorem runArgs_modularCmpT_accept {T D c s : String} {fs : FS} {hs hs' : HS}
           generalize (none : Option Nat).getD _ = j at hv
           simp only [runReq, Bool.false_or, ↓reduceIte] at hv
           obtain ⟨Cg, Tg, hg, hall⟩ := checkModularG_accept (CmpReq.solRoots_bare _) hv
-          exact ⟨C, S, rfl, rfl, _, Cg, Tg, hg, fun e he => hall e he⟩
+          exact ⟨C, S, rfl, rfl, _, Cg, Tg, hg, fun e he => (hall e he).accepted⟩
   · simp
 
 end ConLeche.Driver

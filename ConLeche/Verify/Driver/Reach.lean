@@ -1208,14 +1208,14 @@ context ending with it (`ImportOk.ordered`), so in the context, every name it re
 there, the context is `EnvWF`, and every root that is not an own name is stored there. -/
 theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : Std.HashSet Name}
     {roots : Array Name} {fs : FS} {r : Reach} {hs hs' : HS}
-    (h : (reach rd m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
+    {fl : FlagInfer} (h : (reachWith fl rd m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
     (∀ k (hk : k < r.ctx.toList.length),
       RecordScoped (streamEnv (r.ctx.toList.take (k + 1))) r.ctx.toList[k]) ∧
     (∀ d ∈ r.ctx.toList, RecordScoped (streamEnv r.ctx.toList) d) ∧
     (∀ d ∈ r.ctx.toList, ∀ y ∈ recordReads d, ((streamEnv r.ctx.toList).find? y).isSome = true) ∧
     EnvWF (streamEnv r.ctx.toList) ∧
     (∀ x ∈ roots, own.contains x = false → ((streamEnv r.ctx.toList).find? x).isSome = true) := by
-  unfold reach at h
+  unfold reachWith at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨⟨c, x⟩, _, -, h⟩ := h
   rcases x with e | extra
@@ -1237,7 +1237,7 @@ theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : 
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList
+    cases hf : fl (o.map (L.ctx.getD · default)).toList
       c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>

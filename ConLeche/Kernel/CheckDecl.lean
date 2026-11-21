@@ -185,4 +185,16 @@ def checkDeclsPure (ops : CheckerOps m) (pins : List NatOpPinSet)
     (ds : List Declaration) : m Env :=
   ds.foldlM (checkDecl mode ops pins) Env.empty
 
+/-- **An accepting run of the pure fold, from any environment**: a chain of accepting
+`checkDecl` steps at the fueled operations, each at its own fuel.  The pure fold is one from the
+empty environment (`PureRun.of_foldlM`); the modular checks accept a module's own records by
+one from its context (`Modular.ImportOk.accepted`); every accepting run of the cached fold the
+binary runs, from a well-formed canonical index, is one (`Cached.DeclsRun.pureRun`,
+`ConLeche/Verify/Cached/PureRun.lean`). -/
+inductive PureRun (pins : List NatOpPinSet) : List Declaration → Env → Env → Prop where
+  | nil (E : Env) : PureRun pins [] E E
+  | cons {d : Declaration} {ds : List Declaration} {E E₁ E' : Env}
+      (h : ∃ F, checkDecl .verified (fueledOps .verified F) pins E d = .ok E₁)
+      (rest : PureRun pins ds E₁ E') : PureRun pins (d :: ds) E E'
+
 end ConLeche

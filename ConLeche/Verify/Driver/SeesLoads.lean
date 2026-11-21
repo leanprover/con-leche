@@ -37,7 +37,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-- **What a header with imports added loads, at a part** (task #619): `LoadsAt` over a module's
 own imports followed by `x`, the private part where some derivation loads it whole, the exported
@@ -129,7 +129,7 @@ theorem stmtSkel_of_entry {r : Region} {loc : Nat} {e : CEntryF Name Expr}
 
 namespace Run
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run pins sp fs)
 
 /-- **A quotient constant of a part of a module of the run is at its pin's name**: the private
 constant behind it is an own record, which the module's check asks pinned. -/
@@ -194,7 +194,7 @@ theorem quot_name (hl : ∀ M, R.look M = sp) {M : Name} (hx : R.x M = #[])
   have hmem : Declaration.quotDecl kq E.cv ∈
       ownDecls sp fs M (R.w M) :=
     List.mem_map.2 ⟨_, hown, rfl⟩
-  have hhit := declsRun_quot hrun hmem
+  have hhit := hrun.quot hmem
   intro c hc
   simp only [Declaration.constants, List.mem_singleton] at hc
   subst hc

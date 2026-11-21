@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Driver.Routes
 public import ConLeche.OleanInput
 public import ConLeche.Verify.IsModelRecords
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Cached.IotaReadC
 import ConLeche.Verify.Inductives.IotaRead
 import ConLeche.Verify.OleanInput
@@ -35,7 +36,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-! ## The constants of a stored constant, by name -/
 
@@ -179,7 +180,7 @@ private theorem covered_of_merged {mg : Merged} {ds : Array Declaration} (F : Me
     exact ⟨d', hd', fun _ => ⟨c', hc', hst'⟩⟩
 
 /-- **The home's merge is a merge of its emission.** -/
-private theorem homeMergeFacts {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts sp fs M jobs w x) :
+private theorem homeMergeFacts {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts pins sp fs M jobs w x) :
     MergeFacts (homeMerged w) w.emitted := by
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, hN, hO, hb, hem, -⟩ := home_records hw
   have hnd : (homeMerged w).order.toList.Nodup := by
@@ -193,7 +194,7 @@ private theorem homeMergeFacts {M : Name} {jobs : Nat} {w : WorkerRead} {x : Arr
 
 /-- **A kept constant of a module's private view has its merged copy** in its worker's home's
 merge, standing for it. -/
-private theorem home_view_entry {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts sp fs M jobs w x)
+private theorem home_view_entry {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts pins sp fs M jobs w x)
     {d : ModDecoded} (hv : ViewOf sp fs M d) {e : CEntryF Name Expr} (he : e ∈ d.constants)
     (hsk : e.kind.skipped = false) :
     ∃ e', (homeMerged w).map[e.name]? = some e' ∧ EntryStands e' e := by
@@ -225,7 +226,7 @@ private part, filtered alike, that it stands for (`Behind`), of its name. -/
 private theorem part_behind {h : Name} {f : ModFiles} {r : Region} {a : UInt64} {sk : ModSkel} {l : Loaded}
     {expo : Array Expo} (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f))
     (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
-    (hload : loadAt 0 h f = some l) (hcv : checkViews h f l = .ok expo) {L : OLeanLevel}
+    (hload : LoadOf 0 h f l) (hcv : checkViews h f l = .ok expo) {L : OLeanLevel}
     {r1 : Region} {a1 : UInt64} (hreg1 : (f.upTo L).viewRegion L = some (r1, a1)) {skE : ModSkel}
     (hskE : moduleSkel r1 a1 = some skE) {loc1 : Nat} (hloc : loc1 ∈ skE.consts)
     {s1 : CEntryF UInt64 UInt64} (hs1 : constSkel r1 loc1 = some s1) {n : Name}
@@ -456,7 +457,7 @@ theorem recKey_of_copyStmt {d : Declaration} {cv : ConstantVal} (h : copyStmt? d
   | quotDecl k cv' => cases h
   | indDecl b n => cases h
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run pins sp fs)
 
 /-- **What the emission covers is stored by an own record**: the emitted records are the own
 records (the hoist moves them), each passing the reserved names' check in the own run. -/
@@ -473,7 +474,7 @@ private theorem covered_own {M : Name} (hM : M ∈ R.names) (hx : R.x M = #[]) {
   have hmem : fillDecl F d ∈ ownDecls (R.look M) fs M (R.w M) := List.mem_map_of_mem hown
   have hbn : basisNamesOk (fillDecl F d) = basisNamesOk d := by cases d <;> rfl
   have hrec : (fillDecl F d).constants = d.constants := by cases d <;> rfl
-  obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ declsRun_basisNamesOk (R.run M hM) _ hmem)
+  obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ (R.run M hM).basisNamesOk _ hmem)
   refine ⟨c', ?_, hst⟩
   rw [R.dev_rk hM]
   exact mem_constantsOf.2 ⟨_, hmem, hrec ▸ hc'⟩
@@ -485,7 +486,7 @@ theorem stored_name {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
   obtain ⟨d, hd, hcd⟩ := mem_constantsOf.1 hc
   have hd' : d ∈ ownDecls (R.look M) fs M (R.w M) := by
     rw [R.dev_rk hM] at hd; exact hd
-  obtain ⟨ci, hci, hst⟩ := records_stored (declsRun_blockRead (R.run M hM) d hd') c hcd
+  obtain ⟨ci, hci, hst⟩ := records_stored ((R.run M hM).blockRead d hd') c hcd
   have hn : ci.name = c.name := by
     show ci.toConstantVal.name = c.toConstantVal.name
     rw [hst.1]
@@ -596,7 +597,7 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
     have hmem : fillDecl F d ∈ ownDecls (R.look M) fs M (R.w M) := List.mem_map_of_mem hown'
     have hbn : basisNamesOk (fillDecl F d) = basisNamesOk d := by cases d <;> rfl
     have hrec : (fillDecl F d).constants = d.constants := by cases d <;> rfl
-    obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ declsRun_basisNamesOk (R.run M hM) _ hmem)
+    obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ (R.run M hM).basisNamesOk _ hmem)
     refine ⟨c', ?_, hst⟩
     rw [R.dev_rk hM]
     exact mem_constantsOf.2 ⟨_, hmem, hrec ▸ hc'⟩

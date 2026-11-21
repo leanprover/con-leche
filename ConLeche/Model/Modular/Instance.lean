@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Model.Modular.Restrict
 public import ConLeche.Model.Modular.Step
 import ConLeche.Modular.Generic
@@ -32,8 +33,8 @@ con-leche's graded models (`conlecheSemantics`), so that the modular theorem is 
   (`ProofByX`): a definition, theorem or axiom of the type of a theorem of another environment,
   both reading it alike over `C`; the theorem's model reads it as a truth value (`ProofLeaves`),
   so does a model of `C` agreeing with it, and so the copy's model.
-* **Acceptance** is the fold's run from the context; **the step** is `declsRun_proofs`
-  (`Step.lean`).
+* **Acceptance** is the pure fold's run from the context (`PureRun`); **the step** is
+  `pureRun_proofs` (`Step.lean`).
 -/
 
 namespace ConLeche.Model.Modular
@@ -210,11 +211,10 @@ theorem amalgamateX {C : XEnv} {ι : Type} {E : ι → XEnv} (h : AssembledX C E
 
 /-! ## Acceptance and the step -/
 
-/-- **Acceptance**: the fold's run from the context's canonical index, every name exposed. -/
-@[expose] def AcceptsX (pins : List NatOpPinSet) (maxNatSize : Nat) (Γ : XEnv) (D : List Declaration)
+/-- **Acceptance**: the pure fold's run from the context's environment, every name exposed. -/
+@[expose] def AcceptsX (pins : List NatOpPinSet) (Γ : XEnv) (D : List Declaration)
     (Γ' : XEnv) : Prop :=
-  Γ'.1 = streamEnv D Γ.1 ∧ (∀ n, Γ'.2 n) ∧
-    ∃ k q, DeclsRun .verified pins maxNatSize none D (k, mkFEnv Γ.1) q
+  Γ'.1 = streamEnv D Γ.1 ∧ (∀ n, Γ'.2 n) ∧ ∃ E, PureRun pins D Γ.1 E
 
 theorem streamEnv_isSome_base : ∀ (D : List Declaration) {E : Env} {n : Name},
     (E.find? n).isSome = true → ((streamEnv D E).find? n).isSome = true
@@ -225,10 +225,10 @@ theorem streamEnv_isSome_base : ∀ (D : List Declaration) {E : Env} {n : Name},
 
 /-- **The step**: every model of the context extends to one of the own environment, with the
 same leaves on the context. -/
-theorem AcceptsX.step {pins : List NatOpPinSet} {maxNatSize : Nat} {Γ Γ' : XEnv} {D : List Declaration}
-    (h : AcceptsX pins maxNatSize Γ D Γ') (m : MMod V Γ) :
+theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declaration}
+    (h : AcceptsX pins Γ D Γ') (m : MMod V Γ) :
     ∃ m' : MMod V Γ', ∀ n, StoresX Γ n → StoresX Γ' n ∧ m'.1 n = m.1 n := by
-  obtain ⟨hΓ', hall, k, q, hrun⟩ := h
+  obtain ⟨hΓ', hall, E, hrun⟩ := h
   obtain ⟨-, -, hPL, mp, hcov, hnat, hag⟩ := m.2
   have hPL' : ProofLeaves V Γ.1 mp.base2.acval := hPL.of_alike (fun n ci hf ψ =>
     denote_alike (R := Γ.1)
@@ -237,8 +237,8 @@ theorem AcceptsX.step {pins : List NatOpPinSet} {maxNatSize : Nat} {Γ Γ' : XEn
         exact ⟨c, c, hc, hc, .inl rfl⟩)
       (fun x hx => hag x hx) (fun _ => rfl) ψ 0 _
       (mp.base2.wf.consts ci (ConLeche.Env.find?_mem hf)).2.2.1) hag
-  have key := declsRun_proofs hrun rfl mp hcov hnat hPL'
-  have henv : q.2.env = Γ'.1 := by rw [declsRun_env .verified hrun, hΓ']; rfl
+  have key := pureRun_proofs hrun mp hcov hnat hPL'
+  have henv : E = Γ'.1 := by rw [hrun.env, hΓ']
   rw [henv] at key
   obtain ⟨mp', hleaf, hcov', hnat', hPL''⟩ := key
   refine ⟨⟨mp'.base2.acval, mp'.base2.cval_closed, mp'.base2.acval_wellDenoted, hPL'', mp', hcov',
@@ -331,7 +331,7 @@ theorem proofByX_val {C E E' : XEnv} {n : Name} (h : ProofByX C E E' n) (mC : MM
 
 variable (V) in
 /-- **Con-leche's models as a modular semantics.** -/
-@[expose, reducible] noncomputable def conlecheSemantics (pins : List NatOpPinSet) (maxNatSize : Nat) :
+@[expose, reducible] noncomputable def conlecheSemantics (pins : List NatOpPinSet) :
     ModularSemantics.{0, 0} where
   Env := XEnv
   Name := Name
@@ -351,7 +351,7 @@ variable (V) in
   proofBy_val h mC m m' hag hag' := proofByX_val h mC m m' (fun c hc hs => hag c hc hc hs)
     fun c hc hs => hag' c hc hc hs
   Decls := List Declaration
-  Accepts := AcceptsX pins maxNatSize
+  Accepts := AcceptsX pins
   step h m := h.step m
 
 end ConLeche.Model.Modular

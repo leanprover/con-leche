@@ -160,13 +160,29 @@ structure WorkerReads where
   /-- every name two loaded modules hold, its copies merged by Lean's rule -/
   clashes : Array Clash
 
-/-- The doubly held names, each with all its copies, in the load order. -/
+/-- `clashCopies`' table at one later copy: the name's copies so far, its first copy then its
+later ones. -/
+def ccStep (first : Std.HashMap Name Copy) (m : Std.HashMap Name (Array Copy))
+    (x : Name × Copy) : Std.HashMap Name (Array Copy) :=
+  match x with
+  | (n, c) => m.alter n fun
+      | none => some #[(first[n]?).getD c, c]
+      | some a => some (a.push c)
+
+/-- `clashCopies`' step at one later copy: the table, and the names in the order of their
+second copies (a name is added when the table first holds it). -/
+def ccOrderStep (first : Std.HashMap Name Copy)
+    (acc : Std.HashMap Name (Array Copy) × Array Name) (x : Name × Copy) :
+    Std.HashMap Name (Array Copy) × Array Name :=
+  (ccStep first acc.1 x, if acc.1.contains x.1 then acc.2 else acc.2.push x.1)
+
+/-- **The doubly held names, each with all its copies, in the load order**: the names in the
+order of their second copies (the load order of `ix.more`), each with its first copy and then its
+later ones.  The order is the load order's, never the hash table's, so a clash's place among the
+clashes, and through it the reach's roots and the context's order, depend on the files alone. -/
 def clashCopies (ix : NameIndex) : Array (Name × Array Copy) :=
-  let m : Std.HashMap Name (Array Copy) := ix.more.foldl (fun m (n, c) =>
-    m.alter n fun
-      | none => some #[(ix.first[n]?).getD c, c]
-      | some a => some (a.push c)) {}
-  m.toArray
+  let (m, order) := ix.more.foldl (ccOrderStep ix.first) ({}, #[])
+  order.filterMap fun n => (m[n]?).map (n, ·)
 
 /-- **A worker's own part with imports added** (a compared challenge's, task #608): the
 header's imports followed by `x`, and no constant of its own, so that none of its names is

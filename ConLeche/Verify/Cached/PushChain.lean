@@ -149,7 +149,7 @@ theorem PushChain.pushTable {env : Env} {fe : FEnv} (h : PushChain env fe)
 
 /-- A list of names, pairwise distinct and all fresh at `env`: pushing
 constants of these names in this order is a fresh chain. -/
-def FreshNames (env : Env) (ns : List Name) : Prop :=
+@[expose] def FreshNames (env : Env) (ns : List Name) : Prop :=
   ns.Nodup ∧ ∀ n ∈ ns, env.find? n = none
 
 /-- After pushing the head's constant, the tail is fresh at the

@@ -78,12 +78,12 @@ theorem clashAgree_names (env : ReachEnv ModelIO) (fs : FS) :
 context**: `clashAgree` makes its name a root of the reach. -/
 theorem reach_clash {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads}
     {own : Std.HashSet Name} {roots : Array Name} {fs : FS} {r : Reach} {hs hs' : HS}
-    (h : (reach rd m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') {cl : Clash}
+    {fl : FlagInfer} (h : (reachWith fl rd m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') {cl : Clash}
     (hcl : cl ∈ wr.clashes.toList)
     (hcp : ∃ x ∈ cl.copies.toList, (wr.index.at x.1).isSome = true)
     (hown : own.contains cl.name = false) :
     ((streamEnv r.ctx.toList).find? cl.name).isSome = true := by
-  unfold reach at h
+  unfold reachWith at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨⟨c, x⟩, _, hca, h⟩ := h
   rcases x with e | extra
@@ -107,7 +107,7 @@ theorem reach_clash {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads}
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList c'.pending.toList with
+    cases hf : fl (o.map (L.ctx.getD · default)).toList c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>
     simp only [hv, hf, ModelIO.pure_iff, Except.ok.injEq] at h
@@ -125,11 +125,11 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 namespace Run
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run pins sp fs)
 
 /-- **Every passed read agrees, at every module of the run.** -/
 theorem agreeAll : ∀ M ∈ R.names, R.AgreeAll M :=
@@ -208,7 +208,7 @@ theorem sees_unique (hl : ∀ M, R.look M = sp) {M : Name}
         · rfl
         · exact absurd (Array.isEmpty_iff.1 hxe) hx
       exact ownNamesOf_loaded hxe hf
-  obtain ⟨_, _, hreach⟩ := (R.facts M hM).reach
+  obtain ⟨_, _, _, _, hreach⟩ := (R.facts M hM).reach
   have := reach_clash hreach hcl ⟨_, hmem, by rw [hq₁]; rfl⟩ hown
   rw [hcln] at this
   rw [R.dev_rk hM] at hn

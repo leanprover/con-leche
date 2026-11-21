@@ -19,7 +19,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-- A presentation installs the names it presents. -/
 theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n ∈ declNames d) :
@@ -42,7 +42,7 @@ theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n
 
 namespace Run
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run pins sp fs)
 
 /-- The reach's environment at module `M`'s worker. -/
 @[expose] def envOf (M : Name) : ReachEnv ModelIO :=
@@ -65,7 +65,7 @@ passed reads `P` (`Run.capture`'s statement). -/
       ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
   (∀ x ∈ P, Passed (R.look M) fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
   (∀ cl ∈ wr.clashes, ClashOk (R.look M) fs wr (· ∈ pend) cl) ∧
-  inferFlags r.ctx.toList pend = .ok () ∧
+  (∃ fl, FlagsOk fl ∧ fl r.ctx.toList pend = .ok ()) ∧
   (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
     s.part.level = .private ∧ CopyAt (R.look M) fs s ∧ Reached (R.look M) fs wr s.part.mod ∧ s.pos.name = y) ∧
   (∀ x ∈ P, Reached (R.look M) fs wr x.1 ∧ Origin (R.look M) fs env r.ctx r.homes x)
@@ -204,7 +204,7 @@ theorem iface_presented {M : Name} (hM : M ∈ R.names) :
   refine ⟨?_, fun d hdm n hn => ?_⟩
   · have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (a : Roots) (M' : Name) (jM : Nat)
         (wM : WorkerRead) (xM : Array ImportRec) (i : Nat), a.Trims sp ∧
-          WorkerFacts a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+          WorkerFacts pins a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
           wM.reach.homes[i]? = some M := fun e he => by
       rw [hd] at he
       obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he

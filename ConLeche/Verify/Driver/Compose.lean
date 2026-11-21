@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Driver.Reach
-public import ConLeche.Verify.Driver.Loads
+import ConLeche.Verify.Driver.Loads
 public import ConLeche.Verify.Driver.Capture
 import ConLeche.Verify.Cached.Fill
 import ConLeche.Verify.Driver.Clashes
@@ -19,7 +19,7 @@ modular theorem applies to it.
 
 * **The run** (`Run`): the graph check's closure `C` with its ranks `rk` (one-to-one on `C`,
   decreasing along every import), and for every module of `C` an accepted worker on the
-  snapshot (`WorkerFacts` and the own records' accepted run).
+  snapshot (`WorkerFacts` and the own records' accepted run of the pure fold, `PureRun`).
 * **The development** (`Run.dev`): module `j` is the module of `C` of rank `j`, empty if there is
   none.  Its context is its worker's sorted context, its own records the worker's own records with
   the theorems' values in place, a context name is read from the rank of the home of the record
@@ -46,7 +46,7 @@ open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 /-- **An accepted run over a closure** (see the module docstring); `x` the imports the run adds
 to a module's header (a compared challenge's solution, task #608), no module of the closure
 importing a module with imports added. -/
-structure Run (sp : Roots) (fs : FS) (maxNatSize : Nat) where
+structure Run (pins : List NatOpPinSet) (sp : Roots) (fs : FS) where
   C : List Graph.Node
   rk : Name → Nat
   x : Name → Array ImportRec
@@ -60,22 +60,20 @@ structure Run (sp : Roots) (fs : FS) (maxNatSize : Nat) where
   trims : ∀ M, (look M).Trims sp
   w : Name → WorkerRead
   jobs : Name → Nat
-  facts : ∀ M ∈ C.map (·.1), WorkerFacts (look M) fs M (jobs M) (w M) (x M)
-  run : ∀ M ∈ C.map (·.1), DeclsRun .verified natOpPinSets maxNatSize none
-    (ownDecls (look M) fs M (w M))
-    ((w M).reach.ctx.size, mkFEnv (streamEnv (w M).reach.ctx.toList))
-    ((w M).reach.ctx.size + (w M).own.size,
-      mkFEnv (streamEnv (ownDecls (look M) fs M (w M)) (streamEnv (w M).reach.ctx.toList)))
+  facts : ∀ M ∈ C.map (·.1), WorkerFacts pins (look M) fs M (jobs M) (w M) (x M)
+  run : ∀ M ∈ C.map (·.1), PureRun pins (ownDecls (look M) fs M (w M))
+    (streamEnv (w M).reach.ctx.toList)
+    (streamEnv (ownDecls (look M) fs M (w M)) (streamEnv (w M).reach.ctx.toList))
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-- **The run of a closure every module of which has an accepted worker.** -/
 noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
-    (dflt : WorkerRead) : Run sp fs maxNatSize := by
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs)
+    (dflt : WorkerRead) : Run pins sp fs := by
   classical
   exact
   { C, rk, x := fun _ => #[], edges, inj
@@ -90,14 +88,14 @@ noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
 
 namespace Run
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run pins sp fs)
 
 /-- The run's modules. -/
 @[expose] def names : List Name := R.C.map (·.1)
 
 /-- **A module of the run with no import added**: its worker's facts, as a worker's. -/
 theorem facts₀ {M : Name} (hM : M ∈ R.names) (hx : R.x M = #[]) :
-    WorkerFacts (R.look M) fs M (R.jobs M) (R.w M) := by
+    WorkerFacts pins (R.look M) fs M (R.jobs M) (R.w M) := by
   have := R.facts M hM
   rw [hx] at this
   exact this
@@ -107,7 +105,7 @@ theorem ofAccepted_names (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs) (dflt : WorkerRead) :
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs) (dflt : WorkerRead) :
     (Run.ofAccepted C rk good edges inj acc dflt).names = C.map (·.1) := by
   classical
   rfl
@@ -117,7 +115,7 @@ theorem ofAccepted_x (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs)
     (dflt : WorkerRead) (m : Name) :
     (Run.ofAccepted C rk good edges inj acc dflt).x m = #[] := by
   classical
@@ -128,7 +126,7 @@ theorem ofAccepted_look (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize sp fs M jobs)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs)
     (dflt : WorkerRead) (m : Name) :
     (Run.ofAccepted C rk good edges inj acc dflt).look m = sp := by
   classical
@@ -322,7 +320,7 @@ theorem localOk_of
       h ∈ R.names ∧ R.rk h < R.rk M ∧ R.x h = #[])
     (hreads : ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
       RecordScoped (readsAlike R.dev (R.rk M) ((R.dev (R.rk M)).src n)) d)
-    (j : Nat) : LocalOk .verified natOpPinSets maxNatSize R.dev j := by
+    (j : Nat) : LocalOk pins R.dev j := by
   cases hj : R.nameOf j with
   | none =>
     have hd : R.dev j = emptyMod := by simp [dev, hj]
@@ -330,7 +328,7 @@ theorem localOk_of
       fun n hn => ?_, by simp [hd, emptyMod, Module.context, streamEnv, Env.empty],
       fun d hd' => by simp [hd, emptyMod] at hd', fun d hd' => by simp [hd, emptyMod] at hd',
       fun d hd' => by simp [hd, emptyMod] at hd', fun k hk => by simp [hd, emptyMod] at hk,
-      ⟨_, by rw [hd]; exact DeclsRun.nil _⟩⟩⟩
+      ⟨_, by rw [hd]; exact PureRun.nil _⟩⟩⟩
     simp [hd, emptyMod, Module.context, streamEnv, Env.empty, Env.find?] at hn
   | some M =>
     obtain ⟨hM, rfl⟩ := R.nameOf_some hj
@@ -353,7 +351,7 @@ theorem localOk_of
       (by rw [hd]; rfl) (by rw [hd]; rfl) _ hsrcd
     have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (a : Roots) (M' : Name) (jM : Nat)
         (wM : WorkerRead) (xM : Array ImportRec) (i : Nat), a.Trims sp ∧
-          WorkerFacts a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+          WorkerFacts pins a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
           wM.reach.homes[i]? = some M := fun e he => by
       rw [hd] at he
       obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
@@ -557,7 +555,7 @@ theorem agree_of_routes {dev : Nat → Module} {i : Nat} {Pr : Nat → Name → 
 
 namespace Run
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run pins sp fs)
 
 /-- **What a module reaches by imports, from its own header.** -/
 theorem rootImports {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names)
@@ -636,7 +634,7 @@ theorem capture {M : Name} (hM : M ∈ R.names) :
           ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
       (∀ x ∈ P, Passed (R.look M) fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
       (∀ cl ∈ wr.clashes, ClashOk (R.look M) fs wr (· ∈ pend) cl) ∧
-      inferFlags r.ctx.toList pend = .ok () ∧
+      (∃ fl, FlagsOk fl ∧ fl r.ctx.toList pend = .ok ()) ∧
       (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
         s.part.level = .private ∧ CopyAt (R.look M) fs s ∧ Reached (R.look M) fs wr s.part.mod ∧ s.pos.name = y) ∧
       (∀ x ∈ P, Reached (R.look M) fs wr x.1 ∧ Origin (R.look M) fs env r.ctx r.homes x) := by
@@ -645,9 +643,11 @@ theorem capture {M : Name} (hM : M ∈ R.names) :
   obtain ⟨_, _, hrd⟩ := hw.reads
   obtain ⟨hparts, hindex⟩ := workerReads_index hrd
   obtain ⟨-, -, -, -, hsize, -, -, hcm⟩ := workerReads_loads hrd
-  obtain ⟨_, _, hre⟩ := hw.reach
-  exact reach_capture hparts hindex (Nat.le_of_eq hsize)
+  obtain ⟨fl, hfl, _, _, hre⟩ := hw.reach
+  obtain ⟨loc, pend, P, h1, h2, h3, h4, h5, h6, h7⟩ := reach_capture hparts hindex
+    (Nat.le_of_eq hsize)
     (fun cl hcl x hx => hcm cl (Array.mem_toList_iff.2 hcl) x (Array.mem_toList_iff.2 hx)) hre
+  exact ⟨loc, pend, P, h1, h2, h3, h4, ⟨fl, hfl, h5⟩, h6, h7⟩
 
 /-- **Every home of a context record is a module of the run of smaller rank.** -/
 theorem home_rank {M : Name} (hM : M ∈ R.names) {k : Nat} {h : Name}

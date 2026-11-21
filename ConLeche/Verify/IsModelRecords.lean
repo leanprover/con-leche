@@ -11,6 +11,11 @@ import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Copies
+import ConLeche.Verify.Cached.PureRun
+public import ConLeche.Kernel.CheckDecl
+import ConLeche.Verify.Inductives.BlockInv
+import ConLeche.Verify.Inductives.GenRecRun
+import ConLeche.Semantics.Bridge.Sound
 public import ConLeche.Verify.BasisBlock
 
 public section
@@ -455,6 +460,47 @@ theorem declsRun_blockRead {mode : CheckMode} {pins : List NatOpPinSet} {maxNatS
       exact checkDeclStepC_blockRead mode pins _ block nP _ fe₁ s₁ hC
     · exact ih d hd block nP hdb
 
+/-- **An accepted pure block step read its block** (`BlockRead`): its run (`BlockRun`) holds
+the grouped constructors distinct, and the recursors' pins their grouping. -/
+theorem checkDecl_blockRead {pins : List NatOpPinSet} {F : Nat} {env env' : Env}
+    {block : List ConstantInfo} {nP : Nat}
+    (h : checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) = .ok env') :
+    BlockRead nP block := by
+  obtain ⟨-, hrun⟩ := Semantics.checkDeclRun_ofEnvFactsK h
+  simp only [Semantics.DeclKindRun, Semantics.DeclIndRunDispatchK] at hrun
+  cases hbp : readBlock nP block with
+  | error e => simp only [hbp] at hrun
+  | ok p₀ =>
+    simp only [hbp] at hrun
+    have hd := readBlock_declared hbp
+    obtain ⟨ms, hms, -, -, hndC, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms,
+      kinds, nfs, pos, st, isorts, out, -, hInd, -, -, -, -, -, -, -, hRec, -, -, -, -, -⟩ := hrun
+    obtain ⟨-, -, -, -, hctors⟩ := reduceMembers_inv hd hms
+    obtain ⟨-, -, -, s0, -, -, hp1, -⟩ := checkBlockInds_shape hInd
+    subst hp1
+    have hNC : ({ p₀ with members := ms } : BlockShape).allCtors = p₀.allCtors := by
+      show (ms.map (·.ctors)).flatten = (p₀.members.map (·.ctors)).flatten
+      rw [hctors]
+    unfold checkBlockRec at hRec
+    obtain ⟨R⟩ := genRecCheck_run hRec
+    have hg := targetRecPins_grouping R.pins
+    simp only [BlockShape.withSort_allCtors, hNC] at hg
+    exact ⟨p₀, hbp, by rw [← hNC]; exact hndC, hg⟩
+
+/-- **Every block of a pure run read.** -/
+theorem _root_.ConLeche.PureRun.blockRead {pins : List NatOpPinSet} {ds : List Declaration}
+    {E E' : Env} (h : PureRun pins ds E E') :
+    ∀ d ∈ ds, ∀ block nP, d = .indDecl block nP → BlockRead nP block := by
+  induction h with
+  | nil => intro _ h; exact nomatch h
+  | cons hs _ ih =>
+    intro d hd block nP hdb
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨F, hF⟩ := hs
+      subst hdb
+      exact checkDecl_blockRead hF
+    · exact ih d hd block nP hdb
+
 /-- **An accepted block step applied the ι reading rule** (`blockReadsOk`) at its output. -/
 theorem checkDeclStepC_reads (mode : CheckMode) (pins : List NatOpPinSet) (fe : FEnv)
     (block : List ConstantInfo) (nP : Nat) :
@@ -484,22 +530,6 @@ theorem checkDeclStepC_reads (mode : CheckMode) (pins : List NatOpPinSet) (fe : 
     · exact Yields.ofThrow
   · yields
     all_goals exact Yields.pure h
-
-/-- A constant a block installs is a type former, a constructor or one of its recursors. -/
-theorem blockConstants_rec {p : BlockShape} {ci : ConstantInfo} (h : ci ∈ blockConstants p)
-    {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
-    (hci : ci = .recInfo cv mI rP isK rules) : ci ∈ blockRecs p p.recs := by
-  unfold blockConstants at h
-  rcases List.mem_append.mp h with h | h
-  · rcases List.mem_append.mp h with h | h
-    · unfold blockFormers at h
-      obtain ⟨_, -, rfl⟩ := List.mem_map.mp h
-      exact nomatch hci
-    · unfold blockCtors at h
-      obtain ⟨_, -, h⟩ := List.mem_flatMap.mp h
-      obtain ⟨_, -, rfl⟩ := List.mem_map.mp h
-      exact nomatch hci
-  · exact h
 
 /-- **Every recursor an accepting run installs reads** at the run's end, or is a quotient
 constant. -/

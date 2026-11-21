@@ -535,9 +535,9 @@ satisfy the scope conditions.
 
 #real[
   The checks are stated over con-leche's own records
-  (#src("ConLeche/Modular.lean", 210, 230)[the local checks]): a context is a
+  (#src("ConLeche/Modular.lean", 213, 231)[the local checks]): a context is a
   list of records each of which an earlier module
-  #src("ConLeche/Modular.lean", 83, 93)[presents], as itself or as its
+  #src("ConLeche/Modular.lean", 86, 96)[presents], as itself or as its
   statement, so an inductive type reaches an importer with its whole block;
   every context name is read from one module; what a context record reads
   is stored in the context. A record of module $h$ means by a name it reads
@@ -548,13 +548,14 @@ satisfy the scope conditions.
   passes when the context's copy is that one, and otherwise the copy $h$'s
   view locates must agree with the context's. So the copy $h$'s view locates
   for each such name
-  #src("ConLeche/Modular.lean", 169, 193)[agrees] with the context's: it is
+  #src("ConLeche/Modular.lean", 172, 196)[agrees] with the context's: it is
   the copy of the module the name is read from, or one record loaded through two paths, or both are proofs
   of one statement whose names agree: an earlier module's copy of it, its
   names agreeing too, is a theorem, or else its type is inferred to be a
   proposition over the records before the name's; every record reads only itself and earlier
   records; and the module's own records are accepted from the context by the
-  declaration fold's own step.
+  pure declaration fold's steps, which the cached fold the executable runs is
+  proved to give.
   The theorem over the interface,
   #src("ConLeche/Modular/Generic.lean", 278, 279)[for any instance], is
   @thm:mod.

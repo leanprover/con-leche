@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Frontend.Olean
 public import ConLeche.Modular
-import ConLeche.Cached.Needs
 import ConLeche.Cached.ParsedC
 import ConLeche.Verify.Cached.DeclNames
 
@@ -929,10 +928,18 @@ structure Reach where
   searches : Nat
   inferred : Nat
 
-/-- **The reach of module `m`** from the names its own records read (`roots`): the clash
-rule's keys, the worklist, the context's validation, the inferred flags. -/
-def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (wr : WorkerReads)
-    (own : Std.HashSet Name) (roots : Array Name) : μ (Except CheckError Reach) := do
+/-- **A flag inference**: given the sorted context, accept or reject the recorded statements
+(`inferFlags`'s shape).  The reach is written over any inference (`reachWith`); the binary runs
+`inferFlags`, and the proofs ask of an inference only that its accept makes every recorded
+statement a proposition over the part below its name (`FlagsOk`, `Verify/Driver/PropPart.lean`). -/
+abbrev FlagInfer := List Declaration → List (String × Name × ConstantVal) → Except CheckError Unit
+
+/-- **The reach of module `m`** from the names its own records read (`roots`), with the flags
+inferred by `flags`: the clash rule's keys, the worklist, the context's validation, the inferred
+flags. -/
+def reachWith (flags : FlagInfer) {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name)
+    (wr : WorkerReads) (own : Std.HashSet Name) (roots : Array Name) :
+    μ (Except CheckError Reach) := do
   let env : ReachEnv μ := { rd, mod := m, wr, own, copies := clashCopiesOf wr }
   match ← clashAgree env {} wr.clashes.toList #[] with
   | (_, .error e) => pure (.error e)
@@ -954,10 +961,16 @@ def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (w
         match validateCtx ctx homes with
         | .error e => pure (.error e)
         | .ok () =>
-          match inferFlags ctx.toList c.pending.toList with
+          match flags ctx.toList c.pending.toList with
           | .error e => pure (.error e)
           | .ok () =>
             pure (.ok { ctx, homes, completed := c.completed,
                         searches := c.searches, inferred := c.pending.size })
+
+/-- **The reach of module `m`**, as the binary runs it: the flags inferred by the kernel
+(`inferFlags`). -/
+def reach {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (wr : WorkerReads)
+    (own : Std.HashSet Name) (roots : Array Name) : μ (Except CheckError Reach) :=
+  reachWith inferFlags rd m wr own roots
 
 end ConLeche.Driver

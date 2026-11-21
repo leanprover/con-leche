@@ -333,11 +333,12 @@ way.
 
 **Modular checking** rests on a theorem about a development of
 modules rather than one stream, the step `main_modular` below rests on,
-[`modular_isModel` in `ConLeche/Model/Modular/IsModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Modular/IsModel.lean#L53-L60):
+[`modular_isModel` in `ConLeche/Model/Modular/IsModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Modular/IsModel.lean#L55-L62):
 if every module passes the local checks of `ConLeche/Modular.lean`
 (its interface presents its own records; as an importer, its context
 is made of presented records read as their homes read them, and its
-own records are accepted from that context by the fold's step), then
+own records are accepted from that context by the pure fold's step,
+`checkDecl` at the fueled operations: `PureRun`), then
 every module has a model of its own constants (`IsModel`), and every
 module gives each name of its context the value the module it reads it
 from gives it. The local checks ask that
@@ -822,9 +823,13 @@ the own records alone over the index of the context's records followed by the ow
 (`buildIndex (ctx ++ own)`), each at its view, a theorem's value read in its check. Every own
 record's check passing is an accepting run of the own records from the context's environment
 (`checkDecls_of_jobs_from`, `ConLeche/Verify/Cached/StreamIndex.lean`). In the IO model
-(`ConLeche/Verify/Driver/Worker.lean`), every exit 0 is `WorkerAccepted` (`checkModuleG_accept`,
-`runArgs_module_accept`): what the run read and checked, and that run, with the theorems' values
-in place, which is `ImportOk.accepted`; with it `worker_local` gives the context's distinct
+(`ConLeche/Verify/Driver/Worker.lean`), every exit 0 is `WorkerRan` (`checkModuleG_accept`): what
+the run read and checked, and that run, with the theorems' values in place; at `--verified` the
+run, from the context's canonical index over a well-formed environment, is a run of the pure fold
+(`DeclsRun.pureRun`, `ConLeche/Verify/Cached/PureRun.lean`), so every exit 0 is `WorkerAccepted`
+(`WorkerRan.accepted`, `runArgs_module_accept`), whose run is `ImportOk.accepted`. What the run
+read is stated relationally where the proofs need no more: the reach's inferred flags by any
+inference sound for `TypeIsProp` (`reachWith`, `FlagsOk`; the binary's is `inferFlags`). With it `worker_local` gives the context's distinct
 names, one source per record, its closure and `EnvWF`, and `worker_thm` that every theorem of the
 module's private view by the specification is an own record with its value; `worker_local`
 gives the read order too (`ImportOk.ordered`). What relates the module to the others (that the
@@ -868,7 +873,7 @@ of theirs, from any open files, is one of the files' read from any open files, w
 outcomes whatever files are open) make every phase of the worker refine the same phase over
 the files (`ConLeche/Verify/Driver/Shared.lean`), so `checkModuleG_accept` holds for the tables'
 reads (`modTables_within`). At every exit 0 of the one-process mode there is the graph check's
-closure and, at every module of it, `WorkerAccepted` (`checkModularG_accept`,
+closure and, at every module of it, `WorkerAccepted` (`checkModularG_accept`'s `WorkerRan`,
 `runArgs_modular_accept`, `ConLeche/Verify/Driver/Modular.lean`): what `--check-graph` and
 `--module` at every module of the closure would give, from one run. Exit 0 needs every module's
 worker step to answer 0; a failure names the first failing module in the graph's order, with its

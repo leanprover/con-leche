@@ -1,14 +1,16 @@
 module
 
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.DeclPushes
-import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Driver.Provenance
 import ConLeche.Verify.Driver.Loads
+import ConLeche.Verify.CheckerF
+import ConLeche.Semantics.Bridge.Sound
 public import ConLeche.Verify.Driver.ReachFrom
 public import ConLeche.Verify.Driver.Worker
 
@@ -35,6 +37,8 @@ public section
 
 namespace ConLeche.Driver
 
+variable {pins : List NatOpPinSet}
+
 open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLeche.Cached
 
 /-! ## A module's own environment -/
@@ -48,11 +52,10 @@ open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLech
 @[expose] noncomputable def ownEnvOf (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) : Env :=
   streamEnv (ownDeclsOf sp fs M w) (streamEnv w.reach.ctx.toList)
 
-/-- **The own records accepted from the context** (`worker_local`'s run). -/
-@[expose] def OwnRun (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
+/-- **The own records accepted from the context** (`worker_local`'s run, of the pure fold). -/
+@[expose] def OwnRun (pins : List NatOpPinSet) (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
     Prop :=
-  ∃ q, DeclsRun mode natOpPinSets maxNatSize none (ownDeclsOf sp fs M w)
-    (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList)) q
+  ∃ E, PureRun pins (ownDeclsOf sp fs M w) (streamEnv w.reach.ctx.toList) E
 
 theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci ∈ E.consts) :
     E.find? ci.name = some ci := by
@@ -72,14 +75,13 @@ theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci
       exact ih hn.2 h'
 
 /-- **An accepted module's own environment names each constant once.** -/
-theorem ownEnv_nodup {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {M : Name} {jobs : Nat}
-    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hr : OwnRun mode maxNatSize sp fs M w) :
+theorem ownEnv_nodup {sp : Roots} {fs : FS} {M : Name} {jobs : Nat}
+    {w : WorkerRead} (hw : WorkerFacts pins sp fs M jobs w) (hr : OwnRun pins sp fs M w) :
     NodupNames (ownEnvOf sp fs M w) := by
-  obtain ⟨q, hq⟩ := hr
-  have hc := declsRun_chain mode hq (PushChain.refl _)
-  have he := declsRun_env mode hq
-  rw [ownEnvOf, show streamEnv w.reach.ctx.toList = (mkFEnv (streamEnv w.reach.ctx.toList)).env
-    from rfl, ← he]
+  obtain ⟨E, hq⟩ := hr
+  have hc := hq.chain (PushChain.refl _)
+  have he := hq.env
+  rw [ownEnvOf, ← he]
   refine hc.2.2.1 ?_
   have := (worker_ctx hw).2.2.2.2
   simpa [NodupNames, ConstantInfo.name] using this
@@ -93,7 +95,7 @@ theorem own_mem_ownEnv {sp : Roots} {fs : FS} {M : Name} {w : WorkerRead} {p : D
 
 /-- An emitted record is an own record. -/
 theorem emitted_own {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) : p ∈ w.own.toList := by
+    (hw : WorkerFacts pins sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) : p ∈ w.own.toList := by
   rw [hw.own]
   exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.2 (Array.mem_toList_iff.2 hp)
 
@@ -191,7 +193,7 @@ theorem workerReads_spec {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Arr
 
 /-- The private part's name table holds the worker's own table. -/
 theorem worker_ownTable {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) : PartNames sp fs ⟨M, .private⟩ w.reads.own := by
+    (hw : WorkerFacts pins sp fs M jobs w) : PartNames sp fs ⟨M, .private⟩ w.reads.own := by
   obtain ⟨_, _, h⟩ := hw.reads
   obtain ⟨own, hown, he⟩ := (workerReads_spec h).1
   rw [he, NamePositions.withImports_empty]
@@ -200,7 +202,7 @@ theorem worker_ownTable {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Work
 /-- **An exported copy is behind a private one**: a copy of `M`'s exported part has a copy of its
 name in `M`'s private part. -/
 theorem exported_behind {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
+    (hw : WorkerFacts pins sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
     (hl : s.part.level = .exported) :
     ∃ q : Spot, CopyAt sp fs q ∧ q.part = ⟨M, .private⟩ ∧ q.pos.name = s.pos.name := by
   obtain ⟨f, r0, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
@@ -221,7 +223,7 @@ theorem exported_behind {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Work
 
 /-- **A module's private part holds every name its exported part does.** -/
 theorem exported_sub_private {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {te tp : NamePositions}
+    (hw : WorkerFacts pins sp fs M jobs w) {te tp : NamePositions}
     (he : PartNames sp fs ⟨M, .exported⟩ te) (hp : PartNames sp fs ⟨M, .private⟩ tp)
     {q : NamePosition} (hq : q ∈ te.consts) : ∃ q' ∈ tp.consts, q'.name = q.name := by
   obtain ⟨q', ⟨t', ht', hq'⟩, hqp, hqn⟩ :=
@@ -282,66 +284,62 @@ theorem constsResolveF_readNames {fe : FEnv} :
     · exact he.1
     · exact constsResolveF_readNames he.2 n h
 
--- The walk splits at each of the check's guards and carries the rest of the clause into both
--- halves, as `checkConstantValC_fresh`'s.
-set_option maxHeartbeats 400000 in
-/-- **A checked statement is fresh and resolves.** -/
-theorem checkConstantValC_fresh_res (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantVal) {a b c : Bool} :
-    Yields (checkConstantValC mode fe cv a b c)
-      (fun _ => fe.find? cv.name = none ∧ constsResolveFC fe cv.type = true) := by
-  unfold checkConstantValC
-  yields
-  all_goals exact Yields.pure ⟨Option.not_isSome_iff_eq_none.mp (by assumption), by simp_all⟩
-
-/-- The statement a record checks with `checkConstantValC`: a definition's, theorem's, opaque
+/-- The statement a record checks with `checkConstantVal`: a definition's, theorem's, opaque
 constant's, or an axiom's at no `Quot.sound`. -/
 @[expose] def StmtRecord (d : Declaration) (cv : ConstantVal) : Prop :=
   (∃ v h, d = .defnDecl cv v h) ∨ (∃ v, d = .thmDecl cv v) ∨ (∃ v, d = .opaqueDecl cv v) ∨
     (d = .axiomDecl cv ∧ cv.name ≠ quotSoundName)
 
-/-- **An accepted statement record is fresh and its type resolves**, at the step's start. -/
-theorem checkDeclStepC_stmt {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
-    {d : Declaration} {cv : ConstantVal} (hd : StmtRecord d cv) :
-    Yields (checkDeclStepC mode pins fe d)
-      (fun _ => fe.find? cv.name = none ∧ constsResolveFC fe cv.type = true) := by
-  unfold checkDeclStepC checkDeclC
-  ybind
-  refine Yields.bind' (Q := fun _ => fe.find? cv.name = none ∧ constsResolveFC fe cv.type = true)
-    ?_ fun _ h => Yields.const h
-  unfold checkDeclKindC
-  rcases hd with ⟨v, h, rfl⟩ | ⟨v, rfl⟩ | ⟨v, rfl⟩ | ⟨rfl, hq⟩
-  · exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
-  · exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
-  · exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
-  · simp only [hq, ↓reduceIte]
-    exact Yields.bind' (checkConstantValC_fresh_res mode fe cv) fun _ h => Yields.const h
+/-- **An accepted statement record is fresh and its type resolves**, at the step's start: its
+run's `ConstantValRun`. -/
+theorem checkDecl_stmt {pins : List NatOpPinSet} {F : Nat} {env env' : Env} {d : Declaration}
+    {cv : ConstantVal} (hd : StmtRecord d cv)
+    (h : checkDecl .verified (fueledOps .verified F) pins env d = .ok env') :
+    env.find? cv.name = none ∧ cv.type.constsResolve env = true := by
+  obtain ⟨-, hrun⟩ := Semantics.checkDeclRun_ofEnvFactsK h
+  have key : ∀ {type'}, Semantics.ConstantValRun F env cv type' →
+      env.find? cv.name = none ∧ cv.type.constsResolve env = true := fun hcv => by
+    obtain ⟨rfl, hfr⟩ := constantValRun_type hcv
+    exact ⟨hfr, hcv.2.2.2.2.2.2.1⟩
+  rcases hd with ⟨v, hh, rfl⟩ | ⟨v, rfl⟩ | ⟨v, rfl⟩ | ⟨rfl, hq⟩
+  · obtain ⟨_, _, hcv, -⟩ := hrun; exact key hcv
+  · obtain ⟨-, _, _, hcv, -⟩ := hrun; exact key hcv
+  · obtain ⟨-, _, _, hcv, -⟩ := hrun; exact key hcv
+  · rcases hrun with ⟨hq', -⟩ | ⟨-, _, -, hcv, -⟩
+    · exact absurd hq' hq
+    · exact key hcv
+
+/-- A name a type reads, where the type resolves, is stored. -/
+theorem constsResolve_readNames {env : Env} {e : Expr} (h : e.constsResolve env = true) :
+    ∀ n ∈ e.readNames, (env.find? n).isSome = true := by
+  intro n hn
+  have := constsResolveF_readNames (fe := mkFEnv env) (by rw [constsResolveF_eq]; exact h) n hn
+  rwa [mkFEnv_find?] at this
 
 /-- **An accepted statement record's type does not read its own name.** -/
-theorem declsRun_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
+theorem _root_.ConLeche.PureRun.stmt_fresh {pins : List NatOpPinSet} {ds : List Declaration}
+    {E E' : Env} (h : PureRun pins ds E E') :
     ∀ d ∈ ds, ∀ cv, StmtRecord d cv → cv.name ∉ cv.type.readNames := by
   induction h with
   | nil => exact fun _ h => nomatch h
-  | @cons pd ds p p₁ q hstep rest ih =>
+  | cons hs _ ih =>
     intro d hd cv hcv
     rcases List.mem_cons.mp hd with rfl | hd
-    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
-      obtain ⟨hf, hr⟩ := checkDeclStepC_stmt hcv _ _ _ hC
-      rw [constsResolveFC_spec] at hr
+    · obtain ⟨F, hF⟩ := hs
+      obtain ⟨hf, hr⟩ := checkDecl_stmt hcv hF
       intro hn
-      have := constsResolveF_readNames hr _ hn
+      have := constsResolve_readNames hr _ hn
       rw [hf] at this
       cases this
     · exact ih d hd cv hcv
 
 /-- **An own statement record's type does not read its own name**, at an accepted worker. -/
-theorem own_stmt_fresh {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {M : Name}
-    {w : WorkerRead} (hrun : OwnRun mode maxNatSize sp fs M w) {d : Declaration}
+theorem own_stmt_fresh {sp : Roots} {fs : FS} {M : Name}
+    {w : WorkerRead} (hrun : OwnRun pins sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     cv.name ∉ cv.type.readNames := by
-  obtain ⟨q, hq⟩ := hrun
-  exact declsRun_stmt_fresh hq d hd cv hcv
+  obtain ⟨E, hq⟩ := hrun
+  exact hq.stmt_fresh d hd cv hcv
 
 /-! ## An own record's reads are stored -/
 
@@ -354,37 +352,31 @@ theorem find?_isSome_append {E E' : Env} {new : List ConstantInfo}
   exact ⟨c, by rw [h]; exact List.mem_append_right _ hc, he⟩
 
 /-- **The names an accepted statement record's type reads are stored after the run.** -/
-theorem declsRun_stmt_stored {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) (hp : p.2 = mkFEnv p.2.env) :
-    ∀ d ∈ ds, ∀ cv, StmtRecord d cv → ∀ n ∈ cv.type.readNames, (q.2.env.find? n).isSome = true := by
+theorem _root_.ConLeche.PureRun.stmt_stored {pins : List NatOpPinSet} {ds : List Declaration}
+    {E E' : Env} (h : PureRun pins ds E E') :
+    ∀ d ∈ ds, ∀ cv, StmtRecord d cv → ∀ n ∈ cv.type.readNames, (E'.find? n).isSome = true := by
   induction h with
   | nil => exact fun _ h => nomatch h
-  | @cons pd ds p p₁ q hstep rest ih =>
-    have hall := declsRun_chain mode (DeclsRun.cons hstep rest) (env := p.2.env) (hp ▸ PushChain.refl _)
-    obtain ⟨fe₁, s₁, hq₁, hC⟩ := declStep_ok hstep
-    have h₁ : PushChain p.2.env p₁.2 := by
-      have := declsRun_chain mode (DeclsRun.cons hstep (DeclsRun.nil p₁)) (env := p.2.env)
-        (hp ▸ PushChain.refl _)
-      exact this
+  | @cons pd ds E E₁ E' hs rest ih =>
+    obtain ⟨F, hF⟩ := hs
+    have hall : PushChain E (mkFEnv E') :=
+      (PureRun.cons ⟨F, hF⟩ rest).chain (PushChain.refl _)
     intro d hd cv hcv
     rcases List.mem_cons.mp hd with rfl | hd
-    · obtain ⟨-, hr⟩ := checkDeclStepC_stmt hcv _ _ _ hC
-      rw [constsResolveFC_spec] at hr
+    · obtain ⟨-, hr⟩ := checkDecl_stmt hcv hF
       intro n hn
-      have h0 := constsResolveF_readNames hr n hn
-      rw [hp, mkFEnv_find?] at h0
       obtain ⟨new, hnew, -⟩ := hall.2.1
-      exact find?_isSome_append hnew h0
-    · exact ih h₁.canon d hd cv hcv
+      exact find?_isSome_append hnew (constsResolve_readNames hr n hn)
+    · exact ih d hd cv hcv
 
 /-- **The names an own statement record's type reads are stored** in the own environment. -/
-theorem own_type_stored {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {M : Name}
-    {w : WorkerRead} (hrun : OwnRun mode maxNatSize sp fs M w) {d : Declaration}
+theorem own_type_stored {sp : Roots} {fs : FS} {M : Name}
+    {w : WorkerRead} (hrun : OwnRun pins sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     ∀ n ∈ cv.type.readNames, ((ownEnvOf sp fs M w).find? n).isSome = true := by
-  obtain ⟨q, hq⟩ := hrun
-  have := declsRun_stmt_stored hq rfl d hd cv hcv
-  rw [declsRun_env mode hq] at this
+  obtain ⟨E, hq⟩ := hrun
+  have := hq.stmt_stored d hd cv hcv
+  rw [hq.env] at this
   exact this
 
 /-- A name the context stores is stored in the own environment. -/
@@ -401,15 +393,15 @@ theorem ctx_stored_own {sp : Roots} {fs : FS} {M : Name} {w : WorkerRead} {n : N
 /-- **What an own record reads is stored in the context**, where the reach's roots keep it: no
 own name, and loaded or no name of a pinned own constant's fast path (`ownRoots`' filter). -/
 theorem own_reads_ctx {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) {y : Name}
+    (hw : WorkerFacts pins sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) {y : Name}
     (hy : y ∈ recordReads p) (ho : (ownNames w.home).contains y = false)
     (hk : (w.reads.index.first.contains y || !(w.home.constants.foldl
       (fun s c => (pinFootprint c.name).foldl (fun s n => s.insert n) s)
       ({} : Std.HashSet Name)).contains y) = true) :
     ((streamEnv w.reach.ctx.toList).find? y).isSome = true := by
-  obtain ⟨_, _, hr⟩ := hw.reach
+  obtain ⟨_, _, _, _, hr⟩ := hw.reach
   refine (reach_ok hr).2.2.2.2 y ?_ ho
-  show y ∈ ownRoots w.reads.index w.home w.emitted
+  show y ∈ ownRoots pins w.reads.index w.home w.emitted
   unfold ownRoots
   refine Array.mem_append.2 (.inl (Array.mem_filter.2 ⟨Array.mem_append.2 (.inl ?_), hk⟩))
   rw [← Array.foldl_toList]
@@ -691,7 +683,7 @@ does not hold no loaded module holds.  Header-fixpoint determinism is a hypothes
 (`hdet`, `Loads.lean`'s). -/
 theorem homeView_index {sp a L : Roots} (ha : a.Trims L) (hsL : sp.Trims L) {fs : FS} {M : Name}
     {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w)
+    (hw : WorkerFacts pins sp fs M jobs w)
     (hdet : ∀ ld ld', ModelIO.CanGive (headerFixpoint (moduleImports L)
         w.reads.own.header.isModule w.reads.own.header.imports) fs (.ok ld) →
       ModelIO.CanGive (headerFixpoint (moduleImports L)

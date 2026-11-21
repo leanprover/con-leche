@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Driver.ComposeReads
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Frontend.Prepare
@@ -17,6 +18,9 @@ import ConLeche.Verify.Driver.Groups
 public import ConLeche.Verify.Driver.Copies
 import ConLeche.Verify.Driver.Clashes
 import ConLeche.Verify.Driver.PropPart
+import ConLeche.Semantics.Bridge.Sound
+import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.BridgeDecl
 
 /-!
 # The routes: what a module's context stores, and how
@@ -30,6 +34,7 @@ capture check's pairs (`Routes.lean`) read:
 * `reader_ctx` — a reader of a passed pair stores the name it reads, where the name is loaded at
   it: by the pair's origin (a record's read, an `agreeCheck` partner read, a clash partner read).
 -/
+
 
 public section
 
@@ -84,26 +89,6 @@ theorem stmt_single {d : Declaration} {ci : ConstantInfo} (h : ci ∈ declConsta
       · cases h
       · rw [List.mem_singleton.1 h]; simp [*]
   | _ => simp only [declConstants, List.mem_singleton] at h ⊢; rw [h]
-
-/-- **An accepted step passed the reserved names' check.** -/
-theorem checkDeclStepC_basis {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
-    {d : Declaration} :
-    Yields (checkDeclStepC mode pins fe d) (fun _ => basisNamesOk d = true) := by
-  unfold checkDeclStepC checkDeclC
-  yields
-  all_goals exact Yields.pure (by assumption)
-
-/-- **Every record of an accepted run passed the reserved names' check.** -/
-theorem declsRun_basis {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) : ∀ d ∈ ds, basisNamesOk d = true := by
-  induction h with
-  | nil => exact fun _ h => nomatch h
-  | @cons pd ds p p₁ q hstep rest ih =>
-    intro d hd
-    rcases List.mem_cons.mp hd with rfl | hd
-    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
-      exact checkDeclStepC_basis _ _ _ hC
-    · exact ih d hd
 
 /-- **A presentation reads what the record it presents reads**, at a record that passed the
 reserved names' check. -/
@@ -190,38 +175,39 @@ theorem defn_presents {cv : ConstantVal} {v : Expr} {hh : ReducibilityHint} {p :
       · cases hm
   · cases p <;> simp [stmtOf] at he
 
--- The walk splits at each of the check's guards and carries the clause into both halves, as
--- `checkConstantValC_fresh_res`'s (`Copies.lean`) does, at its limit.
-set_option maxHeartbeats 400000 in
-/-- **An accepted check of a statement not an axiom's is not at the tolerated axiom's name.** -/
-theorem checkConstantValC_sorry {mode : CheckMode} {fe : FEnv} {cv : ConstantVal} {a b : Bool} :
-    Yields (checkConstantValC mode fe cv a b false) (fun _ => cv.name ≠ sorryAxName) := by
-  unfold checkConstantValC
-  yields
-  all_goals exact Yields.const (by
-    rename_i hs _ _ _ _ _
-    intro he
-    simp [sorryAxNameAt, he] at hs)
+/-- **A checked statement not an axiom's is not at the tolerated axiom's name.** -/
+theorem checkConstantVal_sorry {mode : CheckMode} {F : Nat} {env : Env} {cv : ConstantVal}
+    {a b : Bool} (h : checkConstantVal (fueledOps mode F) env cv a b false = .ok ()) :
+    cv.name ≠ sorryAxName := by
+  intro he
+  simp only [checkConstantVal, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+  by_cases hfind : (env.find? cv.name).isSome = true
+  case pos => simp [hfind] at h
+  simp only [hfind] at h
+  by_cases hop : (natOpName cv.name && !a) = true
+  case pos => rw [ite_eq_left hop] at h; exact nomatch h
+  simp only [hop] at h
+  by_cases hred : (reduceOpNames.contains cv.name && !b) = true
+  case pos => rw [ite_eq_left hred] at h; exact nomatch h
+  simp only [hred] at h
+  have hsy : (sorryAxNameAt cv.name && !false) = true := by simp [sorryAxNameAt, he]
+  rw [ite_eq_left hsy] at h
+  exact nomatch h
 
 /-- **An accepted definition is not at the tolerated axiom's name.** -/
-theorem checkDeclStepC_defn_sorry {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
-    {cv : ConstantVal} {v : Expr} {hh : ReducibilityHint} :
-    Yields (checkDeclStepC mode pins fe (.defnDecl cv v hh)) (fun _ => cv.name ≠ sorryAxName) := by
-  unfold checkDeclStepC checkDeclC
-  ybind
-  refine Yields.bind' (Q := fun _ => cv.name ≠ sorryAxName) ?_ fun _ h => Yields.const h
-  unfold checkDeclKindC
-  exact Yields.bind' checkConstantValC_sorry fun _ h => Yields.const h
-
-theorem declsRun_defn_sorry {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) {cv : ConstantVal} {v : Expr}
+theorem _root_.ConLeche.PureRun.defn_sorry {pins : List NatOpPinSet} {ds : List Declaration}
+    {E E' : Env} (h : PureRun pins ds E E') {cv : ConstantVal} {v : Expr}
     {hh : ReducibilityHint} (hd : .defnDecl cv v hh ∈ ds) : cv.name ≠ sorryAxName := by
   induction h with
   | nil => exact nomatch hd
-  | @cons pd ds p p₁ q hstep rest ih =>
+  | cons hs _ ih =>
     rcases List.mem_cons.mp hd with rfl | hd
-    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
-      exact checkDeclStepC_defn_sorry _ _ _ hC
+    · obtain ⟨F, hF⟩ := hs
+      obtain ⟨hK, -⟩ := checkDecl_inv hF
+      simp only [checkDeclKind] at hK
+      obtain ⟨u, hc, -⟩ := exceptBind_ok hK
+      cases u
+      exact checkConstantVal_sorry hc
     · exact ih hd
 
 /-- **A definition's record, from one constant.** -/
@@ -354,27 +340,16 @@ theorem declOfF_ind_names {em : Emit} {ts : List Frontend.IndTypeRec}
     · obtain ⟨b, hb, hbn⟩ := hr rc hrc; rw [← hbn]; exact hblock b hb
   · simp at hn
 
-/-- **An accepted quotient record is its slot's pin.** -/
-theorem checkDeclStepC_quot {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
-    {k : QuotKind} {cv : ConstantVal} :
-    Yields (checkDeclStepC mode pins fe (.quotDecl k cv)) (fun _ => quotPinHit k cv = true) := by
-  unfold checkDeclStepC checkDeclC
-  ybind
-  refine Yields.bind' (Q := fun _ => quotPinHit k cv = true) ?_ fun _ h => Yields.const h
-  show Yields (checkQuotRecordC fe k cv) _
-  unfold checkQuotRecordC
-  yields
-  all_goals exact Yields.const (by assumption)
-
-theorem declsRun_quot {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) {k : QuotKind} {cv : ConstantVal}
+/-- **An accepted quotient record is its slot's pin**: its run's `DeclQuotRun`. -/
+theorem _root_.ConLeche.PureRun.quot {pins : List NatOpPinSet} {ds : List Declaration}
+    {E E' : Env} (h : PureRun pins ds E E') {k : QuotKind} {cv : ConstantVal}
     (hd : .quotDecl k cv ∈ ds) : quotPinHit k cv = true := by
   induction h with
   | nil => exact nomatch hd
-  | @cons pd ds p p₁ q hstep rest ih =>
+  | cons hs _ ih =>
     rcases List.mem_cons.mp hd with rfl | hd
-    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
-      exact checkDeclStepC_quot _ _ _ hC
+    · obtain ⟨F, hF⟩ := hs
+      exact (Semantics.checkDeclRun_ofEnvFactsK hF).2.1
     · exact ih hd
 
 /-- **A pinned quotient record installs its own name.** -/
@@ -410,7 +385,7 @@ theorem ownNames_mem {l : Loaded} {c : CEntry} (hc : c ∈ l.constants) :
 /-- **A copy of a statement kind, of an accepted module's part, has a position of its name and
 of a statement kind in the module's private table.** -/
 theorem copy_private_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
+    (hw : WorkerFacts pins sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
     (hl : s.part.level ≠ .server) {r1 : Region} (hr : PartRegion sp fs s.part r1)
     {cv : ConstantVal} {k : CKindF Name Unit} (hst : StmtSkel r1 s.pos.loc cv k) (hk : k.tag < 4) :
     ∃ q ∈ w.reads.own.consts, q.name = s.pos.name ∧ q.tag < 4 := by
@@ -436,7 +411,7 @@ theorem copy_private_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Wor
 /-- **A constant of an accepted module's private view has a position of its name and kind** in
 the module's private table. -/
 theorem home_const_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {c : CEntry} (hc : c ∈ w.home.constants) :
+    (hw : WorkerFacts pins sp fs M jobs w) {c : CEntry} (hc : c ∈ w.home.constants) :
     ∃ q ∈ w.reads.own.consts, q.name = c.name ∧ q.tag = c.kind.tag := by
   obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
   have hT := home_table hf hreg (worker_ownTable hw)
@@ -450,7 +425,7 @@ theorem home_const_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worke
 
 /-- The private table of an accepted module names each position once. -/
 theorem own_pos_unique {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {q q' : NamePosition} (hq : q ∈ w.reads.own.consts)
+    (hw : WorkerFacts pins sp fs M jobs w) {q q' : NamePosition} (hq : q ∈ w.reads.own.consts)
     (hq' : q' ∈ w.reads.own.consts) (hn : q.name = q'.name) : q = q' := by
   obtain ⟨f, r, a, sk, skels, hf, hreg, -⟩ := home_records hw
   have hT := home_table hf hreg (worker_ownTable hw)
@@ -510,12 +485,12 @@ theorem part_resolve {m : Module} {y : Name} {ty : Expr}
 
 namespace Run
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat} (R : Run sp fs maxNatSize)
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS} (R : Run pins sp fs)
 
 /-- **An emitted record of a module of the run passed the reserved names' check.** -/
 theorem own_basis {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : Declaration} (hp : p ∈ (R.w h).emitted) :
     basisNamesOk p = true := by
-  have := declsRun_basis (R.run h hh) _
+  have := (R.run h hh).basisNamesOk _
     (List.mem_map_of_mem (f := fillDecl (fillOf (R.look h) fs #[⟨h, (R.w h).home.frontier⟩]))
       (emitted_own (R.facts₀ hh hx) hp))
   cases p <;> exact this
@@ -597,7 +572,7 @@ theorem emitted_names {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : De
       obtain ⟨kq, rfl⟩ := entryDecl_quot hpe hck
       simp only [declConstants, List.mem_singleton] at hci
       subst hci
-      have hhit := declsRun_quot (R.run h hh)
+      have hhit := (R.run h hh).quot
         (List.mem_map.2 ⟨_, emitted_own hw hp, rfl⟩)
       exact ⟨(quotAt_name_of_hit hhit).symm, fun _ => by simp [CKindF.tag]⟩
   · obtain ⟨-, hnames⟩ := declOfF_ind_names hdo
@@ -714,7 +689,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
   cases hs''
   obtain ⟨hhm, -, hxm⟩ := R.home_rank hM hh
   have hwm := R.facts₀ hhm hxm
-  have hrun : OwnRun .verified maxNatSize (R.look hm) fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
+  have hrun : OwnRun pins (R.look hm) fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
   obtain ⟨f, r0, a, sk, skels, hf, -⟩ := home_records hwm
   have hf' : ModelIO.CanGive (readFiles (R.look hm) s.part.mod .private) fs (.ok f) := by
     rw [hmod]; exact hf
@@ -801,7 +776,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
     rw [hecv] at hpr hfind hyd
     obtain ⟨p, hp, hpres⟩ := hpr
     obtain ⟨v', hh'', rfl⟩ := defn_presents hpres
-    have hsy : cv.name ≠ sorryAxName := declsRun_defn_sorry (R.run hm hhm)
+    have hsy : cv.name ≠ sorryAxName := (R.run hm hhm).defn_sorry
       (List.mem_map.2 ⟨_, emitted_own hwm hp, rfl⟩)
     refine ⟨.defnInfo cv v hh', ?_, rfl, rfl, hcp, hlv, hsk1, hcvy, hcvy ▸ hsy, hmod ▸ hhm, hmod ▸ hxm⟩
     have := hfind (.defnInfo cv v hh') (by simp [declConstants])

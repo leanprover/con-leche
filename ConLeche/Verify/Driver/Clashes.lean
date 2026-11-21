@@ -327,16 +327,49 @@ theorem done_all {parts : Array NamePositions} {c : Copy} {q : NamePosition}
 
 /-! ## The doubly held names -/
 
-/-- `clashCopies`' step at one later copy. -/
-@[expose] def ccStep (first : Std.HashMap Name Copy) (m : Std.HashMap Name (Array Copy))
-    (x : Name × Copy) : Std.HashMap Name (Array Copy) :=
-  match x with
-  | (n, c) => m.alter n fun
-      | none => some #[(first[n]?).getD c, c]
-      | some a => some (a.push c)
+/-- **`clashCopies`, by its table**: a listed name with its copies is the table's entry, and
+every name of the table is listed. -/
+theorem ccOrder_fold (first : Std.HashMap Name Copy) :
+    ∀ (l : List (Name × Copy)) (m : Std.HashMap Name (Array Copy)) (o : Array Name),
+      (∀ n, n ∈ o.toList ↔ (m[n]?).isSome = true) →
+      (l.foldl (ccOrderStep first) (m, o)).1 = l.foldl (ccStep first) m ∧
+      ∀ n, n ∈ (l.foldl (ccOrderStep first) (m, o)).2.toList ↔
+        ((l.foldl (ccStep first) m)[n]?).isSome = true
+  | [], m, o, h => ⟨rfl, h⟩
+  | (n, c) :: l, m, o, h => by
+    rw [List.foldl_cons, List.foldl_cons]
+    refine ccOrder_fold first l _ _ fun k => ?_
+    have hk : ((ccStep first m (n, c))[k]?).isSome = true ↔ k = n ∨ (m[k]?).isSome = true := by
+      simp only [ccStep, Std.HashMap.getElem?_alter]
+      split
+      · rename_i he
+        obtain rfl := eq_of_beq he
+        simp only [true_or, iff_true]
+        split <;> rfl
+      · rename_i he
+        simp only [beq_iff_eq] at he
+        exact ⟨.inr, fun h' => h'.elim (fun e => absurd e.symm he) id⟩
+    rw [hk]
+    by_cases hc : m.contains n = true
+    · rw [ite_eq_left hc, h k]
+      have hn : (m[n]?).isSome = true := by rwa [Std.HashMap.isSome_getElem?_eq_contains]
+      exact ⟨.inr, fun h' => h'.elim (fun e => e ▸ hn) id⟩
+    · rw [ite_eq_right hc, Array.toList_push, List.mem_append, List.mem_singleton, h k]
+      exact Or.comm
 
-theorem clashCopies_eq (ix : NameIndex) :
-    clashCopies ix = (ix.more.foldl (ccStep ix.first) {}).toArray := rfl
+theorem mem_clashCopies {ix : NameIndex} {n : Name} {a : Array Copy} :
+    (n, a) ∈ clashCopies ix ↔ (ix.more.foldl (ccStep ix.first) {})[n]? = some a := by
+  have := ccOrder_fold ix.first ix.more.toList {} #[] (fun n => by simp)
+  rw [Array.foldl_toList, Array.foldl_toList] at this
+  obtain ⟨h1, h2⟩ := this
+  unfold clashCopies
+  simp only [Array.mem_filterMap, Option.map_eq_some_iff, Prod.mk.injEq]
+  constructor
+  · rintro ⟨k, -, a', ha', rfl, rfl⟩
+    rw [← h1]; exact ha'
+  · intro ha
+    refine ⟨n, (Array.mem_toList_iff.1 ((h2 n).2 (by rw [ha]; rfl))), a, by rw [h1]; exact ha,
+      rfl, rfl⟩
 
 theorem ccStep_fold (first : Std.HashMap Name Copy) :
     ∀ (l L : List (Name × Copy)) (m : Std.HashMap Name (Array Copy)),
@@ -411,10 +444,10 @@ theorem clashCopies_spec {ix : NameIndex}
   rw [Array.foldl_toList] at this
   obtain ⟨h1, h2⟩ := this
   refine ⟨fun n a h c => ?_, fun n c h => ?_⟩
-  · rw [clashCopies_eq, Std.HashMap.mem_toArray_iff_getElem?_eq_some] at h
+  · rw [mem_clashCopies] at h
     simpa using h1 n a h c
   · obtain ⟨a, ha⟩ := Option.isSome_iff_exists.1 (h2 n c (by simpa using h))
-    exact ⟨a, by rw [clashCopies_eq, Std.HashMap.mem_toArray_iff_getElem?_eq_some]; exact ha⟩
+    exact ⟨a, mem_clashCopies.2 ha⟩
 
 /-! ## `qsort` permutes -/
 

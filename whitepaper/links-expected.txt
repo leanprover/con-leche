@@ -6840,68 +6840,66 @@
    343      -- the new module's context values are its sources'
    344      have hnew : ∀ n (hn : S.Stores (dev.ctx k) n),
 
-== ConLeche/Modular.lean#L210-L230
-   210  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
-   211      (dev : Nat → Module) (i : Nat) : Prop where
-   212    below : ∀ b ∈ (dev i).imports, b < i
-   213    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
-   214    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
-   215    /-- every context record is a presentation of the module its names are read from -/
-   216    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
-   217    /-- a context record is read from one module: its names have one source -/
-   218    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
-   219      (dev i).src n = (dev i).src n'
-   220    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
-   221    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
-   222    /-- a context record reads only itself and the records before it -/
-   223    ordered : ∀ k (h : k < (dev i).ctx.length),
-   224      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
-   225    /-- the own records, accepted from the context by the fold's step -/
-   226    accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
-   227      ((dev i).ctx.length, mkFEnv (dev i).context) q
-   228  
-   229  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
-   230  development every module of which passes them is the hypothesis of the modular theorem. -/
+== ConLeche/Modular.lean#L213-L231
+   213  structure ImportOk (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) : Prop where
+   214    below : ∀ b ∈ (dev i).imports, b < i
+   215    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   216    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
+   217    /-- every context record is a presentation of the module its names are read from -/
+   218    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+   219    /-- a context record is read from one module: its names have one source -/
+   220    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+   221      (dev i).src n = (dev i).src n'
+   222    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
+   223    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
+   224    /-- a context record reads only itself and the records before it -/
+   225    ordered : ∀ k (h : k < (dev i).ctx.length),
+   226      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
+   227    /-- the own records, accepted from the context by the pure fold's step -/
+   228    accepted : ∃ E, PureRun pins (dev i).decls (dev i).context E
+   229  
+   230  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
+   231  development every module of which passes them is the hypothesis of the modular theorem. -/
 
-== ConLeche/Modular.lean#L83-L93
-    83  and the same tables (a theorem record, whatever value it carries, installs its statement), or the
-    84  record's statement.  The order is free because a record installs its constants as a set, its
-    85  names distinct: an inductive group read from its home's exported part lists its recursors in that
-    86  part's order, which is sorted by name, where the home's own record lists them in declaration
-    87  order.  A record at a `reduce*` name is presented as itself: the compiler-trust axioms
-    88  (`ofReduceNat`, `ofReduceBool`) are accepted at an importer by that name's pinned statement, which
-    89  is true only of the identity its home's opaque install certified. -/
-    90  def Presents (e p : Declaration) : Prop :=
-    91    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
-    92      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
-    93  
+== ConLeche/Modular.lean#L86-L96
+    86  and the same tables (a theorem record, whatever value it carries, installs its statement), or the
+    87  record's statement.  The order is free because a record installs its constants as a set, its
+    88  names distinct: an inductive group read from its home's exported part lists its recursors in that
+    89  part's order, which is sorted by name, where the home's own record lists them in declaration
+    90  order.  A record at a `reduce*` name is presented as itself: the compiler-trust axioms
+    91  (`ofReduceNat`, `ofReduceBool`) are accepted at an importer by that name's pinned statement, which
+    92  is true only of the identity its home's opaque install certified. -/
+    93  def Presents (e p : Declaration) : Prop :=
+    94    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
+    95      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
+    96  
 
-== ConLeche/Modular.lean#L169-L193
-   169  inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
-   170    /-- `b` is the module `i` reads `n` from -/
-   171    | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
-   172    /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
-   173    record, loaded through two paths -/
-   174    | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
-   175        Agree dev b t n → Agree dev i t n → Agree dev i b n
-   176    /-- two proofs of one statement, whose names agree: `i` infers it to be a proposition over the
-   177    part of its context below `n` -/
-   178    | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
-   179        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
-   180        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
-   181        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
-   182        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
-   183        TypeIsProp .verified ((dev i).part n) ci.toConstantVal.type → Agree dev i b n
-   184    /-- two proofs of one statement, whose names agree: an earlier module `t` stores it as a
-   185    theorem, whose names agree too (a theorem's type is a proposition) -/
-   186    | thm {i b t : Nat} {n : Name} {ci ci' : ConstantInfo} {cv : ConstantVal} :
-   187        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
-   188        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
-   189        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
-   190        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
-   191        t < i → (dev t).own.find? n = some (.thmInfo cv) → cv = ci.toConstantVal →
-   192        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i t c) → Agree dev i b n
-   193  
+== ConLeche/Modular.lean#L172-L196
+   172  inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
+   173    /-- `b` is the module `i` reads `n` from -/
+   174    | same {i b : Nat} {n : Name} : b = (dev i).src n → Agree dev i b n
+   175    /-- `b` reads `n`, and an earlier module's copy agrees both with `b`'s and with `i`'s: one
+   176    record, loaded through two paths -/
+   177    | via {i b t : Nat} {n : Name} : ((dev b).context.find? n).isSome = true → t < b →
+   178        Agree dev b t n → Agree dev i t n → Agree dev i b n
+   179    /-- two proofs of one statement, whose names agree: `i` infers it to be a proposition over the
+   180    part of its context below `n` -/
+   181    | proof {i b : Nat} {n : Name} {ci ci' : ConstantInfo} :
+   182        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
+   183        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
+   184        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+   185        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
+   186        TypeIsProp .verified ((dev i).part n) ci.toConstantVal.type → Agree dev i b n
+   187    /-- two proofs of one statement, whose names agree: an earlier module `t` stores it as a
+   188    theorem, whose names agree too (a theorem's type is a proposition) -/
+   189    | thm {i b t : Nat} {n : Name} {ci ci' : ConstantInfo} {cv : ConstantVal} :
+   190        (dev i).context.find? n = some ci → (dev b).own.find? n = some ci' →
+   191        ci'.toConstantVal = ci.toConstantVal → ci.isStmtKind = true → ci'.isStmtKind = true →
+   192        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i b c) →
+   193        ci.toConstantVal.type.constsResolve ((dev i).part n) = true →
+   194        t < i → (dev t).own.find? n = some (.thmInfo cv) → cv = ci.toConstantVal →
+   195        (∀ c ∈ ci.toConstantVal.type.readNames, Agree dev i t c) → Agree dev i b n
+   196  
 
 == ConLeche/Modular/Generic.lean#L278-L279
    278  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
@@ -7180,70 +7178,70 @@
     22  the solution's checked constants, and a name a hole's statement reads means one constant on both
     23  sides: there is one context.
 
-== ConLeche/Driver/Worker.lean#L105-L122
-   105  /-! ## A compared challenge's copies (task #619)
-   106  
-   107  At a compared challenge (`x`, the imports a run adds to its header: `import all` of its solution,
-   108  `Graph.solutionImport`), the worker loads the solution with the challenge's own imports, under
-   109  Lean's clash rule over every loaded name.  A record of the challenge some name of which a loaded
-   110  module stores is a **copy**: not the challenge's own record, its names read from the loads into
-   111  the context, as any name the challenge imports.  A copy must be what the loaded constant is
-   112  (`copyCheck`), up to the names of its level parameters (ruling B of #619):
-   113  
-   114  * a hole (an axiom; a definition whose value uses `sorryAx`), a theorem or an opaque constant: one
-   115    constant that only its statement describes (`IsModel` reads it so), of the loaded constant's
-   116    statement.  For a theorem, Lean's own rule for two loaded copies of one name (`subsumesInfo`);
-   117  * a definition: the loaded definition, its value too;
-   118  * an inductive block: the context's record of its names, the same record, one the kernel's reader
-   119    reads (`BlockRead`); a quotient record never.
-   120  
-   121  Every other record is the challenge's own, checked as any module's; a hole among them is one the
-   122  solution does not fill (`ownHoleOk`). -/
+== ConLeche/Driver/Worker.lean#L106-L123
+   106  /-! ## A compared challenge's copies (task #619)
+   107  
+   108  At a compared challenge (`x`, the imports a run adds to its header: `import all` of its solution,
+   109  `Graph.solutionImport`), the worker loads the solution with the challenge's own imports, under
+   110  Lean's clash rule over every loaded name.  A record of the challenge some name of which a loaded
+   111  module stores is a **copy**: not the challenge's own record, its names read from the loads into
+   112  the context, as any name the challenge imports.  A copy must be what the loaded constant is
+   113  (`copyCheck`), up to the names of its level parameters (ruling B of #619):
+   114  
+   115  * a hole (an axiom; a definition whose value uses `sorryAx`), a theorem or an opaque constant: one
+   116    constant that only its statement describes (`IsModel` reads it so), of the loaded constant's
+   117    statement.  For a theorem, Lean's own rule for two loaded copies of one name (`subsumesInfo`);
+   118  * a definition: the loaded definition, its value too;
+   119  * an inductive block: the context's record of its names, the same record, one the kernel's reader
+   120    reads (`BlockRead`); a quotient record never.
+   121  
+   122  Every other record is the challenge's own, checked as any module's; a hole among them is one the
+   123  solution does not fill (`ownHoleOk`). -/
 
-== ConLeche/Driver/Worker.lean#L208-L240
-   208  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
-   209  the record of each of its names). -/
-   210  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
-   211      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
-   212    let n := recKey d
-   213    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
-   214    if n == quotSoundName || n == sorryAxName then
-   215      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
-   216      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
-   217        con-leche cannot fill it")
-   218    else if !basisNamesOk d then
-   219      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
-   220    else
-   221    match owner[n]? with
-   222    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
-   223    | some k =>
-   224      let e := r.ctx.getD k default
-   225      let h := r.homes.getD k .anonymous
-   226      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
-   227      match copyStmt? d, d, ci? with
-   228      | some cv, _, some ci =>
-   229        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
-   230        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
-   231          {recKind d}")
-   232      | none, .defnDecl cv v hint, some ci =>
-   233        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
-   234        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
-   235      | none, .indDecl .., _ =>
-   236        if copyRecEq d e && blockReadB d && copyReadsB owner r d then .ok ()
-   237        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
-   238      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
-   239      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
-   240          loads stores")
+== ConLeche/Driver/Worker.lean#L209-L241
+   209  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
+   210  the record of each of its names). -/
+   211  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
+   212      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
+   213    let n := recKey d
+   214    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
+   215    if n == quotSoundName || n == sorryAxName then
+   216      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
+   217      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
+   218        con-leche cannot fill it")
+   219    else if !basisNamesOk d then
+   220      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
+   221    else
+   222    match owner[n]? with
+   223    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
+   224    | some k =>
+   225      let e := r.ctx.getD k default
+   226      let h := r.homes.getD k .anonymous
+   227      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
+   228      match copyStmt? d, d, ci? with
+   229      | some cv, _, some ci =>
+   230        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
+   231        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
+   232          {recKind d}")
+   233      | none, .defnDecl cv v hint, some ci =>
+   234        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
+   235        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
+   236      | none, .indDecl .., _ =>
+   237        if copyRecEq d e && blockReadB d && copyReadsB owner r d then .ok ()
+   238        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
+   239      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
+   240      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
+   241          loads stores")
 
-== ConLeche/Driver/Worker.lean#L250-L257
-   250  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
-   251  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
-   252  file): the solution does not fill it. -/
-   253  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
-   254      Except CheckError Unit :=
-   255    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
-   256      solution has no constant of this name)")
-   257    else .ok ()
+== ConLeche/Driver/Worker.lean#L251-L258
+   251  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
+   252  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
+   253  file): the solution does not fill it. -/
+   254  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
+   255      Except CheckError Unit :=
+   256    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
+   257      solution has no constant of this name)")
+   258    else .ok ()
 
 == ConLeche/MainTheorem.lean#L138-L175
    138  /-- **An accepted modular comparison's challenge closure has a family of models**: on a
@@ -7723,44 +7721,42 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Modular.lean#L210-L230
-   210  structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
-   211      (dev : Nat → Module) (i : Nat) : Prop where
-   212    below : ∀ b ∈ (dev i).imports, b < i
-   213    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
-   214    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
-   215    /-- every context record is a presentation of the module its names are read from -/
-   216    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
-   217    /-- a context record is read from one module: its names have one source -/
-   218    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
-   219      (dev i).src n = (dev i).src n'
-   220    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
-   221    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
-   222    /-- a context record reads only itself and the records before it -/
-   223    ordered : ∀ k (h : k < (dev i).ctx.length),
-   224      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
-   225    /-- the own records, accepted from the context by the fold's step -/
-   226    accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
-   227      ((dev i).ctx.length, mkFEnv (dev i).context) q
-   228  
-   229  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
-   230  development every module of which passes them is the hypothesis of the modular theorem. -/
+== ConLeche/Modular.lean#L213-L231
+   213  structure ImportOk (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) : Prop where
+   214    below : ∀ b ∈ (dev i).imports, b < i
+   215    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   216    nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
+   217    /-- every context record is a presentation of the module its names are read from -/
+   218    presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+   219    /-- a context record is read from one module: its names have one source -/
+   220    one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+   221      (dev i).src n = (dev i).src n'
+   222    /-- what a context record reads is stored in the context, and agrees with its source's copy -/
+   223    reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
+   224    /-- a context record reads only itself and the records before it -/
+   225    ordered : ∀ k (h : k < (dev i).ctx.length),
+   226      RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
+   227    /-- the own records, accepted from the context by the pure fold's step -/
+   228    accepted : ∃ E, PureRun pins (dev i).decls (dev i).context E
+   229  
+   230  /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
+   231  development every module of which passes them is the hypothesis of the modular theorem. -/
 
 == ConLeche/Modular/Generic.lean#L278-L279
    278  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    279      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
-== ConLeche/Model/Modular/IsModel.lean#L53-L59
-    53  theorem modular_isModel (V : Type w) [SetTheory V]
-    54      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Module) (i : Nat)
-    55      (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
-    56      ∃ model : Nat → Name → List Nat → V,
-    57        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
-    58        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
-    59          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
+== ConLeche/Model/Modular/IsModel.lean#L55-L61
+    55  theorem modular_isModel (V : Type w) [SetTheory V]
+    56      (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat)
+    57      (hok : ∀ j ≤ i, LocalOk pins dev j) :
+    58      ∃ model : Nat → Name → List Nat → V,
+    59        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
+    60        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+    61          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
 
 == ConLeche/Verify/Driver/Routes.lean#L346-L347
-   346  theorem localOk (j : Nat) : LocalOk .verified natOpPinSets maxNatSize R.dev j :=
+   346  theorem localOk (j : Nat) : LocalOk pins R.dev j :=
    347    R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
 
 == ConLeche/MainTheorem.lean#L109-L120
