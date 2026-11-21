@@ -22,14 +22,6 @@ which needs no justification, and `none` is an internal error.
 
 namespace ConLeche.Level
 
-/-- Evaluate a level under an assignment of its parameters. -/
-@[expose] def eval (φ : Name → Nat) : Level → Nat
-  | .zero => 0
-  | .succ l => eval φ l + 1
-  | .max l r => Max.max (eval φ l) (eval φ r)
-  | .imax l r => if eval φ r = 0 then 0 else Max.max (eval φ l) (eval φ r)
-  | .param n => φ n
-
 /-- The assignment corresponding to a parameter substitution. -/
 @[expose] def substFn (φ : Name → Nat) : List Name → List Level → Name → Nat
   | k :: ks, v :: vs, n => if k = n then eval φ v else substFn φ ks vs n

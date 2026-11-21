@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Driver.Graph
+public import ConLeche.Frontend.Olean.Snapshot
 public import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Frontend.Olean.Reads
 
@@ -267,16 +268,9 @@ theorem graphOf_ok (hsp : sp.bare = sp) {roots : List Name} {jobs : Nat} {C : Ar
 
 /-! ## The closure the walk returns is the headers' import closure -/
 
-/-- **The import closure of some roots by the headers**: a root, or an import of a module of it,
-as its header read answers on the snapshot (`moduleImports`). -/
-inductive HdrClosure (sp : Roots) (fs : FS) (roots : List Name) : Name → Prop
-  | root {r : Name} : r ∈ roots → HdrClosure sp fs roots r
-  | step {m : Name} {is : Array ImportRec} {i : ImportRec} : HdrClosure sp fs roots m →
-      ModelIO.CanGive (moduleImports sp m) fs (.ok is) → i ∈ is → HdrClosure sp fs roots i.module
-
 /-- **A node's import, of its header or added**: in the closure of roots that hold every added
 import's module. -/
-theorem HdrClosure.of_node {roots : List Name} {e : Node} (he : NodeOk sp fs extra e)
+theorem _root_.ConLeche.Frontend.Olean.HdrClosure.of_node {roots : List Name} {e : Node} (he : NodeOk sp fs extra e)
     (hx : ∀ m, ∀ i ∈ extra m, i.module ∈ roots) (hm : HdrClosure sp fs roots e.1)
     {i : ImportRec} (hi : i ∈ e.2) : HdrClosure sp fs roots i.module := by
   obtain ⟨imps, h, he⟩ := he

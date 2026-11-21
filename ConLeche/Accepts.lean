@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.ExportC
+public import ConLeche.Frontend.ParseResult
 
 @[expose] public section
 

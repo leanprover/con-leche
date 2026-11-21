@@ -265,3 +265,16 @@ def Expr.allLevelParamsDefined (params : List Name) : Expr → Bool
   | .proj _ _ e => e.allLevelParamsDefined params
 
 end ConLeche
+
+namespace ConLeche.Level
+
+/-- **The value of a level** under an assignment of its parameters (what `IsModel` reads a
+universe level as; the checker never evaluates one). -/
+def eval (φ : Name → Nat) : Level → Nat
+  | .zero => 0
+  | .succ l => eval φ l + 1
+  | .max l r => Max.max (eval φ l) (eval φ r)
+  | .imax l r => if eval φ r = 0 then 0 else Max.max (eval φ l) (eval φ r)
+  | .param n => φ n
+
+end ConLeche.Level

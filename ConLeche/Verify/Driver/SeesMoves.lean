@@ -108,8 +108,8 @@ theorem sees_trims (x : Array ImportRec) {m n m' : Name} (h : Sees a fs m n m') 
   | server => exact hl
 
 /-- **A module of a closure through a trimmed lookup is one through the full one.** -/
-theorem hdrClosure_trims {roots : List Name} {m : Name} (h : Graph.HdrClosure a fs roots m) :
-    Graph.HdrClosure L fs roots m := by
+theorem hdrClosure_trims {roots : List Name} {m : Name} (h : Frontend.Olean.HdrClosure a fs roots m) :
+    Frontend.Olean.HdrClosure L fs roots m := by
   induction h with
   | root hr => exact .root hr
   | step _ hc hi ih => exact .step ih (moduleImports_trims ha hc) hi
@@ -118,8 +118,8 @@ end Trims
 
 /-- A module of the closure of some roots is one of the closure of more. -/
 theorem hdrClosure_mono {sp : Roots} {fs : FS} {roots roots' : List Name}
-    (hr : ∀ r ∈ roots, r ∈ roots') {m : Name} (h : Graph.HdrClosure sp fs roots m) :
-    Graph.HdrClosure sp fs roots' m := by
+    (hr : ∀ r ∈ roots, r ∈ roots') {m : Name} (h : Frontend.Olean.HdrClosure sp fs roots m) :
+    Frontend.Olean.HdrClosure sp fs roots' m := by
   induction h with
   | root h => exact .root (hr _ h)
   | step _ hc hi ih => exact .step ih hc hi

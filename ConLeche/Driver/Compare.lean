@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Driver.CheckMain
+public import ConLeche.Driver.CmpReq
 import ConLeche.Verify.Cached.DeclNames
 
 @[expose] public section
@@ -69,15 +70,6 @@ def holeRecord (uses : Declaration → Array Name) : Declaration → Declaration
   | d => d
 
 /-! ## The run -/
-
-/-- **A compared run's request**: the challenge and solution modules, the trusted directories
-(none given: the search path is trusted), the search path, and the `--constant` names. -/
-structure CmpReq where
-  challenge : Name
-  solution : Name
-  trusted : SearchPath
-  path : SearchPath
-  constants : Option (Array Name)
 
 /-- **The challenge's directories**: the trusted path, or the search path where none is given. -/
 def trustedOr (trusted path : SearchPath) : SearchPath :=

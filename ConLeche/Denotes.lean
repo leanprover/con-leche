@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.IsModel
+public import ConLeche.Verify.Level
+public import ConLeche.Kernel.Inductives.IotaRead
 
 @[expose] public section
 

@@ -352,7 +352,7 @@ end Run
 theorem hdrClosure_mem {sp : Roots} {fs : FS} {roots : List Name} {C : List Graph.Node}
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (hroots : ∀ r ∈ roots, r ∈ C.map (·.1)) (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1))
-    {m : Name} (h : Graph.HdrClosure sp fs roots m) : m ∈ C.map (·.1) := by
+    {m : Name} (h : Frontend.Olean.HdrClosure sp fs roots m) : m ∈ C.map (·.1) := by
   induction h with
   | root hr => exact hroots _ hr
   | @step a is i _ ha hi ih =>

@@ -114,22 +114,4 @@ def structProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr)
   | some (_, r) => (structProjBodiesGo T (structProjPs nP).reverse nF 0 r).map List.toArray
   | none => none
 
-/-! ## `mentionsAnyConst`: the positivity walk's question at k names -/
-
-/-- Does any of the constants `names` occur in `e`?  A syntactic walk
-(`fvar` annotations included; a `.proj` node names its structure), at a
-list of names, so that the k-ary positivity walk does ONE traversal per
-field domain and not one per member; the fold's `sorryAx` test
-(`unresolvedConstsError`, `ConLeche/Kernel/CheckerBase.lean`) asks it
-at one name. -/
-def Expr.mentionsAnyConst (names : List Name) : Expr → Bool
-  | .bvar _ | .sort _ | .lit _ => false
-  | .const n _ => names.contains n
-  | .fvar _ ty => ty.mentionsAnyConst names
-  | .app f a => f.mentionsAnyConst names || a.mentionsAnyConst names
-  | .lam ty b | .forallE ty b => ty.mentionsAnyConst names || b.mentionsAnyConst names
-  | .letE ty v b =>
-    ty.mentionsAnyConst names || v.mentionsAnyConst names || b.mentionsAnyConst names
-  | .proj s _ e => names.contains s || e.mentionsAnyConst names
-
 end ConLeche

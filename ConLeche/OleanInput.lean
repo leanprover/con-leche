@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.IsModel
-public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Frontend.Olean.Snapshot
 
 @[expose] public section
 
@@ -10,7 +10,7 @@ public import ConLeche.Verify.Frontend.Olean.Files
 
 `con-leche --olean -- M` checks the module `M` and everything it imports, read from the
 `.olean` files on a snapshot of the file system.  This module says, with the specification's
-notions of `ConLeche/Verify/Frontend/Olean/Files.lean`, which constants that input is — the set
+notions of `ConLeche/Frontend/Olean/Snapshot.lean`, which constants that input is — the set
 `IsModel` (`ConLeche/IsModel.lean`) is stated over — with nothing of how the reader reads them:
 
 * **the closure** (`InClosure`): the roots, and every import of the private view of a module of

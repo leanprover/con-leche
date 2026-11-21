@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
+public import ConLeche.Frontend.Olean.Snapshot
 import ConLeche.Verify.Frontend.ModelIO
 import Std.Data.HashMap.Lemmas
 
@@ -26,18 +27,6 @@ open handle (the handle holds its bytes), and `liftIO`, which may answer anythin
 public section
 
 namespace ConLeche
-
-/-! ## Agreement under directories -/
-
-/-- **A path the reader forms under the directories**: a module's directory, the directory
-itself included, or a module's file. -/
-@[expose] def Under (dirs : List System.FilePath) (p : System.FilePath) : Prop :=
-  ∃ d ∈ dirs, ∃ m, p = Frontend.Olean.modDir d m ∨ ∃ ext, p = Frontend.Olean.modFile d m ext
-
-/-- **Two snapshots agree under the directories**: every path the reader forms there has the
-same real path, is a directory on both or on neither, and names the same bytes. -/
-@[expose] def FS.AgreeUnder (dirs : List System.FilePath) (fs₁ fs₂ : FS) : Prop :=
-  ∀ p, Under dirs p → fs₁.real p = fs₂.real p ∧ fs₁.dir p = fs₂.dir p ∧ fs₁.file p = fs₂.file p
 
 /-! ## Local actions -/
 

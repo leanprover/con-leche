@@ -265,12 +265,6 @@ theorem ModelIO.Gives.outcome {α : Type} {x : ModelIO α} {fs : FS} {v : α} (h
   obtain ⟨hs₁, h1⟩ := h hs
   exact ⟨hs₁, by rw [h1, ModelIO.ret_ok]; exact ⟨rfl, rfl⟩⟩
 
-/-- **`v` is a value the action can give**: a value outcome of it, from
-some open handles to some.  What the specifications of the `.olean`
-reads say of an action whose answer does not depend on the handles. -/
-@[expose] def ModelIO.CanGive {α : Type} (x : ModelIO α) (fs : FS) (v : α) : Prop :=
-  ∃ hs hs', x fs hs (.ok v) hs'
-
 theorem ModelIO.Det.gives {α : Type} {x : ModelIO α} {fs : FS} {v : α} (hd : x.Det fs)
     (h : x.CanGive fs v) : x.Gives fs v :=
   let ⟨_, _, h⟩ := h

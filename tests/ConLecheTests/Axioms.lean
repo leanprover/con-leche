@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.MainTheorem
+public import ConLeche.Model.Modular.IsModel
 public import ConLecheTests.CompareAttack
 public import ConLeche.Verify.Frontend.Olean.Files
 public import ConLeche.Verify.Frontend.Olean.Local
@@ -63,10 +64,11 @@ equation the compiled equality rests on.
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input) |
 | `ConLeche.solution_model_exists` | **THE MAIN THEOREM, WITH A SOLUTION**: a stream `checkDecls` accepts with the environment of another accepted stream as its solution (its own axioms justified by it) has a model in every `SetTheory V`, and declares `False` and `Eq`, where it declares them at all, as the prelude's |
+| `ConLeche.main_json_model` | an exit 0 of `-- <file>` parsed the file, and its records have such a model |
 | `ConLeche.main_compare_json_model` | an exit 0 of `--compare -- <c> <s>` parsed `c`, and the challenge's records prepared with the prelude have such a model |
 | `ConLeche.main_compare_model` | an exit 0 of `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`: on every snapshot that agrees under `T`, the constants of the closure of `C` through `T` have such a model |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
-| `ConLeche.modular_model_exists` | **THE MODULAR THEOREM**: a development every module of which passes the local checks has a compatible family of models of the own environments |
+| `ConLeche.Model.Modular.modular_isModel` | the step `main_modular` rests on: a development every module of which passes the local checks has a compatible family of models of the modules' own records |
 | `ConLeche.main_modular` | **THE MODULAR THEOREM, OVER THE FILES**: where `--check-graph -- <root>` and `--olean --module` at every module of the headers' closure exit 0 (`main_modular_one`: `--olean --modular -- <root>`), every module of the closure of `root` has a model of its constants, and a name it sees as another module's has that module's value |
 | `ConLeche.main_no_False` | **THE MAIN COROLLARY, LIFTED TO THE DRIVER**, from `model_exists`: no exit 0 of `runArgs` at `-- <file>` reads a `jsonWithTheoremFalse` file |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
@@ -130,16 +132,16 @@ info: 'ConLeche.main_compare_model' depends on axioms: [propext, Classical.choic
 #print axioms ConLeche.main_compare_model
 
 /--
-info: 'ConLeche.modular_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.modular_model_exists
-
-/--
 info: 'ConLeche.Denotes_functional' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.Denotes_functional
+
+/--
+info: 'ConLeche.main_json_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_json_model
 
 /--
 info: 'ConLeche.main_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -190,6 +192,14 @@ info: 'ConLeche.main_modular_one' depends on axioms: [propext, Classical.choice,
 -/
 #guard_msgs in
 #print axioms ConLeche.main_modular_one
+
+/- The step `main_modular` rests on: a development of modules (`ConLeche/Modular.lean`) every
+module of which passes the local checks has a compatible family of models. -/
+/--
+info: 'ConLeche.Model.Modular.modular_isModel' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Model.Modular.modular_isModel
 
 /--
 info: 'ConLeche.Driver.Compose.Run.localOk' depends on axioms: [propext, Classical.choice, Quot.sound]

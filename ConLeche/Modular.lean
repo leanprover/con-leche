@@ -47,10 +47,12 @@ The context need not be everything the module loads: any part of it closed under
 read is a context in this sense, which is why a worker may check a module over the reach of its own
 records.
 
-**The statement these checks are for** (proved for con-leche's models by task #463):
+**The statement these checks are for**, proved for con-leche's models as
+`Model.Modular.modular_isModel` (`ConLeche/Model/Modular/IsModel.lean`), the step the main theorem
+`main_modular` (`ConLeche/MainTheorem.lean`) rests on:
 
 ```
-theorem modular_model_exists (V : Type w) [SetTheory V]
+theorem modular_isModel (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
     ∃ model : Nat → Name → List Nat → V,
@@ -60,8 +62,7 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
 ```
 
 a model of every module's own records (`IsModel`, over the input), the family compatible: every
-module gives each name of its context the value the module it is read from gives it.  The
-corollary `modular_no_False`: no own environment stores a constant of type `False`.
+module gives each name of its context the value the module it is read from gives it.
 -/
 
 namespace ConLeche.Modular

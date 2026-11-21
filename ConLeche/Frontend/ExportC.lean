@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Env
+public import ConLeche.Frontend.ParseResult
 public import ConLeche.Frontend.Export
 public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
@@ -502,12 +503,6 @@ applied to the parse state if it stands where it may. -/
 
 /-! ## The line feed and the drivers -/
 
-/-- The direct parse result: the declarations over `Expr`.  No arena. -/
-structure ParseResultD where
-  /-- the FILE's declaration records, in the file's order (task #293:
-  the prelude, the dedupe and the ground hoist are `preparePrelude`'s) -/
-  decls : Array Declaration
-
 /-- The initial parse state (task #293: there is no prelude here any
 more — the parse starts from the file's first record). -/
 def StateD.init : StateD := {}
@@ -642,12 +637,6 @@ def chunkFinish (st : StateD) (carry : ByteArray) (lineNo : Nat) :
     match applyFinalLine st carry 0 lineNo with
     | .error e => .error e
     | .ok st => .ok (.ofState st)
-
-/-- The bytes of a list of chunks, in order: what the chunks a handle
-hands out add up to (task #290). -/
-def concatBytes : List ByteArray → ByteArray
-  | [] => .empty
-  | c :: cs => c ++ concatBytes cs
 
 /-- **The streaming parse, purely** (task #290): `chunkStep` folded
 over a list of chunks, `chunkFinish` at its end — what
