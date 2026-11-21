@@ -54,6 +54,15 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #627: the Verify olean files' statements name the specification's `ViewOf`,
+    # `InClosure` (`Files.lean:643`, `:653`) and `Under`, `FS.AgreeUnder` (`Local.lean:149`,
+    # `:150`) through these.  Each measured by demoting it alone (unknown identifier at the line).
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Frontend.Olean.Snapshot'),
+    # task #627: `Verify/Driver/Graph.lean`'s statements name `Node` (`Graph.lean:33`) and reach
+    # `Roots.Ok`/`Roots.bare` by dot-notation (`:72`).  Each measured by demoting it alone.
+    ('ConLeche.Verify.Driver.Graph', 'ConLeche.Driver.Graph'),
+    ('ConLeche.Verify.Driver.Graph', 'ConLeche.Verify.Frontend.Olean.Roots'),
+    ('ConLeche.Verify.Frontend.Olean.Local', 'ConLeche.Frontend.Olean.Snapshot'),
     # task #618: `SeesOwn.lean`'s statements name `entryConstants` (`OleanInput`), `StoredAs`
     # (`IsModelRecords`) and `R.names`'s membership (`Run`, through `Routes`).  Measured by
     # demoting each (unknown identifier `entryConstants`, `SeesOwn.lean:45`; `StoredAs`, `:337`;

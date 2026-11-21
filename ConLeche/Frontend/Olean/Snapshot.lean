@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Frontend.Olean.Files
-public import ConLeche.Frontend.Olean.View
 
 @[expose] public section
 

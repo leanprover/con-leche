@@ -3,7 +3,6 @@ module
 public import ConLeche.Accepts
 public import ConLeche.Model.Modular.SeesCompare
 import ConLeche.Model.IsModelJson
-import ConLeche.Model.Solution
 import ConLeche.Model.IsModelOlean
 import ConLeche.Model.IsModelCompare
 import ConLeche.Model.Modular.SeesMain
@@ -16,10 +15,11 @@ public section
 Whatever input the checker accepts has a model in every set theory: one set per constant and
 list of universe levels, under which every constant of the input is a member of what its type
 denotes, every definition is what its value denotes, and every recursor computes by its rules
-(`IsModel`, `ConLeche/IsModel.lean`).  Each theorem below but the last two says this of one way
-of running the `con-leche` binary, and some say the consequence: the input holds no constant of
-type `False`.  The statements about the runs, with every name in them explained, are in
-`ConLeche/Challenge.lean`.  The last two are about the checking function the runs call.
+(`IsModel`, `ConLeche/IsModel.lean`).  Each theorem below says this of one way of running the
+`con-leche` binary, and some say the consequence: the input holds no constant of type `False`.
+The statements, with every name in them explained, are in `ConLeche/Challenge.lean`.  The same
+for the checking function the runs call, on parsed declarations, is `model_exists` and
+`solution_model_exists` (`ConLeche/Model/PureChecker.lean`).
 
 A theorem about a run speaks of `Driver.runArgs`, which is all of the binary's `main` but its
 plumbing, in the file-system model `ModelIO`: an exit code `0` the model allows from a snapshot
@@ -34,8 +34,6 @@ The proofs use the axioms `propext`, `Classical.choice` and `Quot.sound` and no 
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (checkDecls checkChallenge)
-
 universe w
 
 /-! ## A lean4export file
@@ -199,26 +197,5 @@ theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : Stri
       fs C .private ci)
     (hty : ci.type = .const falseName []) : False :=
   Driver.Compose.modular_compare_graph_no_False V hc hs hgraph hwork hcmp (.root (by simp)) hci hty
-
-/-! ## The pure checker
-
-The checking function on parsed declarations, which every run above calls: `checkDecls`, and
-`checkChallenge` with a solution's declarations justifying a challenge's axioms. -/
-
-/-- **Every stream the checker accepts has a model in every set theory.** -/
-theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)
-    (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
-    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
-  checkDecls_isModel V pins maxNatSize ds accepted
-
-/-- **A challenge stream accepted with its axioms justified by an accepted solution stream has
-a model in every set theory.** -/
-theorem solution_model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (dsS ds : Array Declaration)
-    (solution : (checkDecls .verified pins maxNatSize dsS).isOk)
-    (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
-    ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
-  Model.Solution.challenge_isModel solution challenge
 
 end ConLeche

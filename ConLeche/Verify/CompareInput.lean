@@ -7,7 +7,7 @@ import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Driver.CompareRun
 public import ConLeche.Driver.Cli
 import ConLeche.Verify.IsModelSide
-public import ConLeche.Verify.Frontend.Olean.Local
+import ConLeche.Verify.Frontend.Olean.Local
 import Std.Data.HashMap.Lemmas
 
 /-!

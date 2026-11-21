@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.MainTheorem
+public import ConLeche.Model.PureChecker
 public import ConLeche.Model.Modular.IsModel
 public import ConLecheTests.CompareAttack
 public import ConLeche.Verify.Frontend.Olean.Files
@@ -62,8 +63,8 @@ equation the compiled equality rests on.
 
 | theorem | what it says |
 |---|---|
-| `ConLeche.model_exists` | **THE MAIN THEOREM**: every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input) |
-| `ConLeche.solution_model_exists` | **THE MAIN THEOREM, WITH A SOLUTION**: a stream `checkDecls` accepts with the environment of another accepted stream as its solution (its own axioms justified by it) has a model in every `SetTheory V`, and declares `False` and `Eq`, where it declares them at all, as the prelude's |
+| `ConLeche.model_exists` | pure-checker lemma (`ConLeche/Model/PureChecker.lean`): every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input) |
+| `ConLeche.solution_model_exists` | pure-checker lemma, with a solution: a stream `checkDecls` accepts with the environment of another accepted stream as its solution (its own axioms justified by it) has a model in every `SetTheory V`, and declares `False` and `Eq`, where it declares them at all, as the prelude's |
 | `ConLeche.main_json_model` | an exit 0 of `-- <file>` parsed the file, and its records have such a model |
 | `ConLeche.main_compare_json_model` | an exit 0 of `--compare -- <c> <s>` parsed `c`, and the challenge's records prepared with the prelude have such a model |
 | `ConLeche.main_compare_model` | an exit 0 of `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`: on every snapshot that agrees under `T`, the constants of the closure of `C` through `T` have such a model |
@@ -94,30 +95,15 @@ without it.
 
 namespace ConLecheTests.Axioms
 
-/-! ## The main theorem and the main corollary (`ConLeche/MainTheorem.lean`),
-and the relation they are stated over (`ConLeche/Denotes.lean`)
+/-! ## The main theorems (`ConLeche/MainTheorem.lean`),
+and the relation the proofs' model is stated over (`ConLeche/Denotes.lean`)
 
-The statements the project exists to make (task #277): every accepted
-stream has a model (`model_exists`, over `IsModel` and the total reading
-`Expr.eval`, task #617),
-and hence no exit 0 of the binary at `-- <file>` reads a file declaring
-a theorem of type `False` (`main_no_False`, task #624: from
-`model_exists`), which is THE MAIN COROLLARY.
-`Denotes_functional`, which says the relation is a partial function,
-is proved with the relation itself (task #284) and is pinned here too.
+The statements the project exists to make: every input a run of the binary accepts has a model
+(`main_json_model`, `main_oleans`, `main_modular`, … over `IsModel` and the total reading
+`Expr.eval`), and hence no exit 0 at `-- <file>` reads a file declaring a theorem of type `False`
+(`main_no_False`), the main corollary.  `Denotes_functional`, which says the relation is a
+partial function, is proved with the relation itself (task #284) and is pinned here too.
 Everything below them is what they are corollaries of. -/
-
-/--
-info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.model_exists
-
-/--
-info: 'ConLeche.solution_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.solution_model_exists
 
 /--
 info: 'ConLeche.main_compare_json_model' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -148,6 +134,24 @@ info: 'ConLeche.main_no_False' depends on axioms: [propext, Classical.choice, Qu
 -/
 #guard_msgs in
 #print axioms ConLeche.main_no_False
+
+/-! ## The pure-checker lemmas (`ConLeche/Model/PureChecker.lean`)
+
+The checking function the runs call, on parsed declarations: what `checkDecls` accepts has a
+model, and so has what `checkChallenge` accepts with an accepted solution.  The theorems about
+the runs above rest on them. -/
+
+/--
+info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.model_exists
+
+/--
+info: 'ConLeche.solution_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.solution_model_exists
 
 /-! ## What the fold stores of what it reads
 (`ConLeche/Model/StreamConsts.lean`)

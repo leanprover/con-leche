@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # tests/challenge.sh — THE CHALLENGE GATE (tasks #281, #627).
 #
-# `ConLeche/Challenge.lean` is the trusted half of the Comparator pair
-# (`comparator.json`): the main theorems about the binary's runs with `sorry`
+# `ConLeche/Challenge.lean` is the trusted half of the `lake comparator`
+# pair (`comparator.json`): the main theorems about the binary's runs with `sorry`
 # for their proofs, the binary's functions they name as holes (`def … := sorry`
 # at their exact types), and specification imports only (`tests/layering.sh`'s
 # challenge fence).  `ConLeche/MainTheorem.lean` is the solution half.  The

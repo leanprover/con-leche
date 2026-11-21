@@ -1,8 +1,9 @@
 module
 
 public import ConLeche.Driver.Graph
-public import ConLeche.Frontend.Olean.Snapshot
-public import ConLeche.Verify.Frontend.Olean.Files
+import ConLeche.Frontend.Olean.Snapshot
+import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.Roots
 import ConLeche.Verify.Frontend.Olean.Reads
 
 /-!

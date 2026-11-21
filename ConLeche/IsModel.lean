@@ -16,8 +16,8 @@ clause below is about one constant of `ds`, as the stream carries it, and nothin
 the environment the checker builds.  It is written to be read top to bottom in one sitting —
 the reading `Expr.eval` of a term as a set, the recursors' rules as propositions read off their
 own types (`RuleHolds`), one clause per constant (`ModelOf`), and the definition `IsModel` — and
-it imports nothing from the proof tiers.  The theorem is stated in `ConLeche/Challenge.lean` (with `sorry`) and
-proved in `ConLeche/MainTheorem.lean`.
+it imports nothing from the proof tiers.  The main theorems are stated in `ConLeche/Challenge.lean`
+(with `sorry`) and proved in `ConLeche/MainTheorem.lean`.
 
 ## The model
 
