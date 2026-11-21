@@ -206,7 +206,7 @@ records. A context there is a list of the records its imports present,
 in an order in which every record reads only itself and earlier
 records. con-leche proves #src("ConLeche/Modular/Generic.lean", 278, 279)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/Model/Modular/IsModel.lean", 54, 60)[the modular
+models gives #src("ConLeche/Model/Modular/IsModel.lean", 55, 61)[the modular
 theorem]. The executable computes a module's context from the `.olean`
 files and checks the module's own records against it, one module per
 run, and

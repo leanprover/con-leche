@@ -126223,3 +126223,14 @@ files alone.
 (668 modules) 445 201 529 652 → 445 265 117 648 (+0.014 %), `Std` (994 modules) 769 995 340 835 →
 770 095 894 173 (+0.013 %): noise; both accept every module, and the verdict lines (sorted) are
 identical.
+
+**Gates** at the branch's head: `lake build`, `lake test` warning-free (77 theorems' axioms pinned
+at the three standard ones); `tests/arena.sh` in full: olean gate 560/560, e2e 635/635, the arena
+tutorial as recorded, the trusted, `--jobs=1` and `--jobs=4` sweeps without divergence, the
+self-check (`.olean` and JSON forms, 15 justified each), layering, shake (704 removals all
+allowlisted, one entry added; no public import demotable, five measured fallbacks added),
+trust-surface, plain-reach, binary-link, challenge, no-local-paths, quote gate, fragment gate; the
+overview and whitepaper link gates after re-anchoring (`IsModel.lean`, `Modular.lean`, re-read
+the citing paragraphs; the whitepaper's "accepted … by the declaration fold's own step" now says
+the pure fold's steps, which the cached fold is proved to give).  Not landed (an upstream proposal
+for con-ron's sync).

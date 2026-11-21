@@ -7746,14 +7746,14 @@
    278  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    279      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
-== ConLeche/Model/Modular/IsModel.lean#L54-L60
-    54  theorem modular_isModel (V : Type w) [SetTheory V]
-    55      (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat)
-    56      (hok : ∀ j ≤ i, LocalOk pins dev j) :
-    57      ∃ model : Nat → Name → List Nat → V,
-    58        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
-    59        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
-    60          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
+== ConLeche/Model/Modular/IsModel.lean#L55-L61
+    55  theorem modular_isModel (V : Type w) [SetTheory V]
+    56      (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat)
+    57      (hok : ∀ j ≤ i, LocalOk pins dev j) :
+    58      ∃ model : Nat → Name → List Nat → V,
+    59        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
+    60        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+    61          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
 
 == ConLeche/Verify/Driver/Routes.lean#L346-L347
    346  theorem localOk (j : Nat) : LocalOk natOpPinSets R.dev j :=
