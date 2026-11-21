@@ -8,6 +8,7 @@ import ConLeche.Verify.Driver.Compose
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
 public import ConLeche.Verify.Frontend.Olean.Emit
+import ConLeche.Semantics.Bridge.Sound
 
 /-!
 # The routes' facts about one worker
@@ -378,37 +379,21 @@ theorem stmtRecord_fill (F : Expr → Expr) {d : Declaration} {cv : ConstantVal}
   · exact .inr (.inr (.inl ⟨v, rfl⟩))
   · exact .inr (.inr (.inr ⟨rfl, hq⟩))
 
-/-- An accepted quotient record is its pin. -/
-theorem checkQuotRecordC_hit (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
-    Yields (checkQuotRecordC fe k cv) (fun _ => quotPinHit k cv = true) := by
-  by_cases h : quotPinHit k cv = true
-  · exact Yields.const h
-  · unfold checkQuotRecordC
-    simp only [h, Bool.false_eq_true, ↓reduceIte]
-    exact Yields.ofThrowBind
-
-/-- **An accepted `Quot.sound` axiom is its pin.** -/
-theorem checkDeclStepC_quot {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
-    {cv : ConstantVal} (hq : cv.name = quotSoundName) :
-    Yields (checkDeclStepC mode pins fe (.axiomDecl cv)) (fun _ => quotPinHit .sound cv = true) := by
-  unfold checkDeclStepC checkDeclC
-  ybind
-  refine Yields.bind' (Q := fun _ => quotPinHit .sound cv = true) ?_ fun _ h => Yields.const h
-  unfold checkDeclKindC
-  simp only [hq, ↓reduceIte]
-  exact checkQuotRecordC_hit _ _ _
-
-theorem declsRun_quot_hit {mode : CheckMode} {maxNatSize : Nat} {pins : List NatOpPinSet} {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize none ds p q) :
+/-- **An accepted `Quot.sound` axiom is its pin**: its run's quotient arm. -/
+theorem _root_.ConLeche.PureRun.quot_hit {pins : List NatOpPinSet} {ds : List Declaration}
+    {E E' : Env} (h : PureRun pins ds E E') :
     ∀ cv, Declaration.axiomDecl cv ∈ ds → cv.name = quotSoundName → quotPinHit .sound cv = true := by
   induction h with
   | nil => exact fun _ h _ => nomatch h
-  | @cons pd ds p p₁ q hstep rest ih =>
+  | cons hs _ ih =>
     intro cv hd hq
     rcases List.mem_cons.mp hd with he | hd
-    · obtain ⟨fe₁, s₁, -, hC⟩ := declStep_ok hstep
-      rw [← he] at hC
-      exact checkDeclStepC_quot hq _ _ _ hC
+    · obtain ⟨F, hF⟩ := hs
+      rw [← he] at hF
+      obtain ⟨-, hrun⟩ := Semantics.checkDeclRun_ofEnvFactsK hF
+      rcases hrun with ⟨-, hQ, -⟩ | ⟨hne, -⟩
+      · exact hQ
+      · exact absurd hq hne
     · exact ih cv hd hq
 
 /-- `Quot.sound`'s pin installs the record's statement. -/
@@ -439,8 +424,8 @@ theorem readNames_instantiateLevelParams (ks : List Name) (us : List Level) (e :
 load reads, of a statement kind, not filtered out, at no `sorryAx`, has in `M`'s own environment
 a statement-kind constant of the copy's statement, a theorem where the copy or the private
 constant behind it is one; and the statement's type does not read its own name. -/
-theorem copy_own {mode : CheckMode} {maxNatSize : Nat} {M : Name} {jobs : Nat}
-    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hrun : OwnRun mode maxNatSize sp fs M w)
+theorem copy_own {M : Name} {jobs : Nat}
+    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hrun : OwnRun sp fs M w)
     {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r : Region} (hr : PartRegion sp fs s.part r) {cv : ConstantVal} {k : CKindF Name Unit}
     (hst : StmtSkel r s.pos.loc cv k) (hsk0 : s.pos.skipped = false) (htag : k.tag < 4)
@@ -462,7 +447,7 @@ theorem copy_own {mode : CheckMode} {maxNatSize : Nat} {M : Name} {jobs : Nat}
     exact ⟨ci, hfind, hcv, hks, fun h => hth (hthm h),
       own_stmt_fresh hrun hpd (stmtRecord_fill _ hrec)⟩
   · obtain ⟨hq', hrun'⟩ := hrun
-    have hhit := declsRun_quot_hit hrun' cv hpd hq
+    have hhit := hrun'.quot_hit cv hpd hq
     obtain ⟨hat, hty⟩ := quotAt_sound hhit
     have hci : ConstantInfo.axiomInfo cv ∈ declConstants (.axiomDecl cv) := by
       simp [declConstants, hq, hat]

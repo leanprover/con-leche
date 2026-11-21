@@ -42,7 +42,7 @@ universe w
 
 /-- **The family of an accepted compared run, over the challenge's closure through its own
 directories** (see the module docstring). -/
-theorem compare_sees_isModel (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S : Name}
+theorem compare_sees_isModel (V : Type w) [SetTheory V] {C S : Name}
     {fs : FS} {T D : SearchPath}
     (Cg : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ Cg, Graph.NodeOk (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs
@@ -51,7 +51,7 @@ theorem compare_sees_isModel (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S 
     (edges : ∀ e ∈ Cg, ∀ i ∈ e.2, i.module ∈ Cg.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (Cg.map fun e => rk e.1).Nodup)
     (hhdr : ∀ e ∈ Cg, Frontend.Olean.HdrClosure (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs [C, S] e.1)
-    (acc : ∀ M ∈ Cg.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize
+    (acc : ∀ M ∈ Cg.map (·.1), ∃ jobs, WorkerAccepted
       (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs M jobs (Graph.cmpExtra C S M)) :
     ∀ fs', FS.AgreeUnder (trustedOr T D) fs fs' →
       ∃ model : Name → (Name → List Nat → V),
@@ -90,7 +90,7 @@ theorem inst_false {e : Expr} {ks : List Name} {us : List Level}
 /-- **An accepted compared run holds no constant of type `False`** in a module of the challenge's
 closure through its own directories: the constant is stored, as itself or as the copy it is, in
 its module's own environment of the run, which has a model (`Model.no_constant_of_False`). -/
-theorem compare_no_False (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S : Name}
+theorem compare_no_False (V : Type w) [SetTheory V] {C S : Name}
     {fs : FS} {T D : SearchPath}
     (Cg : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ Cg, Graph.NodeOk (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs
@@ -99,7 +99,7 @@ theorem compare_no_False (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S : Na
     (edges : ∀ e ∈ Cg, ∀ i ∈ e.2, i.module ∈ Cg.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (Cg.map fun e => rk e.1).Nodup)
     (hhdr : ∀ e ∈ Cg, Frontend.Olean.HdrClosure (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs [C, S] e.1)
-    (acc : ∀ M ∈ Cg.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize
+    (acc : ∀ M ∈ Cg.map (·.1), ∃ jobs, WorkerAccepted
       (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs M jobs (Graph.cmpExtra C S M))
     {m : Name} {c : ConstantInfo}
     (hcl : InClosure (trustedOr T D : Roots) fs #[C] m)
@@ -120,7 +120,7 @@ theorem compare_no_False (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S : Na
     exact (cmp_rank_le good hC edges h2).1
   have hc : moduleConstants (R.look m) fs m c := inModulePart_trims htr hc0
   let i := R.rk m
-  have hok : ∀ j ≤ i, Modular.LocalOk .verified natOpPinSets maxNatSize R.dev j :=
+  have hok : ∀ j ≤ i, Modular.LocalOk natOpPinSets R.dev j :=
     fun j _ => R.localOk j
   obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := natOpPinSets) hok
   obtain ⟨mp, -⟩ := (mm i (by omega)).2.2.2.2
@@ -178,7 +178,7 @@ theorem modular_compare_graph (V : Type w) [SetTheory V] {T D c s : String} {C S
   obtain ⟨C', S', cj, hc', hs', hcw⟩ := runArgs_cmpModuleT_accept hcm
   obtain rfl : C' = C := Option.some.inj (hc'.symm.trans hc)
   obtain rfl : S' = S := Option.some.inj (hs'.symm.trans hs)
-  refine compare_sees_isModel V (maxNatSize := Cached.maxNatSizeDefault) Cg rk good hC edges inj
+  refine compare_sees_isModel V Cg rk good hC edges inj
     hhdr (fun M hM => ?_)
   by_cases hMC : M = C'
   · subst hMC
@@ -214,7 +214,7 @@ theorem modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S :
       split at hi
       · simp [Graph.solutionImport] at hi; simp [hi]
       · simp at hi) hg
-  exact compare_sees_isModel V (maxNatSize := Cached.maxNatSizeDefault) Cg.toList rk good
+  exact compare_sees_isModel V Cg.toList rk good
     (hroots C' (by simp)) edges inj hhdr (fun M hM => by
       obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
       exact ⟨1, hall e he⟩)
@@ -249,7 +249,7 @@ theorem modular_compare_graph_no_False (V : Type w) [SetTheory V] {T D c s : Str
   obtain ⟨C', S', cj, hc', hs', hcw⟩ := runArgs_cmpModuleT_accept hcm
   obtain rfl : C' = C := Option.some.inj (hc'.symm.trans hc)
   obtain rfl : S' = S := Option.some.inj (hs'.symm.trans hs)
-  refine compare_no_False V (maxNatSize := Cached.maxNatSizeDefault) Cg rk good hC edges inj
+  refine compare_no_False V Cg rk good hC edges inj
     hhdr (fun M hM => ?_) hcl hci hty
   by_cases hMC : M = C'
   · subst hMC

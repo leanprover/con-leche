@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.Decls
+public import ConLeche.Kernel.CheckDecl
 public import ConLeche.Modular.Generic
 
 @[expose] public section
@@ -41,7 +42,9 @@ adds is what a module is for con-leche and what its checks are.
    record's constants read is stored in the context and agrees with that module's copy
    (`RecordScoped` over `readsAlike`); every context record reads only itself and earlier records
    (`ordered`); and the own records are accepted from the context, one after another, each by the
-   fold's own step (`DeclsRun`).
+   pure fold's step (`PureRun`: `checkDecl` at the fueled operations).  The cached fold the
+   binary runs gives such a run (`Cached.DeclsRun.pureRun`), so a checker whose steps are proved
+   to be the pure step's meets the same checks.
 
 The context need not be everything the module loads: any part of it closed under what its records
 read is a context in this sense, which is why a worker may check a module over the reach of its own
@@ -53,8 +56,8 @@ records.
 
 ```
 theorem modular_isModel (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins maxNatSize dev j) :
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk pins dev j) :
     ∃ model : Nat → Name → List Nat → V,
       (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
@@ -207,8 +210,7 @@ structure InterfaceOk (dev : Nat → Module) (b : Nat) : Prop where
   presents : ∀ e ∈ (dev b).iface, ∃ p ∈ (dev b).decls, Presents e p
 
 /-- **An importer's checks** (at module `i`; see the module docstring). -/
-structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
-    (dev : Nat → Module) (i : Nat) : Prop where
+structure ImportOk (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) : Prop where
   below : ∀ b ∈ (dev i).imports, b < i
   src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
   nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
@@ -222,15 +224,13 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Na
   /-- a context record reads only itself and the records before it -/
   ordered : ∀ k (h : k < (dev i).ctx.length),
     RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]
-  /-- the own records, accepted from the context by the fold's step -/
-  accepted : ∃ q, DeclsRun mode pins maxNatSize none (dev i).decls
-    ((dev i).ctx.length, mkFEnv (dev i).context) q
+  /-- the own records, accepted from the context by the pure fold's step -/
+  accepted : ∃ E, PureRun pins (dev i).decls (dev i).context E
 
 /-- **The local checks at module `i`**: its own interface's, and its checks as an importer.  A
 development every module of which passes them is the hypothesis of the modular theorem. -/
-structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat)
-    (dev : Nat → Module) (i : Nat) : Prop where
+structure LocalOk (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) : Prop where
   iface : InterfaceOk dev i
-  importOk : ImportOk mode pins maxNatSize dev i
+  importOk : ImportOk pins dev i
 
 end ConLeche.Modular

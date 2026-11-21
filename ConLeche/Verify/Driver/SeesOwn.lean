@@ -35,7 +35,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS}
 
 /-! ## The constants of a stored constant, by name -/
 
@@ -456,7 +456,7 @@ theorem recKey_of_copyStmt {d : Declaration} {cv : ConstantVal} (h : copyStmt? d
   | quotDecl k cv' => cases h
   | indDecl b n => cases h
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run sp fs)
 
 /-- **What the emission covers is stored by an own record**: the emitted records are the own
 records (the hoist moves them), each passing the reserved names' check in the own run. -/
@@ -473,7 +473,7 @@ private theorem covered_own {M : Name} (hM : M ∈ R.names) (hx : R.x M = #[]) {
   have hmem : fillDecl F d ∈ ownDecls (R.look M) fs M (R.w M) := List.mem_map_of_mem hown
   have hbn : basisNamesOk (fillDecl F d) = basisNamesOk d := by cases d <;> rfl
   have hrec : (fillDecl F d).constants = d.constants := by cases d <;> rfl
-  obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ declsRun_basisNamesOk (R.run M hM) _ hmem)
+  obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ (R.run M hM).basisNamesOk _ hmem)
   refine ⟨c', ?_, hst⟩
   rw [R.dev_rk hM]
   exact mem_constantsOf.2 ⟨_, hmem, hrec ▸ hc'⟩
@@ -485,7 +485,7 @@ theorem stored_name {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
   obtain ⟨d, hd, hcd⟩ := mem_constantsOf.1 hc
   have hd' : d ∈ ownDecls (R.look M) fs M (R.w M) := by
     rw [R.dev_rk hM] at hd; exact hd
-  obtain ⟨ci, hci, hst⟩ := records_stored (declsRun_blockRead (R.run M hM) d hd') c hcd
+  obtain ⟨ci, hci, hst⟩ := records_stored ((R.run M hM).blockRead d hd') c hcd
   have hn : ci.name = c.name := by
     show ci.toConstantVal.name = c.toConstantVal.name
     rw [hst.1]
@@ -596,7 +596,7 @@ theorem own_covers_x {M : Name} (hM : M ∈ R.names) {c : ConstantInfo}
     have hmem : fillDecl F d ∈ ownDecls (R.look M) fs M (R.w M) := List.mem_map_of_mem hown'
     have hbn : basisNamesOk (fillDecl F d) = basisNamesOk d := by cases d <;> rfl
     have hrec : (fillDecl F d).constants = d.constants := by cases d <;> rfl
-    obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ declsRun_basisNamesOk (R.run M hM) _ hmem)
+    obtain ⟨c', hc', hst⟩ := hd' (hbn ▸ (R.run M hM).basisNamesOk _ hmem)
     refine ⟨c', ?_, hst⟩
     rw [R.dev_rk hM]
     exact mem_constantsOf.2 ⟨_, hmem, hrec ▸ hc'⟩

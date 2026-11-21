@@ -125,11 +125,11 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS}
 
 namespace Run
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run sp fs)
 
 /-- **Every passed read agrees, at every module of the run.** -/
 theorem agreeAll : ∀ M ∈ R.names, R.AgreeAll M :=

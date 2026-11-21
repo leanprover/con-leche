@@ -43,15 +43,15 @@ open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean SetTheory
 
 universe w
 
-variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet} {maxNatSize : Nat}
+variable {V : Type w} [SetTheory V] {pins : List NatOpPinSet}
 
 /-- **The compatible family, read positionally**: for every module up to `i`, a model of its own
 environment, read through the stored constants' level parameters (`posModel`); a context name has
 the value of the module it is read from, and of every earlier module that agrees on it and stores
 it. -/
 theorem modular_posModels (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Module) (i : Nat)
-    (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
+    (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat)
+    (hok : ∀ j ≤ i, LocalOk pins dev j) :
     ∃ base : Nat → Name → List Nat → V,
       (∀ j ≤ i, ∃ mp : EnvModelM V (dev j).own, base j = posModel (cvalOf mp.base2.acval) (dev j).own) ∧
       (∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
@@ -100,7 +100,7 @@ theorem modular_posModels (V : Type w) [SetTheory V]
     exact hsame j hj _ hsi n hJ hB hcv he
   · have hbi : b ≤ i := by omega
     obtain ⟨hs, he, hsrcs⟩ := hc j (by omega) n ⟨hn, trivial⟩
-    have hy : (b, viewOf dev j b) ∈ (toDev V pins maxNatSize dev).sources j :=
+    have hy : (b, viewOf dev j b) ∈ (toDev V pins dev).sources j :=
       List.mem_map.2 ⟨b, List.mem_range.2 hbj, rfl⟩
     have hb' := hsrcs _ hy (by omega) ⟨hbn, hn, hag⟩
     obtain ⟨ciC, hC⟩ := Option.isSome_iff_exists.mp hn
@@ -132,13 +132,13 @@ open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean SetTheory
 
 universe w
 
-variable {V : Type w} [SetTheory V] {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {V : Type w} [SetTheory V] {sp : Roots} {fs : FS}
 
 /-- **The modular theorem over what each module sees**, at an accepted run read through one
 lookup (see the module docstring), with imports added at some modules (a compared challenge's
 solution, task #619): what a module sees with them (`SeesX`) is valued as its seen module values
 it. -/
-theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs maxNatSize)
+theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs)
     (hl : ∀ M, R.look M = sp) :
     ∃ model : Name → (Name → List Nat → V),
       (∀ M ∈ R.names, IsModel V (model M) (moduleConstants sp fs M)) ∧
@@ -147,8 +147,8 @@ theorem sees_isModel (V : Type w) [SetTheory V] (R : Run sp fs maxNatSize)
   let i := (R.names.map R.rk).sum
   have hle : ∀ M ∈ R.names, R.rk M ≤ i := fun M hM =>
     le_sum_of_mem (List.mem_map_of_mem hM)
-  have hok : ∀ j ≤ i, LocalOk .verified natOpPinSets maxNatSize R.dev j := fun j _ => R.localOk j
-  obtain ⟨base, hmp, hctx, hagr⟩ := modular_posModels V natOpPinSets maxNatSize R.dev i hok
+  have hok : ∀ j ≤ i, LocalOk natOpPinSets R.dev j := fun j _ => R.localOk j
+  obtain ⟨base, hmp, hctx, hagr⟩ := modular_posModels V natOpPinSets R.dev i hok
   let own : Name → Env := fun M => (R.dev (R.rk M)).own
   let model : Name → Name → List Nat → V := fun M n =>
     if ((own M).find? n).isSome then base (R.rk M) n

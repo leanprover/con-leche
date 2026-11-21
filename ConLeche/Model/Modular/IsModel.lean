@@ -5,6 +5,7 @@ public import ConLeche.Model.IsModelBridge
 import ConLeche.Model.OfEnvModelM
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Copies
+import ConLeche.Verify.IsModelRecords
 
 public section
 
@@ -17,7 +18,7 @@ reads from another module is interpreted as that module interprets it.
 
 The models are the compatible family's (`modularModels`), each read positionally through its own
 environment (`posModel`): a module's own records are stored in its own environment as they say
-(`declsRun_recordsStored`: the fold's accepting run from the context), so the bridge
+(`PureRun.blockRead`, `PureRun.reads`: the pure fold's accepting run from the context), so the bridge
 (`isModel_of_envModelM`) applies; a context name is stored alike by the module it is read from
 (`agree_alike`: one statement, so one list of level parameters), and the family gives it one value.
 -/
@@ -29,14 +30,14 @@ open ConLeche ConLeche.Modular ConLeche.Cached SetTheory
 universe w
 
 /-- **A module's own records are stored in its own environment**, as they say. -/
-theorem own_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize : Nat}
-    {dev : Nat → Module} {j : Nat} (h : ImportOk mode pins maxNatSize dev j) :
+theorem own_recordsStored {pins : List NatOpPinSet}
+    {dev : Nat → Module} {j : Nat} (h : ImportOk pins dev j) :
     RecordsStored (· ∈ constantsOf (dev j).decls) (dev j).own := by
-  obtain ⟨q, hq⟩ := h.accepted
+  obtain ⟨E, hq⟩ := h.accepted
   have hnd := (ImportOk.chain h).1
-  have hb := declsRun_blockRead hq
-  have hr := declsRun_reads hq (PushChain.refl (dev j).context)
-  have henv : q.2.env = (dev j).own := by rw [declsRun_env mode hq]; rfl
+  have hb := hq.blockRead
+  have hr := hq.reads
+  have henv : E = (dev j).own := by rw [hq.env]; rfl
   intro c hc
   obtain ⟨d, hd, hc⟩ := mem_constantsOf.1 hc
   obtain ⟨ci, hci, hst⟩ := records_stored (hb d hd) c hc
@@ -51,8 +52,8 @@ theorem own_recordsStored {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSi
 
 /-- **The modular theorem, over the input** (see the module docstring). -/
 theorem modular_isModel (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Module) (i : Nat)
-    (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
+    (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat)
+    (hok : ∀ j ≤ i, LocalOk pins dev j) :
     ∃ model : Nat → Name → List Nat → V,
       (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
       ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →

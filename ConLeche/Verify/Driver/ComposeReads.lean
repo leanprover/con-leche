@@ -19,7 +19,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS} {maxNatSize : Nat}
+variable {sp : Roots} {fs : FS}
 
 /-- A presentation installs the names it presents. -/
 theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n ∈ declNames d) :
@@ -42,7 +42,7 @@ theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n
 
 namespace Run
 
-variable (R : Run sp fs maxNatSize)
+variable (R : Run sp fs)
 
 /-- The reach's environment at module `M`'s worker. -/
 @[expose] def envOf (M : Name) : ReachEnv ModelIO :=

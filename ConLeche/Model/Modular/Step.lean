@@ -3,6 +3,7 @@ module
 import ConLeche.Model.DeclsRun
 public import ConLeche.Model.Modular.Proofs
 import ConLeche.Verify.Cached.BridgeC
+public import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.PinRen
 
 public section
@@ -11,11 +12,11 @@ public section
 # A module's own records, installed on its context's model
 
 The step of the modular theorem (`ConLeche/Modular.lean`): a module's own records, accepted from
-its context one after another by the fold's step (`DeclsRun`), carry a covered model of the
+its context one after another by the pure fold's step (`PureRun`), carry a covered model of the
 context to one of the module's own environment that keeps every context leaf and every proof's
-leaf the canonical proof (`ProofLeaves`).  Each step is a pure `checkDecl` run
-(`checkDeclStepC_run`), and `declStep_agrees` installs it: an earlier name keeps its leaf and its
-type's reading, a new theorem's type reads as a truth value (the theorem record's check,
+leaf the canonical proof (`ProofLeaves`, `pureRun_proofs`; along the cached fold's run,
+`declsRun_proofs`, which is a pure one by `DeclsRun.pureRun`).  `declStep_agrees` installs each
+step: an earlier name keeps its leaf and its type's reading, a new theorem's type reads as a truth value (the theorem record's check,
 `new_thm_prop`), and a new theorem, or definition, opaque constant or axiom whose type reads so,
 gets the canonical proof (`DeclProofLeaf`, `new_proof_leaf`).
 -/
@@ -154,36 +155,32 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     rcases hrec with ⟨_, _, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, _, h, -⟩ | ⟨_, h, -⟩ <;> cases h
 
 /-- **A module's own records, installed on its context's model** (see the module docstring): a
-covered carrier at the context, with the `Nat` facts and every proof's leaf
-the canonical proof, carries to one at the own environment that keeps every context leaf. -/
-theorem declsRun_proofs :
-    ∀ {ds : List Declaration} {p q : Nat × FEnv}, DeclsRun .verified pins maxNatSize none ds p q →
-    ∀ {E : Env}, p.2 = mkFEnv E →
+covered carrier at the context, with the `Nat` facts and every proof's leaf the canonical proof,
+carries along a run of the pure fold to one at its end that keeps every context leaf. -/
+theorem pureRun_proofs :
+    ∀ {ds : List Declaration} {E E' : Env}, PureRun pins ds E E' →
     ∀ mp : EnvModelM V E, LfpCover mp [] → NatFacts E →
       ProofLeaves V E mp.base2.acval →
-    ∃ mp' : EnvModelM V q.2.env,
+    ∃ mp' : EnvModelM V E',
       (∀ n, (E.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
-      LfpCover mp' [] ∧ NatFacts q.2.env ∧
-      ProofLeaves V q.2.env mp'.base2.acval := by
-  intro ds p q hrun
+      LfpCover mp' [] ∧ NatFacts E' ∧ ProofLeaves V E' mp'.base2.acval := by
+  intro ds E E' hrun
   induction hrun with
-  | nil p =>
-    intro E hp mp hcov hN hPL
-    rw [hp]
+  | nil E =>
+    intro mp hcov hN hPL
     exact ⟨mp, fun _ _ => rfl, hcov, hN, hPL⟩
-  | @cons pd ds p p₁ q hstep rest ih =>
-    intro E hp mp hcov hN hPL
-    obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    rw [hp] at hstepC
+  | @cons pd ds E E₁ E' hstep rest ih =>
+    intro mp hcov hN hPL
+    obtain ⟨F, hF⟩ := hstep
     have henv : EnvWF E := mp.base2.wf
-    obtain ⟨-, hcanon, F, hF⟩ := checkDeclStepC_run henv (CSOKF.fresh _) hstepC
     have hrunD := checkDeclRun_ofEnvFactsK hF
     obtain ⟨⟨mp₁, hleaf₁, hcov₁, hPL₁⟩, hN₁⟩ := declStep_agrees mp hcov hN hrunD
-    have hch : PushChain E fe₁ :=
-      checkDeclStepC_push (pins := pins) .verified (PushChain.refl E) pd { maxNatSize := maxNatSize } fe₁ s₁
-        hstepC
+    have he₁ := checkDecl_pushes hF
+    obtain ⟨hnd, hfr⟩ := checkDecl_fresh hF
+    have hch : PushChain E (mkFEnv E₁) := by
+      rw [he₁]; exact pushChain_step (PushChain.refl E) hnd hfr
     -- every proof's leaf, after the record
-    have hPLn : ProofLeaves V fe₁.env mp₁.base2.acval := by
+    have hPLn : ProofLeaves V E₁ mp₁.base2.acval := by
       intro n ci hf hk
       by_cases hold : (E.find? n).isSome = true
       · have hf' : E.find? n = some ci := (pushChain_find_old hch hold) ▸ hf
@@ -198,16 +195,10 @@ theorem declsRun_proofs :
           cases h : E.find? n with
           | none => rfl
           | some _ => rw [h] at hold; exact absurd rfl hold
-        have hfe₁ : fe₁.env = streamEnv [pd] E := by
-          have h₁ := checkDeclStepC_pushes (pins := pins) .verified (mkFEnv E) pd { maxNatSize := maxNatSize } fe₁
-            s₁ hstepC
-          simp only at h₁
-          rw [h₁, pushDelta_env]
-          rfl
-        have hmem : ∀ c ∈ fe₁.env.consts, c ∉ E.consts → c ∈ declConstants pd := by
+        have hmem : ∀ c ∈ E₁.consts, c ∉ E.consts → c ∈ declConstants pd := by
           intro c hc hnc
-          rw [hfe₁] at hc
-          simp only [streamEnv, List.foldl, Env.pushDelta, List.mem_append, List.mem_reverse] at hc
+          rw [he₁] at hc
+          simp only [Env.pushDelta, List.mem_append, List.mem_reverse] at hc
           exact hc.resolve_right hnc
         refine ⟨fun ⟨cv, h⟩ => ?_, fun hc => ?_⟩
         · subst h
@@ -215,10 +206,25 @@ theorem declsRun_proofs :
         by_cases hqs : n = quotSoundName
         · subst hqs; exact quotSound_leaf mp₁ hf
         exact new_proof_leaf hrunD hch rfl hmem hleaf₁ hPL₁ hf hnew hk hqs hc
-    obtain ⟨mp', hleaf', hcov', hN', hPL'⟩ :=
-      ih (E := fe₁.env) hcanon mp₁ hcov₁ hN₁ hPLn
-    have hst : ∀ n, (E.find? n).isSome = true → (fe₁.env.find? n).isSome = true := fun n h => by
+    obtain ⟨mp', hleaf', hcov', hN', hPL'⟩ := ih mp₁ hcov₁ hN₁ hPLn
+    have hst : ∀ n, (E.find? n).isSome = true → (E₁.find? n).isSome = true := fun n h => by
+      show ((mkFEnv E₁).env.find? n).isSome = true
       rw [pushChain_find_old hch h]; exact h
     exact ⟨mp', fun n hn => (hleaf' n (hst n hn)).trans (hleaf₁ n hn), hcov', hN', hPL'⟩
+
+/-- **The same, along an accepting run of the cached fold** from a canonical index: the run is a
+run of the pure fold (`DeclsRun.pureRun`). -/
+theorem declsRun_proofs {ds : List Declaration} {p q : Nat × FEnv}
+    (hrun : DeclsRun .verified pins maxNatSize none ds p q) {E : Env} (hp : p.2 = mkFEnv E)
+    (mp : EnvModelM V E) (hcov : LfpCover mp []) (hN : NatFacts E)
+    (hPL : ProofLeaves V E mp.base2.acval) :
+    ∃ mp' : EnvModelM V q.2.env,
+      (∀ n, (E.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
+      LfpCover mp' [] ∧ NatFacts q.2.env ∧
+      ProofLeaves V q.2.env mp'.base2.acval := by
+  have hE : p.2.env = E := by rw [hp]; rfl
+  obtain ⟨hpure, -⟩ := DeclsRun.pureRun hrun (by rw [hE]; exact hp) (by rw [hE]; exact mp.base2.wf)
+  rw [hE] at hpure
+  exact pureRun_proofs hpure mp hcov hN hPL
 
 end ConLeche.Model.Modular

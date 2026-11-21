@@ -6,6 +6,7 @@ public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Driver.Shared
 public import ConLeche.Verify.Driver.PropPart
+public import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
@@ -25,10 +26,12 @@ establishes on a snapshot, for the module `m`:
   header fixpoint, the name index, Lean's clash rule over every loaded name, freshness); the own
   records the emission of the loaded constants (`ownRecords`); the reach from their reads
   (`reach`); the context's names distinct; the own records checked in the hoist's order;
-* `checkModuleG_accept` — **the own records accepted from the context**: a `DeclsRun` of the own
-  records, the theorems' values in place (`fillOf`), from `mkFEnv (streamEnv ctx)` at position
-  `ctx.length`, ending at the own environment (`checkDecls_of_jobs_from`): the specification's
-  `ImportOk.accepted`;
+* `checkModuleG_accept` — **the own records checked from the context** (`WorkerRan`): a `DeclsRun`
+  of the own records, the theorems' values in place (`fillOf`), from `mkFEnv (streamEnv ctx)` at
+  position `ctx.length`, ending at the own environment (`checkDecls_of_jobs_from`);
+* `WorkerRan.accepted` — **the own records accepted from the context** (`WorkerAccepted`): at the
+  mode `.verified` that run is a run of the pure fold (`PureRun`, `DeclsRun.pureRun`) from the
+  context's environment to the own environment: the specification's `ImportOk.accepted`;
 * `worker_ctx` — **the context**: every context record `RecordScoped` in the prefix of the
   context ending with it (`ImportOk.ordered`) and in the context, every name
   it reads stored there, the context `EnvWF`, its names distinct (`ImportOk.nodup`), and each name
@@ -209,12 +212,13 @@ theorem workerFacts_good {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : Wor
     exact ⟨f, r, a, hf, hreg, hgood⟩
   · cases hl
 
-/-- **What an accepted worker at `m` establishes**: what it read and checked, and its own
-records, with their theorems' values in place (`fillOf` over the home's frontier), accepted one
-after another from the context's environment at position `ctx.size`, ending at the own
-environment (`ImportOk.accepted`). -/
-@[expose] def WorkerAccepted (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (m : Name) (jobs : Nat)
-    (x : Array ImportRec := #[]) : Prop :=
+/-- **What a worker run at `m` checked**: what it read and checked, and its own records, with
+their theorems' values in place (`fillOf` over the home's frontier), accepted one after another
+by the cached fold the binary runs (`DeclsRun`) from the context's index at position `ctx.size`,
+ending at the own environment.  At the mode `.verified` this is `WorkerAccepted`
+(`WorkerRan.accepted`). -/
+@[expose] def WorkerRan (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (m : Name)
+    (jobs : Nat) (x : Array ImportRec := #[]) : Prop :=
   ∃ w, WorkerFacts sp fs m jobs w x ∧
     DeclsRun mode natOpPinSets maxNatSize none
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
@@ -223,7 +227,20 @@ environment (`ImportOk.accepted`). -/
         (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
         (streamEnv w.reach.ctx.toList)))
 
-/-- The check phase and the verdict of an accepted worker: an exit 0 is `WorkerAccepted`. -/
+/-- **What an accepted worker at `m` establishes**: what it read and checked, and its own records,
+with their theorems' values in place (`fillOf` over the home's frontier), accepted one after
+another by the pure fold (`PureRun`: `checkDecl` at the fueled operations) from the context's
+environment, ending at the own environment (`ImportOk.accepted`). -/
+@[expose] def WorkerAccepted (sp : Roots) (fs : FS) (m : Name) (jobs : Nat)
+    (x : Array ImportRec := #[]) : Prop :=
+  ∃ w, WorkerFacts sp fs m jobs w x ∧
+    PureRun natOpPinSets
+      (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
+      (streamEnv w.reach.ctx.toList)
+      (streamEnv (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
+        (streamEnv w.reach.ctx.toList))
+
+/-- The check phase and the verdict of an accepted worker: an exit 0 is `WorkerRan`. -/
 theorem worker_tail {sp : Roots} {R : Roots} {m : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {w : WorkerRead} {x : Array ImportRec} (hR : R.Ok fs) (hp : R.bare = sp)
     (hw : WorkerFacts sp fs m jobs w x) (tag who : String)
@@ -231,7 +248,7 @@ theorem worker_tail {sp : Roots} {R : Roots} {m : Name} {mode : CheckMode} {maxN
     ∀ v hs hs', (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs R #[⟨m, w.home.frontier⟩] J
         w.reach.ctx.size alone w.values : ModelIO _) fs hs (.ok v) hs' →
       ModelIO.AllOk (verdictG tag w.own.size t0 (w.reach.ctx ++ w.own) v who) fs hs'
-        (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs x) := by
+        (fun c => c = 0 → WorkerRan mode maxNatSize sp fs m jobs x) := by
   intro v _ _ hv c _ hc h0
   obtain rfl := verdictG_ok hc h0
   have hgood : ∀ md ∈ (#[⟨m, w.home.frontier⟩] : Array ModRef), ∃ f r a,
@@ -258,7 +275,7 @@ theorem worker_tail {sp : Roots} {R : Roots} {m : Name} {mode : CheckMode} {maxN
     rwa [J.hside] at this
 
 /-- **An accepted worker, in the model**: every outcome of the worker at module `m` over a
-snapshot `fs` that is an exit 0 is `WorkerAccepted`, at any `--jobs`, pace and `alone`, whatever
+snapshot `fs` that is an exit 0 is `WorkerRan` (so, at the mode `.verified`, `WorkerAccepted`), at any `--jobs`, pace and `alone`, whatever
 the `liftIO` actions answered, for any reads `rd` that refine the search path's (the search
 path's own, `OleanReads.Within.ofPath`, or the one-process mode's tables). -/
 theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {R : Roots} {m : Name}
@@ -266,9 +283,9 @@ theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {R : Roots} {
     {x : Array ImportRec} {fs : FS}
     (hrd : OleanReads.Within fs fs rd sp) (hR : R.Ok fs) (hRp : R.bare = sp) {hs hs' : HS}
     (h : (checkModuleG rd R m mode maxNatSize pace jobs alone x : ModelIO _) fs hs (.ok 0) hs') :
-    WorkerAccepted mode maxNatSize sp fs m jobs x := by
+    WorkerRan mode maxNatSize sp fs m jobs x := by
   suffices H : ModelIO.AllOk (checkModuleG rd R m mode maxNatSize pace jobs alone x) fs hs
-      (fun c => c = 0 → WorkerAccepted mode maxNatSize sp fs m jobs x) from H 0 hs' h rfl
+      (fun c => c = 0 → WorkerRan mode maxNatSize sp fs m jobs x) from H 0 hs' h rfl
   simp only [checkModuleG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff]
   rintro t0 _ rfl - _ rfl y _ hy
   rcases y with ⟨e, _⟩ | w
@@ -306,6 +323,15 @@ theorem worker_ctx {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRea
   obtain ⟨_, _, _, _, hr⟩ := hw.reach
   obtain ⟨o, a, b, c, -⟩ := reach_ok hr
   exact ⟨o, a, b, c, nodupNames_streamEnv hw.nodup⟩
+
+/-- **A worker run at the mode `.verified` is an accepted worker**: its cached run starts at the
+context's canonical index, whose environment is well formed (`worker_ctx`), so it is a run of the
+pure fold (`DeclsRun.pureRun`). -/
+theorem WorkerRan.accepted {maxNatSize : Nat} {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
+    {x : Array ImportRec} (h : WorkerRan .verified maxNatSize sp fs m jobs x) :
+    WorkerAccepted sp fs m jobs x := by
+  obtain ⟨w, hw, hrun⟩ := h
+  exact ⟨w, hw, (DeclsRun.pureRun hrun rfl (worker_ctx hw).2.2.2.1).1⟩
 
 theorem mem_foldl_append_if {α β : Type} (p : α → Bool) (f : α → Array β) (y : β) :
     ∀ (xs : List α) (acc : Array β),
@@ -533,27 +559,26 @@ record's names have one source (`one_src`), the own records are accepted from th
 context record is closed in the context, which is well formed.  What
 is left of `ImportOk` relates `i` to other modules (`below`, `src_lt`, `presented`, `reads`,
 the agreement): the composition's (task #467). -/
-theorem worker_local {mode : CheckMode} {maxNatSize : Nat} {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
+theorem worker_local {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
     {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts sp fs m jobs w x)
-    (hrun : DeclsRun mode natOpPinSets maxNatSize none
+    (hrun : PureRun natOpPinSets
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
-      (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
-      (w.reach.ctx.size + w.own.size, mkFEnv (streamEnv
-        (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
-        (streamEnv w.reach.ctx.toList))))
+      (streamEnv w.reach.ctx.toList)
+      (streamEnv (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
+        (streamEnv w.reach.ctx.toList)))
     (dev : Nat → Module) (i : Nat) (hctx : (dev i).ctx = w.reach.ctx.toList)
     (hdecls : (dev i).decls = w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
     (srcOf : Declaration → Nat) (hsrc : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, (dev i).src n = srcOf d) :
     ((dev i).context.consts.map (·.toConstantVal.name)).Nodup ∧
     (∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d, (dev i).src n = (dev i).src n') ∧
-    (∃ q, DeclsRun mode natOpPinSets maxNatSize none (dev i).decls ((dev i).ctx.length, mkFEnv (dev i).context) q) ∧
+    (∃ E, PureRun natOpPinSets (dev i).decls (dev i).context E) ∧
     (∀ k (hk : k < (dev i).ctx.length),
       RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]) ∧
     (∀ d ∈ (dev i).ctx, RecordScoped (dev i).context d) ∧ EnvWF (dev i).context := by
   obtain ⟨h0, h1, -, h3, h4⟩ := worker_ctx hw
   have hc : (dev i).context = streamEnv w.reach.ctx.toList := by rw [Module.context, hctx]
   refine ⟨by rw [hc]; exact h4, fun d hd n hn n' hn' => by rw [hsrc d hd n hn, hsrc d hd n' hn'],
-    ⟨_, by rw [hdecls, hctx, hc, Array.length_toList]; exact hrun⟩,
+    ⟨_, by rw [hdecls, hc]; exact hrun⟩,
     fun k hk => by simp only [hctx] at hk ⊢; exact h0 k hk,
     fun d hd => by rw [hc]; exact h1 d (hctx ▸ hd), by rw [hc]; exact h3⟩
 

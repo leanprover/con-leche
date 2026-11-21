@@ -17,9 +17,9 @@ What an exit 0 of the one-process mode at a root (`checkModularG`,
   `readPartNamesAt`'s at that location;
 * `checkModularG_accept` — **every module of the closure is an accepted worker**: the closure
   is the graph check's (`graphOf`, whose accepting outcome gives `checkGraphG_ok`'s facts,
-  `graphOf_ok`), and at every module of it, `WorkerAccepted` at one job: the per-module facts
-  an exit 0 of `--module` at that module gives (`checkModuleG_accept`), the same steps run over
-  the tables.
+  `graphOf_ok`), and at every module of it, `WorkerRan` at one job (so, at the mode `.verified`,
+  `WorkerAccepted`): the per-module facts an exit 0 of `--module` at that module gives
+  (`checkModuleG_accept`), the same steps run over the tables.
 -/
 
 public section
@@ -114,7 +114,7 @@ theorem headerNode_ok {sp : Roots} {fs : FS} {extra : Name → Array ImportRec} 
   simpa using hi
 
 /-- **An exit 0 of the one-process mode, in the model**: the closure is the graph check's
-accepting outcome, and every module of it is an accepted worker (`WorkerAccepted`, at one job)
+accepting outcome, and every module of it is a worker run (`WorkerRan`, at one job)
 with the imports the run adds to its header (`modExtra`: with `--compare`, `sol = some S`, the
 solution to the challenge `root`'s), whatever the `liftIO` actions answered and whatever the
 challenge's walk `pre` answered. -/
@@ -124,7 +124,7 @@ theorem checkModularG_accept {sp : Roots} (hsp : sp.bare = sp) {root : Name} {so
     (h : (checkModularG sp root sol pre mode maxNatSize pace jobs : ModelIO _) fs hs
       (.ok 0) hs') :
     ∃ C T, ModelIO.CanGive (Graph.graphOf sp [root] jobs (modExtra root sol)) fs (.ok (C, T)) ∧
-      ∀ e ∈ C.toList, WorkerAccepted mode maxNatSize sp fs e.1 1 (modExtra root sol e.1) := by
+      ∀ e ∈ C.toList, WorkerRan mode maxNatSize sp fs e.1 1 (modExtra root sol e.1) := by
   simp only [checkModularG, clockMs, diagLine, outLine, ModelIO.bind_ok] at h
   obtain ⟨t0, _, -, x, _, hx, h⟩ := h
   rcases x with e | ⟨C, R⟩
