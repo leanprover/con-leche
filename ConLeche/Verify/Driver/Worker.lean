@@ -3,10 +3,10 @@ module
 import ConLeche.Driver.Worker
 public import ConLeche.Driver.CompareModule
 public import ConLeche.Verify.Driver.Oleans
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Driver.Shared
 public import ConLeche.Verify.Driver.PropPart
-public import ConLeche.Verify.Cached.PureRun
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads

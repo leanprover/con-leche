@@ -98,15 +98,15 @@
     96  the error is the failure's position: here the record's position in the fold, in the frontend's half
     97  of the same error type the input's line number (`ConLeche/Frontend/Export.lean`). -/
 
-== ConLeche/Model/Modular/IsModel.lean#L53-L60
-    53  theorem modular_isModel (V : Type w) [SetTheory V]
-    54      (pins : List NatOpPinSet) (maxNatSize : Nat) (dev : Nat → Module) (i : Nat)
-    55      (hok : ∀ j ≤ i, LocalOk .verified pins maxNatSize dev j) :
-    56      ∃ model : Nat → Name → List Nat → V,
-    57        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
-    58        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
-    59          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
-    60    classical
+== ConLeche/Model/Modular/IsModel.lean#L54-L61
+    54  theorem modular_isModel (V : Type w) [SetTheory V]
+    55      (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat)
+    56      (hok : ∀ j ≤ i, LocalOk pins dev j) :
+    57      ∃ model : Nat → Name → List Nat → V,
+    58        (∀ j ≤ i, IsModel V (model j) (· ∈ constantsOf (dev j).decls)) ∧
+    59        ∀ j ≤ i, ∀ n, ((dev j).context.find? n).isSome = true →
+    60          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
+    61    classical
 
 == ConLeche/MainTheorem.lean#L109-L120
    109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Frontend.Olean
 public import ConLeche.Modular
-import ConLeche.Cached.Needs
 import ConLeche.Cached.ParsedC
 import ConLeche.Verify.Cached.DeclNames
 

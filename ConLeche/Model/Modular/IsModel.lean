@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Modular.Main
 public import ConLeche.Model.IsModelBridge
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Model.OfEnvModelM
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Copies

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Driver.Copies
-public import ConLeche.Verify.Driver.Clashes
+import ConLeche.Verify.Driver.Clashes
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Provenance
 import ConLeche.Verify.Driver.Compose

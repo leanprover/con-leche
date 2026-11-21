@@ -126149,3 +126149,77 @@ the self-check; CLAUDE.md's battery line is still right; README untouched.
 **Gates**: `lake build`, `lake test` warning-free; `tests/arena.sh` in full under guard.sh, exit 0
 (the self-check's two `accepted` lines, the trusted and `--jobs` sweeps as recorded); the new
 `scripts/selfcheck.sh` on its own, exit 0; `actionlint` on `ci.yml`, clean.
+
+## con-ron #166: the modular proof over the pure fold (2026-11-21, con-ron/166-pure-worker; base master 5ea446d5c)
+
+**Why** (con-ron task #166, the Rust port's modular checking).  con-ron's Theorem 1 relates its
+checker to the pure specification fold (`checkDecl` at the fueled operations).  The modular
+soundness was stated over three facts no other implementation can reproduce: (B1) the accepted
+runs were the CACHED fold's `DeclsRun`; (B2a) `WorkerFacts.reach` was the exact outcome of `reach`,
+whose last phase is the cached `typeIsPropC`, while every consumer only reads `TypeIsProp`; (B2b)
+`clashCopies` returned `HashMap.toArray`, so Lean's hash order decided the order of the clashes,
+the reach's extra roots and the context.  The maintainer's goal: "refactor the code and proof so
+that there is a pure function on which the proof rests, and then a cached production function
+which is proved related to that".  No verdict moves; `MainTheorem`'s statements are unchanged.
+
+**B1: the pure run.**  `PureRun pins ds E E'` (`Kernel/CheckDecl.lean`, beside `checkDeclsPure`):
+a chain of `checkDecl .verified (fueledOps .verified F) pins` steps, each at its own fuel, from any
+environment (`PureRun.of_foldlM`: the pure fold at one fuel is one).  It is what the modular
+proof rests on: `ImportOk.accepted : ∃ E, PureRun pins decls context E`, `AcceptsX`, the
+composition's `Run.run` and `OwnRun`, and `WorkerAccepted sp fs m jobs x := ∃ w, WorkerFacts … w x
+∧ PureRun natOpPinSets (own filled) (streamEnv ctx) (streamEnv (own filled) (streamEnv ctx))`.
+`ImportOk`, `LocalOk`, `AcceptsX`, `conlecheSemantics`, `toDev`, `Run`, `WorkerAccepted`,
+`modular_isModel`, `modular_posModels`, `closure_sees_isModel`, `compare_sees_isModel`,
+`compare_no_False` lose their `mode`/`maxNatSize` parameters, which the pure fold has not.
+* **The relation to the cached fold**, proved once: `DeclsRun.pureRun`
+  (`Verify/Cached/PureRun.lean`): an accepting `DeclsRun .verified pins maxNatSize none` from a
+  canonical index over a well-formed environment is a `PureRun` between the two environments,
+  ending canonical (`checkDeclStepC_run` per record, `checkDecl_envWF` between).  The binary's
+  worker still gives the cached run: `checkModuleG_accept`/`checkModularG_accept` conclude
+  `WorkerRan mode maxNatSize …` (the old `WorkerAccepted`, any mode), and `WorkerRan.accepted`
+  (`Verify/Driver/Worker.lean`, the context's `EnvWF` from `worker_ctx`) gives `WorkerAccepted`
+  at `.verified`; the `runArgs_*_accept` theorems state `WorkerAccepted` as before.
+* **What the consumers read off the run, now of the pure step**: `checkDecl_pushes` (the step's
+  result is `streamEnv`'s step) and `checkDecl_fresh` (its names distinct and fresh), read off
+  `DeclRun` (ported from con-ron's `Bridge/Checker/Pushes.lean`; `blockRun_fresh` for a block),
+  `pushChain_step`, `PureRun.env`, `.chain`, `.envWF`, `.scoped`, `.basisNamesOk`, `.reads` (the
+  ι reading rule at the run's end, `checkDecl_blockReadsOk`), all in `Verify/Cached/PureRun.lean`;
+  `PureRun.blockRead` (`checkDecl_blockRead`, the grouping from `targetRecPins_grouping`;
+  `Verify/IsModelRecords.lean`); `PureRun.stmt_fresh`, `.stmt_stored` (`checkDecl_stmt`:
+  `ConstantValRun`; `Verify/Driver/Copies.lean`); `PureRun.defn_sorry`
+  (`checkConstantVal_sorry`), `.quot` (`Verify/Driver/RouteCtx.lean`); `PureRun.quot_hit`
+  (`Verify/Driver/RouteWorker.lean`); `pureRun_proofs` (`Model/Modular/Step.lean`, the instance's
+  step).  `declsRun_proofs` (the solution fold's) is now `pureRun_proofs` through
+  `DeclsRun.pureRun`.  `ImportOk.chain`'s third clause is `basisNamesOk` (was a cached step's
+  success); `basisNamesOk_unreserved` replaces `checkDeclStepC_unreserved`.  Gone, as nothing
+  else read them: `declsRun_checked` and Model.Modular's `declsRun_chain`, `checkDeclStepC_basis`,
+  `_defn_sorry`, `_quot` (both), `checkConstantValC_sorry`, `checkConstantValC_fresh_res`,
+  `checkQuotRecordC_hit`, `declsRun_basis`, `_defn_sorry`, `_quot`, `_quot_hit`, `_stmt_fresh`,
+  `_stmt_stored`.  `declTables_former` and `blockConstants_rec` moved to `PureRun.lean`;
+  `FreshNames` is exposed.  The stream path's cached lemmas (`declsRun_env`, `_chain`,
+  `_blockRead`, `_reads`, `_recordsStored`, `_scoped`, `_envWF`) stay: they hold at every mode and
+  with a solution, which the pure fold does not cover.
+
+**B2a: the flags by any sound inference.**  The reach is written over its flag inference:
+`reachWith (flags : FlagInfer)`, `reach := reachWith inferFlags` (`Driver/Reach.lean`; the binary
+runs `reach`, one extra argument).  `WorkerFacts.reach : ∃ fl, FlagsOk fl ∧ CanGive (reachWith fl
+(.ofPath sp) m …) fs (.ok w.reach)`, `FlagsOk fl` (`Verify/Driver/PropPart.lean`): at a context
+whose parts below every name are well formed, an accept makes every recorded statement resolve over
+the part below its name and be `TypeIsProp` there; `inferFlags_flagsOk` is the binary's.  The
+reach's lemmas (`reach_ok`, `reach_from`, `reach_capture`, `reach_clash`, `reach_within`) hold at
+every `fl`; the capture facts (`CapFacts`, `Run.cap`) carry `∃ fl, FlagsOk fl ∧ fl ctx pend =
+.ok ()`; `typeIsProp_part` takes the inference.
+
+**B2b: `clashCopies` in load order** (`Frontend/Olean/Index.lean`): the names in the order of
+their second copies (`ccOrderStep`: the table, `ccStep`, moved here from `Clashes.lean`, and the
+names in the order the table first holds them), each with its first copy and its later ones, as
+the docstring said.  The proofs read the listing through `mem_clashCopies` (a listed entry is the
+table's), so `clashCopies_spec` and `workerClash_two` keep their statements.  The order of the
+clashes, of the extra roots `clashAgree` adds and so of the reach's worklist depends on the
+files alone.
+
+**Verdicts and cost** (`perf stat -e instructions:u`, one run each, `--olean --modular --jobs=8
+--search-path=<v4.36.0 lib/lean>`, the base binary at 5ea446d5c against this branch's): `Init`
+(668 modules) 445 201 529 652 → 445 265 117 648 (+0.014 %), `Std` (994 modules) 769 995 340 835 →
+770 095 894 173 (+0.013 %): noise; both accept every module, and the verdict lines (sorted) are
+identical.

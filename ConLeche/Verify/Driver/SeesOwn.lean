@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Driver.Routes
 public import ConLeche.OleanInput
 public import ConLeche.Verify.IsModelRecords
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Cached.IotaReadC
 import ConLeche.Verify.Inductives.IotaRead
 import ConLeche.Verify.OleanInput

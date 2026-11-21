@@ -2,8 +2,7 @@ module
 
 import ConLeche.Model.DeclsRun
 public import ConLeche.Model.Modular.Proofs
-import ConLeche.Verify.Cached.BridgeC
-public import ConLeche.Verify.Cached.PureRun
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.PinRen
 
 public section

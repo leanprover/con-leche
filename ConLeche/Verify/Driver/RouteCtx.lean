@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Driver.ComposeReads
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Frontend.Prepare

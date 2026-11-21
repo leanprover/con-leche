@@ -1,10 +1,10 @@
 module
 
+import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.DeclPushes
-import ConLeche.Verify.Cached.GuardsC
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Driver.Provenance

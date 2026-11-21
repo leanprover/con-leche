@@ -2,11 +2,10 @@ module
 
 public import ConLeche.Model.Modular.Read
 import ConLeche.Model.Modular.Proofs
-public import ConLeche.Verify.Cached.PushChain
+import ConLeche.Modular
 import ConLeche.Verify.Cached.StreamIndex
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Model.StreamConsts
-import ConLeche.Verify.IsModelRecords
 import ConLeche.Verify.Cached.PureRun
 
 public section

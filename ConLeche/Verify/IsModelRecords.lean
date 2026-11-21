@@ -11,7 +11,8 @@ import ConLeche.Verify.Cached.IndPositivityC
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Driver.Copies
-public import ConLeche.Verify.Cached.PureRun
+import ConLeche.Verify.Cached.PureRun
+public import ConLeche.Kernel.CheckDecl
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Semantics.Bridge.Sound

@@ -744,3 +744,4 @@ ConLeche/Verify/Driver/ComposeCompare.lean	import ConLeche.Verify.Driver.Groups	
 ConLeche/Verify/Driver/ComposeCompare.lean	import ConLeche.Verify.Driver.Reach	# compensated: as the line above (task #619)
 ConLeche/Verify/Driver/Worker.lean	public import ConLeche.Driver.CompareModule	# compensated: the --only run asks for public import ConLeche.Driver.Worker plus import ConLeche.Verify.Cached.StreamIndex in exchange (task #619)
 ConLeche/Driver/CmpReq.lean	public import ConLeche.Frontend.Olean.Snapshot	# the olean tree's specification door (tests/layering.sh): shake proposes its module Frontend/Olean/Files instead (task #627 measured)
+ConLeche/Modular.lean	public import ConLeche.Cached.Decls	# measured (con-ron #166): removing it breaks Verify/Cached/DeclNames (declConstantsC, streamEnvC unresolved) and the bare `open ConLeche.Cached`; ImportOk no longer names DeclsRun, but the umbrella re-export is still read downstream

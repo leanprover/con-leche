@@ -1,19 +1,16 @@
 module
 
-public import ConLeche.Kernel.CheckDecl
-public import ConLeche.Kernel.Install
-public import ConLeche.Cached.Decls
-public import ConLeche.Verify.Cached.PushChain
+import ConLeche.Kernel.CheckDecl
+import ConLeche.Kernel.Install
+import ConLeche.Cached.Decls
 public import ConLeche.Verify.Cached.Scoped
 public import ConLeche.Verify.Inductives.IotaRead
-public import ConLeche.Semantics.Bridge.Sound
+import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Semantics.DeclWF
 import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.Cached.BlockPushes
-import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Verify.Inductives.DirectInv
