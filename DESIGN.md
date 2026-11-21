@@ -126098,3 +126098,54 @@ requires the justified names to be exactly `comparator.json`'s.  `--modular` run
 workers at the peak, ~23 s wall**; not in the battery (proposal: a release gate).  No gap in the
 justification rule showed.  `tests/quote-gate.sh` now reads a name the challenge and the solution
 both declare as the solution's.
+
+## TASK #628 — the self-check is the self-compare (2026-11-21, agent/628-selfcheck; base `compare` 274f01384)
+
+**The maintainer's goal**: "Make the `--compare` the self-check in `scripts/selfcheck.sh` (and
+hence CI)": the checker checks that its own main theorems hold for the implementation of the
+shipped binary.
+
+**`scripts/selfcheck.sh`** builds `ConLeche.Challenge`, `ConLeche.MainTheorem` and `con-leche`
+(the challenge is in no default target: a plain `lake build` leaves a stale `.olean` of it, and
+the stale challenge of the main checkout's cache, imported `Cached/*`, gave a reject, "unknown
+constant in value of `installStepC._sparseCasesOn_1`"), then runs two forms, `--verified`, each
+required to exit 0 and to justify exactly `comparator.json`'s `theorem_names` and
+`definition_names`:
+1. `.olean`: `--olean --compare -- ConLeche.Challenge ConLeche.MainTheorem` over the tree's and the
+   toolchain's oleans; challenge 95 586 declarations, solution 257 344, 15 justified;
+   **1.92 T instructions:u**; 6.15 GiB / 16 s at 96 workers, 1.58 GiB at `--jobs=8`,
+   1.22 GiB / 48 s at 4, 1.11 GiB / 87 s at 2.
+2. JSON: `leanexport` of the cone of the 15 names from each side (the challenge declares
+   nothing else; the solution's 0.92 GB / 16.5 M lines, 0.35 T, 3.4 GB peak, 33 s single-threaded;
+   the challenge's 32 MB), then `--compare -- challenge.ndjson solution.ndjson`: challenge 6 221,
+   solution 48 683, 15 justified; **0.64 T**; 1.85 GiB / 4 s at 96, 0.92 GiB / 16 s at 4.
+The JSON form costs half the `.olean` form (cones, not closures), so both run by default
+(`--no-json` skips the second); the whole script at `--jobs=8`: 2.90 T, 70 s wall, peak 3.4 GB
+(the exporter).  The exit code is the first failing form's checker code, 1 on a names mismatch
+(tested by adding a name to `comparator.json`: exit 1), 3 on a build or export failure.
+`--jobs` defaults to 8, or the core count if lower.  Removed: the old export of every con-leche
+constant's cone (34–45 k declarations, ~0.9 T) and its root lister `scripts/SelfcheckDecls.lean`,
+the skip-if-present caching with `--fresh`, and `--trusted` (verified only).  The new JSON form
+still runs the exporter and the reader at the old scale (0.92 GB against 0.7 GB); what it no
+longer covers is the con-leche constants outside the main theorems' cones (the `.olean` form checks
+the whole closure, which holds them).
+
+**Duplication**: `tests/challenge.sh` keeps (1) the challenge builds with its `sorry` warnings and
+nothing else and (2) `--modular` (the scheduler form, with the names check); its one-process
+compare and names check moved into the self-check.  `tests/arena.sh` runs `challenge.sh` (no
+compare) and, unless `--no-selfcheck`, `scripts/selfcheck.sh _tmp/selfcheck-gate`, printing the
+two `accepted` lines.
+
+**CI**: unchanged steps (`tests/arena.sh` runs the self-check); `ci.yml`'s header updated.  The
+repository is public, so `ubuntu-latest` has 4 cores and 16 GB: the default `--jobs` gives 4 there,
+1.22 GiB for the checker, the exporter's 3.4 GB the peak, ~2 min and ~1 GB of disk.  `actionlint`
+clean.  The modular form (7.4 T, 13 GiB of workers at 96 threads) is a release-gate candidate: it
+would go with the other release gates (a dispatch-only job or the release checklist), not into
+`build-and-gates`; not added.
+
+**Docs**: OVERVIEW's challenge paragraph (§ the comparison), its module-map row and §12 Gates name
+the self-check; CLAUDE.md's battery line is still right; README untouched.
+
+**Gates**: `lake build`, `lake test` warning-free; `tests/arena.sh` in full under guard.sh, exit 0
+(the self-check's two `accepted` lines, the trusted and `--jobs` sweeps as recorded); the new
+`scripts/selfcheck.sh` on its own, exit 0; `actionlint` on `ci.yml`, clean.

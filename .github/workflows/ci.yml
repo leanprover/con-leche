@@ -41,22 +41,23 @@
 #                                                tests/shake-allowlist.txt,
 #                                                and `public import`
 #                                                demotability (task #235)
-#                      * tests/challenge.sh      the Comparator pair
-#                                                (task #281): the
-#                                                challenge module builds
-#                                                with its sorry warnings
-#                                                and nothing else, and
-#                                                every comparator.json
-#                                                name has a
-#                                                token-identical
-#                                                statement in challenge
-#                                                and solution — nothing
-#                                                else in the battery
-#                                                builds that module
+#                      * tests/challenge.sh      the challenge module
+#                                                builds with its sorry
+#                                                warnings and nothing
+#                                                else — nothing else in
+#                                                the battery checks its
+#                                                diagnostics
 #                      * the axiom pin (as the `axioms:` line)
-#                      * the self-check (scripts/selfcheck.sh):
-#                        the tree's own
-#                        development exported and checked
+#                      * the self-check (scripts/selfcheck.sh): con-leche
+#                        checks the challenge (comparator.json) against
+#                        the solution with `--compare`, once from the
+#                        built `.olean` files and once from the
+#                        toolchain exporter's JSON of both cones; the
+#                        justified names must be comparator.json's.  At
+#                        the runner's 4 cores the script's default
+#                        `--jobs` (8, or the core count if lower) is 4:
+#                        locally that is 1.2 GiB peak for the checker,
+#                        3.4 GB for the exporter, ~2 min, ~1 GB of disk
 #                      * the vendored arena tutorial snapshot
 #                        (tests/arena/lean-arena-tests.tar.gz — pinned
 #                        and committed, so CI never depends on the live
