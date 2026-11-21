@@ -230,7 +230,7 @@ theorem workerClash_two {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Arra
   obtain ⟨⟨n, a⟩, ha, rfl⟩ := List.mem_map.1 hcl
   have h2 : 2 ≤ a.size := by
     have ha' := Array.mem_toList_iff.1 ha
-    rw [clashCopies_eq, Std.HashMap.mem_toArray_iff_getElem?_eq_some, ← Array.foldl_toList] at ha'
+    rw [mem_clashCopies, ← Array.foldl_toList] at ha'
     exact ccStep_size _ _ {} (fun n a h => by simp at h) n a ha'
   simp only [Array.toList_filterMap]
   rw [length_filterMap_all fun c hc => by
