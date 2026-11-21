@@ -125,11 +125,11 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 namespace Run
 
-variable (R : Run sp fs)
+variable (R : Run pins sp fs)
 
 /-- **Every passed read agrees, at every module of the run.** -/
 theorem agreeAll : ∀ M ∈ R.names, R.AgreeAll M :=

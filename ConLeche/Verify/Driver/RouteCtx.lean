@@ -385,7 +385,7 @@ theorem ownNames_mem {l : Loaded} {c : CEntry} (hc : c ∈ l.constants) :
 /-- **A copy of a statement kind, of an accepted module's part, has a position of its name and
 of a statement kind in the module's private table.** -/
 theorem copy_private_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
+    (hw : WorkerFacts pins sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
     (hl : s.part.level ≠ .server) {r1 : Region} (hr : PartRegion sp fs s.part r1)
     {cv : ConstantVal} {k : CKindF Name Unit} (hst : StmtSkel r1 s.pos.loc cv k) (hk : k.tag < 4) :
     ∃ q ∈ w.reads.own.consts, q.name = s.pos.name ∧ q.tag < 4 := by
@@ -411,7 +411,7 @@ theorem copy_private_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Wor
 /-- **A constant of an accepted module's private view has a position of its name and kind** in
 the module's private table. -/
 theorem home_const_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {c : CEntry} (hc : c ∈ w.home.constants) :
+    (hw : WorkerFacts pins sp fs M jobs w) {c : CEntry} (hc : c ∈ w.home.constants) :
     ∃ q ∈ w.reads.own.consts, q.name = c.name ∧ q.tag = c.kind.tag := by
   obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
   have hT := home_table hf hreg (worker_ownTable hw)
@@ -425,7 +425,7 @@ theorem home_const_pos {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worke
 
 /-- The private table of an accepted module names each position once. -/
 theorem own_pos_unique {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {q q' : NamePosition} (hq : q ∈ w.reads.own.consts)
+    (hw : WorkerFacts pins sp fs M jobs w) {q q' : NamePosition} (hq : q ∈ w.reads.own.consts)
     (hq' : q' ∈ w.reads.own.consts) (hn : q.name = q'.name) : q = q' := by
   obtain ⟨f, r, a, sk, skels, hf, hreg, -⟩ := home_records hw
   have hT := home_table hf hreg (worker_ownTable hw)
@@ -485,7 +485,7 @@ theorem part_resolve {m : Module} {y : Name} {ty : Expr}
 
 namespace Run
 
-variable {sp : Roots} {fs : FS} (R : Run sp fs)
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS} (R : Run pins sp fs)
 
 /-- **An emitted record of a module of the run passed the reserved names' check.** -/
 theorem own_basis {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : Declaration} (hp : p ∈ (R.w h).emitted) :
@@ -689,7 +689,7 @@ theorem ctx_stmt {M : Name} (hM : M ∈ R.names) {y : Name}
   cases hs''
   obtain ⟨hhm, -, hxm⟩ := R.home_rank hM hh
   have hwm := R.facts₀ hhm hxm
-  have hrun : OwnRun (R.look hm) fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
+  have hrun : OwnRun pins (R.look hm) fs hm (R.w hm) := ⟨_, R.run hm hhm⟩
   obtain ⟨f, r0, a, sk, skels, hf, -⟩ := home_records hwm
   have hf' : ModelIO.CanGive (readFiles (R.look hm) s.part.mod .private) fs (.ok f) := by
     rw [hmod]; exact hf

@@ -8,7 +8,7 @@ public import ConLeche.Verify.Driver.Shared
 public import ConLeche.Verify.Driver.PropPart
 import ConLeche.Verify.Cached.PureRun
 import ConLeche.Verify.Driver.Reach
-import ConLeche.Verify.Frontend.Olean.Lazy
+public import ConLeche.Verify.Driver.Loads
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Group
@@ -44,6 +44,8 @@ establishes on a snapshot, for the module `m`:
 public section
 
 namespace ConLeche.Driver
+
+variable {pins : List NatOpPinSet}
 
 open ConLeche ConLeche.Modular ConLeche.Frontend.Olean ConLeche.Cached
 
@@ -92,8 +94,8 @@ compared challenge (`x` not empty, task #619), those no loaded module stores. -/
 /-- **The reach's roots at a module with imports `x` added** (`rootsAt`): what its own records
 read (`ownRoots`); at a compared challenge, what its own records and constants read and its
 copies' names. -/
-@[expose] def rootsOf (x : Array ImportRec) (w : WorkerRead) : Array Name :=
-  rootsAt x w.reads.index w.home w.emitted
+@[expose] def rootsOf (pins : List NatOpPinSet) (x : Array ImportRec) (w : WorkerRead) : Array Name :=
+  rootsAt pins x w.reads.index w.home w.emitted
 
 /-- **The records a worker checks**: its own records (`ownRecs`: at a compared challenge, those no
 loaded module stores) in the hoist's order. -/
@@ -103,12 +105,12 @@ loaded module stores) in the hoist's order. -/
 /-- **What a worker read and checked before its jobs, on a snapshot** (`workerRead`'s phases, see
 `ConLeche/Driver/Worker.lean`); `x` the imports the run adds to the module's header (none, but at
 a compared challenge: `import all` of its solution, tasks #608 and #619). -/
-structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead)
+structure WorkerFacts (pins : List NatOpPinSet) (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : WorkerRead)
     (x : Array ImportRec := #[]) : Prop where
-  /-- the home: its private part's files, the private view loaded off them, its three parts
-  checked against each other -/
-  home : ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧
-    homeOf m f = .ok (w.home, w.expo)
+  /-- the home: its private part's files, the private view loaded off them (`LoadOf`: what the
+  load gives, its constants' `uses` aside), its three parts checked against each other -/
+  home : ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ LoadOf 0 m f w.home ∧
+    checkViews m f w.home = .ok w.expo
   /-- the header fixpoint, the name index, Lean's clash rule over every loaded name, freshness -/
   reads : ModelIO.CanGive (workerReads (.ofPath sp) m jobs x) fs (.ok w.reads)
   /-- the own records: the emission of the loaded constants -/
@@ -116,7 +118,8 @@ structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : Worker
   /-- the context: the reach from the own records' reads, its flags inferred by a sound inference
   (`FlagsOk`; the binary's is `inferFlags`) -/
   reach : ∃ fl, FlagsOk fl ∧
-    ModelIO.CanGive (reachWith fl (.ofPath sp) m w.reads (ownOf x w) (rootsOf x w)) fs (.ok w.reach)
+    ModelIO.CanGive (reachWith fl (.ofPath sp) m w.reads (ownOf x w) (rootsOf pins x w)) fs
+      (.ok w.reach)
   /-- the context's names, distinct -/
   nodup : (w.reach.ctx.toList.flatMap declNames).Nodup
   /-- the own records, in the hoist's order -/
@@ -126,12 +129,32 @@ structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : Worker
   /-- at a compared challenge, every copy what the loaded constants of its names are -/
   copies : copiesOk m x w.reads w.reach w.emitted = .ok ()
 
+/-- **An accepted home read is a load and its views' check** (`LoadOf`, `loadAt_loadOf`). -/
+theorem homeOf_ok {m : Name} {f : ModFiles} {l : Loaded} {e : Array Expo}
+    (h : homeOf m f = .ok (l, e)) : LoadOf 0 m f l ∧ checkViews m f l = .ok e := by
+  simp only [homeOf] at h
+  cases hl : loadView 0 m f with
+  | error e' => simp [hl] at h
+  | ok l' =>
+    simp only [hl] at h
+    cases hc : checkViews m f l' with
+    | error e' => simp [hc] at h
+    | ok expo =>
+      simp only [hc, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [loadView] at hl
+      split at hl
+      · rename_i l'' hl''
+        cases hl
+        exact ⟨loadAt_loadOf hl'', hc⟩
+      · cases hl
+
 /-- **`workerRead`'s accept** is `WorkerFacts`, whatever the heartbeat answered. -/
 theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : Pace}
     {t0 jobs : Nat} {x : Array ImportRec} {fs : FS} {w : WorkerRead}
     (hrd : OleanReads.Within fs fs rd sp) {hs hs' : HS}
     (h : (workerRead rd m pace t0 jobs x : ModelIO _) fs hs (.ok (.ok w)) hs') :
-    WorkerFacts sp fs m jobs w x := by
+    WorkerFacts natOpPinSets sp fs m jobs w x := by
   unfold workerRead at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨y, _, hy, h⟩ := h
@@ -177,7 +200,7 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : 
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
   obtain ⟨h, -⟩ := h
   subst h
-  refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd m jobs x).canGive ⟨_, _, hy⟩, hds,
+  refine ⟨⟨f, hf, (homeOf_ok hh).1, (homeOf_ok hh).2⟩, (workerReads_within hrd m jobs x).canGive ⟨_, _, hy⟩, hds,
     ⟨inferFlags, inferFlags_flagsOk, (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩⟩, (namesNodupGo_spec hn).1, rfl, ?_, hco⟩
   -- the values' region: the home's files' private region
   exact cacheOK_files (md := ⟨m, l.frontier⟩) rfl hf
@@ -186,31 +209,16 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : 
 
 /-- The values every job of a worker reads: its home's, on the snapshot. -/
 theorem workerFacts_good {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    {x : Array ImportRec} (hw : WorkerFacts sp fs m jobs w x) :
+    {x : Array ImportRec} (hw : WorkerFacts pins sp fs m jobs w x) :
     ∀ md ∈ (#[⟨m, w.home.frontier⟩] : Array ModRef), ∃ f r a,
       ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := by
   intro md hmd
   simp only [List.mem_toArray, List.mem_singleton] at hmd
   subst hmd
-  obtain ⟨f, hf, h⟩ := hw.home
-  simp only [homeOf] at h
-  cases hl : loadView 0 m f with
-  | error e => simp [hl] at h
-  | ok l =>
-  simp only [hl] at h
-  cases hc : checkViews m f l with
-  | error e => simp [hc] at h
-  | ok expo =>
-  simp only [hc, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, -⟩ := h
-  simp only [loadView] at hl
-  split at hl
-  · rename_i l' hl'
-    cases hl
-    obtain ⟨r, a, -, -, hreg, -, -, -, -, hgood, -⟩ := loadAt_spec hl'
-    exact ⟨f, r, a, hf, hreg, hgood⟩
-  · cases hl
+  obtain ⟨f, hf, hl, -⟩ := hw.home
+  obtain ⟨r, a, -, -, hreg, -, -, -, -, hgood, -⟩ := hl.1
+  exact ⟨f, r, a, hf, hreg, hgood⟩
 
 /-- **What a worker run at `m` checked**: what it read and checked, and its own records, with
 their theorems' values in place (`fillOf` over the home's frontier), accepted one after another
@@ -219,7 +227,7 @@ ending at the own environment.  At the mode `.verified` this is `WorkerAccepted`
 (`WorkerRan.accepted`). -/
 @[expose] def WorkerRan (mode : CheckMode) (maxNatSize : Nat) (sp : Roots) (fs : FS) (m : Name)
     (jobs : Nat) (x : Array ImportRec := #[]) : Prop :=
-  ∃ w, WorkerFacts sp fs m jobs w x ∧
+  ∃ w, WorkerFacts natOpPinSets sp fs m jobs w x ∧
     DeclsRun mode natOpPinSets maxNatSize none
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (w.reach.ctx.size, mkFEnv (streamEnv w.reach.ctx.toList))
@@ -231,10 +239,10 @@ ending at the own environment.  At the mode `.verified` this is `WorkerAccepted`
 with their theorems' values in place (`fillOf` over the home's frontier), accepted one after
 another by the pure fold (`PureRun`: `checkDecl` at the fueled operations) from the context's
 environment, ending at the own environment (`ImportOk.accepted`). -/
-@[expose] def WorkerAccepted (sp : Roots) (fs : FS) (m : Name) (jobs : Nat)
+@[expose] def WorkerAccepted (pins : List NatOpPinSet) (sp : Roots) (fs : FS) (m : Name) (jobs : Nat)
     (x : Array ImportRec := #[]) : Prop :=
-  ∃ w, WorkerFacts sp fs m jobs w x ∧
-    PureRun natOpPinSets
+  ∃ w, WorkerFacts pins sp fs m jobs w x ∧
+    PureRun pins
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (streamEnv w.reach.ctx.toList)
       (streamEnv (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
@@ -243,7 +251,7 @@ environment, ending at the own environment (`ImportOk.accepted`). -/
 /-- The check phase and the verdict of an accepted worker: an exit 0 is `WorkerRan`. -/
 theorem worker_tail {sp : Roots} {R : Roots} {m : Name} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
     {jobs : Nat} {fs : FS} {w : WorkerRead} {x : Array ImportRec} (hR : R.Ok fs) (hp : R.bare = sp)
-    (hw : WorkerFacts sp fs m jobs w x) (tag who : String)
+    (hw : WorkerFacts natOpPinSets sp fs m jobs w x) (tag who : String)
     (alone : Bool) (t0 tIndex tParse : Nat) (J : Jobs (w.reach.ctx ++ w.own)) :
     ∀ v hs hs', (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs R #[⟨m, w.home.frontier⟩] J
         w.reach.ctx.size alone w.values : ModelIO _) fs hs (.ok v) hs' →
@@ -312,7 +320,7 @@ theorem checkModuleG_accept {rd : OleanReads ModelIO} {sp : Roots} {R : Roots} {
 prefix of the context ending with it (`ImportOk.ordered`) and in the context, every name it reads
 stored there, the context `EnvWF`, its names distinct (`ImportOk.nodup`). -/
 theorem worker_ctx {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
-    (hw : WorkerFacts sp fs m jobs w x) :
+    (hw : WorkerFacts pins sp fs m jobs w x) :
     (∀ k (hk : k < w.reach.ctx.toList.length),
       RecordScoped (streamEnv (w.reach.ctx.toList.take (k + 1))) w.reach.ctx.toList[k]) ∧
     (∀ d ∈ w.reach.ctx.toList, RecordScoped (streamEnv w.reach.ctx.toList) d) ∧
@@ -329,7 +337,7 @@ context's canonical index, whose environment is well formed (`worker_ctx`), so i
 pure fold (`DeclsRun.pureRun`). -/
 theorem WorkerRan.accepted {maxNatSize : Nat} {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
     {x : Array ImportRec} (h : WorkerRan .verified maxNatSize sp fs m jobs x) :
-    WorkerAccepted sp fs m jobs x := by
+    WorkerAccepted natOpPinSets sp fs m jobs x := by
   obtain ⟨w, hw, hrun⟩ := h
   exact ⟨w, hw, (DeclsRun.pureRun hrun rfl (worker_ctx hw).2.2.2.1).1⟩
 
@@ -343,22 +351,22 @@ theorem mem_foldl_append_if {α β : Type} (p : α → Bool) (f : α → Array �
     cases hp : p a <;> simp [hp, or_assoc]
 
 /-- **A certified own operation's pin ground is in the context**: at a worker's accept, every
-name of the pin ground of an own constant (`pinGround` over the shipped variants) that a loaded
+name of the pin ground of an own constant (`pinGround` over the pin list) that a loaded
 module holds and that is not an own name is stored in the context, so the operation's install
 check finds there whatever of its variants' pins and certificates the loaded modules hold. -/
 theorem worker_ground {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) {c : CEntry} (hc : c ∈ w.home.constants)
-    (hsk : c.skipped = false) {g : Name} (hg : g ∈ pinGround natOpPinSets c.name)
+    (hw : WorkerFacts pins sp fs m jobs w) {c : CEntry} (hc : c ∈ w.home.constants)
+    (hsk : c.skipped = false) {g : Name} (hg : g ∈ pinGround pins c.name)
     (hix : w.reads.index.first.contains g = true) (ho : (ownNames w.home).contains g = false) :
     ((streamEnv w.reach.ctx.toList).find? g).isSome = true := by
   obtain ⟨_, _, _, _, hr⟩ := hw.reach
   refine (reach_ok hr).2.2.2.2 g ?_ ho
-  show g ∈ ownRoots w.reads.index w.home w.emitted
+  show g ∈ ownRoots pins w.reads.index w.home w.emitted
   unfold ownRoots
   refine Array.mem_append.2 (.inr (Array.mem_filter.2 ⟨?_, hix⟩))
   rw [← Array.foldl_toList]
   exact (mem_foldl_append_if (fun c : CEntry => c.skipped)
-    (fun c : CEntry => pinGround natOpPinSets c.name) g _ _).2
+    (fun c : CEntry => pinGround pins c.name) g _ _).2
     (.inr ⟨c, Array.mem_toList_iff.2 hc, hsk, hg⟩)
 
 /-- Two members of a list whose images, concatenated, are distinct, sharing an element of their
@@ -383,7 +391,7 @@ theorem nodup_flatMap_inj {α β : Type} {f : α → List β} :
 /-- **A context name is one record's** (`ImportOk.one_src`, with a module's source a function
 of the record storing the name): two context records storing one name are one. -/
 theorem worker_one_record {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
-    (hw : WorkerFacts sp fs m jobs w x) {d d' : Declaration} (hd : d ∈ w.reach.ctx.toList)
+    (hw : WorkerFacts pins sp fs m jobs w x) {d d' : Declaration} (hd : d ∈ w.reach.ctx.toList)
     (hd' : d' ∈ w.reach.ctx.toList) {n : Name} (hn : n ∈ declNames d) (hn' : n ∈ declNames d') :
     d = d' := by
   exact nodup_flatMap_inj hw.nodup hd hd' hn hn'
@@ -392,25 +400,10 @@ theorem worker_one_record {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : Wo
 
 /-- The home of an accepted worker: its files, loaded. -/
 theorem workerFacts_load {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
-    (hw : WorkerFacts sp fs m jobs w x) :
-    ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ loadAt 0 m f = some w.home := by
-  obtain ⟨f, hf, h⟩ := hw.home
-  simp only [homeOf] at h
-  cases hl : loadView 0 m f with
-  | error e => simp [hl] at h
-  | ok l =>
-  simp only [hl] at h
-  cases hc : checkViews m f l with
-  | error e => simp [hc] at h
-  | ok expo =>
-  simp only [hc, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, -⟩ := h
-  simp only [loadView] at hl
-  split at hl
-  · rename_i l' hl'
-    cases hl
-    exact ⟨f, hf, hl'⟩
-  · cases hl
+    (hw : WorkerFacts pins sp fs m jobs w x) :
+    ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ LoadOf 0 m f w.home := by
+  obtain ⟨f, hf, hl, -⟩ := hw.home
+  exact ⟨f, hf, hl⟩
 
 /-- A constant's entry names it as its skeleton does. -/
 theorem lazyEntry_name {r : Region} {i : Nat} {s : CEntryF UInt64 UInt64} {E : CEntryF Name Expr}
@@ -486,12 +479,12 @@ with its statement, and its reference, on the snapshot, stands for the specifica
 (`ValueAt` over the home's frontier): the own records hold the module's theorems as the
 specification reads them off the files (`ViewOf`). -/
 theorem worker_thm {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs m jobs w) {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
+    (hw : WorkerFacts pins sp fs m jobs w) {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
     {all : List Name} (hv : ViewOf sp fs m d) (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
     ∃ code, Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ (.bvar code) ∈ w.own ∧
       ValueAt sp fs #[⟨m, w.home.frontier⟩] code v := by
   obtain ⟨f, hf, hl⟩ := workerFacts_load hw
-  obtain ⟨r, a, sk, skels, hreg, hcn, hsk, hskels, -, -, hlazy⟩ := loadAt_spec hl
+  obtain ⟨r, a, sk, skels, hreg, hcn, hsk, hskels, -, -, hlazy⟩ := hl.1
   obtain ⟨f', hf', hview⟩ := hv
   obtain rfl := readFiles_unique hf hf'
   obtain ⟨sk', hsk', hspec⟩ := view_parts hreg hview
@@ -560,8 +553,8 @@ context record is closed in the context, which is well formed.  What
 is left of `ImportOk` relates `i` to other modules (`below`, `src_lt`, `presented`, `reads`,
 the agreement): the composition's (task #467). -/
 theorem worker_local {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
-    {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts sp fs m jobs w x)
-    (hrun : PureRun natOpPinSets
+    {w : WorkerRead} {x : Array ImportRec} (hw : WorkerFacts pins sp fs m jobs w x)
+    (hrun : PureRun pins
       (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
       (streamEnv w.reach.ctx.toList)
       (streamEnv (w.own.toList.map (fillDecl (fillOf sp fs #[⟨m, w.home.frontier⟩])))
@@ -571,7 +564,7 @@ theorem worker_local {sp : Roots} {fs : FS} {m : Name} {jobs : Nat}
     (srcOf : Declaration → Nat) (hsrc : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, (dev i).src n = srcOf d) :
     ((dev i).context.consts.map (·.toConstantVal.name)).Nodup ∧
     (∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d, (dev i).src n = (dev i).src n') ∧
-    (∃ E, PureRun natOpPinSets (dev i).decls (dev i).context E) ∧
+    (∃ E, PureRun pins (dev i).decls (dev i).context E) ∧
     (∀ k (hk : k < (dev i).ctx.length),
       RecordScoped (streamEnv ((dev i).ctx.take (k + 1))) (dev i).ctx[k]) ∧
     (∀ d ∈ (dev i).ctx, RecordScoped (dev i).context d) ∧ EnvWF (dev i).context := by

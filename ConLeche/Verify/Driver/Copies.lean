@@ -37,6 +37,8 @@ public section
 
 namespace ConLeche.Driver
 
+variable {pins : List NatOpPinSet}
+
 open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLeche.Cached
 
 /-! ## A module's own environment -/
@@ -51,8 +53,9 @@ open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLech
   streamEnv (ownDeclsOf sp fs M w) (streamEnv w.reach.ctx.toList)
 
 /-- **The own records accepted from the context** (`worker_local`'s run, of the pure fold). -/
-@[expose] def OwnRun (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) : Prop :=
-  ∃ E, PureRun natOpPinSets (ownDeclsOf sp fs M w) (streamEnv w.reach.ctx.toList) E
+@[expose] def OwnRun (pins : List NatOpPinSet) (sp : Roots) (fs : FS) (M : Name) (w : WorkerRead) :
+    Prop :=
+  ∃ E, PureRun pins (ownDeclsOf sp fs M w) (streamEnv w.reach.ctx.toList) E
 
 theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci ∈ E.consts) :
     E.find? ci.name = some ci := by
@@ -73,7 +76,7 @@ theorem find?_of_nodup {E : Env} (hn : NodupNames E) {ci : ConstantInfo} (h : ci
 
 /-- **An accepted module's own environment names each constant once.** -/
 theorem ownEnv_nodup {sp : Roots} {fs : FS} {M : Name} {jobs : Nat}
-    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hr : OwnRun sp fs M w) :
+    {w : WorkerRead} (hw : WorkerFacts pins sp fs M jobs w) (hr : OwnRun pins sp fs M w) :
     NodupNames (ownEnvOf sp fs M w) := by
   obtain ⟨E, hq⟩ := hr
   have hc := hq.chain (PushChain.refl _)
@@ -92,7 +95,7 @@ theorem own_mem_ownEnv {sp : Roots} {fs : FS} {M : Name} {w : WorkerRead} {p : D
 
 /-- An emitted record is an own record. -/
 theorem emitted_own {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) : p ∈ w.own.toList := by
+    (hw : WorkerFacts pins sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) : p ∈ w.own.toList := by
   rw [hw.own]
   exact (Frontend.hoistNatOpGround_perm _ _).mem_iff.2 (Array.mem_toList_iff.2 hp)
 
@@ -190,7 +193,7 @@ theorem workerReads_spec {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {x : Arr
 
 /-- The private part's name table holds the worker's own table. -/
 theorem worker_ownTable {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) : PartNames sp fs ⟨M, .private⟩ w.reads.own := by
+    (hw : WorkerFacts pins sp fs M jobs w) : PartNames sp fs ⟨M, .private⟩ w.reads.own := by
   obtain ⟨_, _, h⟩ := hw.reads
   obtain ⟨own, hown, he⟩ := (workerReads_spec h).1
   rw [he, NamePositions.withImports_empty]
@@ -199,7 +202,7 @@ theorem worker_ownTable {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Work
 /-- **An exported copy is behind a private one**: a copy of `M`'s exported part has a copy of its
 name in `M`'s private part. -/
 theorem exported_behind {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
+    (hw : WorkerFacts pins sp fs M jobs w) {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s)
     (hl : s.part.level = .exported) :
     ∃ q : Spot, CopyAt sp fs q ∧ q.part = ⟨M, .private⟩ ∧ q.pos.name = s.pos.name := by
   obtain ⟨f, r0, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, -⟩ := home_records hw
@@ -220,7 +223,7 @@ theorem exported_behind {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Work
 
 /-- **A module's private part holds every name its exported part does.** -/
 theorem exported_sub_private {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {te tp : NamePositions}
+    (hw : WorkerFacts pins sp fs M jobs w) {te tp : NamePositions}
     (he : PartNames sp fs ⟨M, .exported⟩ te) (hp : PartNames sp fs ⟨M, .private⟩ tp)
     {q : NamePosition} (hq : q ∈ te.consts) : ∃ q' ∈ tp.consts, q'.name = q.name := by
   obtain ⟨q', ⟨t', ht', hq'⟩, hqp, hqn⟩ :=
@@ -332,7 +335,7 @@ theorem _root_.ConLeche.PureRun.stmt_fresh {pins : List NatOpPinSet} {ds : List 
 
 /-- **An own statement record's type does not read its own name**, at an accepted worker. -/
 theorem own_stmt_fresh {sp : Roots} {fs : FS} {M : Name}
-    {w : WorkerRead} (hrun : OwnRun sp fs M w) {d : Declaration}
+    {w : WorkerRead} (hrun : OwnRun pins sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     cv.name ∉ cv.type.readNames := by
   obtain ⟨E, hq⟩ := hrun
@@ -368,7 +371,7 @@ theorem _root_.ConLeche.PureRun.stmt_stored {pins : List NatOpPinSet} {ds : List
 
 /-- **The names an own statement record's type reads are stored** in the own environment. -/
 theorem own_type_stored {sp : Roots} {fs : FS} {M : Name}
-    {w : WorkerRead} (hrun : OwnRun sp fs M w) {d : Declaration}
+    {w : WorkerRead} (hrun : OwnRun pins sp fs M w) {d : Declaration}
     (hd : d ∈ ownDeclsOf sp fs M w) {cv : ConstantVal} (hcv : StmtRecord d cv) :
     ∀ n ∈ cv.type.readNames, ((ownEnvOf sp fs M w).find? n).isSome = true := by
   obtain ⟨E, hq⟩ := hrun
@@ -390,7 +393,7 @@ theorem ctx_stored_own {sp : Roots} {fs : FS} {M : Name} {w : WorkerRead} {n : N
 /-- **What an own record reads is stored in the context**, where the reach's roots keep it: no
 own name, and loaded or no name of a pinned own constant's fast path (`ownRoots`' filter). -/
 theorem own_reads_ctx {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) {y : Name}
+    (hw : WorkerFacts pins sp fs M jobs w) {p : Declaration} (hp : p ∈ w.emitted) {y : Name}
     (hy : y ∈ recordReads p) (ho : (ownNames w.home).contains y = false)
     (hk : (w.reads.index.first.contains y || !(w.home.constants.foldl
       (fun s c => (pinFootprint c.name).foldl (fun s n => s.insert n) s)
@@ -398,7 +401,7 @@ theorem own_reads_ctx {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worker
     ((streamEnv w.reach.ctx.toList).find? y).isSome = true := by
   obtain ⟨_, _, _, _, hr⟩ := hw.reach
   refine (reach_ok hr).2.2.2.2 y ?_ ho
-  show y ∈ ownRoots w.reads.index w.home w.emitted
+  show y ∈ ownRoots pins w.reads.index w.home w.emitted
   unfold ownRoots
   refine Array.mem_append.2 (.inl (Array.mem_filter.2 ⟨Array.mem_append.2 (.inl ?_), hk⟩))
   rw [← Array.foldl_toList]
@@ -680,7 +683,7 @@ does not hold no loaded module holds.  Header-fixpoint determinism is a hypothes
 (`hdet`, `Loads.lean`'s). -/
 theorem homeView_index {sp a L : Roots} (ha : a.Trims L) (hsL : sp.Trims L) {fs : FS} {M : Name}
     {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w)
+    (hw : WorkerFacts pins sp fs M jobs w)
     (hdet : ∀ ld ld', ModelIO.CanGive (headerFixpoint (moduleImports L)
         w.reads.own.header.isModule w.reads.own.header.imports) fs (.ok ld) →
       ModelIO.CanGive (headerFixpoint (moduleImports L)

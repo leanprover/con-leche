@@ -19,7 +19,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-- A presentation installs the names it presents. -/
 theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n ∈ declNames d) :
@@ -42,7 +42,7 @@ theorem presents_names {d p : Declaration} (h : Presents d p) {n : Name} (hn : n
 
 namespace Run
 
-variable (R : Run sp fs)
+variable (R : Run pins sp fs)
 
 /-- The reach's environment at module `M`'s worker. -/
 @[expose] def envOf (M : Name) : ReachEnv ModelIO :=
@@ -204,7 +204,7 @@ theorem iface_presented {M : Name} (hM : M ∈ R.names) :
   refine ⟨?_, fun d hdm n hn => ?_⟩
   · have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (a : Roots) (M' : Name) (jM : Nat)
         (wM : WorkerRead) (xM : Array ImportRec) (i : Nat), a.Trims sp ∧
-          WorkerFacts a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+          WorkerFacts pins a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
           wM.reach.homes[i]? = some M := fun e he => by
       rw [hd] at he
       obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he

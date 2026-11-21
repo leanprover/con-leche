@@ -4,7 +4,6 @@ public import ConLeche.Verify.Driver.ReachFrom
 public import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
-import ConLeche.Verify.Frontend.Olean.Lazy
 public import ConLeche.Verify.Frontend.Olean.Emit
 public import ConLeche.Verify.Frontend.Olean.Prefix
 import ConLeche.Verify.Frontend.Olean.Group
@@ -23,6 +22,8 @@ assembled statements are `ConLeche/Verify/Driver/Groups.lean`'s.
 public section
 
 namespace ConLeche.Driver
+
+variable {pins : List NatOpPinSet}
 
 open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLeche.Cached
 
@@ -330,11 +331,11 @@ the check of its views), the merge of its own constants and their emission, and 
 skeleton of its private part not filtered out, the constant the load read there, which the
 merge holds under its name. -/
 theorem home_records {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
-    (hw : WorkerFacts sp fs h jobs w x) :
+    (hw : WorkerFacts pins sp fs h jobs w x) :
     ∃ f r a sk skels, ModelIO.CanGive (readFiles sp h .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
       sk.consts.mapM (constSkel r) = some skels ∧ constNamesOk r a = true ∧
-      checkViews h f w.home = .ok w.expo ∧ loadAt 0 h f = some w.home ∧
+      checkViews h f w.home = .ok w.expo ∧ LoadOf 0 h f w.home ∧
       (∀ (n : Name) (c : CEntry), (homeMerged w).map[n]? = some c → c.name = n) ∧
       (∀ n, n ∈ (homeMerged w).order ↔ (homeMerged w).map.contains n = true) ∧
       blocksOk (homeMerged w) = .ok () ∧
@@ -342,23 +343,8 @@ theorem home_records {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerR
       ∀ loc s, loc ∈ sk.consts → constSkel r loc = some s → s.kind.skipped = false →
         ∃ E e₁, lazyEntry (nameP r) (exprP r) r 0 s = some E ∧
           (homeMerged w).map[E.name]? = some e₁ ∧ e₁.toCEntryF = E := by
-  obtain ⟨f, hf, hh⟩ := hw.home
-  simp only [homeOf] at hh
-  cases hl : loadView 0 h f with
-  | error e => simp [hl] at hh
-  | ok l =>
-  simp only [hl] at hh
-  cases hc : checkViews h f l with
-  | error e => simp [hc] at hh
-  | ok expo =>
-  simp only [hc, Except.ok.injEq, Prod.mk.injEq] at hh
-  obtain ⟨rfl, rfl⟩ := hh
-  have hload : loadAt 0 h f = some w.home := by
-    simp only [loadView] at hl
-    split at hl
-    · cases hl; assumption
-    · cases hl
-  obtain ⟨r, a, sk, skels, hreg, hcn, hsk, hskels, -, -, hlazy⟩ := loadAt_spec hload
+  obtain ⟨f, hf, hload, hcv⟩ := hw.home
+  obtain ⟨r, a, sk, skels, hreg, hcn, hsk, hskels, -, -, hlazy⟩ := hload.1
   obtain ⟨hO, hin, hall⟩ := mergedOfList_spec (w.home.constants.toList.filter (!·.skipped))
   have hN := mergedOfList_names (w.home.constants.toList.filter (!·.skipped))
   have hown := hw.emitted
@@ -366,7 +352,7 @@ theorem home_records {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerR
   | error e => simp [ownRecords, hb] at hown
   | ok u =>
   simp only [ownRecords, hb] at hown
-  refine ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hc, hload, hN, hO, hb, hown,
+  refine ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, hcn, hcv, hload, hN, hO, hb, hown,
     fun loc s hloc hs hskp => ?_⟩
   obtain ⟨s', hs'mem, hs'⟩ := mapM_mem hskels hloc
   rw [hs] at hs'
@@ -1102,7 +1088,7 @@ the location's stands for (`Behind`), of the same name. -/
 theorem behind_sub {r r1 : Region} {nb : Nat} (hsub : Region.Sub r1 r nb) {f : ModFiles} {h : Name}
     {pa a1 : UInt64} {sk skE : ModSkel} {l : Loaded} {expo : Array Expo}
     (hreg : f.viewRegion .private = some (r, pa)) (hsk : moduleSkel r pa = some sk)
-    (hload : loadAt 0 h f = some l)
+    (hload : LoadOf 0 h f l)
     (hexpo : expoOfParts r pa a1 (l.constants.map (·.toCEntryF)) = .ok expo)
     (hskE : moduleSkel r1 a1 = some skE) {loc1 : Nat} (hloc : loc1 ∈ skE.consts)
     {s1 : CEntryF UInt64 UInt64} (hs1 : constSkel r1 loc1 = some s1) {n : Name}
@@ -1138,7 +1124,7 @@ theorem behind_sub {r r1 : Region} {nb : Nat} (hsub : Region.Sub r1 r nb) {f : M
   cases hse
   have hen' : en = n := by rw [hn1r] at hen; exact (Option.some.inj hen).symm
   -- the private constant at `loc`, as the load read it
-  obtain ⟨r', a', sk', skels', hreg', hsk', hskels', hlen, hal⟩ := loadAt_aligned hload
+  obtain ⟨r', a', sk', skels', hreg', hsk', hskels', hlen, hal⟩ := hload.2.1
   rw [hreg] at hreg'
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hreg')
   rw [hsk] at hsk'
@@ -1280,7 +1266,7 @@ theorem copy_behind {sp : Roots} {fs : FS} {h : Name} {f : ModFiles} {r : Region
     {a : UInt64} {sk : ModSkel} {l : Loaded} {expo : Array Expo}
     (hf : ModelIO.CanGive (readFiles sp h .private) fs (.ok f))
     (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
-    (hload : loadAt 0 h f = some l) (hcv : checkViews h f l = .ok expo)
+    (hload : LoadOf 0 h f l) (hcv : checkViews h f l = .ok expo)
     {s : Spot} (hmod : s.part.mod = h) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r1 : Region} (hr1 : PartRegion sp fs s.part r1) :
     ∃ loc sP s1, loc ∈ sk.consts ∧ constSkel r loc = some sP ∧
@@ -1414,7 +1400,7 @@ theorem groupOfKind_tag {x : Name} {k : CKindF Name Unit} (hg : groupOfKind x k 
 
 /-- **The statement, whole-constant and quotient cases.** -/
 theorem recordFrom_presents_nongroup {sp : Roots} {fs : FS} {h : Name}
-    {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp fs h jobs w) :
+    {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts pins sp fs h jobs w) :
     (∀ {x : Name} {s : Spot} {r : Region} {cv : ConstantVal} {k : CKindF Name Unit},
       s.part.mod = h → CopyAt sp fs s → s.part.level ≠ .server → PartRegion sp fs s.part r →
       StmtSkel r s.pos.loc cv k → s.pos.skipped = false → groupOfKind x k = none → k.tag ≠ 4 →

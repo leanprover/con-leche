@@ -67,13 +67,14 @@ def pinGround (pins : List NatOpPinSet) (c : Name) : Array Name :=
 
 /-- **The reach's roots**: what each own record reads, what each own constant's load read
 (a theorem's value's names, which its record holds as a reference), and the pin ground of each
-own certified operation (`pinGround` over `natOpPinSets`) that a loaded module holds; an unsafe
-or partial own constant is no record, and what it reads is no root.  A name a pinned own
+own certified operation (`pinGround` over `pins`, the binary's `natOpPinSets`) that a loaded
+module holds; an unsafe or partial own constant is no record, and what it reads is no root.  A name a pinned own
 constant's fast path reads (`pinFootprint`) that no loaded module holds is left to that
 constant's own check, which asks it stored (`natOpGuard`) and gives the stream path's verdict;
 so is a name of a pin ground no loaded module holds (another toolchain's variant's, or one the
 check then finds absent and declines). -/
-def ownRoots (ix : NameIndex) (l : Loaded) (ds : Array Declaration) : Array Name :=
+def ownRoots (pins : List NatOpPinSet) (ix : NameIndex) (l : Loaded) (ds : Array Declaration) :
+    Array Name :=
   let fp : Std.HashSet Name := l.constants.foldl
     (fun s c => (pinFootprint c.name).foldl (fun s n => s.insert n) s) {}
   (ds.foldl (fun acc d => acc ++ recordReads d) #[] ++
@@ -81,7 +82,7 @@ def ownRoots (ix : NameIndex) (l : Loaded) (ds : Array Declaration) : Array Name
       if c.skipped then acc else acc ++ c.uses.toArray) #[]).filter
     (fun x => ix.first.contains x || !fp.contains x) ++
   (l.constants.foldl (fun acc (c : CEntry) =>
-      if c.skipped then acc else acc ++ pinGround natOpPinSets c.name) #[]).filter
+      if c.skipped then acc else acc ++ pinGround pins c.name) #[]).filter
     ix.first.contains
 
 /-- What an own theorem's record mentions, which its reference does not say: what the load read
@@ -144,11 +145,11 @@ def ownNamesOf (x : Array ImportRec) (ix : NameIndex) (l : Loaded) : Std.HashSet
 (`ownRoots`); at a compared challenge, what the own records and the own constants read, and the
 copies' names, whose loaded constants the comparison reads (what a copy's value reads is no
 root: the copy is the loaded constant). -/
-def rootsAt (x : Array ImportRec) (ix : NameIndex) (l : Loaded) (ds : Array Declaration) :
-    Array Name :=
-  if x.isEmpty then ownRoots ix l ds
+def rootsAt (pins : List NatOpPinSet) (x : Array ImportRec) (ix : NameIndex) (l : Loaded)
+    (ds : Array Declaration) : Array Name :=
+  if x.isEmpty then ownRoots pins ix l ds
   else
-    ownRoots ix { l with constants := l.constants.filter (!ix.first.contains ·.name) }
+    ownRoots pins ix { l with constants := l.constants.filter (!ix.first.contains ·.name) }
       (ownRecs x ix ds) ++
     (copyRecs x ix ds).flatMap fun d => (Modular.declNames d).toArray
 
@@ -327,7 +328,7 @@ def workerRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Nam
         match ownHolesOk m x (ownUses l) wr.index ds with
         | .error e => pure (.error (e, 0))
         | .ok () =>
-        match ← reach rd m wr (ownNamesOf x wr.index l) (rootsAt x wr.index l ds) with
+        match ← reach rd m wr (ownNamesOf x wr.index l) (rootsAt natOpPinSets x wr.index l ds) with
         | .error e => pure (.error (e, 0))
         | .ok r =>
           if !namesNodupGo {} (r.ctx.toList.flatMap Modular.declNames) then

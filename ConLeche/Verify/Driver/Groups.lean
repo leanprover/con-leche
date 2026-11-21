@@ -4,7 +4,6 @@ public import ConLeche.Verify.Driver.Provenance
 public import ConLeche.Verify.Frontend.Olean.GroupSame
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
-import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Sparse
 import ConLeche.Verify.Frontend.Olean.Group
 import ConLeche.Verify.Frontend.Prepare
@@ -29,6 +28,8 @@ With it, every context record of an accepted worker presents one of its home's o
 public section
 
 namespace ConLeche.Driver
+
+variable {pins : List NatOpPinSet}
 
 open ConLeche ConLeche.Modular ConLeche.Frontend ConLeche.Frontend.Olean ConLeche.Cached
 
@@ -248,10 +249,10 @@ filter the position's, and the constant the load read off it. -/
     q.skipped = s.kind.skipped ∧ lazyEntry (nameP r) (exprP r) r 0 s = some e.toCEntryF
 
 /-- **The home's load is its private name table, position by position.** -/
-theorem home_rows {h : Name} {f : ModFiles} {l : Loaded} (hload : loadAt 0 h f = some l)
+theorem home_rows {h : Name} {f : ModFiles} {l : Loaded} (hload : LoadOf 0 h f l)
     {r : Region} {a : UInt64} (hreg : f.viewRegion .private = some (r, a)) {t : NamePositions}
     (ht : namePositionsAt r a = some t) : Forall₂ (RowOK r) t.consts.toList l.constants.toList := by
-  obtain ⟨r', a', sk, skels, hv', hsk, hskels, hl, hj⟩ := loadAt_aligned hload
+  obtain ⟨r', a', sk, skels, hv', hsk, hskels, hl, hj⟩ := hload.2.1
   rw [hreg] at hv'
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv')
   have h1 : Forall₂ (fun s (e : CEntry) => lazyEntry (nameP r) (exprP r) r 0 s = some e.toCEntryF)
@@ -429,7 +430,7 @@ theorem blockCtors_toF {A B : Merged} :
 is, constant by constant and in the block's order, the record `h`'s emission built of that
 group. -/
 theorem group_presents {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs h jobs w) {n : Name} {d : Declaration}
+    (hw : WorkerFacts pins sp fs h jobs w) {n : Name} {d : Declaration}
     (hgr : GroupRead sp fs ⟨h, .private⟩ n d) : ∃ p ∈ w.emitted, Presents d p := by
   obtain ⟨t, q, tE, np, ni, nn, all, cs, ir, iu, irf, mqs, cqs, tys, rest, t', rb, r₁, r₂, r₃, r₄,
     ht, hq, hr₁, htE, hk, hmqs, hr₂, htys, hcqs, ht', hr₃, hrb, hr₄, hrest, hd⟩ := hgr
@@ -745,7 +746,7 @@ theorem group_presents {sp : Roots} {fs : FS} {h : Name} {jobs : Nat} {w : Worke
 /-- **A record read from module `h` presents one of `h`'s own records**, as the worker at `h`
 emitted them on the same snapshot. -/
 theorem recordFrom_presents {sp : Roots} {fs : FS} {d : Declaration} {h : Name} {jobs : Nat}
-    {w : WorkerRead} (hd : RecordFrom sp fs d h) (hw : WorkerFacts sp fs h jobs w) :
+    {w : WorkerRead} (hd : RecordFrom sp fs d h) (hw : WorkerFacts pins sp fs h jobs w) :
     ∃ p ∈ w.emitted, Presents d p := by
   obtain ⟨hs, he, hq⟩ := recordFrom_presents_nongroup hw
   cases hd with
@@ -769,9 +770,9 @@ at `h` accepted on the same snapshot, one of `h`'s own records with its theorems
 says of the copy read is `copy_behind`'s. -/
 theorem worker_presented {sp sp' L : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
     {x : Array ImportRec} (hsL : sp.Trims L) (hsL' : sp'.Trims L)
-    (hw : WorkerFacts sp fs m jobs w x) {i : Nat} {d : Declaration} {h : Name}
+    (hw : WorkerFacts pins sp fs m jobs w x) {i : Nat} {d : Declaration} {h : Name}
     (hd : w.reach.ctx[i]? = some d) (hh : w.reach.homes[i]? = some h)
-    {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts sp' fs h jobs' w') :
+    {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts pins sp' fs h jobs' w') :
     ∃ p ∈ w'.own.toList.map (fillDecl (fillOf sp' fs #[⟨h, w'.home.frontier⟩])), Presents d p := by
   obtain ⟨_, _, hrd⟩ := hw.reads
   obtain ⟨_, _, _, _, hre⟩ := hw.reach
@@ -786,7 +787,7 @@ theorem worker_presented {sp sp' L : Roots} {fs : FS} {m : Name} {jobs : Nat} {w
 
 /-- Every context record has its home. -/
 theorem worker_home {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
-    (hw : WorkerFacts sp fs m jobs w x) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
+    (hw : WorkerFacts pins sp fs m jobs w x) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
     ∃ (i : Nat) (h : Name), w.reach.ctx[i]? = some d ∧ w.reach.homes[i]? = some h := by
   obtain ⟨_, _, hrd⟩ := hw.reads
   obtain ⟨_, _, _, _, hre⟩ := hw.reach
@@ -803,11 +804,11 @@ records, theorems' values in place, as its `decls`, and presents only context re
 workers on the same snapshot read from `hb`, every presentation presents one of `b`'s own
 records. -/
 theorem interfaceOk_of_workers {sp L : Roots} {fs : FS} {hb : Name} {jobs : Nat}
-    {w : WorkerRead} (hsL : sp.Trims L) (hw : WorkerFacts sp fs hb jobs w)
+    {w : WorkerRead} (hsL : sp.Trims L) (hw : WorkerFacts pins sp fs hb jobs w)
     (dev : Nat → Module) (b : Nat)
     (hdecls : (dev b).decls = w.own.toList.map (fillDecl (fillOf sp fs #[⟨hb, w.home.frontier⟩])))
     (hiface : ∀ e ∈ (dev b).iface, ∃ (a : Roots) (M : Name) (jM : Nat) (wM : WorkerRead)
-      (xM : Array ImportRec) (i : Nat), a.Trims L ∧ WorkerFacts a fs M jM wM xM ∧
+      (xM : Array ImportRec) (i : Nat), a.Trims L ∧ WorkerFacts pins a fs M jM wM xM ∧
         wM.reach.ctx[i]? = some e ∧ wM.reach.homes[i]? = some hb) :
     InterfaceOk dev b := by
   refine ⟨fun e he => ?_⟩
@@ -821,12 +822,12 @@ context as its `ctx`, each context name read from the module its record's home i
 record is a presentation of the module its names are read from. -/
 theorem presented_of_worker {sp L : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : WorkerRead}
     {x : Array ImportRec} (hsL : sp.Trims L)
-    (hw : WorkerFacts sp fs M jobs w x) (dev : Nat → Module) (i : Nat)
+    (hw : WorkerFacts pins sp fs M jobs w x) (dev : Nat → Module) (i : Nat)
     (hctx : (dev i).ctx = w.reach.ctx.toList) (nameOf : Nat → Name)
     (hsrc : ∀ (j : Nat) (d : Declaration) (h : Name), w.reach.ctx[j]? = some d →
       w.reach.homes[j]? = some h → ∀ n ∈ declNames d, nameOf ((dev i).src n) = h)
     (hiface : ∀ (b : Nat) (e : Declaration), (∃ (a : Roots) (M' : Name) (j' : Nat) (w' : WorkerRead)
-      (x' : Array ImportRec) (k : Nat), a.Trims L ∧ WorkerFacts a fs M' j' w' x' ∧
+      (x' : Array ImportRec) (k : Nat), a.Trims L ∧ WorkerFacts pins a fs M' j' w' x' ∧
         w'.reach.ctx[k]? = some e ∧ w'.reach.homes[k]? = some (nameOf b)) →
       e ∈ (dev b).iface) :
     ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface := by

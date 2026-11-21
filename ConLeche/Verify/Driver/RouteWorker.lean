@@ -54,7 +54,7 @@ theorem readNames_needsGo {e : Expr} {n : Name} (h : n ∈ e.readNames) :
   have hi : NeedsInv (({} : Std.HashSet Expr), (#[] : Array Name)) := fun e he => by simp at he
   exact (needsGo_spec e {} #[] hi).2.2 n (by rw [needs_eq_readNames]; exact h)
 
-variable {sp : Roots} {fs : FS}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 theorem ownNames_foldl (n : Name) : ∀ (l : List CEntry) (s : Std.HashSet Name),
     (l.foldl (fun s c => s.insert c.name) s).contains n = true →
@@ -79,11 +79,11 @@ theorem mem_ownNames {l : Loaded} {n : Name} (h : (ownNames l).contains n = true
 
 /-- **No name of a module's private view is loaded** (the worker's freshness). -/
 theorem first_none_of_ownNames {M : Name} {jobs : Nat} {w : WorkerRead}
-    (hw : WorkerFacts sp fs M jobs w) {n : Name} (hn : (ownNames w.home).contains n = true) :
+    (hw : WorkerFacts pins sp fs M jobs w) {n : Name} (hn : (ownNames w.home).contains n = true) :
     w.reads.index.first[n]? = none := by
   obtain ⟨c, hc, rfl⟩ := mem_ownNames hn
   obtain ⟨f, r, a, sk, skels, hf, hreg, hsk, hskels, -, -, hload, -⟩ := home_records hw
-  obtain ⟨r', a', sk', skels', hreg', -, hsk', hskels', -, -, hlazy⟩ := loadAt_spec hload
+  obtain ⟨r', a', sk', skels', hreg', -, hsk', hskels', -, -, hlazy⟩ := hload.1
   rw [hreg] at hreg'
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hreg')
   rw [hsk] at hsk'
@@ -104,7 +104,7 @@ theorem first_none_of_ownNames {M : Name} {jobs : Nat} {w : WorkerRead}
 
 /-- **A copy the name index records makes its name loaded.** -/
 theorem first_of_at {M : Name} {jobs : Nat} {w : WorkerRead} {x : Array ImportRec}
-    (hw : WorkerFacts sp fs M jobs w x)
+    (hw : WorkerFacts pins sp fs M jobs w x)
     {cp : Copy} {q : NamePosition} (hq : w.reads.index.at cp = some q) :
     (w.reads.index.first[q.name]?).isSome = true := by
   obtain ⟨_, _, hr⟩ := hw.reads
@@ -281,7 +281,7 @@ theorem workerClash_kinds {m : Name} {jobs : Nat} {x : Array ImportRec} {wr : Wo
 kind, not filtered out, stands for a constant of the home's merge, of the copy's statement, kept
 and of a statement kind, whose record is emitted; a theorem where the copy or the private constant
 behind it is one. -/
-theorem copy_entry {M : Name} {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w)
+theorem copy_entry {M : Name} {jobs : Nat} {w : WorkerRead} (hw : WorkerFacts pins sp fs M jobs w)
     {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r : Region} (hr : PartRegion sp fs s.part r) {cv : ConstantVal} {k : CKindF Name Unit}
     (hst : StmtSkel r s.pos.loc cv k) (hsk0 : s.pos.skipped = false) (htag : k.tag < 4) :
@@ -425,7 +425,7 @@ load reads, of a statement kind, not filtered out, at no `sorryAx`, has in `M`'s
 a statement-kind constant of the copy's statement, a theorem where the copy or the private
 constant behind it is one; and the statement's type does not read its own name. -/
 theorem copy_own {M : Name} {jobs : Nat}
-    {w : WorkerRead} (hw : WorkerFacts sp fs M jobs w) (hrun : OwnRun sp fs M w)
+    {w : WorkerRead} (hw : WorkerFacts pins sp fs M jobs w) (hrun : OwnRun pins sp fs M w)
     {s : Spot} (hmod : s.part.mod = M) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
     {r : Region} (hr : PartRegion sp fs s.part r) {cv : ConstantVal} {k : CKindF Name Unit}
     (hst : StmtSkel r s.pos.loc cv k) (hsk0 : s.pos.skipped = false) (htag : k.tag < 4)

@@ -18,6 +18,8 @@ over a closure (`Driver.Compose.Run.ofAccepted`); the closure of the specificati
 
 namespace ConLeche.Driver.Compose
 
+variable {pins : List NatOpPinSet}
+
 open ConLeche ConLeche.Frontend ConLeche.Frontend.Olean
 
 universe w
@@ -67,7 +69,7 @@ theorem closure_sees_isModel (V : Type w) [SetTheory V] {sp : Roots} {fs : FS}
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted sp fs M jobs)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs)
     {r : Name} (hr : r ∈ C.map (·.1)) :
     ∃ model : Name → (Name → List Nat → V),
       (∀ m, InClosure sp fs #[r] m → IsModel V (model m) (moduleConstants sp fs m)) ∧
@@ -104,7 +106,7 @@ theorem modular_sees_graph (V : Type w) [SetTheory V] {dirs root : String} {r : 
   obtain ⟨C, rk, good, hroots, edges, inj, hhdr⟩ :=
     Graph.checkGraphG_ok rfl (fun _ h => h) (fun _ _ h => by simp at h) hg
   replace good := fun e he => (good e he).plain
-  refine closure_sees_isModel V C rk good edges inj
+  refine closure_sees_isModel V (pins := natOpPinSets) C rk good edges inj
     (fun M hM => ?_) (hroots r List.mem_cons_self)
   obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
   obtain ⟨root', hp, _, _, hw⟩ := hwork e.1 (hhdr e he)
@@ -125,7 +127,7 @@ theorem modular_sees_one (V : Type w) [SetTheory V] {dirs root : String} {r : Na
   obtain ⟨_, _, h⟩ := h
   obtain ⟨m₀, hp, C, rk, good, hm₀, edges, inj, hacc⟩ := runArgs_modular_accept h
   obtain rfl : m₀ = r := Option.some.inj (hp.symm.trans hr)
-  exact closure_sees_isModel V C rk good edges inj
+  exact closure_sees_isModel V (pins := natOpPinSets) C rk good edges inj
     (fun M hM => by
       obtain ⟨e, he, rfl⟩ := List.mem_map.1 hM
       exact ⟨1, hacc e he⟩) hm₀

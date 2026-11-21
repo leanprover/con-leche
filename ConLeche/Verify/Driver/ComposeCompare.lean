@@ -26,7 +26,7 @@ namespace ConLeche.Driver.Compose
 
 open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 
-variable {sp : Roots} {fs : FS}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-- The compared run's added imports: the solution's import at the challenge, none elsewhere. -/
 theorem cmpExtra_self (Cn S : Name) : Graph.cmpExtra Cn S Cn = #[Graph.solutionImport S] := by
@@ -85,9 +85,9 @@ lookup; `dflt` the read of a name outside the closure. -/
     (inj : (C.map fun e => rk e.1).Nodup)
     (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
     (acc : ∀ M ∈ C.map (·.1), ∃ jobs,
-      WorkerAccepted sp fs M jobs (Graph.cmpExtra Cn S M))
+      WorkerAccepted pins sp fs M jobs (Graph.cmpExtra Cn S M))
     (dflt : WorkerRead) :
-    Run sp fs where
+    Run pins sp fs where
   C := C
   rk := rk
   x := Graph.cmpExtra Cn S
@@ -109,7 +109,7 @@ theorem Run.ofCompare_names (Cn S : Name) (C : List Graph.Node) (rk : Name → N
     (inj : (C.map fun e => rk e.1).Nodup)
     (plain : ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[])
     (acc : ∀ M ∈ C.map (·.1), ∃ jobs,
-      WorkerAccepted sp fs M jobs (Graph.cmpExtra Cn S M))
+      WorkerAccepted pins sp fs M jobs (Graph.cmpExtra Cn S M))
     (dflt : WorkerRead) :
     (Run.ofCompare Cn S C rk good edges inj plain acc dflt).names = C.map (·.1) := rfl
 

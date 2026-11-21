@@ -126234,3 +126234,38 @@ overview and whitepaper link gates after re-anchoring (`IsModel.lean`, `Modular.
 the citing paragraphs; the whitepaper's "accepted … by the declaration fold's own step" now says
 the pure fold's steps, which the cached fold is proved to give).  Not landed (an upstream proposal
 for con-ron's sync).
+
+### con-ron #166 cont.: the pin list a parameter, and the home's load stated relationally (2026-11-21)
+
+Two more facts a port could not reproduce, found by con-ron's lane L6.
+
+**The pin list.**  The modular statements were wired to `natOpPinSets`, the shipped pin
+variants: the roots of the reach (`ownRoots` read `pinGround natOpPinSets`), `WorkerAccepted`'s
+run, `Compose.Run.run`.  A port holds its theorems at the pin list it decodes, and that the
+embedded text decodes to `natOpPinSets` is a `native_decide` fact.  Now `pins` is a parameter:
+`ownRoots pins`, `rootsAt pins` (`Driver/Worker.lean`; the binary passes `natOpPinSets`, its
+only code change), `rootsOf pins`, `WorkerFacts pins sp fs m jobs w x`,
+`WorkerAccepted pins sp fs m jobs x`, `OwnRun pins sp fs M w`, `Compose.Run pins sp fs` (its
+`localOk : LocalOk pins R.dev j`), `Run.ofAccepted`, `Run.ofCompare`, `sees_isModel`,
+`closure_sees_isModel`, `compare_sees_isModel`, `compare_no_False` (implicit `pins`, read off
+`acc`), and every lemma over a run or a worker's facts.  The binary's theorems instantiate it:
+`workerRead_ok`, `WorkerRan`, `WorkerRan.accepted` and the `runArgs_*_accept` theorems are at
+`natOpPinSets`, and `modular_sees_graph`/`_one`, `modular_compare_graph`/`_one` and the compare
+`no_False` pass `(pins := natOpPinSets)`; `MainTheorem` is unchanged.  The specification
+(`IsModel`, `moduleConstants`, `Sees`) has no pins.
+
+**The home's load.**  `WorkerFacts.home` asked `homeOf m f = .ok (w.home, w.expo)`, which pins
+`w.home` to `loadAt`'s output; `loadAt` runs the `partial` `usesGo` (through `usesOf`) and
+`frontierWalk`, opaque in the logic, so no other implementation can prove its result.  Option (a)
+of the ask, relational: `WorkerFacts.home : ∃ f, CanGive (readFiles sp m .private) fs (.ok f) ∧
+LoadOf 0 m f w.home ∧ checkViews m f w.home = .ok w.expo`.  `LoadOf i m f l`
+(`Verify/Driver/Loads.lean`) is exactly what the proofs read of a load: `loadAt_spec`'s
+conclusion (view region, `constNamesOk`, module skeleton, constant skeletons, `l.name = m`,
+`l.frontier.Good r`, `LazyOf`), `loadAt_aligned`'s (the constants the skeletons' `lazyEntry`s
+position by position) and `loadAt_imports`'s (the skeleton's imports those `importsPre` reads
+off the exported file).  No proof reads a constant's `uses` (what `usesGo` computes): the roots
+and the hoist read them, but no lemma needs their content, so `LoadOf` leaves them free.
+`loadAt_loadOf` gives it for the binary's load, `homeOf_ok` from `homeOf`'s accept;
+`workerFacts_load`, `home_records`, `home_rows`, `readPartNames_header`, `copy_behind`,
+`part_behind`, `behind_sub` take `LoadOf` instead of `loadAt … = some l`.  Option (b) (fuel for
+`usesGo`/`frontierWalk`) was not needed.

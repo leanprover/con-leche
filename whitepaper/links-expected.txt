@@ -7178,70 +7178,70 @@
     22  the solution's checked constants, and a name a hole's statement reads means one constant on both
     23  sides: there is one context.
 
-== ConLeche/Driver/Worker.lean#L105-L122
-   105  /-! ## A compared challenge's copies (task #619)
-   106  
-   107  At a compared challenge (`x`, the imports a run adds to its header: `import all` of its solution,
-   108  `Graph.solutionImport`), the worker loads the solution with the challenge's own imports, under
-   109  Lean's clash rule over every loaded name.  A record of the challenge some name of which a loaded
-   110  module stores is a **copy**: not the challenge's own record, its names read from the loads into
-   111  the context, as any name the challenge imports.  A copy must be what the loaded constant is
-   112  (`copyCheck`), up to the names of its level parameters (ruling B of #619):
-   113  
-   114  * a hole (an axiom; a definition whose value uses `sorryAx`), a theorem or an opaque constant: one
-   115    constant that only its statement describes (`IsModel` reads it so), of the loaded constant's
-   116    statement.  For a theorem, Lean's own rule for two loaded copies of one name (`subsumesInfo`);
-   117  * a definition: the loaded definition, its value too;
-   118  * an inductive block: the context's record of its names, the same record, one the kernel's reader
-   119    reads (`BlockRead`); a quotient record never.
-   120  
-   121  Every other record is the challenge's own, checked as any module's; a hole among them is one the
-   122  solution does not fill (`ownHoleOk`). -/
+== ConLeche/Driver/Worker.lean#L106-L123
+   106  /-! ## A compared challenge's copies (task #619)
+   107  
+   108  At a compared challenge (`x`, the imports a run adds to its header: `import all` of its solution,
+   109  `Graph.solutionImport`), the worker loads the solution with the challenge's own imports, under
+   110  Lean's clash rule over every loaded name.  A record of the challenge some name of which a loaded
+   111  module stores is a **copy**: not the challenge's own record, its names read from the loads into
+   112  the context, as any name the challenge imports.  A copy must be what the loaded constant is
+   113  (`copyCheck`), up to the names of its level parameters (ruling B of #619):
+   114  
+   115  * a hole (an axiom; a definition whose value uses `sorryAx`), a theorem or an opaque constant: one
+   116    constant that only its statement describes (`IsModel` reads it so), of the loaded constant's
+   117    statement.  For a theorem, Lean's own rule for two loaded copies of one name (`subsumesInfo`);
+   118  * a definition: the loaded definition, its value too;
+   119  * an inductive block: the context's record of its names, the same record, one the kernel's reader
+   120    reads (`BlockRead`); a quotient record never.
+   121  
+   122  Every other record is the challenge's own, checked as any module's; a hole among them is one the
+   123  solution does not fill (`ownHoleOk`). -/
 
-== ConLeche/Driver/Worker.lean#L208-L240
-   208  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
-   209  the record of each of its names). -/
-   210  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
-   211      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
-   212    let n := recKey d
-   213    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
-   214    if n == quotSoundName || n == sorryAxName then
-   215      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
-   216      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
-   217        con-leche cannot fill it")
-   218    else if !basisNamesOk d then
-   219      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
-   220    else
-   221    match owner[n]? with
-   222    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
-   223    | some k =>
-   224      let e := r.ctx.getD k default
-   225      let h := r.homes.getD k .anonymous
-   226      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
-   227      match copyStmt? d, d, ci? with
-   228      | some cv, _, some ci =>
-   229        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
-   230        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
-   231          {recKind d}")
-   232      | none, .defnDecl cv v hint, some ci =>
-   233        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
-   234        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
-   235      | none, .indDecl .., _ =>
-   236        if copyRecEq d e && blockReadB d && copyReadsB owner r d then .ok ()
-   237        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
-   238      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
-   239      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
-   240          loads stores")
+== ConLeche/Driver/Worker.lean#L209-L241
+   209  /-- **A copy against the loaded constants of its names** (see above; `r`, the context; `owner`,
+   210  the record of each of its names). -/
+   211  def copyCheck (m : Name) (ld : HeaderLoads) (ix : NameIndex) (r : Reach)
+   212      (owner : Std.HashMap Name Nat) (d : Declaration) : Except CheckError Unit :=
+   213    let n := recKey d
+   214    let src := ((ix.first[n]?).map fun c => ld.nameAt c.mod).getD .anonymous
+   215    if n == quotSoundName || n == sorryAxName then
+   216      let what := if n == quotSoundName then "the quotient's axiom" else "the placeholder axiom"
+   217      .error (.notImplemented s!"{n}: a hole at {what}, which installs no axiom of its own; \
+   218        con-leche cannot fill it")
+   219    else if !basisNamesOk d then
+   220      .error (.invalid s!"module {m} declares {n}, a name the checker reserves")
+   221    else
+   222    match owner[n]? with
+   223    | none => .error (.internal s!"{n}: the context does not hold the loaded constant")
+   224    | some k =>
+   225      let e := r.ctx.getD k default
+   226      let h := r.homes.getD k .anonymous
+   227      let ci? := (declConstants e).find? (·.toConstantVal.name == n)
+   228      match copyStmt? d, d, ci? with
+   229      | some cv, _, some ci =>
+   230        if Cached.sameCvUpToLevels cv ci.toConstantVal then .ok ()
+   231        else .error (.invalid s!"{n}: the constant of {h} is not of the statement of {m}'s \
+   232          {recKind d}")
+   233      | none, .defnDecl cv v hint, some ci =>
+   234        if sameDefUpToLevels (.defnInfo cv v hint) ci then .ok ()
+   235        else .error (.invalid s!"{n}: the constant of {h} is not {m}'s definition")
+   236      | none, .indDecl .., _ =>
+   237        if copyRecEq d e && blockReadB d && copyReadsB owner r d then .ok ()
+   238        else .error (.invalid s!"{n}: the constants of {h} are not {m}'s inductive type")
+   239      | _, _, none => .error (.internal s!"{n}: the context's record does not declare it")
+   240      | none, _, _ => .error (.invalid s!"module {m} declares {n}, which the module {src} it \
+   241          loads stores")
 
-== ConLeche/Driver/Worker.lean#L250-L257
-   250  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
-   251  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
-   252  file): the solution does not fill it. -/
-   253  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
-   254      Except CheckError Unit :=
-   255    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
-   256      solution has no constant of this name)")
-   257    else .ok ()
+== ConLeche/Driver/Worker.lean#L251-L258
+   251  /-- **A hole of the challenge's own records** (an axiom other than a built-in one, a definition,
+   252  opaque constant or theorem whose value uses `sorryAx`; `uses`, what a theorem's value read off the
+   253  file): the solution does not fill it. -/
+   254  def ownHoleOk (m : Name) (uses : Declaration → Array Name) (d : Declaration) :
+   255      Except CheckError Unit :=
+   256    if isHoleRec uses d then .error (.invalid s!"{recKey d}: a hole of {m} no loaded module fills (the \
+   257      solution has no constant of this name)")
+   258    else .ok ()
 
 == ConLeche/MainTheorem.lean#L138-L175
    138  /-- **An accepted modular comparison's challenge closure has a family of models**: on a
@@ -7756,7 +7756,7 @@
     61          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
 
 == ConLeche/Verify/Driver/Routes.lean#L346-L347
-   346  theorem localOk (j : Nat) : LocalOk natOpPinSets R.dev j :=
+   346  theorem localOk (j : Nat) : LocalOk pins R.dev j :=
    347    R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
 
 == ConLeche/MainTheorem.lean#L109-L120

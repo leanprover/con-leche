@@ -117,11 +117,11 @@ theorem at_mod_lt {wr : WorkerReads} (hsize : wr.index.parts.size = wr.loads.ord
 
 namespace Run
 
-variable {sp : Roots} {fs : FS} (R : Run sp fs)
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS} (R : Run pins sp fs)
 
 /-- The own records' run is an `OwnRun`. -/
 theorem ownRun {M : Name} (hM : M ∈ R.names) :
-    OwnRun (R.look M) fs M (R.w M) :=
+    OwnRun pins (R.look M) fs M (R.w M) :=
   ⟨_, R.run M hM⟩
 
 /-- **A copy whose proof status is `.yes` is a theorem of its module's own environment**, of the
@@ -343,7 +343,7 @@ theorem reads_ok : ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
   R.reads_of_routes fun _ hM ih _ _ hP hy _ hs₁ hne => R.route hM ih hP hy hs₁ hne
 
 /-- **The local checks at every module of the development of an accepted run.** -/
-theorem localOk (j : Nat) : LocalOk natOpPinSets R.dev j :=
+theorem localOk (j : Nat) : LocalOk pins R.dev j :=
   R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
 
 end Run

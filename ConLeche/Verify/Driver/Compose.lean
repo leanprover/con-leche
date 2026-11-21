@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Driver.Worker
 import ConLeche.Verify.Driver.Reach
-public import ConLeche.Verify.Driver.Loads
+import ConLeche.Verify.Driver.Loads
 public import ConLeche.Verify.Driver.Capture
 import ConLeche.Verify.Cached.Fill
 import ConLeche.Verify.Driver.Clashes
@@ -46,7 +46,7 @@ open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
 /-- **An accepted run over a closure** (see the module docstring); `x` the imports the run adds
 to a module's header (a compared challenge's solution, task #608), no module of the closure
 importing a module with imports added. -/
-structure Run (sp : Roots) (fs : FS) where
+structure Run (pins : List NatOpPinSet) (sp : Roots) (fs : FS) where
   C : List Graph.Node
   rk : Name → Nat
   x : Name → Array ImportRec
@@ -60,20 +60,20 @@ structure Run (sp : Roots) (fs : FS) where
   trims : ∀ M, (look M).Trims sp
   w : Name → WorkerRead
   jobs : Name → Nat
-  facts : ∀ M ∈ C.map (·.1), WorkerFacts (look M) fs M (jobs M) (w M) (x M)
-  run : ∀ M ∈ C.map (·.1), PureRun natOpPinSets (ownDecls (look M) fs M (w M))
+  facts : ∀ M ∈ C.map (·.1), WorkerFacts pins (look M) fs M (jobs M) (w M) (x M)
+  run : ∀ M ∈ C.map (·.1), PureRun pins (ownDecls (look M) fs M (w M))
     (streamEnv (w M).reach.ctx.toList)
     (streamEnv (ownDecls (look M) fs M (w M)) (streamEnv (w M).reach.ctx.toList))
 
-variable {sp : Roots} {fs : FS}
+variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-- **The run of a closure every module of which has an accepted worker.** -/
 noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted sp fs M jobs)
-    (dflt : WorkerRead) : Run sp fs := by
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs)
+    (dflt : WorkerRead) : Run pins sp fs := by
   classical
   exact
   { C, rk, x := fun _ => #[], edges, inj
@@ -88,14 +88,14 @@ noncomputable def Run.ofAccepted (C : List Graph.Node) (rk : Name → Nat)
 
 namespace Run
 
-variable (R : Run sp fs)
+variable (R : Run pins sp fs)
 
 /-- The run's modules. -/
 @[expose] def names : List Name := R.C.map (·.1)
 
 /-- **A module of the run with no import added**: its worker's facts, as a worker's. -/
 theorem facts₀ {M : Name} (hM : M ∈ R.names) (hx : R.x M = #[]) :
-    WorkerFacts (R.look M) fs M (R.jobs M) (R.w M) := by
+    WorkerFacts pins (R.look M) fs M (R.jobs M) (R.w M) := by
   have := R.facts M hM
   rw [hx] at this
   exact this
@@ -105,7 +105,7 @@ theorem ofAccepted_names (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted sp fs M jobs) (dflt : WorkerRead) :
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs) (dflt : WorkerRead) :
     (Run.ofAccepted C rk good edges inj acc dflt).names = C.map (·.1) := by
   classical
   rfl
@@ -115,7 +115,7 @@ theorem ofAccepted_x (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted sp fs M jobs)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs)
     (dflt : WorkerRead) (m : Name) :
     (Run.ofAccepted C rk good edges inj acc dflt).x m = #[] := by
   classical
@@ -126,7 +126,7 @@ theorem ofAccepted_look (C : List Graph.Node) (rk : Name → Nat)
     (good : ∀ e ∈ C, ModelIO.CanGive (moduleImports sp e.1) fs (.ok e.2))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (C.map fun e => rk e.1).Nodup)
-    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted sp fs M jobs)
+    (acc : ∀ M ∈ C.map (·.1), ∃ jobs, WorkerAccepted pins sp fs M jobs)
     (dflt : WorkerRead) (m : Name) :
     (Run.ofAccepted C rk good edges inj acc dflt).look m = sp := by
   classical
@@ -320,7 +320,7 @@ theorem localOk_of
       h ∈ R.names ∧ R.rk h < R.rk M ∧ R.x h = #[])
     (hreads : ∀ M ∈ R.names, ∀ d ∈ R.ctx M, ∀ n ∈ declNames d,
       RecordScoped (readsAlike R.dev (R.rk M) ((R.dev (R.rk M)).src n)) d)
-    (j : Nat) : LocalOk natOpPinSets R.dev j := by
+    (j : Nat) : LocalOk pins R.dev j := by
   cases hj : R.nameOf j with
   | none =>
     have hd : R.dev j = emptyMod := by simp [dev, hj]
@@ -351,7 +351,7 @@ theorem localOk_of
       (by rw [hd]; rfl) (by rw [hd]; rfl) _ hsrcd
     have hiface : ∀ e ∈ (R.dev (R.rk M)).iface, ∃ (a : Roots) (M' : Name) (jM : Nat)
         (wM : WorkerRead) (xM : Array ImportRec) (i : Nat), a.Trims sp ∧
-          WorkerFacts a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
+          WorkerFacts pins a fs M' jM wM xM ∧ wM.reach.ctx[i]? = some e ∧
           wM.reach.homes[i]? = some M := fun e he => by
       rw [hd] at he
       obtain ⟨M', hM', i, h1, h2⟩ := (R.mem_ifaceOf).1 he
@@ -555,7 +555,7 @@ theorem agree_of_routes {dev : Nat → Module} {i : Nat} {Pr : Nat → Name → 
 
 namespace Run
 
-variable (R : Run sp fs)
+variable (R : Run pins sp fs)
 
 /-- **What a module reaches by imports, from its own header.** -/
 theorem rootImports {a : Roots} (ha : a.Trims sp) {M : Name} (hM : M ∈ R.names)

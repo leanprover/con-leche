@@ -386,9 +386,9 @@ model of the compatible family.
   constant, or the module is rejected. So a solution that declares its
   own $f$ beside the challenge's import of $a$ is rejected as the
   attack above is.
-  #src("ConLeche/Driver/Worker.lean", 105, 122)[A record of the challenge some name of which a loaded module stores is a copy],
+  #src("ConLeche/Driver/Worker.lean", 106, 123)[A record of the challenge some name of which a loaded module stores is a copy],
   and its names are read into the context like any imported name.
-  #src("ConLeche/Driver/Worker.lean", 208, 240)[The check of a copy]
+  #src("ConLeche/Driver/Worker.lean", 209, 241)[The check of a copy]
   asks a hole (an axiom, or a definition whose value uses `sorry`), a
   theorem or an opaque constant to have the loaded constant's
   statement, a definition its value too, both up to the names of the
@@ -397,7 +397,7 @@ model of the compatible family.
   model reads a constant's level parameters by position, so a renamed
   copy has the laws of the loaded constant. Every other record is
   checked as any module's, and
-  #src("ConLeche/Driver/Worker.lean", 250, 257)[a hole among them is rejected].
+  #src("ConLeche/Driver/Worker.lean", 251, 258)[a hole among them is rejected].
   Each module of the challenge's closure is read from the trusted
   directories alone.
 

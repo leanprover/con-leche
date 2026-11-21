@@ -3,6 +3,8 @@ module
 import ConLeche.Verify.Frontend.ModelIO
 public import ConLeche.Verify.Frontend.Olean.Roots
 import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.Lazy
+import ConLeche.Verify.Frontend.Olean.Sparse
 import Std.Data.HashSet.Lemmas
 import ConLeche.Verify.Frontend.Olean.Engine
 import ConLeche.Verify.Frontend.Olean.Equiv
@@ -926,12 +928,36 @@ theorem loadAt_imports {i : Nat} {m : Name} {f : ModFiles} {l : Loaded}
     simp only [List.mem_append, List.mem_map]
     exact Or.inl (Or.inl ⟨i, hi, rfl⟩))).symm
 
+/-- **A load of `m`'s private view, as the proofs read it**: what `loadAt` gives that any
+implementation of the load can be held to; its constants' `uses` are not in it (no proof reads
+them).  Its view's region and module skeleton, the part's name table well formed
+(`constNamesOk`), the load's name, its frontier good over the region, its constants the
+skeletons' entries (`lazyEntry`) as a set (`LazyOf`) and position by position, and the imports
+its skeleton names those the start of its `M.olean` holds.  `loadAt` gives it
+(`loadAt_loadOf`); the worker's theorem asks it of the home (`WorkerFacts.home`). -/
+@[expose] def LoadOf (i : Nat) (m : Name) (f : ModFiles) (l : Loaded) : Prop :=
+  (∃ r a sk skels, f.viewRegion .private = some (r, a) ∧ constNamesOk r a = true ∧
+      moduleSkel r a = some sk ∧ sk.consts.mapM (constSkel r) = some skels ∧
+      l.name = m ∧ l.frontier.Good r ∧ LazyOf r i skels l.constants.toList) ∧
+  (∃ r a sk skels, f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
+      sk.consts.mapM (constSkel r) = some skels ∧
+      ∃ hl : l.constants.size = skels.length, ∀ (j : Nat) (hj : j < skels.length),
+        lazyEntry (nameP r) (exprP r) r i skels[j] = some (l.constants[j]'(hl ▸ hj)).toCEntryF) ∧
+  ∃ r a sk imports, f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
+      sk.imports.mapM (ImportF.mapM (nameP r)) = some imports ∧
+      importsPre f.exported.bytes = some imports.toArray
+
+/-- **`loadAt` is a load** (`loadAt_spec`, `loadAt_aligned`, `loadAt_imports`). -/
+theorem loadAt_loadOf {i : Nat} {m : Name} {f : ModFiles} {l : Loaded}
+    (h : loadAt i m f = some l) : LoadOf i m f l :=
+  ⟨loadAt_spec h, loadAt_aligned h, loadAt_imports h⟩
+
 /-- **A module's private part's name table holds the imports its header read answers**, where
-the module's private view loads (a worker's home read): the worker's root imports are the
+the module's private view loads (`LoadOf`: a worker's home read): the worker's root imports are the
 graph's edges. -/
 theorem readPartNames_header {sp : Roots} {fs : FS} {m : Name} {f : ModFiles} {i : Nat}
     {l : Loaded} {t : NamePositions}
-    (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f)) (hl : loadAt i m f = some l)
+    (hf : ModelIO.CanGive (readFiles sp m .private) fs (.ok f)) (hl : LoadOf i m f l)
     (ht : ModelIO.CanGive (readPartNames sp (m, .private)) fs (.ok t)) :
     ModelIO.CanGive (moduleImports sp m) fs (.ok t.header.imports) := by
   -- the table is the one of the files' private view
@@ -955,7 +981,7 @@ theorem readPartNames_header {sp : Roots} {fs : FS} {m : Name} {f : ModFiles} {i
   | some ps =>
   simp only [hr, ModelIO.pure_iff, Except.ok.injEq] at ht
   obtain ⟨rfl, -⟩ := ht
-  obtain ⟨r, a, sk, imports, hv, hsk, himp, hpre⟩ := loadAt_imports hl
+  obtain ⟨r, a, sk, imports, hv, hsk, himp, hpre⟩ := hl.2.2
   have hhead : t.header.imports = imports.toArray := by
     simp only [readNamePositions, hv, bind, Option.bind] at hr
     unfold namePositionsAt at hr
