@@ -4,7 +4,6 @@ import ConLeche.Kernel.StdAxioms
 public import ConLeche.Kernel.TrustAxioms
 public import ConLeche.Kernel.TypeChecker
 public import ConLeche.Kernel.NatOpPins
-public import ConLeche.Kernel.Inductives.StructParts
 public import Std.Data.HashSet
 
 @[expose] public section

@@ -40,7 +40,7 @@ theorem cmp_rank_le {Cn S : Name} {C : List Graph.Node} {rk : Name → Nat}
     (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
     (hroot : Cn ∈ C.map (·.1))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) {m : Name}
-    (h : Graph.HdrClosure sp fs [Cn, S] m) : m ∈ C.map (·.1) ∧ rk m ≤ rk Cn := by
+    (h : Frontend.Olean.HdrClosure sp fs [Cn, S] m) : m ∈ C.map (·.1) ∧ rk m ≤ rk Cn := by
   induction h with
   | @root r hr =>
     rcases List.mem_cons.1 hr with rfl | hr
@@ -67,7 +67,7 @@ theorem cmp_plain {Cn S : Name} {C : List Graph.Node} {rk : Name → Nat}
     (good : ∀ e ∈ C, Graph.NodeOk sp fs (Graph.cmpExtra Cn S) e)
     (hroot : Cn ∈ C.map (·.1))
     (edges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1)
-    (hhdr : ∀ e ∈ C, Graph.HdrClosure sp fs [Cn, S] e.1) :
+    (hhdr : ∀ e ∈ C, Frontend.Olean.HdrClosure sp fs [Cn, S] e.1) :
     ∀ e ∈ C, ∀ i ∈ e.2, Graph.cmpExtra Cn S i.module = #[] := by
   intro e he i hi
   refine cmpExtra_other fun hm => ?_

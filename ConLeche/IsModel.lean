@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Kernel.Inductives.IotaRead
-public import ConLeche.Verify.Level
+public import ConLeche.Kernel.Inductives.IotaEq
+public import ConLeche.Kernel.Basis
 public import ConLeche.SetModel.Ops
 public import ConLeche.SetTheory.Derive.Sigma
 
@@ -16,8 +16,8 @@ clause below is about one constant of `ds`, as the stream carries it, and nothin
 the environment the checker builds.  It is written to be read top to bottom in one sitting —
 the reading `Expr.eval` of a term as a set, the recursors' rules as propositions read off their
 own types (`RuleHolds`), one clause per constant (`ModelOf`), and the definition `IsModel` — and
-it imports nothing from the proof tiers.  The theorem is stated in `ConLeche/Challenge.lean` (with `sorry`) and
-proved in `ConLeche/MainTheorem.lean`.
+it imports nothing from the proof tiers.  The main theorems are stated in `ConLeche/Challenge.lean`
+(with `sorry`) and proved in `ConLeche/MainTheorem.lean`.
 
 ## The model
 
@@ -174,7 +174,7 @@ def Declaration.constants : Declaration → List ConstantInfo
 def constantsOf (ds : List Declaration) : List ConstantInfo := ds.flatMap Declaration.constants
 
 /-- **A recursor's rule `i` holds** at the level assignment `φ`: its ι equation, read off the
-recursor's own type (`iotaEqOf`, `ConLeche/Kernel/Inductives/IotaRead.lean`), denotes an
+recursor's own type (`iotaEqOf`, `ConLeche/Kernel/Inductives/IotaEq.lean`), denotes an
 inhabited set (a true proposition).  The rule `i` reads the `i`-th minor premise of the motive the
 recursor's type applies:
 

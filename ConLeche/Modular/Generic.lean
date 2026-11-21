@@ -5,7 +5,7 @@ module
 /-!
 # The modular argument, over an interface of models
 
-The modular theorem (`ConLeche.modular_model_exists`) has two halves:
+The modular theorem (`ConLeche.Model.Modular.modular_isModel`) has two halves:
 a consistency proof for one environment, and the argument that carries
 it from module to module.  This file is the second half, stated over an
 interface (`ModularSemantics`) that says what the first half must

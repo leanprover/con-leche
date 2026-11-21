@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
+public import ConLeche.Frontend.Olean.Snapshot
 public import ConLeche.Verify.Frontend.Olean.Closure
 public import ConLeche.Verify.Frontend.Olean.Merge
 public import ConLeche.Verify.Frontend.Olean.Sparse
@@ -637,11 +638,6 @@ theorem readOleansAt_ok {R : Roots} (hR : R.bare = R) {roots : Array Name}
           · subst h; rfl
           · subst h; rfl
 
-/-- **The private view of a module on a snapshot**, by the specification: the module's files
-on the search path, and what `decodeModuleSpec` says they hold at that level. -/
-@[expose] def ViewOf (sp : Roots) (fs : FS) (m : Name) (d : ModDecoded) : Prop :=
-  ∃ f, ModelIO.CanGive (readFiles sp m .private) fs (.ok f) ∧ decodeModuleSpec f .private = some d
-
 /-- **The read of a module's private view is the view.** -/
 theorem readView_of_viewOf {sp : Roots} {fs : FS} {m : Name} {d : ModDecoded}
     (h : ViewOf sp fs m d) : ModelIO.CanGive (readView sp m .private) fs (.ok d) := by
@@ -651,37 +647,6 @@ theorem readView_of_viewOf {sp : Roots} {fs : FS} {m : Name} {d : ModDecoded}
   refine ⟨.ok f, hs', h1, ?_⟩
   simp only [parseView_eq_spec, h2]
   exact ⟨rfl, rfl⟩
-
-/-- **The modules of the closure of some roots**, on a snapshot: a root, or an import of the
-private view of one. -/
-inductive InClosure (sp : Roots) (fs : FS) (roots : Array Name) : Name → Prop
-  | root {r : Name} : r ∈ roots → InClosure sp fs roots r
-  | step {m : Name} {d : ModDecoded} {i : ImportRec} : InClosure sp fs roots m →
-      ViewOf sp fs m d → i ∈ d.imports → InClosure sp fs roots i.module
-
-/-- **The modules a header loads, and whether whole** (Lean v4.35's `importModulesCore`,
-`Lean/Environment.lean`; ours `levelsGo`/`headerFixpoint`, `ConLeche/Frontend/Olean/Levels.lean`):
-the least relation over the imports `imps0` of a root, `g` for a root outside the module system.
-`LoadsAt … m true` says `m`'s private part is loaded (`importAll`), `LoadsAt … m false` that `m`
-is loaded.  The root's imports are loaded, whole under `g` or `import all`; an import of a
-loaded module is followed when it is public (`isExported`) or the module is loaded whole, and is
-loaded whole under `g`, or where the module is and the import is an `import all`.  Each
-module's imports are those of its private view's header. -/
-inductive LoadsAt (sp : Roots) (fs : FS) (g : Bool) (imps0 : Array ImportRec) : Name → Bool → Prop
-  | root {i : ImportRec} : i ∈ imps0 → LoadsAt sp fs g imps0 i.module (g || i.importAll)
-  | step {a : Name} {all : Bool} {d : ModDecoded} {i : ImportRec} :
-      LoadsAt sp fs g imps0 a all → ViewOf sp fs a d → i ∈ d.imports →
-      (i.isExported || all) = true → LoadsAt sp fs g imps0 i.module (g || all && i.importAll)
-
-/-- **Module `m`'s header loads part `p` of `m'`**: the private part where some path loads it
-whole, else the exported part (`LoadsAt`, from `m`'s private view's header). -/
-@[expose] def Loads (sp : Roots) (fs : FS) (m m' : Name) (p : OLeanLevel) : Prop :=
-  ∃ d, ViewOf sp fs m d ∧
-    match p with
-    | .private => LoadsAt sp fs (!d.isModule) d.imports m' true
-    | .exported => LoadsAt sp fs (!d.isModule) d.imports m' false ∧
-        ¬ LoadsAt sp fs (!d.isModule) d.imports m' true
-    | .server => False
 
 /-- The order holds the closure. -/
 theorem InClosure.mem_order {sp : Roots} {fs : FS} {roots order : Array Name} {m : Name}

@@ -50,7 +50,7 @@ theorem compare_sees_isModel (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S 
     (hC : C ∈ Cg.map (·.1))
     (edges : ∀ e ∈ Cg, ∀ i ∈ e.2, i.module ∈ Cg.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (Cg.map fun e => rk e.1).Nodup)
-    (hhdr : ∀ e ∈ Cg, Graph.HdrClosure (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs [C, S] e.1)
+    (hhdr : ∀ e ∈ Cg, Frontend.Olean.HdrClosure (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs [C, S] e.1)
     (acc : ∀ M ∈ Cg.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize
       (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs M jobs (Graph.cmpExtra C S M)) :
     ∀ fs', FS.AgreeUnder (trustedOr T D) fs fs' →
@@ -98,7 +98,7 @@ theorem compare_no_False (V : Type w) [SetTheory V] {maxNatSize : Nat} {C S : Na
     (hC : C ∈ Cg.map (·.1))
     (edges : ∀ e ∈ Cg, ∀ i ∈ e.2, i.module ∈ Cg.map (·.1) ∧ rk i.module < rk e.1)
     (inj : (Cg.map fun e => rk e.1).Nodup)
-    (hhdr : ∀ e ∈ Cg, Graph.HdrClosure (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs [C, S] e.1)
+    (hhdr : ∀ e ∈ Cg, Frontend.Olean.HdrClosure (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs [C, S] e.1)
     (acc : ∀ M ∈ Cg.map (·.1), ∃ jobs, WorkerAccepted .verified maxNatSize
       (⟨C, S, T, D, none⟩ : CmpReq).solRoots fs M jobs (Graph.cmpExtra C S M))
     {m : Name} {c : ConstantInfo}
@@ -149,7 +149,7 @@ theorem modular_compare_graph (V : Type w) [SetTheory V] {T D c s : String} {C S
     {fs : FS} (hc : parseModName c = some C) (hs : parseModName s = some S)
     (hgraph : ModelIO.CanGive (runArgs ["--check-graph", "--compare", "--trusted-search-path=" ++ T,
       "--search-path=" ++ D, "--", c, s]) fs 0)
-    (hwork : ∀ m, Graph.HdrClosure
+    (hwork : ∀ m, Frontend.Olean.HdrClosure
         (⟨C, S, searchPathOf T, searchPathOf D, none⟩ : CmpReq).solRoots fs [C, S] m → m ≠ C →
       ∃ root', parseModName root' = some m ∧ ModelIO.CanGive (runArgs ["--olean", "--module",
         "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", root']) fs 0)
@@ -224,7 +224,7 @@ theorem modular_compare_graph_no_False (V : Type w) [SetTheory V] {T D c s : Str
     {fs : FS} (hc : parseModName c = some C) (hs : parseModName s = some S)
     (hgraph : ModelIO.CanGive (runArgs ["--check-graph", "--compare", "--trusted-search-path=" ++ T,
       "--search-path=" ++ D, "--", c, s]) fs 0)
-    (hwork : ∀ m, Graph.HdrClosure
+    (hwork : ∀ m, Frontend.Olean.HdrClosure
         (⟨C, S, searchPathOf T, searchPathOf D, none⟩ : CmpReq).solRoots fs [C, S] m → m ≠ C →
       ∃ root', parseModName root' = some m ∧ ModelIO.CanGive (runArgs ["--olean", "--module",
         "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", root']) fs 0)

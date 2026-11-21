@@ -319,6 +319,12 @@ instance : MonadExceptOf IO.Error ModelIO where
   tryCatch x h := fun fs hs o hs' => (∃ a, o = .ok a ∧ x fs hs (.ok a) hs') ∨
     (∃ e hs₁, x fs hs (.error e) hs₁ ∧ h e fs hs₁ o hs')
 
+/-- **`v` is a value the action can give**: a value outcome of it, from
+some open handles to some.  What the specifications of the `.olean`
+reads say of an action whose answer does not depend on the handles. -/
+def ModelIO.CanGive {α : Type} (x : ModelIO α) (fs : FS) (v : α) : Prop :=
+  ∃ hs hs', x fs hs (.ok v) hs'
+
 /-- An outcome determined by a snapshot's answer: the value where there
 is one, some exception where there is none. -/
 def ModelIO.answer {α : Type} : Option α → Except IO.Error α → Prop

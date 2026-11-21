@@ -743,3 +743,4 @@ ConLeche/Model/Modular/SeesCompare.lean	public import ConLeche.Verify.Driver.See
 ConLeche/Verify/Driver/ComposeCompare.lean	import ConLeche.Verify.Driver.Groups	# compensated: the --only run asks for public import ConLeche.Verify.Driver.Compose in exchange (task #619)
 ConLeche/Verify/Driver/ComposeCompare.lean	import ConLeche.Verify.Driver.Reach	# compensated: as the line above (task #619)
 ConLeche/Verify/Driver/Worker.lean	public import ConLeche.Driver.CompareModule	# compensated: the --only run asks for public import ConLeche.Driver.Worker plus import ConLeche.Verify.Cached.StreamIndex in exchange (task #619)
+ConLeche/Driver/CmpReq.lean	public import ConLeche.Frontend.Olean.Snapshot	# the olean tree's specification door (tests/layering.sh): shake proposes its module Frontend/Olean/Files instead (task #627 measured)

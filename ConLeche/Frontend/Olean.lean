@@ -4,6 +4,7 @@ public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Frontend.Olean.Index
 public import ConLeche.Frontend.Olean.Group
 public import ConLeche.Frontend.Olean.Present
+public import ConLeche.Frontend.Olean.Snapshot
 
 @[expose] public section
 
@@ -12,7 +13,9 @@ public import ConLeche.Frontend.Olean.Present
 
 **Import this module.**  Outside `ConLeche/Frontend/Olean/` and its proofs
 `ConLeche/Verify/Frontend/Olean/`, nothing imports the tree's other modules
-(`tests/layering.sh`).  The names below are the interface; everything else the
+(`tests/layering.sh`) but `ConLeche/Frontend/Olean/Snapshot.lean`: the specification's notions
+over a snapshot (`ViewOf`, `InClosure`, `HdrClosure`, `Loads`, `FS.AgreeUnder`), which the main
+theorems' statements import without the reader's upper layers.  The names below are the interface; everything else the
 tree declares (`moduleSkel`, `parseAt`, `runPasses`, `sGo`, `rootAt`, `findModule`,
 `readPart`, `readImportsAt`, ...) is public only because checker code
 is exposed and its proofs unfold it: a definition an exposed definition mentions

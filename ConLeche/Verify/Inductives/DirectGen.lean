@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.ProjTele
 import ConLeche.Verify.Cached.Erase
-public import ConLeche.Verify.Level
 public import ConLeche.Kernel.Inductives.SumInstall
 
 public section

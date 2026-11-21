@@ -32,11 +32,6 @@ name (`consBlockCtors`). -/
 def blockCtors (p : BlockShape) : List ConstantInfo :=
   p.ctorGroups.flatMap fun g => g.2.map fun c => .ctorInfo c.1 p.nP c.2 g.1
 
-/-- `n` variables below a term's own, which do not occur in it, dropped. -/
-def Expr.dropVars : Nat → Expr → Expr
-  | 0, e => e
-  | n + 1, e => Expr.dropVars n (e.instantiate1 (.sort .zero))
-
 /-- **How a recursor's rules fire**: `.plain` at a member major; at a major outside the block,
 `.nested` at the levels and parameters of the major's container.  Those are read off the major's
 domain, whose arguments end in the `mI - rP` index variables; the parameters are moved from under
@@ -78,9 +73,6 @@ def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
 def blockConstants (p : BlockShape) : List ConstantInfo :=
   blockFormers p (blockIsRec p) ++ blockCtors p ++
     blockRecs p p.recs
-
-/-- Does a value use a hole (`sorryAx`)? -/
-def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
 
 /-- **The constants a declaration installs**, in push order.  A block `readBlock` cannot read
 installs nothing (its job rejects it), and `sorryAx` nothing (any use of it declines). -/

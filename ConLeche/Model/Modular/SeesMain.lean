@@ -24,7 +24,7 @@ universe w
 
 /-- **The closure of the specification is inside the headers' closure.** -/
 theorem inClosure_hdr {sp : Roots} {fs : FS} {roots : Array Name} {m : Name}
-    (h : InClosure sp fs roots m) : Graph.HdrClosure sp fs roots.toList m := by
+    (h : InClosure sp fs roots m) : Frontend.Olean.HdrClosure sp fs roots.toList m := by
   induction h with
   | root hr => exact .root (Array.mem_toList_iff.2 hr)
   | @step m d i _ hv hi ih =>
@@ -91,7 +91,7 @@ for every module of the headers' closure). -/
 theorem modular_sees_graph (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
     (hr : parseModName root = some r)
     (h : ModelIO.CanGive (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root]) fs 0)
-    (hwork : ∀ m', Graph.HdrClosure (searchPathOf dirs) fs [r] m' → ∃ root',
+    (hwork : ∀ m', Frontend.Olean.HdrClosure (searchPathOf dirs) fs [r] m' → ∃ root',
       parseModName root' = some m' ∧ ModelIO.CanGive
         (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
     ∃ model : Name → (Name → List Nat → V),

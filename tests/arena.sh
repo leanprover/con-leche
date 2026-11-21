@@ -200,12 +200,14 @@ if tests/quote-gate.sh; then :; else fail=1; fi
 # Repo content must not reference local (absolute home) paths.
 if tests/no-local-paths.sh; then :; else fail=1; fi
 
-# THE COMPARATOR PAIR GATE (task #281).  `ConLeche/Challenge.lean` is a
+# THE CHALLENGE GATE (tasks #281, #627).  `ConLeche/Challenge.lean` is a
 # deliberate dead end — not in `defaultTargets`, imported by nothing — so
-# `lake build` and `lake test` never look at it and it rotted silently when
-# `checkDecls` changed modules.  This gate builds it (sorry warnings and no
-# other diagnostic) and diffs the `#check` of every `comparator.json` name
-# between the challenge and the solution module.  Seconds on a built tree.
+# `lake build` and `lake test` never look at it.  This gate builds it (sorry
+# warnings and no other diagnostic) and runs the self-compare: con-leche checks
+# the challenge against `ConLeche.MainTheorem` (`--olean --compare`), every hole
+# and stated theorem justified by the solution, the justified names exactly
+# `comparator.json`'s.  1.9 T instructions:u; the modular form
+# (`tests/challenge.sh --modular`, 7.4 T) is not run here.
 if tests/challenge.sh; then :; else fail=1; fi
 
 # THE IMPORT GATE (task #235).  Two questions no other gate asks and the
