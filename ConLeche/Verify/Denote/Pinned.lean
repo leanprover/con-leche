@@ -9,7 +9,8 @@ public section
 # The pinned basis constants' direct valuations
 
 `pinnedStructT` — what a reserved basis constant denotes to in the
-declarative layer, where it denotes to a bare `BConst` built-in.
+declarative layer, where it denotes to a bare `BConst` built-in, or,
+for the one proof among them (`Quot.sound`), to the canonical proof.
 
 The definition is `V`-free — a table from the checker's reserved
 names to `ConLeche/Term/Const.lean`'s built-ins (task #148).  The
@@ -53,7 +54,8 @@ asserts the valuation's level parameters for a basis constant. -/
   else if n = quotMkName then some (.const .quotMk [ψ uN])
   else if n = quotLiftName then some (.const .quotLift [ψ uN, ψ vN])
   else if n = quotIndName then some (.const .quotInd [ψ uN])
-  else if n = quotSoundName then some (.const .quotSound [ψ uN])
+  -- a proof: the canonical one, the leaf of every proof (an importer may meet another copy)
+  else if n = quotSoundName then some .prf
   else none
 
 /-- **A constant is a copy of a pin**: the pin at the constant's own
@@ -98,7 +100,7 @@ constructor head matched by name denotes the pinned built-in.
 
 **The declaration clause is unconditional** (task #283): a stored
 reserved name holds a copy of the pin whatever its kind — which is what
-lets `Model.eq_equality` (`ConLeche/Denotes.lean`)
+lets `Model.eq_equality_of` (`ConLeche/Model/OfEnvModelM.lean`)
 speak about the stored `Eq` without hypothesising its declaration. -/
 @[expose] def BasisPinnedTT (env : Env) (cval : Name → (Name → Nat) → Term) : Prop :=
   ∀ (n : Name) (ci : ConstantInfo),

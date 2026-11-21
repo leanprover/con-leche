@@ -70,6 +70,12 @@ variable {envC : Env} (mpC : EnvModelM V envC) (ctx : NestCtx) (d : BlockData V)
   if b = 0 then consList (xs.take d.nP) ρ
   else nodeFr mpC.base2.acval envC ctx ψ ρ xs (ns.getD (b - 1) default)
 
+/-- Node `b` is live: node `0` always (the prefix fits the block's
+parameters wherever a class is guarded), a listed node where its true frame
+fits its recorded block (`LfpDatum.FrFit`). -/
+@[expose] def nlLive (b : Nat) : Prop :=
+  if b = 0 then True else (nlDb mpC d ns b).FrFit (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+
 /-- A strict bound of every depth: the list's greatest height, plus two. -/
 @[expose] def nlDd (ns : List PosTree) : Nat := (ns.map (·.height)).foldr max 0 + 2
 
@@ -182,20 +188,21 @@ structure TgtNodeDyn (F : Nat) {envC : Env} (mpC : EnvModelM V envC)
     (mc : Nat → Nat) (cvc : Nat → ConstantVal) (ns : List PosTree) (ψ : Name → Nat)
     (ρ : Nat → V) (xs : List V) (call : List V → Nat → Nat → List V → V → Prop) where
   Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
-  hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' →
+  hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' → nlLive mpC ctx d ns ψ ρ xs b ∧
     Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
       ∀ c, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ' c
         = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b) c
-  top : ∀ b, b < ns.length + 1 → ∀ G, (∀ b' c t y, b' < ns.length + 1 →
-      nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
-      t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
+  top : ∀ b, b < ns.length + 1 → nlLive mpC ctx d ns ψ ρ xs b → ∀ G, (∀ b' c t y,
+      b' < ns.length + 1 → nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
+      nlLive mpC ctx d ns ψ ρ xs b' → t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
       y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b')
         (nlFr mpC ctx d ns ψ ρ xs b') c) t → G b' c t y) →
     Adm b G (nlFr mpC ctx d ns ψ ρ xs b)
   trans : ∀ b, b < ns.length + 1 → ∀ G,
     (∀ b' c t y, G b' c t y →
       y ∈ˢ app ((lfpSClause (nlDb mpC d ns b') (nlψ envC ns ψ b')
-        ((nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b'))).carrier
+        (pinIdx (nlDb mpC d ns b') (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b')
+          (nlLive mpC ctx d ns ψ ρ xs b'))).carrier
         (nlFr mpC ctx d ns ψ ρ xs b') c) t) →
     ∀ ρ', Adm b G ρ' → ∀ Y,
     InTupleSpace ((nlDb mpC d ns b).w (nlψ envC ns ψ b)) (nlDb mpC d ns b).N
@@ -207,7 +214,8 @@ structure TgtNodeDyn (F : Nat) {envC : Env} (mpC : EnvModelM V envC)
       (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
         ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t c j fs
   hcall : ∀ c b, c < (tgtRs out).length →
-    nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c b → ∀ t j fs,
+    nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c b →
+    tgtClsLive d Dc cvc mpC.base2.acval envC p out ψ ρ xs c → ∀ t j fs,
     t ∈ˢ (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
       (tgtClsM mc p out c) →
     (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
@@ -302,6 +310,34 @@ theorem nlRel_tie (hcov : LfpCover mpC [])
       ⟨D, hD, h1, h2⟩ hlps
       (hF.read _ ht) (hF.ws _ ht) hsp (hnP c hc) hxs
 
+/-- **A node related to a live class is live**: node `0` always; a listed
+node's true frame is the outside class's (`nlRel_tie`), which fits. -/
+theorem nlRel_live (hcov : LfpCover mpC [])
+    (hF : NodeListFacts mpC ctx ns)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      Dc c = lfpSel mpC d.toLfp (tgtMajor out c).ind)
+    (hnP : ∀ c, c < (tgtRs out).length → ctx.nP ≤ tgtRP p c)
+    (hpd : ∀ c, c < (tgtRs out).length →
+      (blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c).length = tgtRP p c)
+    (hfrT : NodeFrameTie mpC.base2.acval ctx p out ns ψ ρ xs envC F formerTys)
+    {c b : Nat} (hc : c < (tgtRs out).length)
+    (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c b)
+    (hl : tgtClsLive d Dc cvc mpC.base2.acval envC p out ψ ρ xs c) :
+    nlLive mpC ctx d ns ψ ρ xs b := by
+  obtain ⟨hD, hψ', hfr⟩ := nlRel_tie (mc := mc) hcov hF hcls hsel hnP hpd hfrT hc hR
+  unfold nlLive
+  split
+  · trivial
+  · rename_i hb0
+    obtain ⟨-, ⟨hm, rfl⟩ | ⟨-, -, hNM⟩⟩ := hR
+    · exact absurd rfl hb0
+    · unfold tgtClsLive at hl
+      rw [ite_eq_right (by rw [hNM.1]; exact Bool.false_ne_true)] at hl
+      rw [← hD, ← hψ', ← hfr]
+      exact hl
+
 /-- **THE NODE PRESENTATION OVER A NODE LIST**, its static part proved,
 its dynamic part (`Adm`, `hAdm`, `top`, `trans`, `hcall`) the premises;
 it covers every guarded class once `NodeListCover` holds. -/
@@ -333,11 +369,15 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
     split
     · exact hd0
     · exact lfpSel_mem_blocks hd0 _
+  have hliveR := fun (c b : Nat) (hc : c < (tgtRs out).length)
+      (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c b) =>
+    nlRel_live (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel hnP hpd hfrT hc hR
   refine ⟨{
     nC := ns.length + 1
     Db := nlDb mpC d ns
     ψb := nlψ envC ns ψ
     frb := nlFr mpC ctx d ns ψ ρ xs
+    live := nlLive mpC ctx d ns ψ ρ xs
     dp := nlDp ns
     Dd := nlDd ns
     hD := nlDp_lt ns
@@ -346,16 +386,17 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
     hAdm := Dy.hAdm
     top := Dy.top
     trans := Dy.trans
-    Rel := nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys
+    Rel := fun c b => nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c b ∧
+      tgtClsLive d Dc cvc mpC.base2.acval envC p out ψ ρ xs c
     mOf := fun c _ => tgtClsM mc p out c
     hb := fun c b _ hR => by
-      obtain ⟨-, ⟨-, rfl⟩ | ⟨-, hbl, -⟩⟩ := hR
+      obtain ⟨⟨-, ⟨-, rfl⟩ | ⟨-, hbl, -⟩⟩, -⟩ := hR
       · omega
       · omega
     hm := fun c b hc hR => by
-      have hD := (htie c b hc hR).1
+      have hD := (htie c b hc hR.1).1
       rw [← hD]
-      obtain ⟨-, ⟨hm, rfl⟩ | ⟨-, -, hNM⟩⟩ := hR
+      obtain ⟨⟨-, ⟨hm, rfl⟩ | ⟨-, -, hNM⟩⟩, -⟩ := hR
       · simp only [tgtClsD, tgtClsM, hm, ite_true]
         exact hmemk c hc hm
       · have hMo := hNM.1
@@ -363,25 +404,28 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
         have hcl := hcls c hc hMo
         simp only [tgtClsD, tgtClsM, hMo', Bool.false_eq_true, ite_false]
         exact Nat.lt_of_lt_of_le hcl.hmm (mpC.lfpClause_of_mem hcl.hD).kN
-    hDb := fun c b hc hR => (htie c b hc hR).1
-    hψb := fun c b hc hR => (htie c b hc hR).2.1
-    hfr := fun c b hc hR => (htie c b hc hR).2.2
+    hDb := fun c b hc hR => (htie c b hc hR.1).1
+    hψb := fun c b hc hR => (htie c b hc hR.1).2.1
+    hfr := fun c b hc hR => (htie c b hc hR.1).2.2
     hmc := fun _ _ _ _ => rfl
-    hG := fun _ _ _ hR => hR.1
+    hG := fun _ _ _ hR => ⟨hR.1.1, hR.2⟩
+    hlive := fun c b hc hR => hliveR c b hc hR.1 hR.2
     hnCt := fun c b hc hR t j fs hf => by
-      rw [hnCt c hc, (htie c b hc hR).1]
+      rw [hnCt c hc, (htie c b hc hR.1).1]
       exact hf.1
-    hcall := Dy.hcall }, ?_⟩
-  intro c hc hg
+    hcall := fun c b hc hR t j fs ht hf c' t' y hc' ht' hy hcl => by
+      obtain ⟨b', hR', hL⟩ := Dy.hcall c b hc hR.1 hR.2 t j fs ht hf c' t' y hc' ht' hy hcl
+      exact ⟨b', ⟨hR', (tgtClsIs_guard ht').2⟩, hL⟩ }, ?_⟩
+  intro c hc hg hl
   by_cases hm : (tgtMajor out c).member.isSome = true
-  · exact ⟨0, hg, Or.inl ⟨hm, rfl⟩⟩
+  · exact ⟨0, ⟨hg, Or.inl ⟨hm, rfl⟩⟩, hl⟩
   · have hMo : (tgtMajor out c).member = none := by
       cases h : (tgtMajor out c).member with
       | none => rfl
       | some _ => rw [h] at hm; exact absurd rfl hm
     obtain ⟨t, ht, hNM⟩ := hcover c hc hMo hg
     obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem ht
-    refine ⟨i + 1, hg, Or.inr ⟨by omega, by omega, ?_⟩⟩
+    refine ⟨i + 1, ⟨hg, Or.inr ⟨by omega, by omega, ?_⟩⟩, hl⟩
     rw [Nat.add_sub_cancel, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
       Option.getD_some]
     exact hNM

@@ -94,9 +94,8 @@ theorem natLit_mem (m : EnvModel V env) (hnh : NatHeads m φ)
 
 /-- One certified recurrence equation, read at value slots. -/
 theorem natEq_value (m : EnvModel V env) (hops : NatOps m φ)
-    {c : Name} (hc : c ∈ ConLeche.natOpNames) {cv : ConstantVal}
-    {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? c = some (.defnInfo cv v hint))
+    {c : Name} (hc : c ∈ ConLeche.natOpNames) {ci : ConstantInfo}
+    (hf : env.find? c = some ci)
     {eq : Expr × Expr} (heq : eq ∈ ConLeche.natOpEquations 0 c)
     {L R : Term}
     (hdL : denote m.acval env φ 2 eq.1 = some L)
@@ -107,7 +106,7 @@ theorem natEq_value (m : EnvModel V env) (hops : NatOps m φ)
     interp V (cons y (cons x ρ)) L
       = interp V (cons y (cons x ρ)) R := by
   obtain ⟨L', R', hdL', hdR', hval⟩ :=
-    (hops c hc cv v hint hf).2.2 eq heq
+    (hops c hc ci hf).2.2 eq heq
   obtain rfl : L' = L := Option.some.inj (hdL'.symm.trans hdL)
   obtain rfl : R' = R := Option.some.inj (hdR'.symm.trans hdR)
   exact hval ρ x y hx hy
@@ -152,8 +151,8 @@ theorem natOpV_bin_of_clauses (m : EnvModel V env)
 /-- `Nat.add` on literal values. -/
 theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natAddName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natAddName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -161,9 +160,10 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a + b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natAddName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natAddName
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natAddName (by decide) ci hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
+  obtain ⟨_, hfc, hlpc⟩ := hdeps ConLeche.natAddName
     (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
@@ -171,8 +171,7 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natAddName [])
       = some (m.acval ConLeche.natAddName φ) :=
     fun d => denote_levelless_const hfc
-      (show (ConstantInfo.defnInfo cvc vc hcnt).toConstantVal.levelParams
-        = [] from hlpc)
+      hlpc
   have hKz : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
@@ -269,29 +268,29 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
 
 The same recipe as `natOpV_add`.  `sub` reads `pred`'s closed
 form, `mul` reads `add`'s, `pow` reads `mul`'s — each dependency's
-`find?` comes from `natOpGuard_inv`'s `hdeps`. -/
+`find?` comes from the law's pins (`natOpDepsOk_inv`). -/
 
 /-- `Nat.pred` on literal values. -/
 theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natPredName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natPredName = some ci)
     (ρ : Nat → V) :
     ∀ a : Nat,
       SetTheory.app (interp V ρ (m.acval ConLeche.natPredName φ))
         (interp V ρ (natLit m φ a))
       = interp V ρ (natLit m φ (a - 1)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natPredName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
-  obtain ⟨cvp, vp, hp, hfp, hlpp⟩ := hdeps ConLeche.natPredName (by decide)
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natPredName (by decide) ci hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
+  obtain ⟨_, hfp, hlpp⟩ := hdeps ConLeche.natPredName (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
   have hKp : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natPredName [])
       = some (m.acval ConLeche.natPredName φ) :=
     fun d => denote_levelless_const hfp
-      (show (ConstantInfo.defnInfo cvp vp hp).toConstantVal.levelParams
-        = [] from hlpp)
+      hlpp
   have hKz : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
@@ -360,8 +359,8 @@ theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
 /-- `Nat.sub` on literal values. -/
 theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natSubName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natSubName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -369,11 +368,12 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a - b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natSubName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natSubName
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natSubName (by decide) ci hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
+  obtain ⟨_, hfc, hlpc⟩ := hdeps ConLeche.natSubName
     (by decide)
-  obtain ⟨cvp, vp, hpnt, hfp, hlpp⟩ := hdeps ConLeche.natPredName
+  obtain ⟨_, hfp, hlpp⟩ := hdeps ConLeche.natPredName
     (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
@@ -381,14 +381,12 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natSubName [])
       = some (m.acval ConLeche.natSubName φ) :=
     fun d => denote_levelless_const hfc
-      (show (ConstantInfo.defnInfo cvc vc hcnt).toConstantVal.levelParams
-        = [] from hlpc)
+      hlpc
   have hKp : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natPredName [])
       = some (m.acval ConLeche.natPredName φ) :=
     fun d => denote_levelless_const hfp
-      (show (ConstantInfo.defnInfo cvp vp hpnt).toConstantVal.levelParams
-        = [] from hlpp)
+      hlpp
   have hKz : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
@@ -481,8 +479,8 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
 /-- `Nat.mul` on literal values. -/
 theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natMulName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natMulName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -490,11 +488,12 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a * b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natMulName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natMulName
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natMulName (by decide) ci hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
+  obtain ⟨_, hfc, hlpc⟩ := hdeps ConLeche.natMulName
     (by decide)
-  obtain ⟨cva, va, hant, hfa, hlpa⟩ := hdeps ConLeche.natAddName
+  obtain ⟨_, hfa, hlpa⟩ := hdeps ConLeche.natAddName
     (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
@@ -502,14 +501,12 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natMulName [])
       = some (m.acval ConLeche.natMulName φ) :=
     fun d => denote_levelless_const hfc
-      (show (ConstantInfo.defnInfo cvc vc hcnt).toConstantVal.levelParams
-        = [] from hlpc)
+      hlpc
   have hKa : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natAddName [])
       = some (m.acval ConLeche.natAddName φ) :=
     fun d => denote_levelless_const hfa
-      (show (ConstantInfo.defnInfo cva va hant).toConstantVal.levelParams
-        = [] from hlpa)
+      hlpa
   have hKz : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
@@ -602,8 +599,8 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
 /-- `Nat.pow` on literal values. -/
 theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natPowName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natPowName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -611,11 +608,12 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a ^ b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natPowName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natPowName
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natPowName (by decide) ci hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
+  obtain ⟨_, hfc, hlpc⟩ := hdeps ConLeche.natPowName
     (by decide)
-  obtain ⟨cvm, vm, hmnt, hfm, hlpm⟩ := hdeps ConLeche.natMulName
+  obtain ⟨_, hfm, hlpm⟩ := hdeps ConLeche.natMulName
     (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
@@ -623,14 +621,12 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natPowName [])
       = some (m.acval ConLeche.natPowName φ) :=
     fun d => denote_levelless_const hfc
-      (show (ConstantInfo.defnInfo cvc vc hcnt).toConstantVal.levelParams
-        = [] from hlpc)
+      hlpc
   have hKm : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natMulName [])
       = some (m.acval ConLeche.natMulName φ) :=
     fun d => denote_levelless_const hfm
-      (show (ConstantInfo.defnInfo cvm vm hmnt).toConstantVal.levelParams
-        = [] from hlpm)
+      hlpm
   have hKz : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
@@ -728,8 +724,8 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
 /-- `Nat.beq` on literal values. -/
 theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natBeqName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natBeqName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -739,10 +735,11 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
       = interp V ρ (m.acval
           (if a = b then ConLeche.boolTrueName else ConLeche.boolFalseName)
           φ) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natBeqName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natBeqName (by decide) ci hf
+  obtain ⟨hs, -, hbool⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨⟨ciT, hfT, hlpT⟩, ⟨ciF, hfF, hlpF⟩⟩ := hbool (Or.inl rfl)
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natBeqName
+  obtain ⟨_, hfc, hlpc⟩ := hdeps ConLeche.natBeqName
     (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
@@ -750,8 +747,7 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natBeqName [])
       = some (m.acval ConLeche.natBeqName φ) :=
     fun d => denote_levelless_const hfc
-      (show (ConstantInfo.defnInfo cvc vc hcnt).toConstantVal.levelParams
-        = [] from hlpc)
+      hlpc
   have hKz : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=
@@ -922,8 +918,8 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
 /-- `Nat.ble` on literal values. -/
 theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natBleName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natBleName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -933,11 +929,12 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
       = interp V ρ (m.acval
           (if a ≤ b then ConLeche.boolTrueName else ConLeche.boolFalseName)
           φ) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natBleName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natBleName (by decide) ci hf
+  obtain ⟨hs, -, hbool⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨⟨ciT, hfT, hlpT⟩, ⟨ciF, hfF, hlpF⟩⟩ :=
     hbool (Or.inr (Or.inl rfl))
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natBleName
+  obtain ⟨_, hfc, hlpc⟩ := hdeps ConLeche.natBleName
     (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
@@ -945,8 +942,7 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
       (.const ConLeche.natBleName [])
       = some (m.acval ConLeche.natBleName φ) :=
     fun d => denote_levelless_const hfc
-      (show (ConstantInfo.defnInfo cvc vc hcnt).toConstantVal.levelParams
-        = [] from hlpc)
+      hlpc
   have hKz : ∀ d : Nat, denote m.acval env φ d
       (.const ConLeche.natZeroName [])
       = some (m.acval ConLeche.natZeroName φ) :=

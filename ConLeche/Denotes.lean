@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Kernel.Core
+public import ConLeche.IsModel
 public import ConLeche.Verify.Level
-public import ConLeche.SetModel.Ops
-public import ConLeche.SetTheory.Derive.Sigma
+public import ConLeche.Kernel.Inductives.IotaRead
 
 @[expose] public section
 
@@ -13,8 +12,8 @@ public import ConLeche.SetTheory.Derive.Sigma
 This module is the *statement* half of the main theorem: it says what it
 means for the environment the checker builds to have a model in a set
 theory `V`.  It is written to be read top to bottom in one sitting —
-three one-line helpers, the relation `Denotes`, the structure `Model` —
-and it imports nothing from the proof tiers.  The theorem itself is
+three one-line helpers, the relation `Denotes`, the recursors' rules as
+propositions (`ruleEqs`), the structure `Model` — and it imports nothing from the proof tiers.  The theorem itself is
 stated in `ConLeche/Challenge.lean` (with `sorry`) and proved in
 `ConLeche/MainTheorem.lean`.
 
@@ -98,25 +97,7 @@ open SetTheory ConLeche.SetModel
 
 universe w
 
-/-- A universe parameter: a name. -/
-abbrev LevelParam := Name
-
-/-- A de Bruijn index: the number of binders between a variable's
-occurrence and its binder. -/
-abbrev BVarIdx := Nat
-
 variable {V : Type w} [SetTheory V]
-
-/-- Extend a variable environment: the innermost binder gets `x`, every
-other index moves up by one. -/
-def push (x : V) (ρ : BVarIdx → V) : BVarIdx → V
-  | 0 => x
-  | i + 1 => ρ i
-
-/-- Component `i` of a right-nested pair chain `⟨x₀, ⟨x₁, ⟨x₂, …⟩⟩⟩`. -/
-noncomputable def field : Nat → V → V
-  | 0, p => sfst p
-  | i + 1, p => field i (ssnd p)
 
 /-- `Denotes cval env φ ρ e v`: the term `e` denotes the set `v`.  See
 the module docstring. -/
@@ -216,35 +197,57 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
     cases hw with
     | strLit h' => exact ih h'
 
+/-! ### The recursor rules as propositions -/
+
+/-- **A stored recursor rule's ι equation** (`iotaEqAt`, `ConLeche/Kernel/Inductives/IotaRead.lean`), at the
+constructor record the environment stores under the rule's constructor name. -/
+def iotaEq (find? : Name → Option ConstantInfo) (cv : ConstantVal) (mI rP : Nat)
+    (rl : RecRule) : Option Expr := do
+  let .ctorInfo cvj cnP _ _ ← find? rl.ctor | none
+  iotaEqAt cvj cnP cv mI rP rl
+
+/-- **The ι equations of an environment**: every stored recursor rule's
+`iotaEq` (the quotient eliminators' among them: `Quot.lift` and
+`Quot.ind` are stored recursors with one rule each).  A recursor is read
+the way `Denotes` reads a constant, through its name. -/
+def ruleEqs (env : Env) : List Expr :=
+  env.consts.flatMap fun c => match env.find? c.name with
+    | some (.recInfo cv mI rP _ rules) => rules.filterMap (iotaEq env.find? cv mI rP)
+    | _ => []
+
+/-- **The ι equations hold** in `cval`: wherever one denotes, what it
+denotes is inhabited, at every level assignment (the equation is closed;
+its level parameters are the recursor's). -/
+def RuleEqsHold (cval : Name → (LevelParam → Nat) → V) (env : Env) : Prop :=
+  ∀ e ∈ ruleEqs env, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (P : V),
+    Denotes cval env φ ρ e P → ∃ x, x ∈ˢ P
+
 /-- **A model of the environment `env` in the set theory `V`**: one
 assignment `cval` of a set to every constant at every level
 assignment — fixed once, for the whole environment — under which every
-stored constant is a member of what its type denotes, the built-in
-`False` is the empty set, and the built-in `Eq` is set equality.
+stored constant is a member of what its type denotes, every stored
+definition means its value and every recursor rule holds.
 
 The interpretation of the constants *is* the model: there is nothing
 else to choose (`Sort`, `∀`, `λ`, application and projection are read
 by fixed set operations).  `mem` is what makes every stored theorem
 true — a theorem `t : P` is a constant whose type `P` denotes a truth
-value, and `cval t φ ∈ˢ ⟦P⟧` says that truth value is `{pt}` — and
-`false_empty` is what makes truth mean something: a proof of `False`
-would be a member of `∅`.
+value, and `cval t φ ∈ˢ ⟦P⟧` says that truth value is `{pt}`.  What
+`False` and `Eq` denote is their declarations' business: the model the
+proofs build reads them as the empty set and as set equality
+(`Model.eq_equality_of`, `no_constant_of_False`), and every `IsModel`
+of a stream declaring them does (`IsModel.false_empty`, `IsModel.eq_eqv`).
 
-`False` and `Eq` are both built in (the checker installs them from its
-own pins and rejects a stream that declares them otherwise), so the
-last two fields are facts about the checker's own constants, not
-hypotheses about the input; each is stated of whatever the stored
-constant denotes, so it says nothing when nothing is stored.
+A model is also a model in the logician's sense for definitions:
+`defn_eq` makes every stored definition's defining equation hold, read
+off the environment's own data, so that a definition hidden behind an
+import still means its value.
 
-The model says nothing about *definitional* equalities — a
-definition's unfolding, an inductive type's iota rules, η — because it
-does not have to, and `eq_equality` is what discharges that debt: any
-such equality a reader cares about can be stated as a theorem `h : a = b`
-and proved by `rfl`; the checker accepts it; `mem` puts `cval h φ` in
-what `Eq A a b` denotes, which by `eq_equality` is `eqv ⟦a⟧ ⟦b⟧`; and
-`eqv x y` is inhabited only when `x = y` (`SetTheory.eq_of_mem_eqv`).  So the
-two sides of every accepted equation denote the same set.  Types are
-the whole statement; values are the checker's business. -/
+The recursors are free constants in this reading too, but their rules
+are not: `rule_eqs` makes every stored recursor rule's ι equation
+(`iotaEq` above, an `Eq` between the recursor applied to a constructor
+and the rule's right-hand side) hold, so that a recursor hidden behind
+an import still computes as its rules say. -/
 structure Model (V : Type w) [SetTheory V] (env : Env) where
   /-- the set a constant denotes, per level assignment -/
   cval : Name → (LevelParam → Nat) → V
@@ -253,18 +256,27 @@ structure Model (V : Type w) [SetTheory V] (env : Env) where
   is closed) -/
   mem : ∀ c ∈ env.consts, ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V),
     ∃ T, Denotes cval env φ ρ c.toConstantVal.type T ∧ cval c.name φ ∈ˢ T
-  /-- whatever the built-in `False` denotes is the empty set -/
-  false_empty : ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V) (F : V),
-    Denotes cval env φ ρ (.const falseName []) F → F = empty
-  /-- whatever the built-in `Eq` denotes is set equality: at a type `A`
-  of the universe the level `u` names, and two of its members `a` and
-  `b`, `@Eq.{u} A a b` denotes the truth value of `a = b`.  The three
-  membership premises are the graph's domains — `Eq`'s denotation is a
-  three-fold graph over `univ (Level.eval φ u)`, then over `A`, then
-  over `A` again, and a graph read off its domain says nothing -/
-  eq_equality : ∀ (u : Level) (φ : LevelParam → Nat) (ρ : BVarIdx → V) (E A a b : V),
-    Denotes cval env φ ρ (.const eqName [u]) E →
-    A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
-    app (app (app E A) a) b = eqv a b
+  /-- **a stored definition means its value**: at every level
+  assignment, the value denotes what the constant does.  The value is
+  read at the definition's own level parameters (an instance `c.{us}`
+  is the same equation at the assignment `us` induces).  Definitions
+  only: a theorem is stored by its statement (its record carries no
+  value), and an opaque constant's value is never unfolded, so it stays
+  free -/
+  defn_eq : ∀ (cv : ConstantVal) (value : Expr) (hint : ReducibilityHint),
+    ConstantInfo.defnInfo cv value hint ∈ env.consts →
+    ∀ (φ : LevelParam → Nat) (ρ : BVarIdx → V), Denotes cval env φ ρ value (cval cv.name φ)
+  /-- **a recursor computes by its rules**: every stored rule's ι
+  equation denotes an inhabited truth value, at every level assignment -/
+  rule_eqs : RuleEqsHold cval env
+
+/-- **A stored definition's value fixes the constant**: in every model,
+whatever the value denotes is what the constant denotes. -/
+theorem Model.cval_of_defn {V : Type w} [SetTheory V] {env : Env} (M : Model V env)
+    {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
+    (h : ConstantInfo.defnInfo cv value hint ∈ env.consts)
+    {φ : LevelParam → Nat} {ρ : BVarIdx → V} {X : V}
+    (hX : Denotes M.cval env φ ρ value X) : M.cval cv.name φ = X :=
+  Denotes_functional (M.defn_eq cv value hint h φ ρ) hX
 
 end ConLeche

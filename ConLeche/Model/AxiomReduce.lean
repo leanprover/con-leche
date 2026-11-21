@@ -257,8 +257,9 @@ theorem axiomOfReduce
       cv.name = ConLeche.ofReduceBoolName)
     (hok : ConLeche.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
-    CoverStep mp
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
+    CoverStepLeaf mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
+      (SemPropType V mp.base2.acval env cv.type) := by
   refine harvestAxiom (V := V) (hwf₂ := hwf₂) mp hopn hcv
     (by rcases hor with h | h <;> rw [h] <;> decide)
     (A := fun _ => Term.prf) (fun _ => trivial)

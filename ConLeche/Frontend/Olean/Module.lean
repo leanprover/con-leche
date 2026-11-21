@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Olean.View
+public import ConLeche.Frontend.Olean.Lazy
 public import Std.Data.HashMap.Basic
 
 @[expose] public section
@@ -8,14 +8,24 @@ public import Std.Data.HashMap.Basic
 /-!
 # Reading `.olean` files: a module's views against each other
 
-`checkViews`: what a module's home can check of its three views, read together
-(`parseAllViews`).  A mismatch is malformed input (`.internal`, exit 3):
+`checkViews`: what a module's home checks of its three parts, over the load of its
+private view (`loadAt`, its theorems' values left in the file).  A mismatch is a
+malformed file at its home (`.invalid`, exit 1):
 
-* the server and private views are of a module of the module system (their
-  imports are the exported view's: every view's are those at the start of `M.olean`);
-* every constant of the exported view, and of the server view, is the private
+* the server part reads with `M.olean` alone: its root lies in the two files, and so does
+  every object it reaches, the reader following pointers only downwards (the exported part
+  reads on its own already where `M.olean` is of a module of the module system,
+  `outsideOrEscaping`);
+* the server and private parts are of a module of the module system, and the server
+  part's imports are those at the start of `M.olean` (the private view's are, or it
+  would not load);
+* the exported and server parts' name tables list their constants (`constNamesOk`),
+  as the keys Lean's import stores them under;
+* every constant of the exported part, and of the server part, is the private
   view's constant of its name or that constant with its value hidden
-  (`expoOfParts`).
+  (`expoOfParts`).  The same object is decided by position; a hidden value by the
+  statement; only where neither holds is the exported constant decoded, and then the
+  private one too if its value was left in the file.
 
 A reader of one view (`parseView`) does not need any of this: Lean's own import
 at that level does not compare the files either.
@@ -129,7 +139,13 @@ def expoOfParts (r : Region) (privAddr expAddr : UInt64) (cs : Array (CEntryF Na
       else
         -- the fallback: decode the exported constant
         let some e := entryAt r c | throw "malformed exported constant"
-        match expoOf cs[i]! e with
+        -- the private constant whole: a theorem's value is left out of the load
+        let pc ← match cs[i]!.kind with
+          | .thm .. => match (privLocs[i]?).bind (entryAt r) with
+            | some pc => pure pc
+            | none => throw "malformed private constant"
+          | _ => pure cs[i]!
+        match expoOf pc e with
         | some x => expo := expo.set! i x
         | none => throw s!"the exported view of {en} is not a refinement of its private \
             constant ({kindWord cs[i]!.kind} / {kindWord e.kind})"
@@ -140,22 +156,37 @@ def expoOfParts (r : Region) (privAddr expAddr : UInt64) (cs : Array (CEntryF Na
 /-- **The views of a module against each other**: for each private constant, its
 exported level.  Every constant is `.same` in a classic module, whose views are
 one. -/
-def checkViews (m : Name) (f : ModFiles) (v : AllViews) : Except CheckError (Array Expo) := do
-  let bad (what : String) : CheckError := .internal s!"module {m}: {what}"
+def checkViews (m : Name) (f : ModFiles) (l : Loaded) : Except CheckError (Array Expo) := do
+  let bad (what : String) : CheckError := .invalid s!"module {m}: {what}"
+  let cs := l.constants.map (·.toCEntryF)
   match f.server, f.private with
   | some s, some p =>
-    unless f.isModule do return v.private.constants.map fun _ => .same
+    unless f.isModule do return cs.map fun _ => .same
     let r ← Region.ofParts #[f.exported, s, p]
-    for (part, d) in [("server", v.server), ("private", v.private)] do
-      unless d.isModule do
+    -- the server part reads with `M.olean` alone, as Lean's server level maps the two files:
+    -- its root lies in them, and every pointer the reader follows points below its object
+    -- (`M.olean` reads on its own, or `f.isModule` would not hold: `outsideOrEscaping`)
+    unless (r.loc s.moduleDataAddr).all (· < f.exported.bytes.size + s.bytes.size) do
+      .error (bad s!"its server part {m}.olean.server points into its .olean.private: \
+        the server part must read with its .olean alone")
+    for (part, a) in [("server", s.moduleDataAddr), ("private", p.moduleDataAddr)] do
+      unless (moduleSkel r a).any (·.isModule) do
         .error (bad s!"the {part} part is not of a module of the module system, the exported \
           part is")
+    let simps := (moduleSkel r s.moduleDataAddr).bind fun sk =>
+      (sk.imports.mapM (ImportF.mapM (nameP r))).map List.toArray
+    unless importsPre f.exported.bytes == simps do
+      .error (bad "the server part's imports are not those at the start of its .olean")
     let exp := f.exported.moduleDataAddr
-    match expoOfParts r p.moduleDataAddr exp v.private.constants,
-        expoOfParts r p.moduleDataAddr s.moduleDataAddr v.private.constants with
+    for (part, a) in [("exported", exp), ("server", s.moduleDataAddr)] do
+      unless constNamesOk r a do
+        .error (bad s!"the {part} part's name table (constNames) does not list its constants' \
+          names, each once")
+    match expoOfParts r p.moduleDataAddr exp cs,
+        expoOfParts r p.moduleDataAddr s.moduleDataAddr cs with
     | .ok expo, .ok _ => pure expo
     | .error msg, _ => .error (bad s!"the exported part: {msg}")
     | _, .error msg => .error (bad s!"the server part: {msg}")
-  | _, _ => pure (v.private.constants.map fun _ => .same)
+  | _, _ => pure (cs.map fun _ => .same)
 
 end ConLeche.Frontend.Olean

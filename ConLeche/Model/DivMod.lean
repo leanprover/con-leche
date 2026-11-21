@@ -148,11 +148,9 @@ theorem dmValNames_stored {c : Name} (hc : c ∈ ConLeche.natDivModNames)
   · simp [hfF]
   · simp [hfZ]
   · simp [hfS]
-  · obtain ⟨cvb, vb, hb, hfb, -⟩ := hdeps _ hble
-    simp [hfb]
+  · exact hdeps _ hble
   · exact hcs
-  · obtain ⟨cvn, vn, hn', hfn, -⟩ := hdeps n hn
-    simp [hfn]
+  · exact hdeps n hn
 
 /-! ## Preservation across a fresh cons -/
 
@@ -168,21 +166,21 @@ theorem divMod_entry_cons {m : EnvModel V env} {φ : Name → Nat}
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A)
     {c : Name} (hcN : c ∈ ConLeche.natDivModNames) (hne : c ≠ c₀.name)
-    {cv' : ConstantVal} {v' : Expr} {hint' : ReducibilityHint}
-    (hf₂ : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? c
-      = some (.defnInfo cv' v' hint')) :
+    {ci : ConstantInfo}
+    (hf₂ : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? c = some ci) :
     natOpGuard (⟨c₀ :: env.consts, env.tables⟩ : Env) c = true ∧
-    ConLeche.natOpTyPinned (⟨c₀ :: env.consts, env.tables⟩ : Env) c cv'.type = true ∧
+    (ConLeche.natOpDeps c).all
+      (ConLeche.natOpPinnedOk (⟨c₀ :: env.consts, env.tables⟩ : Env)) = true ∧
     ∀ (ρ : Nat → V) (x y : V),
       x ∈ˢ interp V ρ (m₂.acval ConLeche.natName φ) →
       y ∈ˢ interp V ρ (m₂.acval ConLeche.natName φ) →
       DivModClausesV V (fun n => interp V ρ (m₂.acval n φ)) c x y := by
-  have hfE : env.find? c = some (.defnInfo cv' v' hint') := by
+  have hfE : env.find? c = some ci := by
     rw [ConLeche.Env.find?_cons] at hf₂
     split at hf₂
     · next heq => exact absurd heq.symm hne
     · exact hf₂
-  obtain ⟨hg, hpin, hclauses⟩ := hprev c hcN cv' v' hint' hfE
+  obtain ⟨hg, hpin, hclauses⟩ := hprev c hcN ci hfE
   -- every head the clauses read is stored, hence not the fresh name
   have hstored := dmValNames_stored hcN hg (by simp [hfE])
   have hmove : ∀ n ∈ dmValNames c, m₂.acval n φ = m.acval n φ := by
@@ -197,29 +195,25 @@ theorem divMod_entry_cons {m : EnvModel V env} {φ : Name → Nat}
   have hnat : m₂.acval ConLeche.natName φ = m.acval ConLeche.natName φ :=
     hmove _ (by simp [dmValNames])
   refine ⟨ConLeche.Verify.natOpGuard_cons hfresh hg,
-    ConLeche.Verify.natOpTyPinned_cons hfresh hpin, fun ρ x y hx hy => ?_⟩
+    ConLeche.Verify.natOpDepsOk_cons hfresh hpin, fun ρ x y hx hy => ?_⟩
   rw [hnat] at hx hy
   exact (divModClausesV_congr hcN
     (fun n hn => by rw [hmove n hn])).mp (hclauses ρ x y hx hy)
 
-/-- **`DivMod` at a fresh non-operation cons** — every value-kind step
-except a WF operation's own install discharges its obligation here. -/
+/-- **`DivMod` at a fresh non-operation cons** — every step except a
+WF operation's own install discharges its obligation here: the cons's
+name is not a WF operation's (as in `natOps_cons_fresh`). -/
 theorem divMod_cons_fresh {m : EnvModel V env} {φ : Name → Nat}
     (hprev : DivMod m φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
-    (hnothead : (∀ cv v hint, c₀ ≠ .defnInfo cv v hint) ∨
-      c₀.name ∉ ConLeche.natDivModNames)
+    (hnothead : c₀.name ∉ ConLeche.natDivModNames)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     DivMod m₂ φ := by
-  intro c hcN cv' v' hint' hf₂
+  intro c hcN ci hf₂
   by_cases hne : c = c₀.name
-  · subst hne
-    rw [ConLeche.Env.find?_cons_self] at hf₂
-    rcases hnothead with hnd | hnn
-    · exact absurd (Option.some.inj hf₂) (hnd cv' v' hint')
-    · exact absurd hcN hnn
+  · subst hne; exact absurd hcN hnothead
   · exact divMod_entry_cons hprev hfresh m₂ hac hcN hne hf₂
 
 /-! ## The `Eq` law at a fresh cons

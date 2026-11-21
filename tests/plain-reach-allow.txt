@@ -68,7 +68,7 @@ ConLeche.falseA
 ConLeche.falseBasis
 ConLeche.falseRecA
 
-# ConLeche.Kernel.Basis.Names — basis names (constants)
+# ConLeche.Kernel.Basis.Names — basis names (constants) and the one name test on them
 ConLeche.andName
 ConLeche.charName
 ConLeche.charOfNatName
@@ -89,6 +89,7 @@ ConLeche.quotName
 ConLeche.quotSoundName
 ConLeche.reservedBasisNames
 ConLeche.sorryAxName
+ConLeche.sorryAxNameAt
 ConLeche.stringName
 ConLeche.stringOfListName
 
@@ -225,6 +226,7 @@ ConLeche.typePinStoredF
 
 # ConLeche.Kernel.Env — environment records and their O(1) accessors
 ConLeche.CheckMode.verifiedChecks
+ConLeche.ConstantInfo.isStmtKind
 ConLeche.ConstantInfo.name
 ConLeche.Declaration.names
 ConLeche.Expr.piSortTeleLen?
@@ -406,6 +408,7 @@ ConLeche.reduceBoolCvA
 ConLeche.reduceBoolName
 ConLeche.reduceCertVar
 ConLeche.reduceDeclPin
+ConLeche.reduceElemName
 ConLeche.reduceElemTy
 ConLeche.reduceNatCvA
 ConLeche.reduceNatName
@@ -422,6 +425,11 @@ ConLeche.trustCompilerName
 # ConLeche.Kernel.TrustPins — the trust pins (constants)
 ConLeche.reduceBoolDeclPin
 ConLeche.reduceNatDeclPin
+
+# ConLeche.Kernel.Install — a pinned constant's fast-path names (fixed name lists, the pin names' membership tests), read once per context constant by the worker's reach and once per constant of a justification's cone
+ConLeche.pinFootprint
+
+# ConLeche.Modular — a record's statement (one match on the record's kind, the constant's value dropped, nothing walked), once per hole by the compared run (`Driver.cmpRecord`, `chalRecord`)
 
 # ConLeche.Verify.Frontend.Rounds — the rounds driver's small helpers (proved here, executed by the frontend)
 ConLeche.Frontend.instInhabitedFinPart.default
@@ -531,3 +539,36 @@ ConLeche.blockCtors  # ConLeche.Kernel.Install
 ConLeche.blockFormers  # ConLeche.Kernel.Install
 ConLeche.Level.isEquivList  # ConLeche.Kernel.Level
 ConLeche.Level.isNeverZero  # ConLeche.Kernel.Level
+
+# The worker's inferred-flag check (Driver/Reach.lean's inferFlags): the environment of a context
+# part, `mkFEnv (streamEnvC part)` — list pushes and the index build's hash-map inserts, one per
+# constant and table; no term walk.
+ConLeche.Env.pushDelta  # ConLeche.Kernel.Install
+ConLeche.Env.empty  # ConLeche.Kernel.Env
+ConLeche.instInhabitedEnv.default  # ConLeche.Kernel.Env
+ConLeche.mkFEnv  # ConLeche.Kernel.FEnv
+ConLeche.mkIdxGo  # ConLeche.Kernel.FEnv
+ConLeche.mkTblsGo  # ConLeche.Kernel.FEnv
+
+# ConLeche.Kernel.Inductives.IotaRead — the ι reading rule's readers and comparisons, once per
+# recursor rule (the term-copying walks run as the cached twins, Cached/IotaReadC.lean): O(spine)
+# readers of the recursor's prefix (iotaFrame, minorsOf, piTele, motiveLevel?), the rule's
+# levels and parameters (two-line selectors), the comparisons (lvlEq: `==` first at every node,
+# so shared subterms are compared once; annEq: lvlEq after peeling at most the head
+# annotations; listRel), the annotations' stored-definition tests (one lookup each) and names
+ConLeche.Expr.lvlEq
+ConLeche.Expr.piTele
+ConLeche.RecRule.ctorLevels
+ConLeche.RecRule.iotaParams
+ConLeche.annEq
+ConLeche.annIdent
+ConLeche.annIdentVal
+ConLeche.annWitness
+ConLeche.autoParamName
+ConLeche.iotaFrame
+ConLeche.listRel
+ConLeche.minorsOf
+ConLeche.motiveLevel?
+ConLeche.optParamName
+ConLeche.outParamName
+ConLeche.semiOutParamName

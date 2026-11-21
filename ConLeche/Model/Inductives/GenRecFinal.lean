@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.GenRecAssembly
 import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Model.Inductives.NestedRecRest
-import ConLeche.Model.Inductives.GenOutKeyFit
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockRecAssembly
@@ -23,6 +22,9 @@ import ConLeche.Model.Inductives.GenClsData
 import ConLeche.Model.Inductives.GenRecExtra
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Inductives.NestNfScope
+import ConLeche.Model.Inductives.GenRecFit
+import ConLeche.Model.Inductives.GenRecFit1
+import ConLeche.Model.Inductives.GenRecFit2
 
 public section
 
@@ -35,8 +37,9 @@ from the GENERATED stage's run, through the generic stage
 (`GenRecAssembly.lean`), its obligations discharged by the GENREC lanes:
 the stage record (`recStage_of_gen`), the rule side (`GenRecRules.lean`),
 the family premise (`genRecPre_run`) with its class side
-(`genClsSem_run`, `genCls_minor`, `genClassInd`) and the rule frame's
-grading (`genCls_frameV`).
+(`genClsSem_run`, `genCls_minor`, `genClassInd`), the rule frame's
+grading (`genCls_frameV`) and the rules' forward fit (`genRecFit_of`,
+`genRecFit1`, `genRecFit2`).
 -/
 
 namespace ConLeche.Model
@@ -80,9 +83,6 @@ theorem genRecStage {F : Nat}
     obtain ⟨c, hc⟩ := List.getElem?_of_mem hcv
     obtain ⟨⟨_, -, hD⟩, -⟩ := hcore.1 c cv hc
     exact ConLeche.ScB.of_closed hD.readFvar hD.readBounded 0
-  have hrd : ∀ F, FamilyRead mpC F := by
-    obtain ⟨_, -, -, h, -⟩ := hmk
-    exact h
   have hread : pp.members.map (·.cvT) = pp.formers := by
     rw [hdRe] at hN hS
     exact blockMembers_read hN hS.telescopeAt
@@ -109,17 +109,9 @@ theorem genRecStage {F : Nat}
   have hTbl := ConLeche.genRun_tbl_scoped R hwfI hwfC hM hT hct hpos
   have h : ConLeche.RecStageG .verified F envC pp (tgtRs out) :=
     recStage_of_gen R hg
-  have hfind := genRecCtor_find (mpC := mpC) R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
+  have hfind := genRecCtor_find (mpC := mpC) R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) h
-  obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov hrd dR.toLfp
-  have hkf : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
-      ∀ dsa, DenoteSpine mpC.base2.acval envC ψ (tgtRP pp c) (tgtMajor out c).ds dsa →
-      Sat V ((Dc c).params (Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls)).reverse
-        (keyFrame dsa (tgtRP pp c) (consList xs ρ)) :=
-    fun c hc hMo ψ ρ xs hfit _ hdsa =>
-      genOut_keyFit hctx.base R hg h hc hMo (hcls c hc hMo) ψ ρ xs hfit hdsa
+  obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov dR.toLfp
   -- the open class-side rows
   have hcallTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c →
@@ -170,23 +162,37 @@ theorem genRecStage {F : Nat}
       GenClsDec pp out mpC dR Dc mc cvc ψ ρ ∧ GenClsDecInv pp out mpC dR Dc mc cvc ψ ρ := by
     intro ψ ρ
     subst hdRe
-    exact genClsSem_run R hg hcov h hN hS hcore hlfp hcls hkf ψ ρ
+    exact genClsSem_run R hg hcov h hN hS hcore hlfp hcls ψ ρ
   have hrdAll : ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.rulePrefixAt c ∧
       ∃ cvI, GenClsRd mpC dR Dc mc cvc pp out c cvI := by
     intro c hc
     subst hdRe
-    obtain ⟨hnP, cvI, Rd, -⟩ := genClsRd_all R hg hcov h hN hS hcore hlfp hcls hkf c hc
+    obtain ⟨hnP, cvI, Rd, -⟩ := genClsRd_all R hg hcov h hN hS hcore hlfp hcls c hc
     exact ⟨hnP, cvI, Rd⟩
+  -- a class whose motive is no point is live (its index binders have a fit)
+  have hliveM : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (tgtRs out).length →
+      ∀ xs : List V,
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
+      xs.getD (classMotPos R.g (genClsOf R.rd c)) pt ≠ pt →
+      tgtClsLive dR Dc cvc mpC.base2.acval envC pp out ψ ρ xs c := by
+    intro ψ ρ c hc xs hxs hne
+    obtain ⟨hnP, cvI, Rd⟩ := hrdAll c hc
+    obtain ⟨is, his⟩ := genMot_idxFit R hg h mpC ψ ρ hc hxs hne
+    have hxl : xs.length = pp.rulePrefixAt c := by
+      rw [hxs.length_eq, blockRulePdomsAV_length mpC h (List.getElem?_eq_getElem hc) ψ]
+    obtain ⟨hsat, hisK, -⟩ := genCls_coreI R hg h hc Rd hnP ψ ρ xs hxl hxs is his
+    exact genCls_live Rd ψ ρ hxl hsat hisK
   -- the class's index count, read off its decoding at a fitting rule frame
   have hlenEs : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs fs : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
       SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs →
+      xs.getD (classMotPos R.g (genClsOf R.rd c)) pt ≠ pt →
       (tgtEsAV pp out mpC.base2.acval envC ψ c j).length = (tgtMajor out c).nIdx := by
-    intro ψ ρ c hc j hj xs fs hxs hfs
+    intro ψ ρ c hc j hj xs fs hxs hfs hne
     obtain ⟨-, cvI, Rd⟩ := hrdAll c hc
     obtain ⟨-, -, hret, -⟩ := (hcsem ψ ρ).2.2.1 c hc j hj xs fs hxs.length_eq
-      (SpineFit.append hxs hfs)
+      (SpineFit.append hxs hfs) (hliveM ψ ρ c hc xs hxs hne)
     have hl := congrArg List.length hret
     rw [isOfW_length, List.length_map, Rd.hnIdx] at hl
     exact hl.symm
@@ -225,9 +231,16 @@ theorem genRecStage {F : Nat}
       GenPreSem pp out mpC dR Dc mc cvc R.g R.rd ψ ρ := by
     intro ψ ρ
     have hS4 := hcsem ψ ρ
-    exact ⟨hS4.1, hS4.2.1, hS4.2.2.1, hS4.2.2.2, hcallTy ψ ρ,
-      genCls_minor R hg h mpC hfind ψ ρ,
+    refine ⟨hS4.1, hS4.2.1, hS4.2.2.1, hS4.2.2.2, ?_, hcallTy ψ ρ,
+      fun c hc j hj xs hxs fs hfs hs hhl hhs =>
+        (genCls_minor R hg h mpC hfind ψ ρ c hc j hj xs hxs fs hfs hs hhl hhs).1,
       genClassInd hctx R hg hTbl hcls (fun c _ _ => hsel c) ψ ρ⟩
+    -- at a typed tuple every rule frame's class is live
+    intro a ha c hc j hj xs fs hxl hfit
+    obtain ⟨hxs, hfs⟩ := spineFit_append_at hxl hfit
+    refine hliveM ψ ρ c hc xs hxs (genRule_motNe R hg h mpC hfind ψ ρ
+      (rs := (List.range (tgtRs out).length).map a) (by simp) (fun c2 hc2 => ?_) hc hj hxs hfs)
+    simpa [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc2] using ha c2 hc2
   have hframe : ∀ (ψ : Name → Nat), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
@@ -247,7 +260,7 @@ theorem genRecStage {F : Nat}
   have hdataS := genRecHdataS R hg h hresR hndM heqB heqP hpre hfind
     (genRulePrefRead mpC R hg h) (genRuleFieldRead R hg mpC.base2.acval) hrow3
   -- the ι case split's facts (task #342 L10)
-  have hseam := genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
+  have hseam := genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
   have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
   have hextra : ∀ (Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
         Bool × List ConLeche.RecRule)
@@ -304,7 +317,7 @@ theorem genRecStage {F : Nat}
       have hread := R.fire_nestedRead hr hf
       obtain ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, -⟩ := id hread
       exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3⟩)
-    (genRecCtor_in R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd)
+    (genRecCtor_in R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov)
     (pdoms0 := fun ψ => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
     (fdoms0 := fun ψ => tgtFdomsAV pp out mpC.base2.acval envC ψ)
     (es0 := fun ψ => tgtEsAV pp out mpC.base2.acval envC ψ)
@@ -314,10 +327,12 @@ theorem genRecStage {F : Nat}
     heqB heqP hpre
     (fun j r hr => blockRecNCt_ge hr)
     (fun ψ j r hr => blockRulePdomsAV_length mpC h hr ψ)
-    (genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd) (genRecHtower R)
+    (genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov) (genRecHtower R)
     (fun m₃ hac φ j r hr _ ctor rhs _ _ => recStagePinsOk mpC h m₃ hac φ j r hr ctor rhs
       (fun _ _ hf' => R.fire_nestedRead hr hf'))
-    (fun m₃ hac => hextra _ m₃ hac) hdataS
+    (fun m₃ hac => hextra _ m₃ hac)
+    (genRecFit_of R h hrdAll hseam (genRecFit1 R hg hcov h hfind hseam hdRe hrdAll)
+      (genRecFit2 R h hcov hdRe (fun ψ ρ => (hcsem ψ ρ).2.1) hrdAll hseam)) hdataS
     (genRecTyZ R hg h mpC)
     (fun _ _ hr _ _ _ hctor hrhs _ _ hRa hℓ ρ =>
       genRuleRaZ R hg h mpC hfind hlenEs hr hctor hrhs hRa hℓ ρ)

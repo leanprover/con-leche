@@ -200,12 +200,14 @@ if tests/quote-gate.sh; then :; else fail=1; fi
 # Repo content must not reference local (absolute home) paths.
 if tests/no-local-paths.sh; then :; else fail=1; fi
 
-# THE COMPARATOR PAIR GATE (task #281).  `ConLeche/Challenge.lean` is a
+# THE CHALLENGE GATE (tasks #281, #627).  `ConLeche/Challenge.lean` is a
 # deliberate dead end — not in `defaultTargets`, imported by nothing — so
-# `lake build` and `lake test` never look at it and it rotted silently when
-# `checkDecls` changed modules.  This gate builds it (sorry warnings and no
-# other diagnostic) and diffs the `#check` of every `comparator.json` name
-# between the challenge and the solution module.  Seconds on a built tree.
+# `lake build` and `lake test` never look at it.  This gate builds it (sorry
+# warnings and no other diagnostic) and runs the self-compare: con-leche checks
+# the challenge against `ConLeche.MainTheorem` (`--olean --compare`), every hole
+# and stated theorem justified by the solution, the justified names exactly
+# `comparator.json`'s.  1.9 T instructions:u; the modular form
+# (`tests/challenge.sh --modular`, 7.4 T) is not run here.
 if tests/challenge.sh; then :; else fail=1; fi
 
 # THE IMPORT GATE (task #235).  Two questions no other gate asks and the
@@ -369,6 +371,23 @@ e2e_half() {
     case "$exp" in ''|'#'*) continue;; esac
     resolve "$exp" e2e "$rel" ""
     e2e_total=$((e2e_total+1))
+    case "$rel" in
+      --*)
+        # a row of arguments (`--compare -- C.ndjson S.ndjson`): every `.ndjson` among them a
+        # fixture of tests/e2e/
+        args=()
+        for tok in $rel; do
+          case "$tok" in *.ndjson) args+=("tests/e2e/$tok");; *) args+=("$tok");; esac
+        done
+        timeout 60 "$BIN" $MODEFLAG "${args[@]}" >/dev/null 2>&1
+        got=$?
+        if [ "$got" != "$want" ]; then
+          mismatch "E2E FAIL" "$rel" "$want" "$got"
+        else
+          e2e_ok=$((e2e_ok+1))
+        fi
+        continue;;
+    esac
     src="tests/e2e/$rel"
     if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
       # large fixtures are committed gzipped

@@ -219,7 +219,7 @@ theorem ctorFamily_ind_congr {find₁ find₂ : Name → Option ConstantInfo} {c
   · rfl
 
 /-- **A recorded block whose names the renaming keeps stays recorded.** -/
-theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : RenEnv env env') {D : LfpDatum V}
+theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : CopyEnv env env') {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks)
     (hm : ∀ mm, mm < D.k → env'.find? (D.member mm) = env.find? (D.member mm))
     (hC : ∀ c, c < D.N → ∀ j, j < D.nctors c →
@@ -242,18 +242,12 @@ theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : RenEnv env env') {
     exact ⟨cv, caps, (hm mm hmm).trans hf⟩
   · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
     exact ⟨cv, a, b, iT, (hC c hc j hj).trans hf⟩
-  · obtain ⟨cv, caps, hf, ⟨hfl, hsh⟩, hab⟩ := hrd mm hmm
-    refine ⟨cv, caps, (hm mm hmm).trans hf, ⟨hfl, ?_⟩, fun ψ => ?_⟩
-    · rcases hsh with hs | ⟨f, hs, h1, h2, h3, h4, hb, hdl, hin⟩
-      · exact .inl hs
-      · refine .inr ⟨f, hs, h1, h2, h3, h4, ConstsBound.of_isSome (fun n hn => by
-          rw [h.isSome]; exact hn) hb, hdl, fun ψ => ?_⟩
-        obtain ⟨ta, ta₀, hta, hta₀, hmem⟩ := hin ψ
-        refine ⟨ta, ta₀, by rw [hde]; exact hta, by rw [hde]; exact hta₀, fun ρ => ?_⟩
-        rw [renAcval_same (hm mm hmm)]
-        exact hmem ρ
-    · obtain ⟨ab, hta, h1⟩ := hab ψ
-      exact ⟨ab, by rw [hde]; exact hta, h1⟩
+  · obtain ⟨cv, caps, hf, hfl, hval, hw⟩ := hrd mm hmm
+    refine ⟨cv, caps, (hm mm hmm).trans hf, fun hflat ψ => ?_, fun ψ => ?_, hw⟩
+    · obtain ⟨ab, u, hta, hl⟩ := hfl hflat ψ
+      exact ⟨ab, u, by rw [hde]; exact hta, hl⟩
+    · obtain ⟨ta, hta, hv⟩ := hval ψ
+      exact ⟨ta, by rw [hde]; exact hta, hv⟩
   · obtain ⟨cv, nPc, nF, iT, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     refine ⟨cv, nPc, nF, iT, (hC' c hc j hj).trans hf, hcf, fun mm hmm => ?_,
       fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
@@ -261,10 +255,8 @@ theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : RenEnv env env') {
       exact ⟨cvm, caps, (hm mm hmm).trans hfm, hl⟩
     · rw [hde] at hrd'
       exact hpars ψ dsC bodyC hrd' hle
-    · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
-      refine ⟨h1, h2, ab, Tys, by rw [hde]; exact hta, hlab, hlT, fun mm hmm => ?_, hab⟩
-      obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
-      exact ⟨cvm, caps, ty, (hm mm hmm).trans hfm, hty, by rw [hde]; exact hr⟩
+    · obtain ⟨h1, h2, ab, hta, hlab, hab⟩ := hrdA ψ
+      exact ⟨h1, h2, ab, by rw [hde]; exact hta, hlab, hab⟩
   · obtain ⟨cv, caps, hf, hz⟩ := hcK mm hmm
     exact ⟨cv, caps, (hm mm hmm).trans hf, hz⟩
   · obtain ⟨cv, nPc, nF, iT, hf, hsh⟩ := hcC c hc j hj
@@ -286,7 +278,6 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
     (hlf : ∀ p ∈ L₀, ∀ cv mI rP isK rules, p = .recInfo cv mI rP isK rules →
       ∀ r ∈ rules, (pinnedInfo (RecRule.ctor r)).toConstantVal.levelParams = []) :
     ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval env env' ∧
-      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none) ∧
       (LfpCover mp [] → LfpCover mp' []) := by
   have h := R.ren
   have hfwd : ∀ n ci, env.find? n = some ci →
@@ -392,8 +383,8 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
     · obtain ⟨cv, a, b, iT, hf⟩ := hstC c hc j hj
       rw [hf]; exact hfwd _ _ hf fun _ _ _ _ _ he => nomatch he
   obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h hwf R.mem hlink hstable mp.lfpBlocks (fun D hD =>
-    lfp_keep mp h hD (hkeepD hD).1 (hkeepD hD).2)
-  refine ⟨mp', hacR, fun D hD => .inl (hbl ▸ hD), fun hc => ?_⟩
+    lfp_keep mp h.copy hD (hkeepD hD).1 (hkeepD hD).2)
+  refine ⟨mp', hacR, fun hc => ?_⟩
   have hlook : ∀ C n, ctorLook env'.find? C n = ctorLook env.find? C n := by
     intro C n
     rcases h.find n with ⟨h1, h2⟩ | ⟨c, c', h1, h2, hr⟩
@@ -444,7 +435,6 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     (henv' : env' = ⟨eqRecA.atLps [p1, p] :: eqReflA.atLps [p] :: eqI.atLps [p] :: E.consts, E.tables⟩) :
     ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval
         ⟨eqRecA :: eqReflA :: eqI :: E.consts, E.tables⟩ env' ∧
-      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none) ∧
       (LfpCover mp [] → LfpCover mp' []) := by
   subst henv'
   have h := R.ren
@@ -492,7 +482,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     .inr ⟨by decide, ⟨rfl, by decide, rfl⟩, ⟨rfl, hnd1, rfl⟩⟩
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
-    fun φ d e => denote_ren h mp.base2.acval_params φ d e
+    fun φ d e => denote_ren h.copy mp.base2.acval_params φ d e
   -- the leaves at the new names
   have htr : ∀ ψ : Name → Nat, Level.substFn ψ [uN] [Level.param p] uN = ψ p := fun ψ => by
     simp [Level.substFn, Level.eval]
@@ -587,8 +577,8 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
           rw [hsT.1, hsT.2]
   rcases Classical.em (LfpCover mp []) with hcov | hcov
   case inr =>
-    obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h hwf R.mem hlink hstable [] (fun _ hD => nomatch hD)
-    exact ⟨mp', hacR, (fun D hD => by rw [hbl] at hD; exact nomatch hD), fun hc => absurd hc hcov⟩
+    obtain ⟨mp', hacR, -⟩ := mp.renameCore h hwf R.mem hlink hstable [] (fun _ hD => nomatch hD)
+    exact ⟨mp', hacR, fun hc => absurd hc hcov⟩
   -- the recorded blocks but `Eq`'s keep their names
   have hkeepD : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks → eqName ∉ D.names →
       (∀ mm, mm < D.k → env'.find? (D.member mm) = env.find? (D.member mm)) ∧
@@ -706,13 +696,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
       .app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)), hcanon,
       (by decide : Expr.nestOcc [eqName] 0 0 (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))
         = false),
-      fun ψ => ⟨rfl, rfl, [], [.pi (.bvar 1) (.sort 0)], ?_, rfl, rfl,
-        fun mm hmm => by
-          obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-          refine ⟨(eqI.atLps [p]).toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero),
-            f1', rfl, ?_⟩
-          simp [denote_forallE, denote_sort, denote_fvar, Expr.instantiate1, Level.eval],
-        trivial⟩⟩
+      fun ψ => ⟨rfl, rfl, [], ?_, rfl, trivial⟩⟩
     show denote _ _ ψ (2 + 1) (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))
       = some (mkPisAV [] (Term.mkAppN (.bvar (0 + (1 - 1 - 0))) [.bvar 1]))
     simp [denote_app, denote_fvar, mkPisAV]
@@ -724,12 +708,8 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     rcases List.mem_cons.mp hD with rfl | hD'
     · exact ⟨hclause, hstoredE, hreads, hctorReads, hcaps⟩
     · obtain ⟨h1, h2⟩ := hkept hD'
-      exact lfp_keep mp h h1 (hkeepD h1 h2).1 (hkeepD h1 h2).2)
-  refine ⟨mp', hacR, fun D hD => ?_, fun _ => ?_⟩
-  · rw [hbl] at hD
-    rcases List.mem_cons.mp hD with rfl | hD'
-    · exact .inr fun _ => rfl
-    · exact .inl (hkept hD').1
+      exact lfp_keep mp h.copy h1 (hkeepD h1 h2).1 (hkeepD h1 h2).2)
+  refine ⟨mp', hacR, fun _ => ?_⟩
   -- a block with `Eq` among its names is `Eq`'s
   have hnotE : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks → eqName ∈ D.names → D.names = [eqName] := by
     intro D hD hin
@@ -868,8 +848,7 @@ theorem pinAgrees_cv {c c' : ConstantInfo} (h : ConLeche.pinAgrees c c' = true) 
 /-- The relation across a renaming of the block just installed. -/
 theorem CoverRel.ren {κ : Prop} {L₀ : List ConstantInfo} {E env env' : Env} {m₀ : EnvModelM V E}
     {m₁ : EnvModelM V env} {m' : EnvModelM V env'} (r : CoverRel m₀ m₁) (R : RenRel κ L₀ E env env')
-    (hac : m'.base2.acval = renAcval m₁.base2.acval env env')
-    (hb : ∀ D ∈ m'.lfpBlocks, D ∈ m₁.lfpBlocks ∨ ∀ mm, D.telescope mm = none) : CoverRel m₀ m' :=
+    (hac : m'.base2.acval = renAcval m₁.base2.acval env env') : CoverRel m₀ m' :=
   ⟨fun n ci hn => by
     have hs : (E.find? n).isSome = true := by rw [hn]; rfl
     rw [(R.stE n hs).2]; exact hn,
@@ -877,9 +856,8 @@ theorem CoverRel.ren {κ : Prop} {L₀ : List ConstantInfo} {E env env' : Env} {
     rw [hac, renAcval_same ((R.stE n hn).2.trans (R.stE n hn).1.symm)]
     exact r.leaf n hn,
    fun ψ d e ta hb hta => by
-    rw [hac, denote_ren R.ren m₁.base2.acval_params ψ d e]
-    exact r.read ψ d e ta hb hta,
-   fun D hD => (hb D hD).elim (fun h => r.blocks D h) .inr⟩
+    rw [hac, denote_ren R.ren.copy m₁.base2.acval_params ψ d e]
+    exact r.read ψ d e ta hb hta⟩
 
 /-- **A pinned block, at the record's names, at the P tier.** -/
 theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.BasisKind}
@@ -903,8 +881,8 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
       · exact ⟨by decide, rfl, fun _ hnr => absurd rfl (hnr _ _ _ _ _)⟩)
     obtain ⟨env₁, hrs, R⟩ := renRel_chain pairs (fun _ hp => hp) (RenRel.refl True _ E) hrun
     obtain ⟨mp₁, r₁, hc₁⟩ := declBasisPB_natK mp hrs
-    obtain ⟨mp', hac', hb', hc'⟩ := coverStep_keep mp mp₁ R hwf (hlf_of (by decide))
-    exact ⟨mp', r₁.ren R hac' hb', hc' ∘ hc₁⟩
+    obtain ⟨mp', hac', hc'⟩ := coverStep_keep mp mp₁ R hwf (hlf_of (by decide))
+    exact ⟨mp', r₁.ren R hac', hc' ∘ hc₁⟩
   | emptyK =>
     have pairs := pinPairs_of_ok (κ := True) (ins := ConLeche.BasisKind.emptyK.installed) hlist rfl (by
       intro p hp
@@ -915,8 +893,8 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
       · exact ⟨by decide, rfl, fun _ hnr => absurd rfl (hnr _ _ _ _ _)⟩)
     obtain ⟨env₁, hrs, R⟩ := renRel_chain pairs (fun _ hp => hp) (RenRel.refl True _ E) hrun
     obtain ⟨mp₁, r₁, hc₁⟩ := declBasisPB_emptyK mp hrs
-    obtain ⟨mp', hac', hb', hc'⟩ := coverStep_keep mp mp₁ R hwf (hlf_of (by decide))
-    exact ⟨mp', r₁.ren R hac' hb', hc' ∘ hc₁⟩
+    obtain ⟨mp', hac', hc'⟩ := coverStep_keep mp mp₁ R hwf (hlf_of (by decide))
+    exact ⟨mp', r₁.ren R hac', hc' ∘ hc₁⟩
   | falseK =>
     have pairs := pinPairs_of_ok (κ := True) (ins := ConLeche.BasisKind.falseK.installed) hlist rfl (by
       intro p hp
@@ -927,8 +905,8 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
       · exact ⟨by decide, rfl, fun _ hnr => absurd rfl (hnr _ _ _ _ _)⟩)
     obtain ⟨env₁, hrs, R⟩ := renRel_chain pairs (fun _ hp => hp) (RenRel.refl True _ E) hrun
     obtain ⟨mp₁, r₁, hc₁⟩ := declBasisPB_falseK mp hrs
-    obtain ⟨mp', hac', hb', hc'⟩ := coverStep_keep mp mp₁ R hwf (hlf_of (by decide))
-    exact ⟨mp', r₁.ren R hac' hb', hc' ∘ hc₁⟩
+    obtain ⟨mp', hac', hc'⟩ := coverStep_keep mp mp₁ R hwf (hlf_of (by decide))
+    exact ⟨mp', r₁.ren R hac', hc' ∘ hc₁⟩
   | eqK =>
     rw [show ConLeche.BasisKind.eqK.decls = [eqA, eqReflA, eqRecA] from rfl] at hlist hlinks
     match block, hlist with
@@ -993,8 +971,8 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
           = [eqI.atLps v1.levelParams, eqReflA.atLps v2.levelParams, eqRecA.atLps v3.levelParams] from rfl,
         hv1, hv2, hv3] at hrun'
       obtain ⟨-, -, -, henv₂⟩ := hrun'
-      obtain ⟨mp', hac', hb', hc'⟩ := coverStep_eq hne mp mp₁ hEv hRv R hwf henv₂
-      exact ⟨mp', r₁.ren R hac' hb', hc' ∘ hc₁⟩
+      obtain ⟨mp', hac', hc'⟩ := coverStep_eq hne mp mp₁ hEv hRv R hwf henv₂
+      exact ⟨mp', r₁.ren R hac', hc' ∘ hc₁⟩
 
 /-! ## A quotient record -/
 
@@ -1014,7 +992,6 @@ theorem coverStep_head {E env env' : Env} {pin p' : ConstantInfo} {L₀ : List C
     (hctor : ∀ cv a b iT, pin = .ctorInfo cv a b iT →
       pin = quotMkA ∧ ∃ q, E.find? quotName = some (quotA.atLps [q])) :
     ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval env env' ∧
-      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none) ∧
       (LfpCover mp [] → LfpCover mp' []) := by
   have h := R.ren
   have fh : env.find? pin.name = some pin := by
@@ -1084,8 +1061,8 @@ theorem coverStep_head {E env env' : Env} {pin p' : ConstantInfo} {L₀ : List C
     rw [hsameN (hstored hTs)]
   rcases Classical.em (LfpCover mp []) with hcov | hcov
   case inr =>
-    obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h hwf R.mem hlink hstable [] (fun _ hD => nomatch hD)
-    exact ⟨mp', hacR, (fun D hD => by rw [hbl] at hD; exact nomatch hD), fun hc => absurd hc hcov⟩
+    obtain ⟨mp', hacR, -⟩ := mp.renameCore h hwf R.mem hlink hstable [] (fun _ hD => nomatch hD)
+    exact ⟨mp', hacR, fun hc => absurd hc hcov⟩
   -- no recorded block has the head among its names
   have hmemb : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks → ∀ mm, mm < D.k → D.member mm ≠ quotName := by
     intro D hD mm hmm he
@@ -1133,7 +1110,7 @@ theorem coverStep_head {E env env' : Env} {pin p' : ConstantInfo} {L₀ : List C
       injection hx with e8 _
       exact hmemb hD c hck e8.symm
   obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h hwf R.mem hlink hstable mp.lfpBlocks (fun D hD =>
-    lfp_keep mp h hD (hkeepD hD).1 (hkeepD hD).2)
+    lfp_keep mp h.copy hD (hkeepD hD).1 (hkeepD hD).2)
   have hlook : ∀ {C : Name}, C ≠ quotName → ∀ n,
       ctorLook env'.find? C n = ctorLook env.find? C n := by
     intro C hC n
@@ -1159,7 +1136,7 @@ theorem coverStep_head {E env env' : Env} {pin p' : ConstantInfo} {L₀ : List C
       cases hf : E.find? y with
       | none => exact ⟨default, default, .inl ⟨by rw [ha.1, hf], by rw [ha.2, hf]⟩⟩
       | some d => exact ⟨d, d, .inr ⟨by rw [ha.1, hf], by rw [ha.2, hf], rfl⟩⟩
-  refine ⟨mp', hacR, fun D hD => .inl (hbl ▸ hD), fun _ => ?_⟩
+  refine ⟨mp', hacR, fun _ => ?_⟩
   exact {
     cover := fun n cv caps hf hn hq => by
       rw [hbl]
@@ -1211,7 +1188,7 @@ theorem declQuotPB_at {E env₂ : Env} (mp : EnvModelM V E) {k : ConLeche.QuotKi
   have hfE : E.find? (quotPin k).name = none := Option.isNone_iff_eq_none.mp hfr₀
   have R := (RenRel.refl False [quotPin k] E).cons hres hc hc' (fun hf => hf.elim)
     List.mem_cons_self hfE
-  obtain ⟨mp', hac', hb', hc'₂⟩ := coverStep_head (p' := quotAt k cv) mp mp₁ R hwf rfl rfl hname
+  obtain ⟨mp', hac', hc'₂⟩ := coverStep_head (p' := quotAt k cv) mp mp₁ R hwf rfl rfl hname
     (by rw [hlps]; rfl) hfE
     (fun cv₂ mI rP isK rules he r hr hpl => by
       -- the eliminators' rules carry their levels
@@ -1235,6 +1212,6 @@ theorem declQuotPB_at {E env₂ : Env} (mp : EnvModelM V E) {k : ConLeche.QuotKi
         refine ⟨rfl, ?_⟩
         exact quotStored_of mp hp
       | _ => exact nomatch he)
-  exact ⟨mp', r₁.ren R hac' hb', hc'₂ ∘ hc₁⟩
+  exact ⟨mp', r₁.ren R hac', hc'₂ ∘ hc₁⟩
 
 end ConLeche.Model

@@ -28,6 +28,9 @@ must supply is the leaf `A` with
 * `hmemA` — **the semantic content**: `interp` of the leaf inhabits
   `interp` of the *stored* type's `denote` reading.
 
+The installed leaf is the branch's where the type is not a proposition,
+the canonical proof where it is (`harvestAxiom`'s `CoverStepLeaf`).
+
 ## The stored type's reading is the pin's
 
 `matchesPin` is plain equality, so the pin fixes the stored type on
@@ -80,8 +83,9 @@ theorem axiomTrustCompiler
     (hname : cv.name = ConLeche.trustCompilerName)
     (hok : ConLeche.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
-    CoverStep mp
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
+    CoverStepLeaf mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
+      (SemPropType V mp.base2.acval env cv.type) := by
   have hcv' := hcv
   obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     -⟩ := hcv'
@@ -163,8 +167,9 @@ theorem axiomStd
     (hwf₂ : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩)
     (hok : ConLeche.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
-    CoverStep mp
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
+    CoverStepLeaf mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
+      (SemPropType V mp.base2.acval env cv.type) := by
   by_cases hn : cv.name = propextName
   · refine harvestAxiom (V := V) (hwf₂ := hwf₂) mp hopn hcv (by rw [hn]; decide)
       (A := fun _ => .const .propext []) (fun _ => trivial)

@@ -20,8 +20,8 @@ open ConLeche
 
 /-- Lean's `isPropCheap`: the statement is a telescope over a constant
 applied to as many arguments as its own type has binders before a
-`Prop` result. -/
-def isPropCheap (m : Std.HashMap Name CEntry) (ty : Expr) : Bool :=
+`Prop` result; `headTy` gives a constant's type. -/
+def isPropCheap (headTy : Name → Option Expr) (ty : Expr) : Bool :=
   let rec body : Expr → Expr
     | .forallE _ b => body b
     | e => e
@@ -35,21 +35,32 @@ def isPropCheap (m : Std.HashMap Name CEntry) (ty : Expr) : Bool :=
     | _, _ => none
   match head (body ty) 0 with
   | some (n, k) =>
-    match m[n]? with
-    | some d => match drop d.type k with
+    match headTy n with
+    | some t => match drop t k with
       | some (.sort .zero) => true
       | _ => false
     | none => false
   | none => false
 
+/-- The constant `isPropCheap` asks the type of, if any. -/
+def isPropCheap.headOf (ty : Expr) : Option Name :=
+  (isPropCheap.head (isPropCheap.body ty) 0).map (·.1)
+
+/-- **`subsumesInfo`** (`Lean/Environment.lean`): may the constant of statement `cv₁` and
+kind `k₁` stand for that of `cv₂` and `k₂`?  Of a kind it reads only a theorem's `all` and
+an axiom's `isUnsafe`, so the kinds' expressions may be anything. -/
+def subsumesF {E E' : Type} (headTy : Name → Option Expr) (cv₁ : ConstantVal) (k₁ : CKindF Name E)
+    (cv₂ : ConstantVal) (k₂ : CKindF Name E') : Bool :=
+  cv₁.name == cv₂.name && cv₁.type == cv₂.type && cv₁.levelParams == cv₂.levelParams &&
+  match k₁, k₂ with
+  | .thm _ a₁, .thm _ a₂ => a₁ == a₂
+  | .thm _ a₁, .ax u₂ => a₁ == [cv₂.name] && !u₂
+  | .ax u₁, .ax u₂ => u₁ == u₂ && isPropCheap headTy cv₁.type
+  | _, _ => false
+
 /-- `subsumesInfo` (`Lean/Environment.lean`): may `c₁` stand for `c₂`? -/
 def subsumes (m : Std.HashMap Name CEntry) (c₁ c₂ : CEntry) : Bool :=
-  c₁.name == c₂.name && c₁.type == c₂.type && c₁.levelParams == c₂.levelParams &&
-  match c₁.kind, c₂.kind with
-  | .thm _ a₁, .thm _ a₂ => a₁ == a₂
-  | .thm _ a₁, .ax u₂ => a₁ == [c₂.name] && !u₂
-  | .ax u₁, .ax u₂ => u₁ == u₂ && isPropCheap m c₁.type
-  | _, _ => false
+  subsumesF (fun n => (m[n]?).map (·.type)) c₁.toCEntryF.stmt c₁.kind c₂.toCEntryF.stmt c₂.kind
 
 /-- The merged constants and the order they were first stored in. -/
 structure Merged where

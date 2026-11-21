@@ -60,13 +60,9 @@ theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
     {fvsF : List Expr} {cbody : Expr}
     (hfld : ConLeche.openPisAtFvars nF crest hi = some (fvsF, cbody)) :
     cv.levelParams = lps ∧ ∃ ab : List Term,
-      (∃ Tys : List Term, Tys.length = D.k ∧
-        (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
-          denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
-            = some (Tys.getD mm default)) ∧
-        FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse ab
-          (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
+      FieldsEqOn V (D.params (Level.substFn φ lps us)
+        ++ D.holeTys (Level.substFn φ lps us)).reverse ab
+          (D.fields (Level.substFn φ lps us) c j) ∧ ab.length = nF ∧
       readOpenedDoms mp.base2.acval env φ hi fvsF
         = Term.substTele (instTau mp φ D us hi ds) 0 ab ∧
       (∀ (l : Nat) (x : Expr), fvsF[l]? = some x →

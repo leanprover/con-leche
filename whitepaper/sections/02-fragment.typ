@@ -1,6 +1,6 @@
 #import "../lib.typ": *
 
-= The fragment without an environment
+= The fragment without an environment <sec:fragment>
 
 This section presents the core of the argument on a fragment of Lean
 without an environment: first the terms, the levels and the three

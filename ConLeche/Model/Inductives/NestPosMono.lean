@@ -4,7 +4,7 @@ public import ConLeche.Model.Rules.Inputs
 import ConLeche.Semantics.Inductives.HoleMono
 import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Model.Rules.Sound
-public import ConLeche.Model.CtxOkP
+import ConLeche.Model.CtxOkP
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Denote.Lemmas
@@ -319,6 +319,17 @@ structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog
   kernel checks `fvarB ≤ hiAt` at each frame's entry) -/
   dsScoped : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
     Expr.WScoped (ctx.hiAt prog.length) x
+
+/-- **A hole relation restricted to the pairs whose frames both pass a test** is one: every
+field is a statement about each related pair. -/
+theorem HoleRel.restrict {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List Term}
+    {R : FrameRel V} (h : HoleRel m φ ctx prog d Δa R) (P : (Nat → V) → Prop) :
+    HoleRel m φ ctx prog d Δa (fun ρ ρ' => R ρ ρ' ∧ P ρ ∧ P ρ') where
+  dom ρ ρ' hr := h.dom ρ ρ' hr.1
+  agree ρ ρ' hr := h.agree ρ ρ' hr.1
+  member t ht ρ ρ' hr := h.member t ht ρ ρ' hr.1
+  frame i hk hi ni hni ρ ρ' hr := h.frame i hk hi ni hni ρ ρ' hr.1
+  dsScoped := h.dsScoped
 
 /-- **Under a positive binder** (a hole-free domain, or an earlier field)
 the relation is the same one level deeper. -/

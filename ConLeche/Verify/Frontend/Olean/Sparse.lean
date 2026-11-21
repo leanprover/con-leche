@@ -19,7 +19,8 @@ The invariant (`Good`): every value the memo and the frontier hold is the
 specification's at its location.  `sGo` keeps it: an object is built
 only after its kids are in the memo, and its node function, asked only
 about its kids (`…Node_congr`), then answers as the specification's
-does.  Where `sGo` fails, the specification fails at the object: a
+does, and the memo it hands back stays good where it fails too (task
+#565).  Where `sGo` fails, the specification fails at the object: a
 shape the table does not list or a field that leads nowhere refutes
 `MarkOK` (`KindOK.markOK`), a kid that fails refutes the object
 (`KindOK.kid`).
@@ -30,7 +31,7 @@ namespace ConLeche.Frontend.Olean
 open ConLeche
 
 /-- Every value the memo holds is the specification's. -/
-def SM.Good (r : Region) (st : SM) : Prop :=
+@[expose] def SM.Good (r : Region) (st : SM) : Prop :=
   (∀ c v, st.names[c]? = some v → nameAt r c = some v) ∧
   (∀ c v, st.levels[c]? = some v → levelAt r c = some v) ∧
   (∀ c v, st.lists[c]? = some v → levelsAt r c = some v) ∧
@@ -170,8 +171,9 @@ theorem good_ins {α : Type} {m : Std.HashMap Nat α} {spec : Nat → Option α}
 
 theorem SM.build_spec {r : Region} {b : Frontier} {k : UInt8} {g : Nat} {st : SM} (hk : IsKind k)
     (hG : st.Good r) (hB : b.Good r) (hkids : ∀ k' c, Kid r k g k' c → st.holds b k' c = true) :
-    (∀ st', SM.buildIn r b k g st = some st' → st'.Good r ∧ st'.has k g = true ∧ SM.Sub st st') ∧
-    (SM.buildIn r b k g st = none → ¬ KindOK r k g) := by
+    ∀ st' ok, SM.buildIn r b k g st = (st', ok) →
+      st'.Good r ∧ SM.Sub st st' ∧ (ok = true → st'.has k g = true) ∧
+      (ok = false → ¬ KindOK r k g) := by
   have sub_names : ∀ (v : Name), SM.Sub st { st with names := st.names.insert g v } := by
     intro v k' c h; unfold SM.has at h ⊢; repeat' split <;> simp_all [Std.HashMap.contains_insert]
   have sub_levels : ∀ (v : Level), SM.Sub st { st with levels := st.levels.insert g v } := by
@@ -180,100 +182,85 @@ theorem SM.build_spec {r : Region} {b : Frontier} {k : UInt8} {g : Nat} {st : SM
     intro v k' c h; unfold SM.has at h ⊢; repeat' split <;> simp_all [Std.HashMap.contains_insert]
   have sub_exprs : ∀ (v : Expr), SM.Sub st { st with exprs := st.exprs.insert g v } := by
     intro v k' c h; unfold SM.has at h ⊢; repeat' split <;> simp_all [Std.HashMap.contains_insert]
+  intro st' ok h
   rcases hk with rfl | rfl | rfl | rfl
   · have hn : (nameNode r g fun c _ => lookup st.names b.names c) = nameAt r g := by
       rw [nameAt]
       exact nameNode_congr fun c _ hc => hG.name hB (hkids _ _ hc)
-    have hb : SM.buildIn r b kName g st = (nameAt r g).map fun v =>
-        { st with names := st.names.insert g v } := by
-      unfold SM.buildIn; simp only [ite_true]; rw [hn]
-    rw [hb]
-    refine ⟨fun st' h => ?_, fun h => ?_⟩
-    · cases e : nameAt r g with
-      | none => rw [e] at h; cases h
-      | some v =>
-        rw [e] at h; cases h
-        exact ⟨⟨good_ins hG.1 e, hG.2.1, hG.2.2.1, hG.2.2.2⟩,
-          by rw [SM.has_name]; simp [Std.HashMap.contains_insert], sub_names v⟩
-    · intro hok
+    unfold SM.buildIn at h
+    simp only [ite_true] at h
+    rw [hn] at h
+    cases e : nameAt r g with
+    | none =>
+      rw [e] at h; simp only at h; cases h
+      refine ⟨hG, SM.Sub.refl _, fun h => (by cases h), fun _ hok => ?_⟩
       have := hok.1 rfl
-      cases e : nameAt r g with
-      | none => rw [e] at this; cases this
-      | some v => rw [e] at h; cases h
+      rw [e] at this; cases this
+    | some v =>
+      rw [e] at h; simp only at h; cases h
+      exact ⟨⟨good_ins hG.1 e, hG.2.1, hG.2.2.1, hG.2.2.2⟩, sub_names v,
+        fun _ => by rw [SM.has_name]; simp [Std.HashMap.contains_insert], fun h => (by cases h)⟩
   · have hn : (levelNode r g (fun c _ => lookup st.levels b.levels c)
         (fun c _ => lookup st.names b.names c)) = levelAt r g := by
       rw [levelAt]
       exact levelNode_congr (fun c _ hc => hG.level hB (hkids _ _ hc)) (fun c _ hc => hG.name hB (hkids _ _ hc))
-    have hb : SM.buildIn r b kLevel g st = (levelAt r g).map fun v =>
-        { st with levels := st.levels.insert g v } := by
-      unfold SM.buildIn; simp only [kinds_ne'.1.symm, ite_false, ite_true]; rw [hn]
-    rw [hb]
-    refine ⟨fun st' h => ?_, fun h => ?_⟩
-    · cases e : levelAt r g with
-      | none => rw [e] at h; cases h
-      | some v =>
-        rw [e] at h; cases h
-        exact ⟨⟨hG.1, good_ins hG.2.1 e, hG.2.2.1, hG.2.2.2⟩,
-          by rw [SM.has_level]; simp [Std.HashMap.contains_insert], sub_levels v⟩
-    · intro hok
+    unfold SM.buildIn at h
+    simp only [kinds_ne'.1.symm, ite_false, ite_true] at h
+    rw [hn] at h
+    cases e : levelAt r g with
+    | none =>
+      rw [e] at h; simp only at h; cases h
+      refine ⟨hG, SM.Sub.refl _, fun h => (by cases h), fun _ hok => ?_⟩
       have := hok.2.1 rfl
-      cases e : levelAt r g with
-      | none => rw [e] at this; cases this
-      | some v => rw [e] at h; cases h
+      rw [e] at this; cases this
+    | some v =>
+      rw [e] at h; simp only at h; cases h
+      exact ⟨⟨hG.1, good_ins hG.2.1 e, hG.2.2.1, hG.2.2.2⟩, sub_levels v,
+        fun _ => by rw [SM.has_level]; simp [Std.HashMap.contains_insert], fun h => (by cases h)⟩
   · have hn : (exprNode r g (fun c _ => lookup st.exprs b.exprs c) (fun c _ => lookup st.names b.names c)
         (fun c _ => lookup st.levels b.levels c) (fun c _ => lookup st.lists b.lists c)) = exprAt r g := by
       rw [exprAt]
       exact exprNode_congr (fun c _ hc => hG.expr hB (hkids _ _ hc)) (fun c _ hc => hG.name hB (hkids _ _ hc))
         (fun c _ hc => hG.level hB (hkids _ _ hc)) (fun c _ hc => hG.levels hB (hkids _ _ hc))
-    have hb : SM.buildIn r b kExpr g st = (exprAt r g).map fun v =>
-        { st with exprs := st.exprs.insert g v } := by
-      unfold SM.buildIn
-      simp only [kinds_ne'.2.1.symm, kinds_ne'.2.2.2.1.symm, kinds_ne'.2.2.2.2.2, ite_false]
-      rw [hn]
-    rw [hb]
-    refine ⟨fun st' h => ?_, fun h => ?_⟩
-    · cases e : exprAt r g with
-      | none => rw [e] at h; cases h
-      | some v =>
-        rw [e] at h; cases h
-        exact ⟨⟨hG.1, hG.2.1, hG.2.2.1, good_ins hG.2.2.2 e⟩,
-          by rw [SM.has_expr]; simp [Std.HashMap.contains_insert], sub_exprs v⟩
-    · intro hok
+    unfold SM.buildIn at h
+    simp only [kinds_ne'.2.1.symm, kinds_ne'.2.2.2.1.symm, kinds_ne'.2.2.2.2.2, ite_false] at h
+    rw [hn] at h
+    cases e : exprAt r g with
+    | none =>
+      rw [e] at h; simp only at h; cases h
+      refine ⟨hG, SM.Sub.refl _, fun h => (by cases h), fun _ hok => ?_⟩
       have := hok.2.2.2 rfl
-      cases e : exprAt r g with
-      | none => rw [e] at this; cases this
-      | some v => rw [e] at h; cases h
+      rw [e] at this; cases this
+    | some v =>
+      rw [e] at h; simp only at h; cases h
+      exact ⟨⟨hG.1, hG.2.1, hG.2.2.1, good_ins hG.2.2.2 e⟩, sub_exprs v,
+        fun _ => by rw [SM.has_expr]; simp [Std.HashMap.contains_insert], fun h => (by cases h)⟩
   · have hn : (levelsNode r g (fun c _ => lookup st.lists b.lists c)
         (fun c _ => lookup st.levels b.levels c)) = levelsAt r g := by
       rw [levelsAt]
       exact levelsNode_congr (fun c _ hc => hG.levels hB (hkids _ _ hc)) (fun c _ hc => hG.level hB (hkids _ _ hc))
-    have hb : SM.buildIn r b kLevels g st = (levelsAt r g).map fun v =>
-        { st with lists := st.lists.insert g v } := by
-      unfold SM.buildIn
-      simp only [kinds_ne'.2.2.1.symm, kinds_ne'.2.2.2.2.1.symm, ite_false, ite_true]
-      rw [hn]
-    rw [hb]
-    refine ⟨fun st' h => ?_, fun h => ?_⟩
-    · cases e : levelsAt r g with
-      | none => rw [e] at h; cases h
-      | some v =>
-        rw [e] at h; cases h
-        exact ⟨⟨hG.1, hG.2.1, good_ins hG.2.2.1 e, hG.2.2.2⟩,
-          by rw [SM.has_levels]; simp [Std.HashMap.contains_insert], sub_lists v⟩
-    · intro hok
+    unfold SM.buildIn at h
+    simp only [kinds_ne'.2.2.1.symm, kinds_ne'.2.2.2.2.1.symm, ite_false, ite_true] at h
+    rw [hn] at h
+    cases e : levelsAt r g with
+    | none =>
+      rw [e] at h; simp only at h; cases h
+      refine ⟨hG, SM.Sub.refl _, fun h => (by cases h), fun _ hok => ?_⟩
       have := hok.2.2.1 rfl
-      cases e : levelsAt r g with
-      | none => rw [e] at this; cases this
-      | some v => rw [e] at h; cases h
+      rw [e] at this; cases this
+    | some v =>
+      rw [e] at h; simp only at h; cases h
+      exact ⟨⟨hG.1, hG.2.1, good_ins hG.2.2.1 e, hG.2.2.2⟩, sub_lists v,
+        fun _ => by rw [SM.has_levels]; simp [Std.HashMap.contains_insert], fun h => (by cases h)⟩
 
 /-! ## The recursion -/
 
-/-- What `sGo` gives: on success the memo holds the object, good; on
-failure the specification fails at it. -/
-def SGoSpec (r : Region) (b : Frontier) (g : Nat) : Prop :=
-  ∀ k st, IsKind k → st.Good r →
-    (∀ st', sGo r b k g st = some st' → st'.Good r ∧ st'.holds b k g = true ∧ SM.Sub st st') ∧
-    (sGo r b k g st = none → ¬ KindOK r k g)
+/-- What `sGo` gives: the memo handed back is good and holds all it held; on success it
+holds the object, on failure the specification fails at it. -/
+@[expose] def SGoSpec (r : Region) (b : Frontier) (g : Nat) : Prop :=
+  ∀ k st, IsKind k → st.Good r → ∀ st' ok, sGo r b k g st = (st', ok) →
+    st'.Good r ∧ SM.Sub st st' ∧ (ok = true → st'.holds b k g = true) ∧
+    (ok = false → ¬ KindOK r k g)
 
 /-- What the memo holds, it holds together with the frontier. -/
 theorem SM.Sub.holds {a c : SM} (h : SM.Sub a c) {b : Frontier} {k : UInt8} {g : Nat}
@@ -285,53 +272,52 @@ theorem kidsGo_spec {r : Region} {b : Frontier} {k : UInt8} {g : Nat} (hk : IsKi
     (ih : ∀ c, c < g → SGoSpec r b c) {fs₀ : List (Nat × UInt8 × Bool)} (hfit : r.fits g = true)
     (hfs : kidTable k (r.tag g) (r.nobjs g) = some fs₀) :
     ∀ (fs : List (Nat × UInt8 × Bool)) (st : SM), (∀ f ∈ fs, f ∈ fs₀) → st.Good r →
-      (∀ st', kidsGo r b g fs st = some st' → st'.Good r ∧ SM.Sub st st' ∧
-        ∀ f ∈ fs, ∀ c, ¬ (f.2.2 = true ∧ r.fld g f.1 = 1) → r.down g (r.fld g f.1) = some c →
-          st'.holds b f.2.1 c = true) ∧
-      (kidsGo r b g fs st = none → ¬ KindOK r k g)
+      ∀ st' ok, kidsGo r b g fs st = (st', ok) → st'.Good r ∧ SM.Sub st st' ∧
+        (ok = true → ∀ f ∈ fs, ∀ c, ¬ (f.2.2 = true ∧ r.fld g f.1 = 1) →
+          r.down g (r.fld g f.1) = some c → st'.holds b f.2.1 c = true) ∧
+        (ok = false → ¬ KindOK r k g)
   | [], st, _, hG => by
-    refine ⟨fun st' h => ?_, fun h => ?_⟩
-    · rw [kidsGo] at h; cases h
-      exact ⟨hG, SM.Sub.refl _, fun _ hf => by simp at hf⟩
-    · rw [kidsGo] at h; cases h
+    intro st' ok h
+    rw [kidsGo] at h; cases h
+    exact ⟨hG, SM.Sub.refl _, fun _ _ hf => by simp at hf, fun h => (by cases h)⟩
   | (i, k', nil) :: fs, st, hsub, hG => by
     have hmem : (i, k', nil) ∈ fs₀ := hsub _ (by simp)
     have hsub' : ∀ f ∈ fs, f ∈ fs₀ := fun f hf => hsub f (by simp [hf])
     have hk' : IsKind k' := kidTable_kinds hfs _ hmem
-    rw [kidsGo]
+    intro st' ok h
+    rw [kidsGo] at h
     by_cases hnil : (nil && r.fld g i == 1) = true
-    · simp only [hnil, ite_true]
-      obtain ⟨h1, h2⟩ := kidsGo_spec hk ih hfit hfs fs st hsub' hG
-      refine ⟨fun st' h => ?_, h2⟩
-      obtain ⟨hG', hS, hall⟩ := h1 st' h
-      refine ⟨hG', hS, fun f hf c hne hd => ?_⟩
-      simp only [List.mem_cons] at hf
-      rcases hf with rfl | hf
+    · simp only [hnil, ite_true] at h
+      obtain ⟨hG', hS, hall, hf⟩ := kidsGo_spec hk ih hfit hfs fs st hsub' hG st' ok h
+      refine ⟨hG', hS, fun hok f hm c hne hd => ?_, hf⟩
+      simp only [List.mem_cons] at hm
+      rcases hm with rfl | hm
       · simp only [Bool.and_eq_true, beq_iff_eq] at hnil
         exact absurd ⟨hnil.1, hnil.2⟩ hne
-      · exact hall f hf c hne hd
-    · simp only [hnil, Bool.false_eq_true, ite_false]
-      split
+      · exact hall hok f hm c hne hd
+    · simp only [hnil, Bool.false_eq_true, ite_false] at h
+      split at h
       · rename_i c hd
         have hlt : c < g := Region.down_lt hd
         have hkid : Kid r k g k' c := ⟨hfit, fs₀, hfs, i, nil, hmem, by
           intro ⟨e1, e2⟩; apply hnil; simp [e1, e2], hd⟩
-        obtain ⟨s1, s2⟩ := ih c hlt k' st hk' hG
-        split
-        · rename_i st1 hst1
-          obtain ⟨hG1, hh1, hS1⟩ := s1 st1 hst1
-          obtain ⟨t1, t2⟩ := kidsGo_spec hk ih hfit hfs fs st1 hsub' hG1
-          refine ⟨fun st' h => ?_, t2⟩
-          obtain ⟨hG', hS', hall⟩ := t1 st' h
-          refine ⟨hG', hS1.trans hS', fun f hf c' hne hd' => ?_⟩
-          simp only [List.mem_cons] at hf
-          rcases hf with rfl | hf
-          · rw [hd] at hd'; cases hd'; exact hS'.holds hh1
-          · exact hall f hf c' hne hd'
-        · rename_i hst1
-          refine ⟨fun st' h => (by cases h), fun _ hok => s2 hst1 (KindOK.kid hk hok hkid)⟩
+        cases e1 : sGo r b k' c st with
+        | mk st1 ok1 =>
+        rw [e1] at h
+        obtain ⟨hG1, hS1, hh1, hf1⟩ := ih c hlt k' st hk' hG st1 ok1 e1
+        cases ok1
+        · cases h
+          exact ⟨hG1, hS1, fun h => (by cases h), fun _ hok => hf1 rfl (KindOK.kid hk hok hkid)⟩
+        · simp only at h
+          obtain ⟨hG', hS', hall, hf⟩ := kidsGo_spec hk ih hfit hfs fs st1 hsub' hG1 st' ok h
+          refine ⟨hG', hS1.trans hS', fun hok f hm c' hne hd' => ?_, hf⟩
+          simp only [List.mem_cons] at hm
+          rcases hm with rfl | hm
+          · rw [hd] at hd'; cases hd'; exact hS'.holds (hh1 rfl)
+          · exact hall hok f hm c' hne hd'
       · rename_i hd
-        refine ⟨fun st' h => (by cases h), fun _ hok => ?_⟩
+        cases h
+        refine ⟨hG, SM.Sub.refl _, fun h => (by cases h), fun _ hok => ?_⟩
         obtain ⟨_, fs', hfs', hall⟩ := KindOK.markOK hk hok
         rw [hfs] at hfs'; cases hfs'
         rcases hall _ hmem with ⟨e1, e2⟩ | hs
@@ -342,37 +328,41 @@ theorem sGo_spec (r : Region) {b : Frontier} (hB : b.Good r) : ∀ g, SGoSpec r 
   intro g
   induction g using Nat.strongRecOn with
   | _ g ih =>
-  intro k st hk hG
-  rw [sGo]
+  intro k st hk hG st' ok h
+  rw [sGo] at h
   by_cases hh : st.holds b k g = true
-  · simp only [hh, ite_true]
-    exact ⟨fun st' h => by cases h; exact ⟨hG, hh, SM.Sub.refl _⟩, fun h => by cases h⟩
-  · simp only [hh, Bool.false_eq_true, ite_false]
+  · simp only [hh, ite_true] at h
+    cases h
+    exact ⟨hG, SM.Sub.refl _, fun _ => hh, fun h => (by cases h)⟩
+  · simp only [hh, Bool.false_eq_true, ite_false] at h
     by_cases hfit : r.fits g = true
-    · simp only [hfit, ite_true]
-      split
+    · simp only [hfit, ite_true] at h
+      split at h
       · rename_i hnone
-        refine ⟨fun st' h => (by cases h), fun _ hok => ?_⟩
+        cases h
+        refine ⟨hG, SM.Sub.refl _, fun h => (by cases h), fun _ hok => ?_⟩
         obtain ⟨_, fs', hfs', _⟩ := KindOK.markOK hk hok
         rw [hnone] at hfs'; cases hfs'
       · rename_i fs hfs
-        obtain ⟨k1, k2⟩ := kidsGo_spec hk ih hfit hfs fs st (fun f hf => hf) hG
-        split
-        · rename_i st1 hst1
-          obtain ⟨hG1, hS1, hall⟩ := k1 st1 hst1
+        cases e1 : kidsGo r b g fs st with
+        | mk st1 ok1 =>
+        rw [e1] at h
+        obtain ⟨hG1, hS1, hall, hf1⟩ :=
+          kidsGo_spec hk ih hfit hfs fs st (fun f hf => hf) hG st1 ok1 e1
+        cases ok1
+        · cases h
+          exact ⟨hG1, hS1, fun h => (by cases h), fun _ => hf1 rfl⟩
+        · simp only at h
           have hkids : ∀ k' c, Kid r k g k' c → st1.holds b k' c = true := by
             intro k' c ⟨_, fs', hfs', i, nil, hm, hne, hd⟩
             rw [hfs] at hfs'; cases hfs'
-            exact hall (i, k', nil) hm c hne hd
-          obtain ⟨b1, b2⟩ := SM.build_spec hk hG1 hB hkids
-          refine ⟨fun st' h => ?_, b2⟩
-          obtain ⟨hG', hh', hS'⟩ := b1 st' h
-          refine ⟨hG', ?_, hS1.trans hS'⟩
-          simp only [SM.holds, hh', Bool.true_or]
-        · rename_i hst1
-          exact ⟨fun st' h => (by cases h), fun _ => k2 hst1⟩
-    · simp only [hfit, Bool.false_eq_true, ite_false]
-      refine ⟨fun st' h => (by cases h), fun _ hok => ?_⟩
+            exact hall rfl (i, k', nil) hm c hne hd
+          obtain ⟨hG', hS', hh', hf'⟩ := SM.build_spec hk hG1 hB hkids st' ok h
+          refine ⟨hG', hS1.trans hS', fun hok => ?_, hf'⟩
+          simp only [SM.holds, hh' hok, Bool.true_or]
+    · simp only [hfit, Bool.false_eq_true, ite_false] at h
+      cases h
+      refine ⟨hG, SM.Sub.refl _, fun h => (by cases h), fun _ hok => ?_⟩
       exact hfit (KindOK.markOK hk hok).1
 
 /-! ## Roots -/
@@ -385,18 +375,15 @@ frontier holds, as long as they are the specification's values. -/
 theorem frontierExpr_eq {r : Region} {b : Frontier} (hB : b.Good r) (c : Nat) :
     frontierExpr r b c = exprAt r c := by
   unfold frontierExpr
-  obtain ⟨s1, s2⟩ := sGo_spec r hB c kExpr {} isKind_expr (SM.good_empty r)
   cases e : sGo r b kExpr c {} with
-  | some st' =>
-    obtain ⟨hG, hh, _⟩ := s1 st' e
-    simp only [Option.bind_some]
-    exact hG.expr hB hh
-  | none =>
-    have hn := s2 e
-    simp only [Option.bind_none]
+  | mk st' ok =>
+  obtain ⟨hG, -, hh, hn⟩ := sGo_spec r hB c kExpr {} isKind_expr (SM.good_empty r) st' ok e
+  cases ok
+  · simp only
     cases e2 : exprAt r c with
     | none => rfl
-    | some w => exact absurd (KindOK.expr (by simp [e2])) hn
+    | some w => exact absurd (KindOK.expr (by simp [e2])) (hn rfl)
+  · exact hG.expr hB (hh rfl)
 
 /-- **The sparse decoder reads a `Name` root as the specification.** -/
 theorem sparseNameP_eq (r : Region) (v : UInt64) : sparseNameP r v = nameP r v := by
@@ -408,18 +395,15 @@ theorem sparseNameP_eq (r : Region) (v : UInt64) : sparseNameP r v = nameP r v :
     | some c =>
       simp only
       have hB := Frontier.good_empty r
-      obtain ⟨s1, s2⟩ := sGo_spec r hB c kName {} isKind_name (SM.good_empty r)
       cases e : sGo r {} kName c {} with
-      | some st' =>
-        obtain ⟨hG, hh, _⟩ := s1 st' e
-        simp only [Option.bind_some]
-        exact hG.name hB hh
-      | none =>
-        have hn := s2 e
-        simp only [Option.bind_none]
+      | mk st' ok =>
+      obtain ⟨hG, -, hh, hn⟩ := sGo_spec r hB c kName {} isKind_name (SM.good_empty r) st' ok e
+      cases ok
+      · simp only
         cases e2 : nameAt r c with
         | none => rfl
-        | some w => exact absurd (KindOK.name (by simp [e2])) hn
+        | some w => exact absurd (KindOK.name (by simp [e2])) (hn rfl)
+      · exact hG.name hB (hh rfl)
 
 /-- **The sparse decoder reads an `Expr` root as the specification.** -/
 theorem sparseExprP_eq (r : Region) (v : UInt64) : sparseExprP r v = exprP r v := by

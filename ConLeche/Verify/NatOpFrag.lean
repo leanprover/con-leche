@@ -9,9 +9,10 @@ public section
 
 `natOpEquations`' equation sides live in a four-constructor grammar —
 `sort`, the two `Nat`-annotated free variables, resolving constants,
-and application — and `natOpGuard` pins exactly the constants that
-grammar admits.  Every statement below mentions only `Env`, `Expr`
-and the kernel's own `natOp*` data.
+and application — and `natOpGuard` with the dependencies' pins
+(`natOpStoredOk`) stores exactly the constants that grammar admits.
+Every statement below mentions only `Env`, `Expr` and the kernel's own
+`natOp*` data.
 -/
 
 -- the namespace follows `Verify/Denote/*`'s (`ConLeche.Verify`), so
@@ -203,6 +204,12 @@ theorem storedNoLevels_exists {env : Env} {n : Name}
   | none => rw [hf] at h; exact nomatch h
   | some ci => rw [hf] at h; exact ⟨ci, rfl, by simpa [List.isEmpty_iff] using h⟩
 
+/-- `storedNoLevels` reads the one lookup. -/
+theorem storedNoLevels_congr {env env' : Env} {n : Name} (he : env'.find? n = env.find? n)
+    (h : storedNoLevels env n) : storedNoLevels env' n := by
+  unfold storedNoLevels at h ⊢
+  rwa [he]
+
 theorem storedNoLevels_of_cons {env : Env} {ci : ConstantInfo} {c n : Name}
     (hname : ci.name = c) (hne : n ≠ c)
     (h : storedNoLevels ⟨ci :: env.consts, env.tables⟩ n) : storedNoLevels env n := by
@@ -233,9 +240,11 @@ theorem storedNoLevels_of_ctorOk {env : Env} {n : Name}
       rw [hfd]; exact (Bool.and_eq_true _ _ ▸ h : _ ∧ _).1
     · exact nomatch h
 
-/-- The guard's three clauses, as the fragment lemma wants them. -/
+/-- The guard's clauses and the dependencies' pins (which the model's
+laws carry, `natOpDepsOk_inv`), as the fragment lemma wants them. -/
 theorem natOpGuard_stored {env : Env} {c : Name}
-    (h : natOpGuard env c = true) :
+    (h : natOpGuard env c = true)
+    (hdeps : (natOpDeps c).all (natOpPinnedOk env) = true) :
     storedNoLevels env natName ∧ storedNoLevels env natZeroName ∧
     storedNoLevels env natSuccName ∧
     (∀ n ∈ natOpDeps c, storedNoLevels env n) ∧
@@ -243,7 +252,7 @@ theorem natOpGuard_stored {env : Env} {c : Name}
         natDivModNames.contains c) = true →
       storedNoLevels env boolTrueName ∧ storedNoLevels env boolFalseName) := by
   simp only [natOpGuard, Bool.and_eq_true] at h
-  obtain ⟨⟨hlit, hdeps⟩, hbool⟩ := h
+  obtain ⟨⟨hlit, -⟩, hbool⟩ := h
   simp only [natLitSupported, Bool.and_eq_true] at hlit
   obtain ⟨⟨hind, hzero⟩, hsucc⟩ := hlit
   refine ⟨?_, storedNoLevels_of_ctorOk (Or.inl hzero),
@@ -255,11 +264,9 @@ theorem natOpGuard_stored {env : Env} {c : Name}
       rw [hfd]; exact (Bool.and_eq_true _ _ ▸ hind : _ ∧ _).1
     · exact nomatch hind
   · intro n hn
-    have hd := List.all_eq_true.mp hdeps n hn
+    obtain ⟨ci, hfd, hl, -⟩ := natOpPinnedOk_inv (List.all_eq_true.mp hdeps n hn)
     unfold storedNoLevels
-    split at hd
-    · next _ _ _ hfd => rw [hfd]; exact hd
-    · exact nomatch hd
+    rw [hfd]; dsimp only; rw [hl]; rfl
   · intro hc
     rw [ite_eq_left hc] at hbool
     simp only [Bool.and_eq_true] at hbool

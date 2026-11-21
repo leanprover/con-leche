@@ -4,15 +4,9 @@ This is an external checker for the Lean theorem prover that is proven (in Lean)
 
 The core idea of this project is: What if we allow the checker implementation to do extra work (type comparisons) that is not strictly necessary for soundness, but makes the proof easier.
 
-## Status
+It was implemented and proven to be consistent by Claude, under heavy supervision by Joachim Breitner at the Lean FRO.
 
-The checker is practically useful and has good performance. I consider it production ready.
-
-It was implemented and proven to be consistent by Claude (Fable and Opus), under heavy supervision by Joachim Breitner at the Lean FRO. See the git history for all the detours and dead ends it took.
-
-This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers). It is probably the only human written thing in this repository.
-
-There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
+This README is actually human written (with AI only doing copy-editing, fact checking and filling in numbers). It is essentially the only human written thing in this repository. There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 
 ## Design of the checker implementation
 
@@ -25,11 +19,14 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axioms in the input stream.
 
-  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L320-L321) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L304-L305) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+
+  With `--compare`, axioms in the challenge are accepted when justified by the solution.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in two phases: *parsing* the input stream and *checking*. Both stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L134).
-* The JSON and olean parsers are fast agentic-hand-written parsers over the input bytes (verified with respect to naive ones, see below).
+* The checker processes files in two phases: *parsing* the input stream and *checking*. Both stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L146).
+* The JSON and olean parsers are fast agentic-hand-written parsers over the input bytes (verified with respect to naive ones).
+* It can optionally check a development in a modular fashion, and also compare challenges against solutions (see below).
 
 ## Design of the checker proof
 
@@ -39,72 +36,48 @@ Depending on your background and your level of interest you may want to look at 
 
 ### The Main Corollary
 
-In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an export file containing a `theorem … : False := …` declaration (in JSON), with arbitrary declarations before and after, will not be accepted by `con-leche`:
+A declaration called [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L50-L51) is only accepted if it really is that, so no tricks involving odd definitions for `False` will confuse the checker. This allows us to state the main idea of the consistency proof concisely: A JSON file that obviously and syntactically declares a theorem of type `False` (see `jsonWithTheoremFalse`) is never accepted:
 
 ```lean
 open Frontend in
-theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
-    (h : jsonWithTheoremFalse chunks) :
-    ∃ e, (do
-      let pre ← builtinPreludeE
-      let r ← parseChunks chunks
-      let ds := preparePrelude pre r.decls
-      checkDecls .verified pins maxNatSize ds) = .error e
+theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
+    (hF : jsonWithTheoremFalse [b]) : False
 ```
-
-The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L50-L51) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
 
 ### The Main Theorem
 
-The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L116-L123) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+The theorem [`main_no_False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L55-L57) is mostly a corollary of a stronger statement, namely that the declarations of an accepted file have a model in a suitable set theory:
 
 ```lean
-theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    Nonempty (Model V env)
+open Frontend in
+theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b) :
+    ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList)
 ```
 
-This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. The relation [`Model V env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L248-L268) (in [ConLeche/Denotes.lean](./ConLeche/Denotes.lean)) states that every constant in the environment denotes a member of its type's denotation (and that `False` denotes the empty set and that `Eq` denotes set equality). In particular, every accepted theorem's statement is true in the model.
+This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. In particular, every accepted theorem's statement is true in the model. The [`IsModel`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L212-L213) expresses that a model (a mapping from Lean names to such sets) is valid for a set of Lean declarations, expressed using the function [`Expr.eval`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L128-L129), which gives each Lean expression (types and terms) an interpretation as sets.
 
-Denotation of terms and types is captured by the inductive relation [`Denotes`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L123-L124) in the same file. It depends on some set-theoretical constructions (e.g. function spaces).
+### Proofs about IO
 
-The `Model` relation is *not* the strongest property proven (and carried through the induction) about the environment, but a simplified one. For example, it does not contain the delta and iota equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`, this is hopefully not an oversimplification.
+The theorems above talk about the whole checker, including the driver that parses arguments, reads files, runs parallel threads, all in the `IO` monad. This is out of reach for a completely rigorous verification, but we can still do something meaningful here.
 
-This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L89-L90) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
-
-* The parser is faithful.
-* [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L168-L175) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L171-L176)).
-* The definitions, theorem statements and axioms in the output of `checkDecls` are as they are in the input, up to dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L220-L225)).
-
-### The IO parts
-
-The theorems above talk about the pure checker code. That pure code is embedded in a driver: parsing arguments, reading files, parallelism, all in the `IO` monad. This is out of reach for a rigorous verification, but we can still do something that helps to rule out more implementation bugs.
-
-To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L261) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L126) type class modelling three kinds of operations:
+To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L403) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L141) type class modelling three kinds of operations:
 
 * File access (existence, reading)
-* A [`parMapExcept`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L151) operator for parallelism
-* Running other `IO` with [`liftIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L167)
+* A [`parMapExcept`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L168) operator for parallelism
+* Running other `IO` with [`liftIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L184)
 
-We can then prove something about such generic code in an idealized (pure, nondeterministic) model, [`ModelIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L288). These proofs are meaningful under some assumptions, which are not enforced:
+We perform proofs about such generic code in an idealized (pure, nondeterministic) model, [`ModelIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L310). These proofs are meaningful under some assumptions, which are not enforced:
 
 * The files accessed are not changing under our nose. Later reads during the process see the same state of the file system.
 * The code run by `liftIO` has no side effects affecting the file reading operations and does not exit with code 0. We use this method for (otherwise pure) concurrency, diagnostic output and measuring time.
 
 In the model, we assume nothing about `liftIO a` or its return value, except of course its type. Using a subtype there allows us to run, say, parallel code and still know that the result is what we need for the proof (e.g. `checkDeclsIO` returning a subtype mentioning `checkDecls`).
 
-In this setting we can [lift the main corollary](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L152-L154) to cover the driver as well:
+The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L95) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L403) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L28), flushing the output and exiting the process.
 
-```lean
-open Frontend in
-theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-    (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-    ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0
-```
-
-The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L95) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L261) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L28), flushing the output and exiting the process.
+If you find this deeply unnerving, you can look at [`model_exists`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/PureChecker.lean#L31-L34) theorem that talks about the pure parts of the checker, and convince yourself that that is what the driver calculates.
 
 ### Set theory assumption
 
@@ -124,7 +97,7 @@ Unfortunately, this rule can make a function type look like it is a proposition:
 
 A consequence of this is we have a bit less structure in the semantic value of a function type than we would like to. In particular, we may not be able to read the domain off a value in `[∀ (x : Empty), B x]`. The proof still goes through if we do some extra calls to `infer` and `defeq`. For example when comparing two `.lambda` expressions we additionally check whether their bodies have the same type.
 
-We call this extra work the *certification tax* of our proof: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L133) mode where these checks are omitted to quantify the cost.
+We call this extra work the *certification tax* of our proof: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L145) mode where these checks are omitted to quantify the cost.
 
 ### Nat operations
 
@@ -144,28 +117,68 @@ The lean4lean project aims at something bigger: Produce a verified checker that 
 
 Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory of Lean*, master's thesis, Carnegie Mellon University, 2019) for much of the set theoretical modelling.
 
-## The JSON parser
-
-The fast byte-wise parser is proven equivalent (`@[csimp]`) to a naive reference parser, and is covered by the Main Corollary mentioned above, which is stated in terms of the actual bytes entering the pipeline. (The Main Theorem does not cover the parser; it is not clear how to express the main theorem in terms of the raw input bytes.)
-
 ## The `.olean` parser
 
 In addition to reading the official export format (`.ndjson`), `con-leche` can also read `.olean` files directly. This avoids the need to run `lean4export`. You can either check all modules reachable from a root module, or just the dependencies of a specific constant. See the usage section in [OVERVIEW.md](./OVERVIEW.md#0-using-the-checker) for how to use it.
 
-The main corollary from above can be stated about `--olean` as well, saying that if the module or any module it imports, transitively, declares in its private view a theorem of type `False`, the program will reject:
+The `.olean` “format” is not well-specified. We ship our own “naive” parser [`decodeModuleSpec`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/View.lean#L81), used by the [`InModulePart`](https://github.com/leanprover/con-leche/blob/master/ConLeche/OleanInput.lean#L83-L85) you see in the main theorem, as a specification, and then prove that the actual parsers we use (which are optimized, and may read partial data as needed) are correct with regard to that one. We cannot prove that `decodeModuleSpec` matches how Lean interprets its data structures, only test it (using the [`olean-compare`](./OleanCompare.lean) tool).
+
+## Modular checking
+
+In addition to checking all declarations of a development in one go, `con-leche` can perform checks in a modular fashion, building on [Lean's module system](https://lean-lang.org/doc/reference/latest/Source-Files-and-Modules/#module-scopes). In this mode, every module's content is checked in the context of just its imports. That, plus one check that the module dependency graph is acyclic, proves consistency. The main theorem is `main_modular_one`:
 
 ```lean
 open Frontend in
-theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name} {fs : FS}
-    {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
     (hr : Olean.parseModName root = some r)
-    (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
-    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
-    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
-    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0
+    (h : ModelIO.CanGive
+      (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0) :
+    ∃ model : Name → (Name → List Nat → V),
+      (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+      (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n)
 ```
 
-The `.olean` “format” is not well-specified. We ship our own “naive” parser [`decodeModuleSpec`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/View.lean#L81) as a specification, and then prove that the actual parsers we use (which are optimized, and may read partial data as needed) are correct with regard to that one. We cannot prove that `decodeModuleSpec` matches how Lean interprets its data structures, only test it (using the [`olean-compare`](./OleanCompare.lean) tool).
+Note that this theorem does *not* say that there is one global model that works for every module. The Lean module system allows the same name with different meaning, as long as these are visible from disjoint parts of the module tree. Therefore, this theorem states that
+
+* each module has a model
+* whenever two modules `m` and `m'` see the same name `n`, the model agrees. This means Lean's module system visibility rules are part of the trusted specification here.
+
+The `--modular` flag loads and checks all modules in one process, and is not that useful – if you can do that, you might as well use the `--olean` that ignores the module system. To get the benefit of modular checking (e.g. lower memory usage) you can use `con-leche --schedule`. Then an (unverified) scheduler will invoke a fresh `con-leche` process on each module, keep memory usage in check, resumes from aborted runs, etc. See `con-leche --help` or the OVERVIEW section. The meaning of the commands that are executed by the scheduler together forms theorem `main_modular`.
+
+If the scheduler does not serve you well you can use `con-leche --schedule-commands` to get the list of commands to run and schedule them yourself (possibly even distributed to multiple machines, if that is necessary).
+
+## --compare
+
+In addition to just checking one set of declarations, con-leche can also perform comparisons between a challenge and a solution, like `lake comparator`. This is available in all the various reading modes (JSON file, merged `--olean`, `--modular`).
+
+The rules of comparison differ from `lake comparator`. You do not explicitly specify which declarations are to be filled by the solution. Instead, every axiom and every definition or theorem with a `:= sorry` body are holes, and `con-leche` checks that the solution has a regular declaration with the same type, with all the used definitions agreeing between challenge and solution.
+
+The main theorem `main_compare_json_model` shows this in action:
+
+```lean
+open Frontend in
+theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+      ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList)
+```
+
+It is worth noting that the conclusion of the theorem says nothing about the solution. It just says that the challenge has a model. This is intentional: The solution is what allows the checker to *accept* the challenge, but it does not and must not affect what the challenge *means*.
+
+When reading olean files, one can pass different search directories for the challenge and the solution. The proof also says that the meaning of the challenge, i.e. whether it has a model or not, only depends on the files in the trusted search path, nothing else on the file system. This is part of the statement of `main_compare_model` (and of `main_modular_compare` for `--modular`):
+
+```lean
+open Frontend in
+theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+      "--search-path=" ++ D, "--", c, s]) fs 0) :
+    ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
+      ∃ model, IsModel V model (Olean.closureConstants
+        (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C])
+```
 
 ## Performance
 

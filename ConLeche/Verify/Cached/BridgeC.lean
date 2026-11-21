@@ -79,9 +79,9 @@ theorem opSIxC_spec (henv : EnvWF env) {d : Nat} {i : Expr}
 /-- `checkConstantValC` simulates the generic `checkConstantVal` at the
 fueled families; the checked type is well scoped. -/
 theorem checkConstantValC_spec (henv : EnvWF env)
-    {cv : ConstantVal} {a : Bool} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ checkConstantValC .verified (mkFEnv env) cv a
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkConstantVal (fueledOpsM .verified) env cv a) v ∧
+    {cv : ConstantVal} {a b c : Bool} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ checkConstantValC .verified (mkFEnv env) cv a b c
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkConstantVal (fueledOpsM .verified) env cv a b c) v ∧
       Expr.WScoped 0 cv.type; ⊤⦄ := by
   sym only [conleche_grind, checkConstantVal.eq_1,
       Expr.allLevelParamsDefinedC_spec, constsResolveFC_spec, constsResolveF_eq,
@@ -103,10 +103,11 @@ theorem natOpGuardF_overlay (env : Env) (ci : ConstantInfo) (c : Name) :
   rw [natOpGuardF_congr (find?_overlay_push (fe := mkFEnv env) rfl ci), push_mkFEnv,
     natOpGuardF_eq]
 
-theorem natOpStoredOkF_overlay (env : Env) (ci : ConstantInfo) :
-    natOpStoredOkF ((mkFEnv env).overlay [ci]) = natOpStoredOk ⟨ci :: env.consts, env.tables⟩ := by
+theorem natOpStoredOkF_overlay (env : Env) (ci : ConstantInfo) (n : Name) :
+    natOpStoredOkF ((mkFEnv env).overlay [ci]) n
+      = natOpStoredOk ⟨ci :: env.consts, env.tables⟩ n := by
   rw [natOpStoredOkF_congr (find?_overlay_push (fe := mkFEnv env) rfl ci), push_mkFEnv,
-    natOpStoredOkF_eq_fun]
+    natOpStoredOkF_eq]
 
 theorem checkReducePinF_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : ConstantInfo)
     (c : Name) (value : Expr) :
@@ -312,7 +313,11 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
     -- throws on both sides, so only the passing branch reaches the bridge
     have hd : (if indParamsOk nP block = true then
           (match readBlock nP block with
-            | .ok p => checkBlockKS .verified (mkFEnv env) block p
+            | .ok p => do
+              let fe' ← checkBlockKS .verified (mkFEnv env) block p
+              match blockReadsOkC fe'.find? p with
+              | .ok _ => pure fe'
+              | .error e => throw e
             | .error e => throw e)
         else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe₂, s₂) := hk

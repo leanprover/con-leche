@@ -62,7 +62,7 @@ noncomputable def NestKit.toNodeInd {F : Type u} (K : NestKit V F) : NestNodeInd
   cl := K.cl
   fr := K.fr
   pred := K.pred
-  inj_mem := fun _ _ _ _ _ hb hc ht hf => (K.okT hb).inj_mem hc ht hf
+  inj_mem := fun _ c t _ _ hb hc ht hf => (K.okT hb ⟨c, hc, t, ht⟩).inj_mem hc ht hf
   ind := fun P hstep b c t x hb hc ht hx => by
     refine K.ind P (fun u _ ⟨d, hd, hpd⟩ => ?_) _ (K.nenc_mem_U hb hc ht hx)
     obtain ⟨hdb, hdc, hdt, hdf, rfl⟩ := hd

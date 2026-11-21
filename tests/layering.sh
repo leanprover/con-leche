@@ -45,7 +45,8 @@
 # the FENCE.  It runs in the standard battery (`tests/arena.sh`), so the
 # battery fails if the boundary rots.
 #
-# Usage: tests/layering.sh [--list]   (--list prints the current
+# Usage: tests/layering.sh [--list | --list-challenge]   (--list-challenge prints
+# the challenge's import closure; --list prints the current
 # base→lane edges, i.e. the gate's live rot channel, then every rules
 # module's elaboration closure with its doors marked `!`, and one
 # witnessing chain per door).
@@ -129,7 +130,8 @@ NAMED_MODS = (CAPS | UMBRELLAS |
                'ConLeche.Kernel.TypeChecker', 'ConLeche.Kernel.CoreIO',
                'ConLeche.Kernel.DeclCheck', 'ConLeche.Kernel.Checker',
                'ConLeche.Kernel.CheckerBase', 'ConLeche.Kernel.CoreDefs',
-               'Main'})
+               'Main', 'ConLeche.Challenge', 'ConLeche.Driver.CmpReq',
+               'ConLeche.Frontend.Olean.Snapshot'})
 NAMED_DIRS = IMPL_DIRS + DRIVER_DIRS + ('ConLeche/Rules/', 'ConLeche/Model/Rules/',
                           'ConLeche/Model/', 'ConLeche/Complete/')
 _stale = ([f'lane {l!r} assigned to no module' for l in LANE_NAMES
@@ -285,13 +287,49 @@ oleanv = [(a, b) for a in sorted(edges) if a.startswith(OLEAN_PFX) for b in edge
           and b not in OLEAN_EXTRA.get(a, set())]
 OLEAN_V_PFX = 'ConLeche.Verify.Frontend.Olean.'
 # The interface: outside the tree and its proofs, only the umbrella
-# `ConLeche.Frontend.Olean`, whose header lists it.
+# `ConLeche.Frontend.Olean`, whose header lists it, and the specification's
+# notions over a snapshot (`ConLeche.Frontend.Olean.Snapshot`), which the main
+# theorems' statements import without the reader's upper layers.
+OLEAN_SPEC = 'ConLeche.Frontend.Olean.Snapshot'
 oleanout = [(a, b) for a in sorted(edges) for b in edges[a]
-            if b.startswith(OLEAN_PFX) and a != 'ConLeche.Frontend.Olean'
+            if b.startswith(OLEAN_PFX) and b != OLEAN_SPEC and a != 'ConLeche.Frontend.Olean'
             and not a.startswith((OLEAN_PFX, OLEAN_V_PFX))]
 oleanpv = [(a, b) for a in sorted(edges) if a.startswith(OLEAN_V_PFX) for b in edges[a]
            if not b.startswith((OLEAN_PFX, OLEAN_V_PFX)) and b not in OLEAN_BASE
            and b != 'ConLeche.Verify.Frontend.ModelIO']
+
+# THE CHALLENGE FENCE (task #627).  `ConLeche/Challenge.lean` states the main
+# theorems with the checker's functions as holes (`def … := sorry`), so its
+# whole import closure (every edge, transitively) must be specification: the
+# statements' notions (`IsModel`, the `.olean` input, the IO model), the data
+# types the holes' signatures take, `SetTheory`.  No proof tier, no checker
+# above the kernel's data and basis, no driver but its request type, and none
+# of the modules that define a hole (Lean would refuse the duplicate anyway).
+CHALLENGE = 'ConLeche.Challenge'
+CHALLENGE_FORBIDDEN_PFX = ('ConLeche.Verify.', 'ConLeche.Model.', 'ConLeche.Semantics.',
+                           'ConLeche.Term.', 'ConLeche.Complete.', 'ConLeche.Rules.',
+                           'ConLeche.Cached.', 'ConLeche.Driver.', 'ConLeche.Kernel.Checker',
+                           'ConLeche.PinGen.')
+CHALLENGE_TYPES = {'ConLeche.Driver.CmpReq'}
+CHALLENGE_FORBIDDEN = {'ConLeche.MainTheorem', 'ConLeche.Kernel.Core',
+                       'ConLeche.Kernel.TypeChecker', 'ConLeche.Kernel.CoreIO',
+                       'ConLeche.Kernel.DeclCheck', 'ConLeche.Kernel.Install',
+                       'ConLeche.Frontend.ExportC', 'ConLeche.Frontend.Olean.Records',
+                       'ConLeche.Modular', 'ConLeche.Denotes'}
+def full_closure(m):
+    seen, todo = set(), list(edges[m])
+    while todo:
+        x = todo.pop()
+        if x not in seen: seen.add(x); todo.extend(edges[x])
+    return seen
+chal_closure = full_closure(CHALLENGE)
+challv = sorted((CHALLENGE, b) for b in chal_closure
+                if b not in CHALLENGE_TYPES
+                and (b in CHALLENGE_FORBIDDEN or b.startswith(CHALLENGE_FORBIDDEN_PFX)))
+if '--list-challenge' in sys.argv[1:]:
+    print(f'challenge closure ({len(chal_closure)}):')
+    for b in sorted(chal_closure): print(f'    {b}')
+    sys.exit(0)
 
 fail = 0
 def report(title, items, hint):
@@ -308,10 +346,13 @@ report('the olean reader importing outside its fence', oleanv,
        'Files and Closure reach the IO class, only Records the record builder.')
 report('a module importing past the olean interface', oleanout,
        'Outside ConLeche/Frontend/Olean/* and its proofs, import ConLeche.Frontend.Olean, '
-       'whose header is the interface.')
+       'whose header is the interface, or the specification ConLeche.Frontend.Olean.Snapshot.')
 report('the olean proofs importing outside their fence', oleanpv,
        'ConLeche/Verify/Frontend/Olean/* imports itself, the reader, its base types and the '
        'IO model.')
+report('the challenge reaching beyond the specification', challv,
+       'ConLeche/Challenge.lean imports specification and data types only; move the '
+       'definition a statement needs out of the module that also holds checker code.')
 report('base module importing the model lane', basev,
        'ConLeche/{Kernel,Verify,SetTheory,Term,SetModel,Semantics}/* stand BELOW the '
        'lane; nothing there may import ConLeche/Model/*.')
@@ -347,6 +388,7 @@ if not fail:
           f'{len(basev)} base->lane edges, {len(implv)} impl->theory, '
           f'{len(driverv)} driver->non-Verify theory, '
           f'{len(rulesv)} rules->impl; rules closure: {len(rules_mods)} modules, '
-          f'{len(doors_seen)} doors as listed')
+          f'{len(doors_seen)} doors as listed; challenge closure: {len(chal_closure)} '
+          f'modules, specification only')
 sys.exit(fail)
 PYEOF

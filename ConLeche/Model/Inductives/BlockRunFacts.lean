@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.Inductives.DeclBlockStep
 import ConLeche.Verify.Inductives.BlockShapeInv
-public import ConLeche.Model.Inductives.FamilyRan
+public import ConLeche.Model.Inductives.RunEnv
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Verify.Cached.PushChain
@@ -123,45 +123,6 @@ theorem natFacts_block {F : Nat} {env env₂ : Env} {block : List ConstantInfo} 
     blockConstants_names_mem hdp c.name (List.mem_map_of_mem (List.mem_reverse.mp hc))
   exact nat_names_of_unreserved (hn ▸ hres b hb)
 
-omit [SetTheory V] in
-/-- The install's tables on the old names. -/
-theorem blockRun_findTable {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat}
-    {p₀ : BlockShape} (hdp : ConLeche.readBlock nPd block = .ok p₀)
-    (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (T : Name)
-    (hT : (env.find? T).isSome = true) : env₂.findTable? T = env.findTable? T := by
-  have hd := ConLeche.readBlock_declared hdp
-  have henv := ConLeche.Semantics.blockRun_env hd hrun
-  have hfr := blockRun_fresh hd hrun
-  -- a new table is at a member's name, unbound before the block
-  have hne : ∀ t ∈ ((ConLeche.blockTables p₀ p₀.members).getD []).reverse,
-      (t.structName == T) = false := by
-    intro t ht
-    obtain ⟨m, hm, hn⟩ : ∃ m ∈ p₀.members, t.structName = m.declared.name := by
-      cases hQ : ConLeche.blockTables p₀ p₀.members with
-      | none => simp only [hQ, Option.getD_none, List.reverse_nil, List.not_mem_nil] at ht
-      | some Q =>
-        simp only [hQ, Option.getD_some, List.mem_reverse] at ht
-        exact ConLeche.blockTables_names _ _ Q hQ t ht
-    have hf := hfr m.declared.name (by
-      rw [ConLeche.Cached.blockConstants_names]
-      exact List.mem_append_left _ (List.mem_append_left _ (List.mem_map_of_mem hm)))
-    rw [beq_eq_false_iff_ne]
-    intro he
-    have hfT : env.find? T = none := by rw [← he, hn]; exact hf
-    rw [hfT] at hT
-    exact nomatch hT
-  have hs₂ : (env₂.find? T).isSome = true := by
-    show (env₂.consts.find? (·.name == T)).isSome = true
-    rw [henv]
-    show (((ConLeche.blockConstants p₀).reverse ++ env.consts).find? (·.name == T)).isSome = true
-    rw [List.find?_append, Option.isSome_or]
-    exact Bool.or_eq_true_iff.mpr (Or.inr hT)
-  unfold Env.findTable?
-  rw [hs₂, hT, henv]
-  show (((ConLeche.blockTables p₀ p₀.members).getD []).reverse ++ env.tables).find? _ = _
-  rw [List.find?_append, List.find?_eq_none.mpr (fun t ht => by simp [hne t ht])]
-  rfl
-
 /-- **The uniform block step, at a recognised block whose records take no reserved name.** -/
 theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
     (mp : EnvModelM V env)
@@ -169,8 +130,10 @@ theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd 
     -- the reserved names' check (`basisNamesOk`), at a block no pinned one's
     (hres : ∀ c ∈ block, ConLeche.reservedBasisNames.contains c.name = false)
     (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
-    (hRan : FamilyRan mp) (hNat : NatFacts env) :
-    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
+    (hNat : NatFacts env) :
+    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧
+      ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
+      NatFacts env₂ := by
   have hrun₀ := hrun
   obtain ⟨ms, hms, hAt, -, hR⟩ := hrun
   obtain ⟨-, -, -, hmembersOk, hClps₀, -, -, -⟩ :=
@@ -222,7 +185,7 @@ theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd 
   refine ⟨declBlockAt (p₀ := { p₀ with members := ms }) mp
     (fun m hm => (hlps m hm).trans hlpsEq.symm) hAt
     (fun c hc => by rw [hlpsEq]; exact ⟨hClps₀ c (hctors c hc), hresC c (hctors c hc)⟩)
-    hresM hresR hR hcov hRan hNat (blockRun_findTable hdp hrun₀),
+    hresM hresR hR hcov hNat,
     natFacts_block hNat hdp hres hrun₀⟩
 
 end ConLeche.Model

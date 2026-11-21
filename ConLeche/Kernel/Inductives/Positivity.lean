@@ -128,6 +128,20 @@ def familyKeyCheck (ops : CheckerOps m) (env : Env) (find? : Name → Option Con
     checkSpineAt ops env d (ty.instantiateLevelParams cv.levelParams us) ds
   | _ => throw (.invalid "a family's key is no stored family")
 
+/-- **A group at a key, typed**: every family of `cs` at the key (`familyKeyCheck`), each
+against its own telescope.  A container frame types its WHOLE group at its key, the head and
+every group-mate alike: the frame's holes are typed by the members' instantiated formers, and a
+member's former is read in the model only where the key's parameters fit its own telescope.
+Official types the replaced application, the head's; a block's members share their parameter
+telescope (official checks it when the block is added), so the mates' checks refuse nothing
+official accepts. -/
+def familyKeyChecks (ops : CheckerOps m) (env : Env) (find? : Name → Option ConstantInfo)
+    (d : Nat) (us : List Level) (ds : List Expr) : List Name → m Unit
+  | [] => pure ()
+  | c :: cs => do
+    familyKeyCheck ops env find? d c us ds
+    familyKeyChecks ops env find? d us ds cs
+
 end
 
 /-! ## Positivity through containers — ONE function, GATED
@@ -783,8 +797,9 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   -- their containers' formers, as the constants they stand for).  Official imposes it: after the
   -- nested elimination, `add_inductive` type-checks every replaced nested application, and a
   -- reduct of a typed term is typed.  The model grades the key's parameters in the frame's stack
-  -- context by it.
-  familyKeyCheck ops env ctx.find? hi (grp.headD default).1 us ds
+  -- context by it.  Every group-mate's family is typed at the key too (`familyKeyChecks`): each
+  -- hole's type is its own member's former instantiated at the key
+  familyKeyChecks ops env ctx.find? hi us ds (grp.map (·.1))
   let prog' := (grp.mapIdx fun _ (c, ty) =>
     ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))

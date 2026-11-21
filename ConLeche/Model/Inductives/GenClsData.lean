@@ -25,7 +25,6 @@ import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.ContInst
 import ConLeche.Model.Inductives.ContInstRule
 import ConLeche.Model.Inductives.TargetOutRows
-import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetGraph
 import ConLeche.Model.Inductives.NestedRecPins
@@ -148,9 +147,9 @@ set_option maxHeartbeats 4000000 in
 /-- **The instantiated constructor, as a fit of the stored type** at an
 outside class: the constructor's stored type reads, at the class's
 levels, as a closed graded Π-tower whose outer binders are the class's
-parameter count, and at a prefix spine fitting the rule prefix the
-parameters' readings fit it, the residual being the rule frame's
-constructor (`tgtCrest`) as read at the prefix. -/
+parameter count, and at a prefix spine whose key frame satisfies the
+class's parameters the parameters' readings fit it, the residual being the
+rule frame's constructor (`tgtCrest`) as read at the prefix. -/
 theorem genOutCtorFit
     (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
       block out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
@@ -158,7 +157,8 @@ theorem genOutCtorFit
     {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
     (hMo : (tgtMajor out c).member = none) (hnP : pp.nP ≤ pp.rulePrefixAt c)
     (ψ : Name → Nat) (ρ : Nat → V) {xs : List V}
-    (hpref : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
+    (hsat : Sat V ((tgtClsD d Dc out c).params (tgtClsψ cvc out ψ c)).reverse
+      (keyFrame (tgtOutDsa mpC.base2.acval envC pp out ψ c) (tgtRP pp c) (consList xs ρ)))
     {ctor : ConstantVal × Nat} (hctor : (tgtMajor out c).ctors[j]? = some ctor) :
     ∃ (T0 : Term) (pps : List Term) (b0 : Term) (iT : Name),
       ConstantInfo.ctorInfo ctor.1 (tgtMajor out c).ds.length ctor.2 iT ∈ envC.consts ∧
@@ -175,7 +175,7 @@ theorem genOutCtorFit
   have hacl := mpC.base2.acval_closed
   have hDe : tgtClsD d Dc out c = Dc c := by simp [tgtClsD, hMo]
   have hMe : tgtClsM mc pp out c = mc c := by simp [tgtClsM, hMo]
-  have hsatK := Rd.hsat ψ ρ xs hpref
+  have hsatK := hsat
   rw [Rd.hψ] at hsatK
   obtain ⟨hjD, ⟨_, hfc0⟩, hlpC, -⟩ := Rd.hctor j ctor hctor
   obtain ⟨-, -, -, hcrd, -⟩ := mpC.lfp_ok _ Rd.hD
@@ -446,34 +446,6 @@ theorem genCount
   obtain ⟨hl, -, -, hcn⟩ := blockLargeElim_counting hel hw
   exact ⟨hl, hcn⟩
 
-/-- **An outside class's sort is the block's** (the class check's
-`Level.isEquiv sI p.resSort`). -/
-theorem genOutW
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
-      block out)
-    {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI) (ψ : Name → Nat) :
-    D.w (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
-      = Level.eval ψ pp.resSort := by
-  obtain ⟨-, cls, -, -, -, -, -, -, -, hM, hgc⟩ := genRun_at R hc
-  have hi : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hc
-  obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi
-  have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
-    rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
-  rw [hget] at hM
-  have hMo₀ : M₀.member = none := by rw [hM] at hMo; exact hMo
-  obtain ⟨sI, -, -, -, -, -, -, -, hinst, hequiv⟩ := CR.major.outside_facts hMo₀
-  have hinst' : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F) (mkFEnv envC)
-      (tgtMajor out c).ind (tgtMajor out c).lvls (tgtMajor out c).ds
-      = .ok ((tgtMajor out c).nIdx, sI) := by rw [hM]; exact hinst
-  obtain ⟨ty, s, hty, hs, hr'⟩ := hcl.outsideInst hinst'
-  obtain ⟨ab, hta, -⟩ := hcl.read (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
-  have hsI : s = sI := (congrArg Prod.snd hr').symm
-  subst hsI
-  rw [instPis_sort_of_read (φ := ψ) cvI.levelParams (tgtMajor out c).lvls hta hty hs]
-  exact ConLeche.Level.isEquiv_sound hequiv ψ
-
 end Guard
 
 /-! ## The rule frame's constructor, read -/
@@ -558,7 +530,7 @@ theorem genRow3_core {ψ : Name → Nat} {ρ : Nat → V}
   obtain ⟨hT, -, hisT⟩ := hS c hc xs is x hxl hil hws
   obtain ⟨hfd, hTe⟩ := hDI c hc i hi xs _ fs hT hfit
   have h1 := SpineFit.append hpref hfd
-  obtain ⟨-, -, hisO, hmk, -⟩ := hD c hc i hi xs fs hpref.length_eq h1
+  obtain ⟨-, -, hisO, hmk, -⟩ := hD c hc i hi xs fs hpref.length_eq h1 (tgtClsIs_guard hT).2
   refine ⟨h1, ?_, by rw [hmk, hx]⟩
   rw [← hTe] at hisO
   rw [← hisO, hisT]

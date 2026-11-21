@@ -13,13 +13,14 @@ and every thread (the rounds parse's owners, the check pool) — is an `IO` acti
 `CheckerIO.liftIO`.  The same code runs at two instances:
 
 * **`IO`** (`instCheckerIOIO`): the binary.  Each file operation is the
-  runtime's own call (`System.FilePath.pathExists`, `IO.FS.realPath`,
-  `IO.FS.readBinFile`, a file's metadata, and a file handle,
+  runtime's own call (`System.FilePath.pathExists`, `System.FilePath.isDir`,
+  `IO.FS.realPath`, `IO.FS.readBinFile`, a file's metadata, and a file handle,
   `IO.FS.Handle.mk` and `IO.FS.Handle.read`), and `liftIO` is the
   identity.
 * **`ModelIO`**: a model, a NON-DETERMINISM monad over a file system
-  snapshot `FS` (a real path for every path that names something, bytes
-  for every regular file by its real path) and the open handles `HS`
+  snapshot `FS` (a real path for every path that names something, which
+  paths are directories, bytes for every regular file by its real path) and
+  the open handles `HS`
   (each a file's bytes and the position of its next read): an action is
   the set of its possible outcomes, a value or an exception and the
   handles after it, from the snapshot and the handles before it.  The
@@ -62,8 +63,22 @@ binary that exits 0 is one of the model's outcomes, with that code, if
    `tests/trust-surface.sh` checks it textually: `IO.Process.exit` is
    only in `main`, outside `runArgs`, last with the code `runArgs`
    returned and, before `runArgs` starts, with 3 if the abort variables
-   cannot be set; and
+   cannot be set.  One request's `liftIO` action does more, and no theorem
+   is about it: the scheduler (`--schedule`, `ConLeche/Driver/Schedule.lean`)
+   starts worker processes of this binary, kills its own children, and
+   appends to its log, a file no check reads; its exit code is that
+   action's answer.  `tests/trust-surface.sh` confines processes, kills and
+   file writes to `ConLeche/Driver/Schedule/Run.lean`; and
 3. Lean's compiler and runtime run the code as written.
+
+**Several processes.**  A statement about several runs of the binary (the import graph check,
+`--check-graph`, and the per-module checks of the modules it numbers) is about each run's
+outcomes on ONE snapshot: it assumes (1) to (3) of every run, with one snapshot for all of them,
+that is, the files the runs read do not change between the first run's start and the last run's
+end.  Nothing more is assumed of how the runs are started or scheduled (by hand, from the list
+`--schedule-commands` prints, or by the scheduler `--schedule`): the statement is a composition
+of what each run's exit 0 says, and no run reads another's result.  The one-process mode (`--modular`) is one run, and needs no more
+than (1) to (3).
 
 The argument is then plain: the generic code is the same at both
 instances; at every file operation the binary's answer is, by (1) and
@@ -126,6 +141,8 @@ does. -/
 class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
   /-- whether the path names something (a file, a directory) -/
   pathExists : System.FilePath → m Bool
+  /-- whether the path names a directory (through symbolic links) -/
+  isDir : System.FilePath → m Bool
   /-- the path with every symbolic link resolved, absolute; throws where
   the path names nothing -/
   realPath : System.FilePath → m System.FilePath
@@ -266,10 +283,15 @@ read by no one else. -/
 /-! ## The model -/
 
 /-- **A file system snapshot**: the real path of every path that names
-something, and the bytes of every regular file, by its real path. -/
+something, which paths name directories, and the bytes of every regular
+file, by its real path.  Nothing relates the three: a directory's answer
+says nothing of the paths below it, and what the checker concludes from
+one (where a module's root is, task #511) it concludes by definition. -/
 structure FS where
   /-- the real path of a path that names something, `none` where nothing is -/
   real : System.FilePath → Option System.FilePath
+  /-- whether a path names a directory -/
+  dir : System.FilePath → Bool
   /-- a regular file's bytes, by its real path; `none` for a directory or
   anything else that is not a readable regular file -/
   bytes : System.FilePath → Option ByteArray
@@ -296,6 +318,12 @@ instance : MonadExceptOf IO.Error ModelIO where
   throw e := fun _ hs o hs' => o = .error e ∧ hs' = hs
   tryCatch x h := fun fs hs o hs' => (∃ a, o = .ok a ∧ x fs hs (.ok a) hs') ∨
     (∃ e hs₁, x fs hs (.error e) hs₁ ∧ h e fs hs₁ o hs')
+
+/-- **`v` is a value the action can give**: a value outcome of it, from
+some open handles to some.  What the specifications of the `.olean`
+reads say of an action whose answer does not depend on the handles. -/
+def ModelIO.CanGive {α : Type} (x : ModelIO α) (fs : FS) (v : α) : Prop :=
+  ∃ hs hs', x fs hs (.ok v) hs'
 
 /-- An outcome determined by a snapshot's answer: the value where there
 is one, some exception where there is none. -/
@@ -356,6 +384,7 @@ handle's position, cut at the end of the file (`min (pos + n) b.size`);
 `liftIO` may have any outcome and leaves the handles as they were. -/
 instance : CheckerIO ModelIO where
   pathExists p := fun fs hs => ModelIO.ret (some (fs.real p).isSome) hs
+  isDir p := fun fs hs => ModelIO.ret (some (fs.dir p)) hs
   realPath p := fun fs hs => ModelIO.ret (fs.real p) hs
   readBinFile p := fun fs hs => ModelIO.ret (fs.file p) hs
   Handle := Nat
@@ -485,6 +514,7 @@ def parMapWorkersIO {σ α β ε : Type} (jobs : Nat) (init : Nat → σ) (f : �
 /-- **The binary's instance**: the runtime's calls; `liftIO` the identity. -/
 instance instCheckerIOIO : CheckerIO IO where
   pathExists p := p.pathExists
+  isDir p := p.isDir
   realPath p := IO.FS.realPath p
   readBinFile p := IO.FS.readBinFile p
   Handle := IO.FS.Handle

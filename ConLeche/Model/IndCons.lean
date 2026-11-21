@@ -116,7 +116,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
       ∀ φ : Name → Nat, RecRules m₂ φ) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh (by intro hn; rw [hop] at hn; exact nomatch hn) hh
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh
     hAparams hAok htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: an inductive cons is never a definition
@@ -128,9 +128,10 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
       (ne_of_notReserved hnres reserved_natName)
       (ne_of_notReserved hnres reserved_natZeroName)
       (ne_of_notReserved hnres reserved_natSuccName) _ rfl φ
-  · exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ) hfresh (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+  · exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ) hfresh
+      (ConLeche.not_mem_natOpNames_of hop).1 _ rfl
   · exact fun φ => divMod_cons_fresh (mp.div_mod φ) hfresh
-      (Or.inl fun cv v hint => hnotdefn cv v hint) _ rfl
+      (ConLeche.not_mem_natOpNames_of hop).2 _ rfl
   · -- `eq_law`: `Eq` is reserved, so it is not this cons
     exact eqLaw_cons_fresh mp.eq_law
       (fun h => ne_of_notReserved hnres reserved_eqName h.symm) _ rfl

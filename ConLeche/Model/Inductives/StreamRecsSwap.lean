@@ -77,16 +77,26 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
       (env₃.find? n = some ci ↔ env₀.find? n = some ci) :=
     fun n ci hnr =>
       ⟨fun h => hcg.findDown n ci h hnr, fun h => hcg.findUp n ci h hnr⟩
-  -- a pinned `Nat`-operation type: the stored `Bool` entry keeps its
-  -- constant value (a swap changes a recursor's rules only)
-  have hpinUp : ∀ {c : Name} {ty : Expr}, ConLeche.natOpTyPinned env₀ c ty = true →
-      ConLeche.natOpTyPinned env₃ c ty = true := fun h =>
-    ConLeche.Verify.natOpTyPinned_of_find (fun ci hf => by
-      rcases hcorr ConLeche.boolName with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -, -,
-          hname, hres⟩
-      · exact ⟨ci, by rw [heq]; exact hf, rfl⟩
-      · rw [hname] at hres
-        exact absurd hres (by decide)) h
+  -- the operations', their dependencies' and the `Bool` entry's
+  -- constant values: a swapped recursor's name is not reserved, and
+  -- every one of these is
+  have hcvUp : ∀ (n : Name), ConLeche.reservedRecName n = true →
+      ∀ ci, env₀.find? n = some ci →
+      ∃ ci', env₃.find? n = some ci' ∧ ci'.toConstantVal = ci.toConstantVal := by
+    intro n hr ci hf
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -, -,
+        hname, hres⟩
+    · exact ⟨ci, by rw [heq]; exact hf, rfl⟩
+    · rw [hname] at hres
+      rw [hres] at hr
+      exact nomatch hr
+  have hdepsUp : ∀ {c : Name}, (c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames) →
+      (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env₀) = true →
+      (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env₃) = true := fun hc h =>
+    ConLeche.Verify.natOpDepsOk_of_find (hcvUp _ (by decide))
+      (fun n hn => hcvUp n (by
+        rcases ConLeche.natOpDeps_mem hc hn with hm | hm <;>
+          simp [ConLeche.reservedRecName, hm])) h
   have hsomeOp : ∀ n, (env₃.find? n).isSome = true → (env₀.find? n).isSome = true := by
     intro n hn
     rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -⟩
@@ -118,8 +128,6 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
             nat_ops := ?_
             div_mod := ?_
             eq_law := ?_
-            op_defn := mp.op_defn.of_same hsomeOp
-              (fun n cv v hh hf => (hsame _ _ (fun _ _ _ _ _ he => ConstantInfo.noConfusion he)).mpr hf)
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
             tower_ok := ?_
@@ -129,8 +137,7 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
             lfp_ok := mp.lfp_ok_transport
               (fun n ci hf hnr => (hsame n ci hnr).mpr hf)
               (fun _ _ _ _ => rfl)
-              (fun ψ d _ _ _ hta => by rw [← denote_swap hcg ψ d]; exact hta)
-              (fun _ => ConstsBound.of_isSome fun n h => by rw [← hcg.isSomeEq]; exact h) },
+              (fun ψ d _ _ _ hta => by rw [← denote_swap hcg ψ d]; exact hta) },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ
@@ -165,19 +172,19 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
     intro φ hsup ρ
     exact mp.nat_heads φ (hcg.natEq ▸ hsup) ρ
   · -- `nat_ops`
-    intro φ c hc cv value hint hf
-    obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc cv value hint
-      ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    refine ⟨by rw [← hcg.guardEq]; exact hgu, hpinUp hpin, ?_⟩
+    intro φ c hc ci hf
+    obtain ⟨ci₀, hf₀⟩ := Option.isSome_iff_exists.mp (hsomeOp c (by rw [hf]; rfl))
+    obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc ci₀ hf₀
+    refine ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp (Or.inl hc) hpin, ?_⟩
     intro eq heq
     obtain ⟨L, R, hL, hR, hval⟩ := hlaw eq heq
     exact ⟨L, R, by rw [← hde]; exact hL,
       by rw [← hde]; exact hR, hval⟩
   · -- `div_mod`
-    intro φ c hc cv value hint hf
-    obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc cv value hint
-      ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    exact ⟨by rw [← hcg.guardEq]; exact hgu, hpinUp hpin, hlaw⟩
+    intro φ c hc ci hf
+    obtain ⟨ci₀, hf₀⟩ := Option.isSome_iff_exists.mp (hsomeOp c (by rw [hf]; rfl))
+    obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc ci₀ hf₀
+    exact ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp (Or.inr hc) hpin, hlaw⟩
   · -- `eq_law`: `Eq` is stored as an `indInfo`, so it is never swapped
     intro ci p hf hp
     exact mp.eq_law ci p ((hsame eqName ci
@@ -405,7 +412,9 @@ theorem storedSwap_sem {envC : Env}
     rcases hC.1 n _ hf with hG | ⟨j, rc, g, hQ, -, hG, hci⟩
     · have h := mpG.rec_rules φ n cv mI rP isK rules hG rl hrl
       exact recRuleLaw_stored (mG := mpG.base2) (mS := m₃) hac hde hctor hfam (T := cv.type)
-        (e := rl.rhs) (fun us _ TS hTS => ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩⟩)
+        (e := rl.rhs) (fun us _ TS hTS => ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩,
+          fun ρ xs rest _ hfit => ⟨rest, hfit⟩, fun ρ ws restS restG _ hS hG hU => by
+            rw [TeleFitPA.rest_unique hS hG]; exact hU⟩)
         (fun us hus RaG hRaG => by
           obtain ⟨Ra, hRa, hw, -⟩ := h.2.1 us hus
           obtain rfl := Option.some.inj (hRa.symm.trans hRaG)
@@ -423,13 +432,34 @@ theorem storedSwap_sem {envC : Env}
       · intro us hus TS hTS
         rcases hty with htyE | htyC
         · rw [htyE] at hTS
-          exact ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩⟩
-        · rw [denote_instLevels hp] at hTS ⊢
-          obtain ⟨TS', TG, hTS', hTG, -, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw
+          refine ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩,
+            fun ρ xs rest _ hfit => ⟨rest, hfit⟩, fun ρ ws restS restG _ hS hG hU => ?_⟩
+          rw [htyE, TeleFitPA.rest_unique hS hG]; exact hU
+        · have hTS0 := hTS
+          rw [denote_instLevels hp] at hTS ⊢
+          obtain ⟨TS', TG, hTS', hTG, -, hEq, hUS⟩ := storedTy_sem mpG htyC hGb hGr hGw
             (Level.substFn φ g.1.levelParams us)
           obtain rfl := Option.some.inj (hTS.symm.trans hTS')
-          refine ⟨TG, hTG, fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ) ?_⟩
-          rw [← hmI]; exact hxl
+          refine ⟨TG, hTG, fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ) (by rw [← hmI]; exact hxl),
+            fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ).symm (by rw [← hmI]; exact hxl),
+            fun ρ ws restS restG hwl hS _ _ pre idx rest body u hpre hidx hu => ?_⟩
+          rw [Expr.stripPis_instantiateLevelParams] at hpre
+          obtain ⟨⟨pre₀, rest₀⟩, hpre₀, hpe⟩ := Option.map_eq_some_iff.mp hpre
+          simp only [Prod.mk.injEq] at hpe
+          obtain ⟨rfl, rfl⟩ := hpe
+          rw [Expr.stripPis_instantiateLevelParams] at hidx
+          obtain ⟨⟨idx₀, body₀⟩, hidx₀, hie⟩ := Option.map_eq_some_iff.mp hidx
+          simp only [Prod.mk.injEq] at hie
+          obtain ⟨rfl, rfl⟩ := hie
+          obtain ⟨u₀, hu₀, rfl⟩ := motiveLevel?_instantiateLevelParams _ _ hu
+          rw [Level.eval_subst]
+          have hrP : q.rulePrefixAt j ≤ q.majorIdxAt j := h.1
+          rw [hmI] at hrP hidx₀ hu₀ hwl
+          exact hUS _ pre₀ idx₀ rest₀ body₀ u₀ (by omega) hpre₀
+            (by rw [show rc.mI + 1 - q.rulePrefixAt j = rc.mI - q.rulePrefixAt j + 1 by omega]
+                exact hidx₀)
+            (by rw [show rc.mI + 1 - q.rulePrefixAt j - 1 = rc.mI - q.rulePrefixAt j by omega]
+                exact hu₀) ρ ws restS hwl hS
       · intro us hus RaG hRaG
         obtain ⟨r0, hr0, hr0e⟩ : ∃ r0, rc.rules[i]? = some r0 ∧ r0.rhs = rl.rhs := by
           rw [List.getElem?_map] at hiS
@@ -459,7 +489,7 @@ theorem storedSwap_sem {envC : Env}
       · rw [htyE]
         obtain ⟨TG, hTG⟩ := hGr ψ
         exact ⟨TG, hTG, hGw ψ TG hTG, hGm ψ TG hTG⟩
-      · obtain ⟨TS, TG, hTS, hTG, hw, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw ψ
+      · obtain ⟨TS, TG, hTS, hTG, hw, hEq, -⟩ := storedTy_sem mpG htyC hGb hGr hGw ψ
         exact ⟨TS, hTS, hw, fun ρ => by rw [(hEq ρ).interp_eq]; exact hGm ψ TG hTG ρ⟩
     refine ⟨fun ψ => ?_, fun ψ ta hta ρ => ?_, fun ψ ta hta ρ => ?_⟩
     · obtain ⟨TS, hTS, -, -⟩ := key ψ

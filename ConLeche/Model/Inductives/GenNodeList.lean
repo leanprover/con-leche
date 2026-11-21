@@ -471,8 +471,7 @@ theorem genRecCtx_nodes {F : Nat} {block : List ConstantInfo}
     (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nested posR
       block out)
     (mk : EnvModelM V envI) (hmkC : LfpCover mk pp.memberNames)
-    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps pp.formers pp isRecR)
-    (hreads : ∀ F, FamilyRead mk F) :
+    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps pp.formers pp isRecR) :
     ∃ (fvsP : List Expr) (ns : List PosTree),
       R.ctx = pp.nestCtx fvsP envI.find? ∧
       (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t) ∧
@@ -531,7 +530,7 @@ theorem genRecCtx_nodes {F : Nat} {block : List ConstantInfo}
     ConLeche.nestRootOk_of_open (ctx := pp.nestCtx fvsP envI.find?) h2
   generalize hctxE : pp.nestCtx fvsP envI.find? = ctx at *
   have hcov : ContCover mk ctx := by
-    rw [← hctxE]; exact contCover_of hmkC (fun _ => rfl) hreads
+    rw [← hctxE]; exact contCover_of hmkC (fun _ => rfl)
   -- every chosen constructor's forest is read
   have hsem : ∀ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (ctor : ConstantVal × Nat)
       (crest : Expr) (ks : List ConLeche.NestFieldKind) (tyN : Expr) (ts : List PosTree),

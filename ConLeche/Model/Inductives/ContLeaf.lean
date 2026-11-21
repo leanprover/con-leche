@@ -34,7 +34,7 @@ telescope (`keyFit_of_wd`: the former inhabits its type's Π-tower, M4,
 and a graded application of a Π-tower's inhabitant fits it); so the
 instance grows along a hole relation as soon as the carrier does at the
 two key frames (`monoOn_of_famLe`) — the index sets being the same there
-(N2, `n2_link`).
+(N2, `n2_tower`).
 -/
 
 namespace ConLeche.Model
@@ -55,6 +55,18 @@ theorem spineFit_of_sat_consList {Ds : List Term} {as : List V} {ρ : Nat → V}
     SpineFit ρ Ds as := by
   have := spineFit_frameIdx_of_sat h
   rwa [← hlen, shiftE_consList, frameIdx_consList'] at this
+
+/-- **A frame satisfying the parameters, with an index fit there, is a full fit** of a member's
+telescope (the frame's own parameter values over its shift). -/
+theorem lfp_frameFullFit (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
+    {mm : Nat} (hmm : mm < D.k) {ψ : Name → Nat} {σ : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse σ) {is : List V} (his : SpineFit σ (D.ids mm ψ) is) :
+    SpineFit (shiftE (D.params ψ).length 0 σ) (D.pars mm ψ ++ D.ids mm ψ)
+      (frameIdx (D.params ψ).length σ ++ is) := by
+  obtain ⟨hC, -, -, -⟩ := mp.lfp_ok D hD
+  have hP := spineFit_frameIdx_of_sat (hC.parsSat mm hmm ψ σ hsat)
+  rw [hC.parsLen mm hmm] at hP
+  exact SpineFit.append hP (by rw [consList_frameIdx]; exact his)
 
 /-- **The key's arguments fit the container's former telescope** (the
 former's reading, M4, at the key's levels), at every valuation where the
@@ -77,25 +89,41 @@ theorem keyFit_of_wd (mp : EnvModelM V env) {D : LfpDatum V}
   dsimp only [ConLeche.ConstantInfo.toConstantVal] at hul ⊢
   refine ⟨hul, vs, hsp, rfl, fun ρ hwd σ => ?_⟩
   generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlen hwd ⊢
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', -, hab⟩ := hrd mm hmm
+  obtain ⟨cv', caps', hf', -, hval, -⟩ := mp.lfpReads hD mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  obtain ⟨ab, hta, hmap⟩ := hab ψ
-  have hin := mp.formerAt_mem hD hmm hf hta ρ
-  have hwf := mp.formerAt_wf hD hmm hf
-  have hcl : Term.bvarsBelow 0 (mkPisAV ab (.sort (D.w ψ))) :=
+  obtain ⟨ta₀, hta₀, hv⟩ := hval ψ
+  have hmem := ConLeche.Env.find?_mem hf
+  have hwf := mp.base2.wf.consts _ hmem
+  -- the member inhabits its stored type, whose value is the block's telescope's, at every frame
+  have hcl : Term.bvarsBelow 0 ta₀ :=
     ConLeche.Verify.denote_bvarsBelow mp.base2.cval_closed 0 _
-      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.1
-      hta
-  rw [interp_closed V hcl ρ σ] at hin
+      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.2.2.1 hta₀
+  have hin : interp V ρ (mp.base2.acval (D.member mm) ψ)
+      ∈ˢ interp V σ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) := by
+    rw [← hv σ, interp_closed V hcl σ ρ]
+    have := mp.mem_type _ hmem ψ _ hta₀ ρ
+    rwa [ConLeche.Env.find?_name hf] at this
   -- "not pt" source (1): the family instance is a type
-  have hsp' := spineFit_of_wellDenoted_mkAppN_pi hwd.2.ne_pt hwd.1 hin
-    (by rw [← DenoteSpine.length_eq hsp, hlen, ← List.length_append, ← hmap])
-  rwa [hmap] at hsp'
+  exact spineFit_of_wellDenoted_mkAppN_pi hwd.2.ne_pt hwd.1 hin
+    (by rw [← DenoteSpine.length_eq hsp, hlen, List.length_append])
 
 /-- The valuation `n` positions down. -/
 @[expose] def dropV (n : Nat) (ρ : Nat → V) : Nat → V := fun i => ρ (i + n)
+
+/-- **A key frame fits a recorded block**: its parameters satisfy the block's parameter telescope
+and extend to a full fit of a member's telescope.  Where no member's index telescope has a fit,
+the members' telescopes have the value of any other such telescope (a function space over an
+empty domain is a truth value), so nothing is read there; a container instance graded at a
+valuation fits at its key frame (`keyLeaf`). -/
+@[expose] def KeyFit (D : LfpDatum V) (ψ : Name → Nat) (dsa : List Term) (hi : Nat)
+    (ρ : Nat → V) : Prop :=
+  D.FrFit ψ (keyFrame dsa hi ρ)
+
+/-- **A frame relation at the pairs whose key frames fit the block** (`KeyFit`). -/
+@[expose] def fitRel (R : FrameRel V) (D : LfpDatum V) (ψ : Name → Nat) (dsa : List Term)
+    (hi : Nat) : FrameRel V :=
+  fun ρ ρ' => R ρ ρ' ∧ KeyFit D ψ dsa hi ρ ∧ KeyFit D ψ dsa hi ρ'
 
 /-- **The container instance at its leaf** (see the module docstring): at
 every valuation where `C.{us} (ds ++ is)` is graded, the key frame
@@ -176,6 +204,8 @@ theorem monoOn_of_famLe (mp : EnvModelM V env) {D : LfpDatum V}
     (hgr : Rules.GradedTy V Δa wa)
     (his : ∀ isa, DenoteSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     (hle : ∀ ρ ρ', R ρ ρ' →
+      KeyFit D (Level.substFn φ cv.levelParams us) dsa b (dropV (dep - b) ρ) →
+      KeyFit D (Level.substFn φ cv.levelParams us) dsa b (dropV (dep - b) ρ') →
       FamLe (D.idx (Level.substFn φ cv.levelParams us) (keyFrame dsa b (dropV (dep - b) ρ)) mm)
         (D.carrier (Level.substFn φ cv.levelParams us) (keyFrame dsa b (dropV (dep - b) ρ)) mm)
         (D.carrier (Level.substFn φ cv.levelParams us) (keyFrame dsa b (dropV (dep - b) ρ')) mm)) :
@@ -183,12 +213,12 @@ theorem monoOn_of_famLe (mp : EnvModelM V env) {D : LfpDatum V}
   obtain ⟨-, isa, hisa, hk⟩ := keyLeaf mp hD hmm hf hbd hwa hlenP hlenI hdsw hdsa
   intro ρ ρ' hR
   obtain ⟨h1, h2⟩ := hdom ρ ρ' hR
-  obtain ⟨-, hfit, heq⟩ := hk ρ (hgr ρ h1)
-  obtain ⟨-, -, heq'⟩ := hk ρ' (hgr ρ' h2)
+  obtain ⟨hs, hfit, heq⟩ := hk ρ (hgr ρ h1)
+  obtain ⟨hs', hfit', heq'⟩ := hk ρ' (hgr ρ' h2)
   have hmap : isa.map (interp V ρ) = isa.map (interp V ρ') :=
     List.map_congr_left fun v hv => his isa hisa v hv ρ ρ' hR
   rw [heq, heq', ← hmap]
-  exact hle ρ ρ' hR _ (tupW_mem hfit)
+  exact hle ρ ρ' hR ⟨hs, mm, hmm, _, hfit⟩ ⟨hs', mm, hmm, _, hfit'⟩ _ (tupW_mem hfit)
 
 /-! ## A constant's spine, typed: its arguments' certificates
 
@@ -293,67 +323,48 @@ theorem familyKey_reads (m : EnvModel V env) (φ : Name → Nat) {find? : Name �
       rw [hf] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
 
-/-- **The key's parameters fit the container's parameter telescope**, at
-every valuation of the key's context: the key's arguments carry full-grade
-certificates against the former's telescope (`familyKeyCheck`), whose
-soundness is the fit against the telescope's reading.  (The key's VALUE cannot give it: a
-parameter prefix over an empty index set reads the point.)  The
-certificates' `DefEq`/`Red` claims are used only between types, never
-the point ("not pt" source (1), inside `certsF_sound`). -/
-theorem keyParamsFit (mp : EnvModelM V env)
-    (hin : Rules.RulesInputs V mp.base2 φ) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level} {d : Nat}
-    {ds : List Expr}
-    (hcerts : ConLeche.Rules.CertsF env d
-      ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us) ds)
-    (hlenP : ds.length = (D.params (Level.substFn φ cv.levelParams us)).length)
+/-- **The key's parameters fit a family's parameter binders**, at every valuation of the key's
+context: the key's arguments carry full-grade certificates against the family's telescope (a
+run's result, `familyKeyCheck`), whose soundness is the fit against the telescope's reading.  (The
+key's VALUE cannot give it: a parameter prefix over an empty index set reads the point.)  The
+certificates' `DefEq`/`Red` claims are used only between types, never the point ("not pt" source
+(1), inside `certsF_sound`). -/
+theorem keyRunFit (mp : EnvModelM V env) (hin : Rules.RulesInputs V mp.base2 φ) {ty : Expr}
+    (hcl : ty.hasFvar = false) (hbb : ty.looseBVarsBounded 0 = true) {lps : List Name}
+    {us : List Level} {d : Nat} {ds : List Expr}
+    (hcerts : ConLeche.Rules.CertsF env d (ty.instantiateLevelParams lps us) ds)
+    {ab : List Term} {u : Nat}
+    (hta : denote mp.base2.acval env (Level.substFn φ lps us) 0 ty = some (mkPisAV ab (.sort u)))
+    (hwd : ∀ ρ : Nat → V, WellDenoted V ρ (mkPisAV ab (.sort u))) (hlen : ds.length ≤ ab.length)
     {Δa : List Term} (hΔ : Δa.length = d)
     (hfr : ∀ x ∈ ds, Rules.Frame d x ∧ CtxOkS mp.base2 φ d Δa x) {dsa : List Term}
     (hdsa : DenoteSpine mp.base2.acval env φ d ds dsa) :
     ∀ ρ : Nat → V, Sat V Δa ρ → (∀ x ∈ ds, LeavesGr mp.base2 φ d x ρ) →
-      Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse (keyFrame dsa d ρ) ∧
+      SpineFit (fun j => ρ (j + d)) (ab.take ds.length) (dsa.map (interp V ρ)) ∧
       ∀ a ∈ dsa, WellDenoted V ρ a := by
   intro ρ hρ hL
   have hsem := Rules.certsF_sound hin hcerts
-  -- the former's telescope, read
-  obtain ⟨hwf₁, hwf₂, -⟩ := mp.formerAt_wf hD hmm hf
-  have hnf : ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
-    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwf₁
-  have hbd : ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0
-      = true := by
-    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf₂
-  generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlenP ⊢
-  obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', -, hab⟩ := hrd mm hmm
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  obtain ⟨ab, hta, hmap⟩ := hab ψ
-  have hT0 : denote mp.base2.acval env φ 0
-      ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us)
-      = some (mkPisAV ab (.sort (D.w ψ))) := by
-    rw [denotePInstLevels, hψ, hta]
+  have hnf : (ty.instantiateLevelParams lps us).hasFvar = false := by
+    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hcl
+  have hbd : (ty.instantiateLevelParams lps us).looseBVarsBounded 0 = true := by
+    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hbb
+  have hT0 : denote mp.base2.acval env φ 0 (ty.instantiateLevelParams lps us)
+      = some (mkPisAV ab (.sort u)) := by
+    rw [denotePInstLevels, hta]
   have hTaD := ConLeche.Verify.denote_depth_of_closed mp.base2.acval_closed hnf
     (fun k => ConLeche.Verify.denote_liftN_eq_self mp.base2.cval_closed hnf hbd hT0 1 k) hT0
-  have hokTa : ∀ ρ : Nat → V, WellDenoted V ρ (mkPisAV ab (.sort (D.w ψ))) := fun ρ =>
-    (mp.formerAt_wellDenotedTy hD hmm hf hta ρ).1
   obtain ⟨hfT, hCT⟩ := Rules.frame_of_not_hasFvar (m := mp.base2) (φ := φ) (d := d) hnf hbd hΔ
   obtain ⟨resta, hfit⟩ := hsem hfT hCT (hTaD d) hfr hdsa
   obtain ⟨hwdV, hTF, -⟩ := hfit ρ hρ
     (fun l hl => by
       rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hnf] at hl
-      exact nomatch hl) hL (hokTa ρ)
+      exact nomatch hl) hL (hwd ρ)
   refine ⟨?_, hwdV⟩
-  -- the reading is the former's telescope over the parameters and indices
-  have hpl := h.parsLen mm hmm ψ
   have hlab : (ab.take ds.length).length = ds.length := by
-    rw [List.length_take]
-    have := congrArg List.length hmap
-    simp only [List.length_append] at this
-    omega
-  have hsplit : mkPisAV ab (.sort (D.w ψ))
-      = mkPisAV (ab.take ds.length) (mkPisAV (ab.drop ds.length) (.sort (D.w ψ))) := by
-    have := mkPisAV_append' (.sort (D.w ψ)) (ab.take ds.length) (ab.drop ds.length)
+    rw [List.length_take]; omega
+  have hsplit : mkPisAV ab (.sort u)
+      = mkPisAV (ab.take ds.length) (mkPisAV (ab.drop ds.length) (.sort u)) := by
+    have := mkPisAV_append' (.sort u) (ab.take ds.length) (ab.drop ds.length)
     rwa [List.take_append_drop] at this
   rw [hsplit] at hTF
   have hdl := DenoteSpine.length_eq hdsa
@@ -361,24 +372,17 @@ theorem keyParamsFit (mp : EnvModelM V env)
   have hsp : SpineFit ρ (ab.take ds.length) (dsa.map (interp V ρ)) := by
     have hle : dsa.length = (ab.take ds.length).length := by rw [hlab, hdl]
     have htele := piTeleAV_of_stripPisAV (stripPisAV_mkPisAV (ab.take ds.length)
-      (mkPisAV (ab.drop ds.length) (.sort (D.w ψ))))
+      (mkPisAV (ab.drop ds.length) (.sort u)))
     refine spineFit_of_chain (by simpa using hle) ?_
     intro n hn
     have := teleFitPA_to_chain (ab.take ds.length).length htele hle hTF n (by simpa using hn)
     simpa using this
-  -- the former's telescope is closed, so the fit holds at the key frame's base
-  have hcl : Term.bvarsBelow 0 (mkPisAV ab (.sort (D.w ψ))) :=
+  -- the telescope is closed, so the fit holds at the key frame's base
+  have hcl' : Term.bvarsBelow 0 (mkPisAV ab (.sort u)) :=
     ConLeche.Verify.denote_bvarsBelow mp.base2.cval_closed 0 _
-      (ConLeche.Expr.WScoped.of_not_hasFvar hwf₁) hwf₂ hta
-  rw [hsplit] at hcl
-  have hsp := spineFit_congr_below (ρ' := fun j => ρ (j + d))
-    (bvarsBelow_mkPisAV_inv hcl).1 (fun i hi => absurd hi (Nat.not_lt_zero i)) hsp
-  have hmap₁ : (ab.take ds.length) = D.pars mm ψ := by
-    rw [hmap, hlenP, ← hpl, List.take_left' rfl]
-  rw [hmap₁] at hsp
-  have hsatP : Sat V (D.pars mm ψ).reverse (keyFrame dsa d ρ) := by
-    have := sat_of_spineFit (Sat_nil V (fun j => ρ (j + d))) hsp
-    simpa [keyFrame] using this
-  exact h.parsSatInv mm hmm ψ _ hsatP
+      (ConLeche.Expr.WScoped.of_not_hasFvar hcl) hbb hta
+  rw [hsplit] at hcl'
+  exact spineFit_congr_below (ρ' := fun j => ρ (j + d))
+    (bvarsBelow_mkPisAV_inv hcl').1 (fun i hi => absurd hi (Nat.not_lt_zero i)) hsp
 
 end ConLeche.Model

@@ -35,16 +35,16 @@ theorem checkDeclStepC_model {fe fe₁ : FEnv} {pd : Declaration} {s s₁ : CSta
     (h : checkDeclStepC .verified pins fe pd s = .ok (fe₁, s₁)) :
     EnvModelOk V fe₁.env ∧ fe₁ = mkFEnv fe₁.env ∧ CSOKF s₁ ∧
       ∃ F, checkDecl .verified (fueledOps .verified F) pins fe.env pd = .ok fe₁.env := by
-  obtain ⟨⟨mp, hcov, hS⟩, hN⟩ := hm
+  obtain ⟨⟨mp, hcov⟩, hN⟩ := hm
   have henv : EnvWF fe.env := mp.toEnvFacts.wf
   rw [hfe] at h
   obtain ⟨hres₁, hcanon, F, hF⟩ := checkDeclStepC_run henv hres h
-  exact ⟨declStep_preserves mp hcov hS hN (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF),
+  exact ⟨declStep_preserves mp hcov hN (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF),
     hcanon, hres₁, F, hF⟩
 
 /-- **The model along the run.** -/
 theorem declsRun_model {ds : List Declaration} {p q : Nat × FEnv}
-    (hrun : DeclsRun .verified pins maxNatSize ds p q) :
+    (hrun : DeclsRun .verified pins maxNatSize none ds p q) :
     p.2 = mkFEnv p.2.env → EnvModelOk V p.2.env → EnvModelOk V q.2.env := by
   induction hrun with
   | nil p => exact fun _ hm => hm

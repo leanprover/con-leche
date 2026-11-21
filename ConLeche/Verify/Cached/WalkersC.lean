@@ -25,8 +25,8 @@ theorem unresolvedConstsErrorLC_eq : unresolvedConstsErrorLC = unresolvedConstsE
 
 /-- **The cached constant check is the index mirror at the cached operations**
 (task #497): the same steps, the guards' cached walks equal to the plain ones. -/
-theorem checkConstantValC_eq (mode : CheckMode) (fe : FEnv) (cv : ConstantVal) (a : Bool) :
-    checkConstantValC mode fe cv a = checkConstantValF (sharedOpsC mode fe) fe cv a := by
+theorem checkConstantValC_eq (mode : CheckMode) (fe : FEnv) (cv : ConstantVal) (a r s : Bool) :
+    checkConstantValC mode fe cv a r s = checkConstantValF (sharedOpsC mode fe) fe cv a r s := by
   simp only [checkConstantValC, checkConstantValF, Expr.allLevelParamsDefinedC_spec,
     constsResolveFC_spec, unresolvedConstsErrorLC_eq]
   rfl

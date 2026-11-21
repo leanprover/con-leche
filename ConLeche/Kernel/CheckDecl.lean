@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockTail
+public import ConLeche.Kernel.Inductives.IotaRead
 
 @[expose] public section
 
@@ -42,10 +43,10 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     -- replaced by its stored value (see `ConLeche/Kernel/Core.lean`:
     -- certifying after insertion would let the operation's own fast
     -- path discharge its all-literal equations vacuously), and the
-    -- operation's and its dependencies' stored types are pinned.
+    -- operation's stored type is pinned (its dependencies need only be
+    -- stored: each one's own install pins and certifies it).
     if natOpNames.contains cv.name then
-      unless natOpGuard env2 cv.name &&
-          (natOpDeps cv.name).all (natOpStoredOk env2) do
+      unless natOpGuard env2 cv.name && natOpStoredOk env2 cv.name do
         throw (.notImplemented
           s!"nonstandard structural Nat operation environment ({cv.name})")
       match env2.find? cv.name with
@@ -75,7 +76,7 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     checkConstantVal ops env cv
     checkThmVal ops env cv value
   | .opaqueDecl cv value => do
-    checkConstantVal ops env cv
+    checkConstantVal ops env cv (allowReduce := true)
     let env2 ← checkOpaqueVal ops env cv value
     -- Compiler-trust opaques (`Lean.reduceNat`/`Lean.reduceBool`,
     -- task #95): the stored value must be definitionally equal to the
@@ -112,7 +113,7 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     if cv.name = quotSoundName then
       checkQuotRecord env .sound cv
     else do
-      checkConstantVal ops env cv
+      checkConstantVal ops env cv (allowSorry := true)
       if stdAxiomOk env cv then
         pure ⟨.axiomInfo cv :: env.consts, env.tables⟩
       else if cv.name = trustCompilerName then
@@ -158,7 +159,12 @@ def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
       -- (task #219).  A block it cannot read is rejected with the
       -- reason `readBlock` gives.
       match readBlock nP block with
-      | .ok p => checkBlock ops env block p
+      | .ok p => do
+        let env' ← checkBlock ops env block p
+        -- the recursors' ι equations read off their own types (`blockReadsOk`)
+        match blockReadsOk env'.find? p with
+        | .ok _ => pure env'
+        | .error e => throw e
       | .error e => throw e
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv => checkQuotRecord env k cv

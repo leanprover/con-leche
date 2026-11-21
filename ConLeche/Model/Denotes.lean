@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Denotes
+import ConLeche.Denotes
 public import ConLeche.Model.Env.EnvModelM
 public import ConLeche.Verify.Close
 import ConLeche.Verify.Denote.VClosed
@@ -26,17 +26,9 @@ this module builds one from the graded invariant `EnvModelM`
   Bruijn indices the relation reads) at the interpreted leaves.  Both
   read a binder's regime off the values (`piV`/`lamV`), so the bridge
   has no side condition.
-* **the model** `Model.ofEnvModelM`: `mem` from `type_reads` and
-  `mem_type` at depth `0` (a stored type has no `fvar`, so it is its
-  own closure); `false_empty` from the pinned `False` leaf
-  (`EnvModel.acval_pinned`: the leaf is `.const .empty [0]`, whose
-  interpretation is the empty set); `eq_equality` from the invariant's
-  `eq_law` field, whose value clause is exactly the three-fold
-  application the statement asks about.  `eq_law` is premised on the
-  *pinned* `Eq` being stored, and the `Denotes` hypothesis supplies
-  only that *something* is stored at `eqName`; the two are joined by
-  `basis_pinned`'s declaration clause, which since task #283 holds of
-  a stored reserved name whatever its kind.
+* **the model** `Model.ofEnvModelM` (`Model/OfEnvModelM.lean`, after the
+  rule equations' proof `Model/RuleEqsSound.lean`, which reads through
+  this module).
 -/
 
 namespace ConLeche.Model
@@ -53,9 +45,19 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- The set-valued leaf of a leaf valuation. -/
-noncomputable def cvalOf (acval : Name → (Name → Nat) → Term)
+@[expose] noncomputable def cvalOf (acval : Name → (Name → Nat) → Term)
     (n : Name) (ψ : Name → Nat) : V :=
   interp V (fun _ => SetTheory.empty) (acval n ψ)
+
+/-- Two leaf assignments alike at a name give it one value. -/
+theorem cvalOf_congr {a b : Name → (Name → Nat) → Term} {n : Name} (h : a n = b n) :
+    cvalOf (V := V) a n = cvalOf b n := by
+  funext ψ; unfold cvalOf; rw [h]
+
+/-- The canonical proof's value is the point. -/
+theorem cvalOf_prf {a : Name → (Name → Nat) → Term} {n : Name} (h : a n = fun _ => .prf) :
+    cvalOf (V := V) a n = fun _ => SetTheory.pt := by
+  funext ψ; unfold cvalOf; rw [h]; rfl
 
 /-- A closed leaf interprets to its `cvalOf` under every environment. -/
 theorem interp_cvalOf {acval : Name → (Name → Nat) → Term}
@@ -181,7 +183,7 @@ theorem Denotes_strLitToConstructor {acval : Name → (Name → Nat) → Term}
 /-! ### The bridge -/
 
 /-- A term with no `fvar` is scoped below every depth. -/
-private theorem fvarsBelow_zero_of_not_hasFvar :
+theorem fvarsBelow_zero_of_not_hasFvar :
     ∀ {e : Expr}, e.hasFvar = false → Expr.fvarsBelow 0 e := by
   intro e
   induction e <;> simp_all [Expr.fvarsBelow, Expr.hasFvar]
@@ -322,55 +324,5 @@ theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
       cases l with
       | natVal k => exact absurd rfl (hnat k)
       | strVal s => exact absurd rfl (hstr s)
-
-/-! ### The model -/
-
-/-- **The model, read off the invariant**: `Model V env` from
-`EnvModelM V env`. -/
-noncomputable def Model.ofEnvModelM {env : Env}
-    (m : EnvModelM V env) : ConLeche.Model V env where
-  cval := cvalOf m.base2.acval
-  mem := by
-    intro c hc φ ρ
-    obtain ⟨ta, hta⟩ := m.type_reads c hc φ
-    have hwf := m.base2.wf.consts c hc
-    have hnf : c.toConstantVal.type.hasFvar = false := hwf.1
-    have hlb : c.toConstantVal.type.looseBVarsBounded 0 = true := hwf.2.2.2.1
-    have hbr := Denotes_of_denote (V := V) m.base2.cval_closed 0
-      c.toConstantVal.type hta (fvarsBelow_zero_of_not_hasFvar hnf) hlb ρ
-    rw [Expr.closeN_of_hasFvar _ 0 0 hnf] at hbr
-    refine ⟨interp V ρ ta, hbr, ?_⟩
-    rw [← interp_cvalOf m.base2.cval_closed]
-    exact m.mem_type c hc φ ta hta ρ
-  false_empty := by
-    intro φ ρ F h
-    suffices hs : ∀ (ψ : Name → Nat) (ci : ConstantInfo),
-        env.find? falseName = some ci →
-        cvalOf (V := V) m.base2.acval falseName ψ = SetTheory.empty by
-      cases h with
-      | const hf hlen => exact hs _ _ hf
-    intro ψ ci hf
-    have hpd : ∀ ψ' : Name → Nat, ConLeche.Verify.pinnedStructT falseName ψ'
-        = some (Term.const .empty [0]) := fun _ => by
-      simp +decide [ConLeche.Verify.pinnedStructT]
-    have he : (m.base2.acval falseName ψ) = Term.const .empty [0] :=
-      m.base2.acval_pinned_free hf (by decide) hpd
-    rw [cvalOf, he, interp_const]
-    rfl
-  eq_equality := by
-    intro u φ ρ E A a b h hA ha hb
-    cases h with
-    | const hf hlen =>
-      rename_i ci
-      obtain ⟨-, -, hl⟩ := (m.base2.basis_pinned _ _ hf (by decide)).1
-      have hl' : ci.toConstantVal.levelParams.length = 1 := hl
-      match hq : ci.toConstantVal.levelParams, hl' with
-      | [p], _ =>
-      have hψ : Level.substFn φ [p] [u] p = Level.eval φ u := by
-        simp [Level.substFn]
-      have hlaw := (m.eq_law ci p hf hq (Level.substFn φ [p] [u])).1 ρ A a b
-        (by rw [hψ]; exact hA) ha hb
-      rw [interp_cvalOf m.base2.cval_closed] at hlaw
-      exact hlaw
 
 end ConLeche.Model

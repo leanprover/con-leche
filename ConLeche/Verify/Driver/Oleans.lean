@@ -20,7 +20,7 @@ and what an exit 0 means is about the records with those values in place:
   (`buildIndex_fill`);
 * `checkMainG_oleans_accept`: the same from the driver's run.
 
-That those records are the specification's own is `readOleans_filled`
+That those records are the specification's own is `readOleansAt_filled`
 (`ConLeche/Verify/Frontend/Olean/Files.lean`): a theorem's record, with its value in place, is
 the constant the specification reads off that module's files (`constSpec`), its statement and
 its proof.
@@ -33,13 +33,13 @@ namespace ConLeche.Driver
 open ConLeche Frontend.Olean Cached
 
 /-- **A reference, with what it stands for on a snapshot put in its place.** -/
-noncomputable def fillOf (sp : SearchPath) (fs : FS) (values : Array ModRef) : Expr → Expr
+noncomputable def fillOf (sp : Roots) (fs : FS) (values : Array ModRef) : Expr → Expr
   | .bvar code =>
     open Classical in
     if h : ∃ e, ValueAt sp fs values code e then h.choose else .bvar code
   | e => e
 
-theorem fillOf_value {sp : SearchPath} {fs : FS} {values : Array ModRef} {code : Nat} {e : Expr}
+theorem fillOf_value {sp : Roots} {fs : FS} {values : Array ModRef} {code : Nat} {e : Expr}
     (h : ValueAt sp fs values code e) : fillOf sp fs values (.bvar code) = e := by
   have hex : ∃ e, ValueAt sp fs values code e := ⟨e, h⟩
   simp only [fillOf, hex, ↓reduceDIte]
@@ -48,15 +48,52 @@ theorem fillOf_value {sp : SearchPath} {fs : FS} {values : Array ModRef} {code :
 /-! ## A worker's state -/
 
 /-- **What a worker's kept region is**: its module's, on the snapshot. -/
-def CacheOK (sp : SearchPath) (fs : FS) (values : Array ModRef) (c : ValueCache) : Prop :=
+def CacheOK (sp : Roots) (fs : FS) (values : Array ModRef) (c : ValueCache) : Prop :=
   ∀ r, c.region = some r → ∃ md f a, values[c.idx]? = some md ∧
     ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
     f.viewRegion .private = some (r, a)
 
-theorem cacheOK_empty {sp : SearchPath} {fs : FS} {values : Array ModRef} :
+theorem cacheOK_empty {sp : Roots} {fs : FS} {values : Array ModRef} :
     CacheOK sp fs values {} := fun r h => by simp at h
 
-variable {sp : SearchPath} {fs : FS} {values : Array ModRef}
+/-- A kept region moves to another snapshot where the private files read alike (task #608). -/
+theorem CacheOK.of_files {sp : Roots} {fs₁ fs₂ : FS} {values : Array ModRef} {c : ValueCache}
+    (h : ∀ m f, ModelIO.CanGive (readFiles sp m .private) fs₁ (.ok f) →
+      ModelIO.CanGive (readFiles sp m .private) fs₂ (.ok f))
+    (hc : CacheOK sp fs₁ values c) : CacheOK sp fs₂ values c := fun r hr =>
+  let ⟨md, f, a, hmd, hf, hreg⟩ := hc r hr
+  ⟨md, f, a, hmd, h _ _ hf, hreg⟩
+
+/-- **The values through roots read off the snapshot are the search path's.** -/
+theorem fillOf_roots {fs : FS} {R : Roots} (hR : R.Ok fs) (values : Array ModRef) :
+    fillOf R fs values = fillOf R.bare fs values := by
+  funext x
+  cases x <;> simp only [fillOf]
+  rw [ValueAt.roots hR]
+
+/-- A region kept off the search path is one kept through roots read off the snapshot. -/
+theorem CacheOK.roots {fs : FS} {R : Roots} (hR : R.Ok fs) {values : Array ModRef}
+    {c : ValueCache} (h : CacheOK R.bare fs values c) : CacheOK R fs values c := by
+  intro r hr
+  obtain ⟨md, f, a, h1, h2, h3⟩ := h r hr
+  exact ⟨md, f, a, h1, readFiles_rev hR h2, h3⟩
+
+/-- **A module's files' region kept** (a worker's home read): the snapshot's. -/
+theorem cacheOK_files {sp : Roots} {fs : FS} {values : Array ModRef} {i : Nat}
+    {md : ModRef} {f : ModFiles} (hmd : values[i]? = some md)
+    (hf : ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f)) :
+    CacheOK sp fs values (match f.viewRegion .private with
+      | some (r, _) => { idx := i, region := some r }
+      | none => {}) := by
+  split
+  · rename_i r a hra
+    intro r' hr'
+    simp only [Option.some.injEq] at hr'
+    subst hr'
+    exact ⟨md, f, a, hmd, hf, hra⟩
+  · exact cacheOK_empty
+
+variable {sp : Roots} {fs : FS} {values : Array ModRef}
 
 /-- The region of a module, from a kept one or the files. -/
 theorem regionFor_spec {md : ModRef} {idx : Nat} {c : ValueCache}
@@ -168,20 +205,24 @@ theorem readValue_spec {c : ValueCache} {code : Nat} {o : ValueCache × Except C
 /-! ## A job -/
 
 /-- **What a job that passed establishes**, at the record holding its value. -/
-def JobFact (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (F : Expr → Expr) (t : Nat) :
+def JobFact (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify) (F : Expr → Expr) (t : Nat) :
     Prop :=
-  ∀ ht : t < ds.size, recordJob mode natOpPinSets maxNatSize J.I t (fillDecl F ds[t]) = .ok ()
+  ∀ ht : t < ds.size, recordJob mode natOpPinSets maxNatSize J.side J.I t (fillDecl F ds[t]) = .ok ()
 
-theorem jobRun_ok {mode : CheckMode} {maxNatSize : Nat} {ds : Array Declaration} {J : Jobs ds} {t : Nat}
-    {d : Declaration} (h : jobRun mode maxNatSize J t d = .ok ()) :
-    recordJob mode natOpPinSets maxNatSize J.I t d = .ok () := by
+theorem JobFact.run {mode : CheckMode} {maxNatSize : Nat} {ds : Array Declaration} {justify : Option Env} {J : Jobs ds justify}
+    {F : Expr → Expr} {t : Nat} (h : JobFact mode maxNatSize J F t) (ht : t < ds.size) :
+    recordJob mode natOpPinSets maxNatSize J.side J.I t (fillDecl F ds[t]) = .ok () := h ht
+
+theorem jobRun_ok {mode : CheckMode} {maxNatSize : Nat} {ds : Array Declaration} {justify : Option Env} {J : Jobs ds justify}
+    {t : Nat} {d : Declaration} (h : jobRun mode maxNatSize J t d = .ok ()) :
+    recordJob mode natOpPinSets maxNatSize J.side J.I t d = .ok () := by
   unfold jobRun at h
   split at h
   · assumption
   · cases h
 
 /-- **One job's run.** -/
-theorem oleanJobRun_spec {mode : CheckMode} {maxNatSize : Nat} {ds : Array Declaration} {J : Jobs ds}
+theorem oleanJobRun_spec {mode : CheckMode} {maxNatSize : Nat} {ds : Array Declaration} {justify : Option Env} {J : Jobs ds justify}
     {c : ValueCache} {t : Nat} {o : ValueCache × Except (CheckError × Nat) Unit}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
@@ -237,7 +278,7 @@ theorem oleanJobRun_spec {mode : CheckMode} {maxNatSize : Nat} {ds : Array Decla
 
 /-- **One job of the pool.** -/
 theorem oleanStep_spec {mode : CheckMode} {maxNatSize : Nat} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
-    {J : Jobs ds} {s : OleanWorker} {t : Nat} {o : OleanWorker × Except (CheckError × Nat) Unit}
+    {justify : Option Env} {J : Jobs ds justify} {s : OleanWorker} {t : Nat} {o : OleanWorker × Except (CheckError × Nat) Unit}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     (hc : CacheOK sp fs values s.cache)
@@ -250,16 +291,18 @@ theorem oleanStep_spec {mode : CheckMode} {maxNatSize : Nat} {run : OleanRun} {p
   subst h
   exact oleanJobRun_spec hgood hc hx
 
-/-- **Every state a worker can reach keeps its module's region.** -/
-theorem oleanWorker_reach {mode : CheckMode} {maxNatSize : Nat} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
-    {J : Jobs ds}
+/-- **Every state a worker can reach keeps its module's region**, from a kept region the
+snapshot's (`seed`). -/
+theorem oleanWorker_reach {mode : CheckMode} {maxNatSize : Nat} {run : OleanRun} {pl : PoolLive}
+    {ds : Array Declaration} {justify : Option Env} {J : Jobs ds justify} {seed : ValueCache}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    {s : OleanWorker}
-    (h : WorkerReach (fun w => ({ w } : OleanWorker)) (oleanStep mode maxNatSize run pl J sp values) fs s) :
+    (hseed : CacheOK sp fs values seed) {s : OleanWorker}
+    (h : WorkerReach (fun w => ({ w, cache := seed } : OleanWorker))
+      (oleanStep mode maxNatSize run pl J sp values) fs s) :
     CacheOK sp fs values s.cache := by
   induction h with
-  | init w => exact cacheOK_empty
+  | init w => exact hseed
   | step _ hs ih => exact (oleanStep_spec hgood ih hs).1
 
 /-! ## The check phase -/
@@ -282,14 +325,17 @@ theorem mapExcept_each {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
         · exact ⟨b, _, _, hu⟩
         · exact mapExcept_each hc x hx
 
-/-- **The check phase of an `--olean` run accepts the records with their values in place.** -/
-theorem checkOleansG_accept {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {t0 tIndex tParse jobs : Nat}
-    {ds : Array Declaration} {J : Jobs ds}
+/-- **The check phase from position `start` passes every job from there on**, at the records
+with their values in place. -/
+theorem checkOleansG_jobs {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
+    {t0 tIndex tParse jobs : Nat} {ds : Array Declaration} {justify : Option Env} {J : Jobs ds justify} {start : Nat}
+    {alone : Bool} {seed : ValueCache}
     (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    {hs hs' : HS}
-    (h : (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs sp values J : ModelIO _) fs hs (.ok (.ok ())) hs') :
-    ∃ env, checkDecls mode natOpPinSets maxNatSize (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
+    (hseed : CacheOK sp fs values seed) {hs hs' : HS}
+    (h : (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs sp values J start alone seed :
+      ModelIO _) fs hs (.ok (.ok ())) hs') :
+    ∀ t, start ≤ t → t < ds.size → JobFact mode maxNatSize J (fillOf sp fs values) t := by
   simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff, exists_eq_left] at h
   obtain ⟨run, ⟨pl, tStart⟩, ⟨ss, res⟩, _, hmap, _, h⟩ := h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
@@ -297,32 +343,71 @@ theorem checkOleansG_accept {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} 
   · simp at h
   -- the worker map's elements
   obtain ⟨-, hm⟩ := (hmap : workerMap _ _ _ fs _ (.ok (ss, .ok us)) _)
-  have hfacts : ∀ t, t < ds.size → JobFact mode maxNatSize J (fillOf sp fs values) t := by
-    intro t ht
-    obtain ⟨u, _, _, s, hreach, s', hs⟩ := mapExcept_each hm t (List.mem_range.mpr ht)
-    exact (oleanStep_spec hgood (oleanWorker_reach hgood hreach) hs).2 rfl
+  intro t hst ht
+  obtain ⟨u, _, _, s, hreach, s', hs⟩ := mapExcept_each hm t (List.mem_range'_1.mpr ⟨hst, by omega⟩)
+  exact (oleanStep_spec hgood (oleanWorker_reach hgood hseed hreach) hs).2 rfl
+
+/-- **The check phase, with a solution or none, is an accepting run of the fold over the records
+with their values in place**, read with the solution the jobs read (`solutionOf`): the index and
+the solution do not look at a theorem's value (`buildIndex_fill`, `solutionOf_fill`). -/
+theorem checkOleansG_run {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
+    {t0 tIndex tParse jobs : Nat} {ds : Array Declaration} {justify : Option Env}
+    {J : Jobs ds justify}
+    (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
+      f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
+    {hs hs' : HS}
+    (h : (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs sp values J : ModelIO _) fs hs
+      (.ok (.ok ())) hs') :
+    ∃ n fe, DeclsRun mode natOpPinSets maxNatSize
+      (solutionOf justify (ds.map (fillDecl (fillOf sp fs values))))
+      (ds.map (fillDecl (fillOf sp fs values))).toList (0, mkFEnv Env.empty) (n, fe) := by
+  have hfacts := checkOleansG_jobs hgood cacheOK_empty h
+  obtain ⟨fe, hrun, -, -⟩ := jobs_run_from (mode := mode) (pins := natOpPinSets)
+    (maxNatSize := maxNatSize) (J := solutionOf justify (ds.map (fillDecl (fillOf sp fs values))))
+    (ds := ds.map (fillDecl (fillOf sp fs values))) (s := 0)
+    (by simp [NodupNames, streamEnv, Env.empty]) (fun k hk _ => by
+      have hk' : k < ds.size := by simpa using hk
+      rw [buildIndex_fill, solutionOf_fill, Array.getElem_map, ← J.hI, ← J.hside]
+      exact hfacts k (Nat.zero_le _) hk' hk')
+    (ds.map (fillDecl (fillOf sp fs values))).size (Nat.zero_le _) (Nat.le_refl _)
+  rw [List.take_of_length_le (by simp)] at hrun
+  simp only [List.take_zero, List.drop_zero] at hrun
+  exact ⟨_, fe, by simpa [streamEnv, Env.empty] using hrun⟩
+
+/-- **The check phase of an `--olean` run accepts the records with their values in place.** -/
+theorem checkOleansG_accept {mode : CheckMode} {maxNatSize : Nat} {pace : Pace}
+    {t0 tIndex tParse jobs : Nat} {ds : Array Declaration} {J : Jobs ds}
+    (hgood : ∀ md ∈ values, ∃ f r a, ModelIO.CanGive (readFiles sp md.name .private) fs (.ok f) ∧
+      f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
+    {hs hs' : HS}
+    (h : (checkOleansG mode maxNatSize pace t0 tIndex tParse jobs sp values J : ModelIO _) fs hs
+      (.ok (.ok ())) hs') :
+    ∃ env, checkDecls mode natOpPinSets maxNatSize (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
+  have hfacts := checkOleansG_jobs hgood cacheOK_empty h
   -- every record's job passed, at the records with their values in place
-  refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) fun k hk => ?_⟩
+  refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) rfl fun k hk => ?_⟩
   have hk' : k < ds.size := by simpa using hk
-  rw [buildIndex_fill, Array.getElem_map, ← J.hI]
-  exact hfacts k hk' hk'
+  rw [buildIndex_fill, Array.getElem_map, ← J.hI, show solutionOf none _ = none from rfl,
+    show (none : Option Solution) = solutionOf none ds from rfl, ← J.hside]
+  exact hfacts k (Nat.zero_le _) hk' hk'
 
 /-- **An accepted `--olean` run, in the model**: every outcome of the driver's run on the import
 closure of `roots` over a snapshot `fs` that is an exit 0 means the built-in prelude parses, the
 reader has an outcome on that snapshot (at one job: the parallel map's model is the sequential
 map), and `checkDecls` accepts its records prepared with the prelude, with the theorems' values
 in place (`fillOf`), whatever the `liftIO` actions answered. -/
-theorem checkMainG_oleans_accept {roots : Array Name}
+theorem checkMainG_oleans_accept {sp : SearchPath} {roots : Array Name}
     {cs : Option (Array Name)} {mode : CheckMode} {maxNatSize : Nat} {pace : Pace} {jobs : Nat}
-    {hs hs' : HS} (h : (checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+    {hs hs' : HS}
+    (h : (checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
-      ModelIO.CanGive (readOleans sp roots cs) fs (.ok rd) ∧
+      ModelIO.CanGive (readOleansAt sp roots cs) fs (.ok rd) ∧
       checkDecls mode natOpPinSets maxNatSize
         ((Frontend.prepareD pre rd.decls (usedOf (some (sp, rd)))).decls.map
           (fillDecl (fillOf sp fs rd.values))) = .ok env := by
   suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs) fs hs
       (fun c => c = 0 → ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
-        ModelIO.CanGive (readOleans sp roots cs) fs (.ok rd) ∧
+        ModelIO.CanGive (readOleansAt sp roots cs) fs (.ok rd) ∧
         checkDecls mode natOpPinSets maxNatSize
           ((Frontend.prepareD pre rd.decls (usedOf (some (sp, rd)))).decls.map
             (fillDecl (fillOf sp fs rd.values))) = .ok env) from
@@ -341,8 +426,14 @@ theorem checkMainG_oleans_accept {roots : Array Name}
     obtain ⟨x, _, hx, rfl, rfl⟩ := hx
     rcases x with ⟨_ | _ | _, _⟩ | rd
     rotate_right
-    · have hx' : (readOleans sp roots cs : ModelIO _) fs _ (.ok (.ok rd)) _ := hx
-      have hgood := readOleans_good hx'
+    · have hx' : (readOleansAt sp roots cs : ModelIO _) fs _ (.ok (.ok rd)) _ := hx
+      obtain ⟨-, -, -, -, ⟨T, -, hrT, hT, hTp⟩, -⟩ := readOleansAt_ok rfl hx'
+      subst hrT
+      have hgood : ∀ md ∈ rd.values, ∃ f r a,
+          ModelIO.CanGive (readFiles rd.roots md.name .private) fs (.ok f) ∧
+          f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := fun md hmd => by
+        obtain ⟨f, r, a, h1, h2, h3⟩ := readOleansAt_good rfl hx' md hmd
+        exact ⟨f, r, a, readFiles_rev hT (hTp ▸ h1), h2, h3⟩
       simp only [Except.map]
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_eq, forall_const] <;>
@@ -353,6 +444,7 @@ theorem checkMainG_oleans_accept {roots : Array Name}
       all_goals
         obtain rfl := verdictG_ok hc h0
         obtain ⟨env, henv⟩ := checkOleansG_accept hgood hv
+        rw [fillOf_roots hT, hTp] at henv
         exact ⟨_, rd, env, rfl, ⟨_, _, hx'⟩, henv⟩
     all_goals simp [Except.map]
 

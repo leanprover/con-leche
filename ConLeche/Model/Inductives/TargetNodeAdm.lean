@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.PosDerivNodes
 public import ConLeche.Model.Inductives.TargetNodeList
-import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Cached.Erase
 
 public section
@@ -24,11 +23,12 @@ is admissible once the shallower nodes' true elements satisfy `G` (`top`),
 and an admissible valuation is related to the true one by a hole relation
 (`HoleRel`) once `G`'s elements are true (`trans`, through `FrameMono`).
 
-The key's parameters satisfy the container's parameter telescope at every
-valuation of the stack context: the kernel TYPES the key at its node's
-depth (K.52, `PosD.frame`'s `hkty`), `infer_sound` grades it there, and a
-graded instance reads its parameters in the telescope (`keyParamsFit`) —
-`nodeKeyFit`.
+The kernel TYPES the key at its node's depth against every group member's
+run (K.52, `PosD.frame`'s `hkty`, `posD_frame_ktys`): at every valuation
+of the stack context the key's parameters fit the runs' parameter binders
+(`keyRunFit`).  A derived node is visited only where it is LIVE (`nlLive`:
+its true frame fits its recorded block); there every admissible frame fits
+too (`keyFit_agree`).
 -/
 
 namespace ConLeche.Model
@@ -43,14 +43,14 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-! ## K.52 at a node: the key's parameters fit -/
+/-! ## K.52 at a node: the key is typed against every member's run -/
 
-/-- **K.52, inverted**: a derived frame's key is typed against its telescope at the frame's
-depth. -/
-theorem posD_frame_kty {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+/-- **K.52, inverted**: a derived frame's key is typed against every group
+member's telescope at the frame's depth ((g), task #443). -/
+theorem posD_frame_ktys {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ts : List PosTree} (h : PosD ops env ctx (.frame prog us ds grp) ts) :
-    ConLeche.familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) (grp.headD default).1 us ds
+    ∀ p ∈ grp, ConLeche.familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) p.1 us ds
       = .ok () := by
   cases h with
   | frame _ _ _ _ _ _ _ _ hkty _ => exact hkty
@@ -66,34 +66,6 @@ theorem posNodeOk_dsAnc {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : Ne
   rcases hanc with ⟨hao, -⟩ | ⟨han, hds⟩
   · rw [hao]; exact (hws x hx).1
   · rw [han]; exact (hds x hx).2
-
-/-- **K.52 at a node** (`hfit` of `FrameMono`): at every valuation of the
-node's stack context, its key's parameters read in the container's
-parameter telescope: the key is typed against that telescope at the node's depth
-(`posD_frame_kty`), and `keyParamsFit` reads the certificates. -/
-theorem nodeKeyFit {env : Env} (mk : EnvModelM V env) {φ : Name → Nat} {ctx : NestCtx} {F : Nat}
-    {Δ0 : List Term} (hΔ0 : Δ0.length = ctx.hiAt 0) {t : PosTree}
-    (hok : PosNodeOk (fueledOps .verified F) env ctx t) (hsem : NodeSemAt mk.base2 φ ctx Δ0 t)
-    (hcov : ContCover mk ctx)
-    {D : LfpDatum V} (hD : D ∈ mk.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
-    (hhead : D.member mm = (t.grp.headD default).1)
-    {cv : ConstantVal} {caps : IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps))
-    (hlenP : t.key.ds.length = (D.params (Level.substFn φ cv.levelParams t.key.lvls)).length)
-    {dsa : List Term}
-    (hdsa : DenoteSpine mk.base2.acval env φ (ctx.hiAt t.anc.length) t.key.ds dsa) :
-    ∀ σ : Nat → V, Sat V (stackCtx mk.base2 φ ctx t.anc Δ0) σ →
-      Sat V (D.params (Level.substFn φ cv.levelParams t.key.lvls)).reverse
-        (keyFrame dsa (ctx.hiAt t.anc.length) σ) := by
-  have hk := posD_frame_kty hok.1
-  rw [← hhead] at hk
-  obtain ⟨-, hcerts⟩ := hcov.keyCerts hD hmm hf hk
-  have hws := posNodeOk_dsAnc hok
-  obtain ⟨-, hC, hL⟩ := hsem
-  have hΔ := stackCtx_length_hi (m := mk.base2) (φ := φ) hΔ0 t.anc
-  intro σ hσ
-  exact (keyParamsFit mk (Rules.RulesInputs.ofSem mk φ) hD hmm hf hcerts hlenP hΔ
-    (fun x hx => ⟨⟨(hws x hx).1, (hws x hx).2, hL x hx⟩, CtxOk.toS (hC x hx).toCtxOk⟩) hdsa σ hσ
-    (fun x hx => CtxOk.leavesGr (hC x hx).toCtxOk hσ)).1
 
 /-! ## Admissible valuations -/
 
@@ -137,8 +109,8 @@ owned by its listed owner `own i` (the stack's owners: one owner
 OCCURRENCE per hole, so that the calls land at a fixed node) — whose true
 frame is the hole's key read at the true valuation — and its value — a
 family over the container's indices, at full arity — an element `G` holds
-of at the owner where the index spine fits the owner's telescope, and
-otherwise below the true value. -/
+of at the owner where the owner is live and the index spine fits its
+telescope, and otherwise below the true value. -/
 structure AdmVal (own : Nat → Nat) (G : Nat → Nat → V → V → Prop) (prog : List NestHole)
     (σ : Nat → V) : Prop where
   sat : Sat V (stackCtx mk.base2 ψ ctx prog (d.holeCtx ψ).reverse) σ
@@ -163,15 +135,15 @@ structure AdmVal (own : Nat → Nat) (G : Nat → Nat → V → V → Prop) (pro
           = nlFr mpC ctx d ns ψ ρ xs (own i)) ∧
       ∀ is : List V, is.length = hk.nIdx →
       ∀ y, y ∈ˢ is.foldl app (σ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))) →
-        (SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
+        (nlLive mpC ctx d ns ψ ρ xs (own i) ∧ SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
             ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
               (nlψ envC ns ψ (own i))) is →
           G (own i) (nlComp mpC d ns (own i) hk.key.cname)
             (tupW ((nlDb mpC d ns (own i)).u (nlComp mpC d ns (own i) hk.key.cname)
               (nlψ envC ns ψ (own i))) is) y) ∧
-        (¬ SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
+        (¬ (nlLive mpC ctx d ns ψ ρ xs (own i) ∧ SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
             ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
-              (nlψ envC ns ψ (own i))) is →
+              (nlψ envC ns ψ (own i))) is) →
           y ∈ˢ is.foldl app
             (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))))
 
@@ -181,14 +153,15 @@ derived. -/
   t.key.ds.map fun x => (denote mk.base2.acval envI ψ (ctx.hiAt t.anc.length) x).getD default
 
 /-- **The admissible frames of node `b`**: node `0` at its true frame
-only; a derived node at its key's parameters read at an admissible
-valuation of the frames its frame is derived under. -/
+only; a LIVE derived node (`nlLive`) at its key's parameters read at an
+admissible valuation of the frames its frame is derived under. -/
 @[expose] def nodeAdm (par : Nat → Nat) (b : Nat) (G : Nat → Nat → V → V → Prop)
     (ρ' : Nat → V) : Prop :=
   if b = 0 then ρ' = nlFr mpC ctx d ns ψ ρ xs 0
-  else ∃ σ, AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b) G (ns.getD (b - 1) default).anc σ ∧
-    ρ' = keyFrame (nodeDsaI mk ctx ψ (ns.getD (b - 1) default))
-      (ctx.hiAt (ns.getD (b - 1) default).anc.length) σ
+  else nlLive mpC ctx d ns ψ ρ xs b ∧
+    ∃ σ, AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b) G (ns.getD (b - 1) default).anc σ ∧
+      ρ' = keyFrame (nodeDsaI mk ctx ψ (ns.getD (b - 1) default))
+        (ctx.hiAt (ns.getD (b - 1) default).anc.length) σ
 
 end Adm
 

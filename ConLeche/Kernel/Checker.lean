@@ -293,12 +293,12 @@ def checkDivModCerts (ops : CheckerOps m) (env : Env) (c : Name)
   | _, _ => pure false
 
 /-- Environment prerequisites of a certified `Nat.div`/`Nat.mod`:
-dependency guard, pinned dependencies, the pinned `Eq` basis (the
+dependency guard, the operation's own pinned type, the pinned `Eq` basis (the
 certificate statements are equations in the pinned equality), and the
 `Bool` constructors stored at the type `Bool` itself (the guards'
 `true`/`false` must inhabit the `Bool` value semantically). -/
 def divModEnvGuard (env2 : Env) (c : Name) : Bool :=
-  natOpGuard env2 c && (natOpDeps c).all (natOpStoredOk env2) &&
+  natOpGuard env2 c && natOpStoredOk env2 c &&
   (env2.find? eqName).isSome &&
   (match env2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []

@@ -1,13 +1,26 @@
 module
 
 public import ConLeche.MainTheorem
+public import ConLeche.Model.PureChecker
+public import ConLeche.Model.Modular.IsModel
+public import ConLecheTests.CompareAttack
 public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.Local
 public import ConLeche.Verify.Frontend.Olean.View
 public import ConLeche.Verify.Frontend.Olean.Emit
+public import ConLeche.Verify.Frontend.Olean.Group
+public import ConLeche.Verify.Frontend.Olean.Present
+public import ConLeche.Verify.Driver.Reach
+public import ConLeche.Verify.Driver.Graph
+public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Driver.Oleans
+public import ConLeche.Verify.Driver.Routes
+public import ConLeche.Verify.Driver.Worker
+public import ConLeche.Verify.Driver.Groups
+public import ConLeche.Verify.Driver.Modular
+public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
-public import ConLeche.Verify.Cached.StreamThm
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
 public import ConLeche.Semantics.DeclWF
@@ -50,11 +63,15 @@ equation the compiled equality rests on.
 
 | theorem | what it says |
 |---|---|
-| `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
+| `ConLeche.model_exists` | pure-checker lemma (`ConLeche/Model/PureChecker.lean`): every stream `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`IsModel`, over the input) |
+| `ConLeche.solution_model_exists` | pure-checker lemma, with a solution: a stream `checkDecls` accepts with the environment of another accepted stream as its solution (its own axioms justified by it) has a model in every `SetTheory V`, and declares `False` and `Eq`, where it declares them at all, as the prelude's |
+| `ConLeche.main_json_model` | an exit 0 of `-- <file>` parsed the file, and its records have such a model |
+| `ConLeche.main_compare_json_model` | an exit 0 of `--compare -- <c> <s>` parsed `c`, and the challenge's records prepared with the prelude have such a model |
+| `ConLeche.main_compare_model` | an exit 0 of `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>`: on every snapshot that agrees under `T`, the constants of the closure of `C` through `T` have such a model |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
-| `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
-| `ConLeche.main_no_False` | **THE MAIN COROLLARY, LIFTED TO THE DRIVER**: on a snapshot where the file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at the arguments `-- <file>` is an exit 0 |
-| `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
+| `ConLeche.Model.Modular.modular_isModel` | the step `main_modular` rests on: a development every module of which passes the local checks has a compatible family of models of the modules' own records |
+| `ConLeche.main_modular` | **THE MODULAR THEOREM, OVER THE FILES**: where `--check-graph -- <root>` and `--olean --module` at every module of the headers' closure exit 0 (`main_modular_one`: `--olean --modular -- <root>`), every module of the closure of `root` has a model of its constants, and a name it sees as another module's has that module's value |
+| `ConLeche.main_no_False` | **THE MAIN COROLLARY, LIFTED TO THE DRIVER**, from `model_exists`: no exit 0 of `runArgs` at `-- <file>` reads a `jsonWithTheoremFalse` file |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
 | `checkDecls_envWF` / `checkDeclsPure_envWF` | what the fold (resp. the pure fueled fold) accepts is syntactically well formed (`EnvWF`), model-free: no `SetTheory` argument |
@@ -78,28 +95,27 @@ without it.
 
 namespace ConLecheTests.Axioms
 
-/-! ## The main theorem and the main corollary (`ConLeche/MainTheorem.lean`),
-and the relation they are stated over (`ConLeche/Denotes.lean`)
+/-! ## The main theorems (`ConLeche/MainTheorem.lean`),
+and the relation the proofs' model is stated over (`ConLeche/Denotes.lean`)
 
-The statements the project exists to make (task #277): every accepted
-environment has a model (`model_exists`, over the relation `Denotes`),
-and hence every FILE — the chunks the binary reads — that the checker
-accepts declares no theorem of type `False` (`no_False_declaration`,
-tasks #290/#294/#296), which is THE MAIN COROLLARY: the statement a reader
-can check without knowing what an `Env`, or even a declaration record,
-is.  The step it rests on at the stream — no list of declarations one
-of whose records declares a theorem of type `False` is accepted
-(`no_False_theorem_accepted`, tasks #286/#288/#291, now in
-`ConLeche/Verify/Cached/StreamThm.lean`) — is pinned beside it.
-`Denotes_functional`, which says the relation is a partial function,
-is proved with the relation itself (task #284) and is pinned here too.
+The statements the project exists to make: every input a run of the binary accepts has a model
+(`main_json_model`, `main_oleans`, `main_modular`, … over `IsModel` and the total reading
+`Expr.eval`), and hence no exit 0 at `-- <file>` reads a file declaring a theorem of type `False`
+(`main_no_False`), the main corollary.  `Denotes_functional`, which says the relation is a
+partial function, is proved with the relation itself (task #284) and is pinned here too.
 Everything below them is what they are corollaries of. -/
 
 /--
-info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_compare_json_model' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.model_exists
+#print axioms ConLeche.main_compare_json_model
+
+/--
+info: 'ConLeche.main_compare_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_compare_model
 
 /--
 info: 'ConLeche.Denotes_functional' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -108,22 +124,34 @@ info: 'ConLeche.Denotes_functional' depends on axioms: [propext, Classical.choic
 #print axioms ConLeche.Denotes_functional
 
 /--
-info: 'ConLeche.no_False_theorem_accepted' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_json_model' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.no_False_theorem_accepted
-
-/--
-info: 'ConLeche.no_False_declaration' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.no_False_declaration
+#print axioms ConLeche.main_json_model
 
 /--
 info: 'ConLeche.main_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
 #print axioms ConLeche.main_no_False
+
+/-! ## The pure-checker lemmas (`ConLeche/Model/PureChecker.lean`)
+
+The checking function the runs call, on parsed declarations: what `checkDecls` accepts has a
+model, and so has what `checkChallenge` accepts with an accepted solution.  The theorems about
+the runs above rest on them. -/
+
+/--
+info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.model_exists
+
+/--
+info: 'ConLeche.solution_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.solution_model_exists
 
 /-! ## What the fold stores of what it reads
 (`ConLeche/Model/StreamConsts.lean`)
@@ -134,16 +162,60 @@ constant, under its own name, with its own level parameters and its
 own declared type, in the environment the fold returns. -/
 
 /--
-info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_oleans' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.main_oleans_no_False
+#print axioms ConLeche.main_oleans
 
 /--
-info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.main_modular_compare' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Frontend.Olean.readOleans_ok
+#print axioms ConLeche.main_modular_compare
+
+/--
+info: 'ConLeche.main_modular_compare_one' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular_compare_one
+
+/--
+info: 'ConLeche.main_modular_compare_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular_compare_no_False
+
+/--
+info: 'ConLeche.main_modular' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular
+
+/--
+info: 'ConLeche.main_modular_one' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_modular_one
+
+/- The step `main_modular` rests on: a development of modules (`ConLeche/Modular.lean`) every
+module of which passes the local checks has a compatible family of models. -/
+/--
+info: 'ConLeche.Model.Modular.modular_isModel' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Model.Modular.modular_isModel
+
+/--
+info: 'ConLeche.Driver.Compose.Run.localOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.Compose.Run.localOk
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleansAt_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleansAt_ok
 
 /--
 info: 'ConLeche.Frontend.Olean.emitAll_covers' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -164,16 +236,16 @@ info: 'ConLeche.Frontend.Olean.declsOf_from' depends on axioms: [propext, Classi
 #print axioms ConLeche.Frontend.Olean.declsOf_from
 
 /--
-info: 'ConLeche.Frontend.Olean.readOleans_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Frontend.Olean.readOleansAt_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Frontend.Olean.readOleans_thm
+#print axioms ConLeche.Frontend.Olean.readOleansAt_thm
 
 /--
-info: 'ConLeche.Frontend.Olean.readOleans_filled' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Frontend.Olean.readOleansAt_filled' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Frontend.Olean.readOleans_filled
+#print axioms ConLeche.Frontend.Olean.readOleansAt_filled
 
 /--
 info: 'ConLeche.Driver.checkMainG_oleans_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -192,6 +264,210 @@ info: 'ConLeche.Frontend.Olean.mergeAll_ok' depends on axioms: [propext, Classic
 -/
 #guard_msgs in
 #print axioms ConLeche.Frontend.Olean.mergeAll_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.readEntries_of_view' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readEntries_of_view
+
+/--
+info: 'ConLeche.Frontend.Olean.readEntries_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readEntries_eq
+
+/--
+info: 'ConLeche.Frontend.Olean.groupRecord_from' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.groupRecord_from
+
+/--
+info: 'ConLeche.Frontend.Olean.groupRecord_valid' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.groupRecord_valid
+
+/--
+info: 'ConLeche.Cached.checkDecls_of_jobs_from' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.checkDecls_of_jobs_from
+
+/--
+info: 'ConLeche.Driver.checkModuleG_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.checkModuleG_accept
+
+/--
+info: 'ConLeche.Driver.runArgs_module_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.runArgs_module_accept
+
+/--
+info: 'ConLeche.Driver.worker_ctx' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_ctx
+
+/--
+info: 'ConLeche.Driver.worker_one_record' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_one_record
+
+/--
+info: 'ConLeche.Driver.worker_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_thm
+
+/--
+info: 'ConLeche.Driver.worker_local' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_local
+
+/--
+info: 'ConLeche.Driver.reach_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reach_ok
+
+/--
+info: 'ConLeche.Driver.reachGo_closed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reachGo_closed
+
+/--
+info: 'ConLeche.Driver.reachGo_roots' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reachGo_roots
+
+/--
+info: 'ConLeche.Driver.worker_ground' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_ground
+
+/--
+info: 'ConLeche.Driver.reach_from' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reach_from
+
+/--
+info: 'ConLeche.Driver.copy_behind' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.copy_behind
+
+/--
+info: 'ConLeche.Driver.group_presents' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.group_presents
+
+/--
+info: 'ConLeche.Driver.recordFrom_presents' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.recordFrom_presents
+
+/--
+info: 'ConLeche.Driver.worker_presented' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_presented
+
+/--
+info: 'ConLeche.Driver.interfaceOk_of_workers' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.interfaceOk_of_workers
+
+/--
+info: 'ConLeche.Driver.presented_of_worker' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.presented_of_worker
+
+/--
+info: 'ConLeche.Driver.ctx_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.ctx_envWF
+
+/--
+info: 'ConLeche.Driver.Graph.checkGraphG_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.Graph.checkGraphG_ok
+
+/--
+info: 'ConLeche.Driver.Graph.checkGraphG_closure' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.Graph.checkGraphG_closure
+
+/--
+info: 'ConLeche.Driver.runArgs_graph_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.runArgs_graph_accept
+
+/--
+info: 'ConLeche.Driver.Graph.graphOf_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.Graph.graphOf_ok
+
+/--
+info: 'ConLeche.Driver.reach_within' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reach_within
+
+/--
+info: 'ConLeche.Driver.modTables_within' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.modTables_within
+
+/--
+info: 'ConLeche.Driver.checkModularG_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.checkModularG_accept
+
+/--
+info: 'ConLeche.Driver.runArgs_modular_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.runArgs_modular_accept
+
+/--
+info: 'ConLeche.Driver.recordReads_scoped' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.recordReads_scoped
+
+/--
+info: 'ConLeche.Frontend.Olean.entryWith_of_view' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.entryWith_of_view
+
+/--
+info: 'ConLeche.Frontend.Olean.stmtWith_of_view' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.stmtWith_of_view
 
 /--
 info: 'ConLeche.Frontend.Olean.parseAllViews_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -326,5 +602,11 @@ info: 'ConLeche.Expr.decEq_eq_decEqPtr' depends on axioms: [propext, Classical.c
 -/
 #guard_msgs in
 #print axioms ConLeche.Expr.decEq_eq_decEqPtr
+
+/--
+info: 'ConLeche.CompareAttackTest.no_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.CompareAttackTest.no_model
 
 end ConLecheTests.Axioms

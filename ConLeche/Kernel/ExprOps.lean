@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Level
+public import ConLeche.Kernel.Basis.Names
 
 @[expose] public section
 
@@ -1149,4 +1150,34 @@ theorem _root_.ConLeche.Expr.allLevelParamsDefined_of_not_hasLevelParam
   | _ =>
     simp_all [Expr.hasLevelParam, Expr.allLevelParamsDefined]
 
+/-! ## The constants a term mentions; dropping unused variables -/
+
+/-- Does any of the constants `names` occur in `e`?  A syntactic walk
+(`fvar` annotations included; a `.proj` node names its structure), at a
+list of names, so that the k-ary positivity walk does ONE traversal per
+field domain and not one per member; the fold's `sorryAx` test
+(`unresolvedConstsError`, `ConLeche/Kernel/CheckerBase.lean`) asks it
+at one name. -/
+def mentionsAnyConst (names : List Name) : Expr → Bool
+  | .bvar _ | .sort _ | .lit _ => false
+  | .const n _ => names.contains n
+  | .fvar _ ty => ty.mentionsAnyConst names
+  | .app f a => f.mentionsAnyConst names || a.mentionsAnyConst names
+  | .lam ty b | .forallE ty b => ty.mentionsAnyConst names || b.mentionsAnyConst names
+  | .letE ty v b =>
+    ty.mentionsAnyConst names || v.mentionsAnyConst names || b.mentionsAnyConst names
+  | .proj s _ e => names.contains s || e.mentionsAnyConst names
+
+/-- `n` variables below a term's own, which do not occur in it, dropped. -/
+def dropVars : Nat → Expr → Expr
+  | 0, e => e
+  | n + 1, e => dropVars n (e.instantiate1 (.sort .zero))
+
 end ConLeche.Expr
+
+namespace ConLeche
+
+/-- Does a value use a hole (`sorryAx`)? -/
+def usesSorry (v : Expr) : Bool := v.mentionsAnyConst [sorryAxName]
+
+end ConLeche

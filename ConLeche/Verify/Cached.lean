@@ -23,7 +23,6 @@ public import ConLeche.Verify.Cached.GenRecC
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Verify.Cached.DeclPushes
 public import ConLeche.Verify.Cached.PushChain
-public import ConLeche.Verify.Cached.StreamThm
 
 public section
 

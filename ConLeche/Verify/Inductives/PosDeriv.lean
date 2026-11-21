@@ -190,6 +190,25 @@ inductive PosTree where
       (kids : List PosTree)
   deriving Inhabited
 
+/-- **A group at a key, typed, is every member typed there.** -/
+theorem familyKeyChecks_ok {ops : CheckerOps CheckM} {env : Env}
+    {find? : Name → Option ConstantInfo} {d : Nat} {us : List Level} {ds : List Expr} :
+    ∀ cs : List Name, familyKeyChecks ops env find? d us ds cs = .ok () ↔
+      ∀ c ∈ cs, familyKeyCheck ops env find? d c us ds = .ok ()
+  | [] => by simp [familyKeyChecks, pure, Except.pure]
+  | c :: cs => by
+    rw [List.forall_mem_cons, ← familyKeyChecks_ok cs]
+    simp only [familyKeyChecks, bind, Except.bind]
+    split <;> rename_i h
+    · simp [h]
+    · rename_i u; cases u; simp [h]
+
+/-- A nonempty group's head is one of its members. -/
+theorem headD_mem_of_ne_nil {α : Type} [Inhabited α] {l : List α} (h : l ≠ []) :
+    l.headD default ∈ l := by
+  obtain ⟨a, as, rfl⟩ := List.exists_cons_of_ne_nil h
+  simp
+
 /-- The walk's judgments (see the module docstring). -/
 inductive PosJ where
   | field (prog : List NestHole) (dep kb : Nat) (e : Expr) (k : NestFieldKind) (nf : Expr)
@@ -294,7 +313,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hblk : ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
       (hgrp : grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1)
       (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
-      (hkty : familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) (grp.headD default).1 us ds
+      (hkty : ∀ p ∈ grp, familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) p.1 us ds
         = .ok ())
       (hwalk : PosD ops env ctx (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
         (ctx.hiAt prog.length + grp.length) us ds (grp.map (·.1))

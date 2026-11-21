@@ -4,6 +4,7 @@ public import ConLeche.Model.BasisQuot
 import ConLeche.Semantics.BasisRules
 import ConLeche.Model.BasisLfp
 import ConLeche.Model.Cover
+import ConLeche.Model.Rules.RedSoundKit
 
 public section
 
@@ -921,6 +922,248 @@ theorem eqRecExtra {m : EnvModel V env}
     exact ⟨rfl, fun h => (nomatch h)⟩
 
 set_option maxHeartbeats 1000000 in
+/-- **`Eq.rec`'s forward typing row** (task #610): the prefix `α a motive refl` fits, the
+parameters `α a` fit `Eq.refl`'s binders, the pinned index is `a` and the major `Eq.refl α a`
+(the point) lies in `Eq α a a`, and the motive at them is a type of `Sort u_1`. -/
+theorem eqRecFit {m : EnvModel V env}
+    (m₂ : EnvModel V ⟨eqRecA :: env.consts, env.tables⟩)
+    (hE : env.find? eqName = some eqI)
+    (hR : env.find? eqReflName = some eqReflA)
+    (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ)
+    (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ)
+    (hac : m₂.acval = acvalWith m.acval eqRecA.name eqRecValT)
+    (φ : Name → Nat) :
+    RecRuleFit m₂ φ eqRecA.toConstantVal 5 4 eqRecRule := by
+  refine ⟨RecRuleLevels.of_plain rfl, ?_⟩
+  intro us hus TVa hTVa cvj cnP cnF iT hfj usj husj hlev TVja hTVja ρ xs ps mid hxl hxw hmid
+    hpw hps
+  obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
+      ψ = Level.substFn φ eqRecA.toConstantVal.levelParams us := ⟨_, rfl⟩
+  have hR' : (⟨eqRecA :: env.consts, env.tables⟩ : Env).find? eqReflName = some eqReflA := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR
+  rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
+  obtain ⟨rfl, rfl, rfl⟩ : cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
+    injection Option.some.inj hfj with a1 a2 a3 _
+    exact ⟨a1.symm, a2.symm, a3.symm⟩
+  have hulev : Level.substFn φ eqReflA.toConstantVal.levelParams usj uN = ψ uN := by
+    rw [congrFun hlev uN, hψ]
+    show Level.eval φ (Level.subst eqRecA.toConstantVal.levelParams us (.param uN)) = _
+    rw [Level.subst, Level.eval_subst_go]
+  have hTyRead : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
+      (eqRecA.toConstantVal.type.instantiateLevelParams eqRecA.toConstantVal.levelParams us)
+      = some (eqRecTy ψ) := by
+    rw [denote_instLevels m₂.acval_params φ, hac, hψ,
+      denote_eqRecA_type (m := m) _ hE hR hEv hRv]
+  obtain rfl : TVa = _ := (Option.some.inj (hTyRead.symm.trans hTVa)).symm
+  have hCtorRead : denote m₂.acval ⟨eqRecA :: env.consts, env.tables⟩ φ 0
+      (eqReflA.toConstantVal.type.instantiateLevelParams eqReflA.toConstantVal.levelParams usj)
+      = some (eqReflTy (Level.substFn φ eqReflA.toConstantVal.levelParams usj)) := by
+    rw [denote_instLevels m₂.acval_params φ, hac, denote_eqReflTy (m := m) _ (by decide) hE hEv]
+  obtain rfl : TVja = _ := (Option.some.inj (hCtorRead.symm.trans hTVja)).symm
+  obtain ⟨x1, x2, x3, x4, rfl⟩ : ∃ p q r s, xs = [p, q, r, s] := by
+    match xs, hxl with
+    | [p, q, r, s], _ => exact ⟨p, q, r, s, rfl⟩
+  obtain ⟨hpl, hpr⟩ := hps
+  obtain ⟨p1, p2, rfl⟩ : ∃ p q, ps = [p, q] := by
+    match ps, hpl with
+    | [p, q], _ => exact ⟨p, q, rfl⟩
+  have hp1 : interp V ρ p1 = interp V ρ x1 := hpr 0 (by decide)
+  have hp2 : interp V ρ p2 = interp V ρ x2 := hpr 1 (by decide)
+  -- the prefix's memberships
+  have hT := Rules.teleFit_of_teleFitPA (by simp [eqRecTy, Rules.PiChain]) hmid
+  simp only [List.map_cons, List.map_nil] at hT
+  rw [eqRecTy] at hT
+  cases hT with | cons f1 hT =>
+  cases hT with | cons f2 hT =>
+  cases hT with | cons f3 hT =>
+  cases hT with | cons f4 _ =>
+  rw [interp_sort] at f1
+  simp only [interp_bvar, cons] at f2
+  rw [(eqRecMotiveTy_data ρ f1 f2).1] at f3
+  rw [(eqRecMinorTy_data ρ f1 f2 f3).1] at f4
+  refine ⟨fun _ _ _ _ => ?_, fun fs is restC hfl hil _ _ hfit hpin => ?_⟩
+  · -- the parameters fit `Eq.refl`'s binders
+    have hfit : TeleFit V ρ (eqReflTy (Level.substFn φ eqReflA.toConstantVal.levelParams usj))
+        ([p1, p2].map (interp V ρ)) (interp V (cons (interp V ρ p2) (cons (interp V ρ p1) ρ))
+          (eqSpine (Level.substFn φ eqReflA.toConstantVal.levelParams usj) 1 0 0)) := by
+      simp only [List.map_cons, List.map_nil, eqReflTy]
+      refine .cons (by rw [interp_sort, hulev, hp1]; exact f1) (.cons ?_ .nil)
+      simp only [interp_bvar, cons]; rw [hp1, hp2]; exact f2
+    exact Rules.teleFitPA_of_teleFit _ (by simp [eqReflTy, Rules.PiChain]) hfit
+  -- no fields, one index
+  obtain rfl : fs = [] := List.eq_nil_of_length_eq_zero hfl
+  obtain ⟨b, rfl⟩ : ∃ b, is = [b] := by
+    match is, hil with
+    | [b], _ => exact ⟨b, rfl⟩
+  -- the pinned index is `a`
+  rw [List.append_nil, eqReflTy] at hfit
+  cases hfit with | cons _ hfit =>
+  cases hfit with | cons _ hfit =>
+  cases hfit
+  obtain ⟨Ha, cargsa, hdec, hlen, hidx⟩ := hpin
+  have hlen3 : cargsa.length = 3 := by omega
+  obtain ⟨c0, c1, c2, rfl⟩ : ∃ c0 c1 c2, cargsa = [c0, c1, c2] := by
+    match cargsa, hlen3 with
+    | [c0, c1, c2], _ => exact ⟨c0, c1, c2, rfl⟩
+  simp only [eqSpine, Term.mkAppN_cons, Term.mkAppN_nil, Term.inst_app] at hdec
+  injection hdec with _ hc2
+  have hb := hidx 0 (by decide)
+  simp only [List.getD_cons_succ, List.getD_cons_zero, List.cons_append, List.nil_append] at hb
+  rw [← hc2] at hb
+  have hbv : interp V ρ b = interp V ρ x2 := by
+    rw [← hb, ← hp2]
+    simp only [Term.inst, show (0 : Nat) < 0 + 1 from Nat.zero_lt_one, ↓reduceIte]
+    simp only [Nat.lt_irrefl, ↓reduceIte]
+    rw [interp_liftN]
+    congr 1
+  -- the major is the point, a proof of `Eq α a a`
+  have hmaj : interp V ρ (Term.mkAppN (m₂.acval (RecRule.ctor eqRecRule)
+      (Level.substFn φ eqReflA.toConstantVal.levelParams usj)) [p1, p2]) = pt := by
+    simp only [show RecRule.ctor eqRecRule = eqReflName from rfl, Term.mkAppN_cons,
+      Term.mkAppN_nil, interp_app, hac, acvalWith_ne (show eqReflName ≠ eqRecA.name by decide),
+      hRv, eqReflValT_interp, app_pt]
+  -- the whole telescope fits
+  have hpt : (pt : V) ∈ˢ interp V (cons (interp V ρ b) (cons (interp V ρ x4) (cons
+      (interp V ρ x3) (cons (interp V ρ x2) (cons (interp V ρ x1) ρ))))) (eqSpine ψ 4 3 0) := by
+    rw [(eqSpine_interp (ρ := cons (interp V ρ b) (cons (interp V ρ x4)
+        (cons (interp V ρ x3) (cons (interp V ρ x2) (cons (interp V ρ x1) ρ)))))
+        (Aset := interp V ρ x1) (a := interp V ρ x2) (b := interp V ρ b)
+        (i := 4) (j := 3) (k := 0) (by simp [cons]) (by simp [cons]) (by simp [cons])
+        f1 f2 (by rw [hbv]; exact f2)).1, hbv]
+    exact pt_mem_eqv_self _
+  have hfull : TeleFit V ρ (eqRecTy ψ)
+      ((([x1, x2, x3, x4] ++ [b]) ++ [Term.mkAppN (m₂.acval (RecRule.ctor eqRecRule)
+        (Level.substFn φ eqReflA.toConstantVal.levelParams usj)) [p1, p2]]).map (interp V ρ))
+      (app (app (interp V ρ x3) (interp V ρ b)) pt) := by
+    simp only [List.cons_append, List.nil_append, List.map_cons, List.map_nil, hmaj, eqRecTy]
+    refine .cons (by rw [interp_sort]; exact f1) (.cons (by simpa [interp_bvar, cons] using f2)
+      (.cons (by rw [(eqRecMotiveTy_data ρ f1 f2).1]; exact f3)
+      (.cons (by rw [(eqRecMinorTy_data ρ f1 f2 f3).1]; exact f4)
+      (.cons (by simp only [interp_bvar, cons]; rw [hbv]; exact f2)
+      (.cons hpt ?_)))))
+    have := TeleFit.nil (V := V) (ρ := cons pt (cons (interp V ρ b) (cons (interp V ρ x4)
+      (cons (interp V ρ x3) (cons (interp V ρ x2) (cons (interp V ρ x1) ρ))))))
+      (T := .app (.app (.bvar 3) (.bvar 1)) (.bvar 0))
+    simpa [interp_app, interp_bvar, cons] using this
+  obtain ⟨restR, hrestR⟩ := Rules.teleFitPA_of_teleFit _ (by simp [eqRecTy, Rules.PiChain]) hfull
+  refine ⟨restR, hrestR, fun pre idx rest body u hpre hbody hu => ?_⟩
+  have hres := TeleFit.rest_unique (Rules.teleFit_of_teleFitPA
+    (by simp [eqRecTy, Rules.PiChain]) hrestR) hfull
+  rw [hres]
+  -- the motive's sort is `Sort u_1`
+  simp only [eqRecA, ConstantInfo.toConstantVal, ConLeche.eqRecMotive, BasisDSL.piI,
+    BasisDSL.pi, BasisDSL.srt, BasisDSL.bv, BasisDSL.ap2, BasisDSL.ap3, BasisDSL.cnst,
+    BasisDSL.u, BasisDSL.u1, Expr.instantiateLevelParams, Expr.stripPis, Option.map,
+    Option.some.injEq, Prod.mk.injEq] at hpre
+  obtain ⟨rfl, rfl⟩ := hpre
+  simp only [Expr.stripPis, Option.map, Option.some.injEq, Prod.mk.injEq] at hbody
+  obtain ⟨rfl, rfl⟩ := hbody
+  simp [ConLeche.motiveLevel?, Expr.getAppFn, Expr.piResult] at hu
+  subst hu
+  have hu1 : Level.eval φ (Level.subst eqRecA.toConstantVal.levelParams us (.param u1N)) = ψ u1N := by
+    rw [hψ, Level.subst, Level.eval_subst_go]
+  rw [show Level.eval φ (Level.subst [Name.anonymous.str "u_1", Name.anonymous.str "u"] us
+    (Level.param (Name.anonymous.str "u_1"))) = ψ u1N from hu1]
+  have h1 := app_mem_piV f3 (show interp V ρ b ∈ˢ interp V ρ x1 by rw [hbv]; exact f2)
+  exact app_mem_piV h1 (by rw [hbv]; exact pt_mem_eqv_self _)
+
+/-- **`Eq.rec`'s type reading is graded** — six `WellDenoted_pi_of`
+steps; the innermost body is the motive applied to the major premise,
+a member of a universe. -/
+theorem eqRecTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
+    WellDenotedTy V ρ (eqRecTy ψ) := by
+  have h6 : ∀ Aset a M mn bb : V, Aset ∈ˢ (univ (ψ uN) : V) →
+      a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
+      bb ∈ˢ Aset →
+      WellDenoted V (cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
+        (.pi (eqSpine ψ 4 3 0)
+          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))) := by
+    intro Aset a M mn bb hA ha hM hbb
+    obtain ⟨hsint, hsok, -⟩ := eqSpine_interp
+      (ρ := cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
+      (i := 4) (j := 3) (k := 0)
+      (by simp [cons]) (by simp [cons]) (by simp [cons]) hA ha hbb
+    have hM0 : M ∈ˢ piV Aset (fun x => piV (eqv a x)
+        fun _ => (univ (ψ u1N) : V)) := hM
+    have hMb : app M bb ∈ˢ piV (eqv a bb)
+        fun _ => (univ (ψ u1N) : V) :=
+      app_mem_piV hM0 hbb
+    have hcodI : ∀ h : V, h ∈ˢ eqv a bb →
+        interp V (cons h (cons bb (cons mn (cons M (cons a (cons Aset ρ))))))
+          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)) = app (app M bb) h := by
+      intro h _; simp [interp_app, interp_bvar, cons]
+    have hM3 : ∀ h : V, interp V (cons h (cons bb (cons mn (cons M
+        (cons a (cons Aset ρ)))))) (Term.bvar 3) = M := fun h => by
+      simp [interp_bvar, cons]
+    have hb1 : ∀ h : V, interp V (cons h (cons bb (cons mn (cons M
+        (cons a (cons Aset ρ)))))) (Term.bvar 1) = bb := fun h => by
+      simp [interp_bvar, cons]
+    have hh0 : ∀ h : V, interp V (cons h (cons bb (cons mn (cons M
+        (cons a (cons Aset ρ)))))) (Term.bvar 0) = h := fun h => by
+      simp [interp_bvar, cons]
+    refine WellDenoted_pi_of hsok (by rw [hsint]; exact IsTy_eqv _ _) (fun h hh => ?_)
+      (fun h hh => by
+        rw [hsint] at hh
+        rw [hcodI h hh]
+        exact IsTy_of_mem_univ (app_mem_piV hMb hh))
+    rw [hsint] at hh
+    rw [WellDenoted_app]
+    refine ⟨?_, trivial, appliesTo_of_mem_piV (by rw [interp_app, hM3, hb1]; exact hMb)
+      (IsTy_eqv a bb) (by rw [hh0]; exact hh)⟩
+    rw [WellDenoted_app]
+    exact ⟨trivial, trivial, appliesTo_of_mem_piV (by rw [hM3]; exact hM0)
+      (IsTy_of_mem_univ hA) (by rw [hb1]; exact hbb)⟩
+  have h5 : ∀ Aset a M mn : V, Aset ∈ˢ (univ (ψ uN) : V) →
+      a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
+      WellDenoted V (cons mn (cons M (cons a (cons Aset ρ))))
+        (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
+          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))) := by
+    intro Aset a M mn hA ha hM
+    have hdom : interp V (cons mn (cons M (cons a (cons Aset ρ))))
+        (Term.bvar 3) = Aset := by simp [interp_bvar, cons]
+    refine WellDenoted_pi_of (Aa := .bvar 3) trivial
+      (by rw [hdom]; exact IsTy_of_mem_univ hA)
+      (fun bb hbb => h6 Aset a M mn bb hA ha hM (by rwa [hdom] at hbb))
+      (fun _ _ => IsTy_piV)
+  have h4 : ∀ Aset a M : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
+      M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
+      WellDenoted V (cons M (cons a (cons Aset ρ)))
+        (.pi (eqRecMinorTy ψ)
+          (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
+            (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))) := by
+    intro Aset a M hA ha hM
+    obtain ⟨-, hmok, -⟩ := eqRecMinorTy_data ρ hA ha hM
+    refine WellDenoted_pi_of hmok.1 hmok.2 (fun mn _ => h5 Aset a M mn hA ha hM)
+      (fun _ _ => IsTy_piV)
+  have h3 : ∀ Aset a : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
+      WellDenoted V (cons a (cons Aset ρ))
+        (.pi (eqRecMotiveTy ψ) (.pi (eqRecMinorTy ψ)
+          (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
+            (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))) := by
+    intro Aset a hA ha
+    obtain ⟨hmint, hmok⟩ := eqRecMotiveTy_data ρ hA ha
+    refine WellDenoted_pi_of hmok.1 hmok.2
+      (fun M hM => h4 Aset a M hA ha (by rwa [hmint] at hM))
+      (fun _ _ => IsTy_piV)
+  have h2 : ∀ Aset : V, Aset ∈ˢ (univ (ψ uN) : V) →
+      WellDenoted V (cons Aset ρ)
+        (.pi (.bvar 0) (.pi (eqRecMotiveTy ψ)
+          (.pi (eqRecMinorTy ψ)
+            (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
+              (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))))) := by
+    intro Aset hA
+    have hdom : interp V (cons Aset ρ) (Term.bvar 0) = Aset := by
+      simp [interp_bvar, cons]
+    refine WellDenoted_pi_of (Aa := .bvar 0) trivial
+      (by rw [hdom]; exact IsTy_of_mem_univ hA)
+      (fun a ha => h3 Aset a hA (by rwa [hdom] at ha))
+      (fun _ _ => IsTy_piV)
+  rw [eqRecTy]
+  exact ⟨WellDenoted_pi_of (Aa := .sort (ψ uN)) trivial (IsTy_univ _)
+    (fun Aset hA => h2 Aset (by rwa [interp_sort] at hA))
+    (fun _ _ => IsTy_piV), IsTy_piV⟩
+
+set_option maxHeartbeats 1000000 in
 /-- **`Eq.rec`'s `RecRuleLaw` row.**  The rule is `.plain`, so both
 `.nested` conjuncts are `nomatch`; the fired equality is the minor
 premise on both sides (`eqRecRaTower_app₆` against `eqRecRa_app₄`),
@@ -936,7 +1179,7 @@ theorem eqRecLaw {m : EnvModel V env}
     RecRuleLaw m₂ φ eqRecA.name eqRecA.toConstantVal 5 4 true
       eqRecRule := by
   refine ⟨by decide, fun us hus => ?_,
-    eqRecExtra (m := m) m₂ hE hR hEv hRv hac φ⟩
+    eqRecExtra (m := m) m₂ hE hR hEv hRv hac φ, eqRecFit (m := m) m₂ hE hR hEv hRv hac φ⟩
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
       ψ = Level.substFn φ eqRecA.toConstantVal.levelParams us :=
     ⟨_, rfl⟩
@@ -1056,102 +1299,6 @@ theorem eqRecLaw {m : EnvModel V env}
       IsTy_piV
     exact (WellDenoted_app_fibre h3.1 (hxsA x4 (by simp)) h3.2 f4
       (IsTy_of_mem_univ (eqRecMinorTy_data ρ f1 f2 f3).2.2)).1
-
-/-- **`Eq.rec`'s type reading is graded** — six `WellDenoted_pi_of`
-steps; the innermost body is the motive applied to the major premise,
-a member of a universe. -/
-theorem eqRecTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
-    WellDenotedTy V ρ (eqRecTy ψ) := by
-  have h6 : ∀ Aset a M mn bb : V, Aset ∈ˢ (univ (ψ uN) : V) →
-      a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
-      bb ∈ˢ Aset →
-      WellDenoted V (cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
-        (.pi (eqSpine ψ 4 3 0)
-          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))) := by
-    intro Aset a M mn bb hA ha hM hbb
-    obtain ⟨hsint, hsok, -⟩ := eqSpine_interp
-      (ρ := cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
-      (i := 4) (j := 3) (k := 0)
-      (by simp [cons]) (by simp [cons]) (by simp [cons]) hA ha hbb
-    have hM0 : M ∈ˢ piV Aset (fun x => piV (eqv a x)
-        fun _ => (univ (ψ u1N) : V)) := hM
-    have hMb : app M bb ∈ˢ piV (eqv a bb)
-        fun _ => (univ (ψ u1N) : V) :=
-      app_mem_piV hM0 hbb
-    have hcodI : ∀ h : V, h ∈ˢ eqv a bb →
-        interp V (cons h (cons bb (cons mn (cons M (cons a (cons Aset ρ))))))
-          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)) = app (app M bb) h := by
-      intro h _; simp [interp_app, interp_bvar, cons]
-    have hM3 : ∀ h : V, interp V (cons h (cons bb (cons mn (cons M
-        (cons a (cons Aset ρ)))))) (Term.bvar 3) = M := fun h => by
-      simp [interp_bvar, cons]
-    have hb1 : ∀ h : V, interp V (cons h (cons bb (cons mn (cons M
-        (cons a (cons Aset ρ)))))) (Term.bvar 1) = bb := fun h => by
-      simp [interp_bvar, cons]
-    have hh0 : ∀ h : V, interp V (cons h (cons bb (cons mn (cons M
-        (cons a (cons Aset ρ)))))) (Term.bvar 0) = h := fun h => by
-      simp [interp_bvar, cons]
-    refine WellDenoted_pi_of hsok (by rw [hsint]; exact IsTy_eqv _ _) (fun h hh => ?_)
-      (fun h hh => by
-        rw [hsint] at hh
-        rw [hcodI h hh]
-        exact IsTy_of_mem_univ (app_mem_piV hMb hh))
-    rw [hsint] at hh
-    rw [WellDenoted_app]
-    refine ⟨?_, trivial, appliesTo_of_mem_piV (by rw [interp_app, hM3, hb1]; exact hMb)
-      (IsTy_eqv a bb) (by rw [hh0]; exact hh)⟩
-    rw [WellDenoted_app]
-    exact ⟨trivial, trivial, appliesTo_of_mem_piV (by rw [hM3]; exact hM0)
-      (IsTy_of_mem_univ hA) (by rw [hb1]; exact hbb)⟩
-  have h5 : ∀ Aset a M mn : V, Aset ∈ˢ (univ (ψ uN) : V) →
-      a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
-      WellDenoted V (cons mn (cons M (cons a (cons Aset ρ))))
-        (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
-          (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))) := by
-    intro Aset a M mn hA ha hM
-    have hdom : interp V (cons mn (cons M (cons a (cons Aset ρ))))
-        (Term.bvar 3) = Aset := by simp [interp_bvar, cons]
-    refine WellDenoted_pi_of (Aa := .bvar 3) trivial
-      (by rw [hdom]; exact IsTy_of_mem_univ hA)
-      (fun bb hbb => h6 Aset a M mn bb hA ha hM (by rwa [hdom] at hbb))
-      (fun _ _ => IsTy_piV)
-  have h4 : ∀ Aset a M : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
-      M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
-      WellDenoted V (cons M (cons a (cons Aset ρ)))
-        (.pi (eqRecMinorTy ψ)
-          (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
-            (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))) := by
-    intro Aset a M hA ha hM
-    obtain ⟨-, hmok, -⟩ := eqRecMinorTy_data ρ hA ha hM
-    refine WellDenoted_pi_of hmok.1 hmok.2 (fun mn _ => h5 Aset a M mn hA ha hM)
-      (fun _ _ => IsTy_piV)
-  have h3 : ∀ Aset a : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
-      WellDenoted V (cons a (cons Aset ρ))
-        (.pi (eqRecMotiveTy ψ) (.pi (eqRecMinorTy ψ)
-          (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
-            (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0)))))) := by
-    intro Aset a hA ha
-    obtain ⟨hmint, hmok⟩ := eqRecMotiveTy_data ρ hA ha
-    refine WellDenoted_pi_of hmok.1 hmok.2
-      (fun M hM => h4 Aset a M hA ha (by rwa [hmint] at hM))
-      (fun _ _ => IsTy_piV)
-  have h2 : ∀ Aset : V, Aset ∈ˢ (univ (ψ uN) : V) →
-      WellDenoted V (cons Aset ρ)
-        (.pi (.bvar 0) (.pi (eqRecMotiveTy ψ)
-          (.pi (eqRecMinorTy ψ)
-            (.pi (.bvar 3) (.pi (eqSpine ψ 4 3 0)
-              (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))))) := by
-    intro Aset hA
-    have hdom : interp V (cons Aset ρ) (Term.bvar 0) = Aset := by
-      simp [interp_bvar, cons]
-    refine WellDenoted_pi_of (Aa := .bvar 0) trivial
-      (by rw [hdom]; exact IsTy_of_mem_univ hA)
-      (fun a ha => h3 Aset a hA (by rwa [hdom] at ha))
-      (fun _ _ => IsTy_piV)
-  rw [eqRecTy]
-  exact ⟨WellDenoted_pi_of (Aa := .sort (ψ uN)) trivial (IsTy_univ _)
-    (fun Aset hA => h2 Aset (by rwa [interp_sort] at hA))
-    (fun _ _ => IsTy_piV), IsTy_piV⟩
 
 /-- **`Eq.rec`, installed at the P tier.** -/
 theorem extendEqRec (mp : EnvModelM V env)
@@ -1310,12 +1457,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
           = some (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))),
         (by decide : Expr.nestOcc [eqName] 0 0 (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))
           = false),
-        fun ψ => ⟨rfl, rfl, [], [.pi (.bvar 1) (.sort 0)], ?_, rfl, rfl,
-          fun mm hmm => by
-            obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-            refine ⟨eqI.toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero), hE2, rfl, ?_⟩
-            simp [denote_forallE, denote_sort, denote_fvar, Expr.instantiate1, Level.eval],
-          trivial⟩⟩
+        fun ψ => ⟨rfl, rfl, [], ?_, rfl, trivial⟩⟩
       simp [denote_app, denote_fvar, mkPisAV, eqLfp]⟩
     (eqLfp_caps hE2
       (fun ψ => by
@@ -1367,7 +1509,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   obtain ⟨mp3, hac3, hr3, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
   -- coverage: `Eq`'s former opened the exemption list, its record
   -- closes it
-  refine ⟨mp3, (hr1.trans (hr2.addLfp _ (fun _ => rfl) _ _ _ _ _)).trans hr3,
+  refine ⟨mp3, (hr1.trans (hr2.addLfp _ _ _ _ _ _)).trans hr3,
     fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
     (lfpAll_one (n := eqName) (c := eqI) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))

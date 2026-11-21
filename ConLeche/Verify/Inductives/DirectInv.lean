@@ -175,6 +175,14 @@ theorem blockTables_names (p : BlockShape) :
 
 /-! ## The frame walks: binder-domain pins and field sorts -/
 
+/-- Every table a block installs (none where its tables are refused) is at a member's name. -/
+theorem blockTables_getD_names (p : BlockShape) {t : ProjTable}
+    (h : t ∈ (blockTables p p.members).getD []) :
+    ∃ ms ∈ p.members, t.structName = ms.declared.name := by
+  cases hQ : blockTables p p.members with
+  | none => rw [hQ] at h; exact absurd h List.not_mem_nil
+  | some Q => rw [hQ] at h; exact blockTables_names p p.members Q hQ t h
+
 /-- `checkStructDomsAt`, inverted: every position below the walk's
 bound carries a successful `isDefEqCore` at its own frame. -/
 theorem checkStructDomsAt_inv {env : Env} {F off : Nat} {fvs doms : List Expr} :

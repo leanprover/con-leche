@@ -21,7 +21,7 @@ calls, and every operation of the binary's instance is compared with
 the model's answer on it — the instance's definitions restated as data
 (`model*`, each the model by `rfl`): a handle's reads in sequence, of
 sizes that end inside, at and past the end of each file and read on
-after it, the size, the bytes, existence and the real path.  The folds over a
+after it, the size, the bytes, existence, being a directory and the real path.  The folds over a
 file's reads are compared with what the model's folds are
 (`foldChunks_model`, `foldWindows_model`): the reads `readsFrom` and the
 windows `windowsOf` of the snapshot's bytes.  The binary's exit codes
@@ -34,24 +34,29 @@ namespace ConLecheTests.CheckerIOTests
 open ConLeche
 
 /-- **The snapshot of some files**, taken now: each path's real path,
-and each regular file's bytes by its real path; a path that names
-nothing has none. -/
+whether it is a directory, and each regular file's bytes by its real
+path; a path that names nothing has none. -/
 def snapshot (paths : List System.FilePath) : IO FS := do
   let mut real : Array (System.FilePath × System.FilePath) := #[]
+  let mut dirs : Array System.FilePath := #[]
   let mut bytes : Array (System.FilePath × ByteArray) := #[]
   for p in paths do
     if ← p.pathExists then
       let r ← IO.FS.realPath p
       real := real.push (p, r)
-      unless ← p.isDir do bytes := bytes.push (r, ← IO.FS.readBinFile p)
+      if ← p.isDir then dirs := dirs.push p
+      else bytes := bytes.push (r, ← IO.FS.readBinFile p)
   let reals := real
+  let ds := dirs
   let files := bytes
   return { real := fun q => (reals.find? (·.1 == q)).map (·.2),
+           dir := fun q => ds.contains q,
            bytes := fun r => (files.find? (·.1 == r)).map (·.2) }
 
 /-! ## The model's answers, as data -/
 
 def modelPathExists (fs : FS) (p : System.FilePath) : Option Bool := some (fs.real p).isSome
+def modelIsDir (fs : FS) (p : System.FilePath) : Option Bool := some (fs.dir p)
 def modelRealPath (fs : FS) (p : System.FilePath) : Option System.FilePath := fs.real p
 def modelReadBinFile (fs : FS) (p : System.FilePath) : Option ByteArray := fs.file p
 def modelFileSize (fs : FS) (p : System.FilePath) : Option Nat := (fs.file p).map (·.size)
@@ -66,6 +71,8 @@ def modelReads (fs : FS) (p : System.FilePath) (ns : List USize) : Option (List 
 
 example (fs : FS) (hs : HS) (p : System.FilePath) :
     (CheckerIO.pathExists p : ModelIO _) fs hs = ModelIO.ret (modelPathExists fs p) hs := rfl
+example (fs : FS) (hs : HS) (p : System.FilePath) :
+    (CheckerIO.isDir p : ModelIO _) fs hs = ModelIO.ret (modelIsDir fs p) hs := rfl
 example (fs : FS) (hs : HS) (p : System.FilePath) :
     (CheckerIO.realPath p : ModelIO _) fs hs = ModelIO.ret (modelRealPath fs p) hs := rfl
 example (fs : FS) (hs : HS) (p : System.FilePath) :
@@ -119,6 +126,8 @@ def fixtures : List String :=
   for p in paths do
     same s!"pathExists {p}" (← renderIO toString (CheckerIO.pathExists p))
       (render toString (modelPathExists fs p))
+    same s!"isDir {p}" (← renderIO toString (CheckerIO.isDir p))
+      (render toString (modelIsDir fs p))
     same s!"realPath {p}" (← renderIO toString (CheckerIO.realPath p))
       (render toString (modelRealPath fs p))
     same s!"readBinFile {p}" (← renderIO (toString ·.toList) (CheckerIO.readBinFile p))
@@ -159,7 +168,7 @@ def fixtures : List String :=
 /-! ## The command line (`--`): after it, everything is a file -/
 
 example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] := by
-  simp [ConLeche.Driver.parseArgs]
+  simp [ConLeche.Driver.parseArgs, ConLeche.Driver.Args.closed]
 #guard (ConLeche.Driver.parseArgs ["--", "-weird-name.ndjson"] {}).files == #["-weird-name.ndjson"]
 #guard (ConLeche.Driver.parseArgs ["--", "-weird-name.ndjson"] {}).bad.isNone
 #guard (ConLeche.Driver.parseArgs ["--jobs=2", "--", "--trusted", "--"] {}).files ==
@@ -171,7 +180,21 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 -- The help fits a terminal, and names every flag `parseArgs` takes.
 #guard (ConLeche.Driver.helpText.splitOn "\n").all (·.length ≤ 80)
 #guard ["--verified", "--trusted", "--jobs=", "--max-nat-size=", "--progress", "--help",
-    "--olean", "--search-path=", "--constant="].all (ConLeche.Driver.helpText.contains ·)
+    "--olean", "--search-path=", "--constant=", "--schedule", "--worker-stack-size="].all
+  (ConLeche.Driver.helpText.contains ·)
+-- `--worker-stack-size=SIZE` (DESIGN #620): a size with a unit, in KiB, only with `--schedule`
+#guard (ConLeche.Driver.parseArgs ["--olean", "--schedule", "--worker-stack-size=8G", "--", "M"]
+  {}).workerStack == some 8388608
+#guard (ConLeche.Driver.parseArgs ["--worker-stack-size=8G", "--schedule", "--", "M"]
+  {}).bad.isNone
+#guard (ConLeche.Driver.parseArgs ["--schedule", "--worker-stack-size=8388608", "--", "M"]
+  {}).bad.isSome
+#guard (ConLeche.Driver.parseArgs ["--schedule", "--worker-stack-size=0G", "--", "M"]
+  {}).bad.isSome
+#guard (ConLeche.Driver.parseArgs ["--olean", "--worker-stack-size=8G", "--", "M"]
+  {}).bad == some "--worker-stack-size takes --schedule"
+#guard (ConLeche.Driver.parseArgs ["--olean", "--worker-stack-size=8G", "M"]
+  {}).bad == some "--worker-stack-size takes --schedule"
 
 /-! ## The maximum `Nat` size (`--max-nat-size`, `natOpRefusal`; official lean4#14849) -/
 
@@ -211,6 +234,6 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 #guard (ConLeche.Cached.NatBinOp.ofName? (ConLeche.natName.str "addd")).isNone
 /-- No flag: the verified mode. -/
 example : (ConLeche.Driver.parseArgs ["--", "x"] {}).mode = .verified := by
-  simp [ConLeche.Driver.parseArgs]
+  simp [ConLeche.Driver.parseArgs, ConLeche.Driver.Args.closed]
 
 end ConLecheTests.CheckerIOTests

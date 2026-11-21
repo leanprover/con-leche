@@ -6,6 +6,7 @@ import ConLeche.Model.Env.LfpAcc
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.TargetOutIdx
+import ConLeche.Model.Inductives.FamilyRun
 import ConLeche.Verify.Inductives.NestContInv
 
 public section
@@ -120,7 +121,7 @@ variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true) {dsa : List Term}
   (hdsa : DenoteSpine mp.base2.acval env φ hi ds dsa)
   (hlenP : (D.params (Level.substFn φ lps us)).length = ds.length)
-  {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp)
+  {grp : List (Name × Expr)} (hg : GrpWf env ctx D hi us ds grp)
 
 include hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
 
@@ -148,9 +149,10 @@ theorem grp_hole_full {mm : Nat} (ρp Y : Nat → V) {vs : List V}
   · exact Or.inl h
   · exact Or.inr h
 
+omit hnd hul hds hdsa hlenP in
 /-- A group member's index is in the group. -/
 theorem grp_inGrp {p : Name × Expr} (hp : p ∈ grp) : InGrp D grp (D.names.idxOf p.1) := by
-  obtain ⟨mm, hmm, hpm, hidx, -⟩ := grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
+  obtain ⟨mm, hmm, hpm, hidx, -⟩ := grpMember mp hD hnN hkN hfind hlps hg hp
   rw [hidx]
   exact ⟨hmm, by rw [List.contains_iff_mem, List.mem_map]; exact ⟨p, hp, hpm⟩⟩
 
@@ -158,7 +160,11 @@ theorem grp_inGrp {p : Name × Expr} (hp : p ∈ grp) : InGrp D grp (D.names.idx
 frame's walk (see the module docstring). -/
 theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi)
     {Δh : List Term} {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ w ctx prog hi Δh R₀)
-    (hwD : D.w (Level.substFn φ lps us) = w)
+    (hin : RulesInputs V mp.base2 φ) (hΔ : Δh.length = hi)
+    (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
+    (hkf : ∀ ρ ρ', R₀ ρ ρ' → KeyFit D (Level.substFn φ lps us) dsa hi ρ ∧
+      KeyFit D (Level.substFn φ lps us) dsa hi ρ')
+    (hwD : ∀ ρ ρ', R₀ ρ ρ' → D.w (Level.substFn φ lps us) = w)
     (harity : ∀ p ∈ grp, ds.length + p.2.piBinders.1.length
       = (D.pars (D.names.idxOf p.1) (Level.substFn φ lps us)).length
         + (D.ids (D.names.idxOf p.1) (Level.substFn φ lps us)).length) :
@@ -206,7 +212,7 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
       (grp[j]).2.piBinders.1.length = (D.ids mm (Level.substFn φ lps us)).length := by
     intro j hj
     have hpi : grp[j] ∈ grp := List.getElem_mem _
-    obtain ⟨mm, hmm, -, hidx, -⟩ := grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hpi
+    obtain ⟨mm, hmm, -, hidx, -⟩ := grpMember mp hD hnN hkN hfind hlps hg hpi
     refine ⟨mm, hmm, hidx, ?_⟩
     have h := harity _ hpi
     rw [hidx, parsLen_dsa mp hD hdsa hlenP hmm, ← DenoteSpine.length_eq hdsa] at h
@@ -220,8 +226,11 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
   · -- the context
     rintro _ _ ⟨ρ, ρ', Y, Y', hr, hY, hY', rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR₀.dom ρ ρ' hr
-    exact ⟨sat_of_spineFit h1 (grpVals_fit mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg _ _ hY),
-      sat_of_spineFit h2 (grpVals_fit mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg _ _ hY')⟩
+    obtain ⟨hk, hk'⟩ := hkf ρ ρ' hr
+    exact ⟨sat_of_spineFit h1 (grpVals_fit mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin
+        hΔ hCds hLds _ _ h1 hk hY),
+      sat_of_spineFit h2 (grpVals_fit mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin
+        hΔ hCds hLds _ _ h2 hk' hY')⟩
   · -- agreement off the holes
     rintro _ _ ⟨ρ, ρ', Y, Y', hr, -, -, rfl, rfl⟩ i hi
     rw [hlen'] at hi
@@ -255,8 +264,8 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
     -- tuple (a strict set) or `∅`; an enclosing hole is the enclosing
     -- relation's
     intro hw
-    have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD]; exact hw
     rintro _ _ ⟨ρ, ρ₀, Y, Y₀, hr, hY, hY₀, rfl, rfl⟩ i vs hQ hpt
+    have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD ρ ρ₀ hr]; exact hw
     rcases (hQiff i vs.length).mp hQ with ⟨j, hk, hjk, rfl, hn⟩ | ⟨hle, hQ'⟩
     · obtain ⟨hj, rfl⟩ := hnewj _ hk hjk
       obtain ⟨mm, hmm, hidx, har⟩ := hmm_of _ hj
@@ -290,21 +299,19 @@ pieces). -/
 theorem grp_arity (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
-    {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) (ψ : Name → Nat) :
+    {grp : List (Name × Expr)} (hg : GrpWf env ctx D hi us ds grp) (ψ : Name → Nat) :
     ∀ p ∈ grp, ds.length + p.2.piBinders.1.length
       = (D.pars (D.names.idxOf p.1) ψ).length + (D.ids (D.names.idxOf p.1) ψ).length := by
   intro p hp
-  obtain ⟨-, mm, cv, caps, nI, hmm, hpm, hfc, hF⟩ := hg.2.2 p hp
-  obtain ⟨cv', caps', hf, -, hab⟩ := (mp.lfp_ok D hD).2.2.1 mm hmm
+  obtain ⟨-, mm, cv, caps, nI, ty, hmm, hpm, hfc, ⟨F, hrun⟩, hF, -⟩ := hg.2.2 p hp
   have hfC' : env.find? (D.member mm) = some (.indInfo cv caps) := by
     rw [← hfind, ← hpm]; exact hfc
-  rw [hf] at hfC'
-  obtain ⟨rfl, rfl⟩ : cv' = cv ∧ caps' = caps := by simpa using hfC'
-  obtain ⟨ab, hread, hmap⟩ := hab ψ
+  obtain ⟨-, -, -, hrd⟩ := familyRead mp hD hmm hfC' hrun
+  obtain ⟨ab, u, hread, hl, -⟩ := hrd ψ
   obtain ⟨s, hs, -⟩ := hF.sort
-  have hc := instPis_count_of_read hread cv'.levelParams us hF.inst hs
+  have hc := instPis_count_of_read hread cv.levelParams us hF.inst hs
   have hidx : D.names.idxOf p.1 = mm := by rw [hpm]; exact idxOf_member hnN hkN hmm
   simp only at hc
-  rw [hc, hidx, ← List.length_append, ← hmap]
+  rw [hc, hidx, ← List.length_append, hl]
 
 end ConLeche.Model

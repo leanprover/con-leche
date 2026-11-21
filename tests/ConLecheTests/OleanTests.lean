@@ -61,6 +61,11 @@ def agree (what : String) (f : ModFiles) (level : OLeanLevel) : IO Unit := do
     throw (IO.userError s!"{what}: the entry reads differ")
   unless readStmts f level (l.consts.toList.map (·.loc)) == some (d.constants.toList.map CEntryF.stmt) do
     throw (IO.userError s!"{what}: the statements read differ")
+  -- with one memo, all at once and in another order
+  unless readEntries f level (l.consts.toList.map (·.loc)) == some d.constants.toList do
+    throw (IO.userError s!"{what}: the entries read with one memo differ")
+  unless readEntries f level (l.consts.toList.reverse.map (·.loc)) == some d.constants.toList.reverse do
+    throw (IO.userError s!"{what}: the entries read with one memo, reversed, differ")
 
 /-- **A module's load, each theorem's value read over its frontier, is the private view**:
 `loadAt_spec`, `lazyEntry_of_spec`, `frontierExpr_eq` on the fixtures.  What a constant
@@ -109,7 +114,8 @@ def filesOf (lib m : String) : IO ModFiles := do
     -- an importer holding M.olean alone reads the home's exported view
     unless fastDecode { exported := f.exported } .exported == some (pairOf v.exported) do
       throw (IO.userError s!"{m}: the exported file alone")
-    match checkViews (.str .anonymous m) f v with
+    let some ld := loadAt 0 (.str .anonymous m) f | throw (IO.userError s!"{m}: the load")
+    match checkViews (.str .anonymous m) f ld with
     | .ok _ => pure ()
     | .error e => throw (IO.userError s!"{m}: {e}")
     loadAgrees m 7 f
@@ -284,6 +290,80 @@ def isBlocksError (cs : Array CEntry) : Bool :=
 #guard isBlocksError #[ent "Quot" ty0 (.quot "type"), ent "Quot.mk" ty0 (.ax false)]
 #guard (blocksOk (mergedOf #[ent "Quot" ty0 (.quot "type"), ent "Quot.mk" ty0 (.quot "ctor")]))
   matches .ok ()
+
+/-! ## One group's record -/
+
+-- A group validated alone, as `blocksOk` validates a merged block: in order; a listed
+-- constructor not stored; a member of another block; a recursor of another block.
+#guard (groupRecord (mergedOf #[indI [nm "I"] [nm "I.c"], ctorIc]) (nm "I")) matches
+  .ok (.indDecl [.indInfo .., .ctorInfo ..] 0)
+-- (a recursor of no motive: the record builder's verdict, as for a merged block)
+#guard (groupRecord (mergedOf #[indI [nm "I"] [nm "I.c"], ctorIc, recI [nm "I"]]) (nm "I")) matches
+  .error (.invalid _)
+#guard (groupRecord (mergedOf #[indI [nm "I"] [nm "I.c"]]) (nm "I")) matches .error (.internal _)
+#guard (groupRecord (mergedOf #[indI [nm "I", nm "J"] [],
+  ent "J" ty0 (.induct 0 0 [nm "J"] [] 0 false false false)]) (nm "I")) matches .error (.internal _)
+#guard (groupRecord (mergedOf #[indI [nm "I"] [], recI [nm "I", nm "J"]]) (nm "I"))
+  matches .error (.internal _)
+-- a name that is no inductive type
+#guard (groupRecord (mergedOf #[ent "I" ty0 (.ax false)]) (nm "I")) matches .error (.internal _)
+
+/-- A block's recursors by name: the exported part lists its constants sorted by name, the
+private part in the order they were declared. -/
+def recsSorted : Declaration → Declaration
+  | .indDecl block np =>
+    let isRec : ConstantInfo → Bool := fun | .recInfo .. => true | _ => false
+    .indDecl (block.filter (!isRec ·) ++
+      ((block.filter isRec).toArray.qsort (toString ·.name < toString ·.name)).toList) np
+  | d => d
+
+/-- **A group's record read from one part is the emission's**: every inductive type of the
+fixture's private and exported parts, `readGroup` then `groupRecord`, against the record
+the merged emission of the module's load builds for it (at the exported part, up to the
+order of the recursors). -/
+def groupAgrees (lib m : String) : IO Unit := do
+  let f ← filesOf lib m
+  let some ld := loadAt 0 (nm m) f | throw (IO.userError s!"{m}: the load")
+  let .ok mg := mergeAll #[ld] | throw (IO.userError s!"{m}: the merge")
+  for level in [OLeanLevel.private, .exported] do
+    let some ps := readNamePositions f level | throw (IO.userError s!"{m}: the names")
+    let locs : Std.HashMap Name Nat := ps.consts.foldl (fun m q => m.insert q.name q.loc) {}
+    let recs := (ps.consts.filter (·.tag == 7)).toList.map (·.loc)
+    for q in ps.consts do
+      if q.tag != 5 then continue
+      let some g := readGroup f level (locs[·]?) recs q.name | throw (IO.userError s!"{q.name}: read")
+      let .ok d := groupRecord g q.name | throw (IO.userError s!"{q.name}: the record")
+      let .ok ds := declsOf (emitAll mg #[q.name]) | throw (IO.userError s!"{q.name}: the emission")
+      unless ds.any (fun e => if level == .private then e == d else recsSorted e == recsSorted d) do
+        throw (IO.userError s!"{m} ({repr level}): {q.name}'s record is not the emission's")
+
+#eval show IO Unit from do
+  groupAgrees "tests/olean/lib/" "GrN"
+  groupAgrees "tests/olean/lib/" "Tiny"
+  groupAgrees "tests/olean/lib/" "TinyClassic"
+
+/-! ## The header fixpoint -/
+
+/-- The modules a fixture's header loads, with the part of each, in the order. -/
+def loadsOf (m : String) : IO (List (String × Bool × Bool)) := do
+  let sp : SearchPath := ["tests/olean/lib"]
+  let f ← filesOf "tests/olean/lib/" m
+  let some ps := readNamePositions f .private | throw (IO.userError s!"{m}: the names")
+  match ← (headerFixpoint (moduleImports sp) ps.header.isModule ps.header.imports : IO _) with
+  | .ok ld => pure ((ld.order.zip ld.flags).toList.map fun (n, fl) => (toString n, fl.importAll, fl.isExported))
+  | .error e => throw (IO.userError s!"{m}: {e}")
+
+-- (compared by hand with Lean's own `importModules` of the headers, `env.header.modules`)
+#eval show IO Unit from do
+  -- `import all LvA`: LvA whole, its plain import LvB's exported part, LvB's `import all LvC`
+  -- not followed (LvB is not loaded whole)
+  unless (← loadsOf "LvM") == [("LvB", false, false), ("LvA", true, false)] do
+    throw (IO.userError "LvM's loads")
+  -- `public import LvA` (its plain import of LvB not followed), `import all LvB` (so LvC whole)
+  unless (← loadsOf "LvN") == [("LvA", false, true), ("LvC", true, false), ("LvB", true, false)] do
+    throw (IO.userError "LvN's loads")
+  -- a module outside the module system loads everything whole
+  unless (← loadsOf "TinyUse") == [("Tiny", false, true)] do throw (IO.userError "TinyUse's loads")
 
 -- Module names on the command line (upstream's
 -- challenge-numeric-namespace): `«»` escapes taken literally, dots

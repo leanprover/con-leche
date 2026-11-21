@@ -58,9 +58,9 @@ theorem extendEmpty (mp : EnvModelM V env)
   refine coverTo_addLfp (D := emptyLfp emptyName 1)
     (hL := emptyLfp_clause 1 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl) rfl
+      (fun _ _ _ => rfl)
       (fun ψ => by show denote _ _ _ 0 (.sort _) = _; rw [denote_sort]; rfl))
-    (hrdC := lfp0_ctorReads (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
-      (fun ψ => ⟨_, by show denote _ _ _ 0 (.sort _) = _; rw [denote_sort]⟩) fun j hj => absurd hj (Nat.not_lt_zero j))
+    (hrdC := lfp0_ctorReads fun j hj => absurd hj (Nat.not_lt_zero j))
     (hcaps := lfp0_caps (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
       (fun _ h => absurd h Nat.one_ne_zero)
       rfl

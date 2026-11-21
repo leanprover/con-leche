@@ -54,6 +54,69 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #627: the Verify olean files' statements name the specification's `ViewOf`,
+    # `InClosure` (`Files.lean:643`, `:653`) and `Under`, `FS.AgreeUnder` (`Local.lean:149`,
+    # `:150`) through these.  Each measured by demoting it alone (unknown identifier at the line).
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Frontend.Olean.Snapshot'),
+    # task #627: `Verify/Driver/Graph.lean`'s statements name `Node` (`Graph.lean:33`) and reach
+    # `Roots.Ok`/`Roots.bare` by dot-notation (`:72`).  Each measured by demoting it alone.
+    ('ConLeche.Verify.Driver.Graph', 'ConLeche.Driver.Graph'),
+    ('ConLeche.Verify.Driver.Graph', 'ConLeche.Verify.Frontend.Olean.Roots'),
+    ('ConLeche.Verify.Frontend.Olean.Local', 'ConLeche.Frontend.Olean.Snapshot'),
+    # task #618: `SeesOwn.lean`'s statements name `entryConstants` (`OleanInput`), `StoredAs`
+    # (`IsModelRecords`) and `R.names`'s membership (`Run`, through `Routes`).  Measured by
+    # demoting each (unknown identifier `entryConstants`, `SeesOwn.lean:45`; `StoredAs`, `:337`;
+    # a stuck `Membership Name`, `:302`).
+    ('ConLeche.Verify.Driver.SeesOwn', 'ConLeche.OleanInput'),
+    ('ConLeche.Verify.Driver.SeesOwn', 'ConLeche.Verify.IsModelRecords'),
+    ('ConLeche.Verify.Driver.SeesOwn', 'ConLeche.Verify.Driver.Routes'),
+    # task #608: `ReachFrom.lean`'s statements reach `Roots.Trims` by dot-notation (`a.Trims L`).
+    # Measured by demoting it alone (invalid field `Trims`, `ReachFrom.lean:163`).
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.Olean.Roots'),
+    # task #607: `Verify/Frontend/Olean/Local.lean`'s statements name `modDir`/`modFile`, `FS`,
+    # `ModelIO`, `Roots` and `readOleansAt` through this.  Measured by demoting it alone (unknown
+    # identifier `Frontend.Olean.modDir`, `Local.lean:34`; `FS`, `:38`).
+    ('ConLeche.Verify.Frontend.Olean.Local', 'ConLeche.Frontend.Olean.Records'),
+    # task #501: `PropPart.lean`'s statements name `CState`, `typeIsPropC` (through
+    # `ConLeche.Driver.Reach`) and `EnvWF`; `RouteCtx.lean`'s name `StmtRecord` (`Copies`),
+    # `homeMerged` (`Provenance`) and `Run.cap`'s membership (`ComposeReads`).  Each measured by
+    # demoting it alone (unknown identifier `CState`, `PropPart.lean:41`; `EnvWF`, `:40`;
+    # `StmtRecord`, `RouteCtx.lean:460`; `homeMerged`, `:526`; a stuck `Membership`, `:489`).
+    ('ConLeche.Verify.Driver.PropPart', 'ConLeche.Driver.Reach'),
+    ('ConLeche.Verify.Driver.PropPart', 'ConLeche.Verify.EnvWF'),
+    ('ConLeche.Verify.Driver.RouteCtx', 'ConLeche.Verify.Driver.ComposeReads'),
+    ('ConLeche.Verify.Driver.RouteCtx', 'ConLeche.Verify.Driver.Copies'),
+    ('ConLeche.Verify.Driver.RouteCtx', 'ConLeche.Verify.Driver.Provenance'),
+    # task #448: `ReachFrom.lean`'s statements name `PartKey`, `ModelIO.AllOk` and `SM.Good`
+    # (the last by dot-notation) through these.  Each measured by demoting it alone (unknown
+    # identifier `PartKey`, `ReachFrom.lean:42`; unknown constant `ModelIO.AllOk`, `:225`;
+    # invalid field `Good`, `:149`).
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Driver.Reach'),
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.ModelIO'),
+    ('ConLeche.Verify.Driver.ReachFrom', 'ConLeche.Verify.Frontend.Olean.Sparse'),
+    # task #619: statements name `CheckerOps`, `CheckMode`, `FEnv` (`ViewCongr.lean:49`) and
+    # `EntryScoped` (`Scoped.lean:53`), `DeclQuotRun` (`:361`), `checkDeclKind` (`:306`),
+    # `ClassMajorRun` (`:571`) through these.  Each measured by demoting it alone (unknown
+    # identifier at the cited line).
+    ('ConLeche.Verify.Cached.ViewCongr', 'ConLeche.Cached.Justify'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Modular'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Semantics.DeclRun'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    ('ConLeche.Verify.Cached.Scoped', 'ConLeche.Verify.Inductives.GenRecRun'),
+    # task #469 (measured in #463's merge): `Verify/Rules/Refine.lean`'s statements name
+    # `inferTypeCoreIO`, `whnfTelescope`, `EnvRefines` through these (unknown identifier at
+    # `Refine.lean:43`, `:68`, `:30` when each is demoted alone).
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Kernel.CoreIO'),
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Rules.Refine'),
+    # task #463: the context model's files state over `Env`, `Expr`, `natFragOk` through these.
+    # Each measured by demoting it alone (unknown identifier `Env`, `RestrictLfp.lean:29`;
+    # `Name`, `RestrictNat.lean:29`; `natFragOk`, `RestrictNat.lean:68`).
+    ('ConLeche.Model.Modular.RestrictLfp', 'ConLeche.Model.Modular.RestrictBase'),
+    ('ConLeche.Model.Modular.RestrictNat', 'ConLeche.Model.Modular.RestrictBase'),
+    ('ConLeche.Model.Modular.RestrictNat', 'ConLeche.Verify.NatOpFrag'),
+    # (`Main.lean:29`, unknown identifier `SetTheory` in its `variable`s, when demoted alone)
+    ('ConLeche.Model.Modular.Main', 'ConLeche.Model.Modular.Instance'),
     # task #521: the uniform install's well-formedness lemmas' public statements
     # name `DeclBlockRun`, `BlockRun`, `MemberDeclaredWF`, `EnvWF`; the census
     # attributes them elsewhere.  Measured by demoting both (unknown identifier
@@ -104,8 +167,8 @@ FALLBACK = {
     # identifier `projGuardRowsGo`, `ProjGuard.lean:45`; `Expr.WScoped`, `ProjGuard.lean:30`).
     ('ConLeche.Verify.ProjGuard', 'ConLeche.Kernel.CoreDefs'),
     ('ConLeche.Verify.ProjGuard', 'ConLeche.Verify.Shift'),
-    # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
-    # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
+    # task #480 (the merge of #481): `readOleansAt_filled` and its neighbours state `OleanRead`,
+    # `readOleansAt`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
     # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).
     ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Frontend.Olean.Records'),
     ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.Olean.Merge'),
@@ -135,7 +198,7 @@ FALLBACK = {
     # task #480: each MEASURED by demoting it alone (the module stops building).
     ('ConLeche.Verify.Cached.PushChain', 'ConLeche.Verify.Cached.DeclPushes'),
     ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.PositivityInv'),
-    ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
+    ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.RunEnv'),
     ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.EnvWF'),
     # task #470: the olean proofs' public statements name `Region`, `nameP`,
@@ -150,6 +213,16 @@ FALLBACK = {
     # (`Verify.Frontend.Olean.Emit`), one token, so that this one adds nothing.
     # Measured by demoting it (no field `Det`, `Files.lean:54`).
     ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.ModelIO'),
+    # task #443: `FormerRead`, `familyTelescope_read` and their neighbours state
+    # `EnvModelM`, `RulesInputs`, `TeleRed`, `CtxOkP` through these; `RunEnv`'s
+    # importers reach `EnvModelM.lfp_ok_transport` by dot-notation through it.
+    # Measured by demoting them (unknown identifier `RulesInputs`, `TeleRed`, `CtxOkP`,
+    # `FamilyRun.lean:53-55`; invalid field `lfp_ok_transport`, `StreamRecsSwap.lean:138`).
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Model.Env.EnvModelM'),
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Model.Rules.Inputs'),
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Verify.Rules.Refine'),
+    ('ConLeche.Model.Inductives.FamilyRun', 'ConLeche.Model.CtxOkP'),
+    ('ConLeche.Model.Inductives.RunEnv', 'ConLeche.Model.Env.CanonCrest'),
     # `ExportC`'s public definitions name `Declaration`, `ConstantVal`
     # (unknown identifier, `ExportC.lean:65`); the census attributes them to
     # its other imports.
@@ -879,6 +952,12 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Inductives.RecStage'),
     ('ConLeche.Verify.Cached.TargetRecC', 'ConLeche.Verify.Inductives.NestedRead'),
     ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Inductives.TargetAuxFire'),
+    # task #610: `GenRecFit1`'s public statements name `GenClsRd` (`GenClsSem`) and
+    # `GenFit1`/`blockRecCtorTy` (re-exported by `GenRecFitBase`).  MEASURED by
+    # demoting each alone (unknown identifier `GenClsRd`, `GenRecFit1.lean:298`;
+    # `blockRecCtorTy`, `:330`).
+    ('ConLeche.Model.Inductives.GenRecFit1', 'ConLeche.Model.Inductives.GenClsSem'),
+    ('ConLeche.Model.Inductives.GenRecFit1', 'ConLeche.Model.Inductives.GenRecFitBase'),
 }
 
 # `whitepaper/` (task #324) is its own lake library — the paper's Lean

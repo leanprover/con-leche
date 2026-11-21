@@ -82,42 +82,6 @@ theorem checkDivModCerts_inv {env : Env} {F : Nat} {c : Name}
               exact CertRuns.cons ⟨hg, tp, hinf, hde⟩
                 (checkDivModCerts_inv h)
 
-/-- `natOpStoredOk`, split. -/
-theorem natOpStoredOk_tyPinned {n : Name}
-    (h : natOpStoredOk env n = true) :
-    ∃ cv v hint, env.find? n = some (.defnInfo cv v hint) ∧
-      natOpTyPinned env n cv.type = true := by
-  unfold natOpStoredOk at h
-  revert h
-  split
-  · next cv v hint heq =>
-    intro h
-    simp only [Bool.and_eq_true, List.isEmpty_iff] at h
-    exact ⟨cv, v, hint, heq, h.2⟩
-  · intro h; exact nomatch h
-
-/-- Every guarded operation is among its own dependencies. -/
-theorem mem_natOpDeps_self {c : Name} (h : c ∈ natOpNames ∨ c ∈ natDivModNames) :
-    c ∈ natOpDeps c := by
-  have h1 : ∀ c ∈ natOpNames, c ∈ natOpDeps c := by decide
-  have h2 : ∀ c ∈ natDivModNames, c ∈ natOpDeps c := by decide
-  rcases h with h | h
-  · exact h1 c h
-  · exact h2 c h
-
-/-- A stored operation whose dependency check passed has its pinned
-type. -/
-theorem natOpTyPinned_of_deps {c : Name} {cv : ConstantVal} {v : Expr}
-    {hint : ReducibilityHint} (hc : c ∈ natOpNames ∨ c ∈ natDivModNames)
-    (hdeps : (natOpDeps c).all (natOpStoredOk env) = true)
-    (hf : env.find? c = some (.defnInfo cv v hint)) :
-    natOpTyPinned env c cv.type = true := by
-  obtain ⟨cv', v', hint', hf', hpin⟩ :=
-    natOpStoredOk_tyPinned (List.all_eq_true.mp hdeps c (mem_natOpDeps_self hc))
-  rw [hf] at hf'
-  obtain ⟨rfl, -, -⟩ := ConstantInfo.defnInfo.inj (Option.some.inj hf')
-  exact hpin
-
 /-- One variant's successful attempt, unpacked: the variant's pin
 definitionally equal to the stored value, and the variant's
 certificates checked (task #273). -/
@@ -233,7 +197,7 @@ theorem natDivModNames_ne_env {c : Name} (hc : c ∈ natDivModNames) :
 theorem divModEnvGuard_inv {env2 : Env} {c : Name}
     (h : divModEnvGuard env2 c = true) :
     natOpGuard env2 c = true ∧
-    (natOpDeps c).all (natOpStoredOk env2) = true ∧
+    natOpStoredOk env2 c = true ∧
     (env2.find? eqName).isSome = true ∧
     (∃ ci, env2.find? boolTrueName = some ci ∧
       ci.toConstantVal.type = .const boolName []) ∧

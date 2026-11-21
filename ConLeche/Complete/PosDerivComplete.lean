@@ -140,7 +140,7 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hblk : ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
       (hgrp : grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1)
       (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
-      (hkty : familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) (grp.headD default).1 us ds
+      (hkty : ∀ p ∈ grp, familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) p.1 us ds
         = .ok ())
       (hm : m ≤ n)
       (hwalk : PosDR ops env ctx m
@@ -518,7 +518,10 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     obtain ⟨os, st', h', hI', -⟩ := ih (fun _ => fuel) (fun _ _ _ _ => by omega) st hI
     replace h' := And.intro h' True.intro
     refine ⟨st', ?_, hI'⟩
-    simp only [nestFrame, bind, Except.bind, h₁, hkty]
+    have hk : familyKeyChecks ops env ctx.find? (ctx.hiAt prog.length) us ds (grp.map (·.1))
+        = .ok () := (familyKeyChecks_ok _).mpr fun c hc => by
+      obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hc; exact hkty p hp
+    simp only [nestFrame, bind, Except.bind, h₁, hk]
     rw [grpNews_mapIdx]
     split
     · rename_i heq; exact absurd (heq.symm.trans h'.1) (by simp)

@@ -67,6 +67,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
     (hub : ns.getD (b - 1) default = u)
     {G : Nat → Nat → V → V → Prop} {σ : Nat → V}
     (hσ : AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b) G u.anc σ) {Y : Nat → V}
+    (hlive : nlLive mpC ctx d ns ψ ρ xs b)
     (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
     (hY : InTupleSpace ((lfpSel mpC d.toLfp u.key.cname).w (nodeψ envC ψ u))
       (lfpSel mpC d.toLfp u.key.cname).N ((lfpSel mpC d.toLfp u.key.cname).idx (nodeψ envC ψ u)
@@ -106,7 +107,19 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
   have hGl := grpNews_length u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp
   have hxs' : ctx.nP ≤ xs.length := by rw [H.hnP]; exact hxs
   have hsatU := dyn_trueVal_sat H ψ ρ xs hparams hxs _ u hu (Nat.le_refl _)
-  generalize hdsaE : nodeDsaI mk ctx ψ u = dsaU at hdsa hsatN hY ⊢
+  -- the true key frame fits (the node is live), hence so does the admissible one
+  have hkT : KeyFit (lfpSel mpC d.toLfp u.key.cname) (Level.substFn ψ cv0.levelParams u.key.lvls)
+      (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc) := by
+    have h := hlive
+    unfold nlLive at h
+    rw [ite_eq_right hb00, hnlDb, hnlψ, hnlFr, hψ] at h
+    exact h
+  have hinp := Rules.RulesInputs.ofSem mk ψ
+  have hΔ := stackCtx_length_hi (m := mk.base2) (φ := ψ) (H.hΔ0 ψ) u.anc
+  obtain ⟨-, hCds, hLds⟩ := H.hsem u hu ψ
+  have hkσ := keyFit_agree mk hD hnN hkN H.hcov.find hlps hds hdsa (hlenP _) hg hinp hΔ hCds hLds
+    (fun i hi => (hσ.agree i hi).symm) hsatU hσ.sat hkT
+  generalize hdsaE : nodeDsaI mk ctx ψ u = dsaU at hdsa hsatN hY hkT hkσ ⊢
   generalize hρ' : keyFrame dsaU (ctx.hiAt u.anc.length) σ = ρ' at hsatN hY ⊢
   generalize hDdef : lfpSel mpC d.toLfp u.key.cname = D at *
   rw [hψ] at hsatN hY ⊢
@@ -217,8 +230,8 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
           (by rw [hub, hanc, List.nil_append]) (by rw [hub]; exact hkmem) hdsa'
       rw [hnlFr, hdsaE]
       -- the hole's value: the group's
-      obtain ⟨mm', hmm', hpm, hidx, -, -, -, -, -, -, hte⟩ :=
-        grpMember mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg hpi
+      obtain ⟨mm', hmm', hpm, hidx, -, hte⟩ :=
+        grp_n2 mk hD hnN hkN H.hcov.find hlps hds hdsa (hlenP _) hg hinp hΔ hCds hLds hpi
       rw [hψu] at hte
       have hkk : ctx.hiAt u'.anc.length - 1 - (ctx.hiAt 0 + i) < GV.length := by
         rw [hhi', hVl]; simp only [ConLeche.NestCtx.hiAt] at hA0 ⊢; omega
@@ -241,7 +254,8 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
       rw [hidx] at harity
       have hisl : is.length = (D.ids mm' ψu).length := by
         rw [hkeq] at his; simp only at his; omega
-      have hT := hte σ (trueVal mpC ctx ψ ρ xs u.anc) hσ.agree
+      have hT := hte σ (trueVal mpC ctx ψ ρ xs u.anc) hσ.agree hσ.sat hsatU
+        hkσ hkT
       rw [hρ'] at hT
       have hcomp : nlComp mpC d ns b hk.key.cname = mm' := by
         unfold nlComp; rw [hnlDb, hkeq]; exact hidx
@@ -250,20 +264,23 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
       · rw [LfpDatum.holeVal_app hfitA] at hy
         -- the fit at the TRUE frame (the index telescope sees no hole)
         have hfitT : SpineFit (keyFrame dsaU (ctx.hiAt u.anc.length)
-            (trueVal mpC ctx ψ ρ xs u.anc)) (D.ids mm' ψu) is := (hT.spineFit is).mp hfitA
+            (trueVal mpC ctx ψ ρ xs u.anc)) (D.ids mm' ψu) is :=
+          ((spineFit_iff_of_mkPisAV_eq rfl hT is).1).mp hfitA
         rw [hcomp, hnlDb, hnlψ, hψ]
-        exact ⟨fun _ => Or.inr ⟨rfl, hmmN, tupW_mem hfitT, hy⟩, fun hnf => absurd hfitT hnf⟩
+        exact ⟨fun _ => Or.inr ⟨rfl, hmmN, tupW_mem hfitT, hy⟩,
+          fun hnf => absurd ⟨hlive, hfitT⟩ hnf⟩
       -- off the fit: the true value, the owner's hole value at its true carrier
       -- (the tower off a fitting spine reads neither the frame off the holes nor
       -- the tuple: `TeleEq.holeFam`, `holeFam_foldl_nofit`)
       have hnT : ¬ SpineFit (keyFrame dsaU (ctx.hiAt u.anc.length)
           (trueVal mpC ctx ψ ρ xs u.anc)) (D.ids mm' ψu) is := fun h =>
-        hfitA ((hT.spineFit is).mpr h)
+        hfitA (((spineFit_iff_of_mkPisAV_eq rfl hT is).1).mpr h)
       rw [hcomp, hnlDb, hnlψ, hψ]
-      refine ⟨fun h => absurd h hnT, fun _ => ?_⟩
+      refine ⟨fun h => absurd h.2 hnT, fun _ => ?_⟩
       have hkm' : hk ∈ ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp :=
         hkmem
-      rw [trueVal_frameVal H ψ ρ xs hxs' hu hsatU hi0 hsuf hkm', hDdef, hdsaE, hψ, hkeq]
+      rw [trueVal_frameVal H ψ ρ xs hxs' hu (by rw [hDdef, hdsaE, hψ]; exact hkT.1) hi0 hsuf
+        hkm', hDdef, hdsaE, hψ, hkeq]
       simp only
       rw [hidx]
       have hC : InTupleSpace (D.w ψu) D.N
@@ -274,12 +291,12 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
           app (D.carrier ψu (keyFrame dsaU (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc))
             mm') (tupW (D.u mm' ψu) ws) ≠ pt := fun ws hws =>
         (IsTy_of_mem_strictU (famSpace_app (hC mm' hmmN)
-          (tupW_mem ((hT.spineFit ws).mp hws)))).ne_pt
+          (tupW_mem (((spineFit_iff_of_mkPisAV_eq rfl hT ws).1).mp hws)))).ne_pt
       have hneY : ∀ ws, SpineFit ρ' (D.ids mm' ψu) ws →
           app (Y mm') (tupW (D.u mm' ψu) ws) ≠ pt := fun ws hws =>
         (IsTy_of_mem_strictU (famSpace_app (hY mm' hmmN) (tupW_mem hws))).ne_pt
       unfold LfpDatum.holeVal at hy ⊢
-      rw [← hT.holeFam, holeFam_foldl_nofit hneC hneY hisl hfitA]
+      rw [← holeFam_of_mkPisAV_eq rfl hT, holeFam_foldl_nofit hneC hneY hisl hfitA]
       exact hy
 
 /-- **Below the frames**: an admissible valuation of a stack, its frame

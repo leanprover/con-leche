@@ -334,8 +334,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     have r₀ : CoverRel mp mk := ⟨fun _ _ hn => hn, fun n _ => by rw [hb, hac],
       fun ψ d e ta hbd hta => by
         rw [hb, hac]
-        exact denote_pushTable_mono hT' ψ d hbd hta,
-      fun D hD => .inl (hL ▸ hD)⟩
+        exact denote_pushTable_mono hT' ψ d hbd hta⟩
     exact ⟨mpF, r₀.trans rF, fun hc => hF (hc.pushTable hL)⟩
 
 end ConLeche.Model

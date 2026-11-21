@@ -432,6 +432,11 @@ def toConstantVal : ConstantInfo → ConstantVal
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 
+/-- A definition, theorem or axiom: the kinds whose copies may differ by a value. -/
+def isStmtKind : ConstantInfo → Bool
+  | .defnInfo .. | .thmInfo .. | .axiomInfo .. => true
+  | _ => false
+
 end ConstantInfo
 
 namespace Declaration

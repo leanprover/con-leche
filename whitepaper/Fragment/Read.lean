@@ -1176,6 +1176,53 @@ theorem Reader.fits_ihCtxAux (hS : S.Scoped env) (R : S.Reader (env := env) M φ
       rw [IhTyped_iff hrec, ← hread] at h1
       exact h1
 
+/-- **A minor premise's conclusion's arguments, read**: the
+constructor's index expressions read as the index values, then its
+value at the fields (`nIh` hypotheses and `o` extras below the fields). -/
+theorem Reader₂.read_concl_args (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M φ M' φ')
+    (hfresh : env.find? S.name = none) {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c)
+    {nIh o : Nat} {ihsE fs os ps : List V} {ρ : Nat → V}
+    (hi : ihsE.length = nIh) (hf : fs.length = c.fields.length) (ho : os.length = o)
+    (hps : ps.length = S.nP) (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hfit : S.FitsFields M (S.lparams.map φ) (S.Fam M (S.lparams.map φ) ps) ps c.fields fs)
+    (hidx : ∀ k f, c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
+      IdxFitAt S M φ ps (earlier fs k) f) :
+    (c.idx.map (Expr.atCtx c.fields.length c.fields.length nIh o 0) ++
+        [Expr.mkAppN (.const c.name S.lvls)
+          (Expr.varsAt (nIh + c.fields.length + o) S.nP ++ Expr.varsAt nIh c.fields.length)]).map
+        (interp M' φ' (consList ihsE (consList fs (consList os (consList ps ρ)))))
+      = (S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx).reverse ++
+          [S.ctorVal (S.lparams.map φ) j fs] := by
+  have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
+  have R := R₂.R
+  rw [List.map_append, List.map_map, List.map_singleton]
+  congr 1
+  · unfold idxVals
+    rw [List.reverse_reverse]
+    apply List.map_congr_left
+    intro e he
+    simp only [Function.comp]
+    have h1 := interp_atCtx M' φ' ρ e (ys := []) (d := 0) (k := c.fields.length) (ps := ps) rfl hi hf
+      ho (Nat.le_refl _)
+    simp only [consList_nil, Nat.sub_self, List.drop_zero] at h1
+    rw [h1]
+    exact R.read ((hS.2.2.2.1 c hcm).2.2.2 e he) (by simp [hf, hps]; omega)
+  · -- the constructor applied
+    congr 1
+    rw [interp_mkAppN_appList, interp_const, R₂.ctor j c hc, R.lvls_map, List.map_append,
+      interp_varsAt, interp_varsAt]
+    rw [show nIh + c.fields.length + o = (ihsE ++ fs ++ os).length by simp [hi, hf, ho]; omega,
+      consList_three, shiftE_consList, readEnv_consList hps, ← consList_three, ← hi,
+      shiftE_consList, readEnv_consList hf, ← List.reverse_append]
+    have R₁ := S.reader₁A (M := M) (φ := φ) R₂.R.adm hfresh
+    have hfit₁ : FitsVals (S.M₁ M) (S.ψ (S.lparams.map φ)) base (S.fieldCtx c.fields ++ S.params)
+        (fs ++ ps) :=
+      (FitsVals_append _ _ (by rw [hf, S.length_fieldCtx])).mpr
+        ⟨(R₁.fits_params hS).mpr hp,
+         R₁.fits_fieldCtx_of_idx hS (hS.2.2.2.1 c hcm).1 (ρ := base) hps hp hfit hidx⟩
+    unfold ctorSet
+    rw [appList_lamCtx _ _ hfit₁, consList_append, readEnv_consList hf]
+
 /-- **A minor premise's conclusion, read**: the motive at the
 constructor's index expressions and its value at the fields (`nIh`
 hypotheses and `o` extras below the fields, the motive the outermost
@@ -1196,37 +1243,11 @@ theorem Reader₂.read_concl (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env
       = appList (os.getD (o - 1) pt)
           ((S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx).reverse ++
             [S.ctorVal (S.lparams.map φ) j fs]) := by
-  have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
-  have R := R₂.R
-  rw [interp_mkAppN_appList, interp_bvar, List.map_append, List.map_map, List.map_singleton]
+  rw [interp_mkAppN_appList, interp_bvar,
+    R₂.read_concl_args hS hfresh hc hi hf ho hps hp hfit hidx]
   -- the motive
   rw [show nIh + c.fields.length + o - 1 = (o - 1 + c.fields.length) + nIh by omega, ← hi,
-    consList_ge, hi, ← hf, consList_ge, hf, consList_getD (by omega)]
-  congr 2
-  · unfold idxVals
-    rw [List.reverse_reverse]
-    apply List.map_congr_left
-    intro e he
-    simp only [Function.comp]
-    have h1 := interp_atCtx M' φ' ρ e (ys := []) (d := 0) (k := c.fields.length) (ps := ps) rfl hi hf
-      ho (Nat.le_refl _)
-    simp only [consList_nil, Nat.sub_self, List.drop_zero] at h1
-    rw [h1]
-    exact R.read ((hS.2.2.2.1 c hcm).2.2.2 e he) (by simp [hf, hps]; omega)
-  · -- the constructor applied
-    rw [interp_mkAppN_appList, interp_const, R₂.ctor j c hc, R.lvls_map, List.map_append,
-      interp_varsAt, interp_varsAt]
-    rw [show nIh + c.fields.length + o = (ihsE ++ fs ++ os).length by simp [hi, hf, ho]; omega,
-      consList_three, shiftE_consList, readEnv_consList hps, ← consList_three, ← hi,
-      shiftE_consList, readEnv_consList hf, ← List.reverse_append]
-    have R₁ := S.reader₁A (M := M) (φ := φ) R₂.R.adm hfresh
-    have hfit₁ : FitsVals (S.M₁ M) (S.ψ (S.lparams.map φ)) base (S.fieldCtx c.fields ++ S.params)
-        (fs ++ ps) :=
-      (FitsVals_append _ _ (by rw [hf, S.length_fieldCtx])).mpr
-        ⟨(R₁.fits_params hS).mpr hp,
-         R₁.fits_fieldCtx_of_idx hS (hS.2.2.2.1 c hcm).1 (ρ := base) hps hp hfit hidx⟩
-    unfold ctorSet
-    rw [appList_lamCtx _ _ hfit₁, consList_append, readEnv_consList hf]
+    consList_ge, ← hf, consList_ge, consList_getD (by omega)]
 
 /-- `read_concl` in minor premise `j`: `j + 1` extras, the motive the
 outermost. -/

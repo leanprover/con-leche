@@ -116,6 +116,35 @@ def declConstantsC : Declaration → List ConstantInfo
     | .ok p => blockConstantsC p
     | .error _ => []
 
+/-- The names a record installs (`Modular.declNames`), over `declConstantsC`. -/
+def declNamesC (d : Declaration) : List Name :=
+  (declConstantsC d).map (·.toConstantVal.name)
+
+/-- `ConstantVal.atLps` over the cached level substitution (`Expr.instLevelParams`, which keeps
+the type's sharing): the compared run renames a solution's constant at every record. -/
+def _root_.ConLeche.ConstantVal.atLpsC (cv : ConstantVal) (ps : List Name) : ConstantVal :=
+  ⟨cv.name, ps, Expr.instLevelParams cv.levelParams (ps.map .param) cv.type⟩
+
+/-- `ConstantInfo.atLps` over the cached level substitution. -/
+def _root_.ConLeche.ConstantInfo.atLpsC (ci : ConstantInfo) (ps : List Name) : ConstantInfo :=
+  let lps := ci.toConstantVal.levelParams
+  let us := ps.map Level.param
+  match ci with
+  | .axiomInfo cv => .axiomInfo (cv.atLpsC ps)
+  | .defnInfo cv v h => .defnInfo (cv.atLpsC ps) (Expr.instLevelParams lps us v) h
+  | .thmInfo cv => .thmInfo (cv.atLpsC ps)
+  | .indInfo cv caps => .indInfo (cv.atLpsC ps) caps
+  | .ctorInfo cv nP nF T => .ctorInfo (cv.atLpsC ps) nP nF T
+  | .recInfo cv mI rP isK rules =>
+    .recInfo (cv.atLpsC ps) mI rP isK
+      (rules.map fun rl => { rl with
+        rhs := Expr.instLevelParams lps us rl.rhs
+        fire := rl.fire.atLps lps us })
+
+/-- `streamEnv` over `declConstantsC` and `declTablesC`. -/
+def streamEnvC (ds : List Declaration) (env : Env := Env.empty) : Env :=
+  ds.foldl (fun e pd => e.pushDelta (declConstantsC pd) (declTablesC pd)) env
+
 variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core

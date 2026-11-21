@@ -54,11 +54,6 @@ beside the conclusion; `checkDeclStepC_model`
 share, and its extra conjunct — the step IS a pure `checkDecl` run — is
 what lets the per-record reasoning happen entirely at the pure checker's
 own run relation (`Semantics.DeclRun`).
-
-`ConLeche/Verify/Cached/StreamThm.lean` proves the bare-constant special
-case a second and cheaper way, with no model and no `V`.  That is why
-the main corollary at the stream (`no_False_theorem_accepted`) does not
-go through this module.
 -/
 namespace ConLeche
 
@@ -191,7 +186,7 @@ carries the model, every record's declared constant is stored — with its
 name, its level parameters and its type — and is still there at the
 end.  The hypotheses are `declsRun_model`'s. -/
 theorem declsRun_declares {ds : List Declaration} {p q : Nat × FEnv}
-    (hrun : DeclsRun .verified pins maxNatSize ds p q) :
+    (hrun : DeclsRun .verified pins maxNatSize none ds p q) :
     p.2 = mkFEnv p.2.env → EnvModelOk V p.2.env →
     ∀ pd ∈ ds, ∀ cv : ConstantVal, Declaration.Declares pd cv →
       ∃ c ∈ q.2.env.consts, c.name = cv.name ∧

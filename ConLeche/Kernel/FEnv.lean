@@ -438,9 +438,7 @@ def natLitSupportedF (fe : FEnv) : Bool :=
 /-- `natOpGuard` through the index. -/
 def natOpGuardF (fe : FEnv) (c : Name) : Bool :=
   natLitSupportedF fe &&
-  (natOpDeps c).all (fun n => match fe.find? n with
-    | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
-    | _ => false) &&
+  (natOpDeps c).all (fun n => (fe.find? n).isSome) &&
   (if c = natBeqName || c = natBleName || natDivModNames.contains c then
     (match fe.find? boolTrueName with
       | some ci => ci.toConstantVal.levelParams.isEmpty &&

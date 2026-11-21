@@ -32,11 +32,6 @@ name (`consBlockCtors`). -/
 def blockCtors (p : BlockShape) : List ConstantInfo :=
   p.ctorGroups.flatMap fun g => g.2.map fun c => .ctorInfo c.1 p.nP c.2 g.1
 
-/-- `n` variables below a term's own, which do not occur in it, dropped. -/
-def Expr.dropVars : Nat → Expr → Expr
-  | 0, e => e
-  | n + 1, e => Expr.dropVars n (e.instantiate1 (.sort .zero))
-
 /-- **How a recursor's rules fire**: `.plain` at a member major; at a major outside the block,
 `.nested` at the levels and parameters of the major's container.  Those are read off the major's
 domain, whose arguments end in the `mI - rP` index variables; the parameters are moved from under
@@ -102,5 +97,21 @@ def declTables : Declaration → List ProjTable
     | .ok p => (blockTables p p.members).getD []
     | .error _ => []
   | _ => []
+
+/-- **The environment a list of records denotes**: every record's constants and tables, in order,
+pushed onto `env`. -/
+def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
+  ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
+
+/-- **The names a pinned constant's fast path reads**, beyond its own type and value: a certified
+`Nat` operation's dependencies, the `Nat` basis and, for the `Bool`-valued and `ble`-guarded ones,
+the `Bool` type and constructors; a `reduce*` opaque's element type. -/
+def pinFootprint (n : Name) : List Name :=
+  (if natOpNames.contains n || natDivModNames.contains n then
+    natOpDeps n ++ [natName, natZeroName, natSuccName] ++
+      (if n = natBeqName || n = natBleName || natDivModNames.contains n then
+        [boolName, boolTrueName, boolFalseName] else [])
+   else []) ++
+  (if reduceOpNames.contains n then [reduceElemName n] else [])
 
 end ConLeche

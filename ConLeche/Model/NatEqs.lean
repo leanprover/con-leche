@@ -508,12 +508,11 @@ reading is graded — which is where the fibre facts come from). -/
 
 /-- **A stored pinned binary head.** -/
 theorem natBinHead_of_stored (mp : EnvModelM V env) {ψ : Name → Nat}
-    {o : Name} {cvo : ConstantVal} {vo : Expr}
-    {ho : ReducibilityHint}
-    (hf : env.find? o = some (.defnInfo cvo vo ho))
-    (hlp : cvo.levelParams = [])
+    {o : Name} {cio : ConstantInfo}
+    (hf : env.find? o = some cio)
+    (hlp : cio.toConstantVal.levelParams = [])
     {codN : Name}
-    (hty : cvo.type = .forallE (.const ConLeche.natName [])
+    (hty : cio.toConstantVal.type = .forallE (.const ConLeche.natName [])
       (.forallE (.const ConLeche.natName []) (.const codN [])))
     {ciN codCi : ConstantInfo}
     (hfN : env.find? ConLeche.natName = some ciN)
@@ -523,31 +522,25 @@ theorem natBinHead_of_stored (mp : EnvModelM V env) {ψ : Name → Nat}
     NatBinHead mp.base2 ψ (.const o [])
       (fun ρ => interp V ρ (mp.base2.acval codN ψ)) := by
   have hmemE := ConLeche.Env.find?_mem hf
-  have hnm : cvo.name = o := ConLeche.Env.find?_name hf
-  have hta : denote mp.base2.acval env ψ 0
-      (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
+  have hnm : cio.name = o := ConLeche.Env.find?_name hf
+  have hta : denote mp.base2.acval env ψ 0 cio.toConstantVal.type
       = some (.pi (mp.base2.acval ConLeche.natName ψ)
           (.pi (mp.base2.acval ConLeche.natName ψ)
             (mp.base2.acval codN ψ))) := by
-    show denote mp.base2.acval env ψ 0 cvo.type = _
     rw [hty]
     exact denote_pinnedBinTy mp.base2 ψ hfN hlpN hcodF hcodLp
-  refine natBinHead_of_parts mp.base2
-    (denote_levelless_const hf (show (ConstantInfo.defnInfo cvo vo
-      ho).toConstantVal.levelParams = [] from hlp))
+  refine natBinHead_of_parts mp.base2 (denote_levelless_const hf hlp)
     (fun ρ => mp.base2.acval_wellDenoted _ _ ρ)
     (fun ρ => ?_) (fun ρ => (mp.type_wellDenotedTy _ hmemE ψ _ hta ρ).1)
   have h := mp.mem_type _ hmemE ψ _ hta ρ
-  rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
+  rwa [hnm] at h
 
 /-- **A stored pinned unary head.** -/
 theorem natUnHead_of_stored (mp : EnvModelM V env) {ψ : Name → Nat}
-    {o : Name} {cvo : ConstantVal} {vo : Expr}
-    {ho : ReducibilityHint}
-    (hf : env.find? o = some (.defnInfo cvo vo ho))
-    (hlp : cvo.levelParams = [])
-   
-    (hty : cvo.type = .forallE (.const ConLeche.natName [])
+    {o : Name} {cio : ConstantInfo}
+    (hf : env.find? o = some cio)
+    (hlp : cio.toConstantVal.levelParams = [])
+    (hty : cio.toConstantVal.type = .forallE (.const ConLeche.natName [])
       (.const ConLeche.natName []))
     {ciN : ConstantInfo}
     (hfN : env.find? ConLeche.natName = some ciN)
@@ -555,21 +548,17 @@ theorem natUnHead_of_stored (mp : EnvModelM V env) {ψ : Name → Nat}
     NatUnHead mp.base2 ψ (.const o [])
       (fun ρ => interp V ρ (mp.base2.acval ConLeche.natName ψ)) := by
   have hmemE := ConLeche.Env.find?_mem hf
-  have hnm : cvo.name = o := ConLeche.Env.find?_name hf
-  have hta : denote mp.base2.acval env ψ 0
-      (ConstantInfo.defnInfo cvo vo ho).toConstantVal.type
+  have hnm : cio.name = o := ConLeche.Env.find?_name hf
+  have hta : denote mp.base2.acval env ψ 0 cio.toConstantVal.type
       = some (.pi (mp.base2.acval ConLeche.natName ψ)
           (mp.base2.acval ConLeche.natName ψ)) := by
-    show denote mp.base2.acval env ψ 0 cvo.type = _
     rw [hty]
     exact denote_pinnedUnTy mp.base2 ψ hfN hlpN
-  refine natUnHead_of_parts mp.base2
-    (denote_levelless_const hf (show (ConstantInfo.defnInfo cvo vo
-      ho).toConstantVal.levelParams = [] from hlp))
+  refine natUnHead_of_parts mp.base2 (denote_levelless_const hf hlp)
     (fun ρ => mp.base2.acval_wellDenoted _ _ ρ)
     (fun ρ => ?_) (fun ρ => (mp.type_wellDenotedTy _ hmemE ψ _ hta ρ).1)
   have h := mp.mem_type _ hmemE ψ _ hta ρ
-  rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
+  rwa [hnm] at h
 
 /-! ## The two-variable context discipline, and the conversion -/
 
@@ -795,32 +784,22 @@ theorem natBool_isTy (mp : EnvModelM V env) {ψ : Name → Nat}
 
 /-! ## Descending the extension's storedness facts -/
 
-/-- `natOpStoredOk` at a fresh cons, for a name other than the head,
+/-- `natOpPinnedOk` at a fresh cons, for a name other than the head,
 descends to the prefix (the pinned-type conjunct stays at the
 extension — its shape is env-free, and its `Bool`-codomain storedness
 conjunct is descended separately by the caller). -/
-theorem natOpStoredOk_descend {c₀ : ConstantInfo} {n : Name}
+theorem natOpPinnedOk_descend {c₀ : ConstantInfo} {n : Name}
     (hne : n ≠ c₀.name)
-    (hok : ConLeche.natOpStoredOk ⟨c₀ :: env.consts, env.tables⟩ n = true) :
-    ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
-      cvn.levelParams = [] ∧
-      ConLeche.natOpTyPinned ⟨c₀ :: env.consts, env.tables⟩ n cvn.type = true := by
-  unfold ConLeche.natOpStoredOk at hok
-  cases hf2 : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? n with
-  | none => rw [hf2] at hok; exact nomatch hok
-  | some ci =>
-    rw [hf2] at hok
-    cases ci with
-    | defnInfo cvn vn hn =>
-      simp only [Bool.and_eq_true] at hok
-      have hfE : env.find? n = some (.defnInfo cvn vn hn) := by
-        rw [ConLeche.Env.find?_cons] at hf2
-        split at hf2
-        · next heq => exact absurd heq.symm hne
-        · exact hf2
-      exact ⟨cvn, vn, hn, hfE,
-        by simpa [List.isEmpty_iff] using hok.1, hok.2⟩
-    | _ => exact nomatch hok
+    (hok : ConLeche.natOpPinnedOk ⟨c₀ :: env.consts, env.tables⟩ n = true) :
+    ∃ cin, env.find? n = some cin ∧ cin.toConstantVal.levelParams = [] ∧
+      ConLeche.natOpTyPinned ⟨c₀ :: env.consts, env.tables⟩ n
+        cin.toConstantVal.type = true := by
+  obtain ⟨cin, hf2, hl, hp⟩ := ConLeche.natOpPinnedOk_inv hok
+  refine ⟨cin, ?_, hl, hp⟩
+  rw [ConLeche.Env.find?_cons] at hf2
+  split at hf2
+  · next heq => exact absurd heq.symm hne
+  · exact hf2
 
 /-! ## The field's suppliers -/
 
@@ -872,14 +851,15 @@ theorem constsBound_of_natFragOk {c : Name}
   | lit _ => intro h; simp [ConLeche.Verify.natFragOk] at h
 
 /-- The raw sides of a stored operation's recurrences are in the
-fragment, from the guard alone. -/
+fragment, from the guard and the dependencies' pins. -/
 theorem natOpEquations_frag_of_guard {c : Name}
-    (hg : natOpGuard env c = true) :
+    (hg : natOpGuard env c = true)
+    (hd : (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env) = true) :
     ∀ eq ∈ ConLeche.natOpEquations 0 c,
       ConLeche.Verify.natFragOk env c eq.1 = true ∧
         ConLeche.Verify.natFragOk env c eq.2 = true := by
   obtain ⟨hN, hz, hs, hdeps, hbool⟩ :=
-    ConLeche.Verify.natOpGuard_stored hg
+    ConLeche.Verify.natOpGuard_stored hg hd
   refine ConLeche.Verify.natOpEquations_frag hz hs
     (fun n hn _ => hdeps n hn) (fun hc => (hbool (by
       rcases hc with rfl | rfl <;> simp)).1)
@@ -894,11 +874,11 @@ theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     {c : Name} (hcN : c ∈ ConLeche.natOpNames) (hne : c ≠ c₀.name)
-    {cv' : ConstantVal} {v' : Expr} {hint' : ReducibilityHint}
-    (hf₂ : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? c
-      = some (.defnInfo cv' v' hint')) :
+    {ci : ConstantInfo}
+    (hf₂ : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? c = some ci) :
     natOpGuard (⟨c₀ :: env.consts, env.tables⟩ : Env) c = true ∧
-    ConLeche.natOpTyPinned (⟨c₀ :: env.consts, env.tables⟩ : Env) c cv'.type = true ∧
+    (ConLeche.natOpDeps c).all
+      (ConLeche.natOpPinnedOk (⟨c₀ :: env.consts, env.tables⟩ : Env)) = true ∧
     ∀ eq ∈ ConLeche.natOpEquations 0 c, ∃ L R,
       denote m₂.acval ⟨c₀ :: env.consts, env.tables⟩ φ 2 eq.1 = some L ∧
       denote m₂.acval ⟨c₀ :: env.consts, env.tables⟩ φ 2 eq.2 = some R ∧
@@ -907,14 +887,14 @@ theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
         y ∈ˢ interp V ρ (m₂.acval ConLeche.natName φ) →
         interp V (cons y (cons x ρ)) L
           = interp V (cons y (cons x ρ)) R := by
-  have hfE : env.find? c = some (.defnInfo cv' v' hint') := by
+  have hfE : env.find? c = some ci := by
     rw [ConLeche.Env.find?_cons] at hf₂
     split at hf₂
     · next heq => exact absurd heq.symm hne
     · exact hf₂
-  obtain ⟨hg, hpin, hlaws⟩ := hprev c hcN cv' v' hint' hfE
+  obtain ⟨hg, hpin, hlaws⟩ := hprev c hcN ci hfE
   -- the stored heads are not the fresh cons
-  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg
+  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg hpin
   obtain ⟨ciN, hfN, -⟩ := ConLeche.Verify.storedNoLevels_exists hN
   have hnatne : ConLeche.natName ≠ c₀.name := fun hh => by
     rw [hh, hfresh] at hfN
@@ -922,13 +902,13 @@ theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
   have hcb : ∀ eq ∈ ConLeche.natOpEquations 0 c,
       ConstsBound env eq.1 ∧ ConstsBound env eq.2 := by
     intro eq hq
-    obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg eq hq
+    obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg hpin eq hq
     exact ⟨constsBound_of_natFragOk (by simp [hfE]) (by simp [hfN]) h1,
       constsBound_of_natFragOk (by simp [hfE]) (by simp [hfN]) h2⟩
   refine ⟨ConLeche.Verify.natOpGuard_cons hfresh hg,
-    ConLeche.Verify.natOpTyPinned_cons hfresh hpin, fun eq hq => ?_⟩
+    ConLeche.Verify.natOpDepsOk_cons hfresh hpin, fun eq hq => ?_⟩
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
-  have hfrag := natOpEquations_frag_of_guard hg eq hq
+  have hfrag := natOpEquations_frag_of_guard hg hpin eq hq
   refine ⟨L, R, ?_, ?_, ?_⟩
   · rw [hac]
     exact denote_cons_mono hfresh φ 2
@@ -942,26 +922,21 @@ theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
       at hx hy
     exact hlaw ρ x y hx hy
 
-/-- **`NatOps` at a fresh non-operation cons** — every value-kind
-step except the operation's own install discharges its obligation
-here.  The disjunctive premise: either the cons is not a definition at
-all, or its name is not an operation name. -/
+/-- **`NatOps` at a fresh non-operation cons** — every step except
+the operation's own install discharges its obligation here: the cons's
+name is not an operation name (at every other kind of declaration the
+install refuses a certified name, `checkConstantVal`). -/
 theorem natOps_cons_fresh (mp : EnvModelM V env) {φ : Name → Nat}
     (hprev : NatOps mp.base2 φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
-    (hnothead : (∀ cv v hint, c₀ ≠ .defnInfo cv v hint) ∨
-      c₀.name ∉ ConLeche.natOpNames)
+    (hnothead : c₀.name ∉ ConLeche.natOpNames)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
     NatOps m₂ φ := by
-  intro c hcN cv' v' hint' hf₂
+  intro c hcN ci hf₂
   by_cases hne : c = c₀.name
-  · subst hne
-    rw [ConLeche.Env.find?_cons_self] at hf₂
-    rcases hnothead with hnd | hnn
-    · exact absurd (Option.some.inj hf₂) (hnd cv' v' hint')
-    · exact absurd hcN hnn
+  · subst hne; exact absurd hcN hnothead
   · exact natOps_entry_cons mp hprev hfresh m₂ hac hcN hne hf₂
 
 /-- **The installing operation's own head packages**, from the
@@ -1080,9 +1055,8 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
     (hg2 : natOpGuard
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) c
       = true)
-    (hdepsOk : (ConLeche.natOpDeps c).all
-      (ConLeche.natOpStoredOk
-        (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env))
+    (hself : ConLeche.natOpStoredOk
+      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) c
       = true)
     (hruns : NatEqsRun F env
       ((ConLeche.natOpEquations 0 c).map fun eq =>
@@ -1107,7 +1081,12 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
     (hac : m₂.acval
       = acvalWith mp.base2.acval c A) :
     NatOps m₂ φ := by
-  intro cq hcqN cv' v' hint' hf₂
+  -- the dependencies' pins: the prefix's laws (the install checks the
+  -- operation's own)
+  have hdepsOk := natOpDepsOk_install mp
+    (ci := .defnInfo ⟨c, lps, type'⟩ value' hint) (c := c)
+    rfl hfresh (Or.inl hcmem) hg2 hself
+  intro cq hcqN ci' hf₂
   have hname0 : (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
       hint).name = c := rfl
   by_cases hne : cq = c
@@ -1122,13 +1101,12 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
       (show cq ≠ (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
         hint).name from hne) hf₂
   subst hne
-  refine ⟨hg2, ConLeche.natOpTyPinned_of_deps (Or.inl hcqN) hdepsOk hf₂,
-    fun eq hq => ?_⟩
+  refine ⟨hg2, hdepsOk, fun eq hq => ?_⟩
   obtain ⟨e1, e2⟩ := eq
   -- the shared preamble: storedness at the prefix, fragments, frames
   have hnh : NatHeads mp.base2 φ := mp.nat_heads φ
   obtain ⟨hN₂, hz₂, hs₂, hdeps₂, hbool₂⟩ :=
-    ConLeche.Verify.natOpGuard_stored hg2
+    ConLeche.Verify.natOpGuard_stored hg2 hdepsOk
   have tr : ∀ {n : Name}, n ≠ cq →
       ConLeche.Verify.storedNoLevels
         (⟨.defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) n →
@@ -1196,8 +1174,8 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
       NatBinHead mp.base2 φ (.const o [])
         (fun ρ => interp V ρ (mp.base2.acval ConLeche.natName φ)) := by
     intro o ho hone honcmp honun
-    obtain ⟨cvo, vo, hino, hfo, hlpo, hpino⟩ :=
-      natOpStoredOk_descend (c₀ := .defnInfo ⟨cq, lps, type'⟩ value'
+    obtain ⟨cio, hfo, hlpo, hpino⟩ :=
+      natOpPinnedOk_descend (c₀ := .defnInfo ⟨cq, lps, type'⟩ value'
         hint) hone (List.all_eq_true.mp hdepsOk o (by simpa using ho))
     obtain ⟨cod, hty, -, hcodN⟩ :=
       natOpTyPinned_shape_bin honun hpino
@@ -1208,8 +1186,8 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
       NatUnHead mp.base2 φ (.const o [])
         (fun ρ => interp V ρ (mp.base2.acval ConLeche.natName φ)) := by
     intro o ho hone houn
-    obtain ⟨cvo, vo, hino, hfo, hlpo, hpino⟩ :=
-      natOpStoredOk_descend (c₀ := .defnInfo ⟨cq, lps, type'⟩ value'
+    obtain ⟨cio, hfo, hlpo, hpino⟩ :=
+      natOpPinnedOk_descend (c₀ := .defnInfo ⟨cq, lps, type'⟩ value'
         hint) hone (List.all_eq_true.mp hdepsOk o (by simpa using ho))
     obtain hty := natOpTyPinned_shape_un houn hpino
     exact natUnHead_of_stored (ψ := φ) mp hfo hlpo hty hfN hlpN

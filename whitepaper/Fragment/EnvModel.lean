@@ -43,6 +43,13 @@ the empty environment has a model, and that adding a definition or
 installing an inductive block preserves having one, is the
 environment section's business (part 2), which must construct `M` for
 the new constants and discharge the laws.
+
+This is the proof's internal invariant, not the statement: the main
+theorem (`model_exists`, `Main.lean`) speaks of the input's constants
+and of `ModelOf` (`IsModel.lean`), which reads a recursor's rules off
+its own type, unconditionally.  The conditional ι laws here are what
+the reduction rules consume; the installation proves both
+(`Holds.lean`).
 -/
 
 namespace Fragment

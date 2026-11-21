@@ -182,6 +182,26 @@ theorem familyKeyCheckS_spec (henv : EnvWF env) {find? : Name → Option Constan
   sym only [conleche_grind, familyKeyCheck.eq_1] =>
     vcgen [familyKeyCheck, familyTelescopeS_spec henv, checkSpineAtS_spec henv] <;> finish
 
+/-- A group at a key, at the cached operations. -/
+theorem familyKeyChecksS_spec (henv : EnvWF env) {find? : Name → Option ConstantInfo}
+    (hfind : ∀ n ci, find? n = some ci → ci.toConstantVal.type.hasFvar = false) {d : Nat}
+    {us : List Level} {ds : List Expr} (hds : AllWS d ds) :
+    ∀ (cs : List Name) {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄ familyKeyChecks (sharedOpsC .verified (mkFEnv env)) env find? d us ds cs
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (familyKeyChecks (fueledOpsM .verified) env find? d us ds cs) v; ⊤⦄ := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro _ hs
+    sym only [conleche_grind, familyKeyChecks.eq_1] =>
+      vcgen [familyKeyChecks.eq_def] <;> finish
+  | cons c cs ih =>
+    intro s₀ hs
+    sym only [conleche_grind, familyKeyChecks.eq_2] =>
+      vcgen [familyKeyChecks.eq_def, familyKeyCheckS_spec henv hfind (hds := hds), ih] <;>
+        finish
+
 theorem nestInstTypeS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) {s₀ : CState}
     (hs : CSOK .verified false env s₀) (hi : Nat) (key : NestKey) :
     ⦃fun s => s = s₀⦄ nestInstType ctx (sharedOpsC .verified (mkFEnv env)) env hi key
@@ -376,7 +396,7 @@ theorem nestFrame_eq {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] 
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (grp : List (Name × Expr)) (st : NestState) :
     nestFrame ctx ops env rec prog hi us ds nPc grp st = (do
-      familyKeyCheck ops env ctx.find? hi (grp.headD default).1 us ds
+      familyKeyChecks ops env ctx.find? hi us ds (grp.map (·.1))
       let prog' := (grp.mapIdx fun _ (c, ty) =>
         ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
       let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
@@ -393,7 +413,7 @@ theorem nestFrameS_spec (henv : EnvWF env) {ctx : NestCtx}
     ⦃fun v s' => CSOK .verified false env s' ∧
       Runs (nestFrame ctx (fueledOpsM .verified) env rec' prog hi us ds nPc grp st) v; ⊤⦄ := by
   sym only [conleche_grind, nestFrame_eq] =>
-    vcgen [nestFrame_eq, familyKeyCheckS_spec henv hc.1,
+    vcgen [nestFrame_eq, familyKeyChecksS_spec henv hc.1 hds,
       nestGroupCtorsS_spec (mode := .verified) (env := env) hc nPc,
       nestCtorsS_spec henv (fun _ => hrec) ctx _ (hi + grp.length) us ds (grp.map Prod.fst)
         (frameHoles hi grp) (AllWS.mono (Nat.le_add_right _ _) hds)

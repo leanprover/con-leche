@@ -98,14 +98,10 @@ theorem reducePinGuardF_eq (env : Env) (c : Name) :
     reducePinGuardF (mkFEnv env) c = reducePinGuard env c := by
   simp only [reducePinGuardF, reducePinGuard, constsResolveF_eq] <;> rfl
 
-theorem natOpStoredOkF_eq_fun (env : Env) :
-    natOpStoredOkF (mkFEnv env) = natOpStoredOk env :=
-  funext (natOpStoredOkF_eq env)
-
 theorem divModEnvGuardF_eq (env : Env) (c : Name) :
     divModEnvGuardF (mkFEnv env) c = divModEnvGuard env c := by
   simp only [divModEnvGuardF, divModEnvGuard, mkFEnv_find?,
-    natOpGuardF_eq, natOpStoredOkF_eq_fun] <;> rfl
+    natOpGuardF_eq, natOpStoredOkF_eq] <;> rfl
 
 theorem divModCertGuardF_eq (env : Env) (c : Name) (annVal : Expr)
     (hyps : List Expr) (eqE proof : Expr) :
@@ -136,8 +132,8 @@ section Monadic
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 theorem checkConstantValF_eq (ops : CheckerOps m) (env : Env)
-    (cv : ConstantVal) {a : Bool} :
-    checkConstantValF ops (mkFEnv env) cv a = checkConstantVal ops env cv a := by
+    (cv : ConstantVal) {a b c : Bool} :
+    checkConstantValF ops (mkFEnv env) cv a b c = checkConstantVal ops env cv a b c := by
   simp only [checkConstantValF, checkConstantVal, mkFEnv_find?,
     constsResolveF_eq, mkFEnv_strLit] <;> rfl
 

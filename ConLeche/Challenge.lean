@@ -1,147 +1,265 @@
 module
 
-public import ConLeche.Cached.Decls
-public import ConLeche.Denotes
+public import ConLeche.IsModel
+public import ConLeche.OleanInput
 public import ConLeche.Accepts
-public import ConLeche.Frontend.Prelude
+public import ConLeche.Driver.CmpReq
+
 public section
 
 /-!
-# The advertised statements
+# The main theorems, stated
 
-ConLeche is a proof checker for Lean's export format: hand it the stream
-of declarations `lean4export` writes for a Lean development and it
-re-checks every one of them from scratch.  This module states the
-theorems the project exists to prove and leaves them `sorry`; the
-proofs are in `ConLeche/MainTheorem.lean`.  Nothing imports this file.
+ConLeche is a proof checker for Lean: it reads the declarations of a Lean development, from the
+JSON file `lean4export` writes or from Lean's `.olean` files, and re-checks every one of them.
+This module states the theorems the project exists to prove, about runs of the `con-leche`
+binary, with `sorry` for their proofs; the proofs are in `ConLeche/MainTheorem.lean`.  Nothing
+imports this file.
 
-> **Main theorem.**  If the checker accepts a stream, the environment
-> it built has a model in every set theory `V`: one set per constant
-> under which every constant — every theorem included — is a member
-> of its type, `False` is empty, and `Eq` is set equality.
->
-> **Main corollary.**  Hence a file — the chunks the binary reads —
-> that declares a theorem of type `False` is rejected.
+> **Main theorem.**  Whatever input a run of the checker accepts has a model in every set
+> theory `V`: one set per constant and list of universe levels, under which every constant of
+> the input is a member of what its type denotes, every definition is what its value denotes,
+> and every recursor computes by its rules.
 
-The corollary's conclusion is the binary's accept path, erroring: the
-three pure functions the driver's phases compute, chained.  The
-built-in prelude parses (`Frontend.builtinPreludeE`); the chunks parse
-(`Frontend.parseChunks`); the verified fold accepts the parsed records
-prepared with the prelude (`checkDecls .verified` over
-`Frontend.preparePrelude`).  The chain returns an error, and the
-theorem says nothing about which of the three produced it.  The driver
-(`Main.lean`) runs the same three steps with IO between them — the
-streaming read loop, the heartbeat, the parallel check pool — and
-prints its success line only from an accept of the fold.
+Hence an accepted input is not a proof of a contradiction, and more: every statement it proves
+is true in the model.  Where the input declares Lean's `False`, a constant of type `False` would
+be a member of the empty set; the `…_no_False` theorems say so where the model alone does not.
 
-The corollary follows from the theorem in four steps, from the chunks
-inwards.  Chunks that declare such a theorem are read by the parser
-into declaration records holding a theorem record of that type — the parser resolves the file's index tables line by line, an
-index bound once is never rebound, and the chunk boundaries are
-invisible to it; the preparation the binary runs on the parsed records
-before the fold (the built-in prelude in front, the ground of the
-pinned `Nat` operations hoisted ahead of them) keeps every parsed
-record; a record declaring such a theorem is installed under its own
-name with its declared type and is never dropped, so it would leave a
-constant of type `False` behind; and `False` denotes the empty set,
-which has no members, so an accepted environment holds no such
-constant.  An accepted file is therefore not a proof of a
-contradiction, and more: every statement it proves is true in the
-model.  Definitional equalities need no clause of their own — a reader
-who cares that a definition unfolds as declared states that as a
-theorem proved by `rfl`, and `Model`'s `eq_equality` field, which says
-the built-in `Eq` denotes set equality, turns that theorem into the
-equation of the two sides' denotations.
+## What is specification, and what is a hole
 
-* `checkDecls` is the shipped checking function — the one the
-  `con-leche` binary runs on the parsed stream; `.verified` is its
-  default `--verified` mode.
-* `ds : Array Declaration` is the parsed stream, `Env` the environment the
-  checker builds, `env.consts` the constants it accepted; `.ok env`
-  says the checker accepted `ds` and this is what it accepted.
-* `pins : List NatOpPinSet` is the list of pin variants the fold's
-  `Nat.div`/`Nat.mod` install gate tries — the one large constant the
-  checker carries, and the statements quantify over it: consistency
-  holds at EVERY list, the empty one included (under which a stream
-  that declares `Nat.div` simply declines).  The shipped `con-leche`
-  binary runs the fold at `ConLeche.natOpPinSets`, the variants this
-  toolchain committed.
-* `maxNatSize : Nat` is the largest `Nat` numeral, in bytes, the fold
-  takes in or computes; a larger one makes it reject, as the official
-  kernel does.  The statements hold at every `maxNatSize`.  The shipped
-  binary runs the fold at the official default, 128 MiB, unless
-  `--max-nat-size` sets another.
-* `Model V env` (`ConLeche/Denotes.lean`) is a model of `env` in `V`,
-  built on `Denotes`, the reading of a checker term as a set; that
-  file is the whole of what the main theorem's meaning rests on beyond
-  the checker's own data types.  It also proves `Denotes_functional`:
-  a term has at most one denotation, so where `Model` says a stored
-  constant is a member of *some* denotation of its type, it is saying
-  so of *the* denotation.
-* `SetTheory V` is not a hypothesis about the input: the proof works
-  for every `V` implementing that interface and never fixes one.
-* `chunks : List ByteArray` are the pieces the binary's read loop is
-  handed — any cut of the file, empty pieces included.
-  `jsonWithTheoremFalse chunks` (`ConLeche/Accepts.lean`) says their
-  concatenation is ONE particular JSON file declaring a theorem of type
-  `False`: four lines in the exporter's own shapes — a name entry
-  `False`, an expression entry for the constant `False`, a name entry
-  for the theorem's own name, and the theorem record whose type is that
-  expression — in that order, with anything at all before, between and
-  after them.  The name says what it is not: it is one way of writing
-  such a theorem into a JSON file, not every proof of `False` a file
-  might hold, and a file that puts the same theorem there differently
-  is outside it.  It is the hypothesis a reader can check without
-  knowing what an `Env`, or even a declaration record, is: it speaks
-  only of the bytes handed to the binary.  The five parts are
-  `String`s, so the file is the UTF-8 of one interpolated Lean string;
-  an export is UTF-8, so this narrows nothing a reader cares about.
-* `Frontend.builtinPreludeE` is the parsed built-in prelude,
-  `Frontend.parseChunks chunks` the parse of the chunks, and
-  `Frontend.preparePrelude pre` the preparation of the parsed records
-  for the fold.  All three fail in the same error type — the checker's
-  `CheckError` paired with the position of the failure, which is the
-  input's line number in the frontend's half and the fold position in
-  the fold's — so the chain is one `Except` `do` block, and the
-  corollary's conclusion, `∃ e, … = .error e`, says it returns one of
-  those errors: the binary rejected the file.
-* `False` is built in: the checker installs it from its own pin, and a
-  stream that declares `False` or `False.rec` differently is rejected,
-  so the conclusion needs no hypothesis about the input beyond its
-  shape — not even that the file fits in memory: the parser refuses an
-  input the machine word cannot address before reading it, which is an
-  error like any other.
+The statements read the INPUT through definitions that say what it means.  These are imported
+here, in full:
 
-Both statements are about the checking function and the parse, not
-the process, and `--trusted` mode is outside both.  See README.md.
+* `IsModel V model C` (`ConLeche/IsModel.lean`): `model` is a model of the constants `C`, every
+  term read by `Expr.eval`, a total function from a term to a set; `constantsOf ds` are the
+  constants of the declarations `ds`.  `SetTheory V` is the set theory: the proofs work for every
+  `V` implementing that interface.
+* The `.olean` input (`ConLeche/OleanInput.lean`, `ConLeche/Frontend/Olean/Snapshot.lean`): the
+  constants of a module's files on a snapshot of the file system (`moduleConstants`), of the
+  closure of some modules under their imports (`InClosure`, `closureConstants`), and what one
+  module sees of another (`Sees`).
+* The file system (`ConLeche/Frontend/CheckerIO.lean`): a snapshot `FS`, the model `ModelIO` of
+  the file operations, and `ModelIO.CanGive x fs v`: the action `x` can answer `v` on the
+  snapshot `fs`.
+* `jsonWithTheoremFalse` (`ConLeche/Accepts.lean`): one JSON file declaring a theorem of type
+  `False`.
+* The data types the holes take and return: `ParseResultD` (the parsed declarations), `CheckError`,
+  `CmpReq`, the search paths.
+
+The binary's own functions are HOLES below: `def … := sorry` at their exact types, under their
+real names.  The statements constrain the implementation that fills them: the solution's,
+`ConLeche/MainTheorem.lean`'s imports.  The theorems are about that implementation, and a user
+who reads them as facts about the `con-leche` binary must trust that the binary is built from it.
+
+* `Driver.runArgs args` is all of the binary's `main` but its plumbing, at the command line
+  `args`.  A theorem speaks of the exit codes `ModelIO` allows; that the binary's real file
+  operations give the model's answers, on one snapshot, is the assumption
+  `ConLeche/Frontend/CheckerIO.lean` states.
+* `Frontend.parseChunks` is the JSON parse; `Driver.searchPathOf`, `Driver.trustedOr` and
+  `Driver.CmpReq.solRoots` turn the command line into the directories a run reads.
+
+The runs are at the checker's default settings, and `--trusted` mode is outside every
+statement.
 -/
 
 namespace ConLeche
 
 open SetTheory
-open ConLeche.Cached (checkDecls)
 
 universe w
 
-/-- **The main theorem.**  Every environment the checker accepts has a
-model in every set theory. -/
-theorem model_exists (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration) (env : Env)
-    (accepted : checkDecls .verified pins maxNatSize ds = .ok env) :
-    Nonempty (Model V env) :=
+/-! ## The holes: the checker's functions the statements name -/
+
+/-- **The JSON parse** (a hole): the theorems constrain the solution's implementation, and a
+user must trust that the binary is built from it. -/
+def Frontend.parseChunks (chunks : List ByteArray) :
+    Except (CheckError × Nat) Frontend.ParseResultD :=
+  sorry
+
+/-- **The directories of a `--search-path=` value** (a hole): the theorems constrain the
+solution's implementation, and a user must trust that the binary is built from it. -/
+def Driver.searchPathOf (dirs : String) : List System.FilePath :=
+  sorry
+
+open Frontend.Olean in
+/-- **The challenge's directories** (a hole): the theorems constrain the solution's
+implementation, and a user must trust that the binary is built from it. -/
+def Driver.trustedOr (trusted path : SearchPath) : SearchPath :=
+  sorry
+
+open Frontend.Olean in
+/-- **The solution's lookup** (a hole): the theorems constrain the solution's implementation,
+and a user must trust that the binary is built from it. -/
+def Driver.CmpReq.solRoots (r : Driver.CmpReq) : Roots :=
   sorry
 
 open Frontend in
-/-- **The main corollary.**  A file declaring a theorem of type `False`
-in the shape `jsonWithTheoremFalse` describes is rejected. -/
-theorem no_False_declaration (V : Type w) [SetTheory V]
-    (pins : List NatOpPinSet) (maxNatSize : Nat) (chunks : List ByteArray)
-    (h : jsonWithTheoremFalse chunks) :
-    ∃ e, (do
-      let pre ← builtinPreludeE
-      let r ← parseChunks chunks
-      let ds := preparePrelude pre r.decls
-      checkDecls .verified pins maxNatSize ds) = .error e :=
+/-- **The binary's run** at the command line `args`, generic in the IO class (a hole): the
+theorems constrain the solution's implementation, and a user must trust that the binary is built
+from it. -/
+def Driver.runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+  sorry
+
+/-! ## A lean4export file
+
+The binary on one file (`-- <file>`), and on a challenge file with its solution file
+(`--compare -- <c> <s>`). -/
+
+open Frontend in
+/-- **An accepted file's records have a model**: an exit 0 of `-- <file>` read the file as
+records that have a model in every set theory. -/
+theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b) :
+    ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList) :=
+  sorry
+
+open Frontend in
+/-- **No accepted file declares a theorem of type `False`**: no exit 0 of `-- <file>` reads a
+`jsonWithTheoremFalse` file. -/
+theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
+    (hF : jsonWithTheoremFalse [b]) : False :=
+  sorry
+
+open Frontend in
+/-- **An accepted comparison's challenge file has a model**: an exit 0 of `--compare -- <c> <s>`
+read the file `c` as records that have a model in every set theory. -/
+theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+      ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
+  sorry
+
+/-! ## `.olean` files, in one process
+
+A module and everything it imports (`--olean -- <root>`); a challenge module with its solution
+module (`--olean --compare -- <c> <s>`). -/
+
+open Frontend in
+/-- **An accepted module's closure has a model**: every exit 0 of `--olean --search-path=<dirs>
+-- <root>` has a model of the constants of the modules `root` imports, itself included. -/
+theorem main_oleans (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0) :
+    ∃ model, IsModel V model (Olean.closureConstants (Driver.searchPathOf dirs) fs #[r]) :=
+  sorry
+
+open Frontend in
+/-- **An accepted comparison's challenge closure has a model**: every exit 0 of `--olean
+--compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` has a model of the constants
+of the challenge's closure, read through the challenge's directories, on every snapshot that
+agrees with the run's there. -/
+theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+      "--search-path=" ++ D, "--", c, s]) fs 0) :
+    ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
+      ∃ model, IsModel V model (Olean.closureConstants
+        (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
+  sorry
+
+/-! ## `.olean` files, module by module
+
+The import graph checked once (`--check-graph`) and each module checked on its own (`--olean
+--module`), or all of it in one process (`--olean --modular`); the same for a challenge with its
+solution.  The conclusion is a family of models, one per module of the closure, that agree:
+a name a module sees as another module's has the value that module's model gives it. -/
+
+open Frontend in
+/-- **An accepted modular check has a family of models**: on a snapshot where `--check-graph
+--search-path=<dirs> -- <root>` exits 0 and every module of the headers' closure of `root` has
+an exit 0 of `--olean --module`, every module of the closure has a model of its constants, and
+the models agree on what the modules see of each other. -/
+theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+      fs 0)
+    (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+      Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+        (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+    ∃ model : Name → (Name → List Nat → V),
+      (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+      (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+  sorry
+
+open Frontend in
+/-- **The same, in one process**: every exit 0 of `--olean --modular --search-path=<dirs>
+-- <root>` has the family of models of `main_modular`. -/
+theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+    (hr : Olean.parseModName root = some r)
+    (h : ModelIO.CanGive
+      (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0) :
+    ∃ model : Name → (Name → List Nat → V),
+      (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+      (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+        Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+  sorry
+
+open Frontend in
+/-- **An accepted modular comparison's challenge closure has a family of models**: on a
+snapshot where every command `--schedule-commands --compare` prints for the challenge `C` and
+its solution `S` exits 0 (the graph check, a worker at every module of the headers' closure of
+`C` and `S` but `C`, the compare worker at `C`), on every snapshot that agrees with it under the
+challenge's directories, the family of `main_modular` for the closure of `C`. -/
+theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+    {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+    (hwork : ∀ m, Olean.HdrClosure
+        (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+        [C, S] m → m ≠ C →
+      ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+        ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+          root']) fs 0)
+    (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+    let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+    ∀ fs', FS.AgreeUnder sp fs fs' →
+      ∃ model : Name → (Name → List Nat → V),
+        (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+        (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+          model m n = model m' n) :=
+  sorry
+
+open Frontend in
+/-- **The same, in one process**: every exit 0 of `--olean --modular --compare` has the family
+of `main_modular_compare`. -/
+theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+    {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
+      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+    let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+    ∀ fs', FS.AgreeUnder sp fs fs' →
+      ∃ model : Name → (Name → List Nat → V),
+        (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+        (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+          model m n = model m' n) :=
+  sorry
+
+open Frontend in
+/-- **No accepted modular comparison's challenge module holds a constant of type `False`**: no
+snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` in
+the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
+through its solution too, which the family of `main_modular_compare` does not. -/
+theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
+    {C S : Name} {fs : FS} {ci : ConstantInfo}
+    (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+    (hwork : ∀ m, Olean.HdrClosure
+        (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+        [C, S] m → m ≠ C →
+      ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+        ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+          root']) fs 0)
+    (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+      "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+    (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
+      fs C .private ci)
+    (hty : ci.type = .const falseName []) : False :=
   sorry
 
 end ConLeche

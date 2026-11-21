@@ -55,7 +55,19 @@ theorem checkDeclRun_ofEnvFactsK
         cases hdf : readBlock nP block with
         | ok p =>
           intro hh
-          exact blockRun_of (ConLeche.readBlock_declared hdf) hh
+          -- the ι reading rule (`blockReadsOk`) runs after the block's install and returns it
+          cases hcb : checkBlock (fueledOps .verified F) env block p with
+          | error e =>
+            simp only [hcb, bind, Except.bind] at hh
+            exact nomatch hh
+          | ok env' =>
+            simp only [hcb, bind, Except.bind] at hh
+            cases hb : blockReadsOk env'.find? p with
+            | error e => simp only [hb] at hh; exact nomatch hh
+            | ok u =>
+              simp only [hb, pure, Except.pure, Except.ok.injEq] at hh
+              subst hh
+              exact blockRun_of (ConLeche.readBlock_declared hdf) hcb
         | error e =>
           intro hh
           exact nomatch hh

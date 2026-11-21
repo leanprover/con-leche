@@ -1,8 +1,14 @@
 {
   "challenge_module": "ConLeche.Challenge",
   "solution_module": "ConLeche.MainTheorem",
-  "theorem_names": ["ConLeche.model_exists", "ConLeche.no_False_declaration"],
-  "definition_names": [],
+  "theorem_names": [
+    "ConLeche.main_json_model", "ConLeche.main_no_False", "ConLeche.main_compare_json_model",
+    "ConLeche.main_oleans", "ConLeche.main_compare_model",
+    "ConLeche.main_modular", "ConLeche.main_modular_one", "ConLeche.main_modular_compare",
+    "ConLeche.main_modular_compare_one", "ConLeche.main_modular_compare_no_False"],
+  "definition_names": [
+    "ConLeche.Driver.runArgs", "ConLeche.Frontend.parseChunks", "ConLeche.Driver.searchPathOf",
+    "ConLeche.Driver.trustedOr", "ConLeche.Driver.CmpReq.solRoots"],
   "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
   "enable_nanoda": true
 }

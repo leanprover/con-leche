@@ -85,6 +85,14 @@ theorem familyKeyCheckC_eq (find? : Name → Option ConstantInfo) (d : Nat) (c :
   simp only [familyKeyCheckC, familyKeyCheck, familyTelescopeC_eq, checkSpineAtC_eq,
     Expr.instLevelParams_spec] <;> rfl
 
+theorem familyKeyChecksC_eq (find? : Name → Option ConstantInfo) (d : Nat)
+    (us : List Level) (ds : List Expr) : ∀ cs : List Name,
+    familyKeyChecksC mode fe find? d us ds cs =
+      familyKeyChecks (sharedOpsC mode fe) fe.env find? d us ds cs
+  | [] => rfl
+  | c :: cs => by
+    simp only [familyKeyChecksC, familyKeyChecks, familyKeyCheckC_eq, familyKeyChecksC_eq _ _ _ _ cs]
+
 theorem nestHoleImgC_eq (ctx : NestCtx) : ∀ prog, nestHoleImgC ctx prog = nestHoleImg ctx prog
   | [] => by funext i; rfl
   | h :: prog => by
@@ -151,7 +159,7 @@ theorem nestFrameC_eq (ctx : NestCtx)
     (grp : List (Name × Expr)) (st : NestState) :
     nestFrameC mode ctx fe rec prog hi us ds nPc grp st =
       nestFrame ctx (sharedOpsC mode fe) fe.env rec prog hi us ds nPc grp st := by
-  simp only [nestFrameC, nestFrame, familyKeyCheckC_eq, nestCtorsC_eq]
+  simp only [nestFrameC, nestFrame, familyKeyChecksC_eq, nestCtorsC_eq]
 
 theorem nestContNewC_eq (ctx : NestCtx)
     (rec : List NestHole → Nat → Nat → Expr → NestState →

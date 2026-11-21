@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Cached.Justify
 import ConLeche.Verify.Cached.IndBlockC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
@@ -194,8 +194,8 @@ section Mirrors
 variable {ops : CheckerOps m}
 
 theorem checkConstantValF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
-    (hfe : fe₁.find? = fe₂.find?) (cv : ConstantVal) :
-    checkConstantValF ops fe₁ cv = checkConstantValF ops fe₂ cv := by
+    (hfe : fe₁.find? = fe₂.find?) (cv : ConstantVal) {a b c : Bool} :
+    checkConstantValF ops fe₁ cv a b c = checkConstantValF ops fe₂ cv a b c := by
   unfold checkConstantValF
   simp only [h.inferType fe₁.env, h.inferType fe₂.env,
     h.ensureSort fe₁.env, h.ensureSort fe₂.env, hfe, constsResolveF_congr hfe,
@@ -379,7 +379,8 @@ variable {mode : CheckMode}
 
 theorem checkConstantValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?)
-    (cv : ConstantVal) {a : Bool} : checkConstantValC mode fe₁ cv a = checkConstantValC mode fe₂ cv a := by
+    (cv : ConstantVal) {a b c : Bool} :
+    checkConstantValC mode fe₁ cv a b c = checkConstantValC mode fe₂ cv a b c := by
   unfold checkConstantValC
   simp only [knotI_congr hfe htb, constsResolveFC_congr hfe, opSIxC_congr hfe htb, hfe,
     FEnv.strLit_congr hfe]
@@ -499,6 +500,15 @@ theorem familyKeyCheck_env (h : EnvFree ops) (env : Env) (find? : Name → Optio
   unfold familyKeyCheck
   simp only [familyTelescope_env h env, checkSpineAt_env h env]
 
+theorem familyKeyChecks_env (h : EnvFree ops) (env : Env) (find? : Name → Option ConstantInfo)
+    (d : Nat) (us : List Level) (ds : List Expr) :
+    ∀ cs : List Name,
+      familyKeyChecks ops env find? d us ds cs = familyKeyChecks ops Env.empty find? d us ds cs
+  | [] => rfl
+  | c :: cs => by
+    unfold familyKeyChecks
+    simp only [familyKeyCheck_env h env, familyKeyChecks_env h env find? d us ds cs]
+
 theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
@@ -506,7 +516,7 @@ theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     nestFrame ctx ops env rec prog hi us ds nPc grp st =
       nestFrame ctx ops Env.empty rec prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [familyKeyCheck_env h env, nestCtors_env h ctx env]
+  simp only [familyKeyChecks_env h env, nestCtors_env h ctx env]
 
 theorem nestInstType_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) :
     nestInstType ctx ops env hi key = nestInstType ctx ops Env.empty hi key := by
@@ -1256,6 +1266,11 @@ theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   all_goals first
     | exact checkBlockKS_twin ht block _
     | exact RelRun.ofThrow
+    | refine RelRun.bind_push ht (checkBlockKS_twin ht block _) fun L Q ht' => ?_
+      rw [ht'.find]
+      split
+      · exact RelRun.pure ⟨L, Q, rfl, rfl⟩
+      · exact RelRun.ofThrow
 
 /-- **A declaration's own checks at twin indices push the same constants onto each, or fail
 alike.** -/
@@ -1334,6 +1349,25 @@ theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht :
       (checkDeclStepC mode pins fe₂ pd) := by
   unfold checkDeclStepC
   exact RelRun.bind_same fun _ => checkDeclC_twin pins ht pd
+
+/-- The justification reads the input's index through its lookups alone. -/
+theorem justifyWhy_congr (J : Solution) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (cv : ConstantVal) :
+    justifyWhy J fe₁ cv = justifyWhy J fe₂ cv := by
+  simp only [justifyWhy, hfe, htb]
+
+/-- **The record check, with a solution or not, at twin indices.** -/
+theorem checkRecordC_twin (pins : List NatOpPinSet) (J : Option Solution) {fe₁ fe₂ : FEnv}
+    (ht : Twin fe₁ fe₂) (pd : Declaration) :
+    RelRun (PushedFrom fe₁ fe₂) (checkRecordC mode pins J fe₁ pd)
+      (checkRecordC mode pins J fe₂ pd) := by
+  unfold checkRecordC
+  split
+  · simp only [justifyWhy_congr _ ht.find ht.findTable,
+      checkConstantValC_congr ht.find ht.findTable]
+    relrun
+    all_goals exact RelRun.pure ⟨[_], [], rfl, rfl⟩
+  · exact checkDeclStepC_twin pins ht pd
 
 end Decls
 

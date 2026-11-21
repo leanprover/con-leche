@@ -1,35 +1,26 @@
 module
 
-public import ConLeche.Frontend.ExportC
+public import ConLeche.Frontend.ParseResult
 
 @[expose] public section
 
 /-!
 # One JSON file that declares a theorem of type `False`
 
-The main theorem (`ConLeche/Challenge.lean`) is about `checkDecls`, the
-fold over the PARSED stream; the main corollary is about the CHUNKS the
-binary reads, and this module names the one thing it needs beyond the
-three functions of the binary's accept path (`builtinPreludeE`,
-`parseChunks`, `checkDecls` over `preparePrelude`):
+The main corollary `main_no_False` (`ConLeche/Challenge.lean`, `ConLeche/MainTheorem.lean`) is
+about the bytes of a file the binary reads, and this module names the one thing it needs beyond
+the binary's run:
 
-* `jsonWithTheoremFalse chunks` — the file, read as bytes, is ONE
-  particular JSON file declaring a theorem of type `False`: a whole-file
-  template in the exporter's own line shapes, with a name entry for
-  `False`, an expression entry for the constant `False`, a name entry
-  for the theorem's own name, and the theorem record whose `type` is
-  that expression, in that order.  The parts before, between and after
-  the four lines are arbitrary strings, and so are the indices `i`, `j`,
-  `k`, `v` and the theorem's name.
+* `jsonWithTheoremFalse chunks` — the file, read as bytes, is ONE particular JSON file declaring
+  a theorem of type `False`: a whole-file template in the exporter's own line shapes, with a name
+  entry for `False`, an expression entry for the constant `False`, a name entry for the theorem's
+  own name, and the theorem record whose `type` is that expression, in that order.  The parts
+  before, between and after the four lines are arbitrary strings, and so are the indices `i`,
+  `j`, `k`, `v` and the theorem's name.
 
-The name says what the predicate is and what it is not: it describes ONE
-way of putting a theorem of type `False` into a JSON file, not every
-proof of `False` a file might hold.  The main corollary
-`no_False_declaration` (`ConLeche/Challenge.lean`) takes it as its
-hypothesis: hand the binary such a file, however cut into chunks, and
-the chain of its three pure steps — the built-in prelude parses, the
-chunks parse, the verified fold accepts the prepared records — returns
-an error.
+The name says what the predicate is and what it is not: it describes ONE way of putting a theorem
+of type `False` into a JSON file, not every proof of `False` a file might hold.  Hand the binary
+such a file and no run of it exits 0.
 -/
 
 namespace ConLeche

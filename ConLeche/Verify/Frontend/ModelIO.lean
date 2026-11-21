@@ -151,6 +151,20 @@ theorem ModelIO.bind_det {α β : Type} {x : ModelIO α} {a : α} {fs : FS} {hs 
     exists_false, and_false, or_false, eq_iff_iff]
   exact ⟨fun ⟨_, _, ⟨h1, h2⟩, h⟩ => h1 ▸ h2 ▸ h, fun h => ⟨_, _, ⟨rfl, rfl⟩, h⟩⟩
 
+/-- An action with no value, then a continuation: no value, the handles as it left them. -/
+theorem ModelIO.bind_ret_none {α β : Type} {x : ModelIO α} {fs : FS} {hs hs₁ : HS}
+    (hx : x fs hs = ModelIO.ret none hs₁) (f : α → ModelIO β) :
+    (x >>= f) fs hs = ModelIO.ret none hs₁ := by
+  funext o hs''
+  show ((∃ a' hs', x fs hs (.ok a') hs' ∧ f a' fs hs' o hs'') ∨
+    (∃ e, o = .error e ∧ x fs hs (.error e) hs'')) = _
+  rw [hx]
+  simp only [ModelIO.ret, ModelIO.answer, reduceCtorEq, exists_false, false_and,
+    false_or, Except.error.injEq, exists_eq', true_and, eq_iff_iff]
+  constructor
+  · rintro ⟨e, rfl, h⟩; exact ⟨⟨e, rfl⟩, h⟩
+  · rintro ⟨⟨e, rfl⟩, h⟩; exact ⟨e, rfl, h⟩
+
 /-! ## Every value outcome: the calculus the driver's theorems use -/
 
 /-- **Every value outcome of `x` on `fs` from the open handles `hs`
@@ -250,12 +264,6 @@ theorem ModelIO.Gives.outcome {α : Type} {x : ModelIO α} {fs : FS} {v : α} (h
     (hs : HS) : ∃ hs', x fs hs (.ok v) hs' := by
   obtain ⟨hs₁, h1⟩ := h hs
   exact ⟨hs₁, by rw [h1, ModelIO.ret_ok]; exact ⟨rfl, rfl⟩⟩
-
-/-- **`v` is a value the action can give**: a value outcome of it, from
-some open handles to some.  What the specifications of the `.olean`
-reads say of an action whose answer does not depend on the handles. -/
-@[expose] def ModelIO.CanGive {α : Type} (x : ModelIO α) (fs : FS) (v : α) : Prop :=
-  ∃ hs hs', x fs hs (.ok v) hs'
 
 theorem ModelIO.Det.gives {α : Type} {x : ModelIO α} {fs : FS} {v : α} (hd : x.Det fs)
     (h : x.CanGive fs v) : x.Gives fs v :=
@@ -573,6 +581,21 @@ theorem foldChunks_det {σ ρ : Type} {p : System.FilePath} (csz : USize) (init 
   simp only [foldChunks]
   rw [ModelIO.bind_det (ModelIO.fileSize_at hb hs), ModelIO.bind_det (ModelIO.openRead_at hb hs)]
   exact foldReads_pure csz step fin hs.size fs 0 init Array.getElem?_push_size
+
+/-- **The serial fold is determined** on any snapshot: `foldChunks_det` where the snapshot holds
+the file, an exception where it holds none. -/
+theorem foldChunks_isDet {σ ρ : Type} (p : System.FilePath) (csz : USize) (init : σ)
+    (step : σ → ByteArray → Except ρ σ) (fin : σ → ρ) (fs : FS) :
+    (foldChunks p csz init step fin : ModelIO ρ).Det fs := by
+  cases hb : fs.file p with
+  | some b => exact (foldChunks_det csz init step fin hb).det
+  | none =>
+    refine ⟨none, fun hs => ⟨hs, ?_⟩⟩
+    have hsz : (CheckerIO.fileSize p : ModelIO Nat) fs hs = ModelIO.ret none hs := by
+      show ModelIO.ret ((fs.file p).map (·.size)) hs = _
+      rw [hb]; rfl
+    simp only [foldChunks]
+    exact ModelIO.bind_ret_none hsz _
 
 /-- **The serial fold, in the model**: an outcome that is a value means
 the snapshot holds the file's bytes `b`, and the value is `foldList`

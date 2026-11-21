@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Env
 public import ConLeche.Kernel.ExprOps
 
 @[expose] public section

@@ -129,7 +129,7 @@ def DeclDefnRun (F : Nat) (env : Env)
       env.consts, env.tables⟩ ∧
     (natOpNames.contains cv.name = true →
       natOpGuard env₂ cv.name = true ∧
-      (natOpDeps cv.name).all (natOpStoredOk env₂) = true ∧
+      natOpStoredOk env₂ cv.name = true ∧
       NatEqsRun F env
         ((natOpEquations 0 cv.name).map fun eq =>
           (Expr.substConst0 cv.name value' eq.1,
@@ -151,6 +151,15 @@ def DeclThmRun (F : Nat) (env : Env)
     -- checked `value'` is the realizability witness, not stored)
     env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts, env.tables⟩
+
+/-- **A type the checker finds to be a proposition**: its inferred type
+reduces to a sort whose level is zero (the prop row of `DeclThmRun`), at
+some fuel.  A definition or opaque constant whose type passes it gets the
+canonical proof as its leaf (`Model/Harvest.lean`), so that every proof
+of one statement has one leaf. -/
+def PropTypeRun (env : Env) (ty : Expr) : Prop :=
+  ∃ F stype u, inferTypeCore .verified false env F 0 ty = .ok stype ∧
+    ensureSortCore .verified false env F 0 stype = .ok u ∧ Level.isEquiv u .zero = some true
 
 /-- An `opaqueDecl`'s guards and runs. -/
 def DeclOpaqueRun (F : Nat) (env : Env)

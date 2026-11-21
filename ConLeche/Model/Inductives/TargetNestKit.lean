@@ -88,23 +88,42 @@ theorem lfpSClause_okAt (h : LfpClause acval D) (hsat : Sat V (D.params ψ).reve
 
 /-! ## The kit over clause classes -/
 
+/-- **A class's index sets, pinned**: its clause's at its true frame if it
+is live, empty otherwise (a class whose true frame does not fit its block
+has no element, and the clause tells nothing there). -/
+@[expose] noncomputable def pinIdx (D : LfpDatum V) (ψ : Name → Nat) (fr : Nat → V)
+    (live : Prop) : Nat → V :=
+  open Classical in fun c => if live then D.idx ψ fr c else empty
+
+theorem pinIdx_of {fr : Nat → V} {live : Prop} (h : live) : pinIdx D ψ fr live = D.idx ψ fr := by
+  classical
+  funext c; exact ite_eq_left h
+
+theorem live_of_mem_pinIdx {fr : Nat → V} {live : Prop} {c : Nat} {t : V}
+    (h : t ∈ˢ pinIdx D ψ fr live c) : live := by
+  classical
+  by_cases hl : live
+  · exact hl
+  · simp only [pinIdx, ite_eq_right hl] at h; exact absurd h (not_mem_empty t)
+
 /-- **The nested kit over clause classes**: class `b < nC` is the
-clause of `Db b` at `ψb b`, visited at admissible parameter frames
-(`Adm`, which must satisfy the telescope and read the TRUE frame's
-index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
-(`lfpSClause_okAt`); `trans`, `calls` and `top` are the run's. -/
+clause of `Db b` at `ψb b`, its index sets pinned at its TRUE frame `frb b`
+where it is live (`pinIdx`); it is visited at admissible parameter frames
+(`Adm`, only at a live class: they satisfy the telescope and read the true
+frame's index sets, `hAdm`).  `ok` is the clause's (`lfpSClause_okAt`);
+`trans`, `calls` and `top` are the run's. -/
 @[expose] noncomputable def lfpNestKit (nC : Nat) (Db : Nat → LfpDatum V)
-    (ψb : Nat → Name → Nat) (frb : Nat → Nat → V) (dp : Nat → Nat) (Dd : Nat)
+    (ψb : Nat → Name → Nat) (frb : Nat → Nat → V) (live : Nat → Prop) (dp : Nat → Nat) (Dd : Nat)
     (hD : ∀ b, b < nC → dp b < Dd)
     (Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop)
     (pred : NDec V → V)
     (hcl : ∀ b, b < nC → LfpClause acval (Db b))
-    (hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ →
+    (hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → live b ∧
       Sat V ((Db b).params (ψb b)).reverse ρ ∧
         ∀ c, c < (Db b).N → (Db b).idx (ψb b) ρ c = (Db b).idx (ψb b) (frb b) c)
     (trans : ∀ b, b < nC → ∀ G,
       (∀ b' c t y, G b' c t y →
-        y ∈ˢ app ((lfpSClause (Db b') (ψb b') ((Db b').idx (ψb b') (frb b'))).carrier
+        y ∈ˢ app ((lfpSClause (Db b') (ψb b') (pinIdx (Db b') (ψb b') (frb b') (live b'))).carrier
           (frb b') c) t) →
       ∀ ρ, Adm b G ρ → ∀ Y,
       InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
@@ -115,37 +134,72 @@ index sets, `hAdm`); its true frame is `frb b`.  `ok` is the clause's
       InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
       ∀ c t j fs, c < (Db b).N → t ∈ˢ (Db b).idx (ψb b) (frb b) c →
       (Db b).HFits (ψb b) ρ Y t c j fs →
-      ∀ u, u ∈ˢ pred ⟨b, c, t, j, fs⟩ → ∃ b' c' t' y, b' < nC ∧ c' < (Db b').N ∧
+      ∀ u, u ∈ˢ pred ⟨b, c, t, j, fs⟩ → ∃ b' c' t' y, b' < nC ∧ c' < (Db b').N ∧ live b' ∧
         t' ∈ˢ (Db b').idx (ψb b') (frb b') c' ∧ u = nenc b' c' t' y ∧
         ((b' = b ∧ y ∈ˢ app (Y c') t') ∨ G b' c' t' y ∨
           (dp b < dp b' ∧ ∃ ρ', Adm b' (addOwn G b (Db b).N ((Db b).idx (ψb b) (frb b)) Y) ρ' ∧
             y ∈ˢ app ((lfpSClause (Db b') (ψb b') ((Db b').idx (ψb b') (frb b'))).carrier
               ρ' c') t')))
-    (top : ∀ b, b < nC → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
-        t ∈ˢ (Db b').idx (ψb b') (frb b') c →
+    (top : ∀ b, b < nC → live b → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
+        live b' → t ∈ˢ (Db b').idx (ψb b') (frb b') c →
         y ∈ˢ app ((Db b').carrier (ψb b') (frb b') c) t → G b' c t y) →
       Adm b G (frb b)) :
     NestKit V (Nat → V) where
   nC := nC
-  cl := fun b => lfpSClause (Db b) (ψb b) ((Db b).idx (ψb b) (frb b))
+  cl := fun b => lfpSClause (Db b) (ψb b) (pinIdx (Db b) (ψb b) (frb b) (live b))
   fr := frb
   dp := dp
   D := Dd
   hD := hD
   Adm := Adm
   pred := pred
-  ok := fun b hb G ρ hρ =>
-    lfpSClause_okAt (hcl b hb) (hAdm b hb G ρ hρ).1 (hAdm b hb G ρ hρ).2
+  ok := fun b hb G ρ hρ => by
+    obtain ⟨hl, hsat, hidx⟩ := hAdm b hb G ρ hρ
+    refine lfpSClause_okAt (hcl b hb) hsat fun c hc => ?_
+    rw [pinIdx_of hl]; exact hidx c hc
   trans := fun b hb G hG ρ hρ Y hY hle t c j fs hc hf => by
-    have hle' : TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y
-        ((Db b).carrier (ψb b) (frb b)) := hle
+    have hl := (hAdm b hb G ρ hρ).1
     show (Db b).HFits (ψb b) (frb b)
-      ((lfpSClause (Db b) (ψb b) ((Db b).idx (ψb b) (frb b))).carrier (frb b)) t c j fs
-    rw [lfpSClause_carrier rfl]
-    exact trans b hb G hG ρ hρ Y hY hle' t c j fs hc hf
-  calls := fun b hb G ρ hρ Y hY c t j fs hc ht hf u hu =>
-    calls b hb G ρ hρ Y hY c t j fs hc ht hf u hu
-  top := fun b hb G hG => top b hb G fun b' c t y hb' hdp hc ht hy =>
-    hG b' c t y hb' hdp hc ht (by rw [lfpSClause_carrier rfl]; exact hy)
+      ((lfpSClause (Db b) (ψb b) (pinIdx (Db b) (ψb b) (frb b) (live b))).carrier (frb b)) t c j fs
+    rw [pinIdx_of hl, lfpSClause_carrier rfl]
+    have hY' : InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y := by
+      have := hY; simp only [lfpSClause] at this; rw [pinIdx_of hl] at this; exact this
+    have hle' : TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y
+        ((Db b).carrier (ψb b) (frb b)) := by
+      have := hle
+      simp only [SClause.carrier, lfpSClause] at this
+      rw [pinIdx_of hl] at this
+      exact this
+    exact trans b hb G hG ρ hρ Y hY' hle' t c j fs hc hf
+  calls := fun b hb G ρ hρ Y hY c t j fs hc ht hf u hu => by
+    have hl := (hAdm b hb G ρ hρ).1
+    have hY' : InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y := by
+      have := hY; simp only [lfpSClause] at this; rw [pinIdx_of hl] at this; exact this
+    have ht' : t ∈ˢ (Db b).idx (ψb b) (frb b) c := by
+      have := ht; simp only [lfpSClause] at this; rw [pinIdx_of hl] at this; exact this
+    obtain ⟨b', c', t', y, hb', hc', hl', ht'', rfl, hcase⟩ :=
+      calls b hb G ρ hρ Y hY' c t j fs hc ht' hf u hu
+    refine ⟨b', c', t', y, hb', hc', ?_, rfl, ?_⟩
+    · show t' ∈ˢ pinIdx (Db b') (ψb b') (frb b') (live b') c'
+      rw [pinIdx_of hl']; exact ht''
+    · show (b' = b ∧ _) ∨ G b' c' t' y ∨ (dp b < dp b' ∧ ∃ ρ', Adm b'
+        (addOwn G b (Db b).N (pinIdx (Db b) (ψb b) (frb b) (live b)) Y) ρ' ∧
+        y ∈ˢ app ((lfpSClause (Db b') (ψb b') (pinIdx (Db b') (ψb b') (frb b') (live b'))).carrier
+          ρ' c') t')
+      rw [pinIdx_of hl]
+      rcases hcase with h | h | ⟨hlt, ρ', hρ', hy⟩
+      · exact Or.inl h
+      · exact Or.inr (Or.inl h)
+      · refine Or.inr (Or.inr ⟨hlt, ρ', hρ', ?_⟩)
+        rw [pinIdx_of hl']; exact hy
+  top := fun b hb hne G hG => by
+    obtain ⟨c, -, t, ht⟩ := hne
+    have hl : live b := live_of_mem_pinIdx ht
+    refine top b hb hl G fun b' c t y hb' hdp hc hl' ht' hy => hG b' c t y hb' hdp hc ?_ ?_
+    · show t ∈ˢ pinIdx (Db b') (ψb b') (frb b') (live b') c
+      rw [pinIdx_of hl']; exact ht'
+    · show y ∈ˢ app ((lfpSClause (Db b') (ψb b') (pinIdx (Db b') (ψb b') (frb b') (live b'))).carrier
+        (frb b') c) t
+      rw [pinIdx_of hl', lfpSClause_carrier rfl]; exact hy
 
 end ConLeche.Model

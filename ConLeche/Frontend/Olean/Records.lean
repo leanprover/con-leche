@@ -73,6 +73,13 @@ def rootConstants (mg : Merged) : Option (Array Name) → Except CheckError (Arr
     | some c => throw (.internal s!"the constant {c} is not in the import closure")
     | none => pure cs
 
+/-- **What a constant's merged copy is read under** (task #607): for every name the closure
+stores, the first module of the order storing it — the home of every constant but a theorem
+(or a proposition's axiom) stored twice, which Lean's rule keys by its statement. -/
+def homesOf (ls : Array Loaded) : Std.HashMap Name Name :=
+  ls.foldl (fun h l => l.constants.foldl (fun h c =>
+    if h.contains c.name then h else h.insert c.name l.name) h) {}
+
 /-- What a theorem's check needs of a module of the closure's order. -/
 structure ModRef where
   name : Name
@@ -87,6 +94,10 @@ structure OleanRead where
   decls : Array Declaration
   values : Array ModRef
   merged : Merged
+  /-- the search path with the closure's roots resolved, for the values' reads -/
+  roots : Roots
+  /-- each constant's home (`homesOf`), where the read was asked for them; empty otherwise -/
+  homes : Std.HashMap Name Name := {}
 
 /-- **What a theorem's record mentions**, which its reference does not say: what the load
 read off the file.  `none` for any other record, whose own expressions say it. -/
@@ -94,16 +105,19 @@ def OleanRead.thmUses (rd : OleanRead) : Declaration → Option (Array Name)
   | .thmDecl cv _ => rd.merged.map[cv.name]?.map (·.uses.toArray)
   | _ => none
 
-/-- **The whole read**: load, merge, emit, build.  `constants` names the constants to
-start from, as lean4export's arguments after `--` do; `none` is every constant of the
-closure. -/
-def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
+/-- **The whole read, through a lookup**: load, merge, emit, build.  `constants` names the
+constants to start from, as lean4export's arguments after `--` do; `none` is every constant of
+the closure.  A compared run (task #607) reads through a lookup with a fallback (`R`), keeps
+the constants it names that the closure holds (`lenient`: those it does not are the
+comparison's business) and asks for the constants' homes (`homes`). -/
+def readOleansAt {μ : Type → Type} [CheckerIO μ] (R : Roots)
     (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1)
-    (pace : Pace := .off) : μ (Except (CheckError × Nat) OleanRead) := do
+    (pace : Pace := .off) (lenient homes : Bool := false) :
+    μ (Except (CheckError × Nat) OleanRead) := do
   let n ← CheckerIO.liftIO (ReadNotes.new pace)
-  match ← loadClosure sp n roots jobs with
+  match ← loadClosure R n roots jobs with
   | .error e => pure (.error (e, 0))
-  | .ok ls =>
+  | .ok (ls, R) =>
     CheckerIO.liftIO (n.say s!"merging the constants of {ls.size} modules")
     match mergeAll ls with
     | .error e => pure (.error (e, 0))
@@ -112,14 +126,16 @@ def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
       match blocksOk mg with
       | .error e => pure (.error (e, 0))
       | .ok () =>
-        match rootConstants mg constants with
+        match rootConstants mg (if lenient then constants.map (·.filter mg.map.contains)
+            else constants) with
         | .error e => pure (.error (e, 0))
         | .ok cs =>
           CheckerIO.liftIO (n.say s!"emitting records from {cs.size} constants")
           match declsOf (emitAll mg cs) with
           | .error e => pure (.error e)
           | .ok ds =>
-            pure (.ok ⟨ds, ls.map fun l => ⟨l.name, l.frontier⟩, mg⟩)
+            pure (.ok ⟨ds, ls.map fun l => ⟨l.name, l.frontier⟩, mg, R,
+              if homes then homesOf ls else {}⟩)
 
 /-! ## A theorem's value, read -/
 
@@ -131,7 +147,7 @@ structure ValueCache where
   region : Option Region := none
 
 /-- The region of module `idx`, from the cache or the files, with the cache to go on with. -/
-def regionFor {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (idx : Nat)
+def regionFor {μ : Type → Type} [CheckerIO μ] (sp : Roots) (m : Name) (idx : Nat)
     (c : ValueCache) : μ (ValueCache × Except CheckError Region) := do
   match c.region with
   | some r =>
@@ -149,7 +165,7 @@ where
 
 /-- **A theorem's value, from its reference's code**: the files of its module (`regionFor`),
 then the value, over the module's frontier (`frontierExpr`). -/
-def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+def readValue {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
     (c : ValueCache) (code : Nat) : μ (ValueCache × Except CheckError Expr) := do
   match values[refModule code]? with
   | none => pure (c, .error (.internal s!"a theorem's value in module {refModule code}, of {values.size}"))
@@ -162,7 +178,7 @@ def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Ar
       | none => pure (c, .error (undecodable md.name))
 
 /-- A record with its theorem's value read, if it is a theorem's. -/
-def fillRecord {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+def fillRecord {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
     (c : ValueCache) : Declaration → μ (ValueCache × Except CheckError Declaration)
   | .thmDecl cv (.bvar code) => do
     match ← readValue sp values c code with
@@ -171,7 +187,7 @@ def fillRecord {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : A
   | d => pure (c, .ok d)
 
 /-- `fillRecord` of each record, in order. -/
-def fillRecords {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+def fillRecords {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
     (c : ValueCache) : List Declaration → Array Declaration → μ (Except CheckError (Array Declaration))
   | [], acc => pure (.ok acc)
   | d :: ds, acc => do
@@ -184,10 +200,10 @@ checker itself reads a value in its check. -/
 def readOleansFull {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
     (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1) :
     μ (Except (CheckError × Nat) (Array Declaration)) := do
-  match ← readOleans sp roots constants jobs with
+  match ← readOleansAt sp roots constants jobs with
   | .error e => pure (.error e)
   | .ok rd =>
-    match ← fillRecords sp rd.values {} rd.decls.toList #[] with
+    match ← fillRecords rd.roots rd.values {} rd.decls.toList #[] with
     | .error e => pure (.error (e, 0))
     | .ok ds => pure (.ok ds)
 

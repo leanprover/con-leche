@@ -159,7 +159,7 @@ def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
 
 /-- `divModEnvGuard` through the index. -/
 def divModEnvGuardF (fe2 : FEnv) (c : Name) : Bool :=
-  natOpGuardF fe2 c && (natOpDeps c).all (natOpStoredOkF fe2) &&
+  natOpGuardF fe2 c && natOpStoredOkF fe2 c &&
   (fe2.find? eqName).isSome &&
   (match fe2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []
@@ -217,11 +217,16 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- `checkConstantVal` through the index. -/
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
-    (cv : ConstantVal) (allowOp : Bool := false) : m Unit := do
+    (cv : ConstantVal) (allowOp : Bool := false) (allowReduce : Bool := false)
+    (allowSorry : Bool := false) : m Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  if reduceOpNames.contains cv.name && !allowReduce then
+    throw (.invalid s!"a compiler-trust name, not an opaque constant: {cv.name}")
+  if sorryAxNameAt cv.name && !allowSorry then
+    throw (.invalid s!"the tolerated axiom's name, not an axiom: {cv.name}")
   unless litShapeOk (.axiomInfo cv) do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do

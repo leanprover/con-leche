@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.CheckerC
+public import ConLeche.Cached.IotaReadC
 
 @[expose] public section
 
@@ -17,9 +17,8 @@ straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 (`ConLeche/Driver/*`) runs it as a job at a view of the stream's index and returns the fold's
 environment together with the proof that `checkDecls` returns it.  It runs at `.verified` and at
 `.trusted` alike (the trusted mode is the same fold at the other mode, and nothing else):
-acceptance at `.verified` is covered by the main corollary `no_False_declaration`
-(`ConLeche/MainTheorem.lean`, through `no_False_theorem_accepted` in
-`ConLeche/Verify/Cached/StreamThm.lean`), and two modes that both accept end in the same
+acceptance at `.verified` is covered by the main theorem `model_exists` and its corollary
+`no_False_declaration` (`ConLeche/MainTheorem.lean`), and two modes that both accept end in the same
 environment (`checkDecls_agree`, `ConLeche/Verify/Cached/DeclPushes.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185): the knot it
@@ -117,7 +116,12 @@ def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     CheckCM FEnv :=
   if indParamsOk nP block then
     match readBlock nP block with
-    | .ok p => checkBlockKS mode fe block p
+    | .ok p => do
+      let fe' ← checkBlockKS mode fe block p
+      -- the recursors' ι equations read off their own types (`blockReadsOkC`)
+      match blockReadsOkC fe'.find? p with
+      | .ok _ => pure fe'
+      | .error e => throw e
     | .error e => throw e
   else throw (.invalid "number of parameters mismatch")
 
@@ -260,8 +264,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     let ci ← checkDefnValCI mode fe cv value hint
     if natOpNames.contains cv.name then
       let fe2 := fe.overlay [ci]
-      unless natOpGuardF fe2 cv.name &&
-          (natOpDeps cv.name).all (natOpStoredOkF fe2) do
+      unless natOpGuardF fe2 cv.name && natOpStoredOkF fe2 cv.name do
         throw (.notImplemented
           s!"nonstandard structural Nat operation environment ({cv.name})")
       match fe2.find? cv.name with
@@ -283,7 +286,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     let ci ← checkThmValCI mode fe cv value
     pure (fe.push ci)
   | .opaqueDecl cv value => do
-    checkConstantValC mode fe cv
+    checkConstantValC mode fe cv (allowReduce := true)
     let ci ← checkOpaqueValCI mode fe cv value
     if reduceOpNames.contains cv.name then
       checkReducePinC mode fe (fe.overlay [ci]) cv.name value
@@ -292,7 +295,7 @@ def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     if cv.name = quotSoundName then
       checkQuotRecordC fe .sound cv
     else do
-      checkConstantValC mode fe cv
+      checkConstantValC mode fe cv (allowSorry := true)
       if stdAxiomOkF fe cv then
         pure (fe.push (.axiomInfo cv))
       else if cv.name = trustCompilerName then

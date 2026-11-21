@@ -14,7 +14,7 @@
     an inductive description of checking, and a set theory given
     axiomatically. The real proof lives in the repository, and
     phrases underlined like
-    #src("ConLeche/MainTheorem.lean", 102, 105)[this one] link to it on
+    #src("ConLeche/MainTheorem.lean", 47, 50)[this one] link to it on
     `master`, at the definition or theorem being described; phrases
     underlined like #src("whitepaper/Fragment/Sound.lean", 2293, 2297)[this one]
     link to the paper's own Lean fragment. In the web version, hovering
@@ -27,6 +27,8 @@
 #include "sections/04-inductives.typ"
 #include "sections/05-nested.typ"
 #include "sections/06-extensionality.typ"
+#include "sections/06b-modular.typ"
+#include "sections/06c-compare.typ"
 #include "sections/07-left-out.typ"
 #include "sections/08-related.typ"
 

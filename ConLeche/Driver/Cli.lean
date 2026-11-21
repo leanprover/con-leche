@@ -117,7 +117,19 @@ def maxNatSizeArg (v : String) : Except String Nat :=
 def synopsis : String := String.intercalate "\n" [
   "Usage:",
   "  con-leche [OPTIONS] [--] FILE.ndjson",
-  "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE..."]
+  "  con-leche [OPTIONS] --compare [--] CHALLENGE.ndjson SOLUTION.ndjson",
+  "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE...",
+  "  con-leche [OPTIONS] --check-graph --search-path=DIRS [--] MODULE...",
+  "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE",
+  "  con-leche [OPTIONS] --olean --modular --search-path=DIRS [--] MODULE",
+  "  con-leche [OPTIONS] --olean --schedule[-OPT=V] --search-path=DIRS [--] MODULE",
+  "  con-leche [OPTIONS] --olean --compare [--trusted-search-path=DIRS]",
+  "            --search-path=DIRS [--] CHALLENGE SOLUTION",
+  "  con-leche [OPTIONS] --check-graph --compare [--trusted-search-path=DIRS]",
+  "            --search-path=DIRS [--] CHALLENGE SOLUTION",
+  "  con-leche [OPTIONS] --olean --module|--modular|--schedule[-OPT=V]",
+  "            --compare [--trusted-search-path=DIRS] --search-path=DIRS",
+  "            [--] CHALLENGE SOLUTION"]
 
 /-- The line after a usage error. -/
 def tryHelp : String := "Try 'con-leche --help' for more information."
@@ -139,10 +151,103 @@ def helpText : String := String.intercalate "\n" [
   "  --help              Print this help and exit",
   "  --                  End of options",
   "",
+  "lean4export input:",
+  "  --compare           CHALLENGE.ndjson SOLUTION.ndjson: check SOLUTION, then",
+  "                      check CHALLENGE, its axioms justified by SOLUTION: each",
+  "                      axiom of CHALLENGE (but the standard ones) and each",
+  "                      declaration whose value uses sorry is accepted as an",
+  "                      axiom of its statement when SOLUTION holds a constant",
+  "                      of that name and type, up to the names of level",
+  "                      parameters, and everything that type reads is the same",
+  "                      in both, record by record. Prints the justified axioms",
+  "",
   ".olean input:",
   "  --olean             Read modules and their import closure from .olean files",
   "  --search-path=DIRS  Colon-separated .olean directories; repeatable",
   "  --constant=NAME     Check only NAME and what it mentions; repeatable",
+  "  --compare           CHALLENGE SOLUTION: check the closure of the module",
+  "                      SOLUTION, then the closure of CHALLENGE, its axioms",
+  "                      justified by SOLUTION's as for lean4export input: each",
+  "                      axiom (but the standard ones) and each declaration",
+  "                      whose value uses sorry is accepted as an axiom of its",
+  "                      statement when SOLUTION's closure holds a constant of",
+  "                      that name and type, up to the names of level",
+  "                      parameters, and everything that type reads is the same",
+  "                      in both. Prints the justified axioms. With",
+  "                      --constant=NAME (declarations of CHALLENGE itself),",
+  "                      only NAME and what it reads. With",
+  "                      --check-graph, --module, --modular or --schedule:",
+  "                      CHALLENGE as one more module of a modular run over",
+  "                      the closures of both, with `import all SOLUTION`",
+  "                      added to its header: a declaration of CHALLENGE",
+  "                      that a loaded module holds must be that constant (a",
+  "                      hole, theorem or opaque constant by its type, a",
+  "                      definition with its value, up to the names of level",
+  "                      parameters; an inductive type as it is), every other",
+  "                      one is checked (its --module run is the compare",
+  "                      worker; the guarantee needs every command to exit 0)",
+  "  --trusted-search-path=DIRS",
+  "                      With --compare: CHALLENGE and all it imports must be",
+  "                      in DIRS, and are read from there only; SOLUTION's",
+  "                      modules from DIRS first, then --search-path (the",
+  "                      modular modes read every module so). With --module",
+  "                      alone: MODULE's closure read from DIRS first, then",
+  "                      --search-path.",
+  "                      Colon-separated; repeatable",
+  "  --check-graph       Check only that the modules' import graph is acyclic",
+  "                      and that every import is on the search path",
+  "  --module            Check MODULE's own declarations alone, against what",
+  "                      they read of the modules it loads",
+  "  --modular           Check every module of MODULE's closure as --module",
+  "                      does, in this one process. Of limited use: every module",
+  "                      redoes its own reach, so on Mathlib it took 3.0x the",
+  "                      instructions of the merged run at a lower peak memory;",
+  "                      plain --olean, or --olean --schedule, is the better choice",
+  "  --schedule          Check every module of MODULE's closure by a --module",
+  "                      process each. Here --jobs=N is the THREAD budget: the",
+  "                      workers' threads sum to at most N (one each, more only",
+  "                      where memory, not N, keeps workers from starting); with",
+  "  --schedule-log=FILE      an append-only log, resumed from on a restart",
+  "  --schedule-memory=SIZE   a hard limit (with a unit, K, M, G or T: 47G, 512M):",
+  "                           start by size and peaks within a lower planning",
+  "                           budget learned in the run; one slot, the head,",
+  "                           runs the first unstarted module, fit or not, and",
+  "                           is never killed; over the limit, the youngest",
+  "                           others are killed and requeued at their place",
+  "  --schedule-timeout=S     a time limit per worker",
+  "                           a worker ended by a signal has it in its verdict;",
+  "                           stack = its stack overflowed: rerun with a larger",
+  "  --worker-stack-size=SIZE the workers' thread stacks (with a unit: 8G), set",
+  "                           as their LEAN_STACK_SIZE_KB (without the flag they",
+  "                           inherit the environment; Lean's default is 1G); a",
+  "                           resumed run retries stack only at another size",
+  "  --schedule-order=ORDER   shuffled (default; by a hash of the names) or graph:",
+  "                           the order in which the modules start",
+  "  --schedule-commands      start nothing; print on stdout, one per line and",
+  "                           shell-quoted, the commands that check the closure:",
+  "                           the --check-graph run, then one --module run per",
+  "                           module in the start order (--jobs=N only if given);",
+  "                           the modular guarantee needs every one to exit 0 on",
+  "                           one unchanged snapshot of the files (with",
+  "                           --worker-stack-size, each worker's line starts",
+  "                           with LEAN_STACK_SIZE_KB=K); -memory, -log and",
+  "                           -timeout are ignored",
+  "                      Every line starts with the status [done (p%), wrkr, thds,",
+  "                      RSS tot, RSS biggest, rsvd, eta]: finished modules, the",
+  "                      workers running, their threads, their resident sets now",
+  "                      (total and largest), with a memory limit what is",
+  "                      reserved for them of the planning budget (memory limits",
+  "                      the starts where the two are close); then, per finished",
+  "                      module on stdout, verdict, t, rss, module; with",
+  "                      --progress=N (ms) or Ss, after that long without a",
+  "                      line, one on stderr:",
+  "                      waiting: the longest worker, requeued, waiting for room",
+  "                      (reserved against the planning budget);",
+  "                      the summary gives the peak total; at the end, statistics",
+  "                      on stderr. The log: VERDICT, module, ms, peak KiB, ms",
+  "                      since the start; a kill: killed, module, ms, KiB.",
+  "                      SIGINT or SIGTERM kills the workers, prints the",
+  "                      statistics and exits 130 or 143",
   "",
   "Exit status:",
   "  0  accepted",
@@ -171,6 +276,29 @@ structure Args where
   searchPath : List System.FilePath := []
   /-- `--constant=NAME`: with `--olean`, the constants to start from. -/
   constants : Array String := #[]
+  /-- `--check-graph`: the positional arguments are root module names, and the run checks
+  their closure's import graph alone (`Graph.checkGraphG`). -/
+  checkGraph : Bool := false
+  /-- `--module`: with `--olean`, the one module named is checked alone, against the records
+  of the modules it loads that its own records read (`checkModuleG`). -/
+  module : Bool := false
+  /-- `--modular`: with `--olean`, every module of the one root's closure checked as `--module`
+  checks it, in one process (`checkModularG`). -/
+  modular : Bool := false
+  /-- `--schedule[-OPT=VALUE]`: with `--olean`, every module of the one root's closure by a
+  worker process each (`scheduleG`); the values after `--schedule`, `""` for the bare flag. -/
+  schedule : Array String := #[]
+  /-- some `--schedule` flag was given -/
+  scheduled : Bool := false
+  /-- `--compare`: the two arguments are a challenge and its solution: with `--olean` module
+  names (`compareG`), without it lean4export files (`compareJsonG`) -/
+  compare : Bool := false
+  /-- `--trusted-search-path=DIR:DIR…`: with `--compare`, where the challenge is read, and
+  where the solution is read first -/
+  trustedPath : List System.FilePath := []
+  /-- `--worker-stack-size=SIZE`: with `--schedule`, the workers' stack size in KiB (their
+  `LEAN_STACK_SIZE_KB`); `none`: they inherit the environment unchanged -/
+  workerStack : Option Nat := none
   files : Array String := #[]
   bad : Option String := none
 
@@ -188,11 +316,18 @@ def flagValue (pre s : String) : Option String :=
 def searchPathOf (dirs : String) : List System.FilePath :=
   ((dirs.splitOn ":").filter (· != "")).map System.FilePath.mk
 
+/-- The arguments once all are read: `--worker-stack-size` without `--schedule` is a usage
+error (no other run starts a worker). -/
+def Args.closed (a : Args) : Args :=
+  if a.workerStack.isSome && !a.scheduled then
+    { a with bad := some "--worker-stack-size takes --schedule" }
+  else a
+
 def parseArgs : List String → Args → Args
-  | [], a => a
+  | [], a => a.closed
   -- The end of the options: every argument after it is a file, so
   -- `con-leche -- <file>` is safe for any file name.
-  | "--" :: rest, a => { a with files := a.files ++ rest.toArray }
+  | "--" :: rest, a => { a with files := a.files ++ rest.toArray }.closed
   | "--verified" :: rest, a => parseArgs rest { a with mode := .verified }
   | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
   -- The progress heartbeat: a FLAG, in either order with
@@ -204,6 +339,10 @@ def parseArgs : List String → Args → Args
   -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := .every 1 }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
+  | "--check-graph" :: rest, a => parseArgs rest { a with checkGraph := true }
+  | "--module" :: rest, a => parseArgs rest { a with module := true }
+  | "--modular" :: rest, a => parseArgs rest { a with modular := true }
+  | "--compare" :: rest, a => parseArgs rest { a with compare := true }
   | s :: rest, a =>
     if let some v := flagValue "--progress=" s then
       match progressPace v with
@@ -224,6 +363,15 @@ def parseArgs : List String → Args → Args
       parseArgs rest { a with constants := a.constants.push v }
     else if let some v := flagValue "--search-path=" s then
       parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
+    else if let some v := flagValue "--trusted-search-path=" s then
+      parseArgs rest { a with trustedPath := a.trustedPath ++ searchPathOf v }
+    else if let some v := flagValue "--schedule" s then
+      parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
+    else if let some v := flagValue "--worker-stack-size=" s then
+      match Schedule.parseSize v with
+      | some (n + 1) => parseArgs rest { a with workerStack := some (n + 1) }
+      | _ => { a with bad := some s!"--worker-stack-size takes a size with a unit, K, M, G or T \
+          (e.g. 8G), got {Display.str v}" }
     else if s.startsWith "-" then
       { a with bad := some s!"unknown option {Display.str s}" }
     else parseArgs rest { a with files := a.files.push s }
@@ -272,11 +420,48 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         eprintln s!"con-leche: {msg}"
         eprintln tryHelp
         return 3
+      if a.checkGraph then
+        -- `--check-graph`: the arguments are root modules; only their closure's import graph
+        -- is read and checked (`Graph.checkGraphG`)
+        if a.olean || a.module || !a.constants.isEmpty || (!a.trustedPath.isEmpty && !a.compare) then
+          eprintln "con-leche: --check-graph takes none of --olean, --module and --constant, and \
+            --trusted-search-path only with --compare"
+          eprintln tryHelp
+          return 3
+        if a.files.isEmpty || (a.searchPath.isEmpty && a.trustedPath.isEmpty) then
+          eprintln "con-leche: --check-graph takes one or more module names and a \
+            --search-path=DIRS"
+          eprintln tryHelp
+          return 3
+        if let some m := a.files.find? (fun f => (Frontend.Olean.parseModName f).isNone) then
+          eprintln s!"con-leche: not a module name: {Display.str m}"
+          eprintln tryHelp
+          return 3
+        let jobs := a.jobs.getD
+          (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+           if hw = 0 then 1 else hw)
+        if a.compare then
+          -- `--compare`: the challenge's closure with its solution added to its header
+          match a.files.toList.filterMap Frontend.Olean.parseModName with
+          | [c, s] =>
+            if c == s then
+              eprintln "con-leche: --compare takes two different modules, a challenge and \
+                its solution"
+              eprintln tryHelp
+              return 3
+            return ← runReq (.graph a.trustedPath a.searchPath [c] jobs (some s))
+          | _ =>
+            eprintln "con-leche: --check-graph --compare takes two module names, a challenge \
+              and its solution"
+            eprintln tryHelp
+            return 3
+        return ← runReq (.graph [] a.searchPath
+          (a.files.filterMap Frontend.Olean.parseModName).toList jobs none)
       if a.olean then
         -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
         -- read with their import closure along the search path, module
         -- names as Lean spells them, `«»` escapes included.
-        if a.files.isEmpty || a.searchPath.isEmpty then
+        if a.files.isEmpty || (a.searchPath.isEmpty && a.trustedPath.isEmpty) then
           eprintln "con-leche: --olean takes one or more module names and a \
             --search-path=DIRS"
           eprintln tryHelp
@@ -292,10 +477,107 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
+        if a.compare then
+          -- `--compare`: a challenge and its solution (`compareG`); with `--module`, the
+          -- challenge's worker in a modular run (`checkCmpModuleG`), with `--schedule`, that
+          -- run (task #608)
+          match a.files.toList.filterMap Frontend.Olean.parseModName with
+          | [c, s] =>
+            if c == s then
+              eprintln "con-leche: --compare takes two different modules, a challenge and \
+                its solution"
+              eprintln tryHelp
+              return 3
+            if a.module || a.modular || a.scheduled then
+              if !a.constants.isEmpty ||
+                  (a.module && a.scheduled) || (a.modular && (a.module || a.scheduled)) then
+                eprintln "con-leche: --compare with --module, --modular or --schedule takes \
+                  one of them, and no --constant"
+                eprintln tryHelp
+                return 3
+              if a.module then
+                return ← runReq (.cmpModule a.trustedPath a.searchPath c s a.mode a.maxNatSize
+                  a.progress jobs)
+              if a.modular then
+                return ← runReq (.modular a.trustedPath a.searchPath c (some s) a.mode
+                  a.maxNatSize a.progress jobs)
+              return ← runReq (.schedule a.trustedPath a.searchPath c (some s) a.schedule.toList
+                a.mode a.maxNatSize a.progress jobs a.jobs.isSome a.workerStack)
+            return ← runReq (.compare ⟨c, s, a.trustedPath, a.searchPath, a.rootConstants⟩
+              a.mode a.maxNatSize a.progress jobs)
+          | _ =>
+            eprintln "con-leche: --compare takes two module names, a challenge and its \
+              solution"
+            eprintln tryHelp
+            return 3
+        if !a.trustedPath.isEmpty && (!a.module || a.modular || a.scheduled) then
+          eprintln "con-leche: --trusted-search-path takes --compare or --module"
+          eprintln tryHelp
+          return 3
+        if a.scheduled then
+          -- `--schedule`: one worker process per module of one root's closure
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
+              a.module || a.modular with
+          | [m], true, false =>
+            return ← runReq (.schedule [] a.searchPath m none a.schedule.toList a.mode
+              a.maxNatSize a.progress jobs a.jobs.isSome a.workerStack)
+          | _, _, _ =>
+            eprintln "con-leche: --schedule takes one module name, and none of --constant, \
+              --module and --modular"
+            eprintln tryHelp
+            return 3
+        if a.modular then
+          -- `--modular`: every module of one root's closure, each as its worker checks it
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
+              a.module with
+          | [m], true, false =>
+            return ← runReq (.modular [] a.searchPath m none a.mode a.maxNatSize a.progress jobs)
+          | _, _, _ =>
+            eprintln "con-leche: --modular takes one module name, and neither --constant nor \
+              --module"
+            eprintln tryHelp
+            return 3
+        if a.module then
+          -- `--module`: one module, checked alone (`checkModuleG`)
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty with
+          | [m], true =>
+            return ← runReq (.module a.trustedPath a.searchPath m a.mode a.maxNatSize a.progress
+              jobs)
+          | _, _ =>
+            eprintln "con-leche: --module takes one module name and no --constant"
+            eprintln tryHelp
+            return 3
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
           a.rootConstants a.mode a.maxNatSize a.progress jobs)
-      if !a.searchPath.isEmpty || !a.constants.isEmpty then
-        eprintln "con-leche: --search-path and --constant take --olean"
+      if a.compare then
+        -- `--compare` on two lean4export files: a challenge and its solution (`compareJsonG`);
+        -- the exporter's selection is the file, so no `--constant`
+        if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular ||
+            a.scheduled || !a.trustedPath.isEmpty then
+          eprintln "con-leche: --compare on two lean4export files takes none of --search-path, \
+            --trusted-search-path, --constant, --module, --modular and --schedule (they take \
+            --olean)"
+          eprintln tryHelp
+          return 3
+        match a.files.toList with
+        | [c, s] =>
+          if c == s then
+            eprintln "con-leche: --compare takes two different files, a challenge and its \
+              solution"
+            eprintln tryHelp
+            return 3
+          let jobs := a.jobs.getD
+            (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+             if hw = 0 then 1 else hw)
+          return ← runReq (.compareJson ⟨c, s⟩ a.mode a.maxNatSize a.progress jobs)
+        | _ =>
+          eprintln "con-leche: --compare takes two files, a challenge and its solution"
+          eprintln tryHelp
+          return 3
+      if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular ||
+          a.scheduled || !a.trustedPath.isEmpty then
+        eprintln "con-leche: --search-path, --trusted-search-path, --constant, --module, \
+          --modular and --schedule take --olean"
         eprintln tryHelp
         return 3
       match a.files.toList with

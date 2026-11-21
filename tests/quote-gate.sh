@@ -63,7 +63,9 @@
 # paragraph up).  Both link shapes count: a `blob/master/<path>` code
 # link and a relative one.  If no link above the block names a
 # candidate, the ambiguity is reported with the candidate list rather
-# than guessed.
+# than guessed.  One pair needs no link: a
+# name declared in `ConLeche/Challenge.lean` and in one other file is the
+# solution's, whose statement `tests/challenge.sh` certifies the challenge's to be.
 #
 # NO `--update`.  The link gate has one because the cited TEXT is not
 # derivable from the document; here it is: the source is the truth and
@@ -112,6 +114,9 @@ def read(path):
     if lines and lines[-1] == '':
         lines.pop()
     return lines
+
+
+CHALLENGE = 'ConLeche/Challenge.lean'
 
 
 def sources():
@@ -272,6 +277,12 @@ for doc in docs:
                         near = dest
             if near is not None:
                 cands = [near]
+            elif len(cands) == 2 and CHALLENGE in cands:
+                # The challenge states the solution's theorems with `sorry`
+                # (task #627), and `tests/challenge.sh` checks that the two
+                # state the same: without a link naming one, the quote is of
+                # the solution's.
+                cands = [c for c in cands if c != CHALLENGE]
             else:
                 errors.append(
                     f"{doc}:{start+1}: `{name}` is declared in several files and no\n"

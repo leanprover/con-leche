@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Denote.Closed
 public import ConLeche.Verify.Denote.Install
-import ConLeche.Verify.EnvGuards
 
 public section
 

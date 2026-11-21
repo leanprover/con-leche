@@ -86,7 +86,7 @@ def Input.label : Input → String
 
 /-- The input's declaration records: the stream's, by the stream parse
 (`parseStreamG`), or the closure's, by the `.olean` reader
-(`Frontend.Olean.readOleans`), whose theorems hold references to their values, with what
+(`Frontend.Olean.readOleansAt`), whose theorems hold references to their values, with what
 their checks need to read them. -/
 def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (pace : Pace) (jobs : Nat) :
     μ (Except (CheckError × Nat)
@@ -95,7 +95,7 @@ def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (pace : Pace) (
   | .ndjson file => do
     return (← parseStreamG file jobs).map fun r => (r.decls, none)
   | .oleans sp roots cs => do
-    return (← Frontend.Olean.readOleans sp roots cs jobs pace).map fun rd => (rd.decls, some (sp, rd))
+    return (← Frontend.Olean.readOleansAt sp roots cs jobs pace).map fun rd => (rd.decls, some (sp, rd))
 
 /-- What a record mentions, for the preparation: the record's expressions say it, except a
 theorem's read from an `.olean`, whose load read it off the file. -/
@@ -111,17 +111,18 @@ they return.  What the phase establishes is then a theorem about the run in the
 model (`ConLeche/Verify/Driver/Oleans.lean`), not a value's type. -/
 
 /-- Record `d`'s check at position `t`, its error tagged with the position. -/
-def jobRun (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} (J : Jobs ds) (t : Nat) (d : Declaration) :
+def jobRun (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify) (t : Nat) (d : Declaration) :
     Except (CheckError × Nat) Unit :=
-  match Cached.recordJob mode natOpPinSets maxNatSize J.I t d with
+  match Cached.recordJob mode natOpPinSets maxNatSize J.side J.I t d with
   | .ok () => .ok ()
   | .error e => .error (e, t)
 
 /-- **One job's run**, from the region a worker kept: a theorem whose value is still in its
 file reads it and is checked with it in place, any other record as it stands.  The value is
 dropped when the check ends. -/
-def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat) {ds : Array Declaration}
-    (J : Jobs ds) (sp : List System.FilePath) (values : Array Frontend.Olean.ModRef)
+def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
+    {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify) (sp : Frontend.Olean.Roots)
+    (values : Array Frontend.Olean.ModRef)
     (c : Frontend.Olean.ValueCache) (t : Nat) :
     μ (Frontend.Olean.ValueCache × Except (CheckError × Nat) Unit) :=
   match ds[t]? with
@@ -140,8 +141,9 @@ structure OleanWorker where
   cache : Frontend.Olean.ValueCache := {}
 
 /-- **One job of the pool**: timed, with the heartbeat. -/
-def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat) (run : OleanRun) (pl : PoolLive)
-    {ds : Array Declaration} (J : Jobs ds) (sp : List System.FilePath)
+def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
+    (run : OleanRun) (pl : PoolLive) {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify)
+    (sp : Frontend.Olean.Roots)
     (values : Array Frontend.Olean.ModRef) (s : OleanWorker) (t : Nat) :
     μ (OleanWorker × Except (CheckError × Nat) Unit) := do
   let ts ← CheckerIO.liftIO (jobBegin pl run.pace s.w t)
@@ -149,28 +151,35 @@ def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize
   let st ← CheckerIO.liftIO (jobEnd run.err run.pace run.t0 ds pl s.w t ts (r matches .ok _) s.st)
   pure ({ s with st, cache := c }, r)
 
-/-- **The check phase of an `--olean` run**: the jobs on the worker map, in fold order; the
-first failure in that order is the result, whatever the workers' timing. -/
+/-- **The check phase of an `--olean` run**: the jobs from position `start` on, on the worker
+map, in fold order; the first failure in that order is the result, whatever the workers'
+timing.  A run of a closure checks every record (`start = 0`); a module's worker its own
+records, after its context's (`checkModuleG`), every worker starting from the region the home
+read kept (`seed`), so that no worker reads the module's files again. -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (maxNatSize : Nat)
-    (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : List System.FilePath)
-    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds) :
+    (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : Frontend.Olean.Roots)
+    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} {justify : Option Env} (J : Jobs ds justify)
+    (start : Nat := 0) (alone : Bool := true) (seed : Frontend.Olean.ValueCache := {}) :
     μ (Except (CheckError × Nat) Unit) := do
-  let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs)
-  let workers := max 1 (min jobs ds.size)
-  let (pl, tStart) ← CheckerIO.liftIO (run.pool ds.size workers values)
-  let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w } : OleanWorker))
-    (oleanStep mode maxNatSize run pl J sp values) (List.range ds.size)
+  let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs alone)
+  let n := ds.size - start
+  let workers := max 1 (min jobs n)
+  -- the kept region every worker starts from is shared like the references (`OleanRun.pool`)
+  let (pl, tStart) ← CheckerIO.liftIO (run.pool n workers (values, seed))
+  let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w, cache := seed } : OleanWorker))
+    (oleanStep mode maxNatSize run pl J sp values) (List.range' start n)
   let failure := match res with
     | .error e => some e
     | .ok _ => none
-  CheckerIO.liftIO (run.done ds tStart workers (ss.map (·.st)) failure)
+  CheckerIO.liftIO (run.done ds n tStart workers (ss.map (·.st)) failure)
   pure (match res with
     | .error e => .error e
     | .ok _ => .ok ())
 
 /-- **The verdict of a run**: the line and the exit code, from the fold's result. -/
 def verdictG {μ : Type → Type} [CheckerIO μ] (modeTag : String) (size t0 : Nat)
-    (decls : Array Declaration) (r : Except (CheckError × Nat) Unit) : μ UInt8 := do
+    (decls : Array Declaration) (r : Except (CheckError × Nat) Unit) (who : String := "") :
+    μ UInt8 := do
   match r with
   | .ok _ =>
     -- **The headline number is the FILE's declaration-record
@@ -198,7 +207,7 @@ def verdictG {μ : Type → Type} [CheckerIO μ] (modeTag : String) (size t0 : N
     -- `scripts/stream-census.py` derives BOTH numbers from a
     -- stream and is checked against both checkers' actual output,
     -- which is where a run's constant count is read off.
-    outLine s!"con-leche: accepted {size} \
+    outLine s!"con-leche: {who}accepted {size} \
       declarations ({modeTag})"
     return 0
   | .error (e, i) =>
@@ -217,7 +226,7 @@ def verdictG {μ : Type → Type} [CheckerIO μ] (modeTag : String) (size t0 : N
         s!" [at {declCName decls[i]}, fold position {i}]"
       else s!" [at fold position {i}]"
     let now ← clockMs
-    diagLine s!"con-leche: {e}{loc} ({modeTag}) \
+    diagLine s!"con-leche: {who}{e}{loc} ({modeTag}) \
       t={ConLeche.Cached.msSecs (now - t0)}s"
     return e.exitCode
 
@@ -365,22 +374,22 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       match src with
       | none =>
         let verdict ← CheckerIO.liftIO do
-          checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J
+          checkDeclsIO mode maxNatSize (← IO.getStderr) pace t0 tIndex tParse jobs J rfl
         verdictG modeTag parsed.size t0 decls (match verdict with
           | .ok _ => .ok ()
           | .error e => .error e)
-      | some (sp, rd) =>
-        -- the theorems' values are read in their checks, and what the
-        -- read kept of the merge is dropped here
+      | some (_, rd) =>
+        -- the theorems' values are read in their checks, on the search path with the
+        -- closure's roots resolved, and what the read kept of the merge is dropped here
         verdictG modeTag parsed.size t0 decls
-          (← checkOleansG mode maxNatSize pace t0 tIndex tParse jobs sp rd.values J)
+          (← checkOleansG mode maxNatSize pace t0 tIndex tParse jobs rd.roots rd.values J)
 
 /-- **An exit 0 is the fold's accept**: the verdict's code is 0 only on an `.ok`. -/
-theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration}
+theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration} {who : String}
     {r : Except (CheckError × Nat) Unit} {fs : FS} {hs : HS} {c : UInt8} {hs' : HS}
-    (h : (verdictG modeTag size t0 decls r : ModelIO _) fs hs (.ok c) hs') (h0 : c = 0) :
+    (h : (verdictG modeTag size t0 decls r who : ModelIO _) fs hs (.ok c) hs') (h0 : c = 0) :
     r = .ok () := by
-  suffices H : ModelIO.AllOk (verdictG modeTag size t0 decls r) fs hs
+  suffices H : ModelIO.AllOk (verdictG modeTag size t0 decls r who) fs hs
       (fun c => c = 0 → r = .ok ()) from
     H c hs' h h0
   cases r with

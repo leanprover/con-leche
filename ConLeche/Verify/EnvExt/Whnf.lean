@@ -75,17 +75,8 @@ theorem nat_of_rawNatLit {w : Expr} {n : Nat} (hw : Res env₁ w) (h : rawNatLit
     | cons _ _ => exact nomatch h
   | _ => exact nomatch h
 
-theorem natOpName_of_bin {c : Name}
-    (h : c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
-        c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
-        c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
-        c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
-        c = natShiftLeftName ∨ c = natShiftRightName) : natOpName c = true := by
-  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-    decide
-
 theorem res_natOpResult (hf : StoredFacts env₁) {c : Name} {a b : Nat} {x : Expr}
-    (hs : isDefinitionAt env₁ c = true)
+    (hs : (env₁.find? c).isSome = true)
     (hn : (env₁.find? natName).isSome = true ∨ (env₁.find? natZeroName).isSome = true ∨
       (env₁.find? natSuccName).isSome = true)
     (h : natOpResult c a b = some x) : Res env₁ x := by
@@ -431,7 +422,7 @@ theorem reduceNat_rel {e : Expr} (he : Res env₁ e) :
           obtain ⟨hcf, ha'⟩ := res_app.mp hf
           have hc := res_const.mp hcf
           simp only [reduceNat]
-          refine Rel.ite (fun hop => ?_) fun _ => Rel.ok resO_none
+          refine Rel.ite (fun _ => ?_) fun _ => Rel.ok resO_none
           · refine Rel.bind (K.whnf d ha') fun w₁ hw₁ => ?_
             cases hr₁ : rawNatLit? w₁ with
             | none => exact Rel.ok resO_none
@@ -441,8 +432,7 @@ theorem reduceNat_rel {e : Expr} (he : Res env₁ e) :
               cases rawNatLit? w₂ with
               | none => exact Rel.ok resO_none
               | some n₂ =>
-                exact Rel.ok fun x h => res_natOpResult hx.facts
-                  (hx.facts.opDefn c (natOpName_of_bin hop) hc)
+                exact Rel.ok fun x h => res_natOpResult hx.facts hc
                   (nat_of_rawNatLit hw₁ hr₁) h
 
 theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :

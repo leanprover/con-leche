@@ -3,7 +3,7 @@ module
 public import ConLeche.Frontend.Olean.Reads
 public import ConLeche.Frontend.Olean.Header
 import ConLeche.Verify.Frontend.Olean.Equiv
-import ConLeche.Verify.Frontend.Olean.Sparse
+public import ConLeche.Verify.Frontend.Olean.Sparse
 import Std.Data.HashSet.Lemmas
 
 /-!
@@ -414,6 +414,81 @@ theorem stmtsAt_eq (r : Region) (cs : List Nat) :
   have hf : stmtsFast r = List.mapM (stmtP r) := funext (stmtsFast_eq r)
   simp only [stmtsAt, hf]
   exact (mapM_bind (constSkel r) (stmtP r) cs).symm
+
+/-! ### Several constants, one memo -/
+
+/-- A root added to a good memo leaves it good. -/
+theorem memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k) {st : SM} (hG : st.Good r)
+    (v : UInt64) : (memoAdd r k st v).Good r := by
+  unfold memoAdd
+  split
+  · rename_i c _
+    have hs := sGo_spec r (Frontier.good_empty r) c
+    unfold SGoSpec at hs
+    exact (hs k st hk hG _ _ rfl).1
+  · exact hG
+
+theorem foldl_memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k)
+    (vs : List UInt64) (st : SM) (hG : st.Good r) : (vs.foldl (memoAdd r k) st).Good r := by
+  induction vs generalizing st with
+  | nil => exact hG
+  | cons v vs ih => exact ih _ (memoAdd_good hk hG v)
+
+theorem memoRoots_good {r : Region} {st : SM} (hG : st.Good r) (sk : CEntryF UInt64 UInt64) :
+    (memoRoots r st sk).Good r :=
+  foldl_memoAdd_good isKind_expr _ _ (foldl_memoAdd_good isKind_name _ _ hG)
+
+theorem foldl_memoRoots_good {r : Region} (sks : List (CEntryF UInt64 UInt64)) (st : SM)
+    (hG : st.Good r) : (sks.foldl (memoRoots r) st).Good r := by
+  induction sks generalizing st with
+  | nil => exact hG
+  | cons sk sks ih => exact ih _ (memoRoots_good hG sk)
+
+/-- A name read by a good memo is the specification's. -/
+theorem memoName_eq {r : Region} {st : SM} (hG : st.Good r) : memoName r st = nameP r := by
+  unfold SM.Good at hG
+  funext v
+  unfold memoName
+  split
+  · simp [nameP, *]
+  · cases hl : r.loc v with
+    | none => simp [nameP, *]
+    | some c =>
+      simp only
+      cases hn : st.names[c]? with
+      | some n => simp [nameP, *, hG.1 c n hn]
+      | none => rw [sparseNameP_eq]
+
+/-- An expression read by a good memo is the specification's. -/
+theorem memoExpr_eq {r : Region} {st : SM} (hG : st.Good r) : memoExpr r st = exprP r := by
+  unfold SM.Good at hG
+  funext v
+  unfold memoExpr
+  cases hl : r.loc v with
+  | none => simp [exprP, hl]
+  | some c =>
+    simp only
+    cases hn : st.exprs[c]? with
+    | some e => simp [exprP, hl, hG.2.2.2 c e hn]
+    | none => rw [sparseExprP_eq]
+
+/-- **Several constants read with one memo are each read with a memo of its own**, on
+every region and at every locations. -/
+theorem entriesAt_eq (r : Region) (cs : List Nat) : entriesAt r cs = cs.mapM (entryAt r) := by
+  have hG := foldl_memoRoots_good (r := r)
+  have he : entryAt r = fun c => constSkel r c >>= fun s => s.mapM (nameP r) (exprP r) := by
+    funext c
+    simp only [entryAt]
+    cases constSkel r c with
+    | none => rfl
+    | some s => exact sparseEntry_eq r s
+  rw [he, mapM_bind]
+  simp only [entriesAt]
+  cases cs.mapM (constSkel r) with
+  | none => rfl
+  | some sks =>
+    simp only [Option.bind_eq_bind, Option.bind_some]
+    rw [memoName_eq (hG sks {} (SM.good_empty r)), memoExpr_eq (hG sks {} (SM.good_empty r))]
 
 /-- **The statements of any of a parsed module's constants** are those of
 the constants its full parse holds at those locations. -/

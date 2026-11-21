@@ -33,9 +33,8 @@ structure StoredFacts (env : Env) : Prop where
       (env.find? natSuccName).isSome = true
   recCtors : RecCtorsStored env
   tableCtors : ∀ T tbl, env.findTable? T = some tbl → (env.find? tbl.ctor).isSome = true
-  boolCtors : isDefinitionAt env natBeqName = true ∨ isDefinitionAt env natBleName = true →
+  boolCtors : (env.find? natBeqName).isSome = true ∨ (env.find? natBleName).isSome = true →
     (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true
-  opDefn : OpDefn env
 
 /-- An entry's constructor is its table's. -/
 theorem StoredFacts.entryCtors {env : Env} (h : StoredFacts env) {T : Name} {i : Nat}

@@ -282,6 +282,19 @@ structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (w : Nat) (ctx : Nes
   /-- left-reflexive -/
   lrefl : ∀ ρ ρ₀, R ρ ρ₀ → R ρ ρ
 
+/-- **A hole relation restricted to the pairs whose frames both pass a test** is one: every
+field is a statement about each related pair, and the test is on each frame alone. -/
+theorem HoleRelA.restrict {w : Nat} {ctx : NestCtx} {prog : List NestHole} {d : Nat}
+    {Δa : List Term} {R : FrameRel V} (h : HoleRelA m φ w ctx prog d Δa R)
+    (P : (Nat → V) → Prop) :
+    HoleRelA m φ w ctx prog d Δa (fun ρ ρ' => R ρ ρ' ∧ P ρ ∧ P ρ') where
+  dom ρ ρ' hr := h.dom ρ ρ' hr.1
+  agree ρ ρ' hr := h.agree ρ ρ' hr.1
+  dsScoped := h.dsScoped
+  symm ρ ρ' hr := ⟨h.symm ρ ρ' hr.1, hr.2.2, hr.2.1⟩
+  ptFree hw ρ ρ₀ hr := h.ptFree hw ρ ρ₀ hr.1
+  lrefl ρ ρ₀ hr := ⟨h.lrefl ρ ρ₀ hr.1, hr.2.1, hr.2.1⟩
+
 /-- **Under a binder** (a hole-free domain, or an earlier field): the
 relation one level deeper, the bound value in the domain at both
 frames. -/

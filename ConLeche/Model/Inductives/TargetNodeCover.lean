@@ -358,9 +358,9 @@ theorem nodeListFacts_of {F : Nat}
     (hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteSpine mpC.base2.acval envC ψ
         ((pp.nestCtx fvsP envI.find?).hiAt t.occ.length) t.key.ds dsa) :
     NodeListFacts mpC (pp.nestCtx fvsP envI.find?) ns := by
-  obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hreads, -, hmk, -, -, -, -⟩, -⟩ := hctx
+  obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -, -, -⟩, -⟩ := hctx
   have hcc : ContCover mk (pp.nestCtx fvsP envI.find?) :=
-    contCover_of hmkC (fun _ => rfl) hreads
+    contCover_of hmkC (fun _ => rfl)
   -- the members are stored at the block's level parameters
   have hmem : ∀ n ∈ (pp.nestCtx fvsP envI.find?).names, ∃ ci, envC.find? n = some ci ∧
       (pp.nestCtx fvsP envI.find?).lps.length

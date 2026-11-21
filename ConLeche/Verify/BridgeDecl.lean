@@ -65,9 +65,9 @@ macro "datF_step_alt" : tactic =>
 macro "datF_tac" : tactic =>
   `(tactic| repeat' datF_step_alt)
 
-theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) {a : Bool} :
-    (checkConstantVal (fueledOpsM mode) env cv a).val F =
-      checkConstantVal (fueledOps mode F) env cv a := by
+theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) {a b c : Bool} :
+    (checkConstantVal (fueledOpsM mode) env cv a b c).val F =
+      checkConstantVal (fueledOps mode F) env cv a b c := by
   unfold checkConstantVal
   datF_tac
 
@@ -210,6 +210,15 @@ theorem familyKeyCheck_datF (env : Env) (find? : Name → Option ConstantInfo) (
       familyTelescope_datF, checkSpineAt_datF]
   · rfl
 
+theorem familyKeyChecks_datF (env : Env) (find? : Name → Option ConstantInfo) (d : Nat)
+    (us : List Level) (ds : List Expr) (F : Nat) :
+    ∀ cs : List Name, (familyKeyChecks (fueledOpsM mode) env find? d us ds cs).val F =
+      familyKeyChecks (fueledOps mode F) env find? d us ds cs
+  | [] => rfl
+  | c :: cs => by
+    unfold familyKeyChecks
+    simp only [FueledM.atF_bind, familyKeyCheck_datF, familyKeyChecks_datF env find? d us ds F cs]
+
 theorem nestInstType_datF (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) (F : Nat) :
     (nestInstType ctx (fueledOpsM mode) env hi key).val F =
       nestInstType ctx (fueledOps mode F) env hi key := by
@@ -283,7 +292,7 @@ theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = 
     (nestFrame ctx (fueledOpsM mode) env rec prog hi us ds nPc grp st).val F
       = nestFrame ctx (fueledOps mode F) env rec' prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [FueledM.atF_bind, FueledM.atF_pure, familyKeyCheck_datF, nestGroupCtors_datF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, familyKeyChecks_datF, nestGroupCtors_datF]
   congr 1
   funext _
   congr 1
@@ -486,9 +495,9 @@ macro "tdatF_tac" : tactic =>
     | split
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)))
 
-theorem checkConstantValF_datF (fe : FEnv) (cv : ConstantVal) (F : Nat) {a : Bool} :
-    (checkConstantValF (fueledOpsM mode) fe cv a).val F =
-      checkConstantValF (fueledOps mode F) fe cv a := by
+theorem checkConstantValF_datF (fe : FEnv) (cv : ConstantVal) (F : Nat) {a b c : Bool} :
+    (checkConstantValF (fueledOpsM mode) fe cv a b c).val F =
+      checkConstantValF (fueledOps mode F) fe cv a b c := by
   unfold checkConstantValF
   datF_tac
 
@@ -1233,7 +1242,10 @@ theorem checkDeclKind_datF (env : Env) (d : Declaration) (F : Nat) :
     -- sides take the same branch, and the guard's `throw` is fuel-free
     split
     · split
-      · exact checkBlock_datF env block _ F
+      · rw [FueledM.atF_bind, checkBlock_datF env block _ F]
+        congr 1
+        funext env₂
+        split <;> simp only [FueledM.atF_pure, FueledM.atF_throw]
       · rfl
     · rfl
 

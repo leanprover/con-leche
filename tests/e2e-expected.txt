@@ -1,6 +1,7 @@
 # Expected exit codes for con-leche's own end-to-end fixtures, read by
 # tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Line format:
-# "<expectation> <fixture>" — ONE line per fixture.
+# "<expectation> <fixture>" — ONE line per fixture, or "<expectation> --<arguments>" for a
+# run with arguments (the `--compare` pairs below): every `.ndjson` among them a fixture here.
 #
 # Every RUN is raw: the checker takes a raw lean4export stream, so a
 # fixture has exactly one verdict and a row carries exactly one exit
@@ -3201,14 +3202,20 @@
 # stored_rec_outparam: a class with an `outParam` parameter, a structure
 # with an `autoParam` field and one with an `optParam` field — official
 # strips those annotations from the domains of the locals it creates,
-# con-leche's generator keeps them; the stored recursors are installed.
-# Official 0.
+# con-leche's generator keeps them; the stored recursors are installed,
+# and (task #622) their ι equations read off their own types: the minor
+# premises state the constructors' fields with the annotations consumed,
+# each stored as the identity on its type.  Official 0.
 0 stored_rec_outparam.ndjson
 # stored_rule_dom_redex / stored_type_dom_redex
 # (`scripts/mk_stored_rec_fixtures.py`): `Nat'.rec`'s rule for `succ`,
 # resp. its type's `succ` minor premise, with a field's domain written as
 # the β-redex `(fun T : Type => T) Nat'`: definitionally the generated
-# one, installed as stored.  Official (syntactic) 1; target: 0.
+# one.  The rule is installed as stored (0).  The type passes the
+# comparison with the generated one, but since task #622 its minor
+# premise must state the constructor's field as the constructor's type
+# does (the main theorem reads the ι equation off it): rejected (1, was 0
+# before task #622).  Official (syntactic) 1 for both; target: 0, resp. 1.
 0 stored_rule_dom_redex.ndjson
 # stored_rule_lams_short (`scripts/mk_rule_binds_fixture.py`, task #585): `Nat'.rec`'s
 # rule for `zero` written with two manifest λs, `fun motive zero => (fun x succ => x) zero`
@@ -3216,7 +3223,7 @@
 # the rule prefix's and the fields' λs, so the stored rule's check counts them
 # (`ruleBinds`): rejected.  Official (syntactic) 1; target 1.
 1 stored_rule_lams_short.ndjson
-0 stored_type_dom_redex.ndjson
+1 stored_type_dom_redex.ndjson
 # stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
 # (official 1).
 1 stored_type_dom_bad.ndjson
@@ -3339,6 +3346,15 @@
 1 natop_foreign_thm.ndjson
 1 natop_foreign_former.ndjson
 1 bool_ctor_name_former.ndjson
+# -- task #462: a certified operation's install requires each dependency STORED; its kind,
+# levels and type are its own job's.  natop_dep_absent: `Nat.mul` over an addition of its own,
+# `Nat.add` absent: 2, declined at `Nat.mul`'s install (official 0).  natop_dep_axiom,
+# natop_dep_opaque, natop_dep_thm: `Nat.add` declared as each refused kind under a `Nat.mul`:
+# 1, refused at `Nat.add`'s own record (official 0).  Verdicts unchanged by #462.
+2 natop_dep_absent.ndjson
+1 natop_dep_axiom.ndjson
+1 natop_dep_opaque.ndjson
+1 natop_dep_thm.ndjson
 # -- task #480: a projection's guard at a def-headed structure asks each row to be zero
 # wherever the walked sort is, by zero-ness: exact, and it takes no fuel.  level_fuel_guard:
 # the row and the sort at a level chain deeper than `Level.leq`'s fuel, which the former test
@@ -3379,6 +3395,19 @@
 # official `infer_proj` does (`projGuardRowsGo`), each answer a packed-bound read.  Accepted
 # before and after; official 0 (run); target 0.
 0 prop_struct_proj_wide.ndjson
+# reduce_name_def, reduce_name_thm: a definition at `Lean.reduceBool` and a theorem at
+#   `Lean.reduceNat`, each of a propositional type, in a file without Lean's `Init`.  Lean accepts
+#   both; con-leche reserves the compiler-trust names to the opaque constant of the pin's shape,
+#   as it reserves the certified `Nat` operations' names to their definitions, and rejects any
+#   other declaration there (`checkConstantVal`'s `allowReduce`): a reject Lean does not make.
+#   Target verdict: 1.
+1 reduce_name_def.ndjson
+1 reduce_name_thm.ndjson
+# sorry_name_def: a definition at `sorryAx`'s name, of a propositional type, in a file without
+#   Lean's `Init`.  Lean accepts it; con-leche reserves the name to the tolerated axiom, whose
+#   record installs nothing (`checkConstantVal`'s `allowSorry`): a reject Lean does not make.
+#   Target verdict: 1.
+1 sorry_name_def.ndjson
 # --- Task #494: an inductive block whose records cannot be read as one is
 # --- an invalid input, rejected with the reason.  Derived from
 # --- corner_fuseloop_order_base (its block `W.{u} (α : Sort u)`, accepted) by
@@ -3485,3 +3514,52 @@
 # the low 64 bits alone puts every key in one bucket and takes minutes,
 # which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
 0 lit_hash_low_bits.ndjson
+
+# --compare on two lean4export files: CHALLENGE checked, its axioms justified by SOLUTION
+# (task #619; pairs exported from tests/e2e/src/cmp_*.lean by scripts/mk_cmp_fixtures.sh).  The
+# solution's file is checked in full; the challenge's too, its axioms other than the built-in
+# ones and its declarations whose value uses sorry justified by the solution's constant of the
+# same name and type (up to level-parameter names), everything the type reads being the same
+# constant in both up to level-parameter names (a recursor or constructor at its own names, so an
+# inductive block only at the same names); an axiom not so justified rejects (1).
+# cmp_hole: a definition, a theorem and an axiom hole, justified (0).
+0 --compare -- cmp_hole_c.ndjson cmp_hole_s.ndjson
+# cmp_kind: holes justified by other kinds (an opaque constant, a definition), 0; the
+# challenge's own theorem `triv` is checked by the challenge, so the solution's `def triv`
+# does not matter (0; 1 under the #612 comparison).
+0 --compare -- cmp_kind_c.ndjson cmp_kind_s.ndjson
+0 --compare -- cmp_kind_c.ndjson cmp_kind_bad_s.ndjson
+# cmp_lv: the hole's statement, and the definition `idd` its type reads, at other
+# level-parameter names in the solution: copies of the solution's constants (0).
+0 --compare -- cmp_lv_c.ndjson cmp_lv_s.ndjson
+# cmp_lvind: the hole's type reads an inductive block the solution declares at other
+# level-parameter names: a constructor or recursor is matched only at its own (1).
+1 --compare -- cmp_lvind_c.ndjson cmp_lvind_s.ndjson
+# cmp_def: a definition the hole reads, differing in the solution (1).
+1 --compare -- cmp_def_c.ndjson cmp_def_s.ndjson
+# cmp_stmt: a hole stated differently in the solution (1); justified from a non-standard
+# axiom of the solution's (cmp_ax_s): the solution's check declines (2).
+1 --compare -- cmp_stmt_c.ndjson cmp_stmt_s.ndjson
+2 --compare -- cmp_stmt_c.ndjson cmp_ax_s.ndjson
+# cmp_missing: a challenge definition the solution lacks and no hole reads: checked by the
+# challenge (0; 1 under the #612 comparison).
+0 --compare -- cmp_missing_c.ndjson cmp_missing_s.ndjson
+# cmp_redecl: the solution declares the challenge's `f := 3` itself, identically: the same
+# constant (0).
+0 --compare -- cmp_redecl_c.ndjson cmp_redecl_s.ndjson
+# cmp_attack: the challenge holds `f := 3` and asks for `t : f = 5`; the solution's
+# `f := 5` is another constant (1).
+1 --compare -- cmp_attack_c.ndjson cmp_attack_s.ndjson
+# cmp_ind: `inductive T | a | b` against the solution's `| a` (1).
+1 --compare -- cmp_ind_c.ndjson cmp_ind_s.ndjson
+# cmp_false: a hole `axiom x : False` (never 0: an axiom of type False is never justified,
+# the solution's check accepting no constant of that type): the solution's own axiom declines
+# (2), another statement rejects (1).
+2 --compare -- cmp_false_c.ndjson cmp_false_ax_s.ndjson
+1 --compare -- cmp_false_c.ndjson cmp_false_other_s.ndjson
+# usage errors (3): --constant (the exporter's selection is the file), one file, the same
+# file twice, --search-path without --olean.
+3 --compare --constant=t -- cmp_redecl_c.ndjson cmp_redecl_s.ndjson
+3 --compare -- cmp_redecl_c.ndjson
+3 --compare -- cmp_redecl_c.ndjson cmp_redecl_c.ndjson
+3 --compare --search-path=tests -- cmp_redecl_c.ndjson cmp_redecl_s.ndjson

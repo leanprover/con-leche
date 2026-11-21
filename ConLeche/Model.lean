@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.RuleEqsSound
 public import ConLeche.Model.Claims
 public import ConLeche.Model.Inductives.StructRecKit
 public import ConLeche.Verify.Inductives.PosNodes
@@ -145,6 +146,10 @@ public import ConLeche.Model.AxiomMem
 public import ConLeche.Model.AxiomReduce
 public import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
+public import ConLeche.Model.Modular.Step
+public import ConLeche.Model.Modular.Valid
+public import ConLeche.Model.Modular.Restrict
+public import ConLeche.Model.IsModelBridge
 
 @[expose] public section
 

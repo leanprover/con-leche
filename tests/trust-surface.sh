@@ -609,6 +609,10 @@ IO_FENCE = {
     'ConLeche/Driver/StreamParse.lean': (),
     'ConLeche/Driver/CheckMain.lean': (),
     'ConLeche/Driver/Dispatch.lean': (),
+    'ConLeche/Driver/Worker.lean': (),
+    'ConLeche/Driver/Modular.lean': (),
+    'ConLeche/Driver/Schedule.lean': (),
+    'ConLeche/Driver/Graph.lean': (),
     'ConLeche/Driver/Cli.lean': (),
     'ConLeche/Frontend/Olean/Files.lean': (),
     'ConLeche/Frontend/Olean/Closure.lean': (),
@@ -708,6 +712,40 @@ if io_bad:
     sys.exit(1)
 print(f'checker-io fence (textual): {len(IO_FENCE)} modules reach the runtime only '
       f'through CheckerIO')
+
+# ---------------------------------------- THE PROCESS FENCE (task #468).
+# The scheduler (`--schedule`) starts worker processes, watches and kills them, and appends to
+# its log: the only place the checker starts a process, kills one or writes a file.  It is
+# outside every theorem (no theorem is about a `--schedule` run; the modular statement composes
+# what each run's own exit 0 says, on one snapshot), and the trust assumption of the IO class
+# names it as the one `liftIO` action that writes a file (its log, which no check reads) and
+# starts processes.  TEXTUAL, over the code of every scanned file: a process started
+# (`Process.spawn`, `Process.output`, `Process.run`), a child killed or waited for, a file
+# opened for writing (`Handle.mk` at a mode other than `.read`, which the checker-IO fence
+# confines to `openReadIO`; `writeFile`, `writeBinFile`), and the binary's own path
+# (`appPath`) appear in `ConLeche/Driver/Schedule/Run.lean` alone.  Its kills are of the children
+# it started, by their `Child` (their own PID), never by a name.
+PROC_RX = re.compile(r'\bProcess\.(?:spawn|output|run)\b|\.(?:kill|tryWait)\b|'
+                     r'\bHandle\.mk\b(?![^\n]*\.read\b)|'
+                     r'\bwriteFile\b|\bwriteBinFile\b|\bappPath\b')
+PROC_ALLOW = {'ConLeche/Driver/Schedule/Run.lean'}
+proc_bad = []
+for rel in sources():
+    if rel in PROC_ALLOW or rel.startswith('tests/') or rel.startswith('scripts/'):
+        continue
+    with open(rel, encoding='utf-8') as fh:
+        raw = fh.read()
+    for i, line in enumerate(code_only(raw, rel).split('\n'), 1):
+        if PROC_RX.search(line):
+            proc_bad.append((rel, i, line.strip()))
+if proc_bad:
+    print(f'PROCESS FENCE FAIL - a process, a kill or a file write outside '
+          f'ConLeche/Driver/Schedule/Run.lean ({len(proc_bad)}):')
+    for rel, i, text in proc_bad:
+        print(f'    {rel}:{i} {text}')
+    sys.exit(1)
+print('process fence (textual): processes, kills and file writes only in '
+      'ConLeche/Driver/Schedule/Run.lean')
 
 # ------------------------------------------ THE ONE EXIT (task #450).
 # The trust assumption of the IO class says the actions passed to

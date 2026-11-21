@@ -91,4 +91,54 @@ def entryAt (r : Region) (c : Nat) : Option (CEntryF Name Expr) :=
 def stmtsAt (r : Region) (cs : List Nat) : Option (List ConstantVal) :=
   cs.mapM (constSkel r) >>= stmtsFast r
 
+/-! ### Several constants, one memo -/
+
+/-- One root read into a memo shared by several constants (`sGo`, no frontier).  The memo
+is consumed by the read and handed back by it, also where the root does not read (with what
+was read of it): no second reference to the memo is kept across the read, so its inserts
+are in place (task #565).  A root that does not read is read again by the build, on its
+own. -/
+def memoAdd (r : Region) (k : UInt8) (st : SM) (v : UInt64) : SM :=
+  match r.loc v with
+  | some c => (sGo r {} k c st).1
+  | none => st
+
+/-- The roots of a constant's skeleton into the memo: its names, then its expressions. -/
+def memoRoots (r : Region) (st : SM) (sk : CEntryF UInt64 UInt64) : SM :=
+  sk.exprs.foldl (memoAdd r kExpr) (sk.names.foldl (memoAdd r kName) st)
+
+/-- A name pointer by the memo, else read on its own (`sparseNameP`). -/
+def memoName (r : Region) (st : SM) (v : UInt64) : Option Name :=
+  if v == 1 then some .anonymous
+  else match r.loc v with
+    | some c =>
+      match st.names[c]? with
+      | some n => some n
+      | none => sparseNameP r v
+    | none => none
+
+/-- An expression pointer by the memo, else read on its own (`sparseExprP`). -/
+def memoExpr (r : Region) (st : SM) (v : UInt64) : Option Expr :=
+  match r.loc v with
+  | some c =>
+    match st.exprs[c]? with
+    | some e => some e
+    | none => sparseExprP r v
+  | none => none
+
+/-- **The constants at some locations, read with one memo**: every root of every
+constant into the memo first (`memoRoots`), then each constant built from it.  What the
+constants share is read once, and shared in the values. -/
+def entriesAt (r : Region) (cs : List Nat) : Option (List (CEntryF Name Expr)) := do
+  let sks ← cs.mapM (constSkel r)
+  let st := sks.foldl (memoRoots r) {}
+  sks.mapM (CEntryF.mapM (memoName r st) (memoExpr r st))
+
+/-- **The kind of the constant at location `c`, its expressions left out**: what Lean's
+`subsumesInfo` reads of a kind beside the statement (a theorem's `all`, an axiom's
+`isUnsafe`). -/
+def kindNamesAt (r : Region) (c : Nat) : Option (CKindF Name Unit) := do
+  let s ← constSkel r c
+  s.kind.mapM (sparseNameP r) (fun _ => some ())
+
 end ConLeche.Frontend.Olean

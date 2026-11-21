@@ -25,6 +25,7 @@ public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin
 public import ConLeche.Verify.Rules.Bridge
+public import ConLeche.Verify.Rules.Refine
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.GenRecScoped
@@ -32,6 +33,8 @@ public import ConLeche.Verify.Frontend.Dense
 public import ConLeche.Verify.Frontend.Rounds
 public import ConLeche.Verify.Frontend.ModelIO
 public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Driver.Groups
+public import ConLeche.Verify.Driver.Routes
 public import ConLeche.Verify.Denote.Lemmas
 public import ConLeche.Verify.Denote.Depth
 public import ConLeche.Verify.Denote.Inst

@@ -206,9 +206,13 @@ theorem checkSumTele_name (n : Nat) (cvTa₀ : ConstantVal) :
 
 /-! ### Freshness of the stored names -/
 
+-- The walk splits at each of the check's guards and carries the rest of the clause into both
+-- halves; with the three reserved-name guards (certified operations, compiler-trust names,
+-- `sorryAx`) it passes the default limit.
+set_option maxHeartbeats 400000 in
 theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantVal) {a : Bool} :
-    Yields (checkConstantValC mode fe cv a)
+    (cv : ConstantVal) {a b c : Bool} :
+    Yields (checkConstantValC mode fe cv a b c)
       (fun _ => fe.find? cv.name = none) := by
   unfold checkConstantValC
   yields
@@ -687,7 +691,11 @@ theorem checkDeclKindC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
     split
     · cases hbp : readBlock nP block with
       | error e => exact Yields.ofThrow
-      | ok p => exact checkBlockKS_pushes mode fe block p
+      | ok p =>
+        refine Yields.bind' (checkBlockKS_pushes mode fe block p) fun fe' h => ?_
+        split
+        · exact Yields.pure h
+        · exact Yields.ofThrow
     · exact Yields.ofThrow
 
 /-- **An accepting step pushes what the declaration installs**, at every mode. -/
@@ -706,28 +714,76 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ybind
   exact checkDeclC_pushes mode fe pd
 
+/-! ## The record check, with a solution -/
+
+/-- **A record that offers a statement installs it alone, as an axiom.** -/
+theorem justifiable_constants {pd : Declaration} {cv : ConstantVal}
+    (h : justifiable pd = some cv) :
+    declConstants pd = [.axiomInfo cv] ∧ declTables pd = [] := by
+  cases pd with
+  | axiomDecl c =>
+    simp only [justifiable] at h
+    split at h
+    · exact nomatch h
+    · next hb =>
+      obtain rfl := Option.some.inj h
+      have h1 : c.name ≠ quotSoundName := fun e => hb (by simp [builtinAxiomName, e])
+      have h2 : c.name ≠ sorryAxName := fun e => hb (by simp [builtinAxiomName, e])
+      simp [declConstants, declTables, h1, h2]
+  | _ => simp [justifiable] at h
+
+/-- **A record that offers no statement takes its own check**, solution or not. -/
+theorem checkRecordC_own (mode : CheckMode) (J : Option Solution) (fe : FEnv) {pd : Declaration}
+    (h : justifiable pd = none) : checkRecordC mode pins J fe pd = checkDeclStepC mode pins fe pd := by
+  unfold checkRecordC
+  cases J <;> simp [h]
+
+/-- **A fact both routes yield, the record check yields**: the record's own check, and the
+justification route of a record offering a statement. -/
+theorem checkRecordC_yields (mode : CheckMode) (J : Option Solution) (fe : FEnv) (pd : Declaration)
+    {P : FEnv → Prop} (hown : Yields (checkDeclStepC mode pins fe pd) P)
+    (hjust : ∀ J' cv, J = some J' → justifiable pd = some cv →
+      Yields (checkRecordC mode pins J fe pd) P) :
+    Yields (checkRecordC mode pins J fe pd) P := by
+  cases hj : justifiable pd with
+  | none => rw [checkRecordC_own mode J fe hj]; exact hown
+  | some cv =>
+    cases J with
+    | none => exact hown
+    | some J' => exact hjust J' cv rfl hj
+
+/-- **An accepting record check pushes what the declaration installs**, solution or not. -/
+theorem checkRecordC_pushes (mode : CheckMode) (J : Option Solution) (fe : FEnv) (pd : Declaration) :
+    Yields (checkRecordC mode pins J fe pd)
+      (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+  unfold checkRecordC
+  split
+  · next cv _ hj =>
+    obtain ⟨hc, ht⟩ := justifiable_constants hj
+    rw [hc, ht]
+    yields
+    all_goals exact Yields.pure rfl
+  · exact checkDeclStepC_pushes mode fe pd
+
 /-! ## The environment of an accepted stream -/
 
-/-- **The environment a stream denotes**: every record's constants and tables, in order. -/
-@[expose] def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
-  ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
-
-theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
-    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize ds p q) :
+theorem declsRun_env (mode : CheckMode) {J : Option Solution} {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins maxNatSize J ds p q) :
     q.2.env = streamEnv ds p.2.env := by
   induction h with
   | nil p => rfl
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
-    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd _ fe₁ s₁ hstepC
+    have h₁ := checkRecordC_pushes (pins := pins) mode J p.2 pd _ fe₁ s₁ hstepC
     rw [ih]
     simp only at h₁
     rw [h₁, pushDelta_env]
     rfl
 
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
-theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
-    (h : checkDecls mode pins maxNatSize ds = .ok env) : env = streamEnv ds.toList := by
+theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {justify : Option Env}
+    {env : Env} (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env) :
+    env = streamEnv (sideRecords justify ds).toList := by
   obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
   exact declsRun_env mode r
 

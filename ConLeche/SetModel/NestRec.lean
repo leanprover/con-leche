@@ -220,9 +220,11 @@ structure NestKit (V : Type u) [SetTheory V] (F : Type u) where
       ((b' = b ∧ y ∈ˢ app (Y c') t') ∨ G b' c' t' y ∨
         (dp b < dp b' ∧ ∃ ρ', Adm b' (addOwn G b (cl b).N (cl b).Is Y) ρ' ∧
           y ∈ˢ app ((cl b').carrier ρ' c') t'))
-  /-- **the true frames are admissible** once the shallower classes' true
-  elements satisfy `G` -/
-  top : ∀ b, b < nC → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (cl b').N →
+  /-- **the true frames are admissible** at a class with an index, once the
+  shallower classes' true elements satisfy `G` (a class with no index has
+  no element, and needs no frame) -/
+  top : ∀ b, b < nC → (∃ c, c < (cl b).N ∧ ∃ t, t ∈ˢ (cl b).Is c) →
+    ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (cl b').N →
       t ∈ˢ (cl b').Is c → y ∈ˢ app ((cl b').carrier (fr b') c) t → G b' c t y) →
     Adm b G (fr b)
 
@@ -265,9 +267,10 @@ def Dec (u : V) (d : NDec V) : Prop :=
     (K.cl d.cls).Fits (K.fr d.cls) (K.KT d.cls) d.t d.c d.j d.fs ∧
     u = nenc d.cls d.c d.t ((K.cl d.cls).inj d.c d.j d.fs)
 
-/-- The class `b` at its true frame is a clause (from `top` and `ok`). -/
-theorem okT {b : Nat} (hb : b < K.nC) : (K.cl b).OkAt (K.fr b) :=
-  K.ok b hb _ _ (K.top b hb (fun _ _ _ _ => True) fun _ _ _ _ _ _ _ _ _ => trivial)
+/-- The class `b`, if it has an index, is a clause at its true frame (from `top` and `ok`). -/
+theorem okT {b : Nat} (hb : b < K.nC) (hne : ∃ c, c < (K.cl b).N ∧ ∃ t, t ∈ˢ (K.cl b).Is c) :
+    (K.cl b).OkAt (K.fr b) :=
+  K.ok b hb _ _ (K.top b hb hne (fun _ _ _ _ => True) fun _ _ _ _ _ _ _ _ _ => trivial)
 
 /-- The property, strengthened by membership in the true class. -/
 def Good (P : V → Prop) (b c : Nat) (t y : V) : Prop :=
@@ -287,7 +290,6 @@ theorem claim_step (P : V → Prop)
     ∀ c, c < (K.cl b).N → ∀ t, t ∈ˢ (K.cl b).Is c →
       ∀ y, y ∈ˢ app ((K.cl b).carrier ρ c) t → K.Good P b c t y := by
   have hok := K.ok b hb G ρ hρ
-  have hokT := K.okT hb
   refine hok.ind (fun c t y => K.Good P b c t y) fun c hc t ht j fs hf => ?_
   -- the separated tuple, below the true carrier (a separation)
   let S := sepTuple (K.cl b).w (K.cl b).N (K.cl b).Is ((K.cl b).Φ ρ) fun c t y => K.Good P b c t y
@@ -299,7 +301,8 @@ theorem claim_step (P : V → Prop)
   -- the SAME spine fits at the true frame and carrier
   have hfT : (K.cl b).Fits (K.fr b) (K.KT b) t c j fs :=
     K.trans b hb G (fun b' c' t' y hy => (hG b' c' t' y hy).1) ρ hρ S hSmem hSle t c j fs hc hf
-  have hmemT : (K.cl b).inj c j fs ∈ˢ app (K.KT b c) t := hokT.inj_mem hc ht hfT
+  have hmemT : (K.cl b).inj c j fs ∈ˢ app (K.KT b c) t :=
+    (K.okT hb ⟨c, hc, t, ht⟩).inj_mem hc ht hfT
   refine ⟨hmemT, hP _ (K.nenc_mem_U hb hc ht hmemT) ⟨⟨b, c, t, j, fs⟩, ⟨hb, hc, ht, hfT, rfl⟩, ?_⟩⟩
   intro u hu
   obtain ⟨b', c', t', y, hb', hc', ht', rfl, hcase⟩ := K.calls b hb G ρ hρ S hSmem c t j fs hc ht hf u hu
@@ -347,18 +350,20 @@ theorem top_good (P : V → Prop)
   intro m
   induction m with
   | zero =>
-    intro b hb hm
+    intro b hb hm c hc t ht
     refine K.claim P hP b hb (fun b' c t y => b' < K.nC ∧ K.dp b' < K.dp b ∧ c < (K.cl b').N ∧
-      t ∈ˢ (K.cl b').Is c ∧ y ∈ˢ app (K.KT b' c) t) ?_ (K.fr b) ?_
+      t ∈ˢ (K.cl b').Is c ∧ y ∈ˢ app (K.KT b' c) t) ?_ (K.fr b) ?_ c hc t ht
     · rintro b' c t y ⟨-, hdp, -⟩; omega
-    · exact K.top b hb _ fun b' c t y hb' hdp hc ht hy => ⟨hb', hdp, hc, ht, hy⟩
+    · exact K.top b hb ⟨c, hc, t, ht⟩ _ fun b' c' t' y hb' hdp hc' ht' hy =>
+        ⟨hb', hdp, hc', ht', hy⟩
   | succ m ihm =>
-    intro b hb hm
+    intro b hb hm c hc t ht
     refine K.claim P hP b hb (fun b' c t y => b' < K.nC ∧ K.dp b' < K.dp b ∧ c < (K.cl b').N ∧
-      t ∈ˢ (K.cl b').Is c ∧ y ∈ˢ app (K.KT b' c) t) ?_ (K.fr b) ?_
-    · rintro b' c t y ⟨hb', hdp, hc, ht, hy⟩
-      exact ihm b' hb' (by omega) c hc t ht y hy
-    · exact K.top b hb _ fun b' c t y hb' hdp hc ht hy => ⟨hb', hdp, hc, ht, hy⟩
+      t ∈ˢ (K.cl b').Is c ∧ y ∈ˢ app (K.KT b' c) t) ?_ (K.fr b) ?_ c hc t ht
+    · rintro b' c' t' y ⟨hb', hdp, hc', ht', hy⟩
+      exact ihm b' hb' (by omega) c' hc' t' ht' y hy
+    · exact K.top b hb ⟨c, hc, t, ht⟩ _ fun b' c' t' y hb' hdp hc' ht' hy =>
+        ⟨hb', hdp, hc', ht', hy⟩
 
 /-- **The induction principle of the majors** — `GraphRecKit.ind`,
 from the classes' own clauses. -/

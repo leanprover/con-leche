@@ -53,19 +53,19 @@ def checkStarts (err : IO.FS.Stream) (pace : Pace) (t0 n jobs : Nat) : IO Unit :
 
 /-- **The end of the check phase**, whatever its result: the heartbeat's lines, the summary with
 the two phase durations (`tParse` is when the read finished, the index included; `tIndex` is when
-the index build started), and the statistics. -/
+the index build started), and the statistics.  `n` is the number of the phase's jobs. -/
 def checkDone (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
-    (ds : Array ConLeche.Declaration) (chkRep : PoolRep)
+    (ds : Array ConLeche.Declaration) (n : Nat) (chkRep : PoolRep)
     (failure : Option (ConLeche.CheckError × Nat)) : IO Unit := do
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
   let now ← IO.monoMsNow
-  let workers := max 1 (min jobs ds.size)
+  let workers := max 1 (min jobs n)
   match failure with
   | some e =>
     beat err pace s!"check failed at fold position {e.2} t={secs (now - t0)}s \
       (check {secs (now - tParse)}s)"
   | none =>
-    beat err pace s!"check done: {ds.size} declarations t={secs (now - t0)}s \
+    beat err pace s!"check done: {n} declarations t={secs (now - t0)}s \
       (check {secs (now - tParse)}s)"
   beat err pace s!"done: parse {secs (tParse - t0)}s, check {secs (now - tParse)}s, \
     {workers} worker{if workers = 1 then "" else "s"} t={secs (now - t0)}s"
@@ -83,18 +83,20 @@ and the worker count.
 checks, the peak resident set.  Performance-only: printed after the verdict is known, from timings the
 workers accumulate beside their proofs; stdout and the exit code do not see them. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
-    {ds : Array ConLeche.Declaration} (J : Jobs ds) :
+    {ds : Array ConLeche.Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify)
+    (hds : ConLeche.Cached.sideRecords justify ds = ds) :
     IO (Except (ConLeche.CheckError × Nat)
-      (PLift (∃ env, ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets maxNatSize ds = .ok env))) := do
+      (PLift (∃ env, ConLeche.Cached.checkDeclsWith mode ConLeche.natOpPinSets maxNatSize ds justify
+        = .ok env))) := do
   checkStarts err pace t0 ds.size jobs
   let (chkRep, res) ← checkPool mode maxNatSize err pace t0 jobs J
   match res with
   | .error e =>
-    checkDone err pace t0 tIndex tParse jobs ds chkRep (some e)
+    checkDone err pace t0 tIndex tParse jobs ds ds.size chkRep (some e)
     return .error e
   | .ok ⟨hall⟩ =>
-    checkDone err pace t0 tIndex tParse jobs ds chkRep none
-    return .ok ⟨⟨_, ConLeche.Cached.checkDecls_of_jobs (J.hI ▸ hall)⟩⟩
+    checkDone err pace t0 tIndex tParse jobs ds ds.size chkRep none
+    return .ok ⟨⟨_, ConLeche.Cached.checkDecls_of_jobs hds (J.hI ▸ J.hside ▸ hall)⟩⟩
 
 /-! ## What an `--olean` run does at the runtime
 
@@ -110,24 +112,29 @@ structure OleanRun where
   tIndex : Nat
   tParse : Nat
   jobs : Nat
+  /-- the process's one check phase (`true`), or one module's of the one-process mode, whose data
+  is freed with the module: then nothing is marked persistent and no statistics are printed -/
+  alone : Bool := true
 
-def OleanRun.new (pace : Pace) (t0 tIndex tParse jobs : Nat) : IO OleanRun := do
-  return { err := ← IO.getStderr, pace, t0, tIndex, tParse, jobs }
+def OleanRun.new (pace : Pace) (t0 tIndex tParse jobs : Nat) (alone : Bool := true) :
+    IO OleanRun := do
+  return { err := ← IO.getStderr, pace, t0, tIndex, tParse, jobs, alone }
 
 /-- The check phase's first line, the pool's heartbeat lane, and what every worker reads of the read
-marked (`markShared`). -/
+marked (`markShared`) where the phase is the process's one. -/
 def OleanRun.pool {α : Type} (run : OleanRun) (n workers : Nat) (values : α) :
     IO (PoolLive × Nat) := do
-  markShared values
+  if run.alone then markShared values
   checkStarts run.err run.pace run.t0 n run.jobs
-  let pl ← PoolLive.new run.pace workers
+  let pl ← PoolLive.new run.pace workers n
   return (pl, ← IO.monoNanosNow)
 
-/-- The check phase's end (`checkDone`); `sts` the workers' statistics. -/
-def OleanRun.done (run : OleanRun) (ds : Array ConLeche.Declaration) (tStart workers : Nat)
+/-- The check phase's end (`checkDone`) after `n` jobs; `sts` the workers' statistics. -/
+def OleanRun.done (run : OleanRun) (ds : Array ConLeche.Declaration) (n tStart workers : Nat)
     (sts : List WStats) (failure : Option (ConLeche.CheckError × Nat)) : IO Unit := do
+  if !run.alone then return
   let tEnd ← IO.monoNanosNow
   let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd, stats := sts.toArray }
-  checkDone run.err run.pace run.t0 run.tIndex run.tParse run.jobs ds rep failure
+  checkDone run.err run.pace run.t0 run.tIndex run.tParse run.jobs ds n rep failure
 
 end ConLeche.Driver

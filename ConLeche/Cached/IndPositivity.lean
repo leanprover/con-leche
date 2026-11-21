@@ -182,6 +182,14 @@ def familyKeyCheckC (fe : FEnv) (find? : Name → Option ConstantInfo) (d : Nat)
     checkSpineAtC mode fe d (Expr.instLevelParams cv.levelParams us ty) ds
   | _ => throw (.invalid "a family's key is no stored family")
 
+/-- The cached `familyKeyChecks`: every group-mate's family at the key. -/
+def familyKeyChecksC (fe : FEnv) (find? : Name → Option ConstantInfo) (d : Nat)
+    (us : List Level) (ds : List Expr) : List Name → CheckCM Unit
+  | [] => pure ()
+  | c :: cs => do
+    familyKeyCheckC mode fe find? d c us ds
+    familyKeyChecksC fe find? d us ds cs
+
 /-! ## Positivity through containers -/
 
 /-- The cached `whnfWalkFuel`: the depth by `depthC`. -/
@@ -332,7 +340,7 @@ def nestFrameC (ctx : NestCtx) (fe : FEnv)
       CheckCM (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (grp : List (Name × Expr)) (st : NestState) : CheckCM NestState := do
-  familyKeyCheckC mode fe ctx.find? hi (grp.headD default).1 us ds
+  familyKeyChecksC mode fe ctx.find? hi us ds (grp.map (·.1))
   let prog' := (grp.mapIdx fun _ (c, ty) =>
     ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))

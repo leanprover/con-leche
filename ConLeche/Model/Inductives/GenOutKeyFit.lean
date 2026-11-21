@@ -13,6 +13,7 @@ import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Env.LfpFormer
 import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.ContLeaf
+import ConLeche.Model.Inductives.FamilyRun
 import ConLeche.Model.Inductives.GenOutFacts
 import ConLeche.Model.Inductives.GenRecPreRun
 import ConLeche.Model.Inductives.GenRecParams
@@ -29,13 +30,13 @@ import ConLeche.Verify.Inductives.GenRecScoped
 public section
 
 /-!
-# An outside class's parameters fit its family's telescope
+# An outside class's parameters fit its family's run
 
-The class check types an outside class's key against the family's telescope, at the block's
-parameters (`targetMajorPins`). The key is over the block's canonical parameters, which open the
+The class check types an outside class's key against the family's run, at the block's
+parameters (`familyKeyCheck`). The key is over the block's canonical parameters, which open the
 first member's telescope, so it is read at those binders; a recursor's prefix starts with the same
-binders (`genParams_fit_run`). Together: at every fitting prefix of a recursor, the class's parameters
-satisfy the family's parameter telescope.
+binders (`genParams_fit_run`). Together: at every fitting prefix of a recursor, the class's
+parameters fit the run's parameter binders.
 -/
 
 namespace ConLeche.Model
@@ -50,8 +51,11 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- **An outside class's parameters fit**, at every fitting prefix of its recursor. -/
-theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvModelM V envC} {dR : BlockData V}
+/-- **An outside class's parameters fit its family's run**, at every fitting prefix of its
+recursor: the class check types the key against the run's own telescope (`familyKeyCheck`), at
+the block's parameters, so the key's values fit the run's parameter binders there
+(`keyRunFit`). -/
+theorem genOut_runFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvModelM V envC} {dR : BlockData V}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
     {kinds : List (List (List ConLeche.NestFieldKind))} {nfs : List (List Expr)}
     {pos : ConLeche.NestState} {nb : Bool} {block : List ConstantInfo}
@@ -67,10 +71,16 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvMo
     (hfit : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
     {dsa : List Term}
     (hdsa : DenoteSpine mpC.base2.acval envC ψ (tgtRP pp c) (tgtMajor out c).ds dsa) :
-    Sat V (D.params (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)).reverse
-      (keyFrame dsa (tgtRP pp c) (consList xs ρ)) := by
+    ∃ caps ty, envI.find? (tgtMajor out c).ind = some (.indInfo cvI caps) ∧
+      ConLeche.familyTelescope (fueledOps .verified F) envI cvI caps = .ok ty ∧
+      ∃ (ab : List Term) (u : Nat),
+        denote mpC.base2.acval envC (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls) 0 ty
+          = some (mkPisAV ab (.sort u)) ∧
+        (∀ ρ' : Nat → V, WellDenotedTy V ρ' (mkPisAV ab (.sort u))) ∧
+        SpineFit ρ (ab.take (tgtMajor out c).ds.length)
+          (dsa.map (interp V (consList xs ρ))) := by
   obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, hcovC,
-    ⟨mk, -, hreads, -, -, -, hsubC, hcoreK, htr⟩, -, -⟩ := hctx
+    ⟨mk, -, -, -, hsubC, hcoreK, htr⟩, -, -⟩ := hctx
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore
   have hnPq : (blockDataOf V pp pk uOfD ppsOf).nP = pp.nP := rfl
@@ -121,8 +131,9 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvMo
     · exact hD
   -- the key's certificates, at the telescope the block read
   obtain ⟨tyC, -, hfam, hsp⟩ := familyKeyCheck_inv hfE hkey'
-  rw [hreads F D hDm mm cvI caps tyC hcl.hmm (by rw [hcl.hmem]; exact hfE) hfam] at hsp
   have hcerts := checkSpineAt_certs hsp
+  obtain ⟨hcl0, hbb0, -, hrd⟩ := familyRead mk hDm hcl.hmm (by rw [hcl.hmem]; exact hfE) hfam
+  obtain ⟨ab, u, hta, hl, hv⟩ := hrd (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
   -- the block's parameters, opened at the formers' model
   obtain ⟨cvT0, rest, h0, hop, -, -⟩ := ConLeche.genRun_ctx R
   have h0' : pp.formers[0]? = some cvT0 := by rwa [List.head?_eq_getElem?] at h0
@@ -163,10 +174,11 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvMo
     exact (hO.var i _ hi).2.2.1
   obtain ⟨dsa₀, hdsa₀⟩ := familyKey_reads mk.base2 ψ hkey' (fun x hx => (hds x hx).1)
     (fun x hx => (hds x hx).2) hLds
-  have hfitK := (keyParamsFit mk (Rules.RulesInputs.ofSem mk ψ) hDm hcl.hmm
-    (by rw [hcl.hmem]; exact hfE) hcerts
-    (by
-      rw [genOutParamsLen hcovC hcl (by rw [hMe]; exact hct) (by rw [hMe]; exact hdsLen) ψ])
+  have hlenP := genOutParamsLen hcovC hcl (by rw [hMe]; exact hct) (by rw [hMe]; exact hdsLen) ψ
+  have hpl := ((mpC.lfpClause_of_mem hcl.hD).parsLen mm hcl.hmm
+    (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)).trans hlenP
+  have hfitK := (keyRunFit mk (Rules.RulesInputs.ofSem mk ψ) hcl0 hbb0 hcerts hta
+    (fun ρ' => (hv ρ').2.1) (by rw [hl, List.length_append, hpl]; omega)
     (by
       rw [List.length_reverse]
       show (List.take _ _).length = _
@@ -194,7 +206,25 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvMo
     rw [List.length_drop, hlenx]
   rw [hdl, show pp.nP + (tgtRP pp c - pp.nP) = tgtRP pp c by omega,
     ← hsplit] at hkl
-  rw [hkl]
+  refine ⟨caps, tyC, hfE, hfam, ab, u, htr _ _ _ hta, fun ρ' => (hv ρ').2, ?_⟩
+  -- the key's values at the prefix are its values at the block's parameters
+  have hρ0 : (fun j => consList (xs.take pp.nP) ρ (j + pp.nP)) = ρ := by
+    funext j
+    have htl : (xs.take pp.nP).length = pp.nP := by
+      rw [List.length_take]; omega
+    have := consList_apply_add (xs.take pp.nP) ρ j
+    rw [htl] at this
+    exact this
+  rw [hρ0] at hfitK
+  rw [← hdl, List.map_map]
+  have hvals : ∀ a, (interp V (consList xs ρ) ∘ fun x => Term.liftN (xs.drop pp.nP).length x) a
+      = interp V (consList (xs.take pp.nP) ρ) a := fun a => by
+    simp only [Function.comp_apply]
+    rw [hsplit]
+    exact interp_liftN_consList _ _ a
+  rw [List.map_congr_left fun a _ => hvals a]
   exact hfitK
+
+
 
 end ConLeche.Model

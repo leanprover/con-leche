@@ -20,6 +20,7 @@ import ConLeche.Model.Tiers
 import ConLeche.Semantics.Tower.SumTower
 import ConLeche.Model.Reading.Levels
 import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Verify.Inductives.ClassGenSyntax
 
 public section
 
@@ -124,6 +125,117 @@ theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
     rw [Expr.instantiate1_sort] at hb
     subst hb
     exact inferTypeCore_mkAppN_sort as hfa hst'' h
+
+/-- **An application spine inferred to a sort applies a head whose type
+ends in a sort after `m` binders to exactly `m` arguments.** -/
+theorem inferTypeCore_mkAppN_endsInSort_len {envK : Env} {F d : Nat} {s : Level} :
+    ∀ (as : List Expr) {f T t : Expr} {m : Nat} {u : Level},
+      inferTypeCore .verified false envK F d f = .ok T → ConLeche.EndsInSort m s T →
+      inferTypeCore .verified false envK F d (Expr.mkAppN f as) = .ok t →
+      whnf .verified false envK F d t = .ok (.sort u) → as.length = m
+  | [], f, T, t, m, u, hf, hT, h, hw => by
+    have hTt : T = t := Except.ok.inj (hf.symm.trans h)
+    rw [← hTt] at hw
+    cases m with
+    | zero => rfl
+    | succ m =>
+      match T, hT, hw with
+      | .forallE A b, _, hw =>
+        have := ConLeche.whnf_forallE_eq hw
+        exact nomatch this
+  | a :: as, f, T, t, m, u, hf, hT, h, hw => by
+    obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
+    obtain ⟨tf, ty', body', hf', hwf, rfl, -⟩ := ConLeche.inferTypeCore_app_inv' hfa
+    have hTf : tf = T := Except.ok.inj (hf'.symm.trans hf)
+    rw [hTf] at hwf
+    cases m with
+    | zero =>
+      simp only [ConLeche.EndsInSort] at hT
+      subst hT
+      have := whnf_sort_eq hwf
+      exact nomatch this
+    | succ m =>
+      match T, hT, hwf with
+      | .forallE A b, hT, hwf =>
+        obtain ⟨rfl, rfl⟩ : A = ty' ∧ b = body' := by
+          have := ConLeche.whnf_forallE_eq hwf
+          injection this with h1 h2
+          exact ⟨h1.symm, h2.symm⟩
+        have := inferTypeCore_mkAppN_endsInSort_len as (f := .app f a) hfa
+          (ConLeche.EndsInSort.instantiate1' m 0 hT) h hw
+        simp [this]
+
+/-- A successful inference at fuel `0` is impossible. -/
+theorem inferTypeCore_pos {envK : Env} {d : Nat} {e r : Expr} {F : Nat}
+    (h : ConLeche.inferTypeCore .verified false envK F d e = .ok r) : 1 ≤ F := by
+  cases F with
+  | zero =>
+    rw [ConLeche.inferTypeCore_zero] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ _ => omega
+
+/-- **One ∀ binder of a successful inference, peeled.**  The ∀ clause's
+own witnesses: the codomain's sort `v` and
+the node's own sort. -/
+theorem inferTypeCore_forallE_peel {envK : Env}
+    {d F : Nat} {ty bd s : Expr}
+    (h : ConLeche.inferTypeCore .verified false envK F d (.forallE ty bd) = .ok s) :
+    ∃ (F₀ : Nat) (udom v : Level) (bt₁ : Expr),
+      F = F₀ + 1 ∧ 1 ≤ F₀ ∧
+      ConLeche.inferTypeCore .verified false envK F₀ (d + 1) (bd.instantiate1 (.fvar d ty)) = .ok bt₁ ∧
+      ConLeche.ensureSortCore .verified false envK F₀ (d + 1) bt₁ = .ok v ∧
+      s = .sort (.imax udom v) := by
+  cases F with
+  | zero =>
+    rw [ConLeche.inferTypeCore_zero] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | succ F₀ =>
+    rw [ConLeche.inferTypeCore_forallE_eq] at h
+    obtain ⟨tty, htty, h⟩ := ConLeche.exceptBind_ok h
+    obtain ⟨w0, hw0, h⟩ := ConLeche.exceptBind_ok h
+    clear htty hw0
+    cases w0 with
+    | sort udom =>
+      obtain ⟨bt₁, hbt₁, h⟩ := ConLeche.exceptBind_ok h
+      obtain ⟨v, hv, h⟩ := ConLeche.exceptBind_ok h
+      refine ⟨F₀, udom, v, bt₁, rfl, inferTypeCore_pos hbt₁, hbt₁, hv, ?_⟩
+      simpa [pure, Except.pure] using h.symm
+    | _ => simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **A successful inference of a telescope infers its opened body**, at
+a fuel no larger, and sorts it. -/
+theorem inferTypeCore_openPis_body {envK : Env} :
+    ∀ (n : Nat) {d F : Nat} {e s : Expr} {fvs : List Expr} {o : Expr},
+      openPisAtFvars (n + 1) e d = some (fvs, o) →
+      ConLeche.inferTypeCore .verified false envK F d e = .ok s →
+      ∃ bt u, ConLeche.inferTypeCore .verified false envK F (d + (n + 1)) o = .ok bt ∧
+        ConLeche.ensureSortCore .verified false envK F (d + (n + 1)) bt = .ok u
+  | n, d, F, e, s, fvs, o, hop, hinf => by
+    match e, hop with
+    | .forallE ty bd, hop =>
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs' o' hop' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨-, rfl⟩ := hop
+        obtain ⟨F₀, udom, v, bt₁, rfl, -, hbt₁, hv, -⟩ := inferTypeCore_forallE_peel hinf
+        cases n with
+        | zero =>
+          simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop'
+          obtain ⟨-, rfl⟩ := hop'
+          exact ⟨bt₁, v, ConLeche.inferTypeCore_mono (Nat.le_succ _) hbt₁,
+            ConLeche.ensureSortCore_mono (Nat.le_succ _) hv⟩
+        | succ n =>
+          obtain ⟨bt, u, hbt, hu⟩ := inferTypeCore_openPis_body n hop' hbt₁
+          refine ⟨bt, u, ?_, ?_⟩
+          · rw [show d + (n + 1 + 1) = d + 1 + (n + 1) by omega]
+            exact ConLeche.inferTypeCore_mono (Nat.le_succ _) hbt
+          · rw [show d + (n + 1 + 1) = d + 1 + (n + 1) by omega]
+            exact ConLeche.ensureSortCore_mono (Nat.le_succ _) hu
+      · exact nomatch hop
+    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop | .app _ _, hop
+    | .lam _ _, hop | .letE _ _ _, hop | .lit _, hop | .proj _ _ _, hop =>
+      simp [openPisAtFvars] at hop
 
 /-! ## The opening walk -/
 

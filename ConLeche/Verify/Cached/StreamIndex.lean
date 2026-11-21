@@ -296,6 +296,17 @@ theorem streamEnv_consts (ds : List Declaration) (env : Env) :
     rw [ih]
     simp [recsConsts, Env.pushDelta]
 
+/-- **The names of a list of records, distinct**: its environment's names are. -/
+theorem nodupNames_streamEnv {ds : List Declaration}
+    (h : (ds.flatMap fun d => (declConstants d).map (·.name)).Nodup) :
+    NodupNames (streamEnv ds) := by
+  have hc : (streamEnv ds).consts = (recsConsts ds).reverse := by
+    simpa [Env.empty] using streamEnv_consts ds Env.empty
+  unfold NodupNames
+  rw [hc, List.map_reverse]
+  refine (List.reverse_perm _).nodup_iff.mpr ?_
+  simpa [recsConsts, List.map_flatMap] using h
+
 theorem streamEnv_tables (ds : List Declaration) (env : Env) :
     (streamEnv ds env).tables = (ds.flatMap declTables).reverse ++ env.tables := by
   induction ds generalizing env with
@@ -445,22 +456,37 @@ theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec
 
 /-! ## The jobs and the fold -/
 
-/-- **Every job passing is an accepting run**, position by position. -/
-theorem jobs_run {ds : Array Declaration}
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds).freeze k ds[k] = .ok ()) :
-    ∀ k, k ≤ ds.size → ∃ fe,
-      DeclsRun mode pins maxNatSize (ds.toList.take k) (0, mkFEnv Env.empty) (k, fe) ∧
-      PushChain Env.empty fe ∧ fe = mkFEnv (streamEnv (ds.toList.take k))
-  | 0, _ => ⟨mkFEnv Env.empty, by simpa using DeclsRun.nil _, PushChain.refl _, rfl⟩
-  | k + 1, hk => by
-    obtain ⟨fe, hrun, hchain, hfe⟩ := jobs_run h k (by omega)
+/-- **Every job from position `s` on passing is an accepting run from the environment of the
+records before `s`**, position by position, where the names of those records are distinct. -/
+theorem jobs_run_from {J : Option Solution} {ds : Array Declaration} {s : Nat}
+    (hnd : NodupNames (streamEnv (ds.toList.take s)))
+    (h : ∀ k (hk : k < ds.size), s ≤ k →
+      recordJob mode pins maxNatSize J (buildIndex ds).freeze k ds[k] = .ok ()) :
+    ∀ k, s ≤ k → k ≤ ds.size → ∃ fe,
+      DeclsRun mode pins maxNatSize J ((ds.toList.take k).drop s)
+        (s, mkFEnv (streamEnv (ds.toList.take s)))
+        (k, fe) ∧
+      PushChain (streamEnv (ds.toList.take s)) fe ∧ fe = mkFEnv (streamEnv (ds.toList.take k)) := by
+  intro k hsk
+  obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le hsk
+  clear hsk
+  induction d with
+  | zero =>
+    intro _
+    exact ⟨_, by simpa using DeclsRun.nil _, PushChain.refl _, rfl⟩
+  | succ d ih =>
+    intro hk
+    generalize hkdef : s + d = k at ih
+    have hsk : s ≤ k := by omega
+    rw [show s + (d + 1) = k + 1 by omega] at hk ⊢
+    obtain ⟨fe, hrun, hchain, hfe⟩ := ih (by omega)
     have hk' : k < ds.size := by omega
     have hkl : (ds.toList.take k).length = k := by simp; omega
     have hsplit : ds.toList.take k ++ ds.toList.drop k = ds.toList := List.take_append_drop k _
     have hI : IndexSpec (ds.toList.take k ++ ds.toList.drop k) (buildIndex ds) := by
       rw [hsplit]; exact buildIndex_spec ds
-    have hnd : ((recsConsts (ds.toList.take k)).map (·.name)).Nodup := by
-      have hN : NodupNames fe.env := hchain.2.2.1 (by simp [NodupNames, Env.empty])
+    have hnd' : ((recsConsts (ds.toList.take k)).map (·.name)).Nodup := by
+      have hN : NodupNames fe.env := hchain.2.2.1 hnd
       have hc : fe.env.consts = (recsConsts (ds.toList.take k)).reverse := by
         rw [hfe]
         show (streamEnv (ds.toList.take k)).consts = _
@@ -468,37 +494,69 @@ theorem jobs_run {ds : Array Declaration}
       unfold NodupNames at hN
       rw [hc, List.map_reverse] at hN
       exact (List.reverse_perm _).nodup_iff.mp hN
-    have ht : Twin fe ((buildIndex ds).freeze.view k) := hkl ▸ viewTwin hI hfe hnd
-    have hjob := h k hk'
+    have ht : Twin fe ((buildIndex ds).freeze.view k) := hkl ▸ viewTwin hI hfe hnd'
+    have hjob := h k hk' hsk
     unfold recordJob at hjob
     split at hjob
     case isFalse => exact nomatch hjob
     rename_i hand
-    rcases checkDeclStepC_twin (mode := mode) pins ht ds[k] { maxNatSize := maxNatSize } with
+    rcases checkRecordC_twin (mode := mode) pins J ht ds[k] { maxNatSize := maxNatSize } with
       ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L', Q', rfl, rfl⟩
     · rw [h₂] at hjob; exact nomatch hjob
-    · have hpush := checkDeclStepC_pushes (pins := pins) mode fe ds[k] { maxNatSize := maxNatSize } _ s' h₁
-      have hstep : declStep mode pins maxNatSize (k, fe) ds[k] = .ok (k + 1, FEnv.pushDelta L' Q' fe) := by
+    · have hpush := checkRecordC_pushes (pins := pins) mode J fe ds[k] { maxNatSize := maxNatSize } _ s' h₁
+      have hstep : declStep mode pins maxNatSize J (k, fe) ds[k] = .ok (k + 1, FEnv.pushDelta L' Q' fe) := by
         unfold declStep
         simp only [hand, ↓reduceIte, h₁]
       have hL : ds.toList.take (k + 1) = ds.toList.take k ++ [ds[k]] := by
         rw [List.take_add_one]
         simp [Array.getElem?_eq_getElem hk']
-      have hchain' := checkDeclStepC_push (pins := pins) mode hchain ds[k] { maxNatSize := maxNatSize } _ s' h₁
+      have hD : (ds.toList.take (k + 1)).drop s = (ds.toList.take k).drop s ++ [ds[k]] := by
+        rw [hL, List.drop_append_of_le_length (by omega)]
+      have hchain' :=
+        checkRecordC_push (pins := pins) mode J hchain ds[k] { maxNatSize := maxNatSize } _ s' h₁
       have hfe' : FEnv.pushDelta L' Q' fe = mkFEnv (streamEnv (ds.toList.take (k + 1))) := by
         rw [hpush, hfe, pushDelta_mkFEnv, hL]
         congr 1
         simp [streamEnv, List.foldl_append]
       refine ⟨_, ?_, hchain', hfe'⟩
-      rw [hL]; exact hrun.snoc mode hstep
+      rw [hD]; exact hrun.snoc mode hstep
 
-/-- **Every job passing is an accept of the fold**, at the environment the records denote. -/
-theorem checkDecls_of_jobs {ds : Array Declaration}
-    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (buildIndex ds).freeze k ds[k] = .ok ()) :
-    checkDecls mode pins maxNatSize ds = .ok (streamEnv ds.toList) := by
-  obtain ⟨fe, hrun, -, hfe⟩ := jobs_run h ds.size (Nat.le_refl _)
+/-- **Every job passing is an accept of the fold**, at the environment the records denote, with
+the solution's environment `justify`, if any, the jobs' solution index, over records the fold
+checks as they are (`sideRecords`). -/
+theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
+    (hds : sideRecords justify ds = ds)
+    (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
+      (buildIndex ds).freeze k ds[k] = .ok ()) :
+    checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
+  obtain ⟨fe, hrun, -, hfe⟩ := jobs_run_from (s := 0) (by simp [NodupNames, streamEnv, Env.empty])
+    (fun k hk _ => h k hk) ds.size (Nat.zero_le _) (Nat.le_refl _)
   rw [List.take_of_length_le (by simp)] at hrun hfe
+  simp only [List.take_zero, List.drop_zero] at hrun
+  rw [← hds] at hrun
   rw [checkDecls_of_run mode hrun, hfe]
   rfl
+
+/-- **Every own record's job passing is a run from the context** (a modular worker's check,
+DESIGN #460 §3 phase 5): the index of the context's records followed by the own records, each own
+record's job at its view, all passing, where the context's names are distinct, is an accepting
+run of the own records from the context's environment, ending at the own environment. -/
+theorem checkDecls_of_jobs_from {ctx own : Array Declaration}
+    (hnd : NodupNames (streamEnv ctx.toList))
+    (h : ∀ k (hk : k < (ctx ++ own).size), ctx.size ≤ k →
+      recordJob mode pins maxNatSize none (buildIndex (ctx ++ own)).freeze k (ctx ++ own)[k] = .ok ()) :
+    DeclsRun mode pins maxNatSize none own.toList (ctx.size, mkFEnv (streamEnv ctx.toList))
+      (ctx.size + own.size, mkFEnv (streamEnv own.toList (streamEnv ctx.toList))) := by
+  have htk : (ctx ++ own).toList.take ctx.size = ctx.toList := by simp
+  obtain ⟨fe, hrun, -, hfe⟩ := jobs_run_from (ds := ctx ++ own) (s := ctx.size)
+    (by rw [htk]; exact hnd) h ((ctx ++ own).size) (by simp) (Nat.le_refl _)
+  rw [List.take_of_length_le (by simp), htk] at hrun
+  rw [List.take_of_length_le (by simp)] at hfe
+  have hd : (ctx ++ own).toList.drop ctx.size = own.toList := by simp
+  rw [hd] at hrun
+  have he : streamEnv (ctx ++ own).toList = streamEnv own.toList (streamEnv ctx.toList) := by
+    simp [streamEnv, List.foldl_append]
+  rw [hfe, he, Array.size_append] at hrun
+  exact hrun
 
 end ConLeche.Cached

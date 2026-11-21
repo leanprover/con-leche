@@ -117,4 +117,8 @@ where a constant fails to resolve — inside the inference body. -/
 /-- The name `sorryAx`. -/
 def sorryAxName : Name := anonymous |>.str "sorryAx"
 
+/-- **The tolerated axiom's name**: only that axiom may take it (`checkConstantVal`'s
+`allowSorry`), and its record installs nothing. -/
+def sorryAxNameAt (n : Name) : Bool := n == sorryAxName
+
 end ConLeche

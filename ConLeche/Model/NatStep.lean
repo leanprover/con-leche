@@ -127,18 +127,17 @@ theorem natOpRow_of (mp : EnvModelM V env) (φ : Name → Nat) :
       first
       | exact Or.inl (by decide)
       | exact Or.inr (by decide)
-  have hguard := natOpGuardLaw_of mp _ hmemN hstored
-  obtain ⟨hnat, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hguard
+  obtain ⟨hguard, hpins⟩ := natOpGuardLaw_of mp _ hmemN hstored
+  obtain ⟨hnat, -, hbool⟩ := ConLeche.natOpGuard_inv hguard
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   have hself : c ∈ ConLeche.natOpDeps c := by
     rcases h14 with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|
       rfl|rfl <;> decide
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps c hself
+  obtain ⟨_, hfc, hlpc⟩ := hdeps c hself
   obtain ⟨fab, ba, hfab, hba', rfl⟩ := denote_app_inv hea
   obtain ⟨fa, aa, hfa, haa, rfl⟩ := denote_app_inv hfab
   obtain rfl : fa = mp.base2.acval c φ :=
-    denote_head hfc
-      (show (ConstantInfo.defnInfo cvc vc hcnt).toConstantVal.levelParams
-        = [] from hlpc) hfa
+    denote_head hfc hlpc hfa
   obtain rfl : aa = natLit mp.base2 φ n₁ :=
     Option.some.inj
       (haa.symm.trans (denote_rawNatLit mp.base2 hnat hrawa d))
@@ -266,24 +265,20 @@ theorem natOpHead_of (mp : EnvModelM V env) (φ : Name → Nat) :
   have hnp : ¬(c = ConLeche.natPredName) := by
     rcases h14 with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
       rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
-  obtain ⟨hguard, hpin⟩ : natOpGuard env c = true ∧
-      ConLeche.natOpTyPinned env c cv.type = true := by
-    rcases hmemN with hm | hm
-    · exact ⟨(mp.nat_ops φ c hm cv v hh hf).1, (mp.nat_ops φ c hm cv v hh hf).2.1⟩
-    · exact ⟨(mp.div_mod φ c hm cv v hh hf).1, (mp.div_mod φ c hm cv v hh hf).2.1⟩
-  obtain ⟨hnat, hdeps, -⟩ := ConLeche.natOpGuard_inv hguard
+  obtain ⟨ci, hf⟩ := Option.isSome_iff_exists.mp hst
+  obtain ⟨hguard, hpins⟩ := natOpGuardLaw_of mp _ hmemN hst
+  have hpin := ConLeche.natOpTyPinned_of_deps hmemN hpins hf
+  obtain ⟨hnat, -, -⟩ := ConLeche.natOpGuard_inv hguard
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   refine ⟨hnat, fun {d ca} hca ρ => ?_⟩
   obtain ⟨cvN, caps, cv0, i0, j0, T0, cv1, i1, j1, T1, hfN, -, -, hlpN, -⟩ :=
     ConLeche.natLitSupported_inv hnat
   obtain ⟨cod, hty, hcodB, hcodN⟩ := natOpTyPinned_shape_bin hnp hpin
   -- the head reads to the operation's leaf
-  obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps c (ConLeche.mem_natOpDeps_self hmemN)
+  obtain ⟨_, hfc, hlpc⟩ := hdeps c (ConLeche.mem_natOpDeps_self hmemN)
   rw [hf] at hfc
-  obtain ⟨rfl, -, -⟩ := ConstantInfo.defnInfo.inj (Option.some.inj hfc)
-  obtain rfl : ca = mp.base2.acval c φ :=
-    denote_head hf
-      (show (ConstantInfo.defnInfo cv v hh).toConstantVal.levelParams = [] from hlpc) hca
+  obtain rfl := Option.some.inj hfc
+  obtain rfl : ca = mp.base2.acval c φ := denote_head hf hlpc hca
   -- the codomain is a stored level-free constant
   obtain ⟨codN, codCi, rfl, hcodF, hcodLp⟩ : ∃ codN codCi,
       cod = .const codN [] ∧ env.find? codN = some codCi ∧
@@ -295,19 +290,16 @@ theorem natOpHead_of (mp : EnvModelM V env) (φ : Name → Nat) :
       exact ⟨_, _, rfl, hfN,
         show (ConstantInfo.indInfo cvN caps).toConstantVal.levelParams = [] from hlpN⟩
   -- the leaf inhabits the pinned type's reading
-  have hta : denote mp.base2.acval env φ 0
-      (ConstantInfo.defnInfo cv v hh).toConstantVal.type
+  have hta : denote mp.base2.acval env φ 0 ci.toConstantVal.type
       = some (.pi (mp.base2.acval ConLeche.natName φ)
           (.pi (mp.base2.acval ConLeche.natName φ)
             (mp.base2.acval codN φ))) := by
-    show denote mp.base2.acval env φ 0 cv.type = _
     rw [hty]
     exact denote_pinnedBinTy mp.base2 φ hfN
       (show (ConstantInfo.indInfo cvN caps).toConstantVal.levelParams = [] from hlpN)
       hcodF hcodLp
   have hmem := mp.mem_type _ (ConLeche.Env.find?_mem hf) φ _ hta ρ
-  rw [show (ConstantInfo.defnInfo cv v hh).name = c from
-    ConLeche.Env.find?_name hf, interp_pi] at hmem
+  rw [ConLeche.Env.find?_name hf, interp_pi] at hmem
   rw [substFn_nil]
   have hfib : (fun x => interp V (cons x ρ)
         ((.pi (mp.base2.acval ConLeche.natName φ)

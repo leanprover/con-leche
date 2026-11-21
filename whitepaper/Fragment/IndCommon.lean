@@ -2,6 +2,7 @@ module
 
 public import Fragment.IndLib
 public import Fragment.Ctx
+public import Fragment.IsModel
 
 @[expose] public section
 
@@ -31,8 +32,6 @@ variable {V : Type u} [IndLib V]
 
 /-! ## Small pieces -/
 
-/-- The closed base environment: every variable the point. -/
-def base : Nat → V := fun _ => pt
 /-- The point applied to anything is the point. -/
 theorem appList_pt : ∀ vs : List V, appList (pt : V) vs = pt
   | [] => rfl
@@ -65,11 +64,6 @@ theorem ListRel.unique {α β : Type _} {R R' : α → β → Prop}
   | [], [], _ :: _, _, h2 => h2.elim
   | _ :: _, [], _, h1, _ => h1.elim
   | _ :: _, _ :: _, [], _, h2 => h2.elim
-/-- The valuation of level parameters at a list of concrete levels,
-positionally; a parameter not in the list is `0`. -/
-def valOf (ps : List Name) (ls : List Nat) : Name → Nat :=
-  fun n => ((ps.zip ls).lookup n).getD 0
-
 theorem lookup_zip_map (ps : List Name) (f : Name → Nat) (n : Name) :
     (ps.zip (ps.map f)).lookup n = if n ∈ ps then some (f n) else none := by
   induction ps with
@@ -87,7 +81,7 @@ theorem valOf_map (ps : List Name) (f : Name → Nat) :
   simp only [valOf, lookup_zip_map]
   split <;> rfl
 
-theorem lookup_zip_none {ps : List Name} {n : Name} (h : n ∉ ps) (ls : List Nat) :
+theorem lookup_zip_none {α : Type _} {ps : List Name} {n : Name} (h : n ∉ ps) (ls : List α) :
     (ps.zip ls).lookup n = none := by
   induction ps generalizing ls with
   | nil => simp

@@ -5,6 +5,7 @@ public import ConLeche.Semantics.DivModEval
 public import ConLeche.Verify.ProjTele
 public import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.EnvGuards
+public import ConLeche.Denotes
 
 public section
 
@@ -46,15 +47,24 @@ install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
 `DefEqClaim` — the run-certificate route (`Model/NatEqs.lean`)
 — and preserved across every other fresh cons.  Consumed by the
 numeral-transport inductions, which close the literal rows `NatSuccRow`/`NatOpRow` of
-`Model/Rules/Inputs.lean` (`Model/NatStep.lean`).  The stored type's pin
-(`natOpTyPinned`, checked at the install) is kept as well: the head row
-`NatOpHead` reads the operation's domains off it (task #342 L12). -/
+`Model/Rules/Inputs.lean` (`Model/NatStep.lean`).
+
+The law is keyed on the name being stored, whatever its kind: the
+literal fast path fires by name, so its soundness reads the law off the
+name.  Only a definition passes the install check at a certified name;
+every other kind is refused there, which is what makes the law hold at
+such a name vacuously.  The stored types' pins (`natOpPinnedOk`) are
+kept as well, the operation's own and its dependencies': the head row
+`NatOpHead` reads the operation's domains off its own (task #342 L12),
+and the transports read the dependencies' heads off theirs.  The
+install checks only the operation's own pin and that each dependency
+is stored; a dependency's pin is its own entry's, read at the install
+(`natOpDepsOk_install`). -/
 @[expose] def NatOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ ConLeche.natOpNames, ∀ cv v hint,
-    env.find? c = some (.defnInfo cv v hint) →
+  ∀ c ∈ ConLeche.natOpNames, ∀ ci, env.find? c = some ci →
     ConLeche.natOpGuard env c = true ∧
-    ConLeche.natOpTyPinned env c cv.type = true ∧
+    (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env) = true ∧
     ∀ eq ∈ ConLeche.natOpEquations 0 c, ∃ L R,
       denote m.acval env φ 2 eq.1 = some L ∧
       denote m.acval env φ 2 eq.2 = some R ∧
@@ -72,14 +82,14 @@ Supplied as an `EnvModelM` field: established at the operation's own
 install from the recorded certificate runs (`checkDivModCerts`'
 verdict) through `InferClaim`/`DefEqClaim` — the run-certificate
 route again (`Model/DivModCert.lean`) — and preserved across every
-other fresh cons.  Consumed by the WF-op numeral transports.  The stored
-type's pin is kept as in `NatOps`. -/
+other fresh cons.  Consumed by the WF-op numeral transports.  Keyed
+on the stored name, whatever its kind, and the stored types' pins
+kept, as in `NatOps`. -/
 @[expose] def DivMod {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ ConLeche.natDivModNames, ∀ cv v hint,
-    env.find? c = some (.defnInfo cv v hint) →
+  ∀ c ∈ ConLeche.natDivModNames, ∀ ci, env.find? c = some ci →
     ConLeche.natOpGuard env c = true ∧
-    ConLeche.natOpTyPinned env c cv.type = true ∧
+    (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env) = true ∧
     ∀ (ρ : Nat → V) (x y : V),
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
       y ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -204,7 +214,26 @@ theorem teleFit_nil_inv {ρ : Nat → V} {T : Term} {rest : V}
     (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by
   cases h; rfl
 
+/-- A fit's residual is determined. -/
+theorem TeleFit.rest_unique {ρ : Nat → V} {T : Term} {vs : List V} {r₁ r₂ : V}
+    (h₁ : TeleFit V ρ T vs r₁) (h₂ : TeleFit V ρ T vs r₂) : r₁ = r₂ := by
+  induction h₁ with
+  | nil => exact (teleFit_nil_inv h₂).symm
+  | cons _ _ ih =>
+    cases h₂ with
+    | cons _ h₂ => exact ih h₂
+
 end
+
+/-- **A fit past unchecked leading arguments**: `TeleSkipFit ρ T ps fs rest` — the values `ps`
+are pushed past `T`'s leading binders, their memberships not asked, and `fs` fits the rest
+(`TeleFit`) under the extended environment. -/
+inductive TeleSkipFit (V : Type w) [SetTheory V] :
+    (Nat → V) → Term → List V → List V → V → Prop where
+  | fit {ρ : Nat → V} {T : Term} {fs : List V} {rest : V} :
+      TeleFit V ρ T fs rest → TeleSkipFit V ρ T [] fs rest
+  | skip {ρ : Nat → V} {A B : Term} {p : V} {ps fs : List V} {rest : V} :
+      TeleSkipFit V (cons p ρ) B ps fs rest → TeleSkipFit V ρ (.pi A B) (p :: ps) fs rest
 
 /-- **A graded spine at a family's leaf**: the values `ts` are a spine of terms whose
 application to the leaf `L` is graded and not the point.  What the η laws ask
@@ -349,6 +378,15 @@ inductive TeleFitPA (V : Type w) [SetTheory V] (ρ : Nat → V) :
       interp V ρ a ∈ˢ interp V ρ A →
       TeleFitPA V ρ (B.inst a) as rest →
       TeleFitPA V ρ (.pi A B) (a :: as) rest
+
+/-- A fit's residual is determined. -/
+theorem TeleFitPA.rest_unique {V : Type w} [SetTheory V] {ρ : Nat → V} :
+    ∀ {T : Term} {as : List Term} {r₁ r₂ : Term},
+      TeleFitPA V ρ T as r₁ → TeleFitPA V ρ T as r₂ → r₁ = r₂
+  | _, _, _, _, .nil, h₂ => by cases h₂; rfl
+  | _, _, _, _, .cons _ h₁, h₂ => by
+    cases h₂ with
+    | cons _ h₂ => exact TeleFitPA.rest_unique h₁ h₂
 
 /-- A fit's prefix fits, to some intermediate residual. -/
 theorem TeleFitPA.take {V : Type w} [SetTheory V] {ρ : Nat → V} :
@@ -625,6 +663,129 @@ recursor's levels:
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
           IotaIndexPin (V := V) ρ restC cnP mI rP xs))
 
+/-- **A rule's parameters, read in the rule prefix's context**: `ps` reads as
+the parameters the rule applies its constructor to — the prefix's leading
+arguments `xs`, or, at a nested rule, its pins chained over `xs`
+(`recFireComparands`' second component, read). -/
+@[expose] def RuleParamsRead {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) (cv : ConstantVal) (rP cnP : Nat)
+    (us : List Level) (rl : RecRule) (ρ : Nat → V) (xs ps : List Term) : Prop :=
+  ps.length = cnP ∧ ∀ i, i < cnP →
+    match RecRule.fire rl with
+    | .nested _ pins => ∀ vpa : Term,
+        denote m.acval env φ rP
+          (ConLeche.Verify.openRev 0 rP
+            ((pins.getD i default).instantiateLevelParams cv.levelParams us)) = some vpa →
+        interp V ρ (ps.getD i default) = interp V ρ (Term.instRevChain xs vpa)
+    | _ => interp V ρ (ps.getD i default) = interp V ρ (xs.getD i default)
+
+/-- **Reading the parameters, transported**: where the nested pins read alike (and a rule that
+is not nested stays so), a reading of the parameters on one side is one on the other. -/
+theorem RuleParamsRead.transport {V : Type w} [SetTheory V] {env env' : Env}
+    {m : EnvModel V env} {m' : EnvModel V env'} {φ : Name → Nat} {cv cv' : ConstantVal}
+    {rP cnP : Nat} {us us' : List Level} {rl rl' : RecRule} {ρ : Nat → V} {xs ps : List Term}
+    (hnest : ∀ lvls pins, RecRule.fire rl = .nested lvls pins → ∃ lvls' pins',
+      RecRule.fire rl' = .nested lvls' pins' ∧ ∀ i (vpa : Term),
+        denote m.acval env φ rP (ConLeche.Verify.openRev 0 rP
+          ((pins.getD i default).instantiateLevelParams cv.levelParams us)) = some vpa →
+        denote m'.acval env' φ rP (ConLeche.Verify.openRev 0 rP
+          ((pins'.getD i default).instantiateLevelParams cv'.levelParams us')) = some vpa)
+    (hplain : (∀ lvls pins, RecRule.fire rl ≠ .nested lvls pins) →
+      ∀ lvls pins, RecRule.fire rl' ≠ .nested lvls pins)
+    (h : RuleParamsRead m' φ cv' rP cnP us' rl' ρ xs ps) :
+    RuleParamsRead m φ cv rP cnP us rl ρ xs ps := by
+  obtain ⟨hl, h⟩ := h
+  refine ⟨hl, fun i hi => ?_⟩
+  have h' := h i hi
+  unfold RuleParamsRead at *
+  cases hf : RecRule.fire rl with
+  | nested lvls pins =>
+    obtain ⟨lvls', pins', hf', hv⟩ := hnest lvls pins hf
+    rw [hf'] at h'
+    intro vpa hvpa
+    exact h' vpa (hv i vpa hvpa)
+  | plain | levels _ =>
+    have hn : ∀ lvls pins, RecRule.fire rl ≠ .nested lvls pins := fun _ _ h => by
+      rw [hf] at h; exact nomatch h
+    have hn' := hplain hn
+    cases hf' : RecRule.fire rl' with
+    | nested lvls pins => exact absurd hf' (hn' lvls pins)
+    | plain | levels _ => rw [hf'] at h'; exact h'
+
+/-- **A rule's constructor takes the rule's levels** (task #617): the constructor stored under
+the rule's name has as many level parameters as the rule gives it (`recFireLevelCount`: the
+constructor's own at a plain rule, the recorded levels at a nested or a quotient rule), so the
+rule's ι equation reads its constructor at every level assignment. -/
+@[expose] def RecRuleLevels (env : Env) (rl : RecRule) : Prop :=
+  ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
+    ConLeche.recFireLevelCount rl cvj.levelParams = cvj.levelParams.length
+
+/-- A plain rule takes its constructor's own levels. -/
+theorem RecRuleLevels.of_plain {env : Env} {rl : RecRule} (h : RecRule.fire rl = .plain) :
+    RecRuleLevels env rl := by
+  intro cvj _ _ _ _
+  simp [ConLeche.recFireLevelCount, h]
+
+/-- **One rule's typing, forward** (task #610): the facts that make a rule's
+ι equation (`ConLeche.iotaEq`) typed in the model.  First, the constructor takes the rule's
+levels (`RecRuleLevels`); then, at the recursor's levels
+`us` and the constructor's comparand levels, wherever `xs` fits the
+recursor's rule prefix (its first `rP` binders) and `ps` reads as the rule's
+parameters there:
+
+* where some fields fit the constructor's field binders at the parameters (`TeleSkipFit`: the
+  parameters pushed, their memberships not asked), the parameters fit the constructor's
+  parameter binders — where no fields fit, the rule's equation has no instances, and nothing is
+  asked;
+* at fields `fs` completing that fit and index arguments `is` pinned to the
+  constructor's conclusion (`IotaIndexPin`: the residual's index arguments
+  read as `is`), the prefix, the indices and the constructor application fit
+  the recursor's whole telescope, and the residual — the motive at the
+  indices and the major — is a type of the motive's universe.
+
+The universe clause is a separate fact, not a consequence of the fit: the
+motive's domain and the recursor's index and major binders agree only up to
+the install's definitional equality, and over an empty domain a motive is
+the point, not a family of types.  This is the converse direction of what
+the ι step's soundness needs (`RecRuleLaw` takes the fit as a premise); it is
+established where `RecRuleLaw` is, at the installs. -/
+@[expose] def RecRuleFit {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat)
+    (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
+  RecRuleLevels env rl ∧
+  ∀ us : List Level, us.length = cv.levelParams.length →
+  ∀ TVa : Term,
+    denote m.acval env φ 0 (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
+  ∀ (cvj : ConstantVal) (cnP cnF : Nat) (iT : Name),
+    env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF iT) →
+  ∀ (usj : List Level), usj.length = cvj.levelParams.length →
+    Level.substFn φ cvj.levelParams usj
+      = Level.substFn φ cvj.levelParams
+          (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
+  ∀ TVja : Term,
+    denote m.acval env φ 0 (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
+  ∀ (ρ : Nat → V) (xs ps : List Term) (mid : Term),
+    xs.length = rP → (∀ x ∈ xs, WellDenoted V ρ x) → TeleFitPA V ρ TVa xs mid →
+    (∀ p ∈ ps, WellDenoted V ρ p) → RuleParamsRead m φ cv rP cnP us rl ρ xs ps →
+    (∀ (fs : List V) (restF : V), fs.length = RecRule.nfields rl →
+      TeleSkipFit V ρ TVja (ps.map (interp V ρ)) fs restF →
+      ∃ r, TeleFitPA V ρ TVja ps r) ∧
+    ∀ (fs is : List Term) (restC : Term),
+      fs.length = RecRule.nfields rl → is.length = mI - rP →
+      (∀ f ∈ fs, WellDenoted V ρ f) → (∀ i ∈ is, WellDenoted V ρ i) →
+      TeleFitPA V ρ TVja (ps ++ fs) restC →
+      IotaIndexPin (V := V) ρ restC cnP mI rP (xs ++ is) →
+      ∃ restR, TeleFitPA V ρ TVa
+          (xs ++ is ++ [Term.mkAppN
+            (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) (ps ++ fs)])
+          restR ∧
+        ∀ (pre idx : List Expr) (rest body : Expr) (u : Level),
+          (cv.type.instantiateLevelParams cv.levelParams us).stripPis rP = some (pre, rest) →
+          rest.stripPis (mI - rP + 1) = some (idx, body) →
+          ConLeche.motiveLevel? pre (mI - rP) body = some u →
+          interp V ρ restR ∈ˢ (univ (Level.eval φ u) : V)
+
 /-- **One rule's fired modeled-iota contract at `interp`** (see the
 section note). -/
 @[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
@@ -709,6 +870,7 @@ section note). -/
             (Term.mkAppN Ra
               (xs.take rP ++ ys.drop cnP))))
   ∧ RecRuleExtra m φ n cv mI rP isK rl
+  ∧ RecRuleFit m φ cv mI rP rl
 
 /-- The fired modeled-iota contract, keyed on every stored recursor. -/
 @[expose] def RecRules {V : Type w} [SetTheory V] {env : Env}
@@ -978,9 +1140,19 @@ membership and the successor's, at the leaf valuation's own
           (m.acval natName (Level.substFn φ [] []))) ∧
     IsTy (interp V ρ (m.acval natName (Level.substFn φ [] [])))
 
+/-- **A definition's leaf against its value's reading**: the reading
+itself, or, for a definition of a proposition, the canonical proof
+`.prf`, where the reading is a graded proof at every valuation.  The
+second arm is what makes every proof's leaf the same term, so that two
+proofs of one statement in two modules are one constant of the modular
+theorem (`ConLeche/Modular.lean`). -/
+@[expose] def LeafReads (V : Type w) [SetTheory V] (leaf t : Term) : Prop :=
+  t = leaf ∨ (leaf = .prf ∧ ∀ ρ : Nat → V, WellDenoted V ρ t ∧ interp V ρ t = pt)
+
 /-- **The unfolding supplier the P-tier delta exit consumes**: a stored
-definition's value reading *is* the constant's own leaf, at
-every level assignment.  Definitions only: a theorem is opaque to
+definition's value reads, at every level assignment, and the reading
+is the constant's own leaf or, for a proof, interprets as the leaf
+does (`LeafReads`).  Definitions only: a theorem is opaque to
 reduction (`unfoldDefinition` has no `thmInfo` arm), so the invariant
 keeps no equation between a theorem's value and its leaf — the leaf is
 an inhabitant of the statement, and that is all the install
@@ -991,6 +1163,6 @@ The install tier discharges it. -/
   ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
     (∃ hint : ReducibilityHint,
       ConstantInfo.defnInfo cv value hint ∈ env.consts) →
-    denote m.acval env ψ 0 value = some (m.acval cv.name ψ)
+    ∃ t, denote m.acval env ψ 0 value = some t ∧ LeafReads V (m.acval cv.name ψ) t
 
 end ConLeche.Model

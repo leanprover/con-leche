@@ -56,14 +56,14 @@ theorem natOps_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (hT : env.findTable? t.structName = none)
     {m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩} (hac : m₂.acval = mp.base2.acval)
     (φ : Name → Nat) : NatOps m₂ φ := by
-  intro c hcN cv v hint hf
-  obtain ⟨hg, hpin, hlaws⟩ := mp.nat_ops φ c hcN cv v hint hf
-  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg
+  intro c hcN ci hf
+  obtain ⟨hg, hpin, hlaws⟩ := mp.nat_ops φ c hcN ci hf
+  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg hpin
   obtain ⟨ciN, hfN, -⟩ := ConLeche.Verify.storedNoLevels_exists hN
   refine ⟨hg, hpin, fun eq hq => ?_⟩
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
-  obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg eq hq
-  have hf0 : env.find? c = some (.defnInfo cv v hint) := hf
+  obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg hpin eq hq
+  have hf0 : env.find? c = some ci := hf
   have hfE : (env.find? c).isSome = true := by rw [hf0]; rfl
   have hfN' : (env.find? ConLeche.natName).isSome = true := by rw [hfN]; rfl
   refine ⟨L, R, ?_, ?_, ?_⟩
@@ -114,12 +114,12 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
       mp.mem_type c hc ψ ta (hreadT c hc ψ ta hta)
     defn_reads := fun ψ cv value hmem => by
       obtain ⟨hint, hdt⟩ := hmem
-      exact hx.denote ((hbound _ hdt).2 cv value hint rfl) (mp.defn_reads ψ cv value ⟨hint, hdt⟩)
+      obtain ⟨t, ht, hlr⟩ := mp.defn_reads ψ cv value ⟨hint, hdt⟩
+      exact ⟨t, hx.denote ((hbound _ hdt).2 cv value hint rfl) ht, hlr⟩
     nat_heads := mp.nat_heads
     nat_ops := natOps_pushTable mp hT hac
     div_mod := mp.div_mod
     eq_law := mp.eq_law
-    op_defn := fun c hn hs => mp.op_defn c hn hs
     rec_rules := fun φ n cv mI rP isK rules hf rl hmem =>
       recRuleLaw_ext mp hx φ hf hmem
     reduce_ops := mp.reduce_ops
@@ -144,7 +144,6 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
         exact towerEntryLaw_ext mp hx φ hf⟩
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => hf) (fun _ _ _ _ => rfl)
-      (fun ψ d _ _ hb hta => hx.denote hb hta)
-      (fun _ => ConstsBound.of_isSome (env₀ := env) (env₁ := ⟨env.consts, t :: env.tables⟩) fun _ h => h) }, rfl⟩
+      (fun ψ d _ _ hb hta => hx.denote hb hta) }, rfl⟩
 
 end ConLeche.Model

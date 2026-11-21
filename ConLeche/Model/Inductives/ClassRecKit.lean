@@ -167,13 +167,15 @@ theorem graphRecPre_coreR {es ihs : Nat → Nat → List Term} {mk : Nat → Nat
         (∃ e, graphDecG Is injX nCt K fit xs u e ∧
           ∀ v, v ∈ˢ graphPredG Is Cr K call xs e → P v) → P u) →
       ∀ u, u ∈ˢ unionSet K (Is xs) (Cr xs) → P u)
-    (hrule : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+    (hrule : ∀ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →
       SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
       SpineFit ρ ((rds c))
         (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)])))
-    (hdec : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+    (hdec : ∀ a : Nat → V, (∀ c, c < K → a c ∈ˢ interp V ρ (RecTy c)) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
       xs.length = (pdoms c).length →
       SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
       fit xs c (tupX c ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) j fs ∧
@@ -198,13 +200,15 @@ theorem graphRecPre_coreR {es ihs : Nat → Nat → List Term} {mk : Nat → Nat
       kit := fun xs => graphKitR (Rb0 := Rb0) (ihv := ihv) (call := call) (nCt := nCt)
         Is Cr injX uX nIdxX fit xs (hconclTy xs) (hstep xs) (huniq xs) (hind xs),
       hsplit := hsplit, hconcl := hconcl }
-  refine famCandG_hCand D (fun _ c j fs => (c, j, fs)) hTyP hpl (hrule (famCandG D)) ?_ ?_
+  have hTyC : ∀ c, c < K → famCandG D c ∈ˢ interp V ρ (RecTy c) := fun c hc => by
+    rw [hTyP c hc]; exact famCandG_mem D hc
+  refine famCandG_hCand D (fun _ c j fs => (c, j, fs)) hTyP hpl (hrule (famCandG D) hTyC) ?_ ?_
   · intro c hc j hj xs fs hxl hsp
-    have hfit := hrule (famCandG D) c hc j hj xs fs hxl hsp
+    have hfit := hrule (famCandG D) hTyC c hc j hj xs fs hxl hsp
     have hxr : xs.length = rP c := by rw [hxl, hpl c hc]
     obtain ⟨-, -, hi, -⟩ := D.hsplit c hc _ hfit
     rw [prefOf_split hxr, idxOf_split hxr] at hi
-    obtain ⟨hf, hmk⟩ := hdec (famCandG D) c hc j hj xs fs hxl hsp
+    obtain ⟨hf, hmk⟩ := hdec (famCandG D) hTyC c hc j hj xs fs hxl hsp
     exact ⟨hc, hj, _, hi, hf, by rw [hmk]⟩
   · intro c hc j hj xs fs hxl hsp
     have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
