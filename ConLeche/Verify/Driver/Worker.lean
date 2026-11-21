@@ -5,6 +5,7 @@ public import ConLeche.Driver.CompareModule
 public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Driver.Shared
+public import ConLeche.Verify.Driver.PropPart
 import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
@@ -109,8 +110,10 @@ structure WorkerFacts (sp : Roots) (fs : FS) (m : Name) (jobs : Nat) (w : Worker
   reads : ModelIO.CanGive (workerReads (.ofPath sp) m jobs x) fs (.ok w.reads)
   /-- the own records: the emission of the loaded constants -/
   emitted : ownRecords w.home = .ok w.emitted
-  /-- the context: the reach from the own records' reads -/
-  reach : ModelIO.CanGive (reach (.ofPath sp) m w.reads (ownOf x w) (rootsOf x w)) fs (.ok w.reach)
+  /-- the context: the reach from the own records' reads, its flags inferred by a sound inference
+  (`FlagsOk`; the binary's is `inferFlags`) -/
+  reach : ∃ fl, FlagsOk fl ∧
+    ModelIO.CanGive (reachWith fl (.ofPath sp) m w.reads (ownOf x w) (rootsOf x w)) fs (.ok w.reach)
   /-- the context's names, distinct -/
   nodup : (w.reach.ctx.toList.flatMap declNames).Nodup
   /-- the own records, in the hoist's order -/
@@ -172,7 +175,7 @@ theorem workerRead_ok {rd : OleanReads ModelIO} {sp : Roots} {m : Name} {pace : 
   obtain ⟨h, -⟩ := h
   subst h
   refine ⟨⟨f, hf, hh⟩, (workerReads_within hrd m jobs x).canGive ⟨_, _, hy⟩, hds,
-    (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩, (namesNodupGo_spec hn).1, rfl, ?_, hco⟩
+    ⟨inferFlags, inferFlags_flagsOk, (reach_within hrd m _ _ _).canGive ⟨_, _, hz⟩⟩, (namesNodupGo_spec hn).1, rfl, ?_, hco⟩
   -- the values' region: the home's files' private region
   exact cacheOK_files (md := ⟨m, l.frontier⟩) rfl hf
 
@@ -300,7 +303,7 @@ theorem worker_ctx {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRea
       ((streamEnv w.reach.ctx.toList).find? y).isSome = true) ∧
     EnvWF (streamEnv w.reach.ctx.toList) ∧
     ((streamEnv w.reach.ctx.toList).consts.map (·.toConstantVal.name)).Nodup := by
-  obtain ⟨_, _, hr⟩ := hw.reach
+  obtain ⟨_, _, _, _, hr⟩ := hw.reach
   obtain ⟨o, a, b, c, -⟩ := reach_ok hr
   exact ⟨o, a, b, c, nodupNames_streamEnv hw.nodup⟩
 
@@ -322,7 +325,7 @@ theorem worker_ground {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : Worker
     (hsk : c.skipped = false) {g : Name} (hg : g ∈ pinGround natOpPinSets c.name)
     (hix : w.reads.index.first.contains g = true) (ho : (ownNames w.home).contains g = false) :
     ((streamEnv w.reach.ctx.toList).find? g).isSome = true := by
-  obtain ⟨_, _, hr⟩ := hw.reach
+  obtain ⟨_, _, _, _, hr⟩ := hw.reach
   refine (reach_ok hr).2.2.2.2 g ?_ ho
   show g ∈ ownRoots w.reads.index w.home w.emitted
   unfold ownRoots

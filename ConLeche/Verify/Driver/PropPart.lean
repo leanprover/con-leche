@@ -19,7 +19,9 @@ each name (`inferFlags`, `ctxPart`, `ConLeche/Driver/Reach.lean`), which is the 
 * `inferFlags_typeIsProp`: the cached inference's accept is the pure `TypeIsProp`, with the
   statement's syntactic clauses and its resolution at the part;
 * `envWF_prefix`: a prefix of a well-formed context in read order is well formed;
-* `typeIsProp_part`: the two together, at `Module.part`.
+* `FlagsOk`: what the proofs ask of any flag inference the reach runs (`reachWith`): that
+  accept, and `inferFlags_flagsOk`: the binary's inference has it;
+* `typeIsProp_part`: a sound inference's accept at `Module.part`.
 -/
 
 public section
@@ -120,6 +122,21 @@ theorem inferFlags_typeIsProp {ctx : List Declaration}
       obtain ⟨-, rfl, rfl⟩ := he
       exact hhd
     · exact inferFlags_typeIsProp henv htl hm'
+
+/-- **A sound flag inference**: its accept, at a context whose parts below every name are well
+formed, makes every recorded statement resolve over the part below its name and be `TypeIsProp`
+there.  The reach is proved over any such inference (`reachWith`); the binary's is `inferFlags`
+(`inferFlags_flagsOk`). -/
+@[expose] def FlagsOk (fl : FlagInfer) : Prop :=
+  ∀ {ctx : List Declaration}, (∀ y, EnvWF (streamEnv (ctxPart ctx y))) →
+    ∀ {ps : List (String × Name × ConstantVal)}, fl ctx ps = .ok () →
+      ∀ {w : String} {y : Name} {cv : ConstantVal}, (w, y, cv) ∈ ps →
+        cv.type.constsResolve (streamEnv (ctxPart ctx y)) = true ∧
+          TypeIsProp .verified (streamEnv (ctxPart ctx y)) cv.type
+
+/-- **The binary's inference is sound** (`inferFlags_typeIsProp`). -/
+theorem inferFlags_flagsOk : FlagsOk inferFlags := fun henv _ h _ _ _ hm =>
+  (inferFlags_typeIsProp henv h hm).2
 
 /-! ## A prefix of a context in read order -/
 
@@ -327,10 +344,10 @@ module whose context is the worker's: name-distinct, in read order, well formed.
 theorem typeIsProp_part {m : Module}
     (hord : ∀ k (hk : k < m.ctx.length), RecordScoped (streamEnv (m.ctx.take (k + 1))) m.ctx[k])
     (hwf : EnvWF m.context)
-    {ps : List (String × Name × ConstantVal)} (hfl : inferFlags m.ctx ps = .ok ())
+    {fl : FlagInfer} (hok : FlagsOk fl)
+    {ps : List (String × Name × ConstantVal)} (hfl : fl m.ctx ps = .ok ())
     {w : String} {y : Name} {cv : ConstantVal} (hmem : (w, y, cv) ∈ ps) :
-    cv.type.constsResolve (m.part y) = true ∧ TypeIsProp .verified (m.part y) cv.type := by
-  obtain ⟨-, h1, h2⟩ := inferFlags_typeIsProp (fun y => envWF_prefix hord hwf) hfl hmem
-  exact ⟨h1, h2⟩
+    cv.type.constsResolve (m.part y) = true ∧ TypeIsProp .verified (m.part y) cv.type :=
+  hok (fun _ => envWF_prefix hord hwf) hfl hmem
 
 end ConLeche.Driver

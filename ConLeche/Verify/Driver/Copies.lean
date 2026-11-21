@@ -407,7 +407,7 @@ theorem own_reads_ctx {sp : Roots} {fs : FS} {M : Name} {jobs : Nat} {w : Worker
       (fun s c => (pinFootprint c.name).foldl (fun s n => s.insert n) s)
       ({} : Std.HashSet Name)).contains y) = true) :
     ((streamEnv w.reach.ctx.toList).find? y).isSome = true := by
-  obtain ⟨_, _, hr⟩ := hw.reach
+  obtain ⟨_, _, _, _, hr⟩ := hw.reach
   refine (reach_ok hr).2.2.2.2 y ?_ ho
   show y ∈ ownRoots w.reads.index w.home w.emitted
   unfold ownRoots

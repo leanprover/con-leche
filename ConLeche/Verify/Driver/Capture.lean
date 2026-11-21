@@ -1800,7 +1800,7 @@ theorem reach_capture {sp : Roots} {fs : FS} {m : Name} {wr : WorkerReads}
     (hindex : ∀ m i, wr.loads.index[m]? = some i → wr.loads.nameAt i = m)
     (hsize : wr.index.parts.size ≤ wr.loads.order.size)
     (hcm : ∀ cl ∈ wr.clashes, ∀ x ∈ cl.copies, x.1.mod < wr.loads.order.size)
-    {hs hs' : HS} (h : (reach (.ofPath sp) m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
+    {hs hs' : HS} {fl : FlagInfer} (h : (reachWith fl (.ofPath sp) m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
     let env : ReachEnv ModelIO := { rd := .ofPath sp, mod := m, wr, own, copies := clashCopiesOf wr }
     ∃ (loc : Std.HashMap Name Spot) (pend : List (String × Name × ConstantVal))
       (P : List (Name × Name)),
@@ -1813,13 +1813,13 @@ theorem reach_capture {sp : Roots} {fs : FS} {m : Name} {wr : WorkerReads}
           ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
       (∀ x ∈ P, Passed sp fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
       (∀ cl ∈ wr.clashes, ClashOk sp fs wr (· ∈ pend) cl) ∧
-      inferFlags r.ctx.toList pend = .ok () ∧
+      fl r.ctx.toList pend = .ok () ∧
       (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧ s.part.level = .private ∧
         CopyAt sp fs s ∧ Reached sp fs wr s.part.mod ∧ s.pos.name = y) ∧
       (∀ x ∈ P, Reached sp fs wr x.1 ∧ Origin sp fs env r.ctx r.homes x) := by
   intro env
   have he : EnvOk sp fs env := ⟨rfl, hparts, hindex⟩
-  unfold reach at h
+  unfold reachWith at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨⟨c, x⟩, _, hx, h⟩ := h
   have hc := clashAgree_ok he {} _ #[] (CacheOk.empty sp fs) _ _ hx
@@ -1860,7 +1860,7 @@ theorem reach_capture {sp : Roots} {fs : FS} {m : Name} {wr : WorkerReads}
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList
+    cases hf : fl (o.map (L.ctx.getD · default)).toList
       c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>

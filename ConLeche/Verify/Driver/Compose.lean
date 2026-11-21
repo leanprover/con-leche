@@ -636,7 +636,7 @@ theorem capture {M : Name} (hM : M ∈ R.names) :
           ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
       (∀ x ∈ P, Passed (R.look M) fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
       (∀ cl ∈ wr.clashes, ClashOk (R.look M) fs wr (· ∈ pend) cl) ∧
-      inferFlags r.ctx.toList pend = .ok () ∧
+      (∃ fl, FlagsOk fl ∧ fl r.ctx.toList pend = .ok ()) ∧
       (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
         s.part.level = .private ∧ CopyAt (R.look M) fs s ∧ Reached (R.look M) fs wr s.part.mod ∧ s.pos.name = y) ∧
       (∀ x ∈ P, Reached (R.look M) fs wr x.1 ∧ Origin (R.look M) fs env r.ctx r.homes x) := by
@@ -645,9 +645,11 @@ theorem capture {M : Name} (hM : M ∈ R.names) :
   obtain ⟨_, _, hrd⟩ := hw.reads
   obtain ⟨hparts, hindex⟩ := workerReads_index hrd
   obtain ⟨-, -, -, -, hsize, -, -, hcm⟩ := workerReads_loads hrd
-  obtain ⟨_, _, hre⟩ := hw.reach
-  exact reach_capture hparts hindex (Nat.le_of_eq hsize)
+  obtain ⟨fl, hfl, _, _, hre⟩ := hw.reach
+  obtain ⟨loc, pend, P, h1, h2, h3, h4, h5, h6, h7⟩ := reach_capture hparts hindex
+    (Nat.le_of_eq hsize)
     (fun cl hcl x hx => hcm cl (Array.mem_toList_iff.2 hcl) x (Array.mem_toList_iff.2 hx)) hre
+  exact ⟨loc, pend, P, h1, h2, h3, h4, ⟨fl, hfl, h5⟩, h6, h7⟩
 
 /-- **Every home of a context record is a module of the run of smaller rank.** -/
 theorem home_rank {M : Name} (hM : M ∈ R.names) {k : Nat} {h : Name}

@@ -1322,13 +1322,13 @@ theorem reach_from {sp : Roots} {fs : FS} {m : Name} {wr : WorkerReads}
     (hparts : ∀ i t, wr.index.parts[i]? = some t →
       PartNames sp fs ⟨wr.loads.nameAt i, ((wr.loads.flags[i]?).getD default).level⟩ t)
     (hindex : ∀ m i, wr.loads.index[m]? = some i → wr.loads.nameAt i = m)
-    {hs hs' : HS} (h : (reach (.ofPath sp) m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
+    {hs hs' : HS} {fl : FlagInfer} (h : (reachWith fl (.ofPath sp) m wr own roots : ModelIO _) fs hs (.ok (.ok r)) hs') :
     r.ctx.size = r.homes.size ∧
       ∀ (i : Nat) (d : Declaration) (hm : Name), r.ctx[i]? = some d → r.homes[i]? = some hm →
         RecordFrom sp fs d hm := by
   have he : EnvOk sp fs { rd := .ofPath sp, mod := m, wr, own, copies := clashCopiesOf wr } :=
     ⟨rfl, hparts, hindex⟩
-  unfold reach at h
+  unfold reachWith at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨⟨c, x⟩, _, hx, h⟩ := h
   have hc := clashAgree_ok he {} _ #[] (CacheOk.empty sp fs) _ _ hx
@@ -1354,7 +1354,7 @@ theorem reach_from {sp : Roots} {fs : FS} {m : Name} {wr : WorkerReads}
     cases hv : validateCtx (o.map (L.ctx.getD · default)) (o.map (L.homes.getD · default)) with
     | error e => rw [hv] at h; simp at h
     | ok u =>
-    cases hf : inferFlags (o.map (L.ctx.getD · default)).toList
+    cases hf : fl (o.map (L.ctx.getD · default)).toList
       c'.pending.toList with
     | error e => rw [hv] at h; simp only at h; rw [hf] at h; simp at h
     | ok u' =>

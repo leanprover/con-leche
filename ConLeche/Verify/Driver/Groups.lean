@@ -774,7 +774,7 @@ theorem worker_presented {sp sp' L : Roots} {fs : FS} {m : Name} {jobs : Nat} {w
     {jobs' : Nat} {w' : WorkerRead} (hw' : WorkerFacts sp' fs h jobs' w') :
     ∃ p ∈ w'.own.toList.map (fillDecl (fillOf sp' fs #[⟨h, w'.home.frontier⟩])), Presents d p := by
   obtain ⟨_, _, hrd⟩ := hw.reads
-  obtain ⟨_, _, hre⟩ := hw.reach
+  obtain ⟨_, _, _, _, hre⟩ := hw.reach
   obtain ⟨hparts, hindex⟩ := workerReads_index hrd
   obtain ⟨-, hfrom⟩ := reach_from hparts hindex hre
   obtain ⟨f, hf, -⟩ := hw'.home
@@ -789,7 +789,7 @@ theorem worker_home {sp : Roots} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRe
     (hw : WorkerFacts sp fs m jobs w x) {d : Declaration} (hd : d ∈ w.reach.ctx.toList) :
     ∃ (i : Nat) (h : Name), w.reach.ctx[i]? = some d ∧ w.reach.homes[i]? = some h := by
   obtain ⟨_, _, hrd⟩ := hw.reads
-  obtain ⟨_, _, hre⟩ := hw.reach
+  obtain ⟨_, _, _, _, hre⟩ := hw.reach
   obtain ⟨hparts, hindex⟩ := workerReads_index hrd
   obtain ⟨hsz, -⟩ := reach_from hparts hindex hre
   obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hd

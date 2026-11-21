@@ -544,9 +544,10 @@ end
 
 theorem reach_within {fs₁ fs₂ : FS} {rd : OleanReads ModelIO} {sp : Roots}
     (h : OleanReads.Within fs₁ fs₂ rd sp) (m : Name) (wr : WorkerReads) (own : Std.HashSet Name)
-    (roots : Array Name) :
-    ModelIO.Within fs₁ fs₂ (reach rd m wr own roots) (reach (.ofPath sp) m wr own roots) := by
-  simp only [reach]
+    (roots : Array Name) {fl : FlagInfer} :
+    ModelIO.Within fs₁ fs₂ (reachWith fl rd m wr own roots)
+      (reachWith fl (.ofPath sp) m wr own roots) := by
+  simp only [reachWith]
   have hc := clashAgree_within (env := { rd, mod := m, wr, own, copies := clashCopiesOf wr })
     (sp := sp) h {} wr.clashes.toList #[]
   have hg := reachGo_within (env := { rd, mod := m, wr, own, copies := clashCopiesOf wr })

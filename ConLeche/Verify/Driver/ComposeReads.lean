@@ -65,7 +65,7 @@ passed reads `P` (`Run.capture`'s statement). -/
       ∀ y ∈ (needsGo {} #[] kc.2.type).2, (kc.1, y) ∈ P)) ∧
   (∀ x ∈ P, Passed (R.look M) fs env loc (· ∈ pend) (· ∈ P) x.1 x.2) ∧
   (∀ cl ∈ wr.clashes, ClashOk (R.look M) fs wr (· ∈ pend) cl) ∧
-  inferFlags r.ctx.toList pend = .ok () ∧
+  (∃ fl, FlagsOk fl ∧ fl r.ctx.toList pend = .ok ()) ∧
   (∀ (y : Name) (s : Spot), loc[y]? = some s → importerSpot env y = none ∧
     s.part.level = .private ∧ CopyAt (R.look M) fs s ∧ Reached (R.look M) fs wr s.part.mod ∧ s.pos.name = y) ∧
   (∀ x ∈ P, Reached (R.look M) fs wr x.1 ∧ Origin (R.look M) fs env r.ctx r.homes x)

@@ -149,10 +149,10 @@ theorem thm_of_status {a : Roots} (ha : a.Trims sp) {y T : Name} (hT : T ∈ R.n
 theorem prop_of_pending {M : Name} (hM : M ∈ R.names) {w : String} {y : Name} {cv : ConstantVal}
     (hmem : (w, y, cv) ∈ (R.cap M).2.1) :
     TypeIsProp .verified ((R.dev (R.rk M)).part y) cv.type := by
-  obtain ⟨-, -, -, -, hfl, -⟩ := R.cap_facts hM
+  obtain ⟨-, -, -, -, ⟨fl, hok, hfl⟩, -⟩ := R.cap_facts hM
   have hw := worker_ctx (R.facts M hM)
   exact (typeIsProp_part (m := R.dev (R.rk M))
-    (by rw [R.dev_rk hM]; exact hw.1) (by rw [R.dev_rk hM]; exact hw.2.2.2.1)
+    (by rw [R.dev_rk hM]; exact hw.1) (by rw [R.dev_rk hM]; exact hw.2.2.2.1) hok
     (by rw [R.dev_rk hM]; exact hfl) hmem).2
 
 /-- **The importer's copy at a module is its index's first copy.** -/
