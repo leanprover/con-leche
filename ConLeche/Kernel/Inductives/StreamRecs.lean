@@ -195,14 +195,90 @@ def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
 /-- **The records' K flags against the block**: each record's flag is the
 one the generated recursor has (`recKExpected`).  What the flag says is
 then a fact about the block, so nothing of the model reads the record for
-it; a difference is a real disagreement of the stream, exit 1. -/
+it; a difference is a real disagreement of the stream, exit 1.  At a block
+whose recursors carry no rules (`BlockShape.noRules`), a record with rules is
+rejected here, with its reason. -/
 def streamKCheck (p : BlockShape) :
     List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
   | rc :: rcs, g :: gs => do
+    if p.noRules && !rc.rules.isEmpty then
+      throw (.invalid s!"the recursor {rc.cvR.name} carries reduction rules, but its block \
+        has no large eliminator (hasLargeElim is false), so its recursors have none")
     unless rc.isK == recKExpected p g.2.1 do
       throw (.invalid s!"recursor {rc.cvR.name} declares k := {rc.isK}; the generated recursor \
         of this block is{if recKExpected p g.2.1 then "" else " not"} K-like")
     streamKCheck p rcs gs
   | _, _ => pure ()
+
+/-! ## The declared feature flags -/
+
+/-- The block's name in a message: its first type's. -/
+def BlockShape.headName (p : BlockShape) : Name :=
+  (p.members.head?.map (·.cvT.name)).getD .anonymous
+
+/-- **One member's flags** (official's checks of lean4 PR #16595): `isK` only at the first
+member of a block of one, a proposition with one constructor without fields; `hasProjections`
+only at one constructor, no index, not impredicative; `hasEta` only with `hasProjections`, at a
+block that is not recursive. -/
+def memberFlagsCheck (p : BlockShape) (isRec : Bool) (i : Nat) (ms : MemberShape)
+    (f : IndFlags) : Except CheckError Unit := do
+  if f.isK && !(i == 0 && p.k == 1 && p.isProp &&
+      (match ms.ctors with | [c] => c.2 == 0 | _ => false)) then
+    throw (.invalid s!"inductive type {ms.cvT.name} is declared with K-like reduction (isK), \
+      but it is not a proposition alone in its block with one constructor without fields")
+  if f.hasProjections && !(ms.ctors.length == 1 && ms.nIdx == 0 && !f.isImpredicative) then
+    throw (.invalid s!"inductive type {ms.cvT.name} is declared with projections \
+      (hasProjections), but it does not have exactly one constructor and no indices, or it is \
+      impredicative")
+  if f.hasEta && !(f.hasProjections && !isRec) then
+    throw (.invalid s!"inductive type {ms.cvT.name} is declared with eta (hasEta), but it has \
+      no projections or is recursive")
+
+/-- The members' flags, from position `i` on. -/
+def membersFlagsCheck (p : BlockShape) (isRec : Bool) :
+    Nat → List MemberShape → List IndFlags → Except CheckError Unit
+  | i, ms :: rest, f :: fs => do
+    memberFlagsCheck p isRec i ms f
+    membersFlagsCheck p isRec (i + 1) rest fs
+  | _, _, _ => pure ()
+
+/-- **The block's declared feature flags, validated** (lean4 PR #16595; nothing at a block
+without them).  The flags are the stream's, never recomputed; each must be allowed:
+`isImpredicative` and `hasLargeElim` agree across the block; `isImpredicative` only at a
+proposition; `hasLargeElim` is what the recursor records eliminate at, and is allowed only at a
+block that is not impredicative and whose sort is never zero, or of one type with no
+constructor, or with one constructor and `hasEta` or `isK`; the members' own flags
+(`memberFlagsCheck`).  A nested occurrence of a proposition with one constructor without fields
+is rejected: official's auxiliary type would copy its `isK` without being the block's first
+type.  `isRec` is official's `is_rec` (`blockIsRec`), `Ms` the classes the recursors
+eliminate. -/
+def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor) :
+    Except CheckError Unit :=
+  match p.flags with
+  | none => pure ()
+  | some fl => do
+    let f0 := fl.headD default
+    unless fl.length == p.k do
+      throw (.internal s!"inductive block {p.headName}: flags for {fl.length} of {p.k} types")
+    unless fl.all fun f => f.isImpredicative == f0.isImpredicative &&
+        f.hasLargeElim == f0.hasLargeElim do
+      throw (.invalid s!"inductive block {p.headName}: its types disagree on isImpredicative \
+        or hasLargeElim")
+    if f0.isImpredicative && !p.isProp then
+      throw (.invalid s!"inductive block {p.headName} is declared impredicative \
+        (isImpredicative), but its type is not a proposition")
+    unless f0.hasLargeElim == p.large do
+      throw (.invalid s!"inductive block {p.headName}: hasLargeElim is {f0.hasLargeElim}, but \
+        its recursors eliminate {if p.large then "into every universe" else "into Prop only"}")
+    if f0.hasLargeElim && !(!f0.isImpredicative && (p.resSort.isNeverZero ||
+        (p.k == 1 && (p.numCtors == 0 || (p.numCtors == 1 && (f0.hasEta || f0.isK)))))) then
+      throw (.invalid s!"inductive block {p.headName} is declared with a large eliminator \
+        (hasLargeElim), but it may be a proposition and is not a single type with no \
+        constructor, or with one constructor that has eta or K-like reduction")
+    membersFlagsCheck p isRec 0 p.members fl
+    for M in Ms do
+      if M.member.isNone && p.isProp && (match M.ctors with | [c] => c.2 == 0 | _ => false) then
+        throw (.invalid s!"inductive block {p.headName} nests {M.ind}, a proposition with one \
+          constructor without fields; its K-like reduction cannot be kept inside the block")
 
 end ConLeche

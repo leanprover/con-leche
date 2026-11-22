@@ -103,12 +103,13 @@ holding the generated ones) and the block's projection tables `Q`. -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
     (Q : List ProjTable) : m Unit := do
   let p := q.p
+  ofExcept (blockFlagsCheck p (blockIsRec p) q.cls)
   checkBlockIdxSorts ops q.env₁ p p.members
   let env₂ := consBlockCtors p.nP p.ctorGroups q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p q.kinds) q.params
     q.tbl.toList q.rd q.cls block
   streamKCheck p p.recs out
-  streamRecsCheck ops (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out
+  streamRecsCheck ops (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs (p.ruleOut out)
   checkBlockTables env₂ Q
 
 /-! ## The block's check -/
@@ -158,7 +159,7 @@ def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p�
     throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let ms ← reduceMembers ops env p₀.nP p₀.members
   let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
-  let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
+  let Q ← unwrapOr (blockTables p₀ p₀.projMembers) (.internal "direct structure: projection bodies")
   checkBlockTail ops block q Q
   pure (env.pushDelta (blockConstants p₀) Q)
 

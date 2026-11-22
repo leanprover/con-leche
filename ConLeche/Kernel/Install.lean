@@ -94,7 +94,7 @@ def declConstants : Declaration → List ConstantInfo
 def declTables : Declaration → List ProjTable
   | .indDecl block nP =>
     match readBlock nP block with
-    | .ok p => (blockTables p p.members).getD []
+    | .ok p => (blockTables p p.projMembers).getD []
     | .error _ => []
   | _ => []
 

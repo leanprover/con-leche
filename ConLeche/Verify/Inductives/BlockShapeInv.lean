@@ -122,7 +122,7 @@ theorem blockMembers_proj {cvTs : List ConstantVal} :
 
 /-! ## The recogniser -/
 
-/-- **What `readBlock` pins of the block's data** (`readBlock_inv`).
+/-- **What `readBlock` pins of the block's data** (`readBlockShape_inv`, `readBlock_inv`).
 The existential is the recogniser's
 reading, verbatim: the split into type formers, constructors and recursor records, the
 members' index counts, the members as the formers zipped with their
@@ -226,11 +226,11 @@ private theorem readBlock_inv_aux {nPd : Nat} {block : List ConstantInfo}
   · rw [hnames, hlpsP, hnP, hk]; exact hmembers
   · rw [hnames]; exact hrecs
 
-/-- **`readBlock` pins the block's data** (`BlockShapeOk`). -/
-theorem readBlock_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
-    (h : readBlock nPd block = .ok p) :
+/-- **`readBlockShape` pins the block's data** (`BlockShapeOk`). -/
+theorem readBlockShape_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : readBlockShape nPd block = .ok p) :
     BlockShapeOk nPd block p := by
-  unfold readBlock at h
+  unfold readBlockShape at h
   obtain ⟨cvTs, cs, rs, hsp⟩ :
       ∃ cvTs cs rs, blockSplit block = some (cvTs, cs, rs) := by
     cases hs : blockSplit block with
@@ -307,6 +307,29 @@ theorem readBlock_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     · rw [← hp]; intro _; rfl
     · rw [← hp]
     · rw [← hp]
+
+/-- **`readBlock` is the shape with the declared flags.** -/
+theorem readBlock_shape {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : readBlock nPd block = .ok p) :
+    ∃ p₀ fl, readBlockShape nPd block = .ok p₀ ∧ blockFlagsOf block = .ok fl ∧
+      p = { p₀ with flags := fl } := by
+  unfold readBlock at h
+  cases h₀ : readBlockShape nPd block with
+  | error e => rw [h₀] at h; exact nomatch h
+  | ok p₀ =>
+    rw [h₀] at h
+    cases hf : blockFlagsOf block with
+    | error e => simp [hf] at h; exact nomatch h
+    | ok fl =>
+      simp only [hf] at h
+      exact ⟨p₀, fl, rfl, rfl, (Except.ok.inj h).symm⟩
+
+/-- **`readBlock` pins the block's data** (`BlockShapeOk`). -/
+theorem readBlock_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : readBlock nPd block = .ok p) :
+    BlockShapeOk nPd block p := by
+  obtain ⟨p₀, fl, h₀, -, rfl⟩ := readBlock_shape h
+  exact readBlockShape_inv (p := p₀) h₀
 
 /-- The recogniser's members stand at their declared formers. -/
 theorem readBlock_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}

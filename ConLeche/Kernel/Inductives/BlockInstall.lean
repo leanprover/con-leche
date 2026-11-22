@@ -71,7 +71,7 @@ official's `!is_rec` is load-bearing.) -/
 def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
-    { eta := nIdx == 0 && !isRec
+    { eta := nIdx == 0 && !isRec && p.etaAt mi
       all := p.memberNames
       nparams := p.nP
       nIdx := nIdx
@@ -204,7 +204,7 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env)
   | [] => pure ()
   | ms :: rest => do
     checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
-      p.resSort p.isProp p.large ms.cvT ms.ctors
+      p.resSort p.fieldsProp p.large ms.cvT ms.ctors
     checkBlockCtors ops env₀ env p rest
 
 /-! ## Positivity: the ONE function, on the stored constructors

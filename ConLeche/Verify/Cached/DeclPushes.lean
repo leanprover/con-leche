@@ -326,7 +326,7 @@ theorem checkBlockCtorsC_fresh (mode : CheckMode) (fe₀ fe : FEnv) (p : BlockSh
   | ms :: rest => by
     unfold checkBlockCtorsC
     refine Yields.bind' (checkSumCtorsC_fresh mode fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort
-      p.isProp p.large ms.cvT ms.ctors) fun _ hfr => ?_
+      p.fieldsProp p.large ms.cvT ms.ctors) fun _ hfr => ?_
     refine (checkBlockCtorsC_fresh mode fe₀ fe p rest).mono ?_
     intro _ hfr' ms' hms' c hc
     rcases List.mem_cons.mp hms' with rfl | hms'
@@ -632,10 +632,10 @@ theorem checkQuotRecordC_pushes (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
 theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List ConstantInfo)
     (p : BlockShape) :
     Yields (checkBlockKS mode fe block p)
-      (· = FEnv.pushDelta (blockConstants p) ((blockTables p p.members).getD []) fe) := by
+      (· = FEnv.pushDelta (blockConstants p) ((blockTables p p.projMembers).getD []) fe) := by
   unfold checkBlockKS
   rw [blockTablesC_eq, blockConstantsC_eq]
-  cases blockTables p p.members <;> simp only [unwrapOr, Option.getD, pure_bind] <;> yields
+  cases blockTables p p.projMembers <;> simp only [unwrapOr, Option.getD, pure_bind] <;> yields
   all_goals first | exact Yields.pure rfl | exact Yields.ofThrow
 
 /-- **A declaration's own checks push what it installs**, at every mode. -/

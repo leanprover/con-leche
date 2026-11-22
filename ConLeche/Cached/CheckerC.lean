@@ -58,7 +58,7 @@ def blockTablesC (p : BlockShape) : List MemberShape → Option (List ProjTable)
 def declTablesC : Declaration → List ProjTable
   | .indDecl block nP =>
     match readBlock nP block with
-    | .ok p => (blockTablesC p p.members).getD []
+    | .ok p => (blockTablesC p p.projMembers).getD []
     | .error _ => []
   | _ => []
 
@@ -238,6 +238,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
     CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
+  ofExcept (blockFlagsCheck p (blockIsRec p) cls)
   checkBlockIdxSortsC mode env₁ p p.members
   let fe₂ := consBlockCtorsF p.nP p.ctorGroups env₁
   flushC
@@ -247,7 +248,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   streamKCheck p p.recs out
   let feG := fe₂.overlay (blockRecInfosTC p 0 out).reverse
   flushC
-  streamRecsCheckC mode feG p.recs out
+  streamRecsCheckC mode feG p.recs (p.ruleOut out)
   flushC
   checkBlockTablesC fe₂ Q
 
@@ -283,7 +284,7 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
   let ms ← reduceMembersS mode fe p₀.nP p₀.members
   flushC
   let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRecC p₀)
-  let Q ← unwrapOr (blockTablesC p₀ p₀.members) (.internal "direct structure: projection bodies")
+  let Q ← unwrapOr (blockTablesC p₀ p₀.projMembers) (.internal "direct structure: projection bodies")
   checkBlockTailS mode block q Q
   pure (FEnv.pushDelta (blockConstantsC p₀) Q fe)
 

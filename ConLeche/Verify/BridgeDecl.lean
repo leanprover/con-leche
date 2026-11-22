@@ -81,6 +81,10 @@ theorem unwrapOr_atF {α : Type} (o : Option α) (e : CheckError)
     (unwrapOr o e : FueledM α).val F = (unwrapOr o e : CheckM α) := by
   cases o <;> rfl
 
+theorem ofExcept_atF {α : Type} (r : Except CheckError α) (F : Nat) :
+    (ofExcept r : FueledM α).val F = (ofExcept r : CheckM α) := by
+  cases r <;> rfl
+
 theorem fueledOpsM_inferType_atF (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
     ((fueledOpsM mode).inferType env d a).val F =
@@ -1005,8 +1009,8 @@ theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
       checkBlockTail (fueledOps mode F) block q Q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF, streamRecsCheck_datF,
-    checkBlockTables_datF]
+    ofExcept_atF, checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF,
+    streamRecsCheck_datF, checkBlockTables_datF]
 
 
 theorem reduceMember_datF (env : Env) (nP : Nat) (ms : MemberShape) (F : Nat) :
