@@ -18,7 +18,7 @@ real checker #src("ConLeche/Rules/Rel.lean", 174, 189)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 676, 684)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
-#src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
+#src("ConLeche/Model/Inductives/BlockStageTables.lean", 11, 13)[the
 install of the table] establishes
 (#src("ConLeche/Model/Inductives/FixKit.lean", 667, 672)[its typing
 and ι laws]).]
@@ -103,7 +103,7 @@ executable instead builds
 #src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
 and checks them in parallel, each against the index's view of the
 declarations before it\;
-#src("ConLeche/Verify/Cached/StreamIndex.lean", 527, 531)[every check passing is an accept of the fold],
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 529, 533)[every check passing is an accept of the fold],
 which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>

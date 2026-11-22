@@ -172,7 +172,7 @@ not a rule of its relations.
   index-free type (@sec:left-out, "Projections")
   (#src("ConLeche/Model/Inductives/FixKit.lean", 673, 674)[a member is the constructor at the parameters and its own projections]).
   It is proved when
-  #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the checker stores the table],
+  #src("ConLeche/Model/Inductives/BlockStageTables.lean", 11, 13)[the checker stores the table],
   by the argument above on the tagged tuple.
 ]
 
