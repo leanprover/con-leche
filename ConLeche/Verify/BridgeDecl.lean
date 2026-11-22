@@ -470,6 +470,13 @@ theorem checkBlockCtors_datF (env₀ env : Env) (p : BlockShape)
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtors_datF,
       checkBlockCtors_datF env₀ env p F rest]
 
+theorem checkBlockBound_datF (env : Env) (p : BlockShape) (F : Nat) :
+    (checkBlockBound (fueledOpsM mode) env p).val F = checkBlockBound (fueledOps mode F) env p := by
+  unfold checkBlockBound
+  split
+  · exact checkBlockCtors_datF env env _ F _
+  · rfl
+
 theorem checkBlockIdxSorts_datF (env₁ : Env) (p : BlockShape) (F : Nat) :
     ∀ l : List MemberShape,
       (checkBlockIdxSorts (fueledOpsM mode) env₁ p l).val F =
@@ -1009,7 +1016,7 @@ theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
       checkBlockTail (fueledOps mode F) block q Q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    ofExcept_atF, checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF,
+    ofExcept_atF, checkBlockBound_datF, checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF,
     streamRecsCheck_datF, checkBlockTables_datF]
 
 

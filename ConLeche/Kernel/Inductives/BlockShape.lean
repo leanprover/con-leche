@@ -162,19 +162,15 @@ recursors eliminate into `Prop` only and do not reduce. -/
 def BlockShape.noRules (p : BlockShape) : Bool :=
   (p.flagAt 0).any (!·.hasLargeElim)
 
-/-- **A proposition whose fields have the ordinary universe bound**: a flagged `Prop` block that
-is not `isImpredicative`, whose fields must then be propositions (official: a field's sort is at
-most the result sort unless the block is impredicative). -/
+/-- **A proposition whose fields take the ordinary universe bound**: a flagged `Prop` block that
+is not `isImpredicative` and has no large eliminator.  Official bounds a field's sort by the
+result sort unless the block is impredicative, so its fields must be propositions; the
+constructors' stage, which exempts every proposition, is run again at the bound
+(`checkBlockTail`).  With a large eliminator the stage's per-field criterion is that bound
+already: `hasLargeElim` at a possible `Prop` needs `hasEta` (no index, so no index escape) or
+`isK` (no field). -/
 def BlockShape.boundedProp (p : BlockShape) : Bool :=
-  p.isProp && (p.flagAt 0).any (!·.isImpredicative)
-
-/-- **The `isProp` the constructors' field-sort walk runs at** (`checkStructFieldSortsI`): the
-block's, except at a `boundedProp` block without a large eliminator, which takes the ordinary
-bound `u ≤ s`.  A `boundedProp` block WITH a large eliminator keeps the per-field criterion,
-which is the bound there: `hasLargeElim` at a possible `Prop` needs `hasEta` (no index, so no
-index escape) or `isK` (no field). -/
-def BlockShape.fieldsProp (p : BlockShape) : Bool :=
-  p.isProp && !(p.boundedProp && !p.large)
+  p.isProp && !p.large && (p.flagAt 0).any (!·.isImpredicative)
 
 /-- **May member `i` have projections?** Its `hasProjections`; always, at a block without flags. -/
 def BlockShape.projAllowed (p : BlockShape) (i : Nat) : Bool :=
@@ -451,16 +447,11 @@ def blockFlagRecs : List ConstantInfo → List (Option IndFlags)
   | .indInfo _ caps :: rest => caps.flags :: blockFlagRecs rest
   | _ => []
 
-/-- **The block's declared feature flags**: `none` when no type record carries them, every
-record's when all do.  A block where some records carry them and others do not is invalid
-input. -/
-def blockFlagsOf (block : List ConstantInfo) : Except CheckError (Option (List IndFlags)) :=
-  let fs := blockFlagRecs block
-  if fs.all (·.isNone) then .ok none
-  else match fs.mapM id with
-    | some fl => .ok (some fl)
-    | none => .error (.invalid s!"inductive block {(block.head?.map (·.name)).getD .anonymous}: \
-        some of its types declare feature flags and others do not")
+/-- **The block's declared feature flags**: every type record's, when all carry them;
+`none` otherwise.  The frontend rejects a block where some records carry them and others do
+not, so the fold never sees one. -/
+def blockFlagsOf (block : List ConstantInfo) : Option (List IndFlags) :=
+  (blockFlagRecs block).mapM id
 
 /-- **Read a declared inductive block's shape**: the members with their counts, the shared
 parameter count, the result sort read off member 0 (or the placeholder
@@ -539,9 +530,7 @@ def readBlockShape (nPd : Nat) (block : List ConstantInfo) : Except CheckError B
 
 /-- **Read a declared inductive block**: its shape (`readBlockShape`) and the feature flags its
 type records declare (`blockFlagsOf`). -/
-def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape := do
-  let p ← readBlockShape nPd block
-  let fl ← blockFlagsOf block
-  pure { p with flags := fl }
+def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
+  (readBlockShape nPd block).map ({ · with flags := blockFlagsOf block })
 
 end ConLeche

@@ -183,8 +183,13 @@ def checkBlockCtorsC (fe₀ fe : FEnv) (p : BlockShape) : List MemberShape → C
   | [] => pure ()
   | ms :: rest => do
     checkSumCtorsC mode fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
-      p.resSort p.fieldsProp p.large ms.cvT ms.ctors
+      p.resSort p.isProp p.large ms.cvT ms.ctors
     checkBlockCtorsC fe₀ fe p rest
+
+/-- The cached `checkBlockBound`. -/
+def checkBlockBoundC (fe : FEnv) (p : BlockShape) : CheckCM Unit :=
+  if p.boundedProp then checkBlockCtorsC mode fe fe { p with isProp := false } p.members
+  else pure ()
 
 /-- The cached `checkBlockIdxSorts` (the tail's index sorts), over
 positivity's `checkStructFieldSortsIC`. -/

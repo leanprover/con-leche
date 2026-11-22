@@ -346,7 +346,8 @@ theorem blockInstall_pinned {nP : Nat} {block : List ConstantInfo} {kind : Basis
     (hp : readBlock nP block = .ok p) :
     blockConstants p = kind.storedAt block ∧ blockTables p p.projMembers = some [] := by
   simp only [pinListOk, Bool.and_eq_true] at hok
-  obtain ⟨p₀, fl, h₀, -, rfl⟩ := readBlock_shape hp
+  obtain ⟨p₀, h₀, rfl⟩ := readBlock_shape hp
+  generalize blockFlagsOf block = fl
   have tab : blockTables p₀ p₀.members = some [] →
       blockTables { p₀ with flags := fl } { p₀ with flags := fl }.projMembers = some [] :=
     fun h => blockTables_projMembersFrom_nil _ _ p₀.members 0 (by rw [blockTables_flags]; exact h)

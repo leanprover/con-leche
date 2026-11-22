@@ -326,7 +326,7 @@ theorem checkBlockCtorsC_fresh (mode : CheckMode) (fe₀ fe : FEnv) (p : BlockSh
   | ms :: rest => by
     unfold checkBlockCtorsC
     refine Yields.bind' (checkSumCtorsC_fresh mode fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort
-      p.fieldsProp p.large ms.cvT ms.ctors) fun _ hfr => ?_
+      p.isProp p.large ms.cvT ms.ctors) fun _ hfr => ?_
     refine (checkBlockCtorsC_fresh mode fe₀ fe p rest).mono ?_
     intro _ hfr' ms' hms' c hc
     rcases List.mem_cons.mp hms' with rfl | hms'

@@ -89,6 +89,12 @@ def consBlockRecsT
         (recKExpected p M) (generatedRules (p.rulePrefixAt m) M rhss)
         :: env.consts, env.tables⟩
 
+/-- **The ordinary field bound at a `boundedProp` block**: the constructors' stage again, at the
+block taken as no proposition, so that every field's sort is at most the result sort. -/
+def checkBlockBound (ops : CheckerOps m) (env : Env) (p : BlockShape) : m Unit :=
+  if p.boundedProp then checkBlockCtors ops env env { p with isProp := false } p.members
+  else pure ()
+
 /-- **The checks of the block's projection tables** (`blockTables`), at the environment holding
 the formers and the constructors. -/
 def checkBlockTables (env : Env) : List ProjTable → m Unit
@@ -104,6 +110,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPa
     (Q : List ProjTable) : m Unit := do
   let p := q.p
   ofExcept (blockFlagsCheck p (blockIsRec p) q.cls)
+  checkBlockBound ops q.env₁ p
   checkBlockIdxSorts ops q.env₁ p p.members
   let env₂ := consBlockCtors p.nP p.ctorGroups q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p q.kinds) q.params

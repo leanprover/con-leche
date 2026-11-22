@@ -204,7 +204,7 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env)
   | [] => pure ()
   | ms :: rest => do
     checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
-      p.resSort p.fieldsProp p.large ms.cvT ms.ctors
+      p.resSort p.isProp p.large ms.cvT ms.ctors
     checkBlockCtors ops env₀ env p rest
 
 /-! ## Positivity: the ONE function, on the stored constructors

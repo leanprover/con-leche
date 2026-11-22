@@ -90,9 +90,9 @@ theorem freshNames_one {e : Env} {c : ConstantInfo} (h : e.find? c.name = none) 
 theorem checkBlock_pushes {ops : CheckerOps CheckM} {env env' : Env}
     {block : List ConstantInfo} {p₀ : BlockShape}
     (h : checkBlock ops env block p₀ = .ok env') :
-    env' = env.pushDelta (blockConstants p₀) ((blockTables p₀ p₀.members).getD []) := by
+    env' = env.pushDelta (blockConstants p₀) ((blockTables p₀ p₀.projMembers).getD []) := by
   unfold checkBlock at h
-  cases ht : blockTables p₀ p₀.members with
+  cases ht : blockTables p₀ p₀.projMembers with
   | none =>
     simp only [ht, unwrapOr, bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
     repeat' split at h

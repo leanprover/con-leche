@@ -311,24 +311,19 @@ theorem readBlockShape_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockSha
 /-- **`readBlock` is the shape with the declared flags.** -/
 theorem readBlock_shape {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     (h : readBlock nPd block = .ok p) :
-    ∃ p₀ fl, readBlockShape nPd block = .ok p₀ ∧ blockFlagsOf block = .ok fl ∧
-      p = { p₀ with flags := fl } := by
+    ∃ p₀, readBlockShape nPd block = .ok p₀ ∧ p = { p₀ with flags := blockFlagsOf block } := by
   unfold readBlock at h
   cases h₀ : readBlockShape nPd block with
   | error e => rw [h₀] at h; exact nomatch h
   | ok p₀ =>
     rw [h₀] at h
-    cases hf : blockFlagsOf block with
-    | error e => simp [hf] at h; exact nomatch h
-    | ok fl =>
-      simp only [hf] at h
-      exact ⟨p₀, fl, rfl, rfl, (Except.ok.inj h).symm⟩
+    exact ⟨p₀, rfl, (Except.ok.inj h).symm⟩
 
 /-- **`readBlock` pins the block's data** (`BlockShapeOk`). -/
 theorem readBlock_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     (h : readBlock nPd block = .ok p) :
     BlockShapeOk nPd block p := by
-  obtain ⟨p₀, fl, h₀, -, rfl⟩ := readBlock_shape h
+  obtain ⟨p₀, h₀, rfl⟩ := readBlock_shape h
   exact readBlockShape_inv (p := p₀) h₀
 
 /-- The recogniser's members stand at their declared formers. -/
@@ -434,5 +429,31 @@ theorem readBlock_names {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
   · rw [hrecs] at hrc
     obtain ⟨r, hr', rfl⟩ := List.mem_map.mp hrc
     exact hr r hr'
+
+/-- The members that may have projections, from position `i` on, are a sublist. -/
+theorem projMembersFrom_sublist (p : BlockShape) :
+    ∀ (i : Nat) (l : List MemberShape), (projMembersFrom p i l).Sublist l
+  | _, [] => .slnil
+  | i, a :: l => by
+    unfold projMembersFrom
+    split
+    · exact (projMembersFrom_sublist p (i + 1) l).cons_cons a
+    · exact (projMembersFrom_sublist p (i + 1) l).cons a
+
+/-- The members that may have projections are members. -/
+theorem mem_projMembersFrom {p : BlockShape} {m : MemberShape} :
+    ∀ {i : Nat} {l : List MemberShape}, m ∈ projMembersFrom p i l → m ∈ l
+  | _, [], h => nomatch h
+  | i, a :: l, h => by
+    unfold projMembersFrom at h
+    split at h
+    · rcases List.mem_cons.mp h with rfl | h
+      · exact List.mem_cons_self
+      · exact List.mem_cons_of_mem _ (mem_projMembersFrom h)
+    · exact List.mem_cons_of_mem _ (mem_projMembersFrom h)
+
+theorem mem_projMembers {p : BlockShape} {m : MemberShape} (h : m ∈ p.projMembers) :
+    m ∈ p.members :=
+  mem_projMembersFrom h
 
 end ConLeche

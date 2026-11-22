@@ -239,6 +239,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (Q : List P
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
   ofExcept (blockFlagsCheck p (blockIsRec p) cls)
+  checkBlockBoundC mode env₁ p
   checkBlockIdxSortsC mode env₁ p p.members
   let fe₂ := consBlockCtorsF p.nP p.ctorGroups env₁
   flushC
