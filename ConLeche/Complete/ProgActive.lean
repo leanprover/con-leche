@@ -201,8 +201,13 @@ theorem nestFrame_active (hrec : RecPres rec) {prog : List NestHole} {hi : Nat}
   split at h
   · simp at h
   rename_i r hr
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
+  have hst : st' = r.2 := by
+    split at h
+    · split at h
+      · simp at h
+      · simpa [pure, Except.pure] using h.symm
+    · simpa [pure, Except.pure] using h.symm
+  subst hst
   exact nestCtors_active hrec _ _ _ _ _ _ _ _ _ hr
 
 /-- A new frame restores `active` itself, whatever its walk does. -/

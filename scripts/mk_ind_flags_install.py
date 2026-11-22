@@ -120,6 +120,7 @@ emit("inmodel_mutual", "ind_flags_mutual")
 emit("inmodel_nested", "ind_flags_nested")
 emit("direct_fix_nat", "ind_flags_nat")
 emit("indexed_vec", "ind_flags_vec")
+emit("ind_flags_nest_prop", "ind_flags_nest", at("FlagNestTree", isImpredicative=False))
 
 # rejected: the flags do not fit the block, or withdraw what the stream uses
 emit("direct_sum_or", "ind_flags_or_rules_bad", keep_rules=("Or'.rec",))
@@ -138,3 +139,11 @@ emit("inmodel_mutual", "ind_flags_mutual_disagree_bad",
      lambda n, f: f.update(hasLargeElim=not f["hasLargeElim"]) if n == "InModelMutual.B" else None)
 emit("direct_fix_nat", "ind_flags_eq_k_off_bad", at("Eq", isK=False))
 emit("inmodel_mutual", "ind_flags_mixed_block_bad", bare=("InModelMutual.B",))
+# nested through a proposition with projections, impredicative: the auxiliary type would be
+# impredicative with projections
+emit("ind_flags_nest_prop", "ind_flags_nest_impred_proj_bad")
+# nested through an impredicative proposition with a field in `Type`, not impredicative: the
+# auxiliary type's constructor would have a field outside `Prop`
+emit("ind_flags_nest_prop", "ind_flags_nest_bound_bad",
+     lambda n, f: f.update(isImpredicative=False) if n in ("FlagNestTree", "FlagNestExTree")
+     else None)

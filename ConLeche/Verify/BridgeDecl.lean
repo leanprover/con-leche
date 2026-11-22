@@ -290,6 +290,16 @@ theorem nestCtors_datF {F : Nat}
       unwrapOr_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
       nestFields_datF (hrec _), nestCtors_datF hrec ctx env prog hi us ds names holes cs]
 
+theorem nestFrameSorts_datF (env : Env) (sort : Level) (hi : Nat) (F : Nat) :
+    ∀ cs os, (nestFrameSorts (fueledOpsM mode) env sort hi cs os).val F
+      = nestFrameSorts (fueledOps mode F) env sort hi cs os
+  | c :: cs, o :: os => by
+    unfold nestFrameSorts
+    simp only [FueledM.atF_bind, unwrapOr_atF, checkStructFieldSortsI_datF,
+      nestFrameSorts_datF env sort hi F cs os]
+  | [], _ => by unfold nestFrameSorts; rfl
+  | _ :: _, [] => by unfold nestFrameSorts; rfl
+
 theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (nPc : Nat) (grp : List (Name × Expr)) (st : NestState) :
@@ -301,7 +311,8 @@ theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = 
   funext _
   congr 1
   funext q
-  simp only [FueledM.atF_bind, FueledM.atF_pure, nestCtors_datF (fun _ => hrec)]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, nestCtors_datF (fun _ => hrec),
+    nestFrameSorts_datF]
 
 theorem nestContNew_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)

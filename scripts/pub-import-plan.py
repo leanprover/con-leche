@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #630: `BasisBlock.lean`'s statements name `blockSplitRecs` (`Kernel.Install`'s
+    # re-export, `BasisBlock.lean:39`) and reach `BasisKind.installed` by dot-notation
+    # (`EnvPreds`, `:29`); the census attributes them elsewhere since `Positivity` imports
+    # `StructInstall`.  Each measured by demoting it alone (unknown identifier `blockSplitRecs`;
+    # invalid field `installed`).
+    ('ConLeche.Verify.BasisBlock', 'ConLeche.Kernel.Install'),
+    ('ConLeche.Verify.BasisBlock', 'ConLeche.Verify.EnvPreds'),
     # task #629 (con-ron #166): `PureRun.lean`'s statements name `BlockRun` (through `Scoped`) and
     # `FreshNames` (`PushChain`, through `IotaRead`); `IsModelRecords.lean`'s name `constantsOf`
     # (`IsModel`), `checkDecl` (`Kernel.CheckDecl`) and reach `ConstantInfo.dropCaps` by

@@ -250,10 +250,13 @@ block that is not impredicative and whose sort is never zero, or of one type wit
 constructor, or with one constructor and `hasEta` or `isK`; the members' own flags
 (`memberFlagsCheck`).  A nested occurrence of a proposition with one constructor without fields
 is rejected: official's auxiliary type would copy its `isK` without being the block's first
-type.  `isRec` is official's `is_rec` (`blockIsRec`), `Ms` the classes the recursors
-eliminate. -/
-def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor) :
-    Except CheckError Unit :=
+type.  An impredicative block nested through a type with projections is rejected: the
+auxiliary type would be impredicative (the block's first type's flag) and have projections (the
+container's).  `isRec` is official's `is_rec` (`blockIsRec`), `Ms` the classes the recursors
+eliminate, `hasProj` whether a stored type has projections (its projection table: a flagged
+type's `hasProjections`, an unflagged one's structure-likeness). -/
+def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor)
+    (hasProj : Name → Bool) : Except CheckError Unit :=
   match p.flags with
   | none => pure ()
   | some fl => do
@@ -280,5 +283,8 @@ def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor) :
       if M.member.isNone && p.isProp && (match M.ctors with | [c] => c.2 == 0 | _ => false) then
         throw (.invalid s!"inductive block {p.headName} nests {M.ind}, a proposition with one \
           constructor without fields; its K-like reduction cannot be kept inside the block")
+      if M.member.isNone && f0.isImpredicative && hasProj M.ind then
+        throw (.invalid s!"inductive block {p.headName} is impredicative (isImpredicative) and \
+          nests {M.ind}, which has projections; an impredicative type cannot have projections")
 
 end ConLeche

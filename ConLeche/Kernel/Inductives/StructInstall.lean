@@ -72,4 +72,30 @@ def checkStructProjTable (t : ProjTable) (env : Env) : m Unit := do
   unless (env.findTable? t.structName).isNone do
     throw (.invalid "projection table taken")
 
+/-- Every field's domain has a sort over the opened constructor telescope, under the
+official per-field universe bound unless the family is
+propositional: at a
+`Prop` family with a large eliminator every field must be a
+proposition OR one of the residual's index expressions — official's
+`elim_only_at_universe_zero` for one constructor (the subsingleton-
+elimination criterion, `Eq`'s rule; `inductive.cpp`).  A block with
+two or more constructors has its large eliminator rejected by
+the recursor stage's elimination guard (`blockLargeElimAllowed`).  Walks the fields from
+the last to the first. -/
+def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
+    let ty ← ops.inferType env (nP + j) fv.fvarTypeD
+    let u ← ops.ensureSort env (nP + j) ty
+    if !isProp then
+      unless ← liftFueled "level comparison" (Level.leq u s) do
+        throw (.invalid "direct sum: field universe too large")
+    else if large then
+      unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
+        throw (.invalid "direct sum: large eliminator with a non-propositional \
+          field outside the indices")
+    checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
+
 end ConLeche
