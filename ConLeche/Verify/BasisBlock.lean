@@ -158,7 +158,7 @@ theorem emptyBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
       simp at hp
       subst hp
       refine ⟨?_, rfl⟩
-      simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, blockCapsAt, blockIsRec, recFire,
+      simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, BlockShape.flagsAt, BlockShape.derivedFlags, blockCapsAt, blockIsRec, recFire,
         formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
         BlockShape.memberNames, BlockShape.k, emptyI, emptyA, emptyRecA,
         ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal, Expr.instantiateLevelParams,
@@ -197,7 +197,7 @@ theorem falseBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShap
       simp at hp
       subst hp
       refine ⟨?_, rfl⟩
-      simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, blockCapsAt, blockIsRec, recFire,
+      simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, BlockShape.flagsAt, BlockShape.derivedFlags, blockCapsAt, blockIsRec, recFire,
         formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
         BlockShape.memberNames, BlockShape.k, falseI, falseA, falseRecA,
         ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal, Expr.instantiateLevelParams,
@@ -243,7 +243,7 @@ theorem eqBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
         · simp only [Except.ok.injEq] at hp
           subst hp
           refine ⟨?_, rfl⟩
-          simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, blockCapsAt, blockIsRec, recFire,
+          simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, BlockShape.flagsAt, BlockShape.derivedFlags, blockCapsAt, blockIsRec, recFire,
         formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
             BlockShape.memberNames, BlockShape.k, eqI, eqA, eqReflA, eqRecA,
             ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal,
@@ -296,7 +296,7 @@ theorem natBlock_install {nP : Nat} {block : List ConstantInfo} {p : BlockShape}
       simp at hp
       subst hp
       refine ⟨?_, rfl⟩
-      simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, blockCapsAt, blockIsRec, recFire,
+      simp [blockConstants, blockFormers, blockCtors, BlockShape.ctorGroups, blockRecs, BlockShape.flagsAt, BlockShape.derivedFlags, blockCapsAt, blockIsRec, recFire,
         formerZ, formerResSort, Expr.piResult, Level.zeronessOf, PropWhen.isNever,
         BlockShape.memberNames, BlockShape.k, natI, natA, natZeroA, natSuccA,
         natRecA, ConstantInfo.atLps, ConstantVal.atLps, ConstantInfo.toConstantVal,

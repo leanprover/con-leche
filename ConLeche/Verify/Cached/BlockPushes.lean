@@ -328,7 +328,8 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     rw [blockRecs_congr (p := p₀) (q := p₀.withSort s0) rfl]
     exact blockRecs_eq_infos _ _ _ 0 hlenR hAg
   have hcaps : ∀ i, blockCapsAt (p₀.withSort s0) i (blockIsRec p₀)
-      = blockCapsAt p₀ i (blockIsRec p₀) := fun _ => rfl
+      = blockCapsAt p₀ i (blockIsRec p₀) := fun i =>
+    blockCapsAt_congr (p := p₀.withSort s0) (q := p₀) rfl rfl rfl rfl rfl rfl i _
   rw [hrecsP, consBlockRecsT_eq_infos, consBlockCtors_eq, hcons, consBlockInds_consts']
   unfold Env.pushDelta blockConstants blockFormers blockCtors
   rw [hrecs, hctors]
