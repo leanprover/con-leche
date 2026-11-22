@@ -235,6 +235,8 @@ ConLeche.QuotKind.slot
 ConLeche.ReducibilityHint.lt
 ConLeche.ReducibilityHint.sameRegular
 ConLeche.instDecidableEqIndCaps.decEq
+ConLeche.instDecidableEqIndFlags
+ConLeche.instDecidableEqIndFlags.decEq
 ConLeche.instDecidableEqRecRule.decEq
 ConLeche.instDecidableEqRecRuleFire.decEq
 ConLeche.instDecidableEqReducibilityHint.decEq

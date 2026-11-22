@@ -229,6 +229,28 @@ def indPiTeleLen : Expr → Nat
   | .forallE _ b => indPiTeleLen b + 1
   | _ => 0
 
+/-- **The record's feature flags**, as the checker stores them: all five keys present,
+or none (`none`).  A record with some but not all of them is malformed
+(`IndTypeRec.flagsPartial`, rejected by `validateIndF`). -/
+def IndTypeRec.flags (t : IndTypeRec) : Option IndFlags :=
+  match t.isImpredicative, t.isK, t.hasProjections, t.hasEta, t.hasLargeElim with
+  | some i, some k, some p, some e, some l => some ⟨i, k, p, e, l⟩
+  | _, _, _, _, _ => none
+
+/-- Some but not all of the five feature-flag keys are present. -/
+def IndTypeRec.flagsPartial (t : IndTypeRec) : Bool :=
+  t.flags.isNone && (t.isImpredicative.isSome || t.isK.isSome || t.hasProjections.isSome ||
+    t.hasEta.isSome || t.hasLargeElim.isSome)
+
+/-- **What is wrong with a block's feature flags**, if anything: a type record with some but
+not all of the five, or type records that disagree on carrying them. -/
+def blockFlagsErr (tys : List IndTypeRec) : Option String :=
+  if tys.any (·.flagsPartial) then
+    some "an inductive type record carries some but not all of the feature flags \
+      isImpredicative, isK, hasProjections, hasEta, hasLargeElim"
+  else if tys.all (·.flags.isSome) || tys.all (·.flags.isNone) then none
+  else some "the inductive block's type records disagree on whether they carry feature flags"
+
 /-- One recursor rule of an inductive record, resolved. -/
 @[specialize] def ruleOfF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (ru : RuleRec) : M RecRule := do
   pure (RecRule.mk (← nm ru.ctor) ru.nfields .plain (← ex ru.rhs))
@@ -259,6 +281,11 @@ state need not look here at all. -/
   -- records disagree has no declared count this checker could hold
   -- official to, and is positively declined here rather than checked
   -- against a count official might not have chosen.
+  -- TASK #630 — THE FEATURE FLAGS (lean4export 3.2.0, lean4 PR #16595): a type
+  -- record carries all five or none, and a block's records agree on which.  The
+  -- install validates what they say.
+  if let some msg := blockFlagsErr tys then
+    return .inl (.invalid msg)
   let nPs := tys.map (·.numParams)
   let nPd := nPs.head?.getD 0
   unless nPs.all (· == nPd) do
@@ -378,7 +405,7 @@ state need not look here at all. -/
 @[specialize] def indBlockOfF (nm : Nat → M Name) (lv : Nat → M Level) (ex : Nat → M Expr) (tys : List IndTypeRec) (cts : List (IndCtorRec × Name))
     (rcs : List IndRecRec) (nPd : Nat) : M Declaration := do
   let types ← tys.mapM fun t => do
-    pure (ConstantInfo.indInfo (← cvOfF nm lv ex t.cv) {})
+    pure (ConstantInfo.indInfo (← cvOfF nm lv ex t.cv) { flags := t.flags })
   let ctors ← cts.mapM fun (c, T) => do
     pure (ConstantInfo.ctorInfo (← cvOfF nm lv ex c.cv) c.numParams c.numFields T)
   let recs ← rcs.mapM fun r => do

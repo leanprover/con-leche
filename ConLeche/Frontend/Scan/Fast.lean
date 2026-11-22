@@ -221,6 +221,29 @@ exactly what a literal compare against a short line gives (task #264).
     byteAt b (i + 7) == c7 && byteAt b (i + 8) == c8 &&
     byteAt b (i + 9) == c9
 
+@[inline] def lit11 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 && byteAt b (i + 5) == c5 &&
+    byteAt b (i + 6) == c6 && byteAt b (i + 7) == c7 && byteAt b (i + 8) == c8 &&
+    byteAt b (i + 9) == c9 && byteAt b (i + 10) == c10
+
+@[inline] def lit13 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 && byteAt b (i + 5) == c5 &&
+    byteAt b (i + 6) == c6 && byteAt b (i + 7) == c7 && byteAt b (i + 8) == c8 &&
+    byteAt b (i + 9) == c9 && byteAt b (i + 10) == c10 && byteAt b (i + 11) == c11 &&
+    byteAt b (i + 12) == c12
+
+@[inline] def lit14 (b : @& ByteArray) (i : USize)
+    (c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 : UInt8) : Bool :=
+  byteAt b i == c0 && byteAt b (i + 1) == c1 && byteAt b (i + 2) == c2 &&
+    byteAt b (i + 3) == c3 && byteAt b (i + 4) == c4 && byteAt b (i + 5) == c5 &&
+    byteAt b (i + 6) == c6 && byteAt b (i + 7) == c7 && byteAt b (i + 8) == c8 &&
+    byteAt b (i + 9) == c9 && byteAt b (i + 10) == c10 && byteAt b (i + 11) == c11 &&
+    byteAt b (i + 12) == c12 && byteAt b (i + 13) == c13
+
 /-- Classify the key whose opening quote is at `i` and whose length
 is `kl` bytes: a switch on the first byte, then on the length — which
 leaves at most four candidates — and an unrolled `litN` compare of
@@ -276,6 +299,17 @@ def keyAt (b : @& ByteArray) (i : USize) (kl : USize) : Key :=
     if kl == 5 then
       if lit4 b j 105 110 116 115 then .kHints  -- "hints"
       else .kUnknown
+    else if kl == 6 then
+      if lit5 b j 97 115 69 116 97 then .kHasEta  -- "hasEta"
+      else .kUnknown
+    else if kl == 12 then
+      if lit11 b j 97 115 76 97 114 103 101 69 108 105 109 then
+        .kHasLargeElim  -- "hasLargeElim"
+      else .kUnknown
+    else if kl == 14 then
+      if lit13 b j 97 115 80 114 111 106 101 99 116 105 111 110 115 then
+        .kHasProjections  -- "hasProjections"
+      else .kUnknown
     else .kUnknown
   | 105 =>   -- 'i'
     if kl == 2 then
@@ -287,6 +321,7 @@ def keyAt (b : @& ByteArray) (i : USize) (kl : USize) : Key :=
       .kI
     else if kl == 3 then
       if lit2 b j 100 120 then .kIdx  -- "idx"
+      else if lit2 b j 115 75 then .kIsK  -- "isK"
       else .kUnknown
     else if kl == 4 then
       if lit3 b j 109 97 120 then .kImax  -- "imax"
@@ -307,6 +342,10 @@ def keyAt (b : @& ByteArray) (i : USize) (kl : USize) : Key :=
       else .kUnknown
     else if kl == 6 then
       if lit5 b j 110 100 117 99 116 then .kInduct  -- "induct"
+      else .kUnknown
+    else if kl == 15 then
+      if lit14 b j 115 73 109 112 114 101 100 105 99 97 116 105 118 101 then
+        .kIsImpredicative  -- "isImpredicative"
       else .kUnknown
     else .kUnknown
   | 107 =>   -- 'k'
@@ -1571,17 +1610,18 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
     (nIdx : Nat)
     (nNest : Nat)
     (nP : Nat)
-    (ty : Nat) : ScanRes IndTypeRec :=
+    (ty : Nat)
+    (fI fK fP fE fL : Option Bool) : ScanRes IndTypeRec :=
   if h : i < b.usize then
     let c := b.uget i (usizeInBounds b i h)
-    if isWs c then scanIndTypeLoop b (i + 1) wantMember seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty
+    if isWs c then scanIndTypeLoop b (i + 1) wantMember seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI fK fP fE fL
     else if c == 125 then
       if wantMember && seen != 0 then .err ⟨i.toNat, .expectedKey⟩
       else if (seen &&& 2046) != 2046 then .err ⟨i.toNat, .missingKey⟩
-      else .ok (⟨⟨nm, lps, ty⟩, ctors, isRec, isRefl, isUns, nIdx, nNest, nP⟩) (i + 1)
+      else .ok (⟨⟨nm, lps, ty⟩, ctors, isRec, isRefl, isUns, nIdx, nNest, nP, fI, fK, fP, fE, fL⟩) (i + 1)
     else if c == 44 then
       if wantMember then .err ⟨i.toNat, .expectedKey⟩
-      else scanIndTypeLoop b (i + 1) true seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty
+      else scanIndTypeLoop b (i + 1) true seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI fK fP fE fL
     else if c == 34 then
       if !wantMember then .err ⟨i.toNat, .expectedComma⟩
       else
@@ -1598,7 +1638,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok _x e =>
               if _hj : i < e then
-                scanIndTypeLoop b e false (seen ||| 1) ctors isRec isRefl isUns lps nm nIdx nNest nP ty
+                scanIndTypeLoop b e false (seen ||| 1) ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI fK fP fE fL
               else .err ⟨i.toNat, .noProgress⟩
         | .kCtors =>
           if (seen &&& 2) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1607,7 +1647,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok x e =>
               if _hj : i < e then
-                scanIndTypeLoop b e false (seen ||| 2) x isRec isRefl isUns lps nm nIdx nNest nP ty
+                scanIndTypeLoop b e false (seen ||| 2) x isRec isRefl isUns lps nm nIdx nNest nP ty fI fK fP fE fL
               else .err ⟨i.toNat, .noProgress⟩
         | .kIsRec =>
           if (seen &&& 4) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1616,7 +1656,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok x e =>
               if _hj : i < e then
-                scanIndTypeLoop b e false (seen ||| 4) ctors x isRefl isUns lps nm nIdx nNest nP ty
+                scanIndTypeLoop b e false (seen ||| 4) ctors x isRefl isUns lps nm nIdx nNest nP ty fI fK fP fE fL
               else .err ⟨i.toNat, .noProgress⟩
         | .kIsReflexive =>
           if (seen &&& 8) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1625,7 +1665,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok x e =>
               if _hj : i < e then
-                scanIndTypeLoop b e false (seen ||| 8) ctors isRec x isUns lps nm nIdx nNest nP ty
+                scanIndTypeLoop b e false (seen ||| 8) ctors isRec x isUns lps nm nIdx nNest nP ty fI fK fP fE fL
               else .err ⟨i.toNat, .noProgress⟩
         | .kIsUnsafe =>
           if (seen &&& 16) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1634,7 +1674,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok x e =>
               if _hj : i < e then
-                scanIndTypeLoop b e false (seen ||| 16) ctors isRec isRefl x lps nm nIdx nNest nP ty
+                scanIndTypeLoop b e false (seen ||| 16) ctors isRec isRefl x lps nm nIdx nNest nP ty fI fK fP fE fL
               else .err ⟨i.toNat, .noProgress⟩
         | .kLevelParams =>
           if (seen &&& 32) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1643,7 +1683,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             | .err err => .err err
             | .ok x e =>
               if _hj : i < e then
-                scanIndTypeLoop b e false (seen ||| 32) ctors isRec isRefl isUns x nm nIdx nNest nP ty
+                scanIndTypeLoop b e false (seen ||| 32) ctors isRec isRefl isUns x nm nIdx nNest nP ty fI fK fP fE fL
               else .err ⟨i.toNat, .noProgress⟩
         | .kName =>
           if (seen &&& 64) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1651,7 +1691,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndTypeLoop b e false (seen ||| 64) ctors isRec isRefl isUns lps (readNatAt b v e) nIdx nNest nP ty
+              scanIndTypeLoop b e false (seen ||| 64) ctors isRec isRefl isUns lps (readNatAt b v e) nIdx nNest nP ty fI fK fP fE fL
             else .err ⟨i.toNat, .noProgress⟩
         | .kNumIndices =>
           if (seen &&& 128) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1659,7 +1699,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndTypeLoop b e false (seen ||| 128) ctors isRec isRefl isUns lps nm (readNatAt b v e) nNest nP ty
+              scanIndTypeLoop b e false (seen ||| 128) ctors isRec isRefl isUns lps nm (readNatAt b v e) nNest nP ty fI fK fP fE fL
             else .err ⟨i.toNat, .noProgress⟩
         | .kNumNested =>
           if (seen &&& 256) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1667,7 +1707,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndTypeLoop b e false (seen ||| 256) ctors isRec isRefl isUns lps nm nIdx (readNatAt b v e) nP ty
+              scanIndTypeLoop b e false (seen ||| 256) ctors isRec isRefl isUns lps nm nIdx (readNatAt b v e) nP ty fI fK fP fE fL
             else .err ⟨i.toNat, .noProgress⟩
         | .kNumParams =>
           if (seen &&& 512) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1675,7 +1715,7 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndTypeLoop b e false (seen ||| 512) ctors isRec isRefl isUns lps nm nIdx nNest (readNatAt b v e) ty
+              scanIndTypeLoop b e false (seen ||| 512) ctors isRec isRefl isUns lps nm nIdx nNest (readNatAt b v e) ty fI fK fP fE fL
             else .err ⟨i.toNat, .noProgress⟩
         | .kType =>
           if (seen &&& 1024) != 0 then .err ⟨i.toNat, .duplicateKey⟩
@@ -1683,8 +1723,53 @@ def scanIndTypeLoop (b : @& ByteArray) (i : USize) (wantMember : Bool)
             let e := numEnd b v
             if e == v then .err ⟨v.toNat, .expectedNat⟩
             else if _hj : i < e then
-              scanIndTypeLoop b e false (seen ||| 1024) ctors isRec isRefl isUns lps nm nIdx nNest nP (readNatAt b v e)
+              scanIndTypeLoop b e false (seen ||| 1024) ctors isRec isRefl isUns lps nm nIdx nNest nP (readNatAt b v e) fI fK fP fE fL
             else .err ⟨i.toNat, .noProgress⟩
+        | .kIsImpredicative =>
+          if (seen &&& 2048) != 0 then .err ⟨i.toNat, .duplicateKey⟩
+          else
+            match scanBool b v with
+            | .err err => .err err
+            | .ok x e =>
+              if _hj : i < e then
+                scanIndTypeLoop b e false (seen ||| 2048) ctors isRec isRefl isUns lps nm nIdx nNest nP ty (some x) fK fP fE fL
+              else .err ⟨i.toNat, .noProgress⟩
+        | .kIsK =>
+          if (seen &&& 4096) != 0 then .err ⟨i.toNat, .duplicateKey⟩
+          else
+            match scanBool b v with
+            | .err err => .err err
+            | .ok x e =>
+              if _hj : i < e then
+                scanIndTypeLoop b e false (seen ||| 4096) ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI (some x) fP fE fL
+              else .err ⟨i.toNat, .noProgress⟩
+        | .kHasProjections =>
+          if (seen &&& 8192) != 0 then .err ⟨i.toNat, .duplicateKey⟩
+          else
+            match scanBool b v with
+            | .err err => .err err
+            | .ok x e =>
+              if _hj : i < e then
+                scanIndTypeLoop b e false (seen ||| 8192) ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI fK (some x) fE fL
+              else .err ⟨i.toNat, .noProgress⟩
+        | .kHasEta =>
+          if (seen &&& 16384) != 0 then .err ⟨i.toNat, .duplicateKey⟩
+          else
+            match scanBool b v with
+            | .err err => .err err
+            | .ok x e =>
+              if _hj : i < e then
+                scanIndTypeLoop b e false (seen ||| 16384) ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI fK fP (some x) fL
+              else .err ⟨i.toNat, .noProgress⟩
+        | .kHasLargeElim =>
+          if (seen &&& 32768) != 0 then .err ⟨i.toNat, .duplicateKey⟩
+          else
+            match scanBool b v with
+            | .err err => .err err
+            | .ok x e =>
+              if _hj : i < e then
+                scanIndTypeLoop b e false (seen ||| 32768) ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI fK fP fE (some x)
+              else .err ⟨i.toNat, .noProgress⟩
         | _ => .err ⟨i.toNat, .unknownKey⟩
     else .err ⟨i.toNat, .expectedComma⟩
   else .err ⟨i.toNat, .expectedComma⟩
@@ -1699,6 +1784,7 @@ decreasing_by
 def scanIndType (b : @& ByteArray) (i : USize) : ScanRes IndTypeRec :=
   if byteAt b i == 123 then
     scanIndTypeLoop b (i + 1) true 0 [] false false false [] 0 0 0 0 0
+      none none none none none
   else .err ⟨i.toNat, .expectedObject⟩
 
 def scanIndTypeListLoop (b : @& ByteArray) (i : USize) (acc : List IndTypeRec)

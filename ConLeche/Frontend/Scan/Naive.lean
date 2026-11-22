@@ -192,10 +192,11 @@ def keyTable : List (String × Key) :=
   [("all", .kAll), ("app", .kApp), ("arg", .kArg), ("axiom", .kAxiom),
    ("binderInfo", .kBinderInfo), ("body", .kBody), ("bvar", .kBvar),
    ("cidx", .kCidx), ("const", .kConst), ("ctor", .kCtor), ("ctors", .kCtors),
-   ("def", .kDef), ("fn", .kFn), ("forallE", .kForallE), ("hints", .kHints),
+   ("def", .kDef), ("fn", .kFn), ("forallE", .kForallE), ("hasEta", .kHasEta),
+   ("hasLargeElim", .kHasLargeElim), ("hasProjections", .kHasProjections), ("hints", .kHints),
    ("i", .kI), ("idx", .kIdx), ("ie", .kIe), ("il", .kIl), ("imax", .kImax),
    ("in", .kIn), ("induct", .kInduct), ("inductive", .kInductive),
-   ("isRec", .kIsRec), ("isReflexive", .kIsReflexive), ("isUnsafe", .kIsUnsafe),
+   ("isImpredicative", .kIsImpredicative), ("isK", .kIsK), ("isRec", .kIsRec), ("isReflexive", .kIsReflexive), ("isUnsafe", .kIsUnsafe),
    ("k", .kK), ("kind", .kKind), ("lam", .kLam), ("letE", .kLetE),
    ("levelParams", .kLevelParams), ("max", .kMax), ("meta", .kMeta),
    ("name", .kName), ("natVal", .kNatVal), ("nfields", .kNfields),
@@ -511,10 +512,18 @@ def indTypeFields : Key → Option (Slot IndTypeRec)
   | .kNumNested => some (.of 256 naiveNat fun n r => { r with numNested := n })
   | .kNumParams => some (.of 512 naiveNat fun n r => { r with numParams := n })
   | .kType => some (.of 1024 naiveNat fun t r => { r with cv.type := t })
+  | .kIsImpredicative => some (.of 2048 naiveBool fun b r => { r with isImpredicative := some b })
+  | .kIsK => some (.of 4096 naiveBool fun b r => { r with isK := some b })
+  | .kHasProjections => some (.of 8192 naiveBool fun b r => { r with hasProjections := some b })
+  | .kHasEta => some (.of 16384 naiveBool fun b r => { r with hasEta := some b })
+  | .kHasLargeElim => some (.of 32768 naiveBool fun b r => { r with hasLargeElim := some b })
   | _ => none
 
+/-- The five feature flags are optional slots (not in the required mask): a record of
+format 3.1.0 has none of them. -/
 def naiveIndType : List UInt8 → NRes IndTypeRec :=
-  naiveObject indTypeFields 2046 ⟨⟨0, [], 0⟩, [], false, false, false, 0, 0, 0⟩ id
+  naiveObject indTypeFields 2046
+    ⟨⟨0, [], 0⟩, [], false, false, false, 0, 0, 0, none, none, none, none, none⟩ id
 
 def naiveIndTypes : List UInt8 → NRes (List IndTypeRec) := naiveList (· == 123) naiveIndType
 

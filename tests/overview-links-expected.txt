@@ -182,8 +182,8 @@
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L622
-   622  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+== ConLeche/Frontend/ExportC.lean#L649
+   649  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
 == ConLeche/Frontend/Stream.lean#L310-L312
    310  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
@@ -935,15 +935,15 @@
 == ConLeche/Kernel/Inductives/BlockShape.lean#L401
    401  def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
 
-== ConLeche/Kernel/Env.lean#L418-L425
-   418  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   419    block.all fun ci => match ci with
-   420      | .indInfo cvT _ =>
-   421        match cvT.type.piSortTeleLen? with
-   422        | some n => decide (nP ≤ n)
-   423        | none => true
-   424      | .ctorInfo _ nPc _ _ => nPc == nP
-   425      | _ => true
+== ConLeche/Kernel/Env.lean#L431-L438
+   431  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   432    block.all fun ci => match ci with
+   433      | .indInfo cvT _ =>
+   434        match cvT.type.piSortTeleLen? with
+   435        | some n => decide (nP ≤ n)
+   436        | none => true
+   437      | .ctorInfo _ nPc _ _ => nPc == nP
+   438      | _ => true
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L153
    153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :

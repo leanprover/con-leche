@@ -322,6 +322,10 @@ theorem validateIndF_inr {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat 
   rotate_left
   · simp only [hu, ite_true, pure, Except.pure] at h; cases h
   simp only [hu, Bool.false_eq_true, ite_false] at h
+  cases hf : blockFlagsErr tys
+  rotate_left
+  · simp only [hf, pure, Except.pure] at h; cases h
+  simp only [hf] at h
   cases hp : ((tys.map (·.numParams)).all fun x => x == (tys.map (·.numParams)).head?.getD 0)
   · simp only [hp, Bool.false_eq_true, ite_false, pure, Except.pure] at h; cases h
   simp only [hp, ite_true] at h
@@ -431,7 +435,14 @@ theorem declOfF_ind_safe {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat 
 /-- An inductive type's record, resolved. -/
 @[expose] def TyRes (nm : Nat → M Name) (ex : Nat → M Expr) (t : IndTypeRec) (c : CEntryF Name Expr) : Prop :=
   CvRes nm ex t.cv c ∧ ∃ ni all cs nn ir irf,
-    c.kind = .induct t.numParams ni all cs nn ir t.isUnsafe irf ∧ t.ctors.mapM nm = .ok cs
+    c.kind = .induct t.numParams ni all cs nn ir t.isUnsafe irf ∧ t.ctors.mapM nm = .ok cs ∧
+    t.flags = none
+
+/-- A resolved type record carries no feature flags: the `.olean` reader emits none. -/
+theorem TyRes.flags_none {nm : Nat → M Name} {ex : Nat → M Expr} {t : IndTypeRec}
+    {c : CEntryF Name Expr} (h : TyRes nm ex t c) : t.flags = none := by
+  obtain ⟨_, _, _, _, _, _, _, _, _, h⟩ := h
+  exact h
 
 /-- A constructor's record, resolved. -/
 @[expose] def CtorRes (nm : Nat → M Name) (ex : Nat → M Expr) (t : IndCtorRec) (c : CEntryF Name Expr) : Prop :=
@@ -522,7 +533,7 @@ theorem declOfF_ind_same {nm nm' : Nat → M Name} {lv lv' : Nat → M Level} {e
     cases htn; cases htn'; rfl
   have kc : ∀ {nm : Nat → M Name} {ex : Nat → M Expr} (t : IndTypeRec) (c : CEntryF Name Expr), TyRes nm ex t c →
       t.ctors.mapM nm = .ok (match c.kind with | .induct _ _ _ cs .. => cs | _ => []) := by
-    intro nm ex t c ⟨_, ni, all, cs, nn, ir, irf, hk, hm⟩
+    intro nm ex t c ⟨_, ni, all, cs, nn, ir, irf, hk, hm, _⟩
     rw [hk]; exact hm
   have e1 : listed = listed' := by
     rw [mapM_res (F := fun (t : IndTypeRec) => t.ctors.mapM nm) (fun t c h => kc t c h) ht] at hl
@@ -550,8 +561,11 @@ theorem declOfF_ind_same {nm nm' : Nat → M Name} {lv lv' : Nat → M Level} {e
   subst hd hd'
   rw [← Except.ok.injEq, ← hb, ← hb']
   unfold indBlockOfF
-  rw [mapM_forall₂ (G := fun t => do pure (ConstantInfo.indInfo (← cvOfF nm' lv' ex' t.cv) {}))
-      (fun a b ⟨c, h1, h2⟩ => by rw [cvOfF_res h1.1, cvOfF_res h2.1]) (forall₂_meet ht ht'),
+  rw [mapM_forall₂ (G := fun t => do
+        pure (ConstantInfo.indInfo (← cvOfF nm' lv' ex' t.cv) { flags := t.flags }))
+      (fun a b ⟨c, h1, h2⟩ => by
+        rw [cvOfF_res h1.1, cvOfF_res h2.1, h1.flags_none, h2.flags_none])
+      (forall₂_meet ht ht'),
     mapM_forall₂ (G := fun (c, T) => do
         pure (ConstantInfo.ctorInfo (← cvOfF nm' lv' ex' c.cv) c.numParams c.numFields T))
       (fun ⟨ca, Ta⟩ ⟨cb, Tb⟩ ⟨⟨c, h1, h2⟩, hT⟩ => by
@@ -580,7 +594,8 @@ theorem declOfF_ind_same {nm nm' : Nat → M Name} {lv lv' : Nat → M Level} {e
 /-- An inductive type's record on the tables. -/
 @[expose] def IndTyOf (em : Emit) (t : IndTypeRec) (c : CEntry) : Prop :=
   CvOf em t.cv c ∧ ∃ ni all cs nn ir irf,
-    c.kind = .induct t.numParams ni all cs nn ir t.isUnsafe irf ∧ t.ctors.map (em.names[·]?) = cs.map some
+    c.kind = .induct t.numParams ni all cs nn ir t.isUnsafe irf ∧ t.ctors.map (em.names[·]?) = cs.map some ∧
+    t.flags = none
 
 /-- A constructor's record on the tables. -/
 @[expose] def IndCtorOf (em : Emit) (t : IndCtorRec) (c : CEntry) : Prop :=
@@ -609,7 +624,8 @@ theorem names_map_mono {a b : Emit} (h : Emit.Sub a b) {l : List Nat} {ns : List
 
 theorem IndTyOf.mono {a b : Emit} (h : Emit.Sub a b) {t : IndTypeRec} {c : CEntry} :
     IndTyOf a t c → IndTyOf b t c
-  | ⟨h1, ni, all, cs, nn, ir, irf, h2, h3⟩ => ⟨h1.mono h, ni, all, cs, nn, ir, irf, h2, names_map_mono h h3⟩
+  | ⟨h1, ni, all, cs, nn, ir, irf, h2, h3, h4⟩ =>
+    ⟨h1.mono h, ni, all, cs, nn, ir, irf, h2, names_map_mono h h3, h4⟩
 
 theorem IndCtorOf.mono {a b : Emit} (h : Emit.Sub a b) {t : IndCtorRec} {c : CEntry} :
     IndCtorOf a t c → IndCtorOf b t c
@@ -625,9 +641,9 @@ theorem IndRecOf.mono {a b : Emit} (h : Emit.Sub a b) {t : IndRecRec} {c : CEntr
 
 theorem IndTyOf.res {em : Emit} {t : IndTypeRec} {c : CEntry} (h : IndTyOf em t c) :
     TyRes em.nm em.ex t c.toCEntryF := by
-  obtain ⟨⟨h1, h2, h3⟩, ni, all, cs, nn, ir, irf, h4, h5⟩ := h
+  obtain ⟨⟨h1, h2, h3⟩, ni, all, cs, nn, ir, irf, h4, h5, h6⟩ := h
   exact ⟨⟨by simp [Emit.nm, h1, pure, Except.pure], mapM_nm h2, by simp [Emit.ex, h3, pure, Except.pure]⟩,
-    ni, all, cs, nn, ir, irf, h4, mapM_nm h5⟩
+    ni, all, cs, nn, ir, irf, h4, mapM_nm h5, h6⟩
 
 theorem IndCtorOf.res {em : Emit} {t : IndCtorRec} {c : CEntry} (h : IndCtorOf em t c) :
     CtorRes em.nm em.ex t c.toCEntryF := by
@@ -724,7 +740,7 @@ theorem Emit.block_res (st : Emit) (tys ctors recs : List CEntry) :
       obtain ⟨g1, -, g4⟩ := Emit.names'_spec (st.cv c).1 cs
       refine ⟨h1.trans g1, g4.trans h4, ?_⟩
       simp only [CKindF.tag, beq_self_eq_true, ↓reduceIte]
-      exact ⟨_, rfl, h2.mono g1, ni, all, cs, nn, ir, irf, hk, Emit.names'_map _ _⟩
+      exact ⟨_, rfl, h2.mono g1, ni, all, cs, nn, ir, irf, hk, Emit.names'_map _ _, rfl⟩
     | _ => exact ⟨Emit.Sub.refl _, rfl, by simp [CKindF.tag]⟩) tys st #[] [] .nil
   generalize hX1 : tys.foldl Emit.tyStep (st, #[]) = X1 at F1
   obtain ⟨a1, a2, a3⟩ := F1
