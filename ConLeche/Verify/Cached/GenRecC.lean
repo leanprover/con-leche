@@ -1415,7 +1415,7 @@ theorem checkBlockTailS_run
   dsimp only at h
   simp only [blockRecInfosTC_eq, streamRecsCheckC_eq, checkBlockIdxSortsC_eq, mkFEnv_env,
     consBlockCtorsF_mkFEnv] at h
-  simp only [checkBlockTablesC_eq] at h
+  simp only [checkBlockTablesC_eq, blockIsRecC_eq] at h
   obtain ⟨uF, sF, hFl, h⟩ := bindC_ok h
   cases hfl : blockFlagsCheck p (blockIsRec p) Ms₀ with
   | error e =>
