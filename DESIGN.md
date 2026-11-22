@@ -126390,3 +126390,67 @@ Fixtures: `src/ind_flags_nest_prop.lean` (exported with the pinned `lean4export`
 `tests/arena.sh`: it runs a vendored snapshot of the published arena tests, which will carry them
 once the arena PR lands and the snapshot is refreshed.
 
+
+## TASK #630 (totality lane) — every block at total feature flags; what stays two-path (2026-11-22, agent/630-flags-total; base agent/630-flags dd60b1fe7)
+
+Maintainer's ruling (2026-11-22) on normalising the flags: "yes, that sounds like the right way.
+we never *use* small elim rules, so it should be ok to drop them (just don't complain about them
+if they are in the input). projections of prop may need a backward compat flag? 'has some
+projections'?"
+
+**Landed.** `BlockShape.flagsAt p i` is total: a block's declared flags, or at a block whose
+records carry none the ones official computed from the declaration (`derivedFlags`):
+`isImpredicative` = the block is a proposition, `isK` = one member, a proposition, one
+constructor without fields, `hasProjections` = `hasEta` = structure-like (one constructor, no
+index), `hasLargeElim` = the records' eliminator. The derivation reads the records and the
+block's sort only (`isProp`, final after the formers' stage, `withSort`); it adds no inference
+or comparison. The readers each read one flag: η (`blockCapsAt`), the K flag a recursor must
+have (`recKExpected`), the members with projection tables (`projAllowed`), the field bound
+(`boundedProp`). The `Option` readers `flagAt`/`etaAt`/`kAllowed` are gone. No verdict changes
+(e2e and the 91 arena renovation tests unchanged); the auxiliary field-bound reject's message
+lost its internal "direct sum:" prefix (shared with the members' bound, and its two cached
+twins).
+
+**Where a consumer keeps the shape beside the flag.** η is `nIdx == 0 && !isRec && hasEta`
+and the projection tables are built only at a structure-like member (`structCtor?`), as before:
+the table needs the constructor, η's arm builds `ctors := [c]`, and the pinned-basis theorem
+(`blockInstall_pinned`) is stated for any declared flags, so a capability may not depend on a
+declared flag that only the validation makes consistent. `isRec` stays an argument (computed
+once by the install, with a cached twin `blockIsRecC`), so a derived `hasEta` is the structure
+shape and the capability takes `!isRec` beside it — which is also what a declared `hasEta`
+must satisfy.
+
+**Not done, with the reason.**
+* *Dropping the small eliminators' rules at blocks without flags.* It would need a new
+  `ruleRecs` view of the records (installed and compared without rules) and a weaker
+  `blockInstall_pinned`: a pinned block whose recursor record reads as a small eliminator
+  (e.g. `Eq.rec` declared at `[c, d]` with `d` not the type's name, which the pin-copy check
+  admits and the recursor stage rejects) would no longer store the pin's rules, so the theorem
+  would need the run's fact that the block's eliminator is large. It simplifies nothing today;
+  it is free once input without flags goes, since then no input carries such rules. So
+  `noRules` is `p.flags.isSome && !p.large`: a flagged block without `hasLargeElim` has no
+  rules (a record with rules is rejected, official's and the arena's test 116); an unflagged
+  one keeps them, checked against the generated ones, as before.
+* *The tri-state projection mode (skip the guard at a flagged type).* `checkProjGuard`'s success
+  is a premise of the relational rule `ProjGuard` (`Rules/Rel.lean`, motive `ProjGuardSem`,
+  `Model/Rules/GuardSound.lean`); skipping it needs a new model fact — at a flagged type with
+  projections the install's field bound makes every row a proposition wherever the structure is
+  one — which is new model content, not repair. The verdicts do not change: at such a type the
+  guard never fails. The guard keeps running at every type.
+
+**What stays two-path**, flagged vs not: (1) the large-elimination criterion (the spec's rule vs
+the old guard `blockLargeElimAllowed` with the per-field subsingleton criterion of
+`checkStructFieldSortsI`); (2) the small eliminators' rules; (3) the field-sort exemption
+(`isImpredicative` vs `isProp`, i.e. `boundedProp` and its second constructor pass
+`checkBlockBound`, the auxiliary frame's `NestCtx.bound`); (4) validation itself
+(`blockFlagsCheck`), which a derived flag never needs.
+
+**What dropping input without flags would delete**: `derivedFlags` and the `Option` around
+`BlockShape.flags`; the old large-elimination half (the one-constructor clause of
+`blockLargeElimAllowed` and the `large` arm of `checkStructFieldSortsI`, replaced by the spec's
+rule); the small eliminators' rules (generation, `ruleOut`/`ruleCtors`, the comparison); the
+`isProp` exemption of the field bound with `boundedProp`'s second pass (the first pass bounds at
+`isImpredicative`); and, with the model fact above, the projection guard (`checkProjGuard`,
+`projGuardRows`, the `ProjGuard` rule and its motive) — a type with projections is then never
+impredicative, so a proposition with projections has only proofs as fields. OVERVIEW §9's and
+§14's "large eliminator under a per-field criterion" departure goes with them.
