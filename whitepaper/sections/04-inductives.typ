@@ -69,7 +69,7 @@ nor nested; nested blocks are the subject of @sec:nested. The block is given by 
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
 
 A field is one of #src("whitepaper/Fragment/Spec.lean", 28, 42)[two kinds]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 332, 342)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 331, 341)[as in con-leche]):
 
 - _ordinary_: its domain does not mention $I$;
 - _reflexive_: its domain is
@@ -85,7 +85,7 @@ mentions $I$ anywhere else; this is
 #src("whitepaper/Fragment/Decl.lean", 641, 655)[strict positivity].
 And nothing after a reflexive field
 #src("whitepaper/Fragment/Decl.lean", 658, 663)[may depend on its value]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 727, 730)[as in con-leche] and the
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 726, 729)[as in con-leche] and the
 official kernel), so that the model can read a constructor's domains
 without knowing the values of its reflexive fields.
 
@@ -96,7 +96,7 @@ without knowing the values of its reflexive fields.
   domain after weak head normal form, with $I$ at the block's
   parameters replaced by a variable standing for the family being
   defined; @sec:nested uses the same check
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 929, 930)[positivity]).
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 928, 929)[positivity]).
 ]
 
 Reflexive fields with a non-empty telescope matter to the model. A
