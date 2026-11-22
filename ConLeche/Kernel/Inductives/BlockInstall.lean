@@ -194,7 +194,8 @@ environment's lookup: the members, their level parameters, the shared
 parameter count, the members' index counts and the block's sort. -/
 def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
     (find? : Name → Option ConstantInfo) : NestCtx :=
-  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, p.members.map (·.cvT)⟩
+  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, p.members.map (·.cvT),
+    p.boundedProp⟩
 
 /-- The constructors of every member, at the environment holding ALL
 the formers (the resolution guard pointed at that same environment, as

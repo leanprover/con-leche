@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Kernel.CheckerBase
 public import ConLeche.Kernel.Inductives.FieldTele
+public import ConLeche.Kernel.Inductives.StructInstall
 
 @[expose] public section
 
@@ -387,6 +387,11 @@ structure NestCtx where
   find? : Name → Option ConstantInfo
   /-- the members' type formers at their telescopes -/
   formers : List ConstantVal
+  /-- **Container frames bounded** (a flagged `Prop` block that is not impredicative,
+  `BlockShape.boundedProp`): every field of a container's constructor at its instantiation has
+  its sort at most the block's — official's field bound on the auxiliary types of its nested
+  translation, which take the block's `isImpredicative` -/
+  bound : Bool := false
 
 /-- The run's state: the accepted instantiations (the cache, keyed by the
 instantiation). -/
@@ -783,6 +788,18 @@ def nestAcceptGroup (us : List Level) (ds : List Expr) :
     nestAcceptGroup us ds rest
       (if keys.contains ⟨c, us, ds⟩ then keys else keys.push ⟨c, us, ds⟩)
 
+/-- **A container frame's field bound** (`NestCtx.bound`): each walked constructor telescope's
+fields, opened at the frame's depth, have sorts at most `sort` (`checkStructFieldSortsI` at a
+non-propositional reading). -/
+def nestFrameSorts (ops : CheckerOps m) (env : Env) (sort : Level) (hi : Nat) :
+    List (ConstantVal × Nat) → List (List NestFieldKind × Expr) → m Unit
+  | c :: cs, o :: os => do
+    let xq ← unwrapOr (openPisAtFvars c.2 o.2 hi)
+      (.internal "nested positivity: a walked constructor's fields")
+    checkStructFieldSortsI ops env false false sort hi xq.1 [] c.2
+    nestFrameSorts ops env sort hi cs os
+  | _, _ => pure ()
+
 /-- **A container frame** at the instantiation `(us, ds)`, its holes the
 container's WHOLE recorded group `grp` (at `hi, hi + 1, …`, typed by
 their instantiated formers), every one of their constructors walked with
@@ -803,8 +820,9 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let prog' := (grp.mapIdx fun _ (c, ty) =>
     ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-  let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
-    (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
+  let (outs, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds
+    (grp.map (·.1)) (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
+  if ctx.bound then nestFrameSorts ops env ctx.sort (hi + grp.length) ctors outs
   pure st
 
 /-- **The frame stack an instantiation is walked under**: the EMPTY one

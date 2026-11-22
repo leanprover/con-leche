@@ -334,6 +334,34 @@ def nestGrowGroupC (ctx : NestCtx) (fe : FEnv) (hi : Nat) (us : List Level)
     let (_, cty) ← nestInstTypeC mode ctx fe hi ⟨c, us, ds⟩
     nestGrowGroupC ctx fe hi us ds cs (grp ++ [(c, cty)])
 
+/-- The cached `checkStructFieldSortsI`: each field's sort by the cached
+core's `infer` and `ensureSortI`. -/
+def checkStructFieldSortsIC (fe : FEnv) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → CheckCM Unit
+  | 0 => pure ()
+  | j + 1 => do
+    let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
+    let ty ← inferI mode fe false checkFuel false (nP + j) fv.fvarTypeD
+    let u ← ensureSortI mode fe false checkFuel (nP + j) ty
+    if !isProp then
+      unless ← liftFueled "level comparison" (Level.leq u s) do
+        throw (.invalid "direct sum: field universe too large")
+    else if large then
+      unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
+        throw (.invalid "direct sum: large eliminator with a non-propositional \
+          field outside the indices")
+    checkStructFieldSortsIC fe isProp large s nP fvs idxArgs j
+
+/-- The cached `nestFrameSorts`. -/
+def nestFrameSortsC (fe : FEnv) (sort : Level) (hi : Nat) :
+    List (ConstantVal × Nat) → List (List NestFieldKind × Expr) → CheckCM Unit
+  | c :: cs, o :: os => do
+    let xq ← unwrapOr (openPisAtFvarsC c.2 o.2 hi)
+      (.internal "nested positivity: a walked constructor's fields")
+    checkStructFieldSortsIC mode fe false false sort hi xq.1 [] c.2
+    nestFrameSortsC fe sort hi cs os
+  | _, _ => pure ()
+
 /-- The cached `nestFrame`. -/
 def nestFrameC (ctx : NestCtx) (fe : FEnv)
     (rec : List NestHole → Nat → Nat → Expr → NestState →
@@ -344,8 +372,9 @@ def nestFrameC (ctx : NestCtx) (fe : FEnv)
   let prog' := (grp.mapIdx fun _ (c, ty) =>
     ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-  let (_, st) ← nestCtorsC mode ctx fe (fun _ => 0) (fun _ => rec) prog' (hi + grp.length) us ds
+  let (outs, st) ← nestCtorsC mode ctx fe (fun _ => 0) (fun _ => rec) prog' (hi + grp.length) us ds
     (grp.map (·.1)) (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
+  if ctx.bound then nestFrameSortsC mode fe ctx.sort (hi + grp.length) ctors outs
   pure st
 
 /-- The cached `nestContNew`. -/
@@ -501,24 +530,6 @@ def nestSeedsC (fe : FEnv) (ctx : NestCtx) :
     nestSeedsC fe ctx ks st
 
 /-! ## The positivity stage -/
-
-/-- The cached `checkStructFieldSortsI`: each field's sort by the cached
-core's `infer` and `ensureSortI`. -/
-def checkStructFieldSortsIC (fe : FEnv) (isProp large : Bool)
-    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → CheckCM Unit
-  | 0 => pure ()
-  | j + 1 => do
-    let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
-    let ty ← inferI mode fe false checkFuel false (nP + j) fv.fvarTypeD
-    let u ← ensureSortI mode fe false checkFuel (nP + j) ty
-    if !isProp then
-      unless ← liftFueled "level comparison" (Level.leq u s) do
-        throw (.invalid "direct sum: field universe too large")
-    else if large then
-      unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
-        throw (.invalid "direct sum: large eliminator with a non-propositional \
-          field outside the indices")
-    checkStructFieldSortsIC fe isProp large s nP fvs idxArgs j
 
 /-- The cached `checkAbsCtorSorts`: the scoping assertion by
 `allLevelParamsDefinedC`, the normal form opened by `openPisAtFvarsC`. -/

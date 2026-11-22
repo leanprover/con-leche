@@ -659,7 +659,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
         = .ok () := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
-  cases hfl : ofExcept (m := CheckM) (blockFlagsCheck q.p (blockIsRec q.p) q.cls) with
+  cases hfl : ofExcept (m := CheckM) (blockFlagsCheck q.p (blockIsRec q.p) q.cls fun n => (q.env₁.findTable? n).isSome) with
   | error e => rw [hfl] at h; exact nomatch h
   | ok u =>
   cases u

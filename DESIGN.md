@@ -126362,3 +126362,31 @@ vacuous; `hposQ` states the rule facts under `rc.rules ≠ []`. New small lemmas
 *Fixtures.* `scripts/mk_ind_flags_install.py` forges 23 `ind_flags_*` fixtures from existing
 ones (8 accept, 15 reject; verdicts in `tests/e2e-expected.txt`). A real Init with flags needs the
 renovated toolchain (`Acc.rec` small); not attempted. The `.olean` reader emits no flags.
+
+*Nested auxiliary types (fix lane, branch `agent/630-flags-nestproj`).* The arena PR's 91
+renovation tests (leanprover/lean-kernel-arena#391, exported with the lean4#16595 PR release
+53e1623) gave 90/91: `091_NPImpTree`, an impredicative `Prop` block nested through `NPBox`, a
+proposition with projections, was accepted. Official's auxiliary type takes `isImpredicative`
+and `hasLargeElim` from the block's first type, `isK` and `hasProjections` from the container `J`,
+`hasEta` false, and is checked like a member. Going through each rule: `hasLargeElim` on a nested
+possibly-`Prop` block needs hasEta (impossible: nesting makes it recursive) or isK (no fields), so
+the existing guard covers it; isK is the K-shape rule above; two were missing.
+* impredicative ∧ J has projections ⇒ reject. "J has projections" is J's projection table
+  (`env.findTable?`): a flagged J's `hasProjections`, an unflagged one's structure-likeness.
+  `blockFlagsCheck` takes the lookup as an argument (`hasProj`), the pure tail
+  `q.env₁.findTable?`, the cached `env₁.findTable?` (`mkFEnv_findTable?`).
+* the field bound on the auxiliary constructors: at a `boundedProp` block, every field of every
+  container constructor at its instantiation has sort ≤ the block's. Found by a probe with the
+  PR toolchain (`FlagNestExTree`: a non-impredicative `Prop` nesting an impredicative `Prop`
+  with a field in `Type`; official rejects). Checked in the container frame
+  (`nestFrame` → `nestFrameSorts`, on the walked telescopes `nestCtors` returns, which
+  `nestCtorsS_spec` already proves scoped), gated on the new `NestCtx.bound :=
+  p.boundedProp`. `checkStructFieldSortsI` moved from `SumInstall` to `StructInstall` so that
+  `Positivity` can use it (the message is the existing "field universe too large").
+  `Complete/PosDerivComplete`'s completeness of the walk now assumes `ctx.bound = false`.
+Fixtures: `src/ind_flags_nest_prop.lean` (exported with the pinned `lean4export`), forged by
+`scripts/mk_ind_flags_install.py` into `ind_flags_nest` (0), `ind_flags_nest_impred_proj_bad`
+(1), `ind_flags_nest_bound_bad` (1). After the fix: 91/91 on the arena tests. They are not in
+`tests/arena.sh`: it runs a vendored snapshot of the published arena tests, which will carry them
+once the arena PR lands and the snapshot is refreshed.
+

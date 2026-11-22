@@ -389,6 +389,76 @@ theorem frameHoles_wscoped {grp : List (Name × Expr)} {hi : Nat}
   simp only [WScoped]
   exact ⟨by omega, WScoped.mono (by omega) (hg _ (List.getElem_mem hi'))⟩
 
+/-- An opened field telescope: its `i`-th variable's type scoped at
+`nP + i`. -/
+@[expose] def FvsWS (nP : Nat) (fvs : List Expr) : Prop :=
+  ∀ (i : Nat) (x : Expr), fvs[i]? = some x → WScoped (nP + i) (Expr.fvarTypeD x)
+
+theorem FvsWS.get {nP : Nat} {fvs : List Expr} (h : FvsWS nP fvs) {j : Nat} {x : Expr}
+    (hx : fvs[j]? = some x) : WScoped (nP + j) (Expr.fvarTypeD x) :=
+  h j x hx
+
+/-- The per-field sort walk at the shared operations
+(#175: the large-eliminator escape admits a field that is
+one of the residual's index expressions). -/
+theorem checkStructFieldSortsIS_spec (henv : EnvWF env)
+    {isProp large : Bool} {s : Level} {nP : Nat} {fvs idxArgs : List Expr}
+    (hfvs : FvsWS nP fvs) :
+    ∀ {j : Nat} {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄
+        checkStructFieldSortsI (sharedOpsC .verified (mkFEnv env)) env isProp large s nP fvs idxArgs j
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (checkStructFieldSortsI (fueledOpsM .verified) env isProp large s nP fvs idxArgs j) v;
+        ⊤⦄ := by
+  intro j
+  induction j with
+  | zero =>
+    intro _ hs
+    sym only [conleche_grind, checkStructFieldSortsI.eq_1] =>
+      vcgen [checkStructFieldSortsI] <;> finish
+  | succ j ih =>
+    intro _ hs
+    sym only [conleche_grind, checkStructFieldSortsI.eq_2, unwrapOr.eq_1, liftFueled.eq_1,
+        → hfvs.get] =>
+      vcgen [checkStructFieldSortsI, unwrapOr, liftFueled, inferS_spec henv,
+        sortS_spec henv, ih] <;>
+        finish
+
+/-- An abstracted constructor's fields, opened at the holes' depth. -/
+theorem fvsWS_openPis {n d : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
+    (h : openPisAtFvars n e d = some (fvs, body)) (hw : WScoped d e) : FvsWS d fvs := by
+  intro i x hx
+  obtain ⟨ty, rfl⟩ := openPisAtFvars_index _ _ _ h i x hx
+  have hw' := (openPisAtFvars_WScoped _ _ _ h hw).1 _ (List.mem_of_getElem? hx)
+  simp only [WScoped] at hw'
+  exact hw'.2
+
+/-- A container frame's field bound at the shared operations. -/
+theorem nestFrameSortsS_spec (henv : EnvWF env) {sort : Level} {hi : Nat} :
+    ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)) {s₀ : CState},
+      CSOK .verified false env s₀ → ListAll (OutWS hi) os →
+      ⦃fun s => s = s₀⦄ nestFrameSorts (sharedOpsC .verified (mkFEnv env)) env sort hi cs os
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (nestFrameSorts (fueledOpsM .verified) env sort hi cs os) v; ⊤⦄ := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro os _ hs _
+    sym only [conleche_grind, nestFrameSorts] =>
+      vcgen [nestFrameSorts.eq_def] <;> finish
+  | cons c cs ih =>
+    intro os
+    cases os with
+    | nil =>
+      intro _ hs _
+      sym only [conleche_grind, nestFrameSorts] =>
+        vcgen [nestFrameSorts.eq_def] <;> finish
+    | cons o os =>
+      intro _ hs hos
+      sym only [conleche_grind, nestFrameSorts.eq_1, unwrapOr.eq_1, → fvsWS_openPis] =>
+        vcgen [nestFrameSorts, unwrapOr, checkStructFieldSortsIS_spec henv,
+          ih os] <;> finish
+
 /-- `nestFrame` with its holes named (`frameHoles`). -/
 theorem nestFrame_eq {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] (ctx : NestCtx)
     (ops : CheckerOps m) (env : Env)
@@ -400,8 +470,9 @@ theorem nestFrame_eq {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] 
       let prog' := (grp.mapIdx fun _ (c, ty) =>
         ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
       let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-      let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds
+      let (outs, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds
         (grp.map (·.1)) (frameHoles hi grp) ctors st
+      if ctx.bound then nestFrameSorts ops env ctx.sort (hi + grp.length) ctors outs
       pure st) := rfl
 
 theorem nestFrameS_spec (henv : EnvWF env) {ctx : NestCtx}
@@ -417,7 +488,8 @@ theorem nestFrameS_spec (henv : EnvWF env) {ctx : NestCtx}
       nestGroupCtorsS_spec (mode := .verified) (env := env) hc nPc,
       nestCtorsS_spec henv (fun _ => hrec) ctx _ (hi + grp.length) us ds (grp.map Prod.fst)
         (frameHoles hi grp) (AllWS.mono (Nat.le_add_right _ _) hds)
-        (frameHoles_wscoped fun x hx => hg x hx hi hds) (by simp [frameHoles])] <;> finish
+        (frameHoles_wscoped fun x hx => hg x hx hi hds) (by simp [frameHoles]),
+      nestFrameSortsS_spec henv] <;> finish
 
 /-- The walk stack's depth bounds an instantiation's parameters that are
 scoped at the enclosing one. -/
@@ -544,50 +616,6 @@ theorem nestUniformS_spec {ctx : NestCtx}
     ⦃fun v s' => CSOK mode false env s' ∧ Runs (nestUniform (m := FueledM) ctx ctorss) v; ⊤⦄ := by
   sym only [conleche_grind, nestUniform.eq_1] =>
     vcgen [nestUniform] <;> finish
-
-/-- An opened field telescope: its `i`-th variable's type scoped at
-`nP + i`. -/
-@[expose] def FvsWS (nP : Nat) (fvs : List Expr) : Prop :=
-  ∀ (i : Nat) (x : Expr), fvs[i]? = some x → WScoped (nP + i) (Expr.fvarTypeD x)
-
-theorem FvsWS.get {nP : Nat} {fvs : List Expr} (h : FvsWS nP fvs) {j : Nat} {x : Expr}
-    (hx : fvs[j]? = some x) : WScoped (nP + j) (Expr.fvarTypeD x) :=
-  h j x hx
-
-/-- The per-field sort walk at the shared operations
-(#175: the large-eliminator escape admits a field that is
-one of the residual's index expressions). -/
-theorem checkStructFieldSortsIS_spec (henv : EnvWF env)
-    {isProp large : Bool} {s : Level} {nP : Nat} {fvs idxArgs : List Expr}
-    (hfvs : FvsWS nP fvs) :
-    ∀ {j : Nat} {s₀ : CState}, CSOK .verified false env s₀ →
-      ⦃fun s => s = s₀⦄
-        checkStructFieldSortsI (sharedOpsC .verified (mkFEnv env)) env isProp large s nP fvs idxArgs j
-      ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (checkStructFieldSortsI (fueledOpsM .verified) env isProp large s nP fvs idxArgs j) v;
-        ⊤⦄ := by
-  intro j
-  induction j with
-  | zero =>
-    intro _ hs
-    sym only [conleche_grind, checkStructFieldSortsI.eq_1] =>
-      vcgen [checkStructFieldSortsI] <;> finish
-  | succ j ih =>
-    intro _ hs
-    sym only [conleche_grind, checkStructFieldSortsI.eq_2, unwrapOr.eq_1, liftFueled.eq_1,
-        → hfvs.get] =>
-      vcgen [checkStructFieldSortsI, unwrapOr, liftFueled, inferS_spec henv,
-        sortS_spec henv, ih] <;>
-        finish
-
-/-- An abstracted constructor's fields, opened at the holes' depth. -/
-theorem fvsWS_openPis {n d : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
-    (h : openPisAtFvars n e d = some (fvs, body)) (hw : WScoped d e) : FvsWS d fvs := by
-  intro i x hx
-  obtain ⟨ty, rfl⟩ := openPisAtFvars_index _ _ _ h i x hx
-  have hw' := (openPisAtFvars_WScoped _ _ _ h hw).1 _ (List.mem_of_getElem? hx)
-  simp only [WScoped] at hw'
-  exact hw'.2
 
 /-- The fields' universes at the holes, at the shared operations. -/
 theorem checkAbsCtorSortsS_spec (henv : EnvWF env)

@@ -109,7 +109,7 @@ holding the generated ones) and the block's projection tables `Q`. -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
     (Q : List ProjTable) : m Unit := do
   let p := q.p
-  ofExcept (blockFlagsCheck p (blockIsRec p) q.cls)
+  ofExcept (blockFlagsCheck p (blockIsRec p) q.cls fun n => (q.env₁.findTable? n).isSome)
   checkBlockBound ops q.env₁ p
   checkBlockIdxSorts ops q.env₁ p p.members
   let env₂ := consBlockCtors p.nP p.ctorGroups q.env₁

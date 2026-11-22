@@ -574,7 +574,7 @@ Read from the outside in:
    that record. Every check reads its index through the lookups alone (the
    constants' and the projection tables'), so at two indices with the same
    lookups it fails alike or pushes the same constants
-   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1340-L1344)).
+   ([theorem `checkDeclStepC_twin` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1350-L1354)).
    The view of a position answers as the fold's index there as long as the
    names so far are distinct, which every passing job before it ensures,
    so every job passing is an accept of the fold
@@ -1477,19 +1477,19 @@ builds no auxiliary block and instead looks through the container at
 its concrete instantiation: at a field `List T` it checks `List`'s own
 stored constructors with `T` in place of the parameter, after weak
 head normal form, and records the instantiation
-([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L821-L823)).
+([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L840-L842)).
 In the constructors it checks, every application `T_j p⃗` of a block
 member to the block's parameters is replaced by a *hole*, a variable
 standing for that whole application. The block itself is checked the
 same way as a container, as the outermost level of the nesting
-([function `nestRoot` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1047)),
+([function `nestRoot` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1066)),
 and the check starts from every class, so every class a recursor
 eliminates is an instantiation it has visited — including one that
 weak head normal form erases from every field
 ([function `classSeeds` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L498)).
 Nothing is stated or cached about a container in its parameter. The
 normal forms the check records are the fields the model reads
-([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L284)).
+([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L285)).
 
 **The recursor check.** The recursors are generated in the official
 kernel's shape: each class's constructors are read off the positivity
@@ -1540,7 +1540,7 @@ and no fields), exactly under the official kernel's conditions.
 **The declared feature flags.** A block whose type records carry the feature flags
 (`isImpredicative`, `isK`, `hasProjections`, `hasEta`, `hasLargeElim`) is checked at them: the
 flags are the input's, never recomputed. Each must be allowed, or the block is rejected
-([function `blockFlagsCheck` in `ConLeche/Kernel/Inductives/StreamRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StreamRecs.lean#L255)):
+([function `blockFlagsCheck` in `ConLeche/Kernel/Inductives/StreamRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StreamRecs.lean#L258)):
 `isImpredicative` and `hasLargeElim` agree across the block; `isImpredicative` only at a
 proposition; `hasLargeElim` is what the recursor records eliminate at, and is allowed only at a
 block that is not impredicative and whose sort is never zero, or of one type with no constructor,
@@ -1553,8 +1553,13 @@ without `isK` no K-like reduction; at a block without `hasLargeElim` the recurso
 and a recursor record with rules is rejected. A proposition that is not `isImpredicative` and has
 no large eliminator takes the ordinary field bound, so its fields must be propositions. A nested
 occurrence of a proposition with one constructor without fields is rejected, as the official
-kernel's auxiliary type would carry its `isK` without being its block's first type. A block whose
-records carry no flags is checked as above.
+kernel's auxiliary type would carry its `isK` without being its block's first type. The other
+flags of that auxiliary type are checked too: an impredicative block may not nest a type with
+projections, since the auxiliary type would be impredicative with projections; and at a
+proposition that is not `isImpredicative` and has no large eliminator, every field of a nested
+container's constructors, at the instantiation the block uses, must be a proposition
+([function `nestFrameSorts` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L790)).
+A block whose records carry no flags is checked as above.
 
 **In the model** the block's carrier is the least fixed point of its
 family functor over the index fibres
@@ -1596,7 +1601,7 @@ record gives it. The block's check reduces each such member once, as official's
 `check_inductive_types` does: the declared type is checked and compared with its
 reduct, and the check after that reads the reduct. A def-headed container is read
 through the same loop at each use
-([function `familyTelescope` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L99)).
+([function `familyTelescope` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L100)).
 What a use needs of a family's sort is computed at the use, at the environment of
 the use.
 
@@ -1785,21 +1790,21 @@ Where the steps live: the entry is
 steps 1–5 are
 [function `checkBlockPass` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L52),
 the constructor check of step 3 is
-[function `checkSumCtor` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L77),
+[function `checkSumCtor` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L51),
 step 4 is
 [function `checkBlockClasses` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L522),
 with a class's parameters moved in
 [function `classKeyOf`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L508);
 `POS` is
-[function `nestPos` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L910),
+[function `nestPos` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L929),
 its hole lookup
-[function `nestHoleAt` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L468),
+[function `nestHoleAt` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L474),
 `CONT` is
-[function `nestContKey`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L852),
+[function `nestContKey`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L871),
 `CTORS` is
-[function `nestCtors`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L688),
+[function `nestCtors`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L694),
 and the uniform-parameters check
-[function `nestUniform`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1019);
+[function `nestUniform`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1038);
 step 6 is
 [function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L103);
 steps 7 and 8 are `genRecCheck` (above), with a constructor's

@@ -255,12 +255,12 @@
     97  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution)
     98      (F : FrozenIndex) (k : Nat) (pd : Declaration) : Except CheckError Unit :=
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1340-L1344
-  1340      exact checkQuotRecordC_twin ht k cv
-  1341  
-  1342  /-- **Every declaration step at twin indices pushes the same constants
-  1343  onto each, or fails alike.** -/
-  1344  theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+== ConLeche/Verify/Cached/ViewCongr.lean#L1350-L1354
+  1350      exact checkQuotRecordC_twin ht k cv
+  1351  
+  1352  /-- **Every declaration step at twin indices pushes the same constants
+  1353  onto each, or fails alike.** -/
+  1354  theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L527-L531
    527  the solution's environment `justify`, if any, the jobs' solution index, over records the fold
@@ -952,19 +952,19 @@
    239  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
    240      (mty : Expr) : m TargetMajor := do
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L821-L823
-   821  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-   822      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-   823      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L840-L842
+   840  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+   841      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+   842      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1047
-  1047  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1066
+  1066  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L498
    498  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L284
-   284      (p : BlockShape) :
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L285
+   285      (p : BlockShape) :
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L552
    552  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
@@ -981,8 +981,11 @@
 == ConLeche/Kernel/Inductives/IotaRead.lean#L211
    211  def blockReadsOk (find? : Name → Option ConstantInfo) (p : BlockShape) :
 
-== ConLeche/Kernel/Inductives/StreamRecs.lean#L255
-   255  def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor) :
+== ConLeche/Kernel/Inductives/StreamRecs.lean#L258
+   258  def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor)
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L790
+   790        (if keys.contains ⟨c, us, ds⟩ then keys else keys.push ⟨c, us, ds⟩)
 
 == ConLeche/SetModel/Value.lean#L387-L388
    387  /-- `I → Sort w`, the family space, as the value reading has it. -/
@@ -1003,8 +1006,8 @@
    135        ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
    136        NatFacts env₂ := by
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L99
-    99  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
+== ConLeche/Kernel/Inductives/Positivity.lean#L100
+   100  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
 
 == ConLeche/Verify/EnvExt.lean#L480-L482
    480  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
@@ -1030,8 +1033,8 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L52
     52  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L77
-    77  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+== ConLeche/Kernel/Inductives/SumInstall.lean#L51
+    51  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L522
    522  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
@@ -1039,20 +1042,20 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L508
    508  def classKeyOf (nP : Nat) (params : List Expr)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L910
-   910  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L929
+   929  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L468
-   468  def nestHoleAt (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option NestHole :=
+== ConLeche/Kernel/Inductives/Positivity.lean#L474
+   474  def nestHoleAt (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option NestHole :=
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L852
-   852  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+== ConLeche/Kernel/Inductives/Positivity.lean#L871
+   871  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L688
-   688  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+== ConLeche/Kernel/Inductives/Positivity.lean#L694
+   694  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1019
-  1019  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
+== ConLeche/Kernel/Inductives/Positivity.lean#L1038
+  1038  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L103
    103      checkStructProjTable t env

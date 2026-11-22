@@ -432,7 +432,7 @@ theorem newOk_of {rec : List NestHole → Nat → Nat → Expr → NestState →
 /-- **(B), THE COMPLETENESS OF THE WALK AGAINST ITS DERIVATION.**  A
 `PosDR` derivation at fuel index `n` makes the corresponding run succeed at
 every fuel `≥ n`, with the derivation's kinds and normal forms. -/
-theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
+theorem posDR_run (hbd : ctx.bound = false) {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     RunOK ops env ctx n J := by
   induction h with
   | const hw hocc =>
@@ -521,7 +521,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     have hk : familyKeyChecks ops env ctx.find? (ctx.hiAt prog.length) us ds (grp.map (·.1))
         = .ok () := (familyKeyChecks_ok _).mpr fun c hc => by
       obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hc; exact hkty p hp
-    simp only [nestFrame, bind, Except.bind, h₁, hk]
+    simp only [nestFrame, bind, Except.bind, h₁, hk, hbd, Bool.false_eq_true, ite_false]
     rw [grpNews_mapIdx]
     split
     · rename_i heq; exact absurd (heq.symm.trans h'.1) (by simp)
@@ -575,7 +575,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
 run-completely at the root key (from the empty in-progress list) within
 the fuel makes the root frame's walk succeed, every constructor's output
 a derived telescope's. -/
-theorem nestRoot_complete {holes : List Expr} :
+theorem nestRoot_complete (hbd : ctx.bound = false) {holes : List Expr} :
     ∀ (css : List (List (ConstantVal × Nat))) (st : NestState), RInv ctx st [] →
       (∀ cs ∈ css, ∃ n, (∀ x ∈ cs, ∀ crest, nestCrest ctx.names (ctx.lps.map .param) ctx.params
           holes (x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param))
@@ -595,8 +595,8 @@ theorem nestRoot_complete {holes : List Expr} :
   | [], st, hI, _ => ⟨[], st, rfl, hI, fun _ _ _ hc => by simp at hc⟩
   | cs :: css, st, hI, hall => by
     obtain ⟨n, hn, hd⟩ := hall cs List.mem_cons_self
-    obtain ⟨os, st₁, h₁, hI₁, hos⟩ := posDR_run hd whnfWalkFuel hn st hI
-    obtain ⟨outs, st', h₂, hI', houts⟩ := nestRoot_complete css st₁ hI₁
+    obtain ⟨os, st₁, h₁, hI₁, hos⟩ := posDR_run hbd hd whnfWalkFuel hn st hI
+    obtain ⟨outs, st', h₂, hI', houts⟩ := nestRoot_complete hbd css st₁ hI₁
       (fun cs' hcs' => hall cs' (List.mem_cons_of_mem _ hcs'))
     refine ⟨os :: outs, st', ?_, hI', fun c cs' os' hc ho => ?_⟩
     · simp only [nestRoot, bind, Except.bind, h₁, h₂, pure, Except.pure]
@@ -613,7 +613,7 @@ theorem nestRoot_complete {holes : List Expr} :
 official's uniform-occurrence check passing at every constructor, and
 every member's constructor list derived (run-complete, at the root key)
 within the root's fuel, make `nestedBlockPositivity` succeed. -/
-theorem nestedBlockPositivity_complete {holes : List Expr}
+theorem nestedBlockPositivity_complete (hbd : ctx.bound = false) {holes : List Expr}
     (hh : nestHoles ctx = some holes) {ctorss : List (List (ConstantVal × Nat))}
     (hunif : ∀ cs ∈ ctorss, ∀ ctor ∈ cs, nestUniformOk ctx ctor.1 = true)
     (hall : ∀ cs ∈ ctorss, ∃ n, (∀ x ∈ cs, ∀ crest, nestCrest ctx.names (ctx.lps.map .param)
@@ -623,7 +623,7 @@ theorem nestedBlockPositivity_complete {holes : List Expr}
       (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs)) :
     ∃ r, nestedBlockPositivity ops env ctx ctorss = .ok r := by
   obtain ⟨outs, st', h, -, -⟩ :=
-    nestRoot_complete ctorss {} rfl hall
+    nestRoot_complete hbd ctorss {} rfl hall
   have hU : nestUniform (m := CheckM) ctx ctorss = .ok () := by
     unfold nestUniform
     rw [(List.findSome?_eq_none_iff).mpr fun cs hcs =>

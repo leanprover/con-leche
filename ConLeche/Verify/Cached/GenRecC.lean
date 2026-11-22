@@ -1415,9 +1415,9 @@ theorem checkBlockTailS_run
   dsimp only at h
   simp only [blockRecInfosTC_eq, streamRecsCheckC_eq, checkBlockIdxSortsC_eq, mkFEnv_env,
     consBlockCtorsF_mkFEnv] at h
-  simp only [checkBlockTablesC_eq, blockIsRecC_eq] at h
+  simp only [checkBlockTablesC_eq, blockIsRecC_eq, mkFEnv_findTable?] at h
   obtain ⟨uF, sF, hFl, h⟩ := bindC_ok h
-  cases hfl : blockFlagsCheck p (blockIsRec p) Ms₀ with
+  cases hfl : blockFlagsCheck p (blockIsRec p) Ms₀ (fun n => (env₁.findTable? n).isSome) with
   | error e =>
     rw [hfl] at hFl
     simp [ofExcept, throw, throwThe, MonadExceptOf.throw, StateT.lift, liftM, monadLift,
@@ -1518,7 +1518,7 @@ theorem checkBlockTailS_run
   rw [checkBlockTail_datF]
   unfold checkBlockTail
   simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [show ofExcept (m := CheckM) (blockFlagsCheck p (blockIsRec p) Ms₀) = .ok () by
+  rw [show ofExcept (m := CheckM) (blockFlagsCheck p (blockIsRec p) Ms₀ fun n => (env₁.findTable? n).isSome) = .ok () by
     rw [hfl]; rfl]
   simp only [Except.bind]
   rw [gB]

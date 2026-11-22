@@ -440,8 +440,13 @@ theorem nestFrame_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecN
   · simp at h
   rename_i v' hv'
   obtain ⟨os, st₂⟩ := v'
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
+  have hst' : st' = st₂ := by
+    split at h
+    · split at h
+      · simp at h
+      · simpa [pure, Except.pure] using h.symm
+    · simpa [pure, Except.pure] using h.symm
+  subst st'
   have hp' : ProgScB ctx ((grp.mapIdx fun _ (c, ty) =>
       ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog) :=
     ProgScB.push hp (by subst hhi; exact hds) _ (fun h hh => by

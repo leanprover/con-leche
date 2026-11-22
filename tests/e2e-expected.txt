@@ -797,6 +797,18 @@
 1 ind_flags_eq_k_off_bad.ndjson
 1 ind_flags_mutual_disagree_bad.ndjson
 1 ind_flags_mixed_block_bad.ndjson
+# Nested Prop blocks (`src/ind_flags_nest_prop.lean`, unflagged: accepted), patched by
+# `scripts/mk_ind_flags_install.py`: official's auxiliary type takes isImpredicative from the
+# block and hasProjections from the container.
+#   ind_flags_nest:                 FlagNestTree not impredicative — accepted
+#   ind_flags_nest_impred_proj_bad: FlagNestTree impredicative, nesting a proposition with
+#                                   projections — rejected
+#   ind_flags_nest_bound_bad:       FlagNestExTree not impredicative, nesting a proposition
+#                                   with a field in Type — rejected
+0 ind_flags_nest_prop.ndjson
+0 ind_flags_nest.ndjson
+1 ind_flags_nest_impred_proj_bad.ndjson
+1 ind_flags_nest_bound_bad.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson
