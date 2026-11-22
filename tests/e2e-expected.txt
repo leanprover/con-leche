@@ -749,6 +749,15 @@
 #                          2` with one index).
 1 ind_numparams_bad.ndjson
 0 ind_numparams_indices.ndjson
+# TASK #630 — THE FEATURE FLAGS of lean4export 3.2.0 (lean4 PR #16595),
+# five booleans on every inductive type record.  Two twins of
+# `direct_fix_nat.ndjson`, patched by `scripts/mk_ind_flags_parse.py`:
+#   ind_flags_parse:       every type record carries the flags official
+#                          accepts for it (0).
+#   ind_flags_partial_bad: one record carries two of the five — malformed,
+#                          rejected by the parse (1).
+0 ind_flags_parse.ndjson
+1 ind_flags_partial_bad.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson

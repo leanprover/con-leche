@@ -297,7 +297,7 @@ theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : N
   have hty : types = L1.map fun x => ConstantInfo.indInfo x.cv {} := by
     rw [mapM_res (G := fun x : CEntryF Name Expr => ConstantInfo.indInfo x.cv {})
       (fun t c (h : TyRes nm ex t c) => by
-        simp [cvOfF_res h.1, CEntryF.cv, bind, Except.bind, pure, Except.pure]) ht] at h1
+        simp [cvOfF_res h.1, h.flags_none, CEntryF.cv, bind, Except.bind, pure, Except.pure]) ht] at h1
     cases h1; rfl
   have hrecs : recs = L3.map fun x => match x.kind with
       | .recur _ np ni nmo nmi rules k _ =>
@@ -330,7 +330,7 @@ theorem declOfF_ind_records {nm : Nat → M Name} {lv : Nat → M Level} {ex : N
     simp only [hk]
   · intro x hx np ni all cs nn ir iu irf hk n hn hnL
     obtain ⟨τ, hτ, hτx⟩ := Forall₂.mem_right ht x hx
-    obtain ⟨g, ni', all', cs', nn', ir', irf', hk', hcs⟩ := hτx
+    obtain ⟨g, ni', all', cs', nn', ir', irf', hk', hcs, -⟩ := hτx
     rw [hk] at hk'
     obtain ⟨-, -, -, rfl, -⟩ := CKindF.induct.inj hk'
     have hcn' : cn = L2.map (·.name) := by

@@ -183,6 +183,16 @@ inductive BasisKind where
   | eqK | natK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
 
+/-- **An inductive type's declared feature flags** (lean4export 3.2.0, lean4 PR #16595):
+inputs the block's check validates, never recomputes. -/
+structure IndFlags where
+  isImpredicative : Bool
+  isK : Bool
+  hasProjections : Bool
+  hasEta : Bool
+  hasLargeElim : Bool
+  deriving DecidableEq, Repr, Inhabited
+
 /-- Definitional capabilities of a stored inductive type that its block
 alone decides, read off the block's records at its check: structure-likeness
 for its (single-constructor) values (official's `is_non_rec_structure`; with
@@ -226,6 +236,9 @@ structure IndCaps where
   check (`blockCapsAt`).  `false` claims nothing.  The ι step's case split
   reads it in place of the walk to the family's sort. -/
   neverZero : Bool := false
+  /-- **The flags the stream's record declares** (`none`: a record without them, a block
+  checked as before). The stream's records carry them; the install validates them. -/
+  flags : Option IndFlags := none
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):

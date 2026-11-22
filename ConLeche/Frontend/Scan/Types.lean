@@ -188,6 +188,13 @@ structure IndTypeRec where
   numIndices : Nat
   numNested : Nat
   numParams : Nat
+  /-- The feature flags of lean4export 3.2.0 (lean4 PR #16595), each `none` where the
+  record omits its key; `IndTypeRec.flags` (`ConLeche/Frontend/ExportC.lean`) takes all five or none. -/
+  isImpredicative : Option Bool := none
+  isK : Option Bool := none
+  hasProjections : Option Bool := none
+  hasEta : Option Bool := none
+  hasLargeElim : Option Bool := none
 
 /-- One member of an inductive block's `ctors`.  `cidx` and `induct`
 are the format's REDUNDANT fields (task #271, issues #5 and #7): the
@@ -263,6 +270,9 @@ inductive Key where
   | kDef
   | kFn
   | kForallE
+  | kHasEta
+  | kHasLargeElim
+  | kHasProjections
   | kHints
   | kI
   | kIdx
@@ -272,6 +282,8 @@ inductive Key where
   | kIn
   | kInduct
   | kInductive
+  | kIsImpredicative
+  | kIsK
   | kIsRec
   | kIsReflexive
   | kIsUnsafe
