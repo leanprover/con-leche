@@ -473,7 +473,7 @@ and no fields.  An outside major's recursor is never K (official's
 checks the record's flag against it. -/
 def recKExpected (p : BlockShape) (M : TargetMajor) : Bool :=
   match M.member, M.ctors with
-  | some _, [c] => p.kAllowed && p.k == 1 && p.isProp && c.2 == 0
+  | some _, [c] => (p.flagsAt 0).isK && c.2 == 0
   | _, _ => false
 
 /-- What the K flag says of a member major: one constructor, no fields. -/

@@ -181,9 +181,12 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
   have hQ : blockTables q.p q.p.projMembers = some Q := by
     rw [← hQ₀, ← e₂]
     exact ConLeche.blockTables_congr hnP hlps
-      (ConLeche.projMembersFrom_map _ hfl 0 (by rw [hmem]))
-      (ConLeche.projMembersFrom_map _ hfl 0 (by rw [hmem]))
-      (ConLeche.projMembersFrom_map _ hfl 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
   refine ⟨ms, hms, hall, hdecl, ?_, ?_, ?_, blockIsRec p₀, q.env₁, q.p,
     sortsss, ctx, holes, q.rd, q.cls, q.kinds, nfs, pos, st, isorts, rs, Q, hInd, hCtors, hctx,
     hcls, hP', hst, hraw.symm, hsorts, hRec, hK, hS, hQ, hTbl, ?_⟩
@@ -219,9 +222,12 @@ theorem blockRun_env {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p
   have hQ : blockTables p₁ p₁.projMembers = blockTables p₀ p₀.projMembers := by
     rw [← e₂]
     exact ConLeche.blockTables_congr hnP hlps
-      (ConLeche.projMembersFrom_map _ hfl 0 (by rw [hmem]))
-      (ConLeche.projMembersFrom_map _ hfl 0 (by rw [hmem]))
-      (ConLeche.projMembersFrom_map _ hfl 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
   rw [hfin, ← hQ, hQ₁, Option.getD_some, ← e₁]
   exact (ConLeche.blockInstall_of_checks (Q := Q) hInd hcls hRec hK hS).symm
 

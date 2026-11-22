@@ -131,50 +131,63 @@ structure BlockShape where
   /-- the result sort is provably `Prop` -/
   isProp : Bool
   /-- **the feature flags the members' records declare** (lean4export 3.2.0), in member
-  order: `none` when no record carries them, the block then checked as before
-  (`blockFlagsOf`) -/
+  order: `none` when no record carries them, the block then checked at the derived ones
+  (`BlockShape.flagsAt`) -/
   flags : Option (List IndFlags) := none
   deriving Repr, Inhabited
 
-/-! ## The declared feature flags
+/-! ## The feature flags
 
-A block whose records carry the feature flags (lean4 PR #16595) is checked AT them: each flag is
-validated (`blockFlagsCheck`, `ConLeche/Kernel/Inductives/BlockRec.lean`) and a flag that is off
-withdraws its feature — structure η and unit-likeness (`hasEta`), the projection table
-(`hasProjections`), the K-like reduction (`isK`), the recursors' rules (`hasLargeElim`).  A block
-without them is checked as before: every reader below answers `true` at `none`. -/
+Every block is checked at its members' feature flags (lean4 PR #16595): the ones its records
+declare, validated (`blockFlagsCheck`, `ConLeche/Kernel/Inductives/StreamRecs.lean`), or, at a
+block whose records carry none, the ones the official kernel computed from the declaration
+before the flags were inputs (`derivedFlags`).  A flag that is off withdraws its feature:
+structure η and unit-likeness (`hasEta`), the projection table (`hasProjections`), the K-like
+reduction (`isK`), the recursors' rules (`hasLargeElim`); `isImpredicative` is what exempts a
+field's sort from the bound by the block's sort.  Everything here is read off the records and
+the block's sort, which is final after the formers' stage (`withSort`); nothing is inferred or
+compared for it. -/
 
-/-- Member `i`'s declared flags. -/
-def BlockShape.flagAt (p : BlockShape) (i : Nat) : Option IndFlags :=
-  p.flags.map (·.getD i default)
+/-- **The flags of a block without declared ones**, member `i`'s: what the official kernel
+computed from the declaration before the flags were inputs.  `hasEta` is the structure-like
+shape; the capability takes official's `is_rec` beside it (`blockCapsAt`), as the validation of
+a declared `hasEta` does. -/
+def BlockShape.derivedFlags (p : BlockShape) (i : Nat) : IndFlags :=
+  let ms := p.members.getD i default
+  let structLike := ms.ctors.length == 1 && ms.nIdx == 0
+  { isImpredicative := p.isProp
+    isK := p.members.length == 1 && p.isProp && (match ms.ctors with | [c] => c.2 == 0 | _ => false)
+    hasProjections := structLike
+    hasEta := structLike
+    hasLargeElim := p.large }
 
-/-- **May member `i` have structure η?** Its `hasEta`; always, at a block without flags. -/
-def BlockShape.etaAt (p : BlockShape) (i : Nat) : Bool :=
-  (p.flagAt i).all (·.hasEta)
+/-- **Member `i`'s feature flags**: its declared ones, or the derived ones at a block without. -/
+def BlockShape.flagsAt (p : BlockShape) (i : Nat) : IndFlags :=
+  match p.flags with
+  | some fl => fl.getD i default
+  | none => p.derivedFlags i
 
-/-- **May the block's recursors be K-like?** Member 0's `isK` (only the first member may be
-marked, `blockFlagsCheck`); always, at a block without flags. -/
-def BlockShape.kAllowed (p : BlockShape) : Bool :=
-  (p.flagAt 0).all (·.isK)
-
-/-- **The block's recursors carry no rules**: a flagged block without `hasLargeElim`, whose
-recursors eliminate into `Prop` only and do not reduce. -/
+/-- **The block's recursors carry no rules**: a block with declared flags and without a large
+eliminator, whose recursors eliminate into `Prop` only (its records must carry none,
+`streamKCheck`).  Read off the records' eliminator (`large`), which a declared `hasLargeElim`
+must equal (`blockFlagsCheck`).  A block without declared flags keeps its small eliminator's
+rules, checked against the generated ones, as before the flags. -/
 def BlockShape.noRules (p : BlockShape) : Bool :=
-  (p.flagAt 0).any (!·.hasLargeElim)
+  p.flags.isSome && !p.large
 
-/-- **A proposition whose fields take the ordinary universe bound**: a flagged `Prop` block that
-is not `isImpredicative` and has no large eliminator.  Official bounds a field's sort by the
-result sort unless the block is impredicative, so its fields must be propositions; the
-constructors' stage, which exempts every proposition, is run again at the bound
-(`checkBlockTail`).  With a large eliminator the stage's per-field criterion is that bound
-already: `hasLargeElim` at a possible `Prop` needs `hasEta` (no index, so no index escape) or
-`isK` (no field). -/
+/-- **A proposition whose fields take the ordinary universe bound**: a `Prop` block that is not
+`isImpredicative` and has no large eliminator.  Official bounds a field's sort by the result
+sort unless the block is impredicative, so its fields must be propositions; the constructors'
+stage, which exempts every proposition, is run again at the bound (`checkBlockTail`).  With a
+large eliminator the stage's per-field criterion is that bound already: `hasLargeElim` at a
+possible `Prop` needs `hasEta` (no index, so no index escape) or `isK` (no field).  A block
+without declared flags is impredicative exactly when it is a proposition. -/
 def BlockShape.boundedProp (p : BlockShape) : Bool :=
-  p.isProp && !p.large && (p.flagAt 0).any (!·.isImpredicative)
+  p.isProp && !p.large && !(p.flagsAt 0).isImpredicative
 
-/-- **May member `i` have projections?** Its `hasProjections`; always, at a block without flags. -/
+/-- **May member `i` have projections?** Its `hasProjections`. -/
 def BlockShape.projAllowed (p : BlockShape) (i : Nat) : Bool :=
-  (p.flagAt i).all (·.hasProjections)
+  (p.flagsAt i).hasProjections
 
 /-- The members from position `i` on that may have projections (`projAllowed`). -/
 def projMembersFrom (p : BlockShape) : Nat → List MemberShape → List MemberShape
@@ -182,8 +195,8 @@ def projMembersFrom (p : BlockShape) : Nat → List MemberShape → List MemberS
   | i, ms :: rest =>
     if p.projAllowed i then ms :: projMembersFrom p (i + 1) rest else projMembersFrom p (i + 1) rest
 
-/-- **The members that may have projections**: every member at a block without flags, the
-`hasProjections` ones at a flagged block.  The projection tables are read off these. -/
+/-- **The members that may have projections**: the `hasProjections` ones.  The projection
+tables are read off these. -/
 def BlockShape.projMembers (p : BlockShape) : List MemberShape :=
   projMembersFrom p 0 p.members
 
