@@ -115570,3 +115570,41 @@ Both accept everything.  Not proved: the cached simulation (`Verify/Cached/DiscC
 spec for the new arm — the pure twin and the soundness rules would need the rule too.  The
 `.ndjson` path cannot use it (lean4export clears the flag).  Departure from official (no such
 congruence in `is_def_eq`).  Not landed; spike binaries and logs in the lane's `_tmp/600/`.
+
+### Task #631, part 3 — no flag needed: the redex congruence alone (2026-11-17)
+
+**Why ζ is exponential although the memo is there.**  After ζ, two towers meet as
+`v₁ (x+1)` against `v₂ (x+1)` (`v₁` at `N`, `v₂` at `Nat`).  `whnfCore` β-reduces both before
+any congruence, so the pair `v₁ =?= v₂` is never asked; the pairs that are asked are the
+reducts at ever different arguments (`x+1+2`, `x+2+1`, …), 2^k distinct pairs at depth k,
+none a memo hit.  The redex congruence asks `v₁ =?= v₂` (and the arguments) before β: the
+first time it recurses, every later time it is a memo hit.  It is lazy δ's args-first step,
+for a λ head; it must run before `whnfCore`, which does β.
+
+**Variants** (reader as on master, `letE` kept; own cost, G; master 14.1 at n = 16, 56.6 at
+n = 18):
+
+| variant | t1–t3 (n = 16) | t4 (`bjps%`) | s18 | `crlfToLf…eq_def` |
+|---|---|---|---|---|
+| A: `let` congruence at one value (`v₁ ≡ v₂`, then `b₁[v₁] ≡ b₂[v₁]`) | 28.3 | 14.3 | 113.4 | accepted |
+| B: A + redex congruence | ≤ 0.012 | ≤ 0.012 | ≤ 0.012 | accepted |
+| C: redex congruence alone | ≤ 0.012 | ≤ 0.012 | ≤ 0.012 | accepted |
+
+A alone doubles master's cost (still exponential: the bodies at `v₁` still meet the
+redexes `v₁ a`, now after a second walk).  C is the branch's state: no `nonDep` flag, no
+reader change, so it works on `.ndjson` too.
+
+| stream (C) | master G | C G | Δ |
+|---|---|---|---|
+| Init (`--olean --jobs=8`) | 304.517 | 306.041 | +0.50 % |
+| Mathlib (`--olean --jobs=8`) | 6 171.809 | 6 255.441 | +1.35 % (RSS 2.94 → 3.00 GB) |
+| arena perf streams (`--jobs=1`) | | | ≤ +0.87 % (grind-ring-5), all accepted |
+
+`tests/arena.sh` with C: e2e 610/610, arena 90/92 (as master), mode, trusted and `--jobs`
+sweeps, olean 122/122 all as expected; challenge, self-check and the axiom pin fail only
+because the proof library stops at `Verify/Cached/DiscC5` (no spec for the new arm).
+
+**Open for a landing:** the rule in the pure twin (`quickDefEq`) and the soundness rules;
+whole spines (`(fun x y => b) a c`: both heads λ, same arity, pairwise) instead of one
+application; a failure cache for the args-first attempt, as official's lazy δ has, against
+the +0.5–1.4 %; a line in OVERVIEW §14 (official β-reduces in `whnf_core` first).

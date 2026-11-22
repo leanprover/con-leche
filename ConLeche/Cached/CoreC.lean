@@ -1745,7 +1745,9 @@ def quickDefEqI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) :
     pure (some ok)
   | .app (.lam ty₁ b₁) v₁, .app (.lam ty₂ b₂) v₂ => do
     -- SPIKE (task #631): β-redex congruence — the functions, then the
-    -- arguments, before β; on a miss, the β path as before
+    -- arguments, before β (lazy δ's args-first step, for a λ head); on a
+    -- miss, the β path as before.  After ζ, two `let` towers meet here as
+    -- `v₁ a` against `v₂ a`, and `v₁ =?= v₂` is a memo hit after the first
     unless ← defeqI eager lv depth (.lam ty₁ b₁) (.lam ty₂ b₂) do return none
     if ← defeqI eager lv depth v₁ v₂ then pure (some true) else pure none
   | _, _ => pure none
