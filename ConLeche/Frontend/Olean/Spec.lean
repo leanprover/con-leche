@@ -192,7 +192,12 @@ node IS its body. -/
       let t ← r.exprIn g (r.fld g 1) ex
       let v ← r.exprIn g (r.fld g 2) ex
       let b ← r.exprIn g (r.fld g 3) ex
-      pure (.letE t v b)
+      -- SPIKE (nondep let): `nonDep` is the byte after `Expr.Data`; a
+      -- nondep `let x : t := v; b` is read as `(fun x : t => b) v`, so
+      -- inference checks `b` under an opaque `x : t`
+      match r.u8 g 8 with
+      | some 1 => pure (.app (.lam t b) v)
+      | _ => pure (.letE t v b)
     | 9, 1 => do
       let l ← r.litP g (r.fld g 0)
       pure (.lit l)

@@ -593,7 +593,7 @@ theorem exprNode_sub (hs : Region.Sub P r n) {g : Nat} (hg : P.Good g) (e e' : N
   · rename_i hF
     rw [hs.tag hg, hs.nobjs hg]
     split
-    all_goals simp (disch := omega) only [hs.fld hg hF, NI, LI, LsI, EI, hs.natP hgn, hs.litP hgn]
+    all_goals simp (disch := omega) only [hs.fld hg hF, NI, LI, LsI, EI, hs.natP hgn, hs.litP hgn, hs.u8' hg]
   · rfl
 
 theorem nameAt_sub (hs : Region.Sub P r n) (g : Nat) : P.Good g → nameAt r g = nameAt P g := by

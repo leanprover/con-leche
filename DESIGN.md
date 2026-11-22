@@ -115484,3 +115484,46 @@ Regenerated on the nightly, the dump is byte-identical to the PR-release one exc
 label fields (`toolchain`, `leanVersion`, `preludeFile`). The generated prelude matches the
 committed v4.35.0 prelude below the meta line. The variant order in `#load_natop_pins` does not
 change. No checker code changed.
+
+## TASK #631 — spike: a nondep `let` inferred under an opaque binder (2026-11-17, worktree-agent+600-nondep-let; not landed)
+
+**Question.** Keep a `let`'s `nonDep` flag and, at inference, check the
+body under an opaque `x : t` instead of ζ-reducing, for the nondep ones.
+
+**The flag in the inputs.** lean4export's default path (`removeMData`)
+rewrites every `let` to `nonDep := false` before cons-hashing (Lean's
+`BEq Expr` compares the flag; the export wants one index per term up to
+the flag), so in the `.ndjson` streams the field is always `false`; it
+survives only with `--export-mdata`.  The `.olean` keeps it: the byte
+after `Expr.Data` in the `letE` object's scalar area (`r.u8 g 8`).
+
+**The spike.** The `.olean` reader reads a nondep `let x : t := v; b`
+as `(fun x : t => b) v` (`Frontend/Olean/Spec.lean`), which the checker
+infers exactly as asked: the body under an opaque `x : t`, then `v : t`,
+the type `bt[v/x]`.  No `Expr` change (a real field on `Expr.letE` is
+716 sites, mostly proofs; see also the task-#87 note on `ENode`
+canonicity); the one proof repair is `exprNode_sub` (the new `u8` read).
+The redex differs from a flagged `letE` in defeq before whnf (an
+application's congruence instead of none); not separated here.
+
+**Departure.** Official ignores the flag: a `let` flagged nondep whose
+body needs the value (built with `addDecl`) is accepted by Lean and by
+master, rejected by the spike (application type mismatch).
+
+**Measured** (`--olean --jobs=8 --verified`, `instructions:u`, one run
+each, under the RSS guard; base master d88e04e9b; Lean v4.35.0 Init,
+Mathlib v4.35.0):
+
+| stream | base G | spike G | Δ | verdict |
+|---|---|---|---|---|
+| Init | 304.517 | 305.000 | +0.16 % | 63 937 accepted, both |
+| Mathlib | 6 171.809 | 6 173.430 | +0.03 % | 775 321 accepted, both |
+
+Init has 12 096 distinct nondep `let` nodes (6 725 dependent) in 2 971
+declarations.  Gates on the spike: `lake build`, `lake test`
+warning-free; olean gate 122/122; the `.ndjson` tests are untouched by
+construction.
+
+**Verdict.** It works on everything (no declaration needs a nondep
+`let`'s value), and it buys nothing: ζ at inference costs no more than
+the opaque check plus the instantiation of the type.  Not landed.
