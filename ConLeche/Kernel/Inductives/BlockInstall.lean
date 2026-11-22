@@ -71,7 +71,7 @@ official's `!is_rec` is load-bearing.) -/
 def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
-    { eta := nIdx == 0 && !isRec
+    { eta := nIdx == 0 && !isRec && p.etaAt mi
       all := p.memberNames
       nparams := p.nP
       nIdx := nIdx

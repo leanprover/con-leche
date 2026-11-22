@@ -911,6 +911,12 @@ theorem checkBlockIdxSortsC_congr (hfe : fe₁.find? = fe₂.find?)
     unfold checkBlockIdxSortsC
     simp only [checkStructFieldSortsIC_congr hfe htb, ih]
 
+theorem checkBlockBoundC_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (p : BlockShape) :
+    checkBlockBoundC mode fe₁ p = checkBlockBoundC mode fe₂ p := by
+  unfold checkBlockBoundC
+  rw [checkBlockCtorsC_congr hfe hfe htb]
+
 end CStages
 
 /-! ## The pushes, as lists -/
@@ -1206,7 +1212,8 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     rw [sharedOpsC_congr hf htb]
     exact streamRecsCheck_twin (sharedOpsC_envFree mode _)
       (constsResolveF_congr hf) recs out
-  simp only [checkBlockIdxSortsC_congr htL.find htL.findTable, genRecCheckC_twin ht₂, hO]
+  simp only [checkBlockBoundC_congr htL.find htL.findTable,
+    checkBlockIdxSortsC_congr htL.find htL.findTable, genRecCheckC_twin ht₂, hO]
   rw [hL₂, hL₂, checkBlockTablesC_twin (htL.pushAll L₂)]
   relrun
   all_goals exact RelRun.of_eq

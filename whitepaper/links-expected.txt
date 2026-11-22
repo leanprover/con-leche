@@ -2985,7 +2985,7 @@
    102    elim : Name
    103    deriving DecidableEq
 
-== ConLeche/Kernel/Inductives/BlockShape.lean#L116-L134
+== ConLeche/Kernel/Inductives/BlockShape.lean#L116-L137
    116  structure BlockShape where
    117    /-- the members in block order -/
    118    members : List MemberShape
@@ -3003,8 +3003,11 @@
    130    large : Bool
    131    /-- the result sort is provably `Prop` -/
    132    isProp : Bool
-   133    deriving Repr, Inhabited
-   134  
+   133    /-- **the feature flags the members' records declare** (lean4export 3.2.0), in member
+   134    order: `none` when no record carries them, the block then checked as before
+   135    (`blockFlagsOf`) -/
+   136    flags : Option (List IndFlags) := none
+   137    deriving Repr, Inhabited
 
 == whitepaper/Fragment/Spec.lean#L28-L42
     28  /-- A constructor field, as the positivity check classifies it
@@ -3313,18 +3316,18 @@
    776    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
    777    (∃ T, Infer (S.envCtors env) [] S.recType T)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L153-L163
-   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
-   154      m Env := do
-   155    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
-   156      throw (.invalid "direct rec: duplicate constructor")
-   157    unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
-   158      throw (.invalid "direct rec: a family at a `Bool` constructor's name")
-   159    let ms ← reduceMembers ops env p₀.nP p₀.members
-   160    let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
-   161    let Q ← unwrapOr (blockTables p₀ p₀.members) (.internal "direct structure: projection bodies")
-   162    checkBlockTail ops block q Q
-   163    pure (env.pushDelta (blockConstants p₀) Q)
+== ConLeche/Kernel/Inductives/BlockTail.lean#L161-L171
+   161  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+   162      m Env := do
+   163    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+   164      throw (.invalid "direct rec: duplicate constructor")
+   165    unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
+   166      throw (.invalid "direct rec: a family at a `Bool` constructor's name")
+   167    let ms ← reduceMembers ops env p₀.nP p₀.members
+   168    let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
+   169    let Q ← unwrapOr (blockTables p₀ p₀.projMembers) (.internal "direct structure: projection bodies")
+   170    checkBlockTail ops block q Q
+   171    pure (env.pushDelta (blockConstants p₀) Q)
 
 == whitepaper/Fragment/Decl.lean#L308-L313
    308  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
@@ -6198,7 +6201,7 @@
     71  def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
     72    match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
     73    | [c], nIdx =>
-    74      { eta := nIdx == 0 && !isRec
+    74      { eta := nIdx == 0 && !isRec && p.etaAt mi
     75        all := p.memberNames
     76        nparams := p.nP
     77        nIdx := nIdx
@@ -6207,10 +6210,10 @@
    673    (`sumMkAV_fold`: the application folds to the tagged tuple);
    674  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
 
-== ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
-    10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
-    11  every member with ONE constructor and no index, nothing at any other
-    12  member — with `stageFixTable` at each table (abstract in the former's
+== ConLeche/Model/Inductives/BlockStageTables.lean#L11-L13
+    11  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
+    12  every member with ONE constructor and no index, nothing at any other
+    13  member — with `stageFixTable` at each table (abstract in the former's
 
 == ConLeche/Rules/Rel.lean#L485
    485        UnitLike env d wta →
@@ -7346,10 +7349,10 @@
    683        Red env d e (.forallE dom b) →
    684        FormerSort env (d + 1) n (b.instantiate1 (.fvar d dom)) s →
 
-== ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
-    10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
-    11  every member with ONE constructor and no index, nothing at any other
-    12  member — with `stageFixTable` at each table (abstract in the former's
+== ConLeche/Model/Inductives/BlockStageTables.lean#L11-L13
+    11  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
+    12  every member with ONE constructor and no index, nothing at any other
+    13  member — with `stageFixTable` at each table (abstract in the former's
 
 == ConLeche/Model/Inductives/FixKit.lean#L667-L672
    667  
@@ -7531,12 +7534,12 @@
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L527-L531
-   527  theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
-   528      (hds : sideRecords justify ds = ds)
-   529      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
-   530        (buildIndex ds).freeze k ds[k] = .ok ()) :
-   531      checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L529-L533
+   529  theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
+   530      (hds : sideRecords justify ds = ds)
+   531      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
+   532        (buildIndex ds).freeze k ds[k] = .ok ()) :
+   533      checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L428-L430
    428  inductive Expr where

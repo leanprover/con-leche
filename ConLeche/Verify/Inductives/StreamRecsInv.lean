@@ -240,6 +240,35 @@ theorem streamRecCheck_inv {rc : RecShape} {g : ConstantVal × TargetMajor × Li
     exact ⟨hu, hn, by simpa [pure, Except.pure, bind, Except.bind] using h⟩
   · simp [hn, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
 
+/-- The generated recursors the stream's are compared with, position by position. -/
+theorem ruleOut_getElem? (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr))
+    (i : Nat) :
+    (p.ruleOut out)[i]? = out[i]?.map fun g =>
+      if p.noRules then (g.1, { g.2.1 with ctors := [] }, []) else g := by
+  unfold BlockShape.ruleOut
+  split <;> simp_all
+
+/-- **One recursor against the generated one as compared** (`BlockShape.ruleOut`): its type's
+major fires where the generated one's does, and either it carries no rule or it passed the
+comparison with the generated recursor itself. -/
+theorem streamRecCheck_of_ruleOut {p : BlockShape} {rc : RecShape}
+    {g : ConstantVal × TargetMajor × List Expr}
+    (h : streamRecCheck ops fe rc
+      (if p.noRules then (g.1, { g.2.1 with ctors := [] }, []) else g) = .ok ()) :
+    streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire g.2.1 rc.rP) = true ∧
+      (rc.rules = [] ∨ streamRecCheck ops fe rc g = .ok ()) := by
+  by_cases hn : p.noRules = true
+  · rw [ite_eq_left hn] at h
+    obtain ⟨hsh, hnest, -⟩ := streamRecCheck_inv h
+    refine ⟨by simpa [generatedFire, auxRuleFire] using hnest, Or.inl ?_⟩
+    cases hr : rc.rules with
+    | nil => rfl
+    | cons _ _ =>
+      rw [hr] at hsh
+      simp [streamRulesShape, throw, throwThe, MonadExceptOf.throw] at hsh
+  · rw [ite_eq_right hn] at h
+    exact ⟨(streamRecCheck_inv h).2.1, Or.inr h⟩
+
 theorem streamRecsCheck_inv :
     ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)},
       streamRecsCheck ops fe recs out = .ok () →

@@ -1537,6 +1537,25 @@ structure η and unit-likeness (one constructor, no indices, not
 recursive) and K-like reduction (a proposition with one constructor
 and no fields), exactly under the official kernel's conditions.
 
+**The declared feature flags.** A block whose type records carry the feature flags
+(`isImpredicative`, `isK`, `hasProjections`, `hasEta`, `hasLargeElim`) is checked at them: the
+flags are the input's, never recomputed. Each must be allowed, or the block is rejected
+([function `blockFlagsCheck` in `ConLeche/Kernel/Inductives/StreamRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StreamRecs.lean#L255)):
+`isImpredicative` and `hasLargeElim` agree across the block; `isImpredicative` only at a
+proposition; `hasLargeElim` is what the recursor records eliminate at, and is allowed only at a
+block that is not impredicative and whose sort is never zero, or of one type with no constructor,
+or with one constructor and `hasEta` or `isK`; `isK` only at the first type of a block of one, a
+proposition with one constructor without fields; `hasProjections` only at one constructor, no
+index, not impredicative; `hasEta` only with `hasProjections`, at a block that is not recursive.
+A flag that is off withdraws its feature: a type without `hasProjections` has no projection table,
+so a projection of it is rejected; without `hasEta` it has no structure η and is not unit-like;
+without `isK` no K-like reduction; at a block without `hasLargeElim` the recursors carry no rules,
+and a recursor record with rules is rejected. A proposition that is not `isImpredicative` and has
+no large eliminator takes the ordinary field bound, so its fields must be propositions. A nested
+occurrence of a proposition with one constructor without fields is rejected, as the official
+kernel's auxiliary type would carry its `isK` without being its block's first type. A block whose
+records carry no flags is checked as above.
+
 **In the model** the block's carrier is the least fixed point of its
 family functor over the index fibres
 ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L387-L388)),
@@ -2177,7 +2196,7 @@ types.
 |---|---|---|
 | `IndCaps` | `all`, `nparams`, `nIdx`, `ctors` | `InductiveVal.all`, `numParams`, `numIndices`, `ctors` |
 | `IndCaps` | `neverZero` | whether the former's stored type ends in a sort that is never zero at any level instantiation; read off the declared type at the family's install. The ι step's case split and the structure-η rescue read it before walking to the family's sort |
-| `IndCaps` | `eta` | whether the family is structure-like (one constructor, no index, a block that is not recursive); read off the block. Structure η, the structure-η rescue and unit-likeness read the constructor and its counts off the family's projection table, at every field count: a family is unit-like where its constructor's fields are propositions or unit-like (always, without fields), and then all its inhabitants are definitionally equal |
+| `IndCaps` | `eta` | whether the family is structure-like (one constructor, no index, a block that is not recursive) and, where its record declares the feature flags, `hasEta`; read off the block. Structure η, the structure-η rescue and unit-likeness read the constructor and its counts off the family's projection table, at every field count: a family is unit-like where its constructor's fields are propositions or unit-like (always, without fields), and then all its inhabitants are definitionally equal |
 | `ctorInfo` | `induct` | `ConstructorVal.induct`: the block member the constructor is declared under, set by the install; the constructor check has established that the constructor's declared type concludes in it. The ι step's case split, the rescues and η look the family up by it |
 | `recInfo` | `majorIdx`, `rulePrefix` | sums of `RecursorVal.numParams`, `numMotives`, `numMinors`, `numIndices` |
 | `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the levels and the parameter arguments of the recursor's major domain, read off its stored type and closed over the rule prefix (no lookup: the trailing arguments are the record's index variables) |
@@ -2247,11 +2266,15 @@ are still planned. The checker already has these:
   kernel generates only the small one (§9; the planned large
   elimination of sort-polymorphic structures).
 
-Not yet followed: `Acc` and the other recursive predicates keep their
-large eliminator (lean4#13851), `Quot` of a proposition stays a
-proposition (lean4#15023), partial recursor applications are not
-η-expanded (lean4#15374), and the inductive types' features are read
-off their declarations rather than from explicit flags.
+* An input that declares the inductive types' feature flags (lean4#16595)
+  is checked at them (§5), so `Acc` and the other recursive predicates
+  have only the small eliminator there (lean4#13851). Without the flags
+  the features are read off the declarations, as the released kernel
+  does.
+
+Not yet followed: `Quot` of a proposition stays a proposition
+(lean4#15023), and partial recursor applications are not η-expanded
+(lean4#15374).
 
 **It accepts more**, beyond the renovation. The soundness proof covers
 each of these.
@@ -2260,6 +2283,10 @@ each of these.
   theorem's value, being opaque, cannot be reduced to `And.intro` (§3).
 
 **It rejects or declines more.**
+* With the feature flags declared, a nested occurrence of a proposition
+  with one constructor without fields is rejected even where that type is
+  declared without `isK`; the official kernel rejects it only where it is
+  (§5). The checker does not keep a stored type's flags.
 * An axiom other than the standard ones declines, with the exceptions
   §8 names, and so does a proof by `native_decide` or `bv_decide` (§8).
 * The well-founded `Nat` operations are accelerated only for a

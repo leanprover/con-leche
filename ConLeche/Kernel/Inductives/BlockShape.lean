@@ -130,7 +130,62 @@ structure BlockShape where
   large : Bool
   /-- the result sort is provably `Prop` -/
   isProp : Bool
+  /-- **the feature flags the members' records declare** (lean4export 3.2.0), in member
+  order: `none` when no record carries them, the block then checked as before
+  (`blockFlagsOf`) -/
+  flags : Option (List IndFlags) := none
   deriving Repr, Inhabited
+
+/-! ## The declared feature flags
+
+A block whose records carry the feature flags (lean4 PR #16595) is checked AT them: each flag is
+validated (`blockFlagsCheck`, `ConLeche/Kernel/Inductives/BlockRec.lean`) and a flag that is off
+withdraws its feature — structure η and unit-likeness (`hasEta`), the projection table
+(`hasProjections`), the K-like reduction (`isK`), the recursors' rules (`hasLargeElim`).  A block
+without them is checked as before: every reader below answers `true` at `none`. -/
+
+/-- Member `i`'s declared flags. -/
+def BlockShape.flagAt (p : BlockShape) (i : Nat) : Option IndFlags :=
+  p.flags.map (·.getD i default)
+
+/-- **May member `i` have structure η?** Its `hasEta`; always, at a block without flags. -/
+def BlockShape.etaAt (p : BlockShape) (i : Nat) : Bool :=
+  (p.flagAt i).all (·.hasEta)
+
+/-- **May the block's recursors be K-like?** Member 0's `isK` (only the first member may be
+marked, `blockFlagsCheck`); always, at a block without flags. -/
+def BlockShape.kAllowed (p : BlockShape) : Bool :=
+  (p.flagAt 0).all (·.isK)
+
+/-- **The block's recursors carry no rules**: a flagged block without `hasLargeElim`, whose
+recursors eliminate into `Prop` only and do not reduce. -/
+def BlockShape.noRules (p : BlockShape) : Bool :=
+  (p.flagAt 0).any (!·.hasLargeElim)
+
+/-- **A proposition whose fields take the ordinary universe bound**: a flagged `Prop` block that
+is not `isImpredicative` and has no large eliminator.  Official bounds a field's sort by the
+result sort unless the block is impredicative, so its fields must be propositions; the
+constructors' stage, which exempts every proposition, is run again at the bound
+(`checkBlockTail`).  With a large eliminator the stage's per-field criterion is that bound
+already: `hasLargeElim` at a possible `Prop` needs `hasEta` (no index, so no index escape) or
+`isK` (no field). -/
+def BlockShape.boundedProp (p : BlockShape) : Bool :=
+  p.isProp && !p.large && (p.flagAt 0).any (!·.isImpredicative)
+
+/-- **May member `i` have projections?** Its `hasProjections`; always, at a block without flags. -/
+def BlockShape.projAllowed (p : BlockShape) (i : Nat) : Bool :=
+  (p.flagAt i).all (·.hasProjections)
+
+/-- The members from position `i` on that may have projections (`projAllowed`). -/
+def projMembersFrom (p : BlockShape) : Nat → List MemberShape → List MemberShape
+  | _, [] => []
+  | i, ms :: rest =>
+    if p.projAllowed i then ms :: projMembersFrom p (i + 1) rest else projMembersFrom p (i + 1) rest
+
+/-- **The members that may have projections**: every member at a block without flags, the
+`hasProjections` ones at a flagged block.  The projection tables are read off these. -/
+def BlockShape.projMembers (p : BlockShape) : List MemberShape :=
+  projMembersFrom p 0 p.members
 
 /-- The members' formers, at the telescopes the check reads, in block order. -/
 def BlockShape.formers (p : BlockShape) : List ConstantVal := p.members.map (·.cvT)
@@ -387,7 +442,18 @@ def blockMemberCounts (nPd k nC : Nat) (names : List Name)
     | .ok c => (blockMemberCounts nPd k nC names rs (m + 1) ts).map fun ns => c.2 :: ns
     | .error e => .error e
 
-/-- **Read a declared inductive block**: the members with their counts, the shared
+/-- The flags of the leading type records, in order. -/
+def blockFlagRecs : List ConstantInfo → List (Option IndFlags)
+  | .indInfo _ caps :: rest => caps.flags :: blockFlagRecs rest
+  | _ => []
+
+/-- **The block's declared feature flags**: every type record's, when all carry them;
+`none` otherwise.  The frontend rejects a block where some records carry them and others do
+not, so the fold never sees one. -/
+def blockFlagsOf (block : List ConstantInfo) : Option (List IndFlags) :=
+  (blockFlagRecs block).mapM id
+
+/-- **Read a declared inductive block's shape**: the members with their counts, the shared
 parameter count, the result sort read off member 0 (or the placeholder
 the install replaces, task #195) and which eliminator the recursor
 records claim.  Nothing of the recursor records is pinned here (the
@@ -398,7 +464,7 @@ A block that cannot be read is an invalid input, and the error says why:
 records out of order, no inductive type, no recursor record, a member
 whose counts cannot be read (`blockMemberCounts`), or types and
 constructors whose universe or parameter declarations disagree. -/
-def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
+def readBlockShape (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
   let head := (block.head?.map (·.name)).getD .anonymous
   match blockSplit block with
   | some (cvTs, cs, rs) =>
@@ -454,12 +520,17 @@ def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockS
             | elim :: relps => if relps == lps && !lps.contains elim then some elim else none
             | [] => none
           match large? with
-          | some elim => .ok ⟨members, recsL, nP, elim, s, true, isProp⟩
-          | none => .ok ⟨members, recsL, nP, .anonymous, s, false, isProp⟩
+          | some elim => .ok ⟨members, recsL, nP, elim, s, true, isProp, none⟩
+          | none => .ok ⟨members, recsL, nP, .anonymous, s, false, isProp, none⟩
     | [], _ => .error (.invalid s!"inductive block {head} declares no inductive type")
     | _ :: _, [] => .error (.invalid s!"inductive block {head} carries no recursor records; \
         the input must carry the recursors of every inductive block")
   | none => .error (.invalid s!"inductive block {head}: its records are not the inductive \
       types, then the constructors, then the recursors")
+
+/-- **Read a declared inductive block**: its shape (`readBlockShape`) and the feature flags its
+type records declare (`blockFlagsOf`). -/
+def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
+  (readBlockShape nPd block).map ({ · with flags := blockFlagsOf block })
 
 end ConLeche

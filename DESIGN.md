@@ -126315,3 +126315,50 @@ the naive and fast recognisers on these lines.  Fixtures (`scripts/mk_ind_flags_
 twins of `direct_fix_nat`): `ind_flags_parse` (each record with the flags official accepts for
 it) 0, `ind_flags_partial_bad` 1.  The block-level disagreement has no fixture (no small
 multi-type block at hand); the install lane's fixtures can cover it.
+
+## TASK #630 (install lane) — the block's check at the declared feature flags (2026-11-22, agent/630-flags-install; base agent/630-flags)
+
+lean4 PR #16595 makes `isImpredicative`, `isK`, `hasProjections`, `hasEta`, `hasLargeElim`
+inputs of the inductive declaration. The parse lane reads them onto the stream's type records
+(`IndCaps.flags`); this lane checks a block at them. Ruling (maintainer): supple — flags present:
+use them, reject any the declaration does not support; absent: today's behaviour.
+
+*Where the flags live.* `BlockShape.flags : Option (List IndFlags)` (member order), read by
+`readBlock = readBlockShape + blockFlagsOf`. Not on the installed `IndCaps`: the pinned basis
+blocks' install is stated as `kind.storedAt`, which carries no flags, and nothing after the install
+needs them. `blockFlagsOf` reads a block whose records disagree on carrying flags as unflagged; the
+parse rejects such a block, so that never reaches the fold.
+
+*Checks* (`blockFlagsCheck`, a pure function both twins run through `ofExcept` at the start of the
+tail): block-uniform `isImpredicative`/`hasLargeElim`; `isImpredicative` ⇒ `isProp`;
+`hasLargeElim = p.large` (the recursors' read shape), and allowed only at ¬impredicative ∧
+(never zero ∨ one member ∧ (no ctor ∨ one ctor ∧ (hasEta ∨ isK))); per member `isK` (first, sole,
+Prop, one fieldless ctor), `hasProjections` (one ctor, no index, ¬impredicative), `hasEta`
+(hasProjections ∧ ¬isRec); a nested outside class that is a proposition with one fieldless
+constructor is rejected (the official auxiliary type copies `isK` from the container and is not
+first). That last check reads the K condition, not the container's flag (not stored): a departure
+in a corner (§14).
+
+*Effects.* `blockCapsAt`'s `eta` gains `p.etaAt mi`; projection tables are read off
+`p.projMembers` (members with `hasProjections`, all at no flags); `recKExpected` gains
+`p.kAllowed`; at `p.noRules` (flagged, ¬hasLargeElim) `streamKCheck` rejects a record with rules
+and the stream records are compared with `p.ruleOut out` (no rules, no constructors to compare),
+so the installed recursors (the stream's) have none. A flagged ¬impredicative `Prop` block
+without large eliminator (`boundedProp`) re-runs the constructors' stage at `{ p with isProp :=
+false }` (`checkBlockBound`): official's `u ≤ s`. The first attempt passed a modified `isProp` to
+the constructors' stage itself; the model's block datum threads that argument as the block's
+`isProp`, so it was reverted in favour of the extra run. With a large eliminator the per-field
+criterion already is the bound (hasEta ⇒ no index; isK ⇒ no field).
+
+*Proofs.* Repair only, no new model content: every stored-rule fact the model reads
+(`storedSwap_sem`) is taken from a rule's membership in the record, so a rule-less record makes it
+vacuous; `hposQ` states the rule facts under `rc.rules ≠ []`. New small lemmas:
+`readBlock_shape`, `projMembersFrom_sublist`/`mem_projMembers`/`projMembersFrom_map`,
+`blockTables_flags`, `blockTables_projMembersFrom_nil`, `streamRecCheck_of_ruleOut`,
+`ruleOut_getElem?`, `sumRules_of_ruleShape`, `ne_nil_of_mem_generatedRules`,
+`checkBlockBound_datF`, `checkBlockBoundC_congr`. `stageBlockTables` runs over
+`projMembersFrom pf i l`.
+
+*Fixtures.* `scripts/mk_ind_flags_install.py` forges 23 `ind_flags_*` fixtures from existing
+ones (8 accept, 15 reject; verdicts in `tests/e2e-expected.txt`). A real Init with flags needs the
+renovated toolchain (`Acc.rec` small); not attempted. The `.olean` reader emits no flags.

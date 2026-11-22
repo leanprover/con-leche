@@ -10,6 +10,7 @@ import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Cached.BlockPushes
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.PinRen
+import ConLeche.Verify.Inductives.BlockShapeInv
 
 /-!
 # Accepted environments are read-scoped (task #619)
@@ -739,7 +740,8 @@ theorem blockRun_scoped {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
         rw [← hmy, ← (hall m hm).name]
         exact footprint_of_nil h1 h2
   · -- a table: its constructor is its member's
-    obtain ⟨ms', hms', x, hx, he⟩ := blockTables_ctor p₁ p₁.members Q hQ t (List.mem_reverse.mp ht)
+    obtain ⟨ms', hms', x, hx, he⟩ := blockTables_ctor p₁ p₁.projMembers Q hQ t (List.mem_reverse.mp ht)
+    have hms' := mem_projMembers hms'
     rw [he]
     exact hctorS ms' hms' x hx
 

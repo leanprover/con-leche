@@ -266,6 +266,14 @@ theorem find?_consBlockRecsT_of_not_mem {q : ConLeche.BlockShape} {n : Name} :
       ConLeche.Env.find?_cons]
     exact ite_eq_right_iff.mpr fun he => absurd he (h t List.mem_cons_self)
 
+/-- A generated rule at the record's right-hand sides is one of the record's rules. -/
+theorem ne_nil_of_mem_generatedRules {rP : Nat} {M : ConLeche.TargetMajor}
+    {rs : List ConLeche.RecRule} {r : ConLeche.RecRule}
+    (h : r ∈ ConLeche.generatedRules rP M (rs.map (·.rhs))) : rs ≠ [] := by
+  rintro rfl
+  cases hm : M.member <;> cases hc : M.ctors <;>
+    simp_all [ConLeche.generatedRules, ConLeche.sumRules]
+
 /-- **The semantic content of the stored check** (task #431), at the
 stored install `envS` over the generated install `envG` (the same leaf
 valuation): the syntactic facts at `envS` other than its
@@ -284,7 +292,7 @@ theorem storedSwap_sem {envC : Env}
     -- the reserved names' check (`basisNamesOk`), at the generated recursors
     (hresB : ∀ g ∈ out, ConLeche.reservedBasisNames.contains g.1.name = false)
     (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F)
-      (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ()) :
+      (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs (q.ruleOut out) = .ok ()) :
     ConLeche.RecCtorsStored (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC) ∧
     BasisPinnedTT (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
       mpG.base2.acval ∧
@@ -342,30 +350,43 @@ theorem storedSwap_sem {envC : Env}
   let Q : Nat → ConLeche.RecShape → ConstantVal × ConLeche.TargetMajor × List Expr → Prop :=
     fun j rc g => q.recs[j]? = some rc ∧ out[j]? = some g ∧
       ConLeche.streamRecCheck (ConLeche.fueledOps .verified F)
-        (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) rc g = .ok ()
+        (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) rc
+        (if q.noRules then (g.1, { g.2.1 with ctors := [] }, []) else g) = .ok ()
   have hC : ConLeche.StreamCorr q Q
       (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
       (ConLeche.consBlockRecsT q 0 out envC) :=
     ConLeche.StreamCorr.consBlockRecsT (m := 0) hlen
       (fun i rc g hr hg => by
-        simp only [Nat.zero_add]; exact ⟨hr, hg, hallS i rc g hr hg⟩)
+        simp only [Nat.zero_add]
+        exact ⟨hr, hg, hallS i rc _ hr (by rw [ConLeche.ruleOut_getElem?, hg]; rfl)⟩)
       (ConLeche.StreamCorr.refl q Q envC)
   -- a stored position's facts
+  -- (a record with rules was compared with the generated recursor itself: at a block whose
+  -- recursors carry no rules, every record carries none)
   have hposQ : ∀ {j rc g}, Q j rc g →
-      q.majorIdxAt j = rc.mI ∧ (rc.rules.map (·.rhs)).length = g.2.2.length ∧
+      q.majorIdxAt j = rc.mI ∧
+      (rc.rules ≠ [] → (rc.rules.map (·.rhs)).length = g.2.2.length ∧
+        ConLeche.streamRulesCheck (ConLeche.fueledOps .verified F)
+          (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
+          rc.rP rc.rules g.2.2 = .ok ()) ∧
       (rc.cvR.type = g.1.type ∨ ConLeche.recTyCheck (ConLeche.fueledOps .verified F)
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
-        (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
-      ConLeche.streamRulesCheck (ConLeche.fueledOps .verified F)
-        (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
-        rc.rP rc.rules g.2.2 = .ok () := by
+        (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) := by
     intro j rc g hQ
     obtain ⟨hrc, -, hck⟩ := hQ
     obtain ⟨-, -, hcmp⟩ := ConLeche.streamRecCheck_inv hck
     obtain ⟨hty, hrules⟩ := ConLeche.streamRecCompare_inv hcmp
+    have h1 : (if q.noRules then (g.1, { g.2.1 with ctors := [] }, []) else g).1 = g.1 := by
+      split <;> rfl
+    rw [h1] at hty hrules
     refine ⟨by simp only [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc,
-      Option.getD_some], by rw [List.length_map]; exact (ConLeche.streamRulesCheck_inv hrules).1,
-      hty, hrules⟩
+      Option.getD_some], fun hne => ?_, hty⟩
+    by_cases hn : q.noRules = true
+    · rw [ite_eq_left hn] at hrules
+      have hl := (ConLeche.streamRulesCheck_inv hrules).1
+      exact absurd (List.eq_nil_of_length_eq_zero hl) hne
+    · rw [ite_eq_right hn] at hrules
+      exact ⟨by rw [List.length_map]; exact (ConLeche.streamRulesCheck_inv hrules).1, hrules⟩
   -- a generated entry's facts
   have hgen : ∀ {j g}, ConLeche.recEntryG q j g ∈ (ConLeche.consBlockRecsT q 0 out envC).consts →
       g.1.type.looseBVarsBounded 0 = true ∧
@@ -390,7 +411,8 @@ theorem storedSwap_sem {envC : Env}
       exact ⟨cvj, cnP, cnF, iT, hkeep _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) hfc⟩
     · obtain ⟨e1, e2, e3, e5, e4⟩ := ConstantInfo.recInfo.inj hci
       subst e1 e2 e3 e5 e4
-      obtain ⟨-, hl, -, -⟩ := hposQ hQ
+      obtain ⟨-, hrl', -⟩ := hposQ hQ
+      obtain ⟨hl, -⟩ := hrl' (ne_nil_of_mem_generatedRules hr)
       obtain ⟨i, rG, hrG, -, -, hreq⟩ := ConLeche.streamRule_corr hl hr
       obtain ⟨cvj, cnP, cnF, iT, hfc⟩ := mpG.base2.rec_ctors n g.1 _ _ _ _ hG rG hrG
       have hc : r.ctor = rG.ctor := by rw [hreq]
@@ -421,7 +443,8 @@ theorem storedSwap_sem {envC : Env}
           exact ⟨Ra, hRa, fun ρ => ⟨hw ρ, rfl⟩⟩) h
     · obtain ⟨e1, e2, e3, e5, e4⟩ := ConstantInfo.recInfo.inj hci
       subst e1 e2 e3 e5 e4
-      obtain ⟨hmI, hl, hty, hrules⟩ := hposQ hQ
+      obtain ⟨hmI, hrl', hty⟩ := hposQ hQ
+      obtain ⟨hl, hrules⟩ := hrl' (ne_nil_of_mem_generatedRules hrl)
       obtain ⟨i, rG, hrG, hiS, hiG, hreq⟩ := ConLeche.streamRule_corr hl hrl
       have hmG := ConLeche.Env.find?_mem hG
       obtain ⟨hGb, hGr, hGw, -, hgb⟩ := hgen hmG
@@ -478,7 +501,7 @@ theorem storedSwap_sem {envC : Env}
     intro c hc hnot
     rcases hC.2 c hc with h | ⟨j, rc, g, hQ, rfl, hmG⟩
     · exact absurd h hnot
-    obtain ⟨-, -, hty, -⟩ := hposQ hQ
+    obtain ⟨-, -, hty⟩ := hposQ hQ
     obtain ⟨hGb, hGr, hGw, hGm, -⟩ := hgen hmG
     have key : ∀ ψ : Name → Nat, ∃ TS, denote mpG.base2.acval
         (ConLeche.consBlockRecsT q 0 out envC) ψ 0 rc.cvR.type = some TS ∧
@@ -516,7 +539,7 @@ theorem blockRecStagedAt_stored {envC : Env}
     -- the reserved names' check (`basisNamesOk`), at the generated recursors
     (hresB : ∀ g ∈ out, ConLeche.reservedBasisNames.contains g.1.name = false)
     (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F)
-      (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ())
+      (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs (q.ruleOut out) = .ok ())
     (hwfS : EnvWF (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)) :
     BlockRecStagedAt envC (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
       mpC := by

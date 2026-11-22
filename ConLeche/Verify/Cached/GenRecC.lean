@@ -900,6 +900,10 @@ theorem streamKCheck_run {p : BlockShape} :
     exact ⟨h.2.symm, rfl⟩
   | rc :: rcs, g :: gs, s, s', u, h => by
     unfold streamKCheck at h ⊢
+    by_cases hr : (p.noRules && !rc.rules.isEmpty) = true
+    · simp [hr, Bind.bind, StateT.bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
+        StateT.lift, liftM, monadLift, MonadLift.monadLift, instMonadExceptOfMonadExceptOf] at h
+    simp only [hr, Bool.false_eq_true, reduceIte] at h ⊢
     by_cases hk : (rc.isK == recKExpected p g.2.1) = true
     · simp only [hk, Bool.not_true, reduceIte, pure, StateT.pure, Except.pure, Bind.bind,
         StateT.bind, Except.bind, Bool.false_eq_true, bind_pure_comp, pure_bind] at h ⊢
@@ -1280,13 +1284,20 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M)
     (hS : streamRecsCheck (fueledOps mode F')
-      (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out = .ok ()) :
+      (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs (p.ruleOut out) = .ok ()) :
     EnvWF (consBlockRecsT p 0 (streamRecs p.recs out) env₂) := by
   obtain ⟨hF, hN⟩ := genRecCheck_outFacts h hpl hMs₀
   obtain ⟨hlenO, hcv⟩ := genRecCheck_outCv h
   obtain ⟨R⟩ := genRecCheck_run h
   have hstream := classStreamRecs_typeWF R.hcvRis
-  obtain ⟨-, hallS⟩ := streamRecsCheck_inv hS
+  obtain ⟨-, hallS₀⟩ := streamRecsCheck_inv hS
+  have hallS : ∀ (i : Nat) (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr),
+      p.recs[i]? = some rc → out[i]? = some g →
+      streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire g.2.1 rc.rP) = true ∧
+        (rc.rules = [] ∨ streamRecCheck (fueledOps mode F')
+          (mkFEnv (consBlockRecsT p 0 out env₂)) rc g = .ok ()) :=
+    fun i rc g hrc hg => streamRecCheck_of_ruleOut (p := p)
+      (hallS₀ i rc _ hrc (by rw [ruleOut_getElem?, hg]; rfl))
   have hnames : (streamRecs p.recs out).map (·.1.name) = out.map (·.1.name) :=
     streamRecs_map_name hlenO
   -- resolution at the generated install transfers to the stored bare cons
@@ -1322,11 +1333,13 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     obtain ⟨g1, g2, g3, g4, grhs⟩ := hF g (List.mem_of_getElem? hg)
     obtain ⟨s1, s2, s3, s4⟩ := hstream rc (List.mem_of_getElem? hrc)
     have hlps : g.1.levelParams = rc.cvR.levelParams := by rw [hgcv]
-    obtain ⟨-, -, hcmp⟩ := streamRecCheck_inv (hallS i rc g hrc hg)
-    obtain ⟨-, hrules⟩ := streamRecCompare_inv hcmp
-    obtain ⟨hlenR, hallR⟩ := streamRulesCheck_inv hrules
     refine ⟨s1, by simp only; rw [hlps]; exact s2, s3, s4, fun rhs hrhs => ?_⟩
     obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hrhs
+    obtain hnil | hchk := (hallS i rc g hrc hg).2
+    · rw [hnil] at hr; exact nomatch hr
+    obtain ⟨-, -, hcmp⟩ := streamRecCheck_inv hchk
+    obtain ⟨-, hrules⟩ := streamRecCompare_inv hcmp
+    obtain ⟨hlenR, hallR⟩ := streamRulesCheck_inv hrules
     obtain ⟨k, hk⟩ := List.getElem?_of_mem hr
     obtain ⟨gk, hgk⟩ : ∃ gk, g.2.2[k]? = some gk := by
       have := (List.getElem?_eq_some_iff.mp hk).1
@@ -1341,7 +1354,7 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
   · obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? ht
     have hgcv := hcv i rc g hrc hg
     obtain ⟨n1, n2, n3, -, -, -, -, -, -, -, n4⟩ := hN i g hg hm
-    obtain ⟨hn, -⟩ := (streamRecCheck_inv (hallS i rc g hrc hg)).2
+    have hn := (hallS i rc g hrc hg).1
     have hmI : p.majorIdxAt i = rc.mI := by
       simp only [BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
     have hrP : p.rulePrefixAt i = rc.rP := by
@@ -1363,7 +1376,9 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
       cases h0 : rc.rules[j]? with
       | none => rw [h0] at hrhs; exact nomatch hrhs
       | some r => rw [h0] at hrhs; exact ⟨r, rfl, Option.some.inj hrhs⟩
-    obtain ⟨hshape, -, hcmp⟩ := streamRecCheck_inv (hallS i rc g hrc hg)
+    obtain hnil | hchk := (hallS i rc g hrc hg).2
+    · rw [hnil] at hr; exact nomatch hr
+    obtain ⟨hshape, -, hcmp⟩ := streamRecCheck_inv hchk
     obtain ⟨-, hrules⟩ := streamRecCompare_inv hcmp
     obtain ⟨hlenR, hallR⟩ := streamRulesCheck_inv hrules
     have hnf := streamRulesShape_inv hshape j r ctor hr hctor
@@ -1400,12 +1415,40 @@ theorem checkBlockTailS_run
   dsimp only at h
   simp only [blockRecInfosTC_eq, streamRecsCheckC_eq, checkBlockIdxSortsC_eq, mkFEnv_env,
     consBlockCtorsF_mkFEnv] at h
-  simp only [checkBlockTablesC_eq] at h
-  obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
+  simp only [checkBlockTablesC_eq, blockIsRecC_eq] at h
+  obtain ⟨uF, sF, hFl, h⟩ := bindC_ok h
+  cases hfl : blockFlagsCheck p (blockIsRec p) Ms₀ with
+  | error e =>
+    rw [hfl] at hFl
+    simp [ofExcept, throw, throwThe, MonadExceptOf.throw, StateT.lift, liftM, monadLift,
+      MonadLift.monadLift, instMonadExceptOfMonadExceptOf, Bind.bind, StateT.bind,
+      Except.bind] at hFl
+  | ok uF' =>
+  rw [hfl] at hFl
+  simp only [ofExcept, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hFl
+  obtain ⟨-, rfl⟩ := hFl
   have hzT : ∀ x ∈ p.members, WScoped 0 x.cvT.type :=
     fun x hx => hT x.cvT (List.mem_map_of_mem hx)
+  -- the ordinary field bound at a `boundedProp` block
+  obtain ⟨uB, sB, hBd, h⟩ := bindC_ok h
+  obtain ⟨hsB, FB, hFB⟩ : CSOK .verified false env₁ sB ∧
+      ∃ F, checkBlockBound (fueledOps .verified F) env₁ p = .ok () := by
+    unfold checkBlockBoundC at hBd
+    by_cases hb : p.boundedProp = true
+    · rw [ite_eq_left hb, checkBlockCtorsC_eq] at hBd
+      obtain ⟨hs', F, hF⟩ := triple_iff_run.mp (checkBlockCtorsS_spec henv₁
+        (fun x hx => ws0_hasFvar (hzT x hx)) hs) uB sB hBd
+      refine ⟨hs', F, ?_⟩
+      unfold checkBlockBound
+      rw [ite_eq_left hb, ← checkBlockCtors_datF]
+      cases uB; exact hF
+    · rw [ite_eq_right hb] at hBd
+      simp only [pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hBd
+      obtain ⟨-, rfl⟩ := hBd
+      exact ⟨hs, 0, by unfold checkBlockBound; rw [ite_eq_right hb]; rfl⟩
+  obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
   obtain ⟨hsS, F₀, hF₀⟩ :=
-    triple_iff_run.mp (checkBlockIdxSortsS_spec henv₁ hzT hs) isorts sS hsorts
+    triple_iff_run.mp (checkBlockIdxSortsS_spec henv₁ hzT hsB) isorts sS hsorts
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
@@ -1444,7 +1487,7 @@ theorem checkBlockTailS_run
   obtain rfl : s₃.flushed = s₃' := congrArg Prod.snd hfl3
   obtain ⟨u4, s₄', hst, h⟩ := bindC_ok h
   obtain ⟨hs₄', F₄, hF₄⟩ := triple_iff_run.mp
-    (streamRecsCheckS_spec henv₃ p.recs out (flushC_csok hs₃)) u4 s₄' hst
+    (streamRecsCheckS_spec henv₃ p.recs (p.ruleOut out) (flushC_csok hs₃)) u4 s₄' hst
   obtain ⟨u5, s₄, hfl4, h⟩ := bindC_ok h
   rw [flushC_run] at hfl4
   injection hfl4 with hfl4
@@ -1452,15 +1495,17 @@ theorem checkBlockTailS_run
   have hs₄ : CSOKF s₄'.flushed := hs₄'.residue.flushed
   have hF₄' : streamRecsCheck (fueledOps .verified F₄)
       (mkFEnv (consBlockRecsT p 0 out
-        (consBlockCtors p.nP p.ctorGroups env₁))) p.recs out = .ok () := by
+        (consBlockCtors p.nP p.ctorGroups env₁))) p.recs (p.ruleOut out) = .ok () := by
     rw [← streamRecsCheck_datF]; cases u4; exact hF₄
   obtain ⟨hs₅, hT₆⟩ := checkBlockTablesS_run _ _ h
-  obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
-    ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
+  obtain ⟨G, hleB, hle₀, hle₃, hle₄⟩ : ∃ G, FB ≤ G ∧ F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
+    ⟨max FB (max F₀ (max F₃ F₄)), by omega, by omega, by omega, by omega⟩
+  have gB : checkBlockBound (fueledOps .verified G) env₁ p = .ok () := by
+    rw [← checkBlockBound_datF]; exact FueledM.up hleB (by rw [checkBlockBound_datF]; exact hFB)
   refine ⟨hs₅ ▸ hs₄, G, ?_⟩
   have g₄ : streamRecsCheck (fueledOps .verified G)
       (mkFEnv (consBlockRecsT p 0 out
-        (consBlockCtors p.nP p.ctorGroups env₁))) p.recs out = .ok () := by
+        (consBlockCtors p.nP p.ctorGroups env₁))) p.recs (p.ruleOut out) = .ok () := by
     rw [← streamRecsCheck_datF]; exact FueledM.up hle₄ (by rw [streamRecsCheck_datF]; exact hF₄')
   have g₀ : checkBlockIdxSorts (fueledOps .verified G) env₁ p
       p.members = .ok isorts := by
@@ -1473,6 +1518,11 @@ theorem checkBlockTailS_run
   rw [checkBlockTail_datF]
   unfold checkBlockTail
   simp only [Bind.bind, Except.bind, pure, Except.pure]
+  rw [show ofExcept (m := CheckM) (blockFlagsCheck p (blockIsRec p) Ms₀) = .ok () by
+    rw [hfl]; rfl]
+  simp only [Except.bind]
+  rw [gB]
+  simp only [Except.bind]
   rw [g₀]
   simp only [Except.bind]
   rw [g₃]
@@ -1690,7 +1740,7 @@ theorem checkBlockKS_run
   simp only at hq₁ hs₂ henv₁ hT henv₂ hMs₀ hpl hF₂
   subst hq₁
   obtain ⟨Q, s₂', hQ, h⟩ := bindC_ok h
-  cases hQ₀ : blockTables p₀ p₀.members with
+  cases hQ₀ : blockTables p₀ p₀.projMembers with
   | none =>
     rw [hQ₀] at hQ
     exact nomatch hQ

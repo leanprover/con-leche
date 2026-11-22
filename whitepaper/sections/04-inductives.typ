@@ -55,7 +55,7 @@ interpretations of a binder from §2, decided for a whole family at
 once. The fragment takes a block with one type former, neither mutual
 nor nested; nested blocks are the subject of @sec:nested. The block is given by a
 #src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
-(#src("ConLeche/Kernel/Inductives/BlockShape.lean", 116, 134)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockShape.lean", 116, 137)[as in con-leche]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -275,7 +275,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 732, 777)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 153, 163)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 161, 171)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;

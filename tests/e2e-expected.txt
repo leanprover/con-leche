@@ -758,6 +758,45 @@
 #                          rejected by the parse (1).
 0 ind_flags_parse.ndjson
 1 ind_flags_partial_bad.ndjson
+# Task #630 (install lane): the block's check at the declared feature flags (lean4 PR
+# #16595).  Each fixture is an existing one with every type record carrying the flags official
+# allows and its elaborator writes (rule-less recursors at a block without large eliminator),
+# then one patch; `scripts/mk_ind_flags_install.py` forges them.  Official (with the PR): the
+# verdicts below; con-leche today: the same.
+#   accepted at their allowed flags: Or'-style small eliminator with no rules (ind_flags_or),
+#   fieldless and nested unit-like structures (ind_flags_unitlike), a recursive structure's
+#   projections (ind_flags_rec_struct), a Prop structure with eta and large elimination
+#   (ind_flags_prop_struct), mutual and nested blocks, Nat'/List'/Eq, an indexed family.
+0 ind_flags_or.ndjson
+0 ind_flags_unitlike.ndjson
+0 ind_flags_rec_struct.ndjson
+0 ind_flags_prop_struct.ndjson
+0 ind_flags_mutual.ndjson
+0 ind_flags_nested.ndjson
+0 ind_flags_nat.ndjson
+0 ind_flags_vec.ndjson
+#   rejected: Or'.rec keeps its rules at hasLargeElim = false; hasLargeElim claimed for a small
+#   recursor; isK on Or'; isImpredicative on a Type; hasEta withdrawn from a fieldless structure
+#   whose theorems need unit-likeness; hasEta on a recursive structure; hasProjections withdrawn
+#   where Chain.h projects; PropPair without hasEta, so no large eliminator is allowed; a Prop
+#   structure with a data field, impredicative so without projections, and not impredicative so
+#   over the field bound; Acc' with a large eliminator (no longer allowed); Eq without isK, so
+#   not allowed its large eliminator; a mutual block disagreeing on hasLargeElim; a mutual block
+#   where one type record carries the flags and the other does not (rejected by the parse).
+1 ind_flags_or_rules_bad.ndjson
+1 ind_flags_or_large_bad.ndjson
+1 ind_flags_or_k_bad.ndjson
+1 ind_flags_impred_type_bad.ndjson
+1 ind_flags_unitlike_eta_off_bad.ndjson
+1 ind_flags_rec_struct_eta_bad.ndjson
+1 ind_flags_rec_struct_proj_off_bad.ndjson
+1 ind_flags_prop_struct_eta_off_bad.ndjson
+1 ind_flags_prop_data_struct_bad.ndjson
+1 ind_flags_prop_data_bound_bad.ndjson
+1 ind_flags_acc_large_bad.ndjson
+1 ind_flags_eq_k_off_bad.ndjson
+1 ind_flags_mutual_disagree_bad.ndjson
+1 ind_flags_mixed_block_bad.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson

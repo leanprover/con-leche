@@ -256,18 +256,18 @@
     98      (F : FrozenIndex) (k : Nat) (pd : Declaration) : Except CheckError Unit :=
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1340-L1344
-  1340    unfold checkDeclC
-  1341    refine RelRun.bind (checkDeclKindC_twin pins ht pd) fun a₁ a₂ h => ?_
-  1342    relrun
-  1343    all_goals exact RelRun.pure h
-  1344  
+  1340      exact checkQuotRecordC_twin ht k cv
+  1341  
+  1342  /-- **Every declaration step at twin indices pushes the same constants
+  1343  onto each, or fails alike.** -/
+  1344  theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
 
 == ConLeche/Verify/Cached/StreamIndex.lean#L527-L531
-   527  theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
-   528      (hds : sideRecords justify ds = ds)
-   529      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
-   530        (buildIndex ds).freeze k ds[k] = .ok ()) :
-   531      checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
+   527  the solution's environment `justify`, if any, the jobs' solution index, over records the fold
+   528  checks as they are (`sideRecords`). -/
+   529  theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
+   530      (hds : sideRecords justify ds = ds)
+   531      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
 
 == ConLeche/Driver/CheckPool.lean#L69-L70
     69  def Jobs.build (ds : Array Declaration) (justify : Option ConLeche.Env := none) :
@@ -919,10 +919,10 @@
    151    | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => !reservedBasisNames.contains cv.name
 
 == ConLeche/Verify/BasisBlock.lean#L308-L311
-   308  theorem blockInstall_pinned {nP : Nat} {block : List ConstantInfo} {kind : BasisKind}
-   309      {p : BlockShape} (hk : basisNameHit block = some kind) (hok : pinListOk block kind.decls = true)
-   310      (hp : readBlock nP block = .ok p) :
-   311      blockConstants p = kind.storedAt block ∧ blockTables p p.members = some [] := by
+   308    | [], h | [_], h | [_, _], h | [_, _, _], h | _ :: _ :: _ :: _ :: _ :: _, h =>
+   309      simp [natBasis, listBeqBy] at h
+   310  
+   311  /-- The tables read nothing of the flags. -/
 
 == ConLeche/Kernel/Basis.lean#L189-L194
    189    | .ctor => hasQ
@@ -933,7 +933,7 @@
    194  /-! ## The pinned `And`
 
 == ConLeche/Kernel/Inductives/BlockShape.lean#L401
-   401  def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
+   401  The member names are pairwise distinct (each former passed
 
 == ConLeche/Kernel/Env.lean#L431-L438
    431  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -946,7 +946,7 @@
    438      | _ => true
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L153
-   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+   153      pure (ms' :: rest')
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L239-L240
    239  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
@@ -973,13 +973,16 @@
    187  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
 
 == ConLeche/Verify/Cached/BlockPushes.lean#L273
-   273  theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
+   273      simp
 
 == ConLeche/Kernel/Install.lean#L39
     39  def recFire (p : BlockShape) (rc : RecShape) : RecRuleFire :=
 
 == ConLeche/Kernel/Inductives/IotaRead.lean#L211
    211  def blockReadsOk (find? : Name → Option ConstantInfo) (p : BlockShape) :
+
+== ConLeche/Kernel/Inductives/StreamRecs.lean#L255
+   255  def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor) :
 
 == ConLeche/SetModel/Value.lean#L387-L388
    387  /-- `I → Sort w`, the family space, as the value reading has it. -/
@@ -1022,7 +1025,7 @@
    130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L153
-   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+   153      pure (ms' :: rest')
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L52
     52  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
@@ -1052,7 +1055,7 @@
   1019  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L103
-   103  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
+   103      checkStructProjTable t env
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L295
    295  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)

@@ -491,7 +491,7 @@ theorem blockCapsAt_eta_nIdx {q : BlockShape} {j : Nat} {isRec : Bool}
   rcases blockCapsAt_cases q j isRec with ⟨c, -, hc⟩ | hc
   · rw [hc] at he
     simp only [Bool.and_eq_true, beq_iff_eq] at he
-    exact he.1
+    exact he.1.1
   · rw [hc] at he; exact nomatch he
 
 /-- **The DUMMY former pass**: the `k` formers consed with the EMPTY

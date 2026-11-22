@@ -390,6 +390,8 @@ theorem checkBlockTailS_grouping (mode : CheckMode) {block : List ConstantInfo}
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   exact Yields.bind' (genRecCheckC_grouping mode _ p _ _ _ _ _ block) fun _ h => Yields.const h
 
 /-- **An accepted block's grouping**: its grouped constructors are distinct and are its

@@ -4,6 +4,7 @@ public import ConLeche.Cached.StreamIndex
 public import ConLeche.Verify.Cached.ViewCongr
 public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Inductives.BlockShapeInv
 
 /-!
 # Every job passing is an accept of the fold
@@ -347,7 +348,8 @@ theorem declTables_sublist (pd : Declaration) :
     | ok p =>
       simp only
       rw [blockConstants_names, List.append_assoc]
-      exact (blockTables_sublist p p.members).trans (List.sublist_append_left _ _)
+      exact ((blockTables_sublist p p.projMembers).trans
+        ((projMembersFrom_sublist p 0 p.members).map _)).trans (List.sublist_append_left _ _)
   | _ => simp [declTables]
 
 theorem recsTables_sublist :
