@@ -115527,3 +115527,46 @@ construction.
 **Verdict.** It works on everything (no declaration needs a nondep
 `let`'s value), and it buys nothing: ζ at inference costs no more than
 the opaque check plus the instantiation of the type.  Not landed.
+
+### Task #631, part 2 — the join-point towers: the cost is in defeq, not inference (2026-11-17)
+
+**The test** (maintainer's, `jps% ty n`: `n` nested `have jp : ty → ty := fun x => …; if c i
+then jp (x+1) else jp (x+2)`; `bjps%` the same as β-redexes).  `sym =>` replaces `P (jps% N n)`
+by `P (jps% Nat n)`: the theorem is `s := s._proof_1_1` and the one check is the conversion
+between the two towers.  Axioms replaced by proved stand-ins (`P`, `T` plain defs) since
+con-leche declines non-standard axioms.  `--olean --jobs=1 --constant=…`, own cost = total
+minus the 31.02 G load:
+
+| n | official (`lean`, type checking) | master | nondep → redex (part 1) |
+|---|---|---|---|
+| 14 | 151 ms | 3.5 G | 3.6 G |
+| 16 | 620 ms | 14.1 G | 14.3 G |
+| 18 | 3.06 s | 56.6 G | 57.2 G |
+
+×4 per two levels on all three: whnfCore ζ-reduces (or β-reduces) both sides, and each `jp` is
+then β-reduced at two different arguments, so the unfolded tree has 2^n distinct nodes and no
+memo helps.  The same terms proved without `sym` (`p_all _`) cost nothing: inference is linear.
+
+**A `let` congruence in `quickDefEqI`** (types, values, bodies under an opaque `fvar`, `none`
+on a miss) makes every tower linear (≤ 0.013 G at n = 18), but it is unsound for a *dependent*
+`let`: inside the comparison, defeq infers (λ binder types in verified mode, proof
+irrelevance), and a body that type-checks only by the value throws.  Init's
+`String.crlfToLf.go._unary.eq_def` is rejected ("application type mismatch").  A congruence
+for dependent `let`s needs a value-carrying variable (`fvar d ty (some v)`, so memo keys stay
+context-free) — an `Expr` change.
+
+**A β-redex congruence instead** (`(fun x : t => b) v` against `(fun x : t' => b') v'`: the
+functions, then the arguments, before β; `none` on a miss), with part 1's reading of nondep
+`let`s as redexes: covers exactly the nondep `let`s and the source's own redexes, each safe
+because a λ's body type-checks under its opaque binder.  `t1`–`t4` and `s18` all ≤ 0.013 G.
+
+| stream | master G | redex congruence G | Δ |
+|---|---|---|---|
+| Init (`--jobs=8`) | 304.517 | 306.325 | +0.59 % |
+| Mathlib (`--jobs=8`) | 6 171.809 | 6 292.051 | +1.95 % (RSS 2.94 → 3.32 GB) |
+| arena perf streams (`--jobs=1`) | | | ≤ +0.9 % (grind-ring-5 +0.89 %), all accepted |
+
+Both accept everything.  Not proved: the cached simulation (`Verify/Cached/DiscC5`) has no
+spec for the new arm — the pure twin and the soundness rules would need the rule too.  The
+`.ndjson` path cannot use it (lean4export clears the flag).  Departure from official (no such
+congruence in `is_def_eq`).  Not landed; spike binaries and logs in the lane's `_tmp/600/`.

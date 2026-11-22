@@ -611,7 +611,7 @@ theorem quickDefEqI_congr (_hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode f
       funext depth fvs ty₁ body₁ ty₂ body₂; rw [defeqBindersI.eq_def, defeqBindersI.eq_def]
       rcases hp : Expr.binderPair? lam body₁ body₂ with _ | ⟨_, _, _, _⟩ <;>
         simp only [hp, hin, hdom, ih]
-  funext depth a b; rw [quickDefEqI.eq_def, quickDefEqI.eq_def]; simp only [hb]
+  funext depth a b; rw [quickDefEqI.eq_def, quickDefEqI.eq_def]; simp only [hb, h]
 
 /-- `lazyDeltaStepI` reads `fe` only through `find?`. -/
 theorem lazyDeltaStepI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :

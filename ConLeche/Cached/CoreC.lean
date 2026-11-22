@@ -1743,6 +1743,11 @@ def quickDefEqI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) :
   | .lam ty₁ body₁, .lam ty₂ body₂ => do
     let ok ← defeqBindersI eager lv true bindersFuel depth #[] ty₁ body₁ ty₂ body₂
     pure (some ok)
+  | .app (.lam ty₁ b₁) v₁, .app (.lam ty₂ b₂) v₂ => do
+    -- SPIKE (task #631): β-redex congruence — the functions, then the
+    -- arguments, before β; on a miss, the β path as before
+    unless ← defeqI eager lv depth (.lam ty₁ b₁) (.lam ty₂ b₂) do return none
+    if ← defeqI eager lv depth v₁ v₂ then pure (some true) else pure none
   | _, _ => pure none
 termination_by (lv, 54, 0, 0)
 
