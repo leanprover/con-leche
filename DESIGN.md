@@ -126282,3 +126282,36 @@ tree: `lake build`, `lake test` warning-free; `tests/arena.sh` in full, exit 0 (
 e2e 635/635, arena tutorial 90/92 as recorded, trusted/`--jobs=1`/`--jobs=4` sweeps clean,
 self-check both forms, 77 axiom pins, shake, pub-imports, plain-reach, binary-link, link and
 quote gates).
+
+## TASK #630 (parse lane) — the inductive feature flags of lean4export 3.2.0, read (2026-11-22, agent/630-flags-parse; base agent/630-flags = master bc6676101)
+
+lean4 PR #16595 (the kernel renovation's per-inductive feature flags) has the exporter write five
+booleans on every `inductive.types` record: `isImpredicative`, `isK`, `hasProjections`,
+`hasEta`, `hasLargeElim` (format 3.2.0; the PR itself still says 3.1.0).  This lane only reads
+them; the install lane of #630 validates and uses them.
+
+*Data.*  `IndFlags` (`Kernel/Env.lean`), five `Bool`s, and `IndCaps.flags : Option IndFlags :=
+none`, last field: the stream's type record carries what it declares (`none` without flags),
+the install decides what is stored.
+
+*Recogniser.*  Five new `Key`s; `keyAt` classifies them (`hasEta` at length 6, `hasLargeElim`
+12, `hasProjections` 14 under `h`; `isK` beside `idx` at length 3, `isImpredicative` 15 under
+`i`; new unrolled compares `lit11`, `lit13`, `lit14`).  In both recognisers they are OPTIONAL
+slots of the type record (bits 2048…32768, outside the required mask 2046), stored as five
+`Option Bool` fields of `IndTypeRec`; a repeated one is `duplicateKey`, a non-boolean the
+boolean scanner's error.  The equivalence proof is repaired, not restated: `keyOf_104`/`keyOf_105`
+and the `h`/`i` branches of `keyAt_eq` are regenerated in the existing case-by-case shape
+(the generator is not committed, as the original's was not), `scanIndTypeLoop_eq` gains the
+five state arguments and five `obj_sub` groups.  The format version is still not read.
+
+*Parse.*  `IndTypeRec.flags` is `some` exactly when all five keys are present.  `validateIndF`
+rejects (exit 1) a type record with some but not all of them, and a block whose type records
+disagree on carrying them; `indBlockOfF` stores the record's flags in its `indInfo`'s caps.
+The `.olean` reader emits records without them (`none`).
+
+*Tests.*  `ScanTests`: a flagged record decodes to its flags in either key order, no keys to
+`none`, two keys to a partial record, a non-boolean and a repeated key fail; the probes run
+the naive and fast recognisers on these lines.  Fixtures (`scripts/mk_ind_flags_parse.py`,
+twins of `direct_fix_nat`): `ind_flags_parse` (each record with the flags official accepts for
+it) 0, `ind_flags_partial_bad` 1.  The block-level disagreement has no fixture (no small
+multi-type block at hand); the install lane's fixtures can cover it.

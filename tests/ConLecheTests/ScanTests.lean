@@ -3,11 +3,13 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Frontend.Scan.Naive
 public import ConLeche.Frontend.Scan.Equiv
+public import ConLeche.Frontend.ExportC
 /- The `#guard`s below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a plain import is not.  A module needed at
 both levels is imported twice. -/
 meta import ConLeche.Frontend.Prelude
 meta import ConLeche.Frontend.Scan.Naive
+meta import ConLeche.Frontend.ExportC
 
 public section
 
@@ -208,6 +210,11 @@ def probes : List String :=
    "{\"opaque\":{\"all\":[31],\"isUnsafe\":false,\"levelParams\":[],\"name\":31,\"type\":43,\"value\":108}}",
    "{\"inductive\":{\"ctors\":[{\"cidx\":0,\"induct\":1,\"isUnsafe\":false,\"levelParams\":[2],\"name\":9,\"numFields\":0,\"numParams\":2,\"type\":12}],\"recs\":[{\"all\":[1],\"isUnsafe\":false,\"k\":true,\"levelParams\":[11,2],\"name\":10,\"numIndices\":1,\"numMinors\":1,\"numMotives\":1,\"numParams\":2,\"rules\":[{\"ctor\":9,\"nfields\":0,\"rhs\":41}],\"type\":37}],\"types\":[{\"all\":[1],\"ctors\":[9],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"levelParams\":[2],\"name\":1,\"numIndices\":1,\"numNested\":0,\"numParams\":2,\"type\":6}]}}",
    "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[]}}",
+   -- the feature flags (task #630): all five, two of them, a non-boolean, a repeat
+   "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"isImpredicative\":true,\"isK\":false,\"hasProjections\":false,\"hasEta\":false,\"hasLargeElim\":true,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
+   "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"isImpredicative\":true,\"isK\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
+   "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"hasEta\":1,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
+   "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"isK\":true,\"isK\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
    -- the refusals
    "{\"ie\":8,\"app\":{\"arg\":1,\"fn\":7},\"nope\":1}",
    "{\"ie\":8,\"ie\":9,\"bvar\":0}",
@@ -233,6 +240,34 @@ def probes : List String :=
    "{\"il\":2,\"max\":[1,0,3]}"]
 
 #guard probes.all fun s => specLine s == fastLine s
+
+/-! ## The feature flags (task #630)
+
+A type record of lean4export 3.2.0 carries five more booleans; each is
+an optional slot of the recogniser, and the record is complete with all
+five or with none (`IndTypeRec.flags`).  Some but not all is malformed,
+rejected by `validateIndF`; a non-boolean or a repeated key is a scan
+error. -/
+
+def flagLine (fs : String) : String :=
+  "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false," ++ fs ++
+    "\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}"
+
+def typeRec? (s : String) : Option IndTypeRec :=
+  match scan1 s with
+  | some (.decl (.ind [t] _ _)) => some t
+  | _ => none
+
+#guard (typeRec? (flagLine "\"isImpredicative\":true,\"isK\":false,\"hasProjections\":false,\"hasEta\":false,\"hasLargeElim\":true,")).any
+  fun t => t.flags == some ⟨true, false, false, false, true⟩ && !t.flagsPartial
+-- order-free, like every other key
+#guard (typeRec? (flagLine "\"hasLargeElim\":false,\"hasEta\":true,\"hasProjections\":true,\"isK\":false,\"isImpredicative\":false,")).any
+  fun t => t.flags == some ⟨false, false, true, true, false⟩
+#guard (typeRec? (flagLine "")).any fun t => t.flags == none && !t.flagsPartial
+#guard (typeRec? (flagLine "\"isImpredicative\":true,\"isK\":false,")).any
+  fun t => t.flags == none && t.flagsPartial
+#guard scanErr (flagLine "\"hasEta\":1,") != none
+#guard scanErr (flagLine "\"isK\":true,\"isK\":false,") == some .duplicateKey
 
 -- The equality's footprint: the standard three, nothing else (the
 -- companion of the pin in `Axioms.lean`, for the frontend's theorem).
