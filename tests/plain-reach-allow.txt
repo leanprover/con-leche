@@ -461,9 +461,8 @@ ConLeche.nestOutKinds  # ConLeche.Kernel.Inductives.BlockInstall
 ConLeche.blockLargeElimAllowed  # ConLeche.Kernel.Inductives.BlockRec
 ConLeche.ofExcept  # ConLeche.Kernel.CheckerBase
 ConLeche.instInhabitedIndFlags.default  # ConLeche.Kernel.Env
-ConLeche.BlockShape.flagAt  # ConLeche.Kernel.Inductives.BlockShape
-ConLeche.BlockShape.etaAt  # ConLeche.Kernel.Inductives.BlockShape
-ConLeche.BlockShape.kAllowed  # ConLeche.Kernel.Inductives.BlockShape
+ConLeche.BlockShape.flagsAt  # ConLeche.Kernel.Inductives.BlockShape
+ConLeche.BlockShape.derivedFlags  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.noRules  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.boundedProp  # ConLeche.Kernel.Inductives.BlockShape
 ConLeche.BlockShape.projAllowed  # ConLeche.Kernel.Inductives.BlockShape
