@@ -227,17 +227,21 @@ theorem checkQuotRecordC_spec (hs : CSOK mode false env s₀) (k : QuotKind) (cv
   by_cases h1 : quotPinHit k cv = true
   · rw [ite_eq_left h1] at h
     by_cases h2 : quotPredsOk env.find? k = true
-    · rw [ite_eq_left h2, installBasisDeclF_pushC] at h
-      by_cases h3 : (env.find? (quotAt k cv).name).isNone = true
-      · simp only [installBasisDecl, Option.isNone_iff_eq_none.mp h3] at h
-        obtain ⟨rfl, rfl⟩ := pureC_ok h
-        refine ⟨hs, ⟨0, ?_⟩, by simp only [mkFEnv_env]⟩
-        rw [mkFEnv_env, checkQuotRecord_datF]
-        unfold checkQuotRecord
-        rw [ite_eq_left h1, ite_eq_left h2]
-        simp [installBasisDecl, Option.isNone_iff_eq_none.mp h3]
-        rfl
-      · simp only [installBasisDecl, h3] at h
+    · rw [ite_eq_left h2] at h
+      by_cases h4 : quotFormOk env.find? k cv = true
+      · rw [ite_eq_left h4, installBasisDeclF_pushC] at h
+        by_cases h3 : (env.find? (quotAt k cv).name).isNone = true
+        · simp only [installBasisDecl, Option.isNone_iff_eq_none.mp h3] at h
+          obtain ⟨rfl, rfl⟩ := pureC_ok h
+          refine ⟨hs, ⟨0, ?_⟩, by simp only [mkFEnv_env]⟩
+          rw [mkFEnv_env, checkQuotRecord_datF]
+          unfold checkQuotRecord
+          rw [ite_eq_left h1, ite_eq_left h2, ite_eq_left h4]
+          simp [installBasisDecl, Option.isNone_iff_eq_none.mp h3]
+          rfl
+        · simp only [installBasisDecl, h3] at h
+          exact nomatch h
+      · rw [ite_eq_right h4] at h
         exact nomatch h
     · rw [ite_eq_right h2] at h
       exact nomatch h

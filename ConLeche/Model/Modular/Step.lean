@@ -3,7 +3,6 @@ module
 import ConLeche.Model.DeclsRun
 public import ConLeche.Model.Modular.Proofs
 import ConLeche.Verify.Cached.PureRun
-import ConLeche.Verify.PinRen
 
 public section
 
@@ -129,11 +128,10 @@ theorem new_proof_leaf {F : Nat} {env env₂ : Env} {d : Declaration}
     have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
     exact hpl _ hmem_ci hk (.inr (hsem htr hc))
   | axiomDecl cv =>
-    rcases hrun with ⟨hq, -, -, -, henv2⟩ | ⟨-, type', -, hcv, hbr⟩
+    rcases hrun with ⟨hq, -, -, -, -, henv2⟩ | ⟨-, type', -, hcv, hbr⟩
     · rw [henv2] at hf
       obtain ⟨-, hname⟩ := find?_cons_fresh hf hnew
-      rw [show (quotAt .sound cv).name = (quotPin .sound).name from
-        ConLeche.Verify.atLps_name _ _] at hname
+      rw [quotAt_name] at hname
       exact absurd hname.symm (by rw [show (quotPin .sound).name = quotSoundName from rfl]; exact hqs)
     · have htr : type'.constsResolve env = true := hcv.2.2.2.2.2.2.1
       have hax : fe.env = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ ∨

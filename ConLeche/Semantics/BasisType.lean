@@ -26,8 +26,8 @@ into a universe a *type*, never a proposition: `A → Prop` reads as
 | `psigma` | `max u v + 1` | `psigmaV` (a type former) |
 | `psigmaMk` | `max u v` | `psigmaMkV` |
 | `emptyRec` | `v` | `emptyRecV` |
-| `quot` | `u + 1` | `quotV` (a type former) |
-| `quotMk` | `u` | `quotMkV` |
+| `quot` | `c + 1` | `quotV` (a type former; `c` the construction level, `quotCl`) |
+| `quotMk` | `c` | `quotMkV` |
 | `quotLift` | `v` | `quotLiftV` |
 | `quotInd`/`quotSound`/`propext` | `0` | `pt`: the types are `Prop` |
 | `choice` | `u` | `choiceV` |
@@ -38,7 +38,7 @@ namespace ConLeche.Semantics
 open ConLeche.Verify (projNV)
 
 
-open ConLeche.Term (Term BConst lv tupleIdxSort tupleFamSort emptyT)
+open ConLeche.Term (Term BConst lv quotCl tupleIdxSort tupleFamSort emptyT)
 
 /-! ## `Term` smart constructors
 
@@ -57,12 +57,12 @@ def punitAV (u : Nat) : Term := .const .punit [u]
 /-- `@BConst.psigma.{u,v} A B`, the dependent pair -/
 def psigmaAV (u v : Nat) (A B : Term) : Term :=
   Term.mkAppN (.const .psigma [u, v]) [A, B]
-/-- `@Quot.{u} A r` -/
-def quotAV (u : Nat) (A r : Term) : Term :=
-  Term.mkAppN (.const .quot [u]) [A, r]
-/-- `@Quot.mk.{u} A r a` -/
-def quotMkAV (u : Nat) (A r a : Term) : Term :=
-  Term.mkAppN (.const .quotMk [u]) [A, r, a]
+/-- `@Quot.{us} A r`, at a quotient level list `[u, ℓ]` (`quotCl`) -/
+def quotAV (us : List Nat) (A r : Term) : Term :=
+  Term.mkAppN (.const .quot us) [A, r]
+/-- `@Quot.mk.{us} A r a`, at a quotient level list `[u, ℓ]` (`quotCl`) -/
+def quotMkAV (us : List Nat) (A r a : Term) : Term :=
+  Term.mkAppN (.const .quotMk us) [A, r, a]
 
 /-- `A → B`. -/
 def arrowA (A B : Term) : Term := .pi A B.lift
@@ -155,15 +155,15 @@ def BConst.typeAV : BConst → List Nat → Term
     let u := lv us 0
     .pi (.sort u) <|
     .pi (relAV (.bvar 0)) <|
-    .sort u
+    .sort (quotCl us 1)
   | .quotMk, us =>
-    let u := lv us 0
+    let u := lv us 0; let qs := [u, lv us 1]
     .pi (.sort u) <|
     .pi (relAV (.bvar 0)) <|
     .pi (.bvar 1) <|
-    quotAV u (.bvar 2) (.bvar 1)
+    quotAV qs (.bvar 2) (.bvar 1)
   | .quotLift, us =>
-    let u := lv us 0; let v := lv us 1
+    let u := lv us 0; let v := lv us 1; let qs := [u, lv us 2]
     -- `∀ A r B (f : A → B), (∀ a b, r a b → f a = f b) → Quot A r → B`
     .pi (.sort u) <|
     .pi (relAV (.bvar 0)) <|
@@ -173,26 +173,26 @@ def BConst.typeAV : BConst → List Nat → Term
           (.pi (Term.mkAppN (.bvar 4) [.bvar 1, .bvar 0])
             (.eqE (.app (.bvar 3) (.bvar 2))
               (.app (.bvar 3) (.bvar 1)))))) <|
-    .pi (quotAV u (.bvar 4) (.bvar 3)) <|
+    .pi (quotAV qs (.bvar 4) (.bvar 3)) <|
     .bvar 3
   | .quotInd, us =>
-    let u := lv us 0
+    let u := lv us 0; let qs := [u, lv us 1]
     .pi (.sort u) <|
     .pi (relAV (.bvar 0)) <|
-    .pi (.pi (quotAV u (.bvar 1) (.bvar 0)) (.sort 0)) <|
+    .pi (.pi (quotAV qs (.bvar 1) (.bvar 0)) (.sort 0)) <|
     .pi (.pi (.bvar 2)
-      (.app (.bvar 1) (quotMkAV u (.bvar 3) (.bvar 2) (.bvar 0)))) <|
-    .pi (quotAV u (.bvar 3) (.bvar 2)) <|
+      (.app (.bvar 1) (quotMkAV qs (.bvar 3) (.bvar 2) (.bvar 0)))) <|
+    .pi (quotAV qs (.bvar 3) (.bvar 2)) <|
     .app (.bvar 2) (.bvar 0)
   | .quotSound, us =>
-    let u := lv us 0
+    let u := lv us 0; let qs := [u, lv us 1]
     .pi (.sort u) <|
     .pi (relAV (.bvar 0)) <|
     .pi (.bvar 1) <|
     .pi (.bvar 2) <|
     .pi (Term.mkAppN (.bvar 2) [.bvar 1, .bvar 0]) <|
-    .eqE (quotMkAV u (.bvar 4) (.bvar 3) (.bvar 2))
-      (quotMkAV u (.bvar 4) (.bvar 3) (.bvar 1))
+    .eqE (quotMkAV qs (.bvar 4) (.bvar 3) (.bvar 2))
+      (quotMkAV qs (.bvar 4) (.bvar 3) (.bvar 1))
   | .propext, _ =>
     -- `∀ (A B : Prop), (A → B) → (B → A) → A = B`
     .pi (.sort 0) <| .pi (.sort 0) <|

@@ -164,18 +164,52 @@ def basisNamesError : Declaration → CheckError
 def quotPin (k : QuotKind) : ConstantInfo :=
   BasisKind.quotK.decls.getD k.slot (.axiomInfo default)
 
-/-- **What a quotient record stores**: its slot's pin at the names it
+/-- **The pinned quotient package's constant at a slot, in a form**: the `lifted` form
+(`quotSortOf`) differs from the released one at `Quot` and `Quot.sound` only. -/
+def quotPinOf (lifted : Bool) (k : QuotKind) : ConstantInfo :=
+  if lifted then
+    match k with
+    | .type => quotAOf true
+    | .sound => quotSoundAOf true
+    | _ => quotPin k
+  else quotPin k
+
+/-- **A record matches a pin**: it is the pin up to its level-parameter names, distinct and as
+many as the pin's. -/
+def quotPinHitAt (pin : ConstantInfo) (cv : ConstantVal) : Bool :=
+  Name.nodup cv.levelParams &&
+    cv.levelParams.length == pin.toConstantVal.levelParams.length &&
+    cv.beqP (pin.toConstantVal.atLps cv.levelParams)
+
+/-- **Which form a quotient record declares**: the lifted one where it matches that pin, at
+`Quot` and `Quot.sound`; the released one everywhere else. -/
+def quotLifted (k : QuotKind) (cv : ConstantVal) : Bool :=
+  match k with
+  | .type | .sound => quotPinHitAt (quotPinOf true k) cv
+  | _ => false
+
+/-- **What a quotient record stores**: its slot's pin, in the form it declares, at the names it
 declares. -/
 def quotAt (k : QuotKind) (cv : ConstantVal) : ConstantInfo :=
-  (quotPin k).atLps cv.levelParams
+  (quotPinOf (quotLifted k cv) k).atLps cv.levelParams
+
+/-- A quotient record is stored under its slot's name, in either form. -/
+theorem quotAt_name (k : QuotKind) (cv : ConstantVal) : (quotAt k cv).name = (quotPin k).name := by
+  unfold quotAt
+  generalize quotLifted k cv = b
+  cases b <;> cases k <;> rfl
 
 /-- **The quotient-pin match**: the record is the pinned package's
-constant at the slot it declares itself at, up to its level-parameter
+constant at the slot it declares itself at, in either form, up to its level-parameter
 names: distinct, as many as the pin's. -/
 def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
-  Name.nodup cv.levelParams &&
-    cv.levelParams.length == (quotPin k).toConstantVal.levelParams.length &&
-    cv.beqP ((quotPin k).toConstantVal.atLps cv.levelParams)
+  quotPinHitAt (quotPinOf (quotLifted k cv) k) cv
+
+/-- **Whether the stored `Quot` is in the lifted form.** -/
+def quotStoredLifted (find? : Name → Option ConstantInfo) : Bool :=
+  match find? quotName with
+  | some ci => ci.toConstantVal.beqP ((quotAOf true).toConstantVal.atLps ci.toConstantVal.levelParams)
+  | none => false
 
 /-- **What a quotient record's slot needs stored before it**: the
 constants its type mentions.  A reserved name is stored only as a copy of
@@ -190,6 +224,14 @@ def quotPredsOk (find? : Name → Option ConstantInfo) (k : QuotKind) : Bool :=
   | .lift => hasEq && hasQ && hasM
   | .ind => hasQ && hasM
   | .sound => hasEq && hasQ && hasM
+
+/-- **`Quot.sound` is in the stored `Quot`'s form**: its equation is at the quotient's result
+level, so the other pairing is ill-typed, which the official kernel rejects.  Every other slot
+passes. -/
+def quotFormOk (find? : Name → Option ConstantInfo) (k : QuotKind) (cv : ConstantVal) : Bool :=
+  match k with
+  | .sound => quotStoredLifted find? == quotLifted .sound cv
+  | _ => true
 
 /-! ## The pinned `And`
 

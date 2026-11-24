@@ -188,7 +188,7 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
   · -- `eq_law`: `Eq` is stored as an `indInfo`, so it is never swapped
     intro ci p hf hp
     exact mp.eq_law ci p ((hsame eqName ci
-      (eqCopy_not_rec (hbp₃ eqName ci hf (by decide)).1)).mp hf) hp
+      (eqCopy_not_rec (hbp₃.copy hf (by decide) (by decide) (by decide)))).mp hf) hp
   · -- `reduce_ops`
     intro c hc cv hf hpin
     obtain ⟨hs, hlaw⟩ := mp.reduce_ops c hc cv
@@ -421,8 +421,13 @@ theorem storedSwap_sem {envC : Env}
   · -- `BasisPinnedTT`: a stored recursor is never reserved
     intro n ci hf hres
     rcases hC.1 n ci hf with hG | ⟨j, rc, g, ⟨-, hg, -⟩, hn, -, -⟩
-    · have hp := mpG.base2.basis_pinned n ci hG hres
-      exact ⟨hp.1, hp.2.1.mono hctor, hp.2.2⟩
+    · obtain ⟨b, hcp, hqf, hlk, hleaf⟩ := mpG.base2.basis_pinned n ci hG hres
+      refine ⟨b, hcp, fun hm => ?_, hlk.mono hctor, hleaf⟩
+      -- the stored `Quot` is no recursor, so it is kept
+      obtain ⟨ciQ, hQ, hcQ⟩ := hqf hm
+      refine ⟨ciQ, hkeep _ _ (fun _ _ _ _ _ he => ?_) hQ, hcQ⟩
+      rw [hcQ.1] at he
+      cases b <;> exact nomatch he
     · have := hresB g (List.mem_of_getElem? hg)
       rw [hn, hres] at this
       exact nomatch this

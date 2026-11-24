@@ -113,7 +113,7 @@ theorem denote_falseRecA_type {m : EnvModel V env}
             (.app (.bvar 1) (.bvar 0)))) := by
   have hpd : ConLeche.Verify.pinnedStructT falseName ψ
       = some (Term.const .empty [0]) := by
-    simp +decide [ConLeche.Verify.pinnedStructT]
+    simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt]
   have hleaf : acvalWith m.acval falseRecA.name A falseName ψ
       = Term.const .empty [0] := by
     rw [acvalWith_ne (by decide)]

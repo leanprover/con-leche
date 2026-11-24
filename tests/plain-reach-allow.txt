@@ -20,9 +20,14 @@ ConLeche.pinCopyOk
 ConLeche.pinLinkOk
 ConLeche.pinListOk
 ConLeche.quotAt
+ConLeche.quotFormOk
+ConLeche.quotLifted
 ConLeche.quotPin
 ConLeche.quotPinHit
+ConLeche.quotPinHitAt
+ConLeche.quotPinOf
 ConLeche.quotPredsOk
+ConLeche.quotStoredLifted
 
 # ConLeche.Kernel.Basis.And — the And pins (constants)
 ConLeche.andIntroName
@@ -105,6 +110,7 @@ ConLeche.natZeroA
 
 # ConLeche.Kernel.Basis.Quot — the Quot pins (constants)
 ConLeche.quotA
+ConLeche.quotAOf
 ConLeche.quotBasis
 ConLeche.quotIndA
 ConLeche.quotIndMk
@@ -115,6 +121,8 @@ ConLeche.quotLiftH
 ConLeche.quotMkA
 ConLeche.quotRel
 ConLeche.quotSoundA
+ConLeche.quotSoundAOf
+ConLeche.quotSortOf
 
 # ConLeche.Kernel.Canon — the basis records' canonical comparison (fixed small terms)
 ConLeche.ConstantInfo.beqP

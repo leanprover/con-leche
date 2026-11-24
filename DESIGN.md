@@ -126466,3 +126466,39 @@ field, and the `.olean` emitter no longer copies the olean record's flag into it
 `InductiveVal` layout still has it; `Olean/Spec.lean` reads it as before). Tests: `ScanTests`
 (the spec/fast probes absent, non-boolean, repeated; the record read alike with and without it)
 and the e2e twin `ind_flags_no_reflexive` (0), from `scripts/mk_ind_flags_parse.py`.
+
+## TASK #630 (lifted `Quot`) — `Quot` in either result-sort form, lean4#15023 (2026-11-24, agent/630-quot; base renovation 216031bf5)
+
+Maintainer ruling: "we need it now, else we cannot merge the lean4 PR." lean4#15023 declares
+`Quot.{u} {α : Sort u} (r : α → α → Prop) : Sort (max 1 u)` and, with it, `Quot.sound`'s
+equation at `Eq.{max 1 u}`; `Quot.mk`, `Quot.lift`, `Quot.ind` are unchanged. A quotient of a
+proposition is a type, so proof irrelevance no longer identifies its elements.
+
+**Checker.** `Quot` and `Quot.sound` have two pins (`quotAOf`, `quotSoundAOf`, read by
+`quotPinOf b k`). A record matches either (`quotLifted`, `quotPinHit`); `quotAt` stores the form
+it matches, so the stored type decides whether a quotient is a proposition, and nothing else in
+the checker reads the form. `quotFormOk` rejects a `Quot.sound` whose form is not the stored
+`Quot`'s (official: ill-typed). A record matching neither form is declined as before.
+
+**Model.** The released form's meaning cannot serve the lifted one: a quotient of a proposition
+denotes `{pt}` or `∅` with `Quot.mk` at `pt`, the value of every proof, while the model requires
+a never-proposition family to have no value `pt` (`quotMk_neverProp_ne_zero`). So every quotient
+constant carries a construction level beside its domain level (`qcl`, `quotCl`; `quotV`,
+`quotMkV`, `quotLiftV`, `quotIndV` built at it): `u` in the released form, `max 1 u` in the lifted
+one, where classes are tagged and never `pt`. One parametric development: the leaves
+(`pinnedStructTAt b`) end in the form, the pin invariant reads
+`∃ b, PinCopy ci (pinnedInfoAt b n) ∧ QuotForm env n b ∧ …`, where `QuotForm` ties `Quot.mk`,
+`Quot.lift`, `Quot.ind` to the stored `Quot`'s form (their records are the same in both forms),
+and `Model/BasisQuot.lean` is parametric in it (`declQuotPB b`).
+
+New general facts: `PinCopy.form_unique` (a constant copies one form of a pin, by `pinFormOf`),
+`RenEnv.pinCopy` (a copy keeps its form across a level renaming), `PinPair`/`ConstRen` over
+`pinnedInfoAt b`, `quotStoredLifted_of`, `quotAt_name` (Kernel/Basis), and in the modular
+context `quotName_read` (a copy of `Quot.mk`/`lift`/`ind` reads `Quot`, so the source's stored
+`Quot` is the context's, `CtxSrc.findC`). `coverStep_head` takes only what it uses of the head
+(`pin.name = quotName` at a former, `pin = quotMkA` at a constructor).
+
+**Fixtures** (`scripts/mk_quot_lifted_fixtures.py` from the PR toolchain's export
+`quot_lifted`): `quot_lifted` 0, `quot_lifted_rfl_bad` 1 (`s = Squash.mk True.intro` by `rfl`),
+`quot_released_rfl` 0 (the same at the released form, pinned toolchain), `quot_lifted_mixed_sound_bad`
+1, `quot_other_sort_bad` 2 (`Sort (u+1)`).

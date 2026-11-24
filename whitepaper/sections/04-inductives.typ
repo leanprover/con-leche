@@ -1139,7 +1139,7 @@ block's auxiliary recursor reads the minor premises of its own motive,
   corollary can read off the declarations' own clauses that `False`
   denotes the empty set and `Eq` equality, in every model of the
   input (#overview(1)); and its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 493, 495)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 495, 497)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

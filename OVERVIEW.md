@@ -633,7 +633,7 @@ Read from the outside in:
    (`EnvWF`: stored constants closed, their level parameters declared,
    the constants they mention stored) without the model, so that fact
    about what the fold accepts needs no set theory
-   ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L356-L358)).
+   ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L374-L376)).
    A job's check at a view is the fold's step because the cached core
    reads its environment through the lookups alone
    ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L706-L709)).
@@ -645,14 +645,14 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1899-L1904)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L565-L572)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L567-L574)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L484)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L486)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
-   ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L137-L143)).
+   ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L138-L144)).
    The main theorem's model is the invariant's own, read through the
    statement's relation
    ([definition `Model.ofEnvModelM` in `ConLeche/Model/OfEnvModelM.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/OfEnvModelM.lean#L62-L63)).
@@ -1141,7 +1141,7 @@ presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDeclStepC_run` in `ConLeche/Verify/Cached/BridgeC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L285)).
+  ([theorem `checkDeclStepC_run` in `ConLeche/Verify/Cached/BridgeC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L289)).
   Nesting (a head, a scrutinee, a subterm's type) is bounded by the
   shared fuel, an error when exhausted; the fuel is effectively
   unbounded (2^62), since it exists for the proofs' induction. Each
@@ -1395,7 +1395,14 @@ inductive type, comes as five records: each stores its slot's pin at the
 level-parameter names it declares, once the slots it mentions are stored, and a
 record that is not its pin up to those names is declined. Each record's names
 are its own: references between the constants are positional, and the
-eliminators' rules carry the level they compare the constructor's at.
+eliminators' rules carry the level they compare the constructor's at. `Quot`
+and `Quot.sound` have two forms: `Quot` at `Sort u` with `Quot.sound`'s
+equation at `Eq.{u}`, as the released kernel declares them, or at
+`Sort (max 1 u)` and `Eq.{max 1 u}`, as lean4#15023 does, where a quotient of a
+proposition is a type rather than a proposition. The form a record declares is
+the one stored, so whether a quotient is a proposition, and with it proof
+irrelevance, follows the stream's declaration; a `Quot.sound` in the other form
+than the stored `Quot` is ill-typed and rejected.
 
 They are pinned so that there is no doubt about what they denote. The
 model does not read their denotations off whatever the stream declared,
@@ -1415,7 +1422,10 @@ on:
   test).
 * `Quot`, its constructor, its two eliminators and their reduction
   rule are primitives: there is no inductive declaration to check, and
-  `Quot.sound` is one of the three standard axioms (§8).
+  `Quot.sound` is one of the three standard axioms (§8). The quotient is
+  built at the level of `Quot`'s declared sort: in the form of
+  lean4#15023 a quotient of a proposition is a set of classes, as any
+  quotient type is.
 
 ### The pinned `And`
 
@@ -1426,7 +1436,7 @@ Prop` with its one constructor `And.intro (left : a) (right : b)`. So
 the fold rejects any record that declares `And`, `And.intro` or
 `And.rec` and does not agree with the pin up to renaming of universe
 parameters
-([function `andPinOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L189-L194)),
+([function `andPinOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L251-L256)),
 and the block that does agree goes through the installer below, which
 stores its projections as it does for any structure. A stream that does
 not declare `And` gets the toolchain's block from the built-in prelude
@@ -1568,7 +1578,7 @@ eliminator keeps its rules, checked against the generated ones.
 
 **In the model** the block's carrier is the least fixed point of its
 family functor over the index fibres
-([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L387-L388)),
+([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L388-L389)),
 for several members a least fixed tuple of families, and a container
 field reads the container's own least fixed point at the holes'
 values. That the fixed point is a member of the universe follows from
@@ -2282,8 +2292,11 @@ are still planned. The checker already has these:
   the features are read off the declarations, as the released kernel
   does.
 
-Not yet followed: `Quot` of a proposition stays a proposition
-(lean4#15023), and partial recursor applications are not η-expanded
+* An input that declares `Quot` at `Sort (max 1 u)` (lean4#15023) has
+  quotients of propositions as types (§5). An input in the released form
+  keeps them propositions.
+
+Not yet followed: partial recursor applications are not η-expanded
 (lean4#15374).
 
 **It accepts more**, beyond the renovation. The soundness proof covers

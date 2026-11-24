@@ -396,16 +396,21 @@ theorem _root_.ConLeche.PureRun.quot_hit {pins : List NatOpPinSet} {ds : List De
       · exact absurd hq hne
     · exact ih cv hd hq
 
-/-- `Quot.sound`'s pin installs the record's statement. -/
+/-- `Quot.sound`'s pin installs the record's statement, in the form it declares. -/
 theorem quotAt_sound {cv : ConstantVal} (h : quotPinHit .sound cv = true) :
     quotAt .sound cv = .axiomInfo cv ∧
-      cv.type = (quotPin .sound).toConstantVal.type.instantiateLevelParams
-        (quotPin .sound).toConstantVal.levelParams (cv.levelParams.map .param) := by
-  simp only [quotPinHit, Bool.and_eq_true] at h
+      cv.type = (quotPinOf (quotLifted .sound cv) .sound).toConstantVal.type.instantiateLevelParams
+        (quotPinOf (quotLifted .sound cv) .sound).toConstantVal.levelParams
+        (cv.levelParams.map .param) := by
+  unfold quotPinHit quotPinHitAt at h
+  simp only [Bool.and_eq_true] at h
   have he := ConstantVal.eq_of_beqP h.2
-  refine ⟨?_, by rw [he]; rfl⟩
-  conv => rhs; rw [he]
-  rfl
+  unfold quotAt
+  generalize quotLifted .sound cv = b at he ⊢
+  refine ⟨?_, ?_⟩
+  · cases b <;> (conv => rhs; rw [he]) <;> rfl
+  · conv => lhs; rw [he]
+    rfl
 
 theorem readNames_instantiateLevelParams (ks : List Name) (us : List Level) (e : Expr) :
     (e.instantiateLevelParams ks us).readNames = e.readNames := by
@@ -455,6 +460,7 @@ theorem copy_own {M : Name} {jobs : Nat}
       (fs := fs) (M := M) hpo hci)
     refine ⟨.axiomInfo cv, hfind, rfl, rfl, fun h => absurd (hthm h) (by omega), ?_⟩
     rw [hty, readNames_instantiateLevelParams, hq]
-    decide
+    generalize quotLifted QuotKind.sound cv = b
+    cases b <;> decide
 
 end ConLeche.Driver

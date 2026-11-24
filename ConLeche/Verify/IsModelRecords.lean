@@ -569,8 +569,9 @@ theorem declsRun_reads {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSize 
         simp only [declConstants] at hci
         split at hci
         · rw [List.mem_singleton] at hci; subst hci
-          simp [quotAt, quotPin, BasisKind.decls, quotBasis, quotSoundA, QuotKind.slot,
-            ConstantInfo.atLps] at hcr
+          unfold quotAt at hcr
+          generalize quotLifted QuotKind.sound _ = b at hcr
+          cases b <;> exact nomatch hcr
         · split at hci
           · exact nomatch hci
           · rw [List.mem_singleton] at hci; subst hci; exact nomatch hcr
@@ -707,8 +708,9 @@ theorem checkDecls_pinned {mode : CheckMode} {pins : List NatOpPinSet} {maxNatSi
   have hnq : ∀ (k : QuotKind) (cv : ConstantVal), (quotAt k cv).name ≠ n := by
     intro k cv hq
     have hqn : (quotAt k cv).name = (quotPin k).name := by
-      unfold quotAt ConstantInfo.atLps
-      cases quotPin k <;> rfl
+      unfold quotAt
+      generalize quotLifted k cv = b
+      cases b <;> cases k <;> rfl
     rw [hqn] at hq
     subst hq
     simp only [pinnedKinds, List.mem_cons, List.not_mem_nil, or_false] at hk

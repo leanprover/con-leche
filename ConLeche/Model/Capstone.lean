@@ -89,6 +89,7 @@ theorem no_constant_of_emptyPin (mp : EnvModelM V env) {n : Name} {u : Nat}
     (hres : ConLeche.reservedBasisNames.contains n = true)
     (hpin : ∀ ψ : Name → Nat,
       ConLeche.Verify.pinnedStructT n ψ = some (emptyT u))
+    (hnq : ConLeche.Verify.quotFormNames.contains n = false)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const n []) : False := by
   obtain ⟨ta, hta0⟩ := mp.type_reads c hc (fun _ => 0)
@@ -107,7 +108,7 @@ theorem no_constant_of_emptyPin (mp : EnvModelM V env) {n : Name} {u : Nat}
       have hmem := mp.mem_type c hc (fun _ => 0) _ hta0
         (fun _ => (SetTheory.empty : V))
       rw [interp_acval_emptyC mp.base2 (fun ψ =>
-        ⟨u, EnvModel.acval_pinned_free mp.base2 hf hres hpin⟩)] at hmem
+        ⟨u, EnvModel.acval_pinned_free mp.base2 hf hres hpin hnq⟩)] at hmem
       exact not_mem_empty _ hmem
     · rw [denote, hf] at hta
       dsimp only at hta
@@ -127,8 +128,8 @@ theorem no_constant_of_Empty (mp : EnvModelM V env)
   -- prediction cashed: the premise dies with `EnvModelM.base`, it is
   -- not replaced.
   no_constant_of_emptyPin mp (u := 1) (by decide)
-    (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Term.emptyT])
-    c hc hty
+    (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt, ConLeche.Term.emptyT])
+    (by decide) c hc hty
 
 /-- **The capstone's business end, about `False`** (task #181): an
 environment carrying the P invariant stores no constant of type
@@ -138,8 +139,8 @@ theorem no_constant_of_False (mp : EnvModelM V env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const falseName []) : False :=
   no_constant_of_emptyPin mp (u := 0) (by decide)
-    (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Term.emptyT])
-    c hc hty
+    (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt, ConLeche.Term.emptyT])
+    (by decide) c hc hty
 
 /-! ## The rules tier's inputs
 

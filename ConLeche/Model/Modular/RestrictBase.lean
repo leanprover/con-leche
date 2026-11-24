@@ -43,7 +43,8 @@ theorem Refines.eq_of_isDT {ci ci' : ConstantInfo} (h : Refines ci ci') (hk : ci
 theorem atLps_isDT (ci : ConstantInfo) (ps : List Name) : (ci.atLps ps).isDT = ci.isDT := by
   cases ci <;> rfl
 
-theorem pinnedInfo_isDT : ∀ n ∈ reservedBasisNames, (pinnedInfo n).isDT = false := by decide
+theorem pinnedInfo_isDT : ∀ b : Bool, ∀ n ∈ reservedBasisNames, (pinnedInfoAt b n).isDT = false := by
+  decide
 
 /-- A literal's shape carries to a refining copy. -/
 theorem litShapeOk_refines {ci ci' : ConstantInfo} (h : Refines ci ci')
@@ -131,9 +132,9 @@ theorem leafSelf {n : Name} {ci : ConstantInfo} (hf : C.find? n = some ci) :
 theorem src_reserved {n : Name} {ci : ConstantInfo} (hf : C.find? n = some ci)
     (hres : reservedBasisNames.contains n = true) : (E n).find? n = some ci := by
   obtain ⟨ci', hf', hr⟩ := S.src hf
-  have hpin := ((S.m n).base2.basis_pinned n ci' hf' hres).1.1
+  obtain ⟨b, hc, -⟩ := (S.m n).base2.basis_pinned n ci' hf' hres
   have hk : ci'.isDT = false := by
-    rw [hpin, atLps_isDT]; exact pinnedInfo_isDT n (List.contains_iff_mem.mp hres)
+    rw [hc.1, atLps_isDT]; exact pinnedInfo_isDT b n (List.contains_iff_mem.mp hres)
   rw [hf', hr.eq_of_isDT hk]
 
 /-! ## The carrier -/
@@ -191,13 +192,70 @@ theorem wf : EnvWF C := by
     exact (S.m _).base2.wf.rules _
       (Env.find?_mem (S.src_eq (S.find_of_mem hc) fun _ h => nomatch h)) cv mI rP isK rules rfl
 
+omit [SetTheory V] S in
+/-- What a term reads does not depend on its universe levels. -/
+theorem constsAll_instantiateLevelParams (p : Name → Prop) (ks : List Name) (us : List Level)
+    (e : Expr) : Expr.constsAll p (e.instantiateLevelParams ks us) ↔ Expr.constsAll p e := by
+  induction e with
+  | fvar _ _ ih => simp only [Expr.instantiateLevelParams, Expr.constsAll, ih]
+  | app f a ihf iha => simp only [Expr.instantiateLevelParams, Expr.constsAll, ihf, iha]
+  | lam t b iht ihb => simp only [Expr.instantiateLevelParams, Expr.constsAll, iht, ihb]
+  | forallE t b iht ihb => simp only [Expr.instantiateLevelParams, Expr.constsAll, iht, ihb]
+  | letE t v b iht ihv ihb =>
+    simp only [Expr.instantiateLevelParams, Expr.constsAll, iht, ihv, ihb]
+  | proj s i e ih => simp only [Expr.instantiateLevelParams, Expr.constsAll, ih]
+  | _ => exact Iff.rfl
+
+omit [SetTheory V] S in
+/-- **`Quot.mk`, `Quot.lift` and `Quot.ind` read `Quot`**: a copy of one of their pins, in either
+form, mentions it in its type. -/
+theorem quotName_read {p : Name → Prop} {b : Bool} {n : Name} {ci : ConstantInfo}
+    (hn : n = quotMkName ∨ n = quotLiftName ∨ n = quotIndName)
+    (hc : PinCopy ci (pinnedInfoAt b n)) (h : Expr.constsAll p ci.toConstantVal.type) :
+    p quotName := by
+  rw [hc.1] at h
+  rcases hn with rfl | rfl | rfl <;> rw [pinnedInfoAt_of_ne b (by decide) (by decide)] at h
+  · change Expr.constsAll p (quotMkA.toConstantVal.type.instantiateLevelParams
+      quotMkA.toConstantVal.levelParams _) at h
+    rw [constsAll_instantiateLevelParams] at h
+    obtain ⟨-, -, -, ⟨hq, -⟩, -⟩ := h
+    exact hq
+  · change Expr.constsAll p (quotLiftA.toConstantVal.type.instantiateLevelParams
+      quotLiftA.toConstantVal.levelParams _) at h
+    rw [constsAll_instantiateLevelParams] at h
+    obtain ⟨-, -, -, -, -, ⟨⟨hq, -⟩, -⟩, -⟩ := h
+    exact hq
+  · change Expr.constsAll p (quotIndA.toConstantVal.type.instantiateLevelParams
+      quotIndA.toConstantVal.levelParams _) at h
+    rw [constsAll_instantiateLevelParams] at h
+    obtain ⟨-, -, -, -, ⟨⟨hq, -⟩, -⟩, -⟩ := h
+    exact hq
+
 /-- **The basis pins hold in the context.** -/
 theorem basis_pinned : BasisPinnedTT C aC := by
   intro n ci hf hres
   have hE := S.src_reserved hf hres
-  obtain ⟨h1, h2, h3⟩ := (S.m n).base2.basis_pinned n ci hE hres
-  refine ⟨h1, fun cv mI rP isK rules hci rl hrl hp cvj cnP cnF T hfc us hus => ?_,
+  obtain ⟨b, h1, hqf, h2, h3⟩ := (S.m n).base2.basis_pinned n ci hE hres
+  refine ⟨b, h1, fun hm => ?_, fun cv mI rP isK rules hci rl hrl hp cvj cnP cnF T hfc us hus => ?_,
     fun t ψ hp => ?_⟩
+  · -- the source's `Quot` is the context's: its own, or one the constant's type reads
+    obtain ⟨ciQ, hfQ, hcQ⟩ := hqf hm
+    refine ⟨ciQ, ?_, hcQ⟩
+    by_cases hnq : n = quotName
+    · subst hnq
+      rw [hE] at hfQ
+      obtain rfl := Option.some.inj hfQ
+      exact hf
+    · have hn : n = quotMkName ∨ n = quotLiftName ∨ n = quotIndName := by
+        simp only [quotFormNames, List.contains_cons, List.contains_nil, Bool.or_false,
+          Bool.or_eq_true, beq_iff_eq] at hm
+        rcases hm with h | h | h | h
+        · exact absurd h hnq
+        all_goals simp [h]
+      have hd := quotName_read hn h1 (S.scopeR hf).1
+      refine S.findC (isSome_of hf) hd hfQ ?_
+      rw [hcQ.1]
+      cases b <;> rfl
   · have hcR := ((S.scopeR hf).2.2.1 cv mI rP isK rules hci rl hrl).2.1
     exact h2 cv mI rP isK rules hci rl hrl hp cvj cnP cnF T
       (S.findE (isSome_of hf) hcR hfc rfl) us hus
@@ -293,17 +351,17 @@ theorem defn_reads : AcvalDefnInst S.base := by
 
 omit [SetTheory V] S in
 theorem pin_nat (ψ : Name → Nat) : pinnedStructT natName ψ = some (.const .nat []) := by
-  simp [pinnedStructT]
+  simp [pinnedStructT, pinnedStructTAt]
 
 omit [SetTheory V] S in
 theorem pin_natZero (ψ : Name → Nat) :
     pinnedStructT natZeroName ψ = some (.const .natZero []) := by
-  simp (decide := true) [pinnedStructT]
+  simp (decide := true) [pinnedStructT, pinnedStructTAt]
 
 omit [SetTheory V] S in
 theorem pin_natSucc (ψ : Name → Nat) :
     pinnedStructT natSuccName ψ = some (.const .natSucc []) := by
-  simp (decide := true) [pinnedStructT]
+  simp (decide := true) [pinnedStructT, pinnedStructTAt]
 
 theorem nat_heads (φ : Name → Nat) : NatHeads S.base φ := by
   intro hs ρ
@@ -393,7 +451,7 @@ theorem natFacts : NatFacts C := by
         rw [← hm.1]; exact S.storedC this.1
       · exact nomatch hm
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hN
-  have hpin := (S.basis_pinned natName ci hci (by decide)).1.1
+  have hpin := (S.basis_pinned.copy hci (by decide) (by decide) (by decide)).1
   rw [pinnedInfo_nat] at hpin
   have hci' : C.find? natName = some (.indInfo (natA.toConstantVal.atLps ci.toConstantVal.levelParams)
       { all := [natName], ctors := [natZeroName, natSuccName], neverZero := true }) := by

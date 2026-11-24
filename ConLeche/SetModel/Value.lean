@@ -41,7 +41,7 @@ members of the value-read family space `lfpFamSpace` (`famOf`).
 namespace ConLeche.SetModel
 
 open SetTheory
-open ConLeche.Term (BConst lv)
+open ConLeche.Term (BConst lv quotCl)
 
 universe w
 
@@ -230,25 +230,26 @@ the space is `{pt}`. -/
 noncomputable def relSpace (A : V) : V :=
   piV A fun _ => piV A fun _ => univ 0
 
-/-- `Quot.{u}` — a type former. -/
-noncomputable def quotV (u : Nat) : V :=
+/-- `Quot.{u}` — a type former over `Sort u`, building its quotient at the construction level
+`c` (`ConLeche.Term.quotCl`). -/
+noncomputable def quotV (u c : Nat) : V :=
   lamV (univ u) fun A =>
-    lamV (relSpace V A) fun R => quotSet u A R
+    lamV (relSpace V A) fun R => quotSet c A R
 
-theorem quotV_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
+theorem quotV_app {u c : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
     (hR : R ∈ˢ relSpace V A) :
-    app (app (quotV V u) A) R = quotSet u A R := by
+    app (app (quotV V u c) A) R = quotSet c A R := by
   rw [quotV, app_lamV hA, app_lamV hR]
 
-/-- `Quot.mk.{u}`. -/
-noncomputable def quotMkV (u : Nat) : V :=
+/-- `Quot.mk.{u}`, at the construction level `c`. -/
+noncomputable def quotMkV (u c : Nat) : V :=
   lamV (univ u) fun A =>
     lamV (relSpace V A) fun R =>
-      lamV A fun a => quotClass u A R a
+      lamV A fun a => quotClass c A R a
 
-theorem quotMkV_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
+theorem quotMkV_app {u c : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
     (hR : R ∈ˢ relSpace V A) (ha : a ∈ˢ A) :
-    app (app (app (quotMkV V u) A) R) a = quotClass u A R a := by
+    app (app (app (quotMkV V u c) A) R) a = quotClass c A R a := by
   rw [quotMkV, app_lamV hA, app_lamV hR, app_lamV ha]
 
 /-- The lift of `f` to the quotient: the abstraction over the quotient
@@ -287,31 +288,31 @@ theorem quotInv_of_mem {A R f h : V} (hh : h ∈ˢ quotInvSpace V A R f) :
   have h3 := app_mem_piV h2 hwv
   exact eq_of_mem_eqv h3
 
-/-- `Quot.lift.{u,v}`. -/
-noncomputable def quotLiftV (u v : Nat) : V :=
+/-- `Quot.lift.{u,v}`, over the quotient at the construction level `c`. -/
+noncomputable def quotLiftV (u v c : Nat) : V :=
   lamV (univ u) fun A =>
     lamV (relSpace V A) fun R =>
       lamV (univ v) fun B =>
         lamV (piV A fun _ => B) fun f =>
-          lamV (quotInvSpace V A R f) fun _ => quotLiftR V u A R f
+          lamV (quotInvSpace V A R f) fun _ => quotLiftR V c A R f
 
 /-- **ι for `Quot.lift`**: five βs, no premise but domain membership. -/
-theorem quotLiftV_app {u v : Nat} {A R B f h : V}
+theorem quotLiftV_app {u v c : Nat} {A R B f h : V}
     (hA : A ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V A)
     (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piV A fun _ => B)
     (hh : h ∈ˢ quotInvSpace V A R f) :
-    app (app (app (app (app (quotLiftV V u v) A) R) B) f) h =
-      quotLiftR V u A R f := by
+    app (app (app (app (app (quotLiftV V u v c) A) R) B) f) h =
+      quotLiftR V c A R f := by
   rw [quotLiftV, app_lamV hA, app_lamV hR, app_lamV hB, app_lamV hf, app_lamV hh]
 
 /-- `Quot.lift` inhabits its type. -/
-theorem quotLiftV_mem (u v : Nat) :
-    quotLiftV V u v ∈ˢ piV (univ u : V) fun A =>
+theorem quotLiftV_mem (u v c : Nat) :
+    quotLiftV V u v c ∈ˢ piV (univ u : V) fun A =>
       piV (relSpace V A) fun R =>
         piV (univ v : V) fun B =>
           piV (piV A fun _ => B) fun f =>
             piV (quotInvSpace V A R f) fun _ =>
-              piV (quotSet u A R) fun _ => B :=
+              piV (quotSet c A R) fun _ => B :=
   lamV_mem (fun _ _ => lamV_mem (fun _ _ => lamV_mem (fun _ hB =>
     lamV_mem (fun _ hf => lamV_mem (fun _ _ => quotLiftR_mem V hf (IsTy_of_mem_univ hB))
       fun _ _ => IsTy_piV) fun _ _ => IsTy_piV) fun _ _ => IsTy_piV)
@@ -633,9 +634,9 @@ noncomputable def bval : BConst → List Nat → V
   | .psigmaMk, us => psigmaMkV V (lv us 0) (lv us 1)
   | .empty, _ => empty
   | .emptyRec, us => emptyRecV V (lv us 1)
-  | .quot, us => quotV V (lv us 0)
-  | .quotMk, us => quotMkV V (lv us 0)
-  | .quotLift, us => quotLiftV V (lv us 0) (lv us 1)
+  | .quot, us => quotV V (lv us 0) (quotCl us 1)
+  | .quotMk, us => quotMkV V (lv us 0) (quotCl us 1)
+  | .quotLift, us => quotLiftV V (lv us 0) (lv us 1) (quotCl us 2)
   | .quotInd, _ => pt
   | .quotSound, _ => pt
   | .propext, _ => pt

@@ -341,9 +341,15 @@ theorem basisPinned_copies (m : EnvModel V env) (h : CopiesEnv env env')
     (hk : StmtCopies env env') : BasisPinnedTT env' (renAcval m.acval env env') := by
   intro n ci hf' hres
   have he := h.keep' hk hf' (.inr hres)
-  obtain ⟨hcp, hlk, hleaf⟩ := m.basis_pinned n ci (he.symm.trans hf') hres
-  refine ⟨hcp, hlk.mono fun x cvj cnP cnF T hx => (h.keep' hk hx (.inl rfl)).symm.trans hx,
+  obtain ⟨b, hcp, hqf, hlk, hleaf⟩ := m.basis_pinned n ci (he.symm.trans hf') hres
+  refine ⟨b, hcp, fun hm => ?_, hlk.mono fun x cvj cnP cnF T hx => (h.keep' hk hx (.inl rfl)).symm.trans hx,
     fun t ψ ht => ?_⟩
+  · -- a reserved name keeps its constant
+    obtain ⟨ciQ, hQ, hcQ⟩ := hqf hm
+    refine ⟨ciQ, ?_, hcQ⟩
+    rcases h.find quotName with ⟨h1, -⟩ | ⟨c, c₁, -, h2, -⟩
+    · rw [h1] at hQ; exact nomatch hQ
+    · exact (h.keep' hk h2 (.inr (by decide))).trans hQ
   rw [renAcval_same he]
   exact hleaf t ψ ht
 
