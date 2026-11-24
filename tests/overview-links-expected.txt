@@ -1236,15 +1236,15 @@
    675       | none => false)
    676    else e == .const natName []
 
-== ConLeche/Frontend/Prepare.lean#L168-L175
-   168  the prelude's declarations first (the stream's own copies where it has
-   169  them), the rest of the stream after them, every pinned `Nat`
-   170  operation's stream-certified ground ahead of it.  Total, pure, and the
-   171  fold's input — an array in and an array out, the shape the parse
-   172  returns and the fold consumes. -/
-   173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   174    (prepareD pre ds).decls
-   175  
+== ConLeche/Frontend/Prepare.lean#L167-L174
+   167  the prelude's declarations first (the stream's own copies where it has
+   168  them), the rest of the stream after them, every pinned `Nat`
+   169  operation's stream-certified ground ahead of it.  Total, pure, and the
+   170  fold's input — an array in and an array out, the shape the parse
+   171  returns and the fold consumes. -/
+   172  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   173    (prepareD pre ds).decls
+   174  
 
 == ConLeche/Frontend/NatOpGround.lean#L8-L25
      8  /-!

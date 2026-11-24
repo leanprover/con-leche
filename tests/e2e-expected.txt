@@ -3413,6 +3413,14 @@
 1 quot_lifted_mixed_sound_bad.ndjson
 # `Quot` at `Sort (u+1)`: neither form of the pin, declined as any mismatching quotient record.
 2 quot_other_sort_bad.ndjson
+# quot_lifted_no_sound: quot_lifted without the `Quot.sound` record (and
+# `squash_sound`, its one use), as an export that never uses the axiom has it.
+# The built-in prelude carries no quotient record, so nothing in the released
+# form is synthesised beside the stream's lifted `Quot` (official 0).
+0 quot_lifted_no_sound.ndjson
+# quot_lifted_no_sound_rfl_bad: the same with `squash_sound` proved by `rfl`:
+# no proof irrelevance at a lifted quotient (official: reject).
+1 quot_lifted_no_sound_rfl_bad.ndjson
 # -- task #480: the literal fast path fires on a certified operation's name, as official's.
 # Only a definition may take such a name (its job holds it to the pin): a theorem or a family
 # there is refused.  natop_foreign_thm, natop_foreign_former: official 0 (run); 1 by the

@@ -7774,9 +7774,9 @@
    119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
    120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
-== ConLeche/Frontend/Prepare.lean#L173-L174
-   173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   174    (prepareD pre ds).decls
+== ConLeche/Frontend/Prepare.lean#L172-L173
+   172  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   173    (prepareD pre ds).decls
 
 == ConLeche/Verify/Frontend/Prepare.lean#L174-L175
    174  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :

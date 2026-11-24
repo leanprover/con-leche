@@ -132,11 +132,15 @@ order (`ConLeche/Kernel/Basis.lean`); `Quot.sound` rides with `Quot`. -/
 def basisHeads : List Lean.Name :=
   [`Eq, `Nat, `Empty, `False, `Quot]
 
-/-- The roots the prelude serializer starts from for the basis: the
-five blocks and the quotient soundness axiom (an `axiom` record of its
-own in the export, folded into the `Quot` basis block by the parser). -/
+/-- The roots the prelude serializer starts from for the basis: the four
+inductive basis blocks.  The quotient package is not among them: a stream
+that uses `Quot` declares it (the exporter emits what it uses), and
+the package comes in two forms (`Sort u`, or `Sort (max 1 u)` since
+lean4#15023), of which a built-in copy could only supply one.  Nothing
+else the prelude holds mentions a quotient constant (the Nat-op
+certificates are funext-free by design, `ConLeche/PinGen/Certs.lean`). -/
 def basisRoots : List Lean.Name :=
-  [`Eq, `Nat, `Empty, `False, `Quot, ``Quot.sound]
+  [`Eq, `Nat, `Empty, `False]
 
 /-- The structural `Nat` operations (`natOpNames` in
 `ConLeche/Kernel/Core.lean`, mirrored: `Core` is a classic library, out of

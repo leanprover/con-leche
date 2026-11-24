@@ -8,6 +8,12 @@
                                 lifted `Quot`: ill-typed, official rejects.
   quot_other_sort_bad         — `Quot` (and `Squash`) at `Sort (u+1)`: a quotient record that is
                                 neither form of the pin, declined as before.
+  quot_lifted_no_sound        — without the `Quot.sound` record and `squash_sound`, its one use:
+                                the quotient package as an export that never uses the axiom has
+                                it; the built-in prelude supplies no quotient record (official: 0).
+  quot_lifted_no_sound_rfl_bad — quot_lifted_no_sound with `squash_sound` proved by `rfl`
+                                (`squash_self`'s value): no proof irrelevance at a lifted
+                                quotient, whatever `Quot.sound` (official: reject).
 
 Each edit is located by the record it changes and checked to apply once.
 
@@ -79,3 +85,18 @@ assert len(hits) == 1
 hits[0].pop("max")
 hits[0]["succ"] = u
 emit("tests/e2e/quot_other_sort_bad.ndjson", v)
+
+# quot_lifted_no_sound
+v = json.loads(json.dumps(rows))
+sound = name_id(v, "sound", quot)
+ax = [i for i, r in enumerate(v) if "axiom" in r and r["axiom"]["name"] == sound]
+assert len(ax) == 1
+sq = [i for i, r in enumerate(v) if "thm" in r and r["thm"]["name"] == name_id(v, "squash_sound")]
+assert len(sq) == 1
+emit("tests/e2e/quot_lifted_no_sound.ndjson", [r for i, r in enumerate(v) if i not in ax + sq])
+
+# quot_lifted_no_sound_rfl_bad
+v = json.loads(json.dumps(rows))
+thm(v, name_id(v, "squash_sound"))["thm"]["value"] = thm(v, name_id(v, "squash_self"))["thm"]["value"]
+emit("tests/e2e/quot_lifted_no_sound_rfl_bad.ndjson",
+     [r for i, r in enumerate(v) if i not in ax])

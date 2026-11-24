@@ -1402,7 +1402,10 @@ equation at `Eq.{u}`, as the released kernel declares them, or at
 proposition is a type rather than a proposition. The form a record declares is
 the one stored, so whether a quotient is a proposition, and with it proof
 irrelevance, follows the stream's declaration; a `Quot.sound` in the other form
-than the stored `Quot` is ill-typed and rejected.
+than the stored `Quot` is ill-typed and rejected. The built-in prelude (§6)
+carries none of the five records: a stream that uses a quotient constant
+declares the ones it uses, as the exporter emits them, in the form its toolchain
+has.
 
 They are pinned so that there is no doubt about what they denote. The
 model does not read their denotations off whatever the stream declared,
@@ -1925,15 +1928,16 @@ instead of trusting the operation's name.
 * **Order independence.** The certificates are spelled over the
   structural operations, `Bool` and the basis blocks, which an export
   may emit in any order. The checker therefore carries a small built-in
-  prelude: the pinned basis blocks, `Bool` and the pinned `And`
-  (§5), as the toolchain exports them. One pure pass between the parse and the fold puts every
+  prelude: the four pinned inductive basis blocks, `Bool` and the
+  pinned `And` (§5), as the toolchain exports them; not the quotient
+  records, which the certificates do not mention. One pure pass between the parse and the fold puts every
   prelude declaration at the front of the records — the stream's own
   record where the stream has one, the prelude's copy only where it has
   none — and moves the structural operations a pinned operation's
   certificates are spelled over (`Nat.ble`, `Nat.sub`, `Nat.mul`),
   which are not in its own dependency closure, ahead of it when the
   stream has them later
-  ([`preparePrelude` in `ConLeche/Frontend/Prepare.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L168-L175),
+  ([`preparePrelude` in `ConLeche/Frontend/Prepare.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L167-L174),
   [the reordering pass `ConLeche/Frontend/NatOpGround.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/NatOpGround.lean#L8-L25)).
   Both are reorderings of the parsed records below the verified fold,
   and that is a theorem about them: the prepared records are a

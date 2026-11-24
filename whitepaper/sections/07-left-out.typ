@@ -227,7 +227,7 @@ module that does, since `False` then denotes the empty set.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,
-#src("ConLeche/Frontend/Prepare.lean", 173, 174)[`preparePrelude`].
+#src("ConLeche/Frontend/Prepare.lean", 172, 173)[`preparePrelude`].
 It moves the declarations of a built-in copy of the toolchain's
 prelude (`Eq`, `Nat`, `Bool` and their kin) to the front, the stream's
 own record where it has one and the copy's where it has none, and it
