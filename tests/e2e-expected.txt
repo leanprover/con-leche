@@ -3400,6 +3400,19 @@
 # `Quot.lift.{y, z}` whose result is another variable: not the pin beyond its names.
 # DECLINE, as a quotient record that disagrees with its pin always did.
 2 basis_quot_lift_type_bad.ndjson
+# -- task #630: `Quot` in either result-sort form.  lean4#15023 declares `Quot` at
+# `Sort (max 1 u)` and `Quot.sound`'s equation at `Eq.{max 1 u}`: a quotient of a proposition is
+# a type.  The record's form is the one stored, so proof irrelevance follows the declared sort.
+# quot_lifted: exported with that PR's toolchain; `Quot.lift` reduces on `Quot.mk` (official 0).
+0 quot_lifted.ndjson
+# `s = Squash.mk True.intro` by `rfl` at the lifted form: no proof irrelevance (official 1).
+1 quot_lifted_rfl_bad.ndjson
+# the same `rfl` at the released form, where `Squash True` is a proposition (official 0).
+0 quot_released_rfl.ndjson
+# `Quot.sound` in the released form beside the lifted `Quot`: ill-typed (official 1).
+1 quot_lifted_mixed_sound_bad.ndjson
+# `Quot` at `Sort (u+1)`: neither form of the pin, declined as any mismatching quotient record.
+2 quot_other_sort_bad.ndjson
 # -- task #480: the literal fast path fires on a certified operation's name, as official's.
 # Only a definition may take such a name (its job holds it to the pin): a theorem or a family
 # there is refused.  natop_foreign_thm, natop_foreign_former: official 0 (run); 1 by the

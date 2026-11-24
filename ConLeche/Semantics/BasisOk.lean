@@ -43,7 +43,7 @@ open ConLeche.Verify (projNV)
 open ConLeche.SetModel
 
 open SetTheory
-open ConLeche.Term (Term BConst lv emptyT)
+open ConLeche.Term (Term BConst lv emptyT quotCl le_quotCl)
 open ConLeche.SetTheory.Tower (mkTower projS)
 
 universe w
@@ -171,27 +171,32 @@ theorem bval_mem_psigmaMk (us : List Nat) (ρ : Nat → V) :
 
 /-! ## `Quot` -/
 
+/-- The type argument of a quotient constant is small enough for its construction level. -/
+theorem mem_univ_quotCl {us : List Nat} {i : Nat} {A : V} (hA : A ∈ˢ (univ (lv us 0) : V)) :
+    A ∈ˢ (univ (quotCl us i) : V) :=
+  univ_mono (le_quotCl us i) _ hA
+
 theorem bval_mem_quot (us : List Nat) (ρ : Nat → V) :
     bval V .quot us ∈ˢ interp V ρ (BConst.typeAV .quot us) := by
-  show quotV V (lv us 0) ∈ˢ _
+  show quotV V (lv us 0) (quotCl us 1) ∈ˢ _
   simp only [BConst.typeAV, relAV, interp_pi, interp_bvar,
     interp_sort, Term.lift, Term.liftN, cons_zero]
-  exact lamV_mem (fun _ hA => lamV_mem (fun _ _ => quotSet_mem_univ hA)
+  exact lamV_mem (fun _ hA => lamV_mem (fun _ _ => quotSet_mem_univ (mem_univ_quotCl V hA))
     fun _ _ => IsTy_univ _) fun _ _ => IsTy_piV
 
 /-- A quotient is a type. -/
-theorem IsTy_quotV_app {u : Nat} {A R : V} (hA : A ∈ˢ (univ u : V))
-    (hR : R ∈ˢ relSpace V A) : IsTy (app (app (quotV V u) A) R) := by
-  rw [quotV_app V hA hR]; exact IsTy_of_mem_univ (quotSet_mem_univ hA)
+theorem IsTy_quotV_app {u c : Nat} (huc : u ≤ c) {A R : V} (hA : A ∈ˢ (univ u : V))
+    (hR : R ∈ˢ relSpace V A) : IsTy (app (app (quotV V u c) A) R) := by
+  rw [quotV_app V hA hR]; exact IsTy_of_mem_univ (quotSet_mem_univ (univ_mono huc _ hA))
 
 theorem bval_mem_quotMk (us : List Nat) (ρ : Nat → V) :
     bval V .quotMk us ∈ˢ interp V ρ (BConst.typeAV .quotMk us) := by
-  show quotMkV V (lv us 0) ∈ˢ _
+  show quotMkV V (lv us 0) (quotCl us 1) ∈ˢ _
   simp only [BConst.typeAV, relAV, quotAV, interp_pi, interp_bvar,
     interp_sort, interp_app, interp_const, Term.lift, Term.liftN,
     Term.mkAppN, cons_zero, cons_succ, bval, lv, List.getD_cons_zero]
   refine lamV_mem (fun A hA => lamV_mem (fun R hR => lamV_mem (fun a ha => ?_)
-    fun _ _ => IsTy_quotV_app V hA hR) fun _ _ => IsTy_piV) fun _ _ => IsTy_piV
+    fun _ _ => IsTy_quotV_app V (le_quotCl us 1) hA hR) fun _ _ => IsTy_piV) fun _ _ => IsTy_piV
   rw [quotV_app V hA hR]
   exact quotClass_mem ha
 
@@ -200,7 +205,7 @@ theorem bval_mem_quotMk (us : List Nat) (ρ : Nat → V) :
 theorem bval_mem_quotLift (us : List Nat) (ρ : Nat → V) :
     bval V .quotLift us
       ∈ˢ interp V ρ (BConst.typeAV .quotLift us) := by
-  show quotLiftV V (lv us 0) (lv us 1) ∈ˢ _
+  show quotLiftV V (lv us 0) (lv us 1) (quotCl us 2) ∈ˢ _
   simp only [BConst.typeAV, relAV, quotAV, interp_pi, interp_bvar,
     interp_sort, interp_app, interp_const, interp_eqE, Term.lift,
     Term.liftN, Term.mkAppN, cons_zero, cons_succ, bval, lv, List.getD_cons_zero]

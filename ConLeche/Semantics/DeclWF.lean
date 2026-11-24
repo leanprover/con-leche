@@ -197,25 +197,38 @@ theorem constWF_atLps {E E₀ : Env}
         | _ => rw [hrf] at hf; exact nomatch hf
     | _ => exact nomatch heq
 
-/-- **The pin's computed facts**: closed, bounded, resolving at the stub, not a definition, and
-every rule's right-hand side alike, firing other than `.nested`. -/
-theorem quotPin_facts (k : QuotKind) :
-    (quotPin k).toConstantVal.type.hasFvar = false ∧
-    (quotPin k).toConstantVal.type.allLevelParamsDefined
-      (quotPin k).toConstantVal.levelParams = true ∧
-    (quotPin k).toConstantVal.type.constsResolve (quotStub k) = true ∧
-    (quotPin k).toConstantVal.type.looseBVarsBounded 0 = true ∧
-    notDefnB (quotPin k) = true ∧ recRulesOkB (quotStub k) (quotPin k) = true ∧
-    recRulesBindB (quotPin k) = true := by
-  cases k <;> exact ⟨by decide, by decide, by decide, by decide, by decide, by decide, by decide⟩
+/-- **A quotient record stores its slot's pin**, in the form it declares. -/
+theorem quotAt_eq (k : QuotKind) (cv : ConstantVal) :
+    quotAt k cv = (quotPinOf (quotLifted k cv) k).atLps cv.levelParams := rfl
+
+/-- Both forms of a slot's pin have the slot's name. -/
+theorem quotPinOf_name (b : Bool) (k : QuotKind) : (quotPinOf b k).name = (quotPin k).name := by
+  cases b <;> cases k <;> rfl
+
+/-- **The pin's computed facts**, in either form: closed, bounded, resolving at the stub, not a
+definition, and every rule's right-hand side alike, firing other than `.nested`. -/
+theorem quotPinOf_facts (b : Bool) (k : QuotKind) :
+    (quotPinOf b k).toConstantVal.type.hasFvar = false ∧
+    (quotPinOf b k).toConstantVal.type.allLevelParamsDefined
+      (quotPinOf b k).toConstantVal.levelParams = true ∧
+    (quotPinOf b k).toConstantVal.type.constsResolve (quotStub k) = true ∧
+    (quotPinOf b k).toConstantVal.type.looseBVarsBounded 0 = true ∧
+    notDefnB (quotPinOf b k) = true ∧ recRulesOkB (quotStub k) (quotPinOf b k) = true ∧
+    recRulesBindB (quotPinOf b k) = true := by
+  cases b <;> cases k <;>
+    exact ⟨by decide, by decide, by decide, by decide, by decide, by decide, by decide⟩
 
 /-- **A quotient record's install keeps well-formedness.** -/
 theorem declQuotRun_envWF {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
     (henv : EnvWF env) (h : DeclQuotRun env k cv env₂) : EnvWF env₂ := by
-  obtain ⟨hhit, hp, -, rfl⟩ := h
-  simp only [quotPinHit, Bool.and_eq_true, beq_iff_eq] at hhit
+  obtain ⟨hhit, hp, -, -, rfl⟩ := h
+  rw [quotAt_eq]
+  unfold quotPinHit quotPinHitAt at hhit
+  generalize quotLifted k cv = b at hhit ⊢
+  simp only [Bool.and_eq_true, beq_iff_eq] at hhit
   obtain ⟨⟨-, hlen⟩, -⟩ := hhit
-  have hname : (quotAt k cv).name = (quotPin k).name := atLps_name _ _
+  have hname : ((quotPinOf b k).atLps cv.levelParams).name = (quotPin k).name :=
+    (atLps_name _ _).trans (quotPinOf_name b k)
   -- what the pin mentions is stored before it (`quotPredsOk`), or is the record itself
   have hpred : ∀ n ∈ quotNeeds k, n ≠ (quotPin k).name → (env.find? n).isSome = true := by
     intro n hn hne
@@ -223,30 +236,35 @@ theorem declQuotRun_envWF {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
       simp only [quotPredsOk, Bool.and_eq_true] at hp <;>
       rcases hn with rfl | rfl | rfl | rfl <;> simp_all
   have hdom : ∀ n, ((quotStub k).find? n).isSome = true →
-      (Env.find? ⟨quotAt k cv :: env.consts, env.tables⟩ n).isSome = true := by
+      (Env.find? ⟨(quotPinOf b k).atLps cv.levelParams :: env.consts, env.tables⟩ n).isSome
+        = true := by
     intro n hn
     rw [Env.find?_cons]
-    by_cases hs : (quotAt k cv).name = n
+    by_cases hs : ((quotPinOf b k).atLps cv.levelParams).name = n
     · rw [ite_eq_left hs]; rfl
     · rw [ite_eq_right hs]
       exact hpred n (quotStub_find hn) fun he => hs (hname.trans he.symm)
-  obtain ⟨f1, f2, f3, f4, f5, f6, f7⟩ := quotPin_facts k
-  have hshape : litShapeOk (quotAt k cv) = true :=
+  obtain ⟨f1, f2, f3, f4, f5, f6, f7⟩ := quotPinOf_facts b k
+  have hshape : litShapeOk ((quotPinOf b k).atLps cv.levelParams) = true :=
     litShapeOk_of_not_lit (by rw [hname]; cases k <;> decide)
   exact EnvWF.cons hshape henv
     (constWF_atLps hdom (by rw [hlen]) f1 f2 f3 f4 f5 f6)
     (by
       intro cv' caps h hn
-      cases k <;> simp [quotAt, quotPin, ConstantInfo.atLps, BasisKind.decls, QuotKind.slot,
-        quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at h
-      obtain ⟨-, rfl⟩ := h
-      exact nomatch hn)
+      cases b <;> cases k <;> first
+        | (change ConstantInfo.indInfo _ _ = _ at h
+           injection h with _ hc
+           subst hc
+           exact nomatch hn)
+        | exact nomatch h)
     (by
       intro cv' nP nF T h
-      cases k <;> simp [quotAt, quotPin, ConstantInfo.atLps, BasisKind.decls, QuotKind.slot,
-        quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at h
-      obtain ⟨rfl, -, -, rfl⟩ := h
-      exact ⟨_, rfl⟩)
+      cases b <;> cases k <;> first
+        | (change ConstantInfo.ctorInfo _ _ _ _ = _ at h
+           injection h with e1 _ _ e4
+           subst e1; subst e4
+           exact ⟨_, rfl⟩)
+        | exact nomatch h)
     (ruleWF_atLps _ f7)
 
 /-! ## The step and the folds -/

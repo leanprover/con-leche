@@ -150,8 +150,9 @@ block's capabilities.  The quotient package is no block: its records store their
   | .falseK => [falseI, falseRecA]
   | .quotK => quotBasis
 
-/-- The pinned (stored) declaration of one basis constant. -/
-@[expose] def pinnedInfo (n : Name) : ConstantInfo :=
+/-- **The pinned (stored) declaration of one basis constant**, in a quotient form
+(`quotSortOf`): `Quot` and `Quot.sound` have two, every other basis constant one. -/
+@[expose] def pinnedInfoAt (lifted : Bool) (n : Name) : ConstantInfo :=
   if n = eqName then eqI
   else if n = eqReflName then eqReflA
   else if n = eqName.str "rec" then eqRecA
@@ -163,11 +164,14 @@ block's capabilities.  The quotient package is no block: its records store their
   else if n = emptyName.str "rec" then emptyRecA
   else if n = falseName then falseI
   else if n = falseName.str "rec" then falseRecA
-  else if n = quotName then quotA
+  else if n = quotName then quotAOf lifted
   else if n = quotMkName then quotMkA
   else if n = quotLiftName then quotLiftA
   else if n = quotIndName then quotIndA
-  else if n = quotSoundName then quotSoundA
+  else if n = quotSoundName then quotSoundAOf lifted
   else .axiomInfo ⟨n, [], .sort .zero⟩
+
+/-- The pinned (stored) declaration of one basis constant, in the released kernel's form. -/
+@[expose] def pinnedInfo (n : Name) : ConstantInfo := pinnedInfoAt false n
 
 end ConLeche

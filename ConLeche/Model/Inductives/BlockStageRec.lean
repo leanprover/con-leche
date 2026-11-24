@@ -274,11 +274,20 @@ theorem recSwapFacts3 {envSelf env₃ : Env} {cval : (Name → (Name → Nat) �
           exact h₀
         · rw [hnr] at hres
           exact nomatch hres
-    exact (let hp := hbpS n ci hf₀ hres
-     ⟨hp.1, hp.2.1.mono (fun x cvj cnP cnF iT hx => by
+    obtain ⟨b, hcp, hqf, hlk, hleaf⟩ := hbpS n ci hf₀ hres
+    refine ⟨b, hcp, fun hm => ?_, hlk.mono (fun x cvj cnP cnF iT hx => by
         rcases hcorr x with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
         · rw [← heq]; exact hx
-        · rw [h₃] at hx; exact nomatch hx), hp.2.2⟩)
+        · rw [h₃] at hx; exact nomatch hx), hleaf⟩
+    -- the stored `Quot` is no recursor, so it is not swapped
+    obtain ⟨ciQ, hQ, hcQ⟩ := hqf hm
+    refine ⟨ciQ, ?_, hcQ⟩
+    rcases hcorr quotName with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
+    · rw [heq]; exact hQ
+    · rw [h₀] at hQ
+      obtain rfl := Option.some.inj hQ
+      have hk := hcQ.1
+      cases b <;> exact nomatch hk
   · -- `ProjOkT`: projection tables are untouched
     intro n tbl hf
     exact ConLeche.TableHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')

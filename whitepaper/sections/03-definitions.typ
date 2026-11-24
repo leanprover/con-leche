@@ -202,7 +202,7 @@ gains three cases, one per rule.
   parameters $arrow(p)$, type $T$ and value $v$ pass the four checks
   above. Then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 351, 356)[extended with $c$ has a model]
-  $M'$ (#src("ConLeche/Model/Install.lean", 353, 355)[as in con-leche])
+  $M'$ (#src("ConLeche/Model/Install.lean", 413, 415)[as in con-leche])
   that agrees with $M$ on every constant of $E$ and gives $c$ its
   value's set: for every list $arrow(n)$ of natural numbers of the
   length of $arrow(p)$, every valuation $phi$ and every variable

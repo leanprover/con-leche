@@ -45,8 +45,8 @@ theorem eq_equality_of {env : Env} (m : EnvModelM V env) :
   cases h with
   | const hf hlen =>
     rename_i ci
-    obtain ⟨-, -, hl⟩ := (m.base2.basis_pinned _ _ hf (by decide)).1
-    have hl' : ci.toConstantVal.levelParams.length = 1 := hl
+    have hl' : ci.toConstantVal.levelParams.length = 1 :=
+      m.base2.basis_pinned.lps_length hf (by decide)
     match hq : ci.toConstantVal.levelParams, hl' with
     | [p], _ =>
     have hψ : Level.substFn φ [p] [u] p = Level.eval φ u := by

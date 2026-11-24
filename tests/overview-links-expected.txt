@@ -326,10 +326,10 @@
     36      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
 
-== ConLeche/Semantics/DeclWF.lean#L356-L358
-   356  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {justify : Option Env}
-   357      {env' : Env} (h : checkDeclsWith .verified pins maxNatSize ds justify = .ok env') :
-   358      EnvWF env' := by
+== ConLeche/Semantics/DeclWF.lean#L374-L376
+   374  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {justify : Option Env}
+   375      {env' : Env} (h : checkDeclsWith .verified pins maxNatSize ds justify = .ok env') :
+   376      EnvWF env' := by
 
 == ConLeche/Verify/Cached/KnotCongr.lean#L706-L709
    706  theorem knotI_congr (hfe : fe₁.find? = fe₂.find?) (htb : fe₁.findTable? = fe₂.findTable?) :
@@ -373,27 +373,27 @@
   1903        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   1904    | fuel + 1 =>
 
-== ConLeche/Model/Fold.lean#L565-L572
-   565  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   566      {F : Nat}
-   567      {ds : List Declaration} {env' : Env}
-   568      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   569      ∀ c ∈ env'.consts,
-   570        c.toConstantVal.type = .const falseName [] → False := by
-   571    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   572    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L567-L574
+   567  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   568      {F : Nat}
+   569      {ds : List Declaration} {env' : Env}
+   570      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   571      ∀ c ∈ env'.consts,
+   572        c.toConstantVal.type = .const falseName [] → False := by
+   573    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   574    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L484
-   484  theorem declStep_preserves
+== ConLeche/Model/Fold.lean#L486
+   486  theorem declStep_preserves
 
-== ConLeche/Model/Capstone.lean#L137-L143
-   137  theorem no_constant_of_False (mp : EnvModelM V env)
-   138      (c : ConstantInfo) (hc : c ∈ env.consts)
-   139      (hty : c.toConstantVal.type = .const falseName []) : False :=
-   140    no_constant_of_emptyPin mp (u := 0) (by decide)
-   141      (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Term.emptyT])
-   142      c hc hty
-   143  
+== ConLeche/Model/Capstone.lean#L138-L144
+   138  theorem no_constant_of_False (mp : EnvModelM V env)
+   139      (c : ConstantInfo) (hc : c ∈ env.consts)
+   140      (hty : c.toConstantVal.type = .const falseName []) : False :=
+   141    no_constant_of_emptyPin mp (u := 0) (by decide)
+   142      (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt, ConLeche.Term.emptyT])
+   143      (by decide) c hc hty
+   144  
 
 == ConLeche/Model/OfEnvModelM.lean#L62-L63
     62  noncomputable def Model.ofEnvModelM {env : Env}
@@ -447,8 +447,8 @@
 == ConLeche/Kernel/Core.lean#L1453
   1453  def defeqBindersInner (r : CoreFns m) (lam : Bool) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
 
-== ConLeche/Verify/Cached/BridgeC.lean#L285
-   285  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
+== ConLeche/Verify/Cached/BridgeC.lean#L289
+   289  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
 == ConLeche/Kernel/Core.lean#L1944
   1944  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
@@ -924,13 +924,13 @@
    310  
    311  /-- The tables read nothing of the flags. -/
 
-== ConLeche/Kernel/Basis.lean#L189-L194
-   189    | .ctor => hasQ
-   190    | .lift => hasEq && hasQ && hasM
-   191    | .ind => hasQ && hasM
-   192    | .sound => hasEq && hasQ && hasM
-   193  
-   194  /-! ## The pinned `And`
+== ConLeche/Kernel/Basis.lean#L251-L256
+   251  def andPinOk : Declaration → Bool
+   252    | .indDecl block nP =>
+   253      !(block.any fun c => andPinNames.contains c.name) ||
+   254        (nP == 2 && canonEqList block andPin)
+   255    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
+   256    | .quotDecl _ cv => !andPinNames.contains cv.name
 
 == ConLeche/Kernel/Inductives/BlockShape.lean#L414
    414  The member names are pairwise distinct (each former passed
@@ -987,9 +987,9 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L789
    789        (if keys.contains ⟨c, us, ds⟩ then keys else keys.push ⟨c, us, ds⟩)
 
-== ConLeche/SetModel/Value.lean#L387-L388
-   387  /-- `I → Sort w`, the family space, as the value reading has it. -/
-   388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piV I fun _ => univ w
+== ConLeche/SetModel/Value.lean#L388-L389
+   388  /-- `I → Sort w`, the family space, as the value reading has it. -/
+   389  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piV I fun _ => univ w
 
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
@@ -1391,9 +1391,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L304-L305
-   304          else throw (.notImplemented
-   305            s!"unsupported Lean.trustCompiler shape ({cv.name})")
+== ConLeche/Cached/ParsedC.lean#L306-L307
+   306          else throw (.notImplemented
+   307            s!"unsupported Lean.trustCompiler shape ({cv.name})")
 
 == ConLeche/Driver/Cli.lean#L155
    155    "  --compare           CHALLENGE.ndjson SOLUTION.ndjson: check SOLUTION, then",

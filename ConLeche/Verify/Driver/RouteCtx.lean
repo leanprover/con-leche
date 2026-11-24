@@ -8,7 +8,6 @@ import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Inductives.BlockShapeInv
-import ConLeche.Verify.PinRen
 import ConLeche.Verify.Frontend.Olean.Group
 import ConLeche.Verify.Driver.RouteWorker
 import ConLeche.Verify.Frontend.Olean.Emit
@@ -144,7 +143,10 @@ theorem stmtSkel_unique {r : Region} {loc : Nat} {cv cv' : ConstantVal} {k k' : 
 /-- A quotient constant is no definition. -/
 theorem quotAt_ne_defn (k : QuotKind) (c cv : ConstantVal) (v : Expr) (hh : ReducibilityHint) :
     quotAt k c ≠ .defnInfo cv v hh := by
-  cases k <;> intro h <;> cases h
+  intro h
+  unfold quotAt at h
+  generalize quotLifted k c = b at h
+  cases b <;> cases k <;> cases h
 
 /-- **A presentation of a definition is the definition.** -/
 theorem defn_presents {cv : ConstantVal} {v : Expr} {hh : ReducibilityHint} {p : Declaration}
@@ -355,10 +357,12 @@ theorem _root_.ConLeche.PureRun.quot {pins : List NatOpPinSet} {ds : List Declar
 /-- **A pinned quotient record installs its own name.** -/
 theorem quotAt_name_of_hit {k : QuotKind} {cv : ConstantVal} (h : quotPinHit k cv = true) :
     (quotAt k cv).name = cv.name := by
-  simp only [quotPinHit, Bool.and_eq_true] at h
-  have he := ConstantVal.eq_of_beqP h.2
-  rw [quotAt, ConLeche.Verify.atLps_name, he]
-  rfl
+  unfold quotPinHit quotPinHitAt at h
+  simp only [Bool.and_eq_true] at h
+  have hn := congrArg ConstantVal.name (ConstantVal.eq_of_beqP h.2)
+  rw [quotAt_name, hn]
+  generalize quotLifted k cv = b
+  cases b <;> cases k <;> rfl
 
 /-- **A module's own names** hold every constant of its private view. -/
 theorem ownNames_mem {l : Loaded} {c : CEntry} (hc : c ∈ l.constants) :
@@ -543,7 +547,10 @@ theorem emitted_names {h : Name} (hh : h ∈ R.names) (hx : R.x h = #[]) {p : De
       refine ⟨(declNames_stmt (.inl rfl) _ hname).symm, fun hns => ?_⟩
       simp only [declConstants] at hci
       split at hci
-      · rw [List.mem_singleton.1 hci] at hns; cases hns
+      · rw [List.mem_singleton.1 hci] at hns
+        unfold quotAt at hns
+        generalize quotLifted _ _ = b at hns
+        cases b <;> cases hns
       · split at hci
         · cases hci
         · rw [List.mem_singleton.1 hci] at hns; cases hns

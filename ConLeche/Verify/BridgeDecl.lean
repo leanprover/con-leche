@@ -1197,7 +1197,12 @@ theorem checkQuotRecord_datF (env : Env) (k : QuotKind) (cv : ConstantVal) (F : 
   · rw [ite_eq_left h, ite_eq_left h]
     by_cases h2 : quotPredsOk env.find? k = true
     · rw [ite_eq_left h2, ite_eq_left h2]
-      exact installBasisDecl_datF _ _ _
+      by_cases h3 : quotFormOk env.find? k cv = true
+      · rw [ite_eq_left h3, ite_eq_left h3]
+        exact installBasisDecl_datF _ _ _
+      · rw [ite_eq_right h3, ite_eq_right h3, FueledM.atF_bind]
+        simp only [FueledM.atF_throw]
+        rfl
     · rw [ite_eq_right h2, ite_eq_right h2, FueledM.atF_bind]
       simp only [FueledM.atF_throw]
       rfl

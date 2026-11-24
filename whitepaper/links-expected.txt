@@ -2938,10 +2938,10 @@
    355      (m : EnvModel V env) (hok : DefOk env c ci) :
    356      ∃ m' : EnvModel V (env.add c ci), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
 
-== ConLeche/Model/Install.lean#L353-L355
-   353  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
-   354      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
-   355      (hfresh : env.find? c₀.name = none)
+== ConLeche/Model/Install.lean#L413-L415
+   413  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
+   414      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
+   415      (hfresh : env.find? c₀.name = none)
 
 == whitepaper/Fragment/InstallDef.lean#L267-L270
    267  
@@ -5299,10 +5299,10 @@
     90      (hrec : (applyAll ds Env.empty).find? recName = some (IndSpec.falseSpec name recName elim).recInfo)
     91      (e : Expr) : ¬ Infer (applyAll ds Env.empty) [] e (.const name []) := by
 
-== ConLeche/Model/Fold.lean#L493-L495
-   493  /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
-   494  theorem foldPM {F : Nat} :
-   495      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+== ConLeche/Model/Fold.lean#L495-L497
+   495  /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
+   496  theorem foldPM {F : Nat} :
+   497      ∀ (ds : List Declaration) (env : Env) {env' : Env},
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -7428,14 +7428,14 @@
     66  noncomputable def quotSet (u : Nat) (A R : V) : V :=
     67    if u = 0 then image (fun _ => pt) A else image (fun a => kpair empty (qclass A R a)) A
 
-== ConLeche/Model/BasisQuot.lean#L2772-L2778
-  2772  theorem extendQuotLift (mp : EnvModelM V env)
-  2773      (hQ : env.find? quotName = some (quotA.atLps [q]))
-  2774      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
-  2775      (hE : EqStored env)
-  2776      (hfresh : env.find? quotLiftA.name = none)
-  2777      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
-  2778      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
+== ConLeche/Model/BasisQuot.lean#L2851-L2857
+  2851  theorem extendQuotLift (mp : EnvModelM V env)
+  2852      (hQ : env.find? quotName = some ((quotAOf bq).atLps [q]))
+  2853      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
+  2854      (hE : EqStored env)
+  2855      (hfresh : env.find? quotLiftA.name = none)
+  2856      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
+  2857      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
 
 == ConLeche/Kernel/Basis/False.lean#L37-L39
     37  /-- `False : Prop`. -/
@@ -7696,11 +7696,11 @@
    117      (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
    118      {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
 
-== ConLeche/Model/IsModelBridge.lean#L665-L668
-   665  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
-   666      (hrec : RecordsStored R env) {model : Name → List Nat → V}
-   667      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
-   668      IsModel V model R := by
+== ConLeche/Model/IsModelBridge.lean#L666-L669
+   666  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
+   667      (hrec : RecordsStored R env) {model : Name → List Nat → V}
+   668      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
+   669      IsModel V model R := by
 
 == ConLeche/Cached/CoreC.lean#L8-L11
      8  # The cached checker core

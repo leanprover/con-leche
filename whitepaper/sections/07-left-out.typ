@@ -44,7 +44,7 @@ each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
 axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2772, 2778)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2851, 2857)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker has hand-written
@@ -182,7 +182,7 @@ declaring them only as the prelude does, which the corollaries use.
 The proofs' own model is of the environment the checker builds,
 read by a relation `Denotes`\; #src("ConLeche/Model/IsModelBridge.lean", 116, 118)[a theorem]
 says that `Expr.eval` agrees with it wherever it reads, and
-#src("ConLeche/Model/IsModelBridge.lean", 665, 668)[the bridge] carries that model to one of
+#src("ConLeche/Model/IsModelBridge.lean", 666, 669)[the bridge] carries that model to one of
 the input, and to every model agreeing with it on the stored names. The paper's theorem
 has the same shape over the fragment's terms (@def:input-model), with the rules of the
 fragment's generated recursors read off their types; its proofs' model is of the environment

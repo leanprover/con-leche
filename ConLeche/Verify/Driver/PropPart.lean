@@ -6,7 +6,6 @@ import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.Cached.StreamIndex
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Driver.Reach
-import ConLeche.Verify.PinRen
 public import ConLeche.Verify.EnvWF
 
 /-!
@@ -28,7 +27,7 @@ public section
 
 namespace ConLeche.Driver
 
-open ConLeche ConLeche.Modular ConLeche.Verify ConLeche.Cached
+open ConLeche ConLeche.Modular ConLeche.Cached
 open Std.WP
 
 /-! ## The cached inference is `TypeIsProp` -/
@@ -326,10 +325,9 @@ theorem declNames_stmt {d : Declaration} {cv : ConstantVal}
     · next hq =>
       simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn
       rw [hn, hq]
-      have := atLps_name (quotPin .sound) cv.levelParams
-      simp only [quotAt, ConstantInfo.name] at this ⊢
-      rw [this]
-      decide
+      unfold quotAt
+      generalize quotLifted QuotKind.sound cv = b
+      cases b <;> rfl
     · split at hn
       · exact nomatch hn
       · simp only [List.map_cons, List.map_nil, List.mem_singleton] at hn

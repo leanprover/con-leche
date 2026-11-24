@@ -11,7 +11,6 @@ import ConLeche.Verify.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.OleanInput
-import ConLeche.Verify.PinRen
 import ConLeche.Verify.Cached.Fill
 
 /-!
@@ -223,7 +222,7 @@ theorem entryConstants_name {e : CEntryF Name Expr} (hq : ∀ qs, e.kind ≠ .qu
         | (simp at hc; done)
         | (simp only [List.mem_singleton] at hc; subst hc; rfl)
         | (simp only [List.mem_singleton] at hc; subst hc
-           rw [quotAt, ConLeche.Verify.atLps_name]
+           rw [quotAt_name]
            rename_i h1
            exact (show (quotPin .sound).name = quotSoundName by decide).trans h1.symm)
 

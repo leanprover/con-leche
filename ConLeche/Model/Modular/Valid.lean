@@ -360,13 +360,6 @@ theorem atLps_indInfo {pin : ConstantInfo} {ps : List Name} {cv : ConstantVal} {
   cases pin <;> simp [ConstantInfo.atLps] at h
   case indInfo cv' caps' => exact ⟨cv', by rw [h.2]⟩
 
-theorem quotPins_noCtors : BasisKind.quotK.decls.all (fun pin => match pin with
-    | .indInfo _ caps => caps.ctors.isEmpty
-    | _ => true) = true := by decide
-
-theorem quotPin_mem (k : QuotKind) : quotPin k ∈ BasisKind.quotK.decls := by
-  cases k <;> decide
-
 theorem blockRecs_not_ind (p : BlockShape) :
     ∀ (l : List RecShape) {cv : ConstantVal} {caps : IndCaps}, .indInfo cv caps ∉ blockRecs p l
   | [], _, _, h => nomatch h
@@ -379,10 +372,15 @@ theorem blockRecs_not_ind (p : BlockShape) :
 /-- A quotient record's constant lists no constructor. -/
 theorem quotAt_ctors {k : QuotKind} {ps : ConstantVal} {cv : ConstantVal} {caps : IndCaps}
     (h : quotAt k ps = .indInfo cv caps) : caps.ctors = [] := by
+  unfold quotAt at h
+  generalize quotLifted k ps = b at h
   obtain ⟨cvp, hp⟩ := atLps_indInfo h
-  have := List.all_eq_true.mp quotPins_noCtors _ (quotPin_mem k)
-  rw [hp] at this
-  simpa using this
+  cases b <;> cases k <;> first
+    | (change ConstantInfo.indInfo _ _ = _ at hp
+       injection hp with _ hc
+       subst hc
+       rfl)
+    | exact nomatch hp
 
 /-- **A former's constructors are its record's names.** -/
 theorem declConstants_ctors {e : Declaration} {cv : ConstantVal} {caps : IndCaps}

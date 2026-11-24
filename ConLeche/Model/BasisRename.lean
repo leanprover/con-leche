@@ -539,7 +539,7 @@ end Pair
 
 theorem _root_.ConLeche.Verify.ConstRen.len {c c' : ConstantInfo} (h : ConstRen c c') :
     c'.toConstantVal.levelParams.length = c.toConstantVal.levelParams.length := by
-  rcases h with rfl | ⟨-, h1, h2⟩
+  rcases h with rfl | ⟨-, _, h1, h2⟩
   · rfl
   · rw [h1.2.2, h2.2.2]
 
@@ -547,20 +547,20 @@ theorem _root_.ConLeche.Verify.ConstRen.inst {c c' : ConstantInfo} (h : ConstRen
     (hus : us.length = c.toConstantVal.levelParams.length) :
     c'.toConstantVal.type.instantiateLevelParams c'.toConstantVal.levelParams us
       = c.toConstantVal.type.instantiateLevelParams c.toConstantVal.levelParams us := by
-  rcases h with rfl | ⟨hr, h1, h2⟩
+  rcases h with rfl | ⟨hr, b, h1, h2⟩
   · rfl
-  · exact PinCopy.inst h1 h2 (pinnedInfo_wf hr).1 hus
+  · exact PinCopy.inst h1 h2 (pinnedInfoAt_wf b hr).1 hus
 
 theorem _root_.ConLeche.Verify.ConstRen.ctor {cv : ConstantVal} {nP nF : Nat} {T : Name}
     {c' : ConstantInfo}
     (h : ConstRen (.ctorInfo cv nP nF T) c') : ∃ cv', c' = .ctorInfo cv' nP nF T := by
-  rcases h with rfl | ⟨-, h1, h2⟩
+  rcases h with rfl | ⟨-, _, h1, h2⟩
   · exact ⟨_, rfl⟩
   · exact h1.ctor h2
 
 theorem _root_.ConLeche.Verify.ConstRen.ind {cv : ConstantVal} {caps : IndCaps} {c' : ConstantInfo}
     (h : ConstRen (.indInfo cv caps) c') : ∃ cv' caps', c' = .indInfo cv' caps' := by
-  rcases h with rfl | ⟨-, h1, h2⟩
+  rcases h with rfl | ⟨-, _, h1, h2⟩
   · exact ⟨_, _, rfl⟩
   · obtain ⟨cv', caps', he, -⟩ := h1.ind h2
     exact ⟨cv', caps', he⟩
@@ -572,9 +572,9 @@ theorem denote_pair {env : Env} (m : EnvModel V env) {c c' : ConstantInfo} (hr :
       = denote m.acval env
           (Level.substFn ψ c.toConstantVal.levelParams
             (c'.toConstantVal.levelParams.map Level.param)) d c.toConstantVal.type := by
-  rcases hr with rfl | ⟨hres, h1, h2⟩
+  rcases hr with rfl | ⟨hres, b, h1, h2⟩
   · rw [Level.substFn_param_self]
-  · rw [PinCopy.type_eq h1 h2 (pinnedInfo_wf hres).1, denotePInstLevels]
+  · rw [PinCopy.type_eq h1 h2 (pinnedInfoAt_wf b hres).1, denotePInstLevels]
 
 theorem renTr_pair {env env' : Env} {n : Name} {c c' : ConstantInfo}
     (hf : env.find? n = some c) (hf' : env'.find? n = some c') (ψ : Name → Nat) :
@@ -583,11 +583,11 @@ theorem renTr_pair {env env' : Env} {n : Name} {c c' : ConstantInfo}
   unfold renTr
   rw [hf, hf']
 
-/-- **A pinned leaf's value reads its pin's parameters only.** -/
-theorem pinnedStructT_congr {n : Name} {ψ₁ ψ₂ : Name → Nat}
+/-- **A pinned leaf's value reads its pin's parameters only**, in either form. -/
+theorem pinnedStructTAt_congr (b : Bool) {n : Name} {ψ₁ ψ₂ : Name → Nat}
     (hres : reservedBasisNames.contains n = true)
     (hag : ∀ p ∈ (pinnedInfo n).toConstantVal.levelParams, ψ₁ p = ψ₂ p) :
-    pinnedStructT n ψ₁ = pinnedStructT n ψ₂ := by
+    pinnedStructTAt b n ψ₁ = pinnedStructTAt b n ψ₂ := by
   have hmem : n ∈ reservedBasisNames := by simpa using hres
   simp only [reservedBasisNames, List.mem_cons, List.not_mem_nil, or_false] at hmem
   have hu : uN ∈ (pinnedInfo n).toConstantVal.levelParams → ψ₁ uN = ψ₂ uN := hag uN
@@ -595,9 +595,10 @@ theorem pinnedStructT_congr {n : Name} {ψ₁ ψ₂ : Name → Nat}
   rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
     rfl | rfl | rfl <;> first
     | rfl
-    | (have e := hu (by decide); simp only [pinnedStructT, e]; rfl)
-    | (have e := hu (by decide); have e' := hv (by decide); simp only [pinnedStructT, e, e']; rfl)
-    | (show some (Term.const .quotLift [ψ₁ uN, ψ₁ vN]) = some (Term.const .quotLift [ψ₂ uN, ψ₂ vN])
+    | (have e := hu (by decide); simp only [pinnedStructTAt, e]; rfl)
+    | (have e := hu (by decide); have e' := hv (by decide); simp only [pinnedStructTAt, e, e']; rfl)
+    | (show some (Term.const .quotLift [ψ₁ uN, ψ₁ vN, b.toNat])
+          = some (Term.const .quotLift [ψ₂ uN, ψ₂ vN, b.toNat])
        rw [hu (by decide), hv (by decide)])
 
 /-- A renamed list's values read the new names only. -/
@@ -649,13 +650,13 @@ theorem recCtors_ren (m : EnvModel V env) (h : RenEnv env env') : RecCtorsStored
   · rw [h2] at hf'; exact nomatch hf'
   · rw [h2] at hf'
     obtain rfl := Option.some.inj hf'
-    rcases hr with rfl | ⟨hrs, h3, h4⟩
+    rcases hr with rfl | ⟨hrs, bf, h3, h4⟩
     · obtain ⟨cvj, a, b, iT, hj⟩ := m.rec_ctors n cv' mI rP isK rules' h1 r' hr'
       obtain ⟨cvj', hj'⟩ := find_ctor_ren h hj
       exact ⟨cvj', a, b, iT, hj'⟩
     · cases c with
       | recInfo cv mI0 rP0 isK0 rules =>
-        obtain ⟨cv₂, rules₂, he, hrl⟩ := h3.recr h4 (pinnedInfo_wf hrs).2
+        obtain ⟨cv₂, rules₂, he, hrl⟩ := h3.recr h4 (pinnedInfoAt_wf bf hrs).2
         injection he with e0 e1 e2 e3 e4
         subst e0; subst e1; subst e2; subst e3; subst e4
         obtain ⟨rl, hrl0, hct, -⟩ := hrl r' hr'
@@ -676,7 +677,7 @@ theorem acvalParams_ren (m : EnvModel V env) (h : RenEnv env env') :
     unfold renAcval
     refine m.acval_params n c h1 _ _ fun p hp => ?_
     rw [renTr_pair h1 h2, renTr_pair h1 h2]
-    rcases hr with rfl | ⟨-, h3, h4⟩
+    rcases hr with rfl | ⟨-, _, h3, h4⟩
     · rw [Level.substFn_param_self, Level.substFn_param_self]
       exact hag p hp
     · have hl : c.toConstantVal.levelParams.length = c'.toConstantVal.levelParams.length := by
@@ -692,23 +693,26 @@ theorem basisPinned_ren (m : EnvModel V env) (h : RenEnv env env')
   · rw [h2] at hf'; exact nomatch hf'
   · rw [h2] at hf'
     obtain rfl := Option.some.inj hf'
-    obtain ⟨hcp, -, hleaf⟩ := m.basis_pinned n c h1 hres
+    obtain ⟨b, hcp, hqf, -, hleaf⟩ := m.basis_pinned n c h1 hres
     have hl' : c'.toConstantVal.levelParams.length = c.toConstantVal.levelParams.length := hr.len
-    refine ⟨?_, hlink n c' h2 hres, fun t ψ ht => ?_⟩
-    · rcases hr with rfl | ⟨-, -, h4⟩
-      · exact hcp
-      · have hnm : c.name = n := by simpa using Env.find?_name h1
-        rw [hnm] at h4
-        exact h4
+    have hcp₀ : c.toConstantVal.levelParams.length = (pinnedInfo n).toConstantVal.levelParams.length := by
+      rw [hcp.2.2, pinnedInfoAt_lps]
+    refine ⟨b, ?_, fun hm => ?_, hlink n c' h2 hres, fun t ψ ht => ?_⟩
+    · obtain ⟨c'', h2', hc''⟩ := h.pinCopy h1 hcp
+      rw [h2] at h2'
+      obtain rfl := Option.some.inj h2'
+      exact hc''
+    · obtain ⟨ciQ, hfQ, hcQ⟩ := hqf hm
+      exact h.pinCopy hfQ hcQ
     · unfold renAcval
       rw [renTr_pair h1 h2]
       refine hleaf t _ ?_
       rw [← ht]
-      refine pinnedStructT_congr hres fun p hp => ?_
+      refine pinnedStructTAt_congr b hres fun p hp => ?_
       unfold pinVal
-      rcases hr with rfl | ⟨-, -, -⟩
+      rcases hr with rfl | ⟨-, -⟩
       · rw [Level.substFn_param_self]
-      · refine substFn_ren hcp.2.1 hcp.2.2.symm ?_ (fun _ _ => rfl) p hp
+      · refine substFn_ren hcp.2.1 hcp₀.symm ?_ (fun _ _ => rfl) p hp
         rw [List.length_map, hl']
 
 /-- **The carrier at the new names.** -/
@@ -768,8 +772,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
     (hmem : ∀ c' ∈ env'.consts, ∃ c ∈ env.consts,
       (c' = c ∧ env'.find? c.name = env.find? c.name) ∨
       (env.find? c.name = some c ∧ env'.find? c.name = some c' ∧
-        reservedBasisNames.contains c.name = true ∧
-        PinCopy c (pinnedInfo c.name) ∧ PinCopy c' (pinnedInfo c.name)))
+        reservedBasisNames.contains c.name = true ∧ PinPair c c'))
     (hlink : ∀ n ci, env'.find? n = some ci → reservedBasisNames.contains n = true →
       PinLinked env' n ci)
     (hstable : ∀ n cv mI rP isK rules,
@@ -804,13 +807,12 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
     intro c' hc'
     obtain ⟨c, hc, hp⟩ := hmem c' hc'
     refine ⟨c, hc, ?_⟩
-    rcases hp with ⟨rfl, he⟩ | ⟨h1, h2, hrs, h3, h4⟩
+    rcases hp with ⟨rfl, he⟩ | ⟨h1, h2, hrs, hpp⟩
     · exact ⟨id, fun ψ => hde ψ 0 _, fun ψ => congrFun (hsame he) ψ⟩
     · refine ⟨fun ψ => Level.substFn ψ c.toConstantVal.levelParams
         (c'.toConstantVal.levelParams.map Level.param), fun ψ => ?_, fun ψ => ?_⟩
-      · rw [hac, hde, denote_pair mp.base2 (.inr ⟨hrs, h3, h4⟩)]
-      · have hn : c'.name = c.name := by
-          rw [h4.name, pinnedInfo_name hrs]
+      · rw [hac, hde, denote_pair mp.base2 (.inr ⟨hrs, hpp⟩)]
+      · have hn : c'.name = c.name := hpp.name hrs
         rw [hn]
         show mp.base2.acval c.name (renTr env env' c.name ψ) = _
         rw [renTr_pair h1 h2]
@@ -824,27 +826,27 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
       have hnmc : c.name = n := by simpa using Env.find?_name h1
       by_cases hrsv : reservedBasisNames.contains n = true
       · have hrs : reservedBasisNames.contains c.name = true := hnmc ▸ hrsv
-        have h3 : PinCopy c (pinnedInfo c.name) := by
-          rw [hnmc]; exact (mp.base2.basis_pinned n c h1 hrsv).1
-        have h4 : PinCopy (.recInfo cv' mI rP isK rules') (pinnedInfo c.name) := by
-          rcases hr with rfl | ⟨-, -, h'⟩
-          · exact h3
-          · exact h'
+        obtain ⟨bf, h3n, -, hlk, -⟩ := mp.base2.basis_pinned n c h1 hrsv
+        have h3 : PinCopy c (pinnedInfoAt bf c.name) := by rw [hnmc]; exact h3n
+        have h4 : PinCopy (.recInfo cv' mI rP isK rules') (pinnedInfoAt bf c.name) := by
+          obtain ⟨c'', h2', hc''⟩ := h.pinCopy h1 h3n
+          rw [h2] at h2'
+          obtain rfl := Option.some.inj h2'
+          rw [hnmc]; exact hc''
         cases c with
         | recInfo cv mI0 rP0 isK0 rules =>
-          obtain ⟨cv₂, rules₂, he, hrl⟩ := h3.recr h4 (pinnedInfo_wf hrs).2
+          obtain ⟨cv₂, rules₂, he, hrl⟩ := h3.recr h4 (pinnedInfoAt_wf bf hrs).2
           injection he with e0 e1 e2 e3 e4
           subst e0; subst e1; subst e2; subst e3; subst e4
           obtain ⟨rl, hrl0, hct, hnf, hfr, hrhs⟩ := hrl rl' hrl'
           refine recRuleLaw_ren ?_ (mp.rec_rules φ n cv mI rP isK rules h1 rl hrl0)
           have hrpair : ConstRen (.recInfo cv mI rP isK rules) (.recInfo cv' mI rP isK rules') :=
-            .inr ⟨hrs, h3, h4⟩
+            .inr ⟨hrs, bf, h3, h4⟩
           have hlen : cv'.levelParams.length = cv.levelParams.length := hrpair.len
           have hwfr := (mp.base2.wf.consts _ (Env.find?_mem h1)).2.2.2.2.2 cv mI rP isK rules rfl
             rl hrl0
           have hnd' : cv'.levelParams.Nodup := h4.2.1
           -- what a rule reads of a constructor's parameters
-          have hlk := (mp.base2.basis_pinned n _ h1 hrsv).2.1
           have hlk' := hlink n _ h2 hrsv
           have hnone : ∀ lvls pins, RecRule.fire rl = .nested lvls pins → False := by
             intro lvls pins hn
@@ -870,11 +872,11 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
               have hlj : cvj'.levelParams.length = cvj.levelParams.length := hrj.len
               have hsp : (cvj'.type.stripPis (cnP + RecRule.nfields rl)).isSome
                   = (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome := by
-                rcases hrj with he | ⟨hr2, h5, h6⟩
+                rcases hrj with he | ⟨hr2, bj, h5, h6⟩
                 · injection he with e5 _ _
                   rw [e5]
-                · have t1 : cvj'.type = _ := PinCopy.type_eq h5 h6 (pinnedInfo_wf hr2).1
-                  have t2 : cvj.type = _ := PinCopy.type_eq h6 h5 (pinnedInfo_wf hr2).1
+                · have t1 : cvj'.type = _ := PinCopy.type_eq h5 h6 (pinnedInfoAt_wf bj hr2).1
+                  have t2 : cvj.type = _ := PinCopy.type_eq h6 h5 (pinnedInfoAt_wf bj hr2).1
                   apply Bool.eq_iff_iff.mpr
                   constructor
                   · intro hx
@@ -898,7 +900,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
                 · simp only [ConLeche.recFireComparands, hp, hp', List.map_map]
                   refine List.map_congr_left fun l hl₀ => ?_
                   exact level_subst_ren hnd' hlen.symm (hus.trans hlen.symm) l (hdefs l hl₀)
-              · rcases hrj with he | ⟨hr2, h5, h6⟩
+              · rcases hrj with he | ⟨hr2, bj, h5, h6⟩
                 · injection he with e5 _ _
                   rw [e5]
                 · have nd : cvj.levelParams.Nodup := h5.2.1
@@ -910,7 +912,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
                     · have hl5 : cvj.levelParams.length
                           = (pinnedInfo (RecRule.ctor rl)).toConstantVal.levelParams.length := by
                         have := h5.2.2
-                        rw [hnmj] at this
+                        rw [hnmj, pinnedInfoAt_lps] at this
                         exact this
                       simp [ConLeche.recFireComparands, hp, hll, hl5]
                   constructor
@@ -932,7 +934,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
         | _ => exact nomatch h3.kind.trans h4.kind.symm
       · have hrsf : reservedBasisNames.contains n = false := by simpa using hrsv
         have he : ConstantInfo.recInfo cv' mI rP isK rules' = c := by
-          rcases hr with rfl | ⟨hx, -, -⟩
+          rcases hr with rfl | ⟨hx, -⟩
           · rfl
           · rw [hnmc, hrsf] at hx; exact nomatch hx
         subst he
@@ -980,13 +982,14 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
   · -- `defn_reads`: no pin is a definition
     intro ψ cv v ⟨hint, hd⟩
     obtain ⟨c, hc, hp⟩ := hmem _ hd
-    rcases hp with ⟨he, hfe⟩ | ⟨-, -, hrs, -, h4⟩
+    rcases hp with ⟨he, hfe⟩ | ⟨-, -, hrs, hpp⟩
     · subst he
       rw [hde']
       obtain ⟨t, ht, hlr⟩ := mp.defn_reads ψ cv v ⟨hint, hc⟩
       rw [show m'.acval cv.name ψ = mp.base2.acval cv.name ψ from congrFun (hsame hfe) ψ]
       exact ⟨t, ht, hlr⟩
-    · exact absurd rfl (h4.not_defn (pinnedInfo_wf hrs).2 cv v hint)
+    · obtain ⟨bd, -, h4⟩ := hpp
+      exact absurd rfl (h4.not_defn (pinnedInfoAt_wf bd hrs).2 cv v hint)
   · -- `nat_heads`
     intro φ hsup ρ
     have e0 : m'.acval ConLeche.natZeroName = _ := hnl (n := ConLeche.natZeroName) rfl
@@ -1021,7 +1024,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
     · rw [h2] at hf'; exact nomatch hf'
     · rw [h2] at hf'
       obtain rfl := Option.some.inj hf'
-      have hcopy := (mp.base2.basis_pinned eqName c h1 (by decide)).1
+      have hcopy := mp.base2.basis_pinned.copy h1 (by decide) (by decide) (by decide)
       have hl1 : c.toConstantVal.levelParams.length = 1 := hcopy.2.2
       obtain ⟨p, hp⟩ : ∃ p, c.toConstantVal.levelParams = [p] := by
         match hq : c.toConstantVal.levelParams, hl1 with

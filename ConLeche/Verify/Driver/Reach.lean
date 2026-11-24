@@ -801,10 +801,14 @@ theorem blockRecs_not_ind {p : BlockShape} :
 /-- A quotient pin keeps no sort fact. -/
 theorem quotAt_indWF (k : QuotKind) (cv : ConstantVal) : IndWF (quotAt k cv) := by
   intro cv' caps h hn
-  cases k <;> simp [quotAt, quotPin, ConstantInfo.atLps, BasisKind.decls, QuotKind.slot,
-    quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at h
-  obtain ⟨-, rfl⟩ := h
-  exact nomatch hn
+  unfold quotAt at h
+  generalize quotLifted k cv = b at h
+  cases b <;> cases k <;> first
+    | (change ConstantInfo.indInfo _ _ = _ at h
+       injection h with _ hc
+       subst hc
+       exact nomatch hn)
+    | exact nomatch h
 
 /-- **Every former a record installs keeps its sort fact** (`IndWF`): the install records a
 family as never zero exactly where its declared type ends in such a sort. -/
