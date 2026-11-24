@@ -383,7 +383,8 @@ done
 case_ "upstream merged: check-multi's two roots" 0 --olean --search-path=$MSP UpMultiA UpMultiB
 # quot_mismatch's modules both store Quot.lift (a theorem: the built-in prelude
 # carries no quotient record, so it stays where the module declares it).  Each
-# declines at its stand-in `Nat.sub`, like the ports above; upstream rejects (#630)
+# declines at its stand-in `Nat.sub` (a definition the fast path cannot certify); upstream
+# comparator rejects the pair on `Quot.lift` (#630)
 case_ "upstream merged: UpQuot" 2 --olean --search-path=$MSP UpQuot
 case_ "upstream merged: UpQuotSol" 2 --olean --search-path=$MSP UpQuotSol
 case_grep "upstream merged: UpBoomOleanSol (olean-issue, check-audit-reject)" 3 "malformed .olean data" \

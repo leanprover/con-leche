@@ -1854,7 +1854,7 @@ instead of trusting the operation's name.
   vacuously
   ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L391-L408),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L105-L112)).
-  A nonstandard definition is rejected; presence in the store is the
+  A nonstandard definition is declined; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
   The operations a definition's recurrences mention (`Nat.add` for
   `Nat.mul`) need only be stored: at a certified operation's name
