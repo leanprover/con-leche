@@ -215,6 +215,10 @@ def probes : List String :=
    "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"isImpredicative\":true,\"isK\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
    "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"hasEta\":1,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
    "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isUnsafe\":false,\"isK\":true,\"isK\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
+   -- `isReflexive` is optional (lean4 dropped it): absent, non-boolean, repeated
+   "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
+   "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":0,\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
+   "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[],\"isRec\":false,\"isReflexive\":false,\"isReflexive\":true,\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}",
    -- the refusals
    "{\"ie\":8,\"app\":{\"arg\":1,\"fn\":7},\"nope\":1}",
    "{\"ie\":8,\"ie\":9,\"bvar\":0}",
@@ -268,6 +272,21 @@ def typeRec? (s : String) : Option IndTypeRec :=
   fun t => t.flags == none && t.flagsPartial
 #guard scanErr (flagLine "\"hasEta\":1,") != none
 #guard scanErr (flagLine "\"isK\":true,\"isK\":false,") == some .duplicateKey
+
+/-! ## `isReflexive` is optional
+
+lean4 dropped `isReflexive` from `InductiveVal`; the checker never read it.
+A type record is read with or without it, and two records that differ
+only in it read the same. -/
+
+def reflLine (refl : String) : String :=
+  "{\"inductive\":{\"ctors\":[],\"recs\":[],\"types\":[{\"all\":[1],\"ctors\":[2],\"isRec\":true," ++ refl ++
+    "\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"numIndices\":0,\"numNested\":0,\"numParams\":0,\"type\":6}]}}"
+
+#guard (typeRec? (reflLine "")).any fun t => t.ctors == [2] && t.isRec
+#guard (typeRec? (reflLine "\"isReflexive\":true,")).any fun t => t.ctors == [2] && t.isRec
+#guard scanErr (reflLine "\"isReflexive\":1,") != none
+#guard scanErr (reflLine "\"isReflexive\":true,\"isReflexive\":true,") == some .duplicateKey
 
 -- The equality's footprint: the standard three, nothing else (the
 -- companion of the pin in `Axioms.lean`, for the frontend's theorem).

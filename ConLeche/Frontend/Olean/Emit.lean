@@ -87,10 +87,10 @@ def Emit.one (st : Emit) (c : CEntry) : Emit :=
 def Emit.tyStep (x : Emit × Array IndTypeRec) (c : CEntry) : Emit × Array IndTypeRec :=
   let (st, acc) := x
   match c.kind with
-  | .induct np ni _ cs nn ir iu irf =>
+  | .induct np ni _ cs nn ir iu _ =>
     let (st, cv) := st.cv c
     let (st, cs) := st.names' cs
-    (st, acc.push { cv, ctors := cs, isRec := ir, isReflexive := irf, isUnsafe := iu,
+    (st, acc.push { cv, ctors := cs, isRec := ir, isUnsafe := iu,
                     numIndices := ni, numNested := nn, numParams := np : IndTypeRec })
   | _ => (st, acc)
 

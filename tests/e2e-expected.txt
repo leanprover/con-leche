@@ -756,8 +756,11 @@
 #                          accepts for it (0).
 #   ind_flags_partial_bad: one record carries two of the five — malformed,
 #                          rejected by the parse (1).
+#   ind_flags_no_reflexive: ind_flags_parse without `isReflexive`, which
+#                          lean4 dropped; the key is optional (0).
 0 ind_flags_parse.ndjson
 1 ind_flags_partial_bad.ndjson
+0 ind_flags_no_reflexive.ndjson
 # Task #630 (install lane): the block's check at the declared feature flags (lean4 PR
 # #16595).  Each fixture is an existing one with every type record carrying the flags official
 # allows and its elaborator writes (rule-less recursors at a block without large eliminator),

@@ -14,6 +14,9 @@ inductive type record: `isImpredicative`, `isK`, `hasProjections`,
                           only: a 3.2.0 record lacks three required
                           keys, a 3.1.0 record has two too many.
                           Malformed input, REJECTED (1) by the parse.
+  ind_flags_no_reflexive — `ind_flags_parse` without `isReflexive`,
+                          which lean4 dropped from `InductiveVal`: the
+                          key is optional and ignored.  ACCEPTS (0).
 
 Usage: scripts/mk_ind_flags_parse.py [tests/e2e/direct_fix_nat.ndjson]
 """
@@ -69,3 +72,11 @@ def partial(n, t):
 
 emit("tests/e2e/ind_flags_parse.ndjson", full)
 emit("tests/e2e/ind_flags_partial_bad.ndjson", partial)
+
+
+def no_reflexive(n, t):
+    full(n, t)
+    del t["isReflexive"]
+
+
+emit("tests/e2e/ind_flags_no_reflexive.ndjson", no_reflexive)

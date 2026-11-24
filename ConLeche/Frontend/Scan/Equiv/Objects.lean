@@ -1322,13 +1322,13 @@ theorem naiveIndType_rest_suffix (l : List UInt8) : (naiveIndType l).rest <:+ l 
   exact naiveObject_rest_suffix _ _ indTypeFields_read_suffix _ _ l
 
 theorem scanIndTypeLoop_eq (b : ByteArray) (i : USize) (wantMember : Bool) (seen : UInt32)
-    (ctors : List Nat) (isRec isRefl isUns : Bool) (lps : List Nat) (nm nIdx nNest nP ty : Nat)
+    (ctors : List Nat) (isRec isUns : Bool) (lps : List Nat) (nm nIdx nNest nP ty : Nat)
     (fI fK fP fE fL : Option Bool) :
-    scanIndTypeLoop b i wantMember seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty fI fK fP fE fL =
-      liftRes b i ((naiveObjLoop indTypeFields 2046 (tailAt b i) wantMember seen
-        ⟨⟨nm, lps, ty⟩, ctors, isRec, isRefl, isUns, nIdx, nNest, nP, fI, fK, fP, fE, fL⟩).map
+    scanIndTypeLoop b i wantMember seen ctors isRec isUns lps nm nIdx nNest nP ty fI fK fP fE fL =
+      liftRes b i ((naiveObjLoop indTypeFields 2038 (tailAt b i) wantMember seen
+        ⟨⟨nm, lps, ty⟩, ctors, isRec, isUns, nIdx, nNest, nP, fI, fK, fP, fE, fL⟩).map
         (id)) := by
-  fun_induction scanIndTypeLoop b i wantMember seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty
+  fun_induction scanIndTypeLoop b i wantMember seen ctors isRec isUns lps nm nIdx nNest nP ty
     fI fK fP fE fL
   obj_head indTypeFields_read_suffix
   obj_sub indTypeFields_read_suffix case10 case11 case12 case13
@@ -1354,7 +1354,7 @@ theorem scanIndTypeLoop_eq (b : ByteArray) (i : USize) (wantMember : Bool) (seen
 theorem scanIndType_eq (b : ByteArray) (i : USize) :
     scanIndType b i = liftRes b i (naiveIndType (tailAt b i)) := by
   unfold scanIndType naiveIndType
-  exact objWrap indTypeFields_read_suffix (scanIndTypeLoop_eq b (i + 1) true 0 [] false false false [] 0 0 0 0 0
+  exact objWrap indTypeFields_read_suffix (scanIndTypeLoop_eq b (i + 1) true 0 [] false false [] 0 0 0 0 0
     none none none none none)
 
 theorem naiveIndTypes_rest_suffix (l : List UInt8) : (naiveIndTypes l).rest <:+ l := by

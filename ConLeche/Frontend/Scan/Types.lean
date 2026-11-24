@@ -183,7 +183,6 @@ structure IndTypeRec where
   cv : CVRec
   ctors : List Nat
   isRec : Bool
-  isReflexive : Bool
   isUnsafe : Bool
   numIndices : Nat
   numNested : Nat

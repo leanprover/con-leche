@@ -126454,3 +126454,15 @@ rule); the small eliminators' rules (generation, `ruleOut`/`ruleCtors`, the comp
 `projGuardRows`, the `ProjGuard` rule and its motive) — a type with projections is then never
 impredicative, so a proposition with projections has only proofs as fields. OVERVIEW §9's and
 §14's "large eliminator under a per-field criterion" departure goes with them.
+
+## TASK #630 (isReflexive) — the type record's `isReflexive` key is optional (2026-11-24, agent/630-refl; base renovation d8c8c2278)
+
+lean4 (with the renovation PR #16595) dropped `isReflexive` from `InductiveVal`, so its exporter
+stops writing the key. The checker never read it: the scan record carried it and nothing
+consumed it. Now both decoders treat it like `all` — accepted when present (a boolean; a
+non-boolean or a repeated key stays a scan error, as for every key), dropped, and not in the
+required mask (2046 → 2038 in `naiveIndType` and `scanIndTypeLoop`); `IndTypeRec` loses the
+field, and the `.olean` emitter no longer copies the olean record's flag into it (the olean
+`InductiveVal` layout still has it; `Olean/Spec.lean` reads it as before). Tests: `ScanTests`
+(the spec/fast probes absent, non-boolean, repeated; the record read alike with and without it)
+and the e2e twin `ind_flags_no_reflexive` (0), from `scripts/mk_ind_flags_parse.py`.

@@ -499,12 +499,13 @@ def naiveIndRec : List UInt8 → NRes IndRecRec :=
 
 def naiveIndRecs : List UInt8 → NRes (List IndRecRec) := naiveList (· == 123) naiveIndRec
 
-/-- An inductive type: `all` validated and dropped. -/
+/-- An inductive type: `all` validated and dropped, and `isReflexive` too, which is optional
+(lean4 dropped it from `InductiveVal`; the check never read it). -/
 def indTypeFields : Key → Option (Slot IndTypeRec)
   | .kAll => some (.drop 1 naiveNatList)
   | .kCtors => some (.of 2 naiveNatList fun cs r => { r with ctors := cs })
   | .kIsRec => some (.of 4 naiveBool fun b r => { r with isRec := b })
-  | .kIsReflexive => some (.of 8 naiveBool fun b r => { r with isReflexive := b })
+  | .kIsReflexive => some (.drop 8 naiveBool)
   | .kIsUnsafe => some (.of 16 naiveBool fun b r => { r with isUnsafe := b })
   | .kLevelParams => some (.of 32 naiveNatList fun ls r => { r with cv.levelParams := ls })
   | .kName => some (.of 64 naiveNat fun n r => { r with cv.name := n })
@@ -522,8 +523,8 @@ def indTypeFields : Key → Option (Slot IndTypeRec)
 /-- The five feature flags are optional slots (not in the required mask): a record of
 format 3.1.0 has none of them. -/
 def naiveIndType : List UInt8 → NRes IndTypeRec :=
-  naiveObject indTypeFields 2046
-    ⟨⟨0, [], 0⟩, [], false, false, false, 0, 0, 0, none, none, none, none, none⟩ id
+  naiveObject indTypeFields 2038
+    ⟨⟨0, [], 0⟩, [], false, false, 0, 0, 0, none, none, none, none, none⟩ id
 
 def naiveIndTypes : List UInt8 → NRes (List IndTypeRec) := naiveList (· == 123) naiveIndType
 
