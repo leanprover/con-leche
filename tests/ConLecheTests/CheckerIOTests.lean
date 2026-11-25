@@ -177,8 +177,12 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 #guard !ConLeche.Driver.helpWanted ["--", "--help"]
 #guard ConLeche.Driver.helpWanted ["--help", "--", "x"]
 #guard ConLeche.Driver.helpWanted ["x", "--help"]
--- The help fits a terminal, and names every flag `parseArgs` takes.
+-- The help fits a terminal, and names every flag `parseArgs` takes. It is
+-- deliberately short: one line per option, details in OVERVIEW.md §0, no
+-- explanations or measurements. Do not raise the line budget to fit prose;
+-- a new option takes one line, and the budget grows by that line.
 #guard (ConLeche.Driver.helpText.splitOn "\n").all (·.length ≤ 80)
+#guard (ConLeche.Driver.helpText.splitOn "\n").length ≤ 50
 #guard ["--verified", "--trusted", "--jobs=", "--max-nat-size=", "--progress", "--help",
     "--olean", "--search-path=", "--constant=", "--schedule", "--worker-stack-size="].all
   (ConLeche.Driver.helpText.contains ·)

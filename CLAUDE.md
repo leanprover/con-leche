@@ -5,7 +5,7 @@ current, human-facing tour (module map §11, gates §12); `DESIGN.md` is
 the agents' journal: its opening sections state the standing design,
 the later sections are dated records. When a decision changes, update
 DESIGN.md (append your lane's record at the end), and OVERVIEW.md if a
-current fact changed.
+current fact changed. Before editing OVERVIEW.md, read `WRITING.md`.
 
 ## Build, tests, gates
 
