@@ -691,8 +691,11 @@ prog_check "--progress=2: the check lines name no declaration, and no check this
   "$(printf '%s\n' "$prog_errN" | grep -q '^con-leche: check [0-9]* ([0-9]*%) t=.* busy=' && \
      ! printf '%s\n' "$prog_errN" | grep '^con-leche: check [0-9]' | grep -q 'oldest' && echo ok)"
 prog_errT=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+# whether a check is in flight when another completes is timing, so the oldest is asked for
+# on the lines that count a busy worker, not on some line of the run
 prog_check "--progress=1: a trace, every check line names its declaration" \
-  "$(printf '%s\n' "$prog_errT" | grep -q '^con-leche: check [0-9]* ([0-9]*%) [a-z]* .*, oldest ' && echo ok)"
+  "$(printf '%s\n' "$prog_errT" | grep -q '^con-leche: check [0-9]* ([0-9]*%) [a-z]* .* t=.* busy=' && \
+     ! printf '%s\n' "$prog_errT" | grep '^con-leche: check [0-9].* busy=[1-9]' | grep -qv ', oldest ' && echo ok)"
 prog_errS=$(timeout 120 "$BIN" --jobs=1 --progress=1000s "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_check "--progress=1000s: no check line in a short run" \
   "$([ "$(prog_lines "$prog_errS" '^con-leche: check [0-9]')" = 0 ] && echo ok)"
