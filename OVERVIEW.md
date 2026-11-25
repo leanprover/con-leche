@@ -1303,59 +1303,51 @@ it if needed, then run `tests/overview-links.sh --update`.
 
 ## 13. What the environment stores beyond Lean's
 
-The checker's environment (`ConLeche.Env`, `ConLeche/Kernel/Env.lean`)
-holds the declarations as the export gives them, plus the data below.
-All of it is read off the declarations themselves. Running directly on a `Lean.Environment`
-would mean computing the first group on use, or in a memo outside the
-environment, and replacing the second by an on-demand computation.
+The checker's [`Env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L464-L467)
+stores constants and projection tables derived from declarations. Some stored
+information corresponds to Lean's environment; other information is computed
+from the declarations to support checking.
 
-**Derived per-constant data.** Each entry is either a field Lean
-already stores, or a function of the inductive's and its constructors'
-types.
+### Information about inductives and recursors
 
-| Where | Field | Lean's counterpart, or how it is computed |
-|---|---|---|
-| `IndCaps` | `all`, `nparams`, `nIdx`, `ctors` | `InductiveVal.all`, `numParams`, `numIndices`, `ctors` |
-| `IndCaps` | `neverZero` | whether the former's stored type ends in a sort that is never zero at any level instantiation; read off the declared type at the family's install. The ι step's case split and the structure-η rescue read it before walking to the family's sort |
-| `IndCaps` | `eta` | whether the family is structure-like (one constructor, no index, a block that is not recursive); read off the block. Structure η, the structure-η rescue and unit-likeness read the constructor and its counts off the family's projection table, at every field count: a family is unit-like where its constructor's fields are propositions or unit-like (always, without fields), and then all its inhabitants are definitionally equal |
-| `ctorInfo` | `induct` | `ConstructorVal.induct`: the block member the constructor is declared under, set by the install; the constructor check has established that the constructor's declared type concludes in it. The ι step's case split, the rescues and η look the family up by it |
-| `recInfo` | `majorIdx`, `rulePrefix` | sums of `RecursorVal.numParams`, `numMotives`, `numMinors`, `numIndices` |
-| `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the levels and the parameter arguments of the recursor's major domain, read off its stored type and closed over the rule prefix (no lookup: the trailing arguments are the record's index variables) |
+The environment records information about inductive families, constructors
+and recursors alongside their types
+([`IndCaps`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L193-L228) and
+[`ConstantInfo`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L291-L313)).
 
-A rule stores what Lean's `RecursorRule` stores (constructor, field count,
-right-hand side) and the firing mode above. The ι step reads the
-right-hand side under its leading lambdas, one per argument of the recursor's
-rule prefix and per field of the constructor, and substitutes those
-arguments there at once, as Lean's kernel does since lean4 PR #10565: no
-β-redex is built, so none becomes a memo key. Every stored rule has
-those lambdas: the stored rules are checked for them, the generated ones are
-built so. A recursor's K flag is its
-record's (`RecursorVal.k`), which the block's check compares with the
-generated recursor's. The constructor's parameter count and the structure-η
-rescue's condition are read off the stored constructor, the family's
-capabilities and its projection table where the rule fires. The family's
-result sort is on no record that always has it: whether it is `Prop` or never
-zero is read off the former's type where the question is asked.
+| Entry | Stored information |
+|---|---|
+| Inductive family | Its block members, parameter and index counts, constructors, whether it is structure-like, and a flag indicating that its result sort is never zero at any universe instantiation. |
+| Constructor | Its family name and its parameter and field counts. |
+| Recursor | Its major premise's argument position, the length of the argument prefix used by its rules, its K flag and its rules. |
 
-**Projection tables.** For each structure `T` the installer stores one
-projection table (a `ProjTable`, keyed by `T`) in the environment's
-table component, beside the constants: for every field the projection's
-result-type body (the type of `.proj T i`), read off the block's records. A table is visible exactly where its
-structure is. Lean's kernel stores nothing for projections; it computes a
-projection's type from the constructor's type when it meets one
-(`infer_proj`). What `infer_proj` requires of a `Prop` structure, that the
-field and every earlier field a later one uses are propositions, is checked
-at the use here too
-([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1207-L1208)),
-from the stored constructor type at the environment of the use; nothing
-about it is stored.
+A [`RecRule`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L134-L140)
+stores the constructor, field count and right-hand side, as Lean's rule does.
+It also stores a [firing mode](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L118-L121): ordinary, nested, or the level instantiation used
+by a quotient eliminator. The installer derives the mode for inductive rules
+from the recursor declaration
+([`recFire`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L38-L50)).
 
-**Not counted.** The `FEnv` lookup indexes, with the two literal flags
-they carry (whether `Nat` and string literals can be expanded), are a
-performance device over the same data. The pinned basis blocks and the Nat-op pins are expected
-shapes, compared against the input, so they are code. Some things are
-stored with less than Lean keeps: a theorem without its value, an opaque
-constant as an axiom.
+### Projection tables
+
+A [`ProjTable`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L255-L266)
+stores a structure-like member's constructor and the result-type body of each
+field projection. The installer derives the table from the constructor type
+([`blockTables`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L60-L69)).
+Lean's kernel instead computes projection types from the constructor type when
+needed. For a projection from a propositional structure, the checker verifies
+the required proposition restrictions at the use, rather than storing them
+([`checkProjGuard`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1205-L1215)).
+
+### Lookup indexes and omitted values
+
+[`FEnv`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/FEnv.lean#L193-L218)
+adds lookup indexes and flags for whether `Nat` and string literals can be
+expanded. The indexes support lookup over the same environment data.
+
+The checker stores less than Lean for some declarations: it keeps a theorem
+without its value and stores an opaque constant as an axiom
+([`declConstants`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L78-L91)).
 
 ## 14. Where the checker departs from the official kernel
 

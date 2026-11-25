@@ -853,9 +853,187 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Core.lean#L1207-L1208
+== ConLeche/Kernel/Env.lean#L464-L467
+   464  structure Env where
+   465    consts : List ConstantInfo
+   466    tables : List ProjTable
+   467    deriving Repr, Inhabited
+
+== ConLeche/Kernel/Env.lean#L193-L228
+   193  structure IndCaps where
+   194    /-- Official's `is_non_rec_structure`: one constructor, no index, a block that
+   195    is not recursive.  A proposition may have it: a proof is the point, and the
+   196    η laws speak of what is not. -/
+   197    eta : Bool := false
+   198    /-- **The block's members** (official's `all`): the formers installed
+   199    together with this one, in block
+   200    order, itself included.  Read by nested positivity alone — a container
+   201    frame's restart (`nestFrame`) abstracts only group-mates listed here,
+   202    so an accepted frame's holes are members of ONE recorded block (a pinned
+   203    basis type records `[T]`, as official does; `Quot` alone keeps `[]`). -/
+   204    all : List Name := []
+   205    /-- **The family's parameter count** (official's `inductive_val.nparams`):
+   206    the block's declared parameter count, recorded at every install
+   207    (uniform: `BlockShape.nP`; basis: the pin's).  Read by nested positivity
+   208    alone, and only for a
+   209    container WITHOUT constructors (`nestContainer`), whose parameter count
+   210    no constructor record carries. -/
+   211    nparams : Nat := 0
+   212    /-- **The family's index count** (official's `inductive_val.nindices`), read
+   213    off the block's recursor record: how many binders past the parameters the
+   214    reading of the family's sort walks (`formerSortLoop`). -/
+   215    nIdx : Nat := 0
+   216    /-- **The family's constructors, in declaration order** (official's
+   217    `inductive_val.cnstrs`): recorded at its check (uniform: the member's
+   218    constructors; basis: the pin's).  Read by nested positivity alone
+   219    (`nestContainer`): a container's constructors are looked up by name,
+   220    never by a scan of the environment.  `Quot` records none (it is no
+   221    container). -/
+   222    ctors : List Name := []
+   223    /-- **The family's sort is never zero** (official's `is_never_zero` at
+   224    every level instantiation): the former's stored type ends in a sort
+   225    whose zero-ness datum is unsatisfiable (`formerZ`), read off it at its
+   226    check (`blockCapsAt`).  `false` claims nothing.  The ι step's case split
+   227    reads it in place of the walk to the family's sort. -/
+   228    neverZero : Bool := false
+
+== ConLeche/Kernel/Env.lean#L291-L313
+   291  inductive ConstantInfo where
+   292    | axiomInfo (val : ConstantVal)
+   293    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   294    | thmInfo (val : ConstantVal)
+   295    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   296    | indInfo (val : ConstantVal) (caps : IndCaps)
+   297    /-- A constructor (whnf-stuck; the iota target), with its family's name
+   298    (official's `ConstructorVal.induct`): the head constant of its declared
+   299    type's result, which its install reads off the member it is checked
+   300    against (an environment invariant, `CtorWF`).  The readers that need the
+   301    family (the ι case split, the rescues, η) look it up by this name instead
+   302    of walking the type. -/
+   303    | ctorInfo (val : ConstantVal) (numParams numFields : Nat) (induct : Name)
+   304    /-- A recursor with its iota rules and the record's K flag (official's
+   305    `recursor_val::is_k`, read off the stream's record; the block's job
+   306    checks it).  Only the two sums the
+   307    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   308    numMinors + numIndices, the major premise's argument position) and
+   309    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   310    argument prefix a rule's rhs is applied to).  The individual counts
+   311    are consumed at its check only and are not stored. -/
+   312    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+   313        (isK : Bool) (rules : List RecRule)
+
+== ConLeche/Kernel/Env.lean#L134-L140
+   134  structure RecRule where
+   135    ctor : Name
+   136    nfields : Nat
+   137    /-- The firing mode (install-computed, parse placeholder `.plain`):
+   138    `.plain` at a member major, `.nested` at an outside one. -/
+   139    fire : RecRuleFire
+   140    rhs : Expr
+
+== ConLeche/Kernel/Env.lean#L118-L121
+   118  inductive RecRuleFire where
+   119    | plain
+   120    | nested (lvls : List Level) (pins : List Expr)
+   121    | levels (lvls : List Level)
+
+== ConLeche/Kernel/Install.lean#L38-L50
+    38  the index binders to the rule prefix. -/
+    39  def recFire (p : BlockShape) (rc : RecShape) : RecRuleFire :=
+    40    if rc.tgt < p.k then .plain
+    41    else
+    42      match rc.cvR.type.stripPis rc.mI with
+    43      | some (_, .forallE dom _) =>
+    44        match dom.getAppFn with
+    45        | .const _ us =>
+    46          let nI := rc.mI - rc.rP
+    47          let args := dom.getAppArgs
+    48          .nested us ((args.take (args.length - nI)).map (Expr.dropVars nI))
+    49        | _ => .plain
+    50      | _ => .plain
+
+== ConLeche/Kernel/Env.lean#L255-L266
+   255  structure ProjTable where
+   256    structName : Name
+   257    /-- the parent type former's level parameters -/
+   258    levelParams : List Name
+   259    /-- the parent's parameter count -/
+   260    numParams : Nat
+   261    /-- the single constructor (the structural rule's head) -/
+   262    ctor : Name
+   263    /-- its field count -/
+   264    numFields : Nat
+   265    /-- per field, the projection's result-type body (see above) -/
+   266    bodies : Array Expr
+
+== ConLeche/Kernel/Install.lean#L60-L69
+    60  its constructor's type (`structProjBodies`).  `none` where a structure-like member's constructor
+    61  type is too short to read them: a block whose constructors pass their checks always has its
+    62  tables (`checkBlock` rejects the other case). -/
+    63  def blockTables (p : BlockShape) : List MemberShape → Option (List ProjTable)
+    64    | [] => some []
+    65    | ms :: rest =>
+    66      match ms.structCtor? with
+    67      | some c =>
+    68        (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
+    69          (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
+
+== ConLeche/Kernel/Core.lean#L1205-L1215
+  1205  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+  1206      (us : List Level) : m Unit :=
   1207    match env.find? entry.structName with
   1208    | some (.indInfo cvT caps) => do
+  1209      match ← projGuardSort wh cvT caps us with
+  1210      | none => pure ()
+  1211      | some guardSort =>
+  1212        match projGuardRows env.find? entry us with
+  1213        | some rows => checkGuardRows inf wh guardSort rows
+  1214        | none => throw (.invalid "projection from a propositional structure must be a proposition")
+  1215    | _ => throw (.invalid "projection from a propositional structure must be a proposition")
+
+== ConLeche/Kernel/FEnv.lean#L193-L218
+   193  structure FEnv where
+   194    env : Env
+   195    idx : Std.HashMap Name ConstantInfo
+   196    /-- The frozen lookup layer under the index (`FBase`): consulted on an
+   197    index miss.  Empty everywhere except in a view of a stream's index;
+   198    `mkFEnv` and `push` leave it as it is. -/
+   199    base : FBase
+   200    /-- The **overlay**: constants consed onto `env` WITHOUT
+   201    entering the index, newest first (`overlay`).  Empty on every
+   202    environment a step threads (`mkFEnv`, `push`); non-empty only on
+   203    the inductive block's rule-less-recursor environment, a read-only view
+   204    that shares the constructors' index instead of copying it.  `find?`
+   205    reads it before the index, as if its constants had been pushed
+   206    (`find?_overlay_pushAll`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
+   207    ovl : List ConstantInfo
+   208    /-- **The projection tables** (task #362), keyed on the structure's
+   209    name: `env.tables` as a map (the newest table of a name wins, as
+   210    `List.find?` takes the first). -/
+   211    tbls : Std.HashMap Name ProjTable
+   212    /-- **Are `Nat` literals expandable** here: the core reads it at every literal it meets, so it is
+   213    computed where the index is built and kept by every push (task #579). -/
+   214    natLit : Bool
+   215    /-- **Are string literals expandable** here (as `natLit`). -/
+   216    strLit : Bool
+   217    natLit_eq : natLit = natLitStoredBy (findIn idx base ovl)
+   218    strLit_eq : strLit = strLitStoredBy (findIn idx base ovl)
+
+== ConLeche/Kernel/Install.lean#L78-L91
+    78  installs nothing (its job rejects it), and `sorryAx` nothing (any use of it declines). -/
+    79  def declConstants : Declaration → List ConstantInfo
+    80    | .defnDecl cv value hint => [.defnInfo cv value hint]
+    81    | .thmDecl cv _ => [.thmInfo cv]
+    82    | .opaqueDecl cv _ => [.axiomInfo cv]
+    83    | .axiomDecl cv =>
+    84      if cv.name = quotSoundName then [quotAt .sound cv]
+    85      else if cv.name = sorryAxName then []
+    86      else [.axiomInfo cv]
+    87    | .quotDecl k cv => [quotAt k cv]
+    88    | .indDecl block nP =>
+    89      match readBlock nP block with
+    90      | .ok p => blockConstants p
+    91      | .error _ => []
 
 >>> README.md
 
