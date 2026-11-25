@@ -1689,7 +1689,10 @@ def lazyDeltaReduction (eager : Bool) (r : CoreFns m) (env : Env) (depth : Nat) 
 /-- **`a.i as =?= b.i bs` by its scrutinees** (the official kernel's
 `lazy_delta_proj_reduction`, extended to applied projections, task #633):
 lazy-delta steps on the two scrutinees; once a step finds them equal,
-the argument lists are compared.  When neither unfolds any more (or the
+the argument lists are compared, last to first as in `defeqSpine`
+(official `is_def_eq_args`: a differing last argument such as
+`1 =?= 2` in `inst.1 (M+1) 1 =?= inst.1 M 2` fails at once, where
+`M+1 =?= M` would descend through every `succ` of `M`).  When neither unfolds any more (or the
 step found them different), a bare pair (`as = bs = []`) is projected on
 both sides (`reduceProjCore`) and only the projected fields are
 compared, failing that the scrutinees themselves; an applied pair gives
@@ -1710,7 +1713,7 @@ def lazyDeltaProjReduction (r : CoreFns m) (env : Env) (depth : Nat)
   | n + 1, a, b => do
     match ← lazyDeltaStep mode r env depth a b with
     | .cont a' b' => lazyDeltaProjReduction r env depth sn i as bs n a' b'
-    | .eq => defEqList r env depth as bs
+    | .eq => defEqList r env depth as.reverse bs.reverse
     | .diff | .unknown =>
       if as.isEmpty && bs.isEmpty then
         match ← reduceProjCore mode r env depth sn i a with

@@ -2648,7 +2648,10 @@ private theorem lazyDeltaProjReduction_shift (henv : EnvWF env)
   case cont a' b' =>
     obtain ⟨hwa', hwb'⟩ := lazyDeltaStep_WScoped henv hst hwa hwb
     exact ihN hpd hwas hwbs hwa' hwb'
-  case eq => exact defEqList_shift henv ih hpd hwas hwbs
+  case eq =>
+    rw [← List.map_reverse, ← List.map_reverse]
+    exact defEqList_shift henv ih hpd (fun x hx => hwas x (List.mem_reverse.mp hx))
+      (fun x hx => hwbs x (List.mem_reverse.mp hx))
   all_goals
     simp only [DeltaStep.mapE, List.isEmpty_map]
     refine ite_congr' (fun _ => ?_) (fun _ => rfl)

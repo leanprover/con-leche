@@ -495,7 +495,10 @@ theorem lazyDeltaProjReduction_bridge (hwc : WhnfCoreBridge .verified eager
       obtain ⟨ha, hb⟩ := hss
       obtain ⟨hp, hl⟩ := lazyDeltaProjReduction_bridge hwc hw hd hi hio n h
       exact ⟨.redBoth (.projArg ha) (.projArg hb) hp, hl⟩
-    case eq => exact ⟨.proj hss, defEqList_bridge hd h⟩
+    case eq =>
+      have hl := (defEqList_bridge hd h).reverse
+      simp only [List.reverse_reverse] at hl
+      exact ⟨.proj hss, hl⟩
     all_goals
       dsimp only at h
       split at h

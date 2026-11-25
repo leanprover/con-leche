@@ -331,7 +331,10 @@ theorem lazyDeltaProjReduction_rel (K : KR env₁ r₂ r₁) (d : Nat) (mode : C
     refine Rel.bind (lazyDeltaStep_rel K d mode hx ha hb) fun st hst => ?_
     cases st with
     | cont a' b' => exact lazyDeltaProjReduction_rel K d mode hx i hsn has hbs n hst.1 hst.2
-    | eq => exact defEqList_rel K d _ _ has hbs
+    | eq =>
+      have has' : ∀ x ∈ as.reverse, Res env₁ x := fun x hx => has x (List.mem_reverse.mp hx)
+      have hbs' : ∀ x ∈ bs.reverse, Res env₁ x := fun x hx => hbs x (List.mem_reverse.mp hx)
+      exact defEqList_rel K d _ _ has' hbs'
     | diff => exact Rel.ite (fun _ => htail) fun _ => Rel.ok trivial
     | unknown => exact Rel.ite (fun _ => htail) fun _ => Rel.ok trivial
 

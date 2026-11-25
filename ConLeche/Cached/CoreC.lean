@@ -1859,7 +1859,7 @@ def lazyDeltaProjReductionI (eager : Bool) (lv : Nat) (depth : Nat)
   | n + 1, a, b => do
     match ← lazyDeltaStepI eager lv depth a b with
     | .cont a' b' => lazyDeltaProjReductionI eager lv depth sn i as bs n a' b'
-    | .eq => defEqListI eager lv depth as bs
+    | .eq => defEqListI eager lv depth as.reverse bs.reverse
     | .diff | .unknown =>
       if as.isEmpty && bs.isEmpty then
         match ← reduceProjCoreI eager lv depth sn i a with
