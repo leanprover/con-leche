@@ -736,7 +736,7 @@
    239      if a = 0 then none
    240      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
 
-== ConLeche/SetTheory/Core.lean#L95-L156
+== ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:
     96  membership, the six ZF⁻ axioms (extensionality, pairing, union, power
     97  set, regularity, Lean-level replacement), and an ω-chain of
@@ -776,32 +776,13 @@
    131    /-- Each chain member is a Grothendieck universe (Tarski's Axiom A
    132    matrix with transitivity, `IsTGUniverse`). -/
    133    univChain_tg : ∀ n : Nat, IsTGUniverse Mem (univChain n)
-   134  
-   135  namespace SetTheory
-   136  
-   137  @[inherit_doc] scoped infix:50 " ∈ˢ " => Mem
-   138  
-   139  variable {V : Type u} [SetTheory V]
-   140  
-   141  /-- Subset, from membership. -/
-   142  protected def Subset (x y : V) : Prop := ∀ z, z ∈ˢ x → z ∈ˢ y
-   143  
-   144  @[inherit_doc] scoped infix:50 " ⊆ˢ " => SetTheory.Subset
-   145  
-   146  theorem Subset.refl (x : V) : x ⊆ˢ x := fun _ hz => hz
-   147  
-   148  theorem Subset.trans {x y z : V} (h₁ : x ⊆ˢ y) (h₂ : y ⊆ˢ z) : x ⊆ˢ z :=
-   149    fun w hw => h₂ w (h₁ w hw)
-   150  
-   151  theorem Subset.antisymm {x y : V} (h₁ : x ⊆ˢ y) (h₂ : y ⊆ˢ x) : x = y :=
-   152    ext fun z => ⟨h₁ z, h₂ z⟩
-   153  
-   154  theorem mem_power_iff_subset {z x : V} : z ∈ˢ power x ↔ z ⊆ˢ x := mem_power
-   155  
-   156  end SetTheory
 
-== ConLeche/SetTheory/Core.lean#L89
+== ConLeche/SetTheory/Core.lean#L89-L93
     89  def IsTGUniverse {V : Type u} (mem : V → V → Prop) (u : V) : Prop :=
+    90    (∀ y z, mem y u → mem z y → mem z u) ∧
+    91    (∀ y z, mem y u → (∀ w, mem w z → mem w y) → mem z u) ∧
+    92    (∀ y, mem y u → ∃ p, mem p u ∧ ∀ z, (∀ w, mem w z → mem w y) → mem z p) ∧
+    93    (∀ y, (∀ w, mem w y → mem w u) → Equinumerous mem y u ∨ mem y u)
 
 == bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
    200  theorem carneiro_implies_conleche :

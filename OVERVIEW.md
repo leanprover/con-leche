@@ -1068,40 +1068,37 @@ A refusal rejects the declaration.
 
 ## 7. The set-theory assumption
 
-Everything is parametric in a class
-([class `SetTheory` in `ConLeche/SetTheory/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L95-L156)):
-membership, extensionality, pairing, union, power set, regularity,
-replacement for arbitrary Lean functions, and an ω-chain of universes,
-each a Tarski–Grothendieck universe
-([predicate `IsTGUniverse` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L89))
-and a member of the next. Infinity is derivable; choice is inherited
-from the meta-logic. The derived operations the model uses live in
-`ConLeche/SetTheory/Derive/*`.
+The soundness theorem assumes a set theory in which to construct a model
+of the accepted declarations. This section describes that assumption and
+its relation to a consistency analysis of Lean.
 
-The interface is instantiated in a separate Lake package,
-`bridge/lean4lean-model`, on Mathlib's `ZFSet` from the ω-many
-inaccessible cardinals hypothesis of Carneiro's consistency analysis of
-Lean
-([theorem `carneiro_implies_conleche` in `bridge/lean4lean-model/ConLecheBridge/Carneiro.lean`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202)).
-So the assumption is no stronger than the one already accepted for
-Lean's own consistency. The main repository does not depend on Mathlib;
-the bridge builds in its own CI job.
+### The interface
 
-**Why this does not contradict Gödel.** The theorem is proved in Lean
-and says that a Lean kernel checker never accepts a proof of `False`,
-which sounds like Lean proving its own consistency. It is not: the
-statement is relative to a model of the `SetTheory` interface, and the
-existence of such a model is exactly the assumption Lean cannot
-discharge about itself. Lean's own universes provide any *finite*
-prefix of the universe chain, but never the whole ω-chain at once,
-because a universe level is not a term. So what the theorem shows is
-"if there is a set-theoretic universe with ω many Grothendieck
-universes, then Lean's kernel rules, as this checker implements them,
-are consistent", and that hypothesis sits strictly above Lean's own
-strength, as Carneiro's analysis shows and the bridge makes precise.
-This is the standard shape of a relative consistency proof, and the
-place where Gödel's theorem is respected is the one hypothesis the
-proof cannot remove.
+The [`SetTheory` class](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L95-L133)
+specifies membership, extensionality, pairing, union, power set,
+regularity and replacement for arbitrary Lean functions. It also assumes
+an ω-chain of Grothendieck universes, each a member of the next; the
+[`IsTGUniverse` predicate](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L89-L93)
+states universehood in Tarski's form with transitivity.
+
+Infinity is derived from the interface, and choice comes from Lean's
+meta-logic. The derived set operations are in `ConLeche/SetTheory/Derive/*`.
+
+### The bridge and relative consistency
+
+The separate `bridge/lean4lean-model` package relates the interface to
+Carneiro's consistency analysis of Lean. Its theorem
+[`carneiro_implies_conleche`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202)
+constructs a `SetTheory` instance on Mathlib's `ZFSet` from a strictly
+increasing ω-sequence of inaccessible cardinals, the hypothesis used in
+that analysis. The main ConLeche libraries do not depend on Mathlib.
+
+The consistency result is relative to the existence of a `SetTheory`
+instance: under that assumption, an accepted input with Lean's `False`
+declaration cannot also declare a constant of type `False` (§1). The
+Lean proof does not establish the existence of such an instance without
+an additional assumption, so it does not prove Lean's own consistency
+unconditionally.
 
 ## 8. Axioms
 
