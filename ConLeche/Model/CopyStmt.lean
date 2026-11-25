@@ -477,7 +477,7 @@ theorem EnvModelM.copyStmtCore (mp : EnvModelM V env) (h : CopiesEnv env env')
     rwa [show mp.base2.acval cv'.name = mp.base2.acval cv.name by rw [hn]]
   · -- `nat_heads`
     intro φ hsup ρ
-    rw [hres (n := ConLeche.natZeroName) (by decide), hres (n := ConLeche.natSuccName) (by decide),
+    simp only [hres (n := ConLeche.natZeroName) (by decide), hres (n := ConLeche.natSuccName) (by decide),
       hres (n := ConLeche.natName) (by decide)]
     exact mp.nat_heads φ (hcopy.natLit ▸ hsup) ρ
   · -- `nat_ops`

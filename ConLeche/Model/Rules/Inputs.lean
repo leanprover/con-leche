@@ -91,7 +91,7 @@ the argument in the graph's domain (`AppliesTo.mem`, task #342 L12). -/
       ∀ ρ : Nat → V, ∃ (b₁ b₂ : Nat) (X : V),
         interp V ρ ca ∈ˢ piR b₁ (interp V ρ (m.acval natName (Level.substFn φ [] [])))
           (fun _ => piR b₂ (interp V ρ (m.acval natName (Level.substFn φ [] [])))
-            (fun _ => X))
+            (fun _ => X) (hasSigmaPairs_const _ _)) (hasSigmaPairs_const _ _)
 
 /-- **The environment-level inputs of the rules soundness**, at one
 `(env, m, φ)`, sorted by discharging tier. -/

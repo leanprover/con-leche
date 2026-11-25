@@ -7,12 +7,13 @@ public import ConLeche.SetTheory.Core
 /-!
 # The empty set, derived
 
-The transitivity clause in `IsTGUniverse` makes this cheap —
+The transitivity clause in `IsGrothendieck` makes this cheap —
 `univChain 1` is inhabited (by `univChain 0`) and transitive, so
 regularity's `∈`-minimal member of it has no members at all.
 
 Also here: the small consequences of regularity everything downstream
-wants — `x ∉ x` and the impossibility of membership 2-cycles.
+wants — `x ∉ x`, the impossibility of membership 2-cycles, and
+`hasImage_empty`.
 -/
 
 namespace ConLeche.SetTheory
@@ -22,7 +23,7 @@ universe u
 variable {V : Type u} [SetTheory V]
 
 theorem empty_exists : ∃ e : V, ∀ z, ¬ z ∈ˢ e := by
-  obtain ⟨htrans, -, -, -⟩ := univChain_tg (V := V) 1
+  obtain ⟨htrans, -, -, -⟩ := univChain_grothendieck (V := V) 1
   obtain ⟨y, hy, hmin⟩ :=
     regularity (univChain (V := V) 1) ⟨univChain 0, univChain_mem 0⟩
   exact ⟨y, fun z hz => hmin ⟨z, hz, htrans y z hy hz⟩⟩
@@ -61,5 +62,11 @@ theorem no_two_cycle {a b : V} (hab : a ∈ˢ b) (hba : b ∈ˢ a) : False := by
   rcases mem_upair.mp hy with h | h <;> subst h
   · exact hmin ⟨b, hba, mem_upair.mpr (Or.inr rfl)⟩
   · exact hmin ⟨a, hab, mem_upair.mpr (Or.inl rfl)⟩
+
+/-- The image of `empty` under any function exists (and is `empty`). -/
+theorem hasImage_empty (f : V → V) : HasImage f empty :=
+  ⟨empty, fun z =>
+    ⟨fun hz => absurd hz (not_mem_empty z),
+     fun ⟨_, hw, _⟩ => absurd hw (not_mem_empty _)⟩⟩
 
 end ConLeche.SetTheory

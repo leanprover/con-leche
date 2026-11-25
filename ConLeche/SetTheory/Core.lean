@@ -1,55 +1,27 @@
 module
 
+public import ConLeche.SetTheory.Formula
+
 @[expose] public section
 
 /-!
-# The axiomatic core: ZF⁻ plus an ω-chain of Grothendieck universes
+# The axiomatic core: first-order ZFC⁻ plus an ω-chain of Grothendieck universes
 
 The `SetTheory` class below is the *entire* axiomatic interface of the
 consistency proof; every operator and law the model construction uses
 (`ConLeche/SetTheory/Basic.lean`) is *derived* from it in
 `ConLeche/SetTheory/Derive/*`, never assumed.
 
-The set-theoretic axioms are **extensionality, pairing, union, power
-set, regularity, the replacement scheme, and an ω-chain of
-Grothendieck universes** `univChain 0 ∈ univChain 1 ∈ …` —
-universehood stated as the matrix of Tarski's Axiom A (A. Tarski,
-*Über unerreichbare Kardinalzahlen*, Fund. Math. 30 (1938), 68–89)
-strengthened with a transitivity clause, i.e. as Grothendieck
-universes (SGA 4, Exp. I, Appendix).  Infinity and choice are
-derivable and therefore absent.
+The set-theoretic axioms are **strictly first-order**: extensionality,
+pairing, union, power set, regularity, the first-order replacement schema
+(over `Formula : Nat → Type 0` with value parameters `Fin p → V`),
+Jech-form choice (`IsChoiceFn`), and an ω-chain of Grothendieck
+universes `univChain 0 ∈ univChain 1 ∈ …` stated by the four
+first-order SGA4 clauses of `IsGrothendieck` (SGA 4, Exp. I, Appendix).
 
-This calibrates the axiomatic strength to exactly what the checker
-consumes — the ω-indexed tower `univ 0, univ 1, univ 2, …` — and to
-the known consistency strength of Lean itself: ZFC plus a strictly
-increasing ω-sequence of inaccessible cardinals — the
-`OmegaInaccessibles` hypothesis
-`∃ κ : ℕ → Cardinal, StrictMono κ ∧ ∀ n, (κ n).IsInaccessible`
-of Mario Carneiro, *The Type Theory of Lean*, master's thesis,
-Carnegie Mellon University, 2019, §1.2.  Under that hypothesis the intended
-model takes `univChain n := V_{κ n}`.  This is strictly weaker than
-full Tarski–Grothendieck set theory (Tarski's Axiom A places a
-universe above *every* set, a proper class of inaccessibles; cf. the
-Mizar axiomatics, A. Trybulec, *Tarski Grothendieck Set Theory*,
-Formalized Mathematics 1(1), 1990).
-
-Deliberate deviations from a first-order presentation:
-
-* **Replacement** is a Lean-level scheme: the image operator takes an
-  arbitrary function `V → V`.  This is the usual strengthening when the
-  ambient logic can quantify over class functions; `V_κ` for `κ`
-  inaccessible still satisfies it.
-* **Choice is not a field.**  A first-order axiomatization must assert
-  choice; here the ambient logic is Lean with `Classical.choice`, and
-  every set-level form of choice over `V` (the global selector
-  `schoice`, and the Jech-form choice-function statement, *Set Theory*,
-  §5) is a *theorem* — replacement applied to a classically chosen
-  selector.  See `ConLeche/SetTheory/Derive/Choice.lean`.  Asserting it
-  here would add redundant axiomatic content; global choice is supplied
-  by the meta-logic, not by this class.
-* **No `nonempty` field.**  First-order logic's nonempty domain is
-  implied: `univChain` already exhibits elements of `V`.
-
+Its consistency strength is that of `ZFC` plus `n` inaccessible cardinals for
+every `n`; it has a model under `OmegaInaccessibles` (Mario Carneiro, *The Type
+Theory of Lean*, master's thesis, Carnegie Mellon University, 2019, §1.2).
 Everything else — the empty set, separation, ordered pairs, infinity,
 function graphs, the universe tower, quotients — is constructed in
 `ConLeche/SetTheory/Derive/*`.
@@ -59,44 +31,45 @@ namespace ConLeche
 
 universe u
 
-/-- `y` and `u` are equinumerous: some (meta-level) function restricts to
-a bijection from the members of `y` onto the members of `u`.  This is the
-notion Tarski's Axiom A is stated with; using a Lean-level function keeps
-ordered pairs out of the core (a first-order presentation instead
-describes set-level bijections by formulas).  For the intended models this is
-equivalent: a set-level bijection yields a meta-level one by choice, and
-the axiom's disjunction is only ever *used* by refuting this side via a
-diagonal argument (`Derive/Universe.lean`). -/
-def Equinumerous {V : Type u} (mem : V → V → Prop) (y u : V) : Prop :=
-  ∃ f : V → V,
-    (∀ z, mem z y → mem (f z) u) ∧
-    (∀ z z', mem z y → mem z' y → f z = f z' → z = z') ∧
-    (∀ w, mem w u → ∃ z, mem z y ∧ f z = w)
+/-- Relational unordered pair: `p = {a, b}` in `(V, Mem)`. -/
+def IsUpair {V : Type u} (Mem : V → V → Prop) (p a b : V) : Prop :=
+  ∀ z, Mem z p ↔ z = a ∨ z = b
 
-/-- The matrix of Tarski's Axiom A (Tarski 1938), strengthened with the
-transitivity clause: `u` is a Grothendieck universe (SGA 4, Exp. I,
-Appendix).  The four clauses, in order:
+/-- Relational Kuratowski ordered pair: `p = {{a}, {a, b}}` in `(V, Mem)`. -/
+def IsKPair {V : Type u} (Mem : V → V → Prop) (p a b : V) : Prop :=
+  ∃ s t, IsUpair Mem s a a ∧ IsUpair Mem t a b ∧ IsUpair Mem p s t
 
-1. *transitivity*: members of members are members — the clause that
-   distinguishes a Grothendieck universe from a bare Tarski one, and
-   what makes the empty set fall out of regularity;
-2. *subsets of members are members*;
-3. *power sets stay inside*: some member contains all subsets of a
-   member (with clause 2 this makes `power y` itself a member);
-4. *inaccessibility*: a subset of `u` is equinumerous with `u` or a
-   member.  Dropping the equinumerosity disjunct is **inconsistent**
-   (`u ⊆ u` would force `u ∈ u`, against regularity). -/
-def IsTGUniverse {V : Type u} (mem : V → V → Prop) (u : V) : Prop :=
-  (∀ y z, mem y u → mem z y → mem z u) ∧
-  (∀ y z, mem y u → (∀ w, mem w z → mem w y) → mem z u) ∧
-  (∀ y, mem y u → ∃ p, mem p u ∧ ∀ z, (∀ w, mem w z → mem w y) → mem z p) ∧
-  (∀ y, (∀ w, mem w y → mem w u) → Equinumerous mem y u ∨ mem y u)
+/-- Relational function graph: `g ⊆ dom × cod` is single-valued and total
+on `dom` in `(V, Mem)`. -/
+def IsFunGraph {V : Type u} (Mem : V → V → Prop) (g dom cod : V) : Prop :=
+  (∀ p, Mem p g → ∃ x y, Mem x dom ∧ Mem y cod ∧ IsKPair Mem p x y) ∧
+  (∀ x, Mem x dom → ExistsUnique fun y => Mem y cod ∧ ∃ p, Mem p g ∧ IsKPair Mem p x y)
 
-/-- A model of set theory of exactly the strength the checker needs:
-membership, the six ZF⁻ axioms (extensionality, pairing, union, power
-set, regularity, Lean-level replacement), and an ω-chain of
-Grothendieck universes.  Infinity is derivable; choice is inherited
-from the meta-logic (`Classical.choice`); see the module docstring. -/
+/-- Jech-form choice function: `f` is a function graph on `x` picking a
+member `y ∈ a` for each `a ∈ x`. -/
+def IsChoiceFn {V : Type u} (Mem : V → V → Prop) (f x : V) : Prop :=
+  (∀ p, Mem p f → ∃ a y, Mem a x ∧ Mem y a ∧ IsKPair Mem p a y) ∧
+  (∀ a, Mem a x → ExistsUnique fun y => Mem y a ∧ ∃ p, Mem p f ∧ IsKPair Mem p a y)
+
+/-- Grothendieck universe (SGA 4, Exp. I, Appendix): four first-order
+conditions over `Mem`. -/
+structure IsGrothendieck {V : Type u} (Mem : V → V → Prop) (u : V) : Prop where
+  /-- *Transitivity*: members of members are members. -/
+  transitivity : ∀ y z, Mem y u → Mem z y → Mem z u
+  /-- *Pairing*: unordered pairs of members are members. -/
+  pairing : ∀ a b, Mem a u → Mem b u → ∃ p, Mem p u ∧ IsUpair Mem p a b
+  /-- *Power sets*: power sets of members are members. -/
+  powerSet : ∀ y, Mem y u → ∃ p, Mem p u ∧ ∀ z, Mem z p ↔ ∀ w, Mem w z → Mem w y
+  /-- *Indexed union*: the union of the range of any internal function graph
+  `g : I → u` with `I ∈ u` is a member of `u`. -/
+  indexedUnion : ∀ I g, Mem I u → IsFunGraph Mem g I u →
+    ∃ w, Mem w u ∧ ∀ z, Mem z w ↔
+      ∃ i y p, Mem i I ∧ Mem y u ∧ Mem p g ∧ IsKPair Mem p i y ∧ Mem z y
+
+/-- A strictly first-order model of set theory of the strength the
+checker needs: membership, extensionality, pairing, union, power set,
+regularity, the first-order replacement schema, Jech-form choice, and
+an ω-chain of SGA4 Grothendieck universes. -/
 class SetTheory (V : Type u) where
   /-- Set membership. -/
   Mem : V → V → Prop
@@ -116,21 +89,25 @@ class SetTheory (V : Type u) where
   mem_power : ∀ {z x : V}, Mem z (power x) ↔ ∀ w, Mem w z → Mem w x
   /-- Regularity: every nonempty set has an `∈`-minimal member. -/
   regularity : ∀ x : V, (∃ y, Mem y x) → ∃ y, Mem y x ∧ ¬ ∃ z, Mem z y ∧ Mem z x
-  /-- Replacement, as a Lean-level scheme: the image of a set under an
-  arbitrary function `V → V`. -/
-  image : (V → V) → V → V
-  /-- Characterization of the replacement image. -/
-  mem_image : ∀ {f : V → V} {a z : V}, Mem z (image f a) ↔ ∃ w, Mem w a ∧ z = f w
+  /-- First-order replacement schema: for any formula `φ` in `2 + p` free
+  variables and parameters `params : Fin p → V`, if `φ` is functional on
+  `a` (relating each `x ∈ a` to a unique `y`), the image exists as a set.
+  Index `0` is `y` and index `1` is `x`, aligning with `DefFun 1`. -/
+  replacement : ∀ {p : Nat} (φ : Formula (2 + p)) (params : Fin p → V) (a : V),
+    (∀ x, Mem x a →
+      ExistsUnique fun y => φ.eval Mem (fappend (fcons y (fcons x Fin.elim0)) params)) →
+    ∃ b : V, ∀ z, Mem z b ↔
+      ∃ x, Mem x a ∧ φ.eval Mem (fappend (fcons z (fcons x Fin.elim0)) params)
+  /-- Axiom of Choice (Jech form): every set of nonempty sets admits a
+  set-level choice function. -/
+  choice : ∀ x : V, (∀ a, Mem a x → ∃ y, Mem y a) → ∃ f : V, IsChoiceFn Mem f x
   /-- An ω-chain of Grothendieck universes: the sets interpreting the
-  universe tower (Carneiro's ω-many inaccessibles, op. cit.;
-  intended model `V_{κ n}`). -/
+  universe tower (intended model `V_{κ n}`). -/
   univChain : Nat → V
-  /-- The chain increases strictly: each universe is a member of the
-  next. -/
+  /-- The chain increases strictly: each universe is a member of the next. -/
   univChain_mem : ∀ n : Nat, Mem (univChain n) (univChain (n + 1))
-  /-- Each chain member is a Grothendieck universe (Tarski's Axiom A
-  matrix with transitivity, `IsTGUniverse`). -/
-  univChain_tg : ∀ n : Nat, IsTGUniverse Mem (univChain n)
+  /-- Each chain member is a Grothendieck universe (`IsGrothendieck`). -/
+  univChain_grothendieck : ∀ n : Nat, IsGrothendieck Mem (univChain n)
 
 namespace SetTheory
 
@@ -153,6 +130,60 @@ theorem Subset.antisymm {x y : V} (h₁ : x ⊆ˢ y) (h₂ : y ⊆ˢ x) : x = y 
 
 theorem mem_power_iff_subset {z x : V} : z ∈ˢ power x ↔ z ⊆ˢ x := mem_power
 
+/-- Proof-carrying predicate asserting that the image `{f w : w ∈ a}`
+exists as a set in `V`. -/
+def HasImage (f : V → V) (a : V) : Prop :=
+  ∃ b : V, ∀ z, z ∈ˢ b ↔ ∃ w, w ∈ˢ a ∧ z = f w
+
+/-- Proof-carrying, zero-junk replacement image `{f w : w ∈ a}`. -/
+noncomputable def image (f : V → V) (a : V) (h : HasImage f a) : V :=
+  Classical.choose h
+
+theorem mem_image {f : V → V} {a z : V} {h : HasImage f a} :
+    z ∈ˢ image f a h ↔ ∃ w, w ∈ˢ a ∧ z = f w :=
+  Classical.choose_spec h z
+
+theorem HasImage.congr {a : V} {f g : V → V}
+    (hfg : ∀ x, x ∈ˢ a → f x = g x) (hf : HasImage f a) : HasImage g a := by
+  obtain ⟨b, hb⟩ := hf
+  refine ⟨b, fun z => (hb z).trans ?_⟩
+  exact ⟨fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (hfg w hw)⟩,
+         fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (hfg w hw).symm⟩⟩
+
+theorem HasImage.ext {a b : V} {f g : V → V} (hab : a = b)
+    (hfg : ∀ x, x ∈ˢ a → f x = g x) (hf : HasImage f a) : HasImage g b :=
+  hab ▸ hf.congr hfg
+
+theorem image_congr {a : V} {f g : V → V} (hf : HasImage f a) (hg : HasImage g a)
+    (h : ∀ x, x ∈ˢ a → f x = g x) : image f a hf = image g a hg :=
+  ext fun z => by
+    rw [mem_image (h := hf), mem_image (h := hg)]
+    exact ⟨fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (h w hw)⟩,
+           fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (h w hw).symm⟩⟩
+
+theorem image_ext {a b : V} {f g : V → V} (hab : a = b)
+    (hf : HasImage f a) (hg : HasImage g b)
+    (h : ∀ x, x ∈ˢ a → f x = g x) : image f a hf = image g b hg := by
+  subst hab
+  exact image_congr hf hg h
+
+attribute [irreducible] image
+
 end SetTheory
+
+/-- **Model existence (consistency / non-vacuity assumption).**
+There exists a model `(V, SetTheory V)` of our strictly first-order set theory
+(`ZFC⁻` + an ω-chain of SGA4 Grothendieck universes).
+
+Because `SetTheory` is strictly first-order (`Formula`, `IsGrothendieck`,
+Jech-form `choice`), model existence is essentially the consistency of this
+set theory: classically, by Gödel's completeness theorem, a first-order theory
+has a model iff it is syntactically consistent (and by downward
+Löwenheim–Skolem already at `Type 0`).  The `*_no_False` theorems take
+`ModelExists` explicitly — rather than an unused `(V : Type w) [SetTheory V]`
+parameter — because we need the background set theory to be non-vacuous
+(consistent) for those theorems to be meaningful. -/
+def ModelExists : Prop :=
+  Nonempty (Σ V : Type u, SetTheory V)
 
 end ConLeche

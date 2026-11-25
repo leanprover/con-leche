@@ -237,7 +237,7 @@ theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
     rw [Bool.and_eq_true] at hlb'
     show Denotes _ _ _ _ (Expr.forallE (closeN d ty 0) (closeN d body 1)) _
     rw [interp_pi]
-    refine Denotes.pi (ihty hta hfb'.1 hlb'.1 ρ) (fun x _ => ?_)
+    refine Denotes.pi (ihty hta hfb'.1 hlb'.1 ρ) (fun x _ => ?_) _
     rw [push_eq_cons]
     have hb := ihbody hba (Expr.fvarsBelow_instantiate1 0 hfb'.2)
       (ConLeche.looseBVarsBounded_instantiate1 body 0 hlb'.2) (cons x ρ)
@@ -250,7 +250,7 @@ theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
     rw [Bool.and_eq_true] at hlb'
     show Denotes _ _ _ _ (Expr.lam (closeN d ty 0) (closeN d body 1)) _
     rw [interp_lam]
-    refine Denotes.lam (ihty hta hfb'.1 hlb'.1 ρ) (fun x _ => ?_)
+    refine Denotes.lam (ihty hta hfb'.1 hlb'.1 ρ) (fun x _ => ?_) _
     rw [push_eq_cons]
     have hb := ihbody hba (Expr.fvarsBelow_instantiate1 0 hfb'.2)
       (ConLeche.looseBVarsBounded_instantiate1 body 0 hlb'.2) (cons x ρ)

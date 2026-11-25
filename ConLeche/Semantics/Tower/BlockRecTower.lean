@@ -55,15 +55,14 @@ variable {V : Type uv} [SetTheory V]
 
 /-- `pt` witnesses the double negation of an inhabited set. -/
 theorem pt_mem_dnegSpace_of {A x : V} (hx : x ∈ˢ A) : (pt : V) ∈ˢ dnegSpace V A := by
-  unfold dnegSpace
-  have h1 : piR 0 A (fun _ => (empty : V)) = empty := by
-    rw [piR_zero]
-    exact truthVal_eq_empty fun hf => not_mem_empty _ (hf x hx).choose_spec
-  rw [h1, piR_zero_empty]
-  exact pt_mem_unitSet
+  rw [dnegSpace, piR_zero]
+  exact pt_mem_truthVal fun f hf => by
+    rw [piR_zero] at hf
+    exact of_mem_truthVal hf x hx
 
 /-- Elimination at a `Prop`-valued function space. -/
-theorem piR_zero_elim {A f x : V} {B : V → V} (hf : f ∈ˢ piR 0 A B) (hx : x ∈ˢ A) :
+theorem piR_zero_elim {A f x : V} {B : V → V} {hS : HasSigmaPairs A B}
+    (hf : f ∈ˢ piR 0 A B hS) (hx : x ∈ˢ A) :
     ∃ y, y ∈ˢ B x := by
   rw [piR_zero] at hf
   exact of_mem_truthVal hf x hx
@@ -81,16 +80,21 @@ def andChainAV : List Term → Term
 
 theorem interp_andAV {P Q : Term} {ρ : Nat → V}
     (hP : interp V ρ P ∈ˢ (univZero : V)) (hQ : interp V ρ Q ∈ˢ (univZero : V)) :
-    interp V ρ (andAV P Q) = sigmaSet 0 (interp V ρ P) fun _ => interp V ρ Q := by
+    interp V ρ (andAV P Q) =
+      sigmaSet 0 (interp V ρ P) (fun _ => interp V ρ Q) (hasSigmaPairs_const _ _) := by
   have hP' : interp V ρ P ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hP
-  have hlam : interp V ρ (.lam P (Q.liftN 1 0)) = lamV (interp V ρ P) fun _ => interp V ρ Q := by
-    rw [interp_lam, lamV_congr fun x _ => by rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]]
-  have hfib : (lamV (interp V ρ P) fun _ => interp V ρ Q) ∈ˢ psigmaFibreSpace V 0 (interp V ρ P) :=
+  have hlam : interp V ρ (.lam P (Q.liftN 1 0)) =
+      lamV (interp V ρ P) (fun _ => interp V ρ Q) (hasGraph_const _ _) := by
+    rw [interp_lam]
+    exact lamV_congr _ (hasGraph_const _ _) fun x _ => by
+      rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]
+  have hfib : lamV (interp V ρ P) (fun _ => interp V ρ Q) (hasGraph_const _ _)
+      ∈ˢ psigmaFibreSpace V 0 (interp V ρ P) :=
     lamV_mem_psigmaFibreSpace V fun _ _ => by rw [univ_zero]; exact hQ
   show SetTheory.app (SetTheory.app (psigmaV V 0 0) (interp V ρ P))
     (interp V ρ (.lam P (Q.liftN 1 0))) = _
   rw [hlam, psigmaV_app V hP' hfib]
-  exact sigma_congr fun x hx => app_lamV hx
+  exact sigmaSet_congr _ _ fun x hx => app_lamV hx
 
 theorem andAV_univZero {P Q : Term} {ρ : Nat → V}
     (hP : interp V ρ P ∈ˢ (univZero : V)) (hQ : interp V ρ Q ∈ˢ (univZero : V)) :
@@ -117,12 +121,15 @@ theorem wd_andAV {P Q : Term} {ρ : Nat → V} (hP : WellDenoted V ρ P) (hQ : W
   have hP' : interp V ρ P ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hPu
   have hQ' : interp V ρ Q ∈ˢ (univ 0 : V) := by rw [univ_zero]; exact hQu
   have hps := psigmaV_rr_mem (V := V) 0
-  have hlam : interp V ρ (.lam P (Q.liftN 1 0)) = lamV (interp V ρ P) fun _ => interp V ρ Q := by
-    rw [interp_lam, lamV_congr fun x _ => by rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]]
+  have hlam : interp V ρ (.lam P (Q.liftN 1 0)) =
+      lamV (interp V ρ P) (fun _ => interp V ρ Q) (hasGraph_const _ _) := by
+    rw [interp_lam]
+    exact lamV_congr _ (hasGraph_const _ _) fun x _ => by
+      rw [interp_liftN, shiftE_succ_cons, shiftE_zero_zero]
   show WellDenoted V ρ (.app (.app (.const .psigma [0, 0]) P) (.lam P (Q.liftN 1 0)))
   rw [WellDenoted_app]
   refine ⟨?_, ?_, appliesTo_of_mem_piR (v := 1) (A := psigmaFibreSpace V 0 (interp V ρ P))
-    (B := fun _ => (univ 0 : V)) ?_ IsTy_piV ?_⟩
+    (B := fun _ => (univ 0 : V)) (hS := hasSigmaPairs_const _ _) ?_ IsTy_piV ?_⟩
   · rw [WellDenoted_app]
     exact ⟨trivial, hP, appliesTo_of_mem_piR hps (IsTy_univ 0) hP'⟩
   · rw [WellDenoted_lam]
@@ -174,8 +181,8 @@ theorem mkPisAV_eqE_univZero :
       interp V ρ (mkPisAV ds (.eqE l r)) ∈ˢ (univZero : V)
   | [], _, _, _ => eqv_mem_univZero _ _
   | _ :: ds, l, r, ρ => by
-    show piV _ _ ∈ˢ _
-    rw [piV_eq_zero fun x _ => mkPisAV_eqE_univZero (ds := ds) (l := l) (r := r)]
+    rw [mkPisAV, interp_pi,
+      piV_eq_zero fun x _ => mkPisAV_eqE_univZero (ds := ds) (l := l) (r := r)]
     exact piR_zero_mem_univZero
 
 /-- A Π-tower over an equation is inhabited by `pt` iff the equation
@@ -186,7 +193,7 @@ theorem pt_mem_mkPisAV_eqE_iff :
         ∀ xs : List V, SpineFit ρ ds xs →
           interp V (consList xs ρ) l = interp V (consList xs ρ) r)
   | [], l, r, ρ => by
-    show (pt : V) ∈ˢ eqv _ _ ↔ _
+    rw [mkPisAV, interp_eqE]
     constructor
     · intro h xs hsp
       cases xs with
@@ -199,8 +206,7 @@ theorem pt_mem_mkPisAV_eqE_iff :
   | d :: ds, l, r, ρ => by
     have hrest : ∀ x, interp V (cons x ρ) (mkPisAV ds (.eqE l r)) ∈ˢ (univZero : V) :=
       fun _ => mkPisAV_eqE_univZero
-    show (pt : V) ∈ˢ piV (interp V ρ d) (fun x => interp V (cons x ρ) (mkPisAV ds (.eqE l r))) ↔ _
-    rw [piV_eq_zero fun x _ => hrest x]
+    rw [mkPisAV, interp_pi, piV_eq_zero fun x _ => hrest x]
     constructor
     · intro h xs hsp
       cases xs with
@@ -248,10 +254,64 @@ def projChainAV : Nat → Term → Term
 def selChainAV (s : Nat) (Ts : List Term) (Q : Term) : Term :=
   Term.mkAppN (.const .choice [s]) [sigChainAV s Ts Q, .prf]
 
+noncomputable def sigChainVDef (s : Nat) (Q : Term) :
+    ∀ (_Ts : List Term) (p : Nat) (_ρ0 : Nat → V),
+      { F : (Fin p → V) → V // DefFun p F }
+  | [], p, ρ0 =>
+    ⟨fun xs => interp V (prepend xs ρ0) Q, interp_defFun_prepend ρ0 p Q⟩
+  | T :: Ts, p, ρ0 =>
+    let hT := interp_defFun_prepend ρ0 p T
+    let sub := sigChainVDef s Q Ts (p + 1) ρ0
+    let hB : DefFun (p + 1) fun v => sub.val (fcons (v 0) (ftail v)) :=
+      sub.property.congr fun v => congrArg sub.val (fcons_zero_ftail v).symm
+    ⟨fun xs => sigmaSet s (interp V (prepend xs ρ0) T)
+        (fun r => sub.val (fcons r xs))
+        (hasSigmaPairs_of_defFun1 (defFun1_fcons sub.property xs)),
+      DefFun.sigmaSet_apply_curry s hT hB⟩
+
+theorem sigChainVDef_prepend (s : Nat) (Q : Term) :
+    ∀ (Ts : List Term) (p : Nat) (xs : Fin p → V) (ρ0 : Nat → V),
+      (sigChainVDef s Q Ts p ρ0).val xs = (sigChainVDef s Q Ts 0 (prepend xs ρ0)).val Fin.elim0
+  | [], _, _, _ => by
+    unfold sigChainVDef; dsimp; rw [prepend_zero]
+  | T :: Ts, p, xs, ρ0 => by
+    unfold sigChainVDef; dsimp
+    refine sigmaSet_congr _ _ fun r _ => ?_
+    rw [sigChainVDef_prepend s Q Ts (p + 1) (fcons r xs) ρ0, prepend_fcons,
+      sigChainVDef_prepend s Q Ts 1 (fcons r Fin.elim0) (prepend xs ρ0),
+      prepend_fcons, prepend_zero]
+
 /-- The semantic chain: the nested pair set. -/
-noncomputable def sigChainV (s : Nat) : (Nat → V) → List Term → Term → V
-  | ρ, [], Q => interp V ρ Q
-  | ρ, T :: Ts, Q => sigmaSet s (interp V ρ T) fun r => sigChainV s (cons r ρ) Ts Q
+noncomputable def sigChainV (s : Nat) (ρ : Nat → V) (Ts : List Term) (Q : Term) : V :=
+  (sigChainVDef s Q Ts 0 ρ).val Fin.elim0
+
+theorem sigChainV_defFun_cons (s : Nat) (ρ : Nat → V) (Ts : List Term) (Q : Term) :
+    DefFun 1 fun v => sigChainV s (cons (v 0) ρ) Ts Q :=
+  ((sigChainVDef s Q Ts 1 ρ).property).congr fun v => by
+    unfold sigChainV
+    rw [sigChainVDef_prepend s Q Ts 1 v ρ, prepend_one]
+
+theorem hasSigmaPairs_sigChainV (s : Nat) (ρ : Nat → V) (T : Term) (Ts : List Term) (Q : Term) :
+    HasSigmaPairs (interp V ρ T) fun r => sigChainV s (cons r ρ) Ts Q :=
+  hasSigmaPairs_of_defFun1 (sigChainV_defFun_cons s ρ Ts Q)
+
+theorem hasGraph_sigChainV (s : Nat) (ρ : Nat → V) (T : Term) (Ts : List Term) (Q : Term) :
+    HasGraph (interp V ρ T) fun r => sigChainV s (cons r ρ) Ts Q :=
+  hasGraph_of_defFun1 (sigChainV_defFun_cons s ρ Ts Q)
+
+@[simp] theorem sigChainV_nil (s : Nat) (ρ : Nat → V) (Q : Term) :
+    sigChainV s ρ [] Q = interp V ρ Q := by
+  unfold sigChainV sigChainVDef; dsimp; rw [prepend_zero]
+
+@[simp] theorem sigChainV_cons (s : Nat) (ρ : Nat → V) (T : Term) (Ts : List Term) (Q : Term) :
+    sigChainV s ρ (T :: Ts) Q =
+      sigmaSet s (interp V ρ T) (fun r => sigChainV s (cons r ρ) Ts Q)
+        (hasSigmaPairs_sigChainV s ρ T Ts Q) := by
+  change (sigChainVDef s Q (T :: Ts) 0 ρ).val Fin.elim0 = _
+  rw [sigChainVDef]; dsimp
+  refine sigmaSet_congr _ _ fun r _ => ?_
+  rw [sigChainVDef_prepend s Q Ts 1 (fcons r Fin.elim0) ρ, prepend_fcons, prepend_zero]
+  rfl
 
 /-- The iterated second projection. -/
 noncomputable def ssndN : Nat → V → V
@@ -284,11 +344,11 @@ theorem sigChainV_tail_univ :
     ∀ {ρ : Nat → V} {Ts : List Term} {Q : Term}, ChainOk s ρ Ts Q →
       sigChainV s ρ Ts Q ∈ˢ (univ (tailLv s Ts) : V)
   | _, [], _, h => by
-    show interp V _ _ ∈ˢ _
-    rw [tailLv, univ_zero]; exact h.1
+    rw [sigChainV_nil, tailLv, univ_zero]; exact h.1
   | ρ, T :: Ts, Q, h => by
-    show sigmaSet s _ _ ∈ˢ (univ s : V)
+    rw [sigChainV_cons]
     have := sigma_mem_univ h.1 (fun r hr => sigChainV_tail_univ (h.2.2 r hr))
+      (hasSigmaPairs_sigChainV s ρ T Ts Q)
     rwa [max_tailLv] at this
 
 /-- The chain lives in `univ s`.  Only an EMPTY chain (no recursor,
@@ -297,7 +357,7 @@ theorem sigChainV_univ :
     ∀ {ρ : Nat → V} {Ts : List Term} {Q : Term}, ChainOk s ρ Ts Q →
       sigChainV s ρ Ts Q ∈ˢ (univ s : V)
   | _, [], _, h => by
-    show interp V _ _ ∈ˢ _
+    rw [sigChainV_nil]
     exact univ_mono (Nat.zero_le s) _ (by rw [univ_zero]; exact h.1)
   | _, _ :: _, _, h => sigChainV_tail_univ h
 
@@ -305,15 +365,21 @@ theorem sigChainV_univ :
 theorem psigmaV_uv_mem (u v : Nat) :
     psigmaV V u v ∈ˢ piR (Nat.max u v + 1) (univ u : V)
       (fun A => piR (Nat.max u v + 1) (psigmaFibreSpace V v A)
-        fun _ => (univ (Nat.max u v) : V)) := by
+        (fun _ => (univ (Nat.max u v) : V))
+        (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_of_defFun1
+        (DefFun.piR_apply_curry (Nat.max u v + 1) (defFun_psigmaFibreSpace v (DefFun.proj 0))
+          (DefFun.univ_const (Nat.max u v)))) := by
   rw [psigmaV_eq_lamR]
   exact lamR_mem fun _ hA => lamR_mem fun _ hB =>
     sigma_mem_univ hA (fun _ hx => psigmaFibre_apply V hB hx)
+      (hasSigmaPairs_of_defFun1 (DefFun.app_apply (DefFun.const _) (DefFun.proj 0)))
 
 /-- The chain's fibre λ. -/
 theorem sigChain_lam_mem {ρ : Nat → V} {T : Term} {Ts : List Term} {Q : Term}
     (h : ChainOk s ρ (T :: Ts) Q) :
-    (lamV (interp V ρ T) fun r => sigChainV s (cons r ρ) Ts Q)
+    lamV (interp V ρ T) (fun r => sigChainV s (cons r ρ) Ts Q)
+        (hasGraph_sigChainV s ρ T Ts Q)
       ∈ˢ psigmaFibreSpace V (tailLv s Ts) (interp V ρ T) :=
   lamV_mem_psigmaFibreSpace V fun r hr => sigChainV_tail_univ (h.2.2 r hr)
 
@@ -321,15 +387,18 @@ theorem sigChain_lam_mem {ρ : Nat → V} {T : Term} {Ts : List Term} {Q : Term}
 theorem interp_sigChainAV :
     ∀ {ρ : Nat → V} {Ts : List Term} {Q : Term}, ChainOk s ρ Ts Q →
       interp V ρ (sigChainAV s Ts Q) = sigChainV s ρ Ts Q
-  | _, [], _, _ => rfl
+  | _, [], _, _ => by simp [sigChainAV]
   | ρ, T :: Ts, Q, h => by
     have hlam : interp V ρ (.lam T (sigChainAV s Ts Q))
-        = lamV (interp V ρ T) fun r => sigChainV s (cons r ρ) Ts Q := by
-      rw [interp_lam, lamV_congr fun r hr => interp_sigChainAV (h.2.2 r hr)]
+        = lamV (interp V ρ T) (fun r => sigChainV s (cons r ρ) Ts Q)
+            (hasGraph_sigChainV s ρ T Ts Q) := by
+      rw [interp_lam]
+      exact lamV_congr _ (hasGraph_sigChainV s ρ T Ts Q) fun r hr =>
+        interp_sigChainAV (h.2.2 r hr)
     show SetTheory.app (SetTheory.app (psigmaV V s (tailLv s Ts)) (interp V ρ T))
       (interp V ρ (.lam T (sigChainAV s Ts Q))) = _
-    rw [hlam, psigmaV_app V h.1 (sigChain_lam_mem h), max_tailLv]
-    exact sigma_congr fun r hr => app_lamV hr
+    rw [hlam, psigmaV_app V h.1 (sigChain_lam_mem h), sigChainV_cons, max_tailLv]
+    exact sigmaSet_congr _ _ fun r hr => app_lamV hr
 
 /-- **The chain is graded.** -/
 theorem wd_sigChainAV :
@@ -343,14 +412,18 @@ theorem wd_sigChainAV :
     rw [WellDenoted_app]
     refine ⟨?_, ?_, appliesTo_of_mem_piR (v := Nat.max s (tailLv s Ts) + 1)
       (A := psigmaFibreSpace V (tailLv s Ts) (interp V ρ T))
-      (B := fun _ => (univ (Nat.max s (tailLv s Ts)) : V)) ?_ IsTy_piV ?_⟩
+      (B := fun _ => (univ (Nat.max s (tailLv s Ts)) : V)) (hS := hasSigmaPairs_const _ _)
+      ?_ IsTy_piV ?_⟩
     · rw [WellDenoted_app]
       exact ⟨trivial, h.2.1, appliesTo_of_mem_piR hps (IsTy_univ s) h.1⟩
     · rw [WellDenoted_lam]
       exact ⟨h.2.1, IsTy_of_mem_univ h.1, fun r hr => wd_sigChainAV (h.2.2 r hr)⟩
     · show SetTheory.app (psigmaV V s (tailLv s Ts)) (interp V ρ T) ∈ˢ _
       exact app_mem_piR_pos (Nat.succ_ne_zero _) hps h.1
-    · rw [interp_lam, lamV_congr fun r hr => interp_sigChainAV (h.2.2 r hr)]
+    · rw [interp_lam]
+      have heq := lamV_congr (interp_hasGraph_cons ρ (interp V ρ T) (sigChainAV s Ts Q))
+        (hasGraph_sigChainV s ρ T Ts Q) fun r hr => interp_sigChainAV (h.2.2 r hr)
+      rw [heq]
       exact sigChain_lam_mem h
 
 /-- A fitting spine satisfying `Q` inhabits the chain. -/
@@ -358,12 +431,12 @@ theorem sigChainV_inhabited :
     ∀ {ρ : Nat → V} {Ts : List Term} {Q : Term} {rs : List V}, ChainOk s ρ Ts Q →
       SpineFit ρ Ts rs → (pt : V) ∈ˢ interp V (consList rs ρ) Q →
       ∃ x, x ∈ˢ sigChainV s ρ Ts Q
-  | _, [], _, [], _, _, hq => ⟨pt, hq⟩
+  | _, [], _, [], _, _, hq => ⟨pt, by rw [sigChainV_nil]; exact hq⟩
   | _, [], _, _ :: _, _, hsp, _ => hsp.elim
   | _, _ :: _, _, [], _, hsp, _ => hsp.elim
   | ρ, T :: Ts, Q, r :: rs, h, hsp, hq => by
     obtain ⟨x, hx⟩ := sigChainV_inhabited (h.2.2 r hsp.1) hsp.2 hq
-    show ∃ y, y ∈ˢ sigmaSet s (interp V ρ T) fun r => sigChainV s (cons r ρ) Ts Q
+    rw [sigChainV_cons]
     by_cases hs : s = 0
     · subst hs
       have hr : r = pt := mem_univ_zero h.1 hsp.1
@@ -381,10 +454,12 @@ theorem mem_sigChainV :
         ∀ i, i < Ts.length → sfst (ssndN i x) = rs.getD i pt ∧
           ssndN i x ∈ˢ sigChainV s (consList (rs.take i) ρ) (Ts.drop i) Q
   | _, [], _, x, h, hx => by
+    rw [sigChainV_nil] at hx
     refine ⟨[], trivial, ?_, fun i hi => absurd hi (Nat.not_lt_zero _)⟩
     have : x = pt := eq_pt_of_mem_univZero h.1 hx
     rw [this] at hx; exact hx
   | ρ, T :: Ts, Q, x, h, hx => by
+    rw [sigChainV_cons] at hx
     obtain ⟨a, e, ha, he, hz, hpos⟩ := mem_sigma_elim hx
     obtain ⟨rs, hsp, hq, hproj⟩ := mem_sigChainV (h.2.2 a ha) he
     -- the second projection is the tail in both regimes
@@ -402,7 +477,10 @@ theorem mem_sigChainV :
       · rw [hpos hs, sfst_spair]
     refine ⟨a :: rs, ⟨ha, hsp⟩, hq, fun i hi => ?_⟩
     cases i with
-    | zero => exact ⟨hfst, hx⟩
+    | zero =>
+      refine ⟨hfst, ?_⟩
+      rw [List.take_zero, List.drop_zero, consList_nil, sigChainV_cons]
+      exact hx
     | succ i =>
       obtain ⟨h1, h2⟩ := hproj i (by simpa using hi)
       refine ⟨?_, ?_⟩
@@ -419,12 +497,14 @@ theorem wd_projChainAV :
       i < Ts.length → WellDenoted V ρ (projChainAV i e)
   | _, _, _, _, [], _, _, _, _, hi => absurd hi (Nat.not_lt_zero _)
   | 0, e, ρ, ρ', T :: Ts, Q, h, hx, hwe, _ => by
+    rw [sigChainV_cons] at hx
     show WellDenoted V ρ (.fst e)
     rw [WellDenoted_fst]
-    refine ⟨hwe, s, tailLv s Ts, interp V ρ' T, fun r => sigChainV s (cons r ρ') Ts Q, ?_, h.1,
-      fun r hr => sigChainV_tail_univ (h.2.2 r hr)⟩
+    refine ⟨hwe, s, tailLv s Ts, interp V ρ' T, fun r => sigChainV s (cons r ρ') Ts Q,
+      hasSigmaPairs_sigChainV s ρ' T Ts Q, ?_, h.1, fun r hr => sigChainV_tail_univ (h.2.2 r hr)⟩
     rw [max_tailLv]; exact hx
   | i + 1, e, ρ, ρ', T :: Ts, Q, h, hx, hwe, hi => by
+    rw [sigChainV_cons] at hx
     show WellDenoted V ρ (projChainAV i (.snd e))
     obtain ⟨a, e', ha, he', hz, hpos⟩ := mem_sigma_elim hx
     have hsnd : ssnd (interp V ρ e) = e' := by
@@ -438,14 +518,14 @@ theorem wd_projChainAV :
       rw [hsnd]; exact he'
     · show WellDenoted V ρ (.snd e)
       rw [WellDenoted_snd]
-      refine ⟨hwe, s, tailLv s Ts, interp V ρ' T, fun r => sigChainV s (cons r ρ') Ts Q, ?_, h.1,
-        fun r hr => sigChainV_tail_univ (h.2.2 r hr)⟩
+      refine ⟨hwe, s, tailLv s Ts, interp V ρ' T, fun r => sigChainV s (cons r ρ') Ts Q,
+        hasSigmaPairs_sigChainV s ρ' T Ts Q, ?_, h.1, fun r hr => sigChainV_tail_univ (h.2.2 r hr)⟩
       rw [max_tailLv]; exact hx
 
 /-- **The chosen element**: its value and grading, at an inhabited chain. -/
 theorem selChainAV_facts {ρ : Nat → V} {Ts : List Term} {Q : Term}
     (h : ChainOk s ρ Ts Q) (hne : ∃ x, x ∈ˢ sigChainV s ρ Ts Q) :
-    interp V ρ (selChainAV s Ts Q) = schoice (sigChainV s ρ Ts Q) ∧
+    interp V ρ (selChainAV s Ts Q) = SetTheory.app (univChoiceFn s) (sigChainV s ρ Ts Q) ∧
       WellDenoted V ρ (selChainAV s Ts Q) := by
   have hu := sigChainV_univ h
   have hchoice := choiceV_mem (V := V) s
@@ -463,7 +543,8 @@ theorem selChainAV_facts {ρ : Nat → V} {Ts : List Term} {Q : Term}
       exact appliesTo_of_mem_piV hchoice (IsTy_univ s) hu
     · show AppliesTo (SetTheory.app (choiceV V s) (interp V ρ (sigChainAV s Ts Q))) _
       rw [interp_sigChainAV h]
-      exact appliesTo_of_mem_piV (app_mem_piV hchoice hu) (IsTy_piR _ _ _)
+      exact appliesTo_of_mem_piV (app_mem_piV hchoice hu)
+        (by unfold dnegSpace; exact IsTy_piR _ _ _ _)
         (pt_mem_dnegSpace_of hne.choose_spec)
 
 /-- **THE KIT'S THEOREM**: at a formed, inhabited chain, the chosen
@@ -476,7 +557,8 @@ theorem sigChain_choice {ρ : Nat → V} {Ts : List Term} {Q : Term}
         interp V ρ (projChainAV i (selChainAV s Ts Q)) = rs.getD i pt ∧
         WellDenoted V ρ (projChainAV i (selChainAV s Ts Q)) := by
   obtain ⟨hv, hwd⟩ := selChainAV_facts h hne
-  have hsel : schoice (sigChainV s ρ Ts Q) ∈ˢ sigChainV s ρ Ts Q := schoice_mem hne.choose_spec
+  have hsel : SetTheory.app (univChoiceFn s) (sigChainV s ρ Ts Q) ∈ˢ sigChainV s ρ Ts Q :=
+    app_univChoiceFn_mem (sigChainV_univ h) hne
   obtain ⟨rs, hsp, hq, hproj⟩ := mem_sigChainV h hsel
   refine ⟨rs, hsp, hq, fun i hi => ⟨?_, ?_⟩⟩
   · rw [interp_projChainAV, hv]
@@ -957,12 +1039,81 @@ frame), the INDEX values and the MAJOR — i.e. the accumulated spine,
 not just the leaf frame.  `lamTowerA` is the semantic λ-tower with
 that accumulator. -/
 
-/-- The semantic λ-tower over binder domains, with the body a function of
-the ACCUMULATED spine and the leaf frame. -/
-noncomputable def lamTowerA :
-    (Nat → V) → List V → List Term → (List V → (Nat → V) → V) → V
-  | ρ, acc, [], g => g acc ρ
-  | ρ, acc, d :: ds, g => lamV (interp V ρ d) fun a => lamTowerA (cons a ρ) (acc ++ [a]) ds g
+noncomputable def revList {n : Nat} (xs : Fin n → V) : List V :=
+  List.ofFn fun i : Fin n => xs ⟨n - 1 - i.val, by omega⟩
+
+omit [SetTheory V] in
+theorem revList_zero (xs : Fin 0 → V) : revList (V := V) xs = [] := rfl
+
+omit [SetTheory V] in
+theorem revList_fcons {n : Nat} (a : V) (xs : Fin n → V) :
+    revList (fcons a xs) = revList xs ++ [a] := by
+  apply List.ext_getElem
+  · simp [revList]
+  · intro i h1 h2
+    simp only [revList, List.length_ofFn, List.length_append, List.length_singleton] at h1 h2
+    simp only [revList, List.getElem_ofFn]
+    by_cases hi : i < n
+    · rw [List.getElem_append_left (by simp [hi])]
+      simp only [List.getElem_ofFn]
+      rw [show (⟨n + 1 - 1 - i, by omega⟩ : Fin (n + 1)) = Fin.succ ⟨n - 1 - i, by omega⟩ from
+        Fin.ext (by dsimp; omega)]
+      rfl
+    · have hi' : i = n := by omega
+      subst hi'
+      rw [List.getElem_append_right (by simp)]
+      simp only [List.length_ofFn, Nat.sub_self, List.getElem_cons_zero]
+      rw [show (⟨i + 1 - 1 - i, by omega⟩ : Fin (i + 1)) = 0 from Fin.ext (by dsimp; omega)]
+      rfl
+
+theorem defFun_revList_shift {ρ0 : Nat → V} {g : List V → (Nat → V) → V}
+    {p n : Nat}
+    (hg : DefFun (p + (n + 1)) fun xs : Fin (p + (n + 1)) → V =>
+      g (revList xs) (prepend xs ρ0)) :
+    DefFun ((p + 1) + n) fun xs : Fin ((p + 1) + n) → V =>
+      g (revList xs) (prepend xs ρ0) := by
+  let castFn : Fin (p + (n + 1)) → Fin ((p + 1) + n) :=
+    fun i => ⟨i.val, by omega⟩
+  refine (hg.reIndex castFn).congr fun xs => ?_
+  have hrev : revList (fun i : Fin (p + (n + 1)) => xs (castFn i)) = revList xs := by
+    apply List.ext_getElem
+    · simp [revList]; omega
+    · intro i h1 h2
+      simp only [revList, List.getElem_ofFn, castFn]
+      congr 1; ext; simp
+  have hprep : prepend (fun i : Fin (p + (n + 1)) => xs (castFn i)) ρ0 = prepend xs ρ0 := by
+    funext j
+    by_cases hj : j < (p + 1) + n
+    · have hj' : j < p + (n + 1) := by omega
+      simp [prepend, hj, hj', castFn]
+    · have hj' : ¬ j < p + (n + 1) := by omega
+      simp [prepend, hj, hj', show j - (p + (n + 1)) = j - ((p + 1) + n) from by omega]
+  rw [hrev, hprep]
+
+/-- Parametric definable λ-tower accumulating binders over `Fin p → V`. -/
+noncomputable def lamTowerSub (ρ0 : Nat → V) (g : List V → (Nat → V) → V) :
+    ∀ (p : Nat) (ds : List Term),
+      DefFun (p + ds.length) (fun xs : Fin (p + ds.length) → V =>
+        g (revList xs) (prepend xs ρ0)) →
+      { F : (Fin p → V) → V // DefFun p F }
+  | _, [], hg =>
+    ⟨fun xs => g (revList xs) (prepend xs ρ0), hg⟩
+  | p, d :: ds, hg =>
+    let hg' := defFun_revList_shift hg
+    let sub := lamTowerSub ρ0 g (p + 1) ds hg'
+    let hA := interp_defFun_prepend ρ0 p d
+    let hB : DefFun (p + 1) fun v => sub.val (fcons (v 0) (ftail v)) :=
+      sub.property.congr fun v => congrArg sub.val (fcons_zero_ftail v).symm
+    ⟨fun xs => lamV (interp V (prepend xs ρ0) d)
+        (fun a => sub.val (fcons a xs))
+        (hasGraph_of_defFun1 (defFun1_fcons sub.property xs)),
+      DefFun.lamV_apply_curry hB hA⟩
+
+/-- The semantic λ-tower over binder domains, with a definable body in the
+accumulated spine and leaf frame. -/
+noncomputable def lamTowerA (ρ : Nat → V) (ds : List Term) (g : List V → (Nat → V) → V)
+    (hg : DefFun ds.length fun xs : Fin ds.length → V => g (revList xs) (prepend xs ρ)) : V :=
+  (lamTowerSub ρ g 0 ds ((Nat.zero_add ds.length).symm ▸ hg)).val Fin.elim0
 
 /-- `lamTowerA`'s walk premise: at every leaf frame reached the body is
 in the conclusion's reading, which is a type.  The type fact is what
@@ -979,32 +1130,55 @@ theorem towerWalkA_IsTy {C : Term} {g : List V → (Nat → V) → V} :
   | [], _, _, h => h.2
   | _ :: _, _, _, _ => IsTy_piV
 
+theorem lamTowerSub_mem {C : Term} {ρ0 : Nat → V} {g : List V → (Nat → V) → V} :
+    ∀ {ds : List Term} {p : Nat} (xs : Fin p → V)
+      {hg : DefFun (p + ds.length) fun w => g (revList w) (prepend w ρ0)},
+      TowerWalkA C g (prepend xs ρ0) (revList xs) ds →
+      (lamTowerSub ρ0 g p ds hg).val xs ∈ˢ interp V (prepend xs ρ0) (mkPisAV ds C)
+  | [], _, _, _, h => by unfold lamTowerSub; exact h.1
+  | d :: ds, _, xs, hg, h => by
+    unfold lamTowerSub
+    rw [mkPisAV, interp_pi]
+    refine lamV_mem (fun a ha => ?_) fun a ha => towerWalkA_IsTy (h a ha)
+    have hstep := lamTowerSub_mem (C := C) (ρ0 := ρ0) (g := g) (ds := ds)
+      (fcons a xs) (hg := defFun_revList_shift hg)
+      (by rw [prepend_fcons, revList_fcons]; exact h a ha)
+    rwa [prepend_fcons] at hstep
+
 /-- **The tower inhabits the Π-tower's reading** — `mem_type` of the
 candidate. -/
-theorem lamTowerA_mem {C : Term} {g : List V → (Nat → V) → V} :
-    ∀ {ds : List Term} {ρ : Nat → V} {acc : List V},
-      TowerWalkA C g ρ acc ds →
-      lamTowerA ρ acc ds g ∈ˢ interp V ρ (mkPisAV ds C)
-  | [], _, _, h => h.1
-  | d :: ds, ρ, acc, h => by
-    show lamV (interp V ρ d) (fun a => lamTowerA (cons a ρ) (acc ++ [a]) ds g)
-      ∈ˢ piV (interp V ρ d) fun a => interp V (cons a ρ) (mkPisAV ds C)
-    exact lamV_mem (fun a ha => lamTowerA_mem (h a ha)) fun a ha => towerWalkA_IsTy (h a ha)
+theorem lamTowerA_mem {C : Term} {ρ : Nat → V} {ds : List Term} {g : List V → (Nat → V) → V}
+    {hg : DefFun ds.length fun xs : Fin ds.length → V => g (revList xs) (prepend xs ρ)}
+    (h : TowerWalkA C g ρ [] ds) :
+    lamTowerA ρ ds g hg ∈ˢ interp V ρ (mkPisAV ds C) := by
+  unfold lamTowerA
+  exact lamTowerSub_mem (C := C) (ρ0 := ρ) (g := g) Fin.elim0
+    (by rw [prepend_zero, revList_zero]; exact h)
+
+theorem lamTowerSub_fold {ρ0 : Nat → V} {g : List V → (Nat → V) → V} :
+    ∀ {ds : List Term} {p : Nat} (xs : Fin p → V) {bs : List V}
+      {hg : DefFun (p + ds.length) fun w => g (revList w) (prepend w ρ0)},
+      SpineFit (prepend xs ρ0) ds bs →
+      bs.foldl SetTheory.app ((lamTowerSub ρ0 g p ds hg).val xs) =
+        g (revList xs ++ bs) (consList bs (prepend xs ρ0))
+  | [], _, xs, [], _, _ => by simp [lamTowerSub]
+  | [], _, _, _ :: _, _, hsp => hsp.elim
+  | _ :: _, _, _, [], _, hsp => hsp.elim
+  | d :: ds, p, xs, b :: bs, hg, hsp => by
+    simp only [lamTowerSub, List.foldl_cons]
+    rw [app_lamV hsp.1, lamTowerSub_fold (fcons b xs) (by rw [prepend_fcons]; exact hsp.2),
+      prepend_fcons, revList_fcons, List.append_assoc, List.singleton_append, consList_cons]
 
 /-- **The tower's fold along a fitting spine** — the ι law's left-hand
 side. -/
-theorem lamTowerA_fold {g : List V → (Nat → V) → V} :
-    ∀ {ds : List Term} {ρ : Nat → V} {acc bs : List V},
-      SpineFit ρ ds bs →
-      bs.foldl SetTheory.app (lamTowerA ρ acc ds g) = g (acc ++ bs) (consList bs ρ)
-  | [], _, acc, [], _ => by simp [lamTowerA]
-  | [], _, _, _ :: _, hsp => hsp.elim
-  | _ :: _, _, _, [], hsp => hsp.elim
-  | d :: ds, ρ, acc, b :: bs, hsp => by
-    show bs.foldl SetTheory.app (SetTheory.app (lamV (interp V ρ d)
-      fun a => lamTowerA (cons a ρ) (acc ++ [a]) ds g) b) = _
-    rw [app_lamV hsp.1, consList_cons, lamTowerA_fold hsp.2]
-    simp
+theorem lamTowerA_fold {ρ : Nat → V} {ds : List Term} {g : List V → (Nat → V) → V}
+    {hg : DefFun ds.length fun xs : Fin ds.length → V => g (revList xs) (prepend xs ρ)}
+    {bs : List V} (hsp : SpineFit ρ ds bs) :
+    bs.foldl SetTheory.app (lamTowerA ρ ds g hg) = g bs (consList bs ρ) := by
+  unfold lamTowerA
+  have h := lamTowerSub_fold (ρ0 := ρ) (g := g) Fin.elim0
+    (hg := (Nat.zero_add ds.length).symm ▸ hg) (by rw [prepend_zero]; exact hsp)
+  rwa [revList_zero, List.nil_append, prepend_zero] at h
 
 /-! ## The family: its ι equations, its leaf, and its facts -/
 
@@ -1268,8 +1442,7 @@ the base frame `ρ`: per PREFIX SPINE a `GraphRecKit` over the tagged
 union of the classes' ORDINARY carriers, with decodings in `R`, and the
 two readings the recursors' TYPES fix. -/
 structure GraphFamData (V : Type uv) [SetTheory V] (ℓ K : Nat) (rP : Nat → Nat)
-    (rds : Nat → List Term) (concl : Nat → Term) (ρ : Nat → V)
-    (R : Type uv) where
+    (rds : Nat → List Term) (concl : Nat → Term) (ρ : Nat → V) where
   /-- The classes' index sets, at a prefix frame. -/
   Is : List V → Nat → V
   /-- The classes' ORDINARY carriers. -/
@@ -1277,7 +1450,28 @@ structure GraphFamData (V : Type uv) [SetTheory V] (ℓ K : Nat) (rP : Nat → N
   /-- The index TUPLE of a class's index spine. -/
   tupOf : Nat → List V → V
   /-- The kit, one per prefix spine. -/
-  kit : ∀ xs : List V, GraphRecKit ℓ (unionSet K (Is xs) (Cr xs)) R
+  kit : ∀ xs : List V, GraphRecKit ℓ (unionSet K (Is xs) (Cr xs))
+  /-- Joint definability of `Is` in the prefix spine `xs`. -/
+  hIs_def : ∀ c, c < K → ∀ m, m < K → DefFun (rP c) fun xs : Fin (rP c) → V =>
+    Is (revList xs) m
+  /-- Joint definability of `Cr` in the prefix spine `xs`. -/
+  hCr_def : ∀ c, c < K → ∀ m, m < K → DefFun (rP c) fun xs : Fin (rP c) → V =>
+    Cr (revList xs) m
+  /-- Joint definability of `Dec`, `pred`, `B`, `st` in `xs` and `(u, d, g)`. -/
+  hDec_def : ∀ c, c < K → DefRel (rP c + 2) fun v =>
+    (kit (revList (ftail (ftail v)))).Dec (v 0) (v 1)
+  hpred_def : ∀ c, c < K → DefFun (rP c + 1) fun v =>
+    (kit (revList (ftail v))).pred (v 0)
+  hB_def : ∀ c, c < K → DefFun (rP c + 1) fun v =>
+    (kit (revList (ftail v))).B (v 0)
+  hst_def : ∀ c, c < K → DefFun (rP c + 2) fun v =>
+    (kit (revList (ftail (ftail v)))).st (v 0) (v 1)
+  /-- Definability of `tupOf` over a full spine `ys` of length `(rds c).length`. -/
+  htupOf_def : ∀ c, c < K →
+    DefFun (rds c).length fun vs : Fin (rds c).length → V =>
+      tupOf c (idxOf (rP c) (revList vs))
+  /-- Prefix length bound for `rec_c`'s type domains. -/
+  hrP_le : ∀ c, c < K → rP c ≤ (rds c).length
   /-- A fitting spine of `rec_c`'s type is `x⃗ ++ ı⃗ ++ [t]`, a major of
   class `c`. -/
   hsplit : ∀ c, c < K → ∀ ys, SpineFit ρ (rds c) ys →
@@ -1293,17 +1487,104 @@ structure GraphFamData (V : Type uv) [SetTheory V] (ℓ K : Nat) (rP : Nat → N
 section Cand
 
 variable {ℓ K : Nat} {rP : Nat → Nat} {rds : Nat → List Term}
-  {concl : Nat → Term} {ρ : Nat → V} {R : Type uv}
+  {concl : Nat → Term} {ρ : Nat → V}
+
+/-- Joint definability of `famCandG`'s leaf body across prefix `xs = prefOf (rP c) ys`
+and `(u, d, g)` via `ConLeche.SetTheory.DefFun.recAt_apply`. -/
+theorem GraphFamData.hrec_def (D : GraphFamData V ℓ K rP rds concl ρ) {c : Nat} (hc : c < K) :
+    DefFun (rds c).length fun vs : Fin (rds c).length → V =>
+      (D.kit (prefOf (rP c) (revList vs))).recAt
+        (tagged c (D.tupOf c (idxOf (rP c) (revList vs))) (majOf (revList vs))) := by
+  have hle : rP c ≤ (rds c).length := D.hrP_le c hc
+  let pf : Fin (rP c) → Fin (rds c).length := fun i => ⟨(rds c).length - rP c + i.val, by omega⟩
+  have hpref : ∀ vs : Fin (rds c).length → V,
+      prefOf (rP c) (revList vs) = revList (fun i => vs (pf i)) := by
+    intro vs
+    apply List.ext_getElem
+    · simp [prefOf, revList, Nat.min_eq_left hle]
+    · intro i _ h2
+      have hi : i < rP c := by simpa [revList] using h2
+      simp only [prefOf, List.getElem_take, revList, List.getElem_ofFn, pf]
+      congr 1; ext; dsimp; omega
+  let pf1 : Fin (rP c + 1) → Fin ((rds c).length + 1)
+    | ⟨0, _⟩ => 0
+    | ⟨i + 1, hi⟩ => (pf ⟨i, Nat.lt_of_succ_lt_succ hi⟩).succ
+  let pf2 : Fin (rP c + 2) → Fin ((rds c).length + 2)
+    | ⟨0, _⟩ => 0
+    | ⟨1, _⟩ => 1
+    | ⟨i + 2, hi⟩ => (pf ⟨i, Nat.lt_of_succ_lt_succ (Nat.lt_of_succ_lt_succ hi)⟩).succ.succ
+  have hftail1 : ∀ w : Fin ((rds c).length + 1) → V,
+      (fun i : Fin (rP c) => (fun j => w (pf1 j)) (Fin.succ i)) =
+        fun i : Fin (rP c) => ftail w (pf i) := fun _ => rfl
+  have hftail2 : ∀ w : Fin ((rds c).length + 2) → V,
+      (fun i : Fin (rP c) => (fun j => w (pf2 j)) (Fin.succ (Fin.succ i))) =
+        fun i : Fin (rP c) => ftail (ftail w) (pf i) := fun _ => rfl
+  have hU : DefFun (rds c).length fun vs =>
+      unionSet K (D.Is (revList fun i => vs (pf i))) (D.Cr (revList fun i => vs (pf i))) :=
+    DefFun.unionSet_apply K
+      (fun m hm => (D.hIs_def c hc m hm).reIndex pf)
+      (fun m hm => (D.hCr_def c hc m hm).reIndex pf)
+  have hDec : DefRel ((rds c).length + 2) fun w =>
+      (D.kit (revList fun i => ftail (ftail w) (pf i))).Dec (w 0) (w 1) :=
+    ((D.hDec_def c hc).reIndex pf2).congr fun w => by
+      change (D.kit (revList fun i => (fun j => w (pf2 j)) (Fin.succ (Fin.succ i)))).Dec
+        (w 0) (w 1) ↔ _
+      rw [hftail2]
+  have hpred : DefFun ((rds c).length + 1) fun w =>
+      (D.kit (revList fun i => ftail w (pf i))).pred (w 0) :=
+    ((D.hpred_def c hc).reIndex pf1).congr fun w => by
+      change (D.kit (revList fun i => (fun j => w (pf1 j)) (Fin.succ i))).pred (w 0) = _
+      rw [hftail1]
+  have hB : DefFun ((rds c).length + 1) fun w =>
+      (D.kit (revList fun i => ftail w (pf i))).B (w 0) :=
+    ((D.hB_def c hc).reIndex pf1).congr fun w => by
+      change (D.kit (revList fun i => (fun j => w (pf1 j)) (Fin.succ i))).B (w 0) = _
+      rw [hftail1]
+  have hst : DefFun ((rds c).length + 2) fun w =>
+      (D.kit (revList fun i => ftail (ftail w) (pf i))).st (w 0) (w 1) :=
+    ((D.hst_def c hc).reIndex pf2).congr fun w => by
+      change (D.kit (revList fun i => (fun j => w (pf2 j)) (Fin.succ (Fin.succ i)))).st
+        (w 0) (w 1) = _
+      rw [hftail2]
+  have hmaj : DefFun (rds c).length (fun vs : Fin (rds c).length → V => majOf (revList vs)) := by
+    cases hlen : (rds c).length with
+    | zero =>
+      refine (DefFun.pt (V := V)).congr fun vs => ?_
+      have hr : revList vs = [] := by simp [revList]
+      simp [majOf, hr]
+    | succ m =>
+      refine (DefFun.proj (V := V) (k := m + 1) ⟨0, by omega⟩).congr fun vs => ?_
+      have hr : (revList vs).reverse = List.ofFn fun i : Fin (m + 1) => vs i := by
+        apply List.ext_getElem
+        · simp [revList]
+        · intro i h1 h2
+          simp only [List.length_reverse, revList, List.length_ofFn] at h1 h2
+          rw [List.getElem_reverse]
+          simp only [revList, List.length_ofFn, List.getElem_ofFn]
+          congr 1; ext; dsimp; omega
+      unfold majOf
+      rw [hr]
+      simp [List.ofFn_succ]
+  have hRec := ConLeche.SetTheory.DefFun.recAt_apply
+    (K := fun vs => D.kit (revList fun i => vs (pf i)))
+    (M := fun vs => tagged c (D.tupOf c (idxOf (rP c) (revList vs))) (majOf (revList vs)))
+    hU hDec hpred hB hst (DefFun.tagged_apply c (D.htupOf_def c hc) hmaj)
+  refine hRec.congr fun vs => ?_
+  rw [hpref vs]
 
 /-- **The candidate at class `c`**: the λ-tower over the recursor
 type's binder domains whose body is the kit's recursor at the tagged
 major the spine names. -/
-noncomputable def famCandG (D : GraphFamData V ℓ K rP rds concl ρ R) (c : Nat) : V :=
-  lamTowerA ρ [] (rds c) fun ys _ =>
-    (D.kit (prefOf (rP c) ys)).recAt (tagged c (D.tupOf c (idxOf (rP c) ys)) (majOf ys))
+noncomputable def famCandG (D : GraphFamData V ℓ K rP rds concl ρ) (c : Nat) : V :=
+  if hc : c < K then
+    lamTowerA ρ (rds c)
+      (fun ys _ => (D.kit (prefOf (rP c) ys)).recAt
+        (tagged c (D.tupOf c (idxOf (rP c) ys)) (majOf ys)))
+      (D.hrec_def hc)
+  else pt
 
 /-- A fitting spine's tagged major is a major of the kit. -/
-theorem GraphFamData.mem_union (D : GraphFamData V ℓ K rP rds concl ρ R) {c : Nat}
+theorem GraphFamData.mem_union (D : GraphFamData V ℓ K rP rds concl ρ) {c : Nat}
     (hc : c < K) {ys : List V} (hsp : SpineFit ρ (rds c) ys) :
     tagged c (D.tupOf c (idxOf (rP c) ys)) (majOf ys)
       ∈ˢ unionSet K (D.Is (prefOf (rP c) ys)) (D.Cr (prefOf (rP c) ys)) := by
@@ -1312,8 +1593,9 @@ theorem GraphFamData.mem_union (D : GraphFamData V ℓ K rP rds concl ρ R) {c :
 
 /-- **`mem_type` of the candidate**, at every level: the kit's
 recursor lies in its bound, which is the conclusion's reading, a type. -/
-theorem famCandG_mem (D : GraphFamData V ℓ K rP rds concl ρ R) {c : Nat} (hc : c < K) :
+theorem famCandG_mem (D : GraphFamData V ℓ K rP rds concl ρ) {c : Nat} (hc : c < K) :
     famCandG D c ∈ˢ interp V ρ (mkPisAV (rds c) (concl c)) := by
+  rw [famCandG, dite_eq_left hc]
   refine lamTowerA_mem (towerWalkA_of_spines_body fun ys hsp => ?_)
   have hu := D.mem_union hc hsp
   have hB := (D.kit (prefOf (rP c) ys)).hB _ hu
@@ -1325,13 +1607,12 @@ theorem famCandG_mem (D : GraphFamData V ℓ K rP rds concl ρ R) {c : Nat} (hc 
 
 /-- **The candidate folds to the kit's recursor** along a fitting spine
 `x⃗ ++ ı⃗ ++ [t]` — at EVERY level: the tower's fold (`app_lamV`). -/
-theorem famCandG_fold (D : GraphFamData V ℓ K rP rds concl ρ R) {c : Nat}
+theorem famCandG_fold (D : GraphFamData V ℓ K rP rds concl ρ) {c : Nat} (hc : c < K)
     {xs is : List V} {t : V} (hx : xs.length = rP c)
     (hsp : SpineFit ρ (rds c) (xs ++ (is ++ [t]))) :
     (xs ++ (is ++ [t])).foldl SetTheory.app (famCandG D c)
       = (D.kit xs).recAt (tagged c (D.tupOf c is) t) := by
-  rw [famCandG, lamTowerA_fold hsp]
-  simp only [List.nil_append]
+  rw [famCandG, dite_eq_left hc, lamTowerA_fold hsp]
   rw [prefOf_split hx, idxOf_split hx, majOf_split]
 
 variable {RecTy : Nat → Term} {nCt : Nat → Nat} {pdoms : Nat → List Term}
@@ -1350,8 +1631,8 @@ variable {RecTy : Nat → Term} {nCt : Nat → Nat} {pdoms : Nat → List Term}
   `ih` terms' values.
 
 The ι law is `GraphRecKit.rec_eq` at the rule's own decoding. -/
-theorem famCandG_hCand (D : GraphFamData V ℓ K rP rds concl ρ R)
-    (dOf : List V → Nat → Nat → List V → R)
+theorem famCandG_hCand (D : GraphFamData V ℓ K rP rds concl ρ)
+    (dOf : List V → Nat → Nat → List V → V)
     (hTy : ∀ c, c < K → RecTy c = mkPisAV (rds c) (concl c))
     (hpl : ∀ c, c < K → (pdoms c).length = rP c)
     (hrule : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
@@ -1373,7 +1654,8 @@ theorem famCandG_hCand (D : GraphFamData V ℓ K rP rds concl ρ R)
       xs.length = (pdoms c).length →
       SpineFit (chainFrame K (famCandG D) ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
       (D.kit xs).st (dOf xs c j fs)
-          (graph (fun v => (D.kit xs).recAt v) ((D.kit xs).pred (dOf xs c j fs)))
+          (graph (fun v => (D.kit xs).recAt v) ((D.kit xs).pred (dOf xs c j fs))
+            ((D.kit xs).hasGraph_recAt _))
         = interp V
             (consList ((ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K (famCandG D) ρ))))
               (consList (xs ++ fs) (chainFrame K (famCandG D) ρ))) (Rb c j)) :
@@ -1386,7 +1668,7 @@ theorem famCandG_hCand (D : GraphFamData V ℓ K rP rds concl ρ R)
   · have hxr : xs.length = rP c := by rw [hxl, hpl c hc]
     have hfit := hrule c hc j hj xs fs hxl hsp
     simp only [List.map_append, List.map_cons, List.map_nil]
-    rw [famCandG_fold D hxr hfit]
+    rw [famCandG_fold D hc hxr hfit]
     have hu := D.mem_union hc hfit
     rw [prefOf_split hxr, idxOf_split hxr, majOf_split] at hu
     rw [(D.kit xs).rec_eq hu (hdec c hc j hj xs fs hxl hsp)]

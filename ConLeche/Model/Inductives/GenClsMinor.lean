@@ -494,8 +494,8 @@ theorem mkLamsAV_eq_pt {C : Term} :
       (∀ zs, SpineFit ρ lds zs → interp V (consList zs ρ) C = pt) →
       interp V ρ (mkLamsAV lds C) = pt
   | [], _, h => h [] trivial
-  | A :: _, ρ, h => by
-    show lamV (interp V ρ A) (fun x => interp V (cons x ρ) (mkLamsAV _ C)) = pt
+  | A :: lds', ρ, h => by
+    rw [mkLamsAV, interp_lam]
     exact lamV_eq_pt fun x hx => mkLamsAV_eq_pt fun zs hzs => h (x :: zs) ⟨hx, hzs⟩
 
 section Minor
@@ -762,7 +762,7 @@ theorem genCls_minor
     show consList fs (consList xs ρ) _ = _
     rw [← consList_append, show R.g.pre.length + x.nF - 1 - (R.g.nP + sc)
       = fs.length + xs.length - 1 - (R.g.nP + sc) by omega,
-      consList_prefix_getD (by omega)]
+      Nat.sub_zero, consList_prefix_getD (by omega)]
     simp [classMotPos, hmc]
   rw [hhd, hvsE] at happ hty
   rw [hEs, hMk, consList_append]
@@ -985,7 +985,7 @@ theorem genMinor_pt
     have htl : (zs.take x.nF).length = x.nF := by simp [hzl]
     rw [← consList_append, show R.g.pre.length + x.nF - 1 - (R.g.nP + sc)
       = (zs.take x.nF).length + xs.length - 1 - (R.g.nP + sc) by omega,
-      consList_prefix_getD (by omega)]
+      Nat.sub_zero, consList_prefix_getD (by omega)]
   have hval : interp V (consList zs (consList xs ρ)) ((Term.mkAppN (.bvar
         (R.g.pre.length + x.nF - 1 - (R.g.nP + sc))) vs).liftN x.recs.length 0)
       = (vs.map (interp V (consList (zs.take x.nF) (consList xs ρ)))).foldl SetTheory.app

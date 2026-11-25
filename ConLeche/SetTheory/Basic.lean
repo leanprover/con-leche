@@ -12,14 +12,15 @@ The set theory in which the checker's soundness model lives.  All
 consistency proofs are parametric in a type `V` carrying a `SetTheory`
 instance, so the final result reads:
 
-> Assuming Tarski–Grothendieck set theory has a model, every environment
-> accepted by the checker has a model; in particular no proof of `Empty`
-> is ever accepted.
+> Assuming ZFC + countably many Grothendieck universes has a model, every
+> environment accepted by the checker has a model; in particular no proof
+> of `Empty` is ever accepted.
 
-The axiomatic content is exactly the `SetTheory` class of
-`ConLeche/SetTheory/Core.lean`: membership, extensionality, pairing,
-union, power set, regularity, Lean-level replacement, and Tarski's
-Axiom A with a transitivity clause.  The instance existence is the
+The axiomatic content is strictly first-order in the `SetTheory` class
+of `ConLeche/SetTheory/Core.lean`: membership, extensionality, pairing,
+union, power set, regularity, the first-order replacement schema over
+`Formula`, Jech's internal Axiom of Choice, and an ω-indexed Grothendieck
+universe tower (`IsGrothendieck`).  The instance existence is the
 "extra assumption for cardinality reasons" mentioned in the design:
 inside Lean one can construct such a `V` from `ZFSet`-style
 constructions plus universe assumptions (cf. lean4lean-model), but the
@@ -28,11 +29,11 @@ checker's verification does not depend on how `V` is obtained.
 Every operator and law the model construction consumes — `pi`, `lam`,
 `app`, the universe tower `univ`, the proof point `pt`, `eqv`,
 `unitSet`, `omega` with `natrec`, `sigmaSet` with its projections,
-quotients, `prop_ext`, the global selector `schoice` — is a
-`noncomputable def`/`theorem` in the `SetTheory` namespace, *derived*
-from the class in `ConLeche/SetTheory/Derive/*` (which see for each
-operator's realization and its documentation).  Importing this module
-provides the whole surface.
+quotients, `prop_ext`, the universe choice functions `univChoiceFn` /
+`piSet_choose` — is a `noncomputable def`/`theorem` in the `SetTheory`
+namespace, *derived* from the class in `ConLeche/SetTheory/Derive/*`
+(which see for each operator's realization and its documentation).
+Importing this module provides the whole surface.
 
 Most interface names coincide with the derivation's own names and are
 re-exported by the imports above; this file supplies the remaining
@@ -63,6 +64,13 @@ noncomputable def natzero : V := empty
 
 /-- The model of `Nat.succ`: the von Neumann successor. -/
 noncomputable def natsucc : V → V := vsucc
+
+theorem DefFun.natzero {k : Nat} : DefFun k fun _ => (natzero : V) :=
+  DefFun.empty
+
+theorem DefFun.natsucc_apply {k : Nat} {A : (Fin k → V) → V} (hA : DefFun k A) :
+    DefFun k fun env => natsucc (A env) :=
+  DefFun.vsucc_apply hA
 
 theorem natzero_mem : (natzero : V) ∈ˢ omega := empty_mem_omega
 

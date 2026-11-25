@@ -58,11 +58,14 @@ theorem eq_of_mem_mkPisAV_pos {B : Term} :
       (∀ bs, SpineFit ρ ab bs → bs.foldl app f = bs.foldl app g) → f = g
   | [], _, _, _, _, _, h => h [] trivial
   | d :: ab, ρ, f, g, hf, hg, h => by
-    have hf' : f ∈ˢ piV (interp V ρ d) fun x => interp V (cons x ρ) (mkPisAV ab B) := hf
-    have hg' : g ∈ˢ piV (interp V ρ d) fun x => interp V (cons x ρ) (mkPisAV ab B) := hg
+    have hf' := hf
+    have hg' := hg
+    change f ∈ˢ interp V ρ (.pi d (mkPisAV ab B)) at hf'
+    change g ∈ˢ interp V ρ (.pi d (mkPisAV ab B)) at hg'
+    rw [interp_pi] at hf' hg'
     unfold piV at hf' hg'
     rw [← lamR_eta hf', ← lamR_eta hg']
-    refine lamR_congr fun a ha => ?_
+    refine lamR_congr (hasGraph_app f _) (hasGraph_app g _) fun a ha => ?_
     have hfa : app f a ∈ˢ interp V (cons a ρ) (mkPisAV ab B) :=
       app_mem_piR hf' ha fun h0 => propN_eq_zero.mp h0
     have hga : app g a ∈ˢ interp V (cons a ρ) (mkPisAV ab B) :=
@@ -111,7 +114,7 @@ theorem former_app_eq (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfp
   -- the hole value inhabits the same index tower
   have hgm : D.holeVal ψ ρp (D.carrier ψ ρp) mm
       ∈ˢ interp V ρp (mkPisAV (ab.drop (D.pars mm ψ).length) (.sort (D.w ψ))) :=
-    LfpDatum.holeVal_mem h.kN (lfpTuple_mem _ _ _ _).toU hmm hmap₂
+    LfpDatum.holeVal_mem h.kN (lfpTuple_mem _ _ _ _ (D.hΦ ψ ρp)).toU hmm hmap₂
   -- they agree on every fitting index spine: the leaf, `holeVal_app`
   have heq := eq_of_mem_mkPisAV_pos hf₂ hgm fun is' his' => by
     rw [hmap₂] at his'

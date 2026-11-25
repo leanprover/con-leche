@@ -348,8 +348,10 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
     {is : List V} (his : SpineFit ρp (d.IdsM m ψ) is) :
     (frameIdx d.nP ρp ++ is).foldl app (interp V (shiftE d.nP 0 ρp) (A m ψ))
-      = sumSet (d.w ψ) (sumFibre (d.w ψ) (consList is ρp)
-          (rChains (d.IdsM m ψ).length (d.IdsM m ψ).length (d.Fss m ψ) (d.Ess m ψ))) := by
+      = sumSet (d.w ψ)
+          (rChains (d.IdsM m ψ).length (d.IdsM m ψ).length (d.Fss m ψ) (d.Ess m ψ)).length
+          (sumFibre (d.w ψ) (consList is ρp)
+            (rChains (d.IdsM m ψ).length (d.IdsM m ψ).length (d.Fss m ψ) (d.Ess m ψ))) := by
   classical
   have hNk : d.N = d.k := by simp [BlockData.N, hinst]
   have hmN : m < d.N := by rw [hNk]; exact hm
@@ -376,7 +378,8 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
           (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) m) (tupW (d.uM m ψ) is)
       = app (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ) m) (tupW (d.uM m ψ) is) :=
-    app_lfpTuple_eq (hacc.closed (blockPhi_maps_of hok)) hacc.mono (blockPhi_maps_of hok) hm ht
+    app_lfpTuple_eq (hacc.closed (hΦ := defTupleOp_blockPhiG _ _ _ _ _ _) (blockPhi_maps_of hok))
+      hacc.mono (blockPhi_maps_of hok) hm ht
   have hop : ∀ X, blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
       (d.toLfp.holeChains ψ) X = d.toLfp.holeOp ψ ρp X := by
     intro X
@@ -419,7 +422,8 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
       rfl
   apply SetTheory.ext
   intro x
-  rw [LfpDatum.holeOp_fibre hHT hkN _ hres ht x, hrc, sumSet_termChs_mem_iff]
+  rw [LfpDatum.holeOp_fibre hHT hkN _ hres ht x, hrc, List.length_map, List.length_range,
+    sumSet_termChs_mem_iff]
   simp only [List.length_map]
   refine exists_congr fun j => exists_congr fun fs => ?_
   by_cases hj : j < (d.ctorsM m).length
@@ -523,8 +527,9 @@ theorem blockHoleFold_params (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
     {ρ : Nat → V} {ts : List V} (hsp : SpineFit ρ (d.ppsM m ψ) ts) :
     ts.foldl app (interp V ρ (A m ψ))
-      = sumSet (d.w ψ) (sumFibre (d.w ψ) (consList ts ρ)
-          (rChains 0 0 (d.Fss m ψ) (d.Ess m ψ))) := by
+      = sumSet (d.w ψ) (rChains 0 0 (d.Fss m ψ) (d.Ess m ψ)).length
+          (sumFibre (d.w ψ) (consList ts ρ)
+            (rChains 0 0 (d.Fss m ψ) (d.Ess m ψ))) := by
   have hlenP : (d.ppsM m ψ).length = d.nP := by rw [hlenPps m hm, hIds0]; rfl
   have hlenT : ts.length = d.nP := by rw [hsp.length_eq, hlenP]
   have hpars : d.toLfp.pars m ψ = d.ppsM m ψ := by

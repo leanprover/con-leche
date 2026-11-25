@@ -23,7 +23,11 @@ imports this file.
 
 Hence an accepted input is not a proof of a contradiction, and more: every statement it proves
 is true in the model.  Where the input declares Lean's `False`, a constant of type `False` would
-be a member of the empty set; the `…_no_False` theorems say so where the model alone does not.
+be a member of the empty set; the `…_no_False` theorems say so directly under `ModelExists` (the
+consistency / non-vacuity assumption that a model of `SetTheory` exists: because `SetTheory` is
+strictly first-order, model existence is essentially the consistency of `ZFC⁻` + an ω-chain of
+Grothendieck universes, needed so both the `∀ V [SetTheory V]` model statements and the
+`…_no_False` corollaries are non-vacuous).
 
 ## What is specification, and what is a hole
 
@@ -114,9 +118,11 @@ theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b 
   sorry
 
 open Frontend in
-/-- **No accepted file declares a theorem of type `False`**: no exit 0 of `-- <file>` reads a
-`jsonWithTheoremFalse` file. -/
-theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+/-- **No accepted file declares a theorem of type `False`**: assuming `ModelExists` — i.e., that
+our first-order set theory (`ZFC⁻` + an ω-chain of Grothendieck universes) has a model, which is
+essentially its consistency and is needed so the statement is non-vacuous — no exit 0 of
+`-- <file>` reads a `jsonWithTheoremFalse` file. -/
+theorem main_no_False (hM : ModelExists.{w}) {file : String} {fs : FS} {b : ByteArray}
     (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
     (hF : jsonWithTheoremFalse [b]) : False :=
   sorry
@@ -240,11 +246,12 @@ theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {
   sorry
 
 open Frontend in
-/-- **No accepted modular comparison's challenge module holds a constant of type `False`**: no
-snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` in
-the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
+/-- **No accepted modular comparison's challenge module holds a constant of type `False`**:
+assuming `ModelExists` (essentially the consistency / non-vacuity of our first-order set theory),
+no snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False`
+in the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
 through its solution too, which the family of `main_modular_compare` does not. -/
-theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
+theorem main_modular_compare_no_False (hM : ModelExists.{w}) {T D c s : String}
     {C S : Name} {fs : FS} {ci : ConstantInfo}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",

@@ -164,10 +164,10 @@ theorem acc_of_whnf {mp : EnvModelM V env}
   have hw' : ConLeche.whnf .verified false env F dep e = .ok wt := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
     red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
-  obtain ⟨⟨hTR, ⟨A, hA, hsz, hinv⟩, hout⟩, hok⟩ := kont hfrw (hC.of_subset hsub)
+  obtain ⟨⟨hTR, ⟨A, hA, hsz, hinv, hdef⟩, hout⟩, hok⟩ := kont hfrw (hC.of_subset hsub)
     (ConLeche.whnf_fvarLeaves mp.base2.wf F hw') wa hwa hgw heq
   exact ⟨⟨fun hw => PtOn.of_eqOn (P := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ) (hTR hw),
-    ⟨A, AccOn.of_eqOn (P := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ) hA, hsz, hinv⟩, hout⟩,
+    ⟨A, AccOn.of_eqOn (P := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ) hA, hsz, hinv, hdef⟩, hout⟩,
     hok.congr_read fun ρ hρ => (heq ρ hρ).symm⟩
 
 /-! ## The frame -/
@@ -340,7 +340,8 @@ theorem posD_acc (mp : EnvModelM V env)
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw _ hlw wa hwa _ heq => ?_
     have hco : ConstOn R wa := ConstOn.of_noBVar hR.agree
       (denote_noBVar_of_nestOcc dep wt hfrw.1 hhi hocc hwa)
-    refine ⟨⟨fun _ => hco.ptOn, ⟨_, hco.accOn, SizeOn.const (empty_mem_tg w), InvOn.const _ _⟩, ?_⟩, ?_⟩
+    refine ⟨⟨fun _ => hco.ptOn, ⟨_, hco.accOn, SizeOn.const (empty_mem_tg w), InvOn.const _ _,
+      DefBound.const dep empty⟩, ?_⟩, ?_⟩
     · split
       · exact (outMent_self dep wt).trans hlw
       · exact outMent_self dep e
@@ -362,7 +363,7 @@ theorem posD_acc (mp : EnvModelM V env)
     have hA : ConstOn R ta := ConstOn.of_noBVar hR.agree hholes
     obtain ⟨hgAT, hgB⟩ := WellDenoted.hoist_piTy' (V := V) hgw.graded
     have hCop := CtxOkP.openS hCw.forallE_ty hCw.forallE_body hta hgAT
-    obtain ⟨⟨hTRb, ⟨Ab, hAb, hszb, hinvb⟩, houtb⟩, hokb⟩ := ihb hcovk (by omega)
+    obtain ⟨⟨hTRb, ⟨Ab, hAb, hszb, hinvb, hdefb⟩, houtb⟩, hokb⟩ := ihb hcovk (by omega)
       (frame_open2 hws.1 hbb.1 hws.2 hbb.2 hLa hLbd) hCop hba hgB
       (hR.underBoth hhi ta)
     have hout : OutMent dep e (.forallE a (nb.abstract1 dep 0)) := by
@@ -409,7 +410,8 @@ theorem posD_acc (mp : EnvModelM V env)
           simp only [ConLeche.Expr.nestOcc, Bool.or_eq_false_iff] at hs
           exact hs.1) hta)) (InvOn.mono hinvb fun i hi => mentP_body i hi)
     have hAb' := AccOn.congrQ (fun i n => (shiftQ_holeQ hhi i n).symm) hAb
-    exact ⟨_, AccOn.pi hA hAb' hT hTRb, SizeOn.pi hA hszb, hinvP⟩
+    exact ⟨_, AccOn.pi hA (finQ_holeQ ctx prog dep) hR.defRel hdefb hAb' hT hTRb, SizeOn.pi hA hszb,
+      hinvP, DefBound.piBound ta hdefb⟩
   | @hole prog dep kb e wt i ty hw' hocc hfn hlo hhi' hlen hfree =>
     intro _ hhi hfr Δa ea R hC hea hgr hR
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw _ hlw wa hwa _ _ => ?_
@@ -429,8 +431,9 @@ theorem posD_acc (mp : EnvModelM V env)
       refine Or.inl ⟨i - ctx.nP, ?_, ?_, by omega, by rw [← hlenv, hlen]⟩
       · simp only [NestCtx.hiAt] at hhi'; omega
       · simp only [NestCtx.hiAt] at hhi' hhi; omega
-    refine ⟨⟨fun hw => PtOn.holeApp (hR.ptFree hw) hQ, ⟨_, AccOn.holeApp hQ hvs,
-      SizeOn.const (unitSet_mem_tg w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
+    refine ⟨⟨fun hw => PtOn.holeApp (hR.ptFree hw) hQ, ⟨_, AccOn.holeApp hQ hvs hR.ptHit,
+      SizeOn.const (unitSet_mem_tg w), InvOn.const _ _, DefBound.const dep unitSet⟩,
+      (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, fun hk => ?_, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
     split at hk <;> cases hk
   | @frameHole prog dep kb e wt i ty h hw' hocc hfn hlo hhi' hk hfree har =>
@@ -451,8 +454,9 @@ theorem posD_acc (mp : EnvModelM V env)
     have hQ : HoleQ ctx prog dep (dep - 1 - i) vs.length := by
       refine Or.inr ⟨i - ctx.hiAt 0, h, hk, by omega, by omega, ?_⟩
       rw [← hlenv, har]
-    exact ⟨⟨fun hw => PtOn.holeApp (hR.ptFree hw) hQ, ⟨_, AccOn.holeApp hQ hvs,
-      SizeOn.const (unitSet_mem_tg w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
+    exact ⟨⟨fun hw => PtOn.holeApp (hR.ptFree hw) hQ, ⟨_, AccOn.holeApp hQ hvs hR.ptHit,
+      SizeOn.const (unitSet_mem_tg w), InvOn.const _ _, DefBound.const dep unitSet⟩,
+      (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, nofun, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
   | @contNew prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx hds _
       hnI hhead _ hfrD ihf =>
@@ -569,7 +573,7 @@ theorem posD_acc (mp : EnvModelM V env)
     have hLa : Expr.LeavesBounded a := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
     have hLbd : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
     obtain ⟨hgAT, hgB⟩ := WellDenoted.hoist_piTy' (V := V) hgr.graded
-    obtain ⟨⟨-, ⟨Af, hAf, hszf, hinvf⟩, -⟩, hokf⟩ :=
+    obtain ⟨⟨-, ⟨Af, hAf, hszf, hinvf, hdeff⟩, -⟩, hokf⟩ :=
       iha (fun hk => hcovk ⟨k, List.mem_cons_self, hk⟩) hhi ⟨hws.1, hbb.1, hLa⟩ hC.forallE_ty hta
         hgAT hR
     have hCop := CtxOkP.openS hC.forallE_ty hC.forallE_body hta hgAT
@@ -582,7 +586,7 @@ theorem posD_acc (mp : EnvModelM V env)
     rw [show base + (j + 1) + nF = base + j + (nF + 1) by omega,
       show base + (j + 1) = base + j + 1 by omega] at hPi
     rw [show base + (j + 1) = base + j + 1 by omega] at hO
-    exact ⟨⟨⟨Af, hAf, hszf, hinvf⟩, hPi⟩, hokf, hO⟩
+    exact ⟨⟨⟨Af, hAf, hszf, hinvf, hdeff⟩, hPi⟩, hokf, hO⟩
   | seed => trivial
 
 /-! ## The member constructor -/

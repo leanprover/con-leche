@@ -132,15 +132,17 @@ theorem eqTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
 theorem eqTy_interp (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (eqTy ψ)
       = piV (univ (ψ uN) : V)
-          (fun a => piV a (fun _ => piV a (fun _ => univZero))) := by
+          (fun a => piV a (fun _ => piV a (fun _ => univZero) (hasSigmaPairs_const _ _))
+            (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+            (DefFun.proj 0)
+            (DefFun.piV_apply_curry (DefFun.proj 1) (DefFun.const univZero)))) := by
   rw [eqTy, interp_pi, interp_sort]
-  refine piV_congr fun a _ => ?_
+  refine piV_congr _ _ fun a _ => ?_
   rw [interp_pi]
-  simp only [interp_bvar, cons]
-  refine piV_congr fun x _ => ?_
+  refine piV_ext (by simp [interp_bvar, cons]) _ _ fun x _ => ?_
   rw [interp_pi]
-  simp only [interp_bvar, interp_sort, cons]
-  exact piV_congr fun _ _ => univ_zero
+  exact piV_ext (by simp [interp_bvar, cons]) _ _ fun _ _ => by simp [interp_sort, univ_zero]
 
 /-- **`Eq.refl`'s type reading.**  Stated at *any* extension whose
 cons is not `Eq`, because `Eq.rec`'s row reads it as its fired
@@ -169,7 +171,11 @@ theorem denote_eqReflTy {c₀ : ConstantInfo} (ψ : Name → Nat)
 theorem eqReflTy_data (ψ : Name → Nat) (ρ : Nat → V) :
     WellDenoted V ρ (eqReflTy ψ) ∧
       interp V ρ (eqReflTy ψ)
-        = piV (univ (ψ uN) : V) (fun a => piV a (fun x => eqv x x)) := by
+        = piV (univ (ψ uN) : V)
+            (fun a => piV a (fun x => eqv x x)
+              (hasSigmaPairs_of_defFun1 (DefFun.eqv_apply (DefFun.proj 0) (DefFun.proj 0))))
+            (hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+              (DefFun.proj 0) (DefFun.eqv_apply (DefFun.proj 0) (DefFun.proj 0)))) := by
   have hstep : ∀ Aset x : V, Aset ∈ˢ (univ (ψ uN) : V) → x ∈ˢ Aset →
       interp V (cons x (cons Aset ρ)) (eqSpine ψ 1 0 0) = eqv x x ∧
       WellDenoted V (cons x (cons Aset ρ)) (eqSpine ψ 1 0 0) ∧
@@ -195,10 +201,9 @@ theorem eqReflTy_data (ψ : Name → Nat) (ρ : Nat → V) :
     case _ => exact hlev.1
     case _ => exact hlev.2
   · rw [eqReflTy, interp_pi, interp_sort]
-    refine piV_congr fun Aset hAset => ?_
+    refine piV_congr _ _ fun Aset hAset => ?_
     rw [interp_pi]
-    simp only [interp_bvar, cons]
-    exact piV_congr fun x hx => (hstep Aset x hAset hx).1
+    exact piV_ext (by simp [interp_bvar, cons]) _ _ fun x hx => (hstep Aset x hAset hx).1
 
 /-! ### The two installs -/
 
@@ -318,7 +323,16 @@ def eqRecRa (ψ : Name → Nat) : Term :=
 /-- The motive space: `∀ b, a = b → Sort u₁`. -/
 noncomputable def eqRecMotiveSpace (V : Type w) [SetTheory V]
     (u1 : Nat) (Aset a : V) : V :=
-  piV Aset fun b => piV (eqv a b) fun _ => (univ u1 : V)
+  piV Aset (fun b => piV (eqv a b) (fun _ => (univ u1 : V)) (hasSigmaPairs_const _ _))
+    (hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+      (DefFun.eqv_apply (DefFun.const a) (DefFun.proj 0)) (DefFun.const (univ u1))))
+
+theorem defFun_eqRecMotiveSpace (u1 : Nat) {k : Nat} {A f : (Fin k → V) → V}
+    (hA : DefFun k A) (hf : DefFun k f) :
+    DefFun k fun xs => eqRecMotiveSpace V u1 (A xs) (f xs) :=
+  DefFun.piV_apply_curry hA
+    (DefFun.piV_apply_curry
+      (DefFun.eqv_apply (hf.reIndex Fin.succ) (DefFun.proj 0)) (DefFun.const (univ u1)))
 
 theorem eqRecMotiveTy_data {ψ : Name → Nat} {Aset a : V}
     (ρ : Nat → V) (hA : Aset ∈ˢ (univ (ψ uN) : V)) (ha : a ∈ˢ Aset) :
@@ -336,10 +350,10 @@ theorem eqRecMotiveTy_data {ψ : Name → Nat} {Aset a : V}
   have hdom : interp V (cons a (cons Aset ρ)) (Term.bvar 1)
       = Aset := by simp [interp_bvar, cons]
   refine ⟨?_, ?_⟩
-  · rw [eqRecMotiveTy, interp_pi, eqRecMotiveSpace, hdom]
-    refine piV_congr fun b hb => ?_
-    rw [interp_pi, (hsp b hb).1]
-    exact piV_congr fun _ _ => interp_sort V _ _
+  · rw [eqRecMotiveTy, interp_pi, eqRecMotiveSpace]
+    refine piV_ext hdom _ _ fun b hb => ?_
+    rw [interp_pi]
+    exact piV_ext (hsp b (hdom ▸ hb)).1 _ _ fun _ _ => interp_sort V _ _
   · refine ⟨⟨trivial, by rw [hdom]; exact IsTy_of_mem_univ hA, fun b hb => ?_,
         fun _ _ => IsTy_piV⟩, IsTy_piV⟩
     rw [hdom] at hb
@@ -355,9 +369,11 @@ theorem eqRecMinorTy_data {ψ : Name → Nat} {Aset a M : V}
       app (app M a) pt ∈ˢ (univ (ψ u1N) : V) := by
   obtain ⟨hrint, hrok⟩ := eqReflSpine_data (ψ := ψ) (i := 2) (j := 1)
     (ρ := cons M (cons a (cons Aset ρ)))
-  have hM0 : M ∈ˢ piV Aset (fun b => piV (eqv a b)
-      fun _ => (univ (ψ u1N) : V)) := hM
-  have hMa : app M a ∈ˢ piV (eqv a a) fun _ => (univ (ψ u1N) : V) :=
+  have hM0 : M ∈ˢ piV Aset
+      (fun b => piV (eqv a b) (fun _ => (univ (ψ u1N) : V)) (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+        (DefFun.eqv_apply (DefFun.const a) (DefFun.proj 0)) (DefFun.const (univ (ψ u1N))))) := hM
+  have hMa : app M a ∈ˢ piV (eqv a a) (fun _ => (univ (ψ u1N) : V)) (hasSigmaPairs_const _ _) :=
     app_mem_piV hM0 ha
   have hMap : app (app M a) pt ∈ˢ (univ (ψ u1N) : V) :=
     app_mem_piV hMa (pt_mem_eqv_self a)
@@ -406,6 +422,55 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
     WellDenoted V ρ (eqRecRaTower ψ) ∧
       interp V ρ (eqRecRaTower ψ)
         ∈ˢ interp V ρ (eqRecTy ψ) := by
+  have hs_h : ∀ (Aset a M bb : V), HasSigmaPairs (eqv a bb) (fun h => app (app M bb) h) :=
+    fun _ _ M bb => hasSigmaPairs_of_defFun1
+      (DefFun.app_apply (DefFun.const (app M bb)) (DefFun.proj 0))
+  have hs_bb : ∀ (Aset a M : V), HasSigmaPairs Aset
+      (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb)) :=
+    fun _ a M => hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+      (DefFun.eqv_apply (DefFun.const a) (DefFun.proj 0))
+      (DefFun.app_apply (DefFun.app_apply (DefFun.const M) (DefFun.proj 1)) (DefFun.proj 0)))
+  have hs_M : ∀ (Aset a : V), HasSigmaPairs (eqRecMotiveSpace V (ψ u1N) Aset a)
+      (fun M => piV (app (app M a) pt) (fun _ => piV Aset
+        (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+        (hs_bb Aset a M)) (hasSigmaPairs_const _ _)) :=
+    fun Aset a => hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+      (DefFun.app_apply (DefFun.app_apply (DefFun.proj 0) (DefFun.const a)) (DefFun.const pt))
+      (DefFun.piV_apply_curry
+        (DefFun.const Aset)
+        (DefFun.piV_apply_curry
+          (DefFun.eqv_apply (DefFun.const a) (DefFun.proj 0))
+          (DefFun.app_apply (DefFun.app_apply (DefFun.proj 3) (DefFun.proj 1)) (DefFun.proj 0)))))
+  have hs_a : ∀ (Aset : V), HasSigmaPairs Aset
+      (fun a => piV (eqRecMotiveSpace V (ψ u1N) Aset a)
+        (fun M => piV (app (app M a) pt) (fun _ => piV Aset
+          (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+          (hs_bb Aset a M)) (hasSigmaPairs_const _ _)) (hs_M Aset a)) :=
+    fun Aset => hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+      (defFun_eqRecMotiveSpace (ψ u1N) (DefFun.const Aset) (DefFun.proj 0))
+      (DefFun.piV_apply_curry
+        (DefFun.app_apply (DefFun.app_apply (DefFun.proj 0) (DefFun.proj 1)) (DefFun.const pt))
+        (DefFun.piV_apply_curry
+          (DefFun.const Aset)
+          (DefFun.piV_apply_curry
+            (DefFun.eqv_apply (DefFun.proj 3) (DefFun.proj 0))
+            (DefFun.app_apply (DefFun.app_apply (DefFun.proj 3) (DefFun.proj 1)) (DefFun.proj 0))))))
+  have hs_A : HasSigmaPairs (univ (ψ uN) : V)
+      (fun Aset => piV Aset (fun a => piV (eqRecMotiveSpace V (ψ u1N) Aset a)
+        (fun M => piV (app (app M a) pt) (fun _ => piV Aset
+          (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+          (hs_bb Aset a M)) (hasSigmaPairs_const _ _)) (hs_M Aset a)) (hs_a Aset)) :=
+    hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+      (DefFun.proj 0)
+      (DefFun.piV_apply_curry
+        (defFun_eqRecMotiveSpace (ψ u1N) (DefFun.proj 1) (DefFun.proj 0))
+        (DefFun.piV_apply_curry
+          (DefFun.app_apply (DefFun.app_apply (DefFun.proj 0) (DefFun.proj 1)) (DefFun.const pt))
+          (DefFun.piV_apply_curry
+            (DefFun.proj 3)
+            (DefFun.piV_apply_curry
+              (DefFun.eqv_apply (DefFun.proj 3) (DefFun.proj 0))
+              (DefFun.app_apply (DefFun.app_apply (DefFun.proj 3) (DefFun.proj 1)) (DefFun.proj 0)))))))
   -- level 6: the body, at a fixed major premise
   have h6 : ∀ Aset a M mn bb : V, Aset ∈ˢ (univ (ψ uN) : V) →
       a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
@@ -414,16 +479,18 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
           (.lam (eqSpine ψ 4 3 0) (.bvar 2)) ∧
         interp V (cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
             (.lam (eqSpine ψ 4 3 0) (.bvar 2))
-          ∈ˢ piV (eqv a bb) (fun h => app (app M bb) h) := by
+          ∈ˢ piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb) := by
     intro Aset a M mn bb hA ha hM hmn hbb
     obtain ⟨hsint, hsok, -⟩ := eqSpine_interp
       (ρ := cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
       (i := 4) (j := 3) (k := 0)
       (by simp [cons]) (by simp [cons]) (by simp [cons]) hA ha hbb
-    have hM0 : M ∈ˢ piV Aset (fun x => piV (eqv a x)
-        fun _ => (univ (ψ u1N) : V)) := hM
+    have hM0 : M ∈ˢ piV Aset
+        (fun x => piV (eqv a x) (fun _ => (univ (ψ u1N) : V)) (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+          (DefFun.eqv_apply (DefFun.const a) (DefFun.proj 0)) (DefFun.const (univ (ψ u1N))))) := hM
     have hMb : app M bb ∈ˢ piV (eqv a bb)
-        fun _ => (univ (ψ u1N) : V) :=
+        (fun _ => (univ (ψ u1N) : V)) (hasSigmaPairs_const _ _) :=
       app_mem_piV hM0 hbb
     have key : ∀ h : V, h ∈ˢ eqv a bb →
         app (app M bb) h = app (app M a) pt ∧
@@ -434,7 +501,9 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
       exact app_mem_piV hMb hh
     have hstep := WellDenoted_lam_piV (V := V)
       (Aa := eqSpine ψ 4 3 0) (bd := .bvar 2)
-      (F := fun h => app (app M bb) h) hsok (by rw [hsint]; exact IsTy_eqv _ _)
+      (F := fun h => app (app M bb) h)
+      (hS := hsint ▸ hs_h Aset a M bb)
+      hsok (by rw [hsint]; exact IsTy_eqv _ _)
       (fun h hh => by
         rw [hsint] at hh
         refine ⟨trivial, ?_⟩
@@ -443,8 +512,7 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
           from by simp [interp_bvar, cons], (key h hh).1]
         exact hmn)
       (fun h hh => by rw [hsint] at hh; exact IsTy_of_mem_univ (key h hh).2)
-    rw [hsint] at hstep
-    exact hstep
+    exact ⟨hstep.1, (piV_ext hsint _ _ fun _ _ => rfl) ▸ hstep.2⟩
   -- level 5
   have h5 : ∀ Aset a M mn : V, Aset ∈ˢ (univ (ψ uN) : V) →
       a ∈ˢ Aset → M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
@@ -454,20 +522,21 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
         interp V (cons mn (cons M (cons a (cons Aset ρ))))
             (.lam (.bvar 3) (.lam (eqSpine ψ 4 3 0) (.bvar 2)))
           ∈ˢ piV Aset
-            (fun bb => piV (eqv a bb) fun h => app (app M bb) h) := by
+            (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+            (hs_bb Aset a M) := by
     intro Aset a M mn hA ha hM hmn
     have hdom : interp V (cons mn (cons M (cons a (cons Aset ρ))))
         (Term.bvar 3) = Aset := by simp [interp_bvar, cons]
     have hstep := WellDenoted_lam_piV (V := V)
       (Aa := Term.bvar 3)
       (bd := .lam (eqSpine ψ 4 3 0) (.bvar 2))
-      (F := fun bb => piV (eqv a bb) fun h => app (app M bb) h)
+      (F := fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+      (hS := hdom ▸ hs_bb Aset a M)
       trivial (by rw [hdom]; exact IsTy_of_mem_univ hA)
       (fun bb hbb => h6 Aset a M mn bb hA ha hM hmn
         (by rwa [hdom] at hbb))
       (fun _ _ => IsTy_piV)
-    rw [hdom] at hstep
-    exact hstep
+    exact ⟨hstep.1, (piV_ext hdom _ _ fun _ _ => rfl) ▸ hstep.2⟩
   -- level 4
   have h4 : ∀ Aset a M : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
       M ∈ˢ eqRecMotiveSpace V (ψ u1N) Aset a →
@@ -480,18 +549,20 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
               (.lam (.bvar 3)
                 (.lam (eqSpine ψ 4 3 0) (.bvar 2))))
           ∈ˢ piV (app (app M a) pt) (fun _ => piV Aset
-            (fun bb => piV (eqv a bb) fun h => app (app M bb) h)) := by
+            (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+            (hs_bb Aset a M)) (hasSigmaPairs_const _ _) := by
     intro Aset a M hA ha hM
     obtain ⟨hmint, hmok, -⟩ := eqRecMinorTy_data ρ hA ha hM
     have hstep := WellDenoted_lam_piV (V := V)
       (Aa := eqRecMinorTy ψ)
       (F := fun _ => piV Aset
-        (fun bb => piV (eqv a bb) fun h => app (app M bb) h))
+        (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+        (hs_bb Aset a M))
+      (hS := hasSigmaPairs_const _ _)
       hmok.1 hmok.2
       (fun mn hmn => h5 Aset a M mn hA ha hM (by rwa [hmint] at hmn))
       (fun _ _ => IsTy_piV)
-    rw [hmint] at hstep
-    exact hstep
+    exact ⟨hstep.1, (piV_ext hmint _ _ fun _ _ => rfl) ▸ hstep.2⟩
   -- level 3
   have h3 : ∀ Aset a : V, Aset ∈ˢ (univ (ψ uN) : V) → a ∈ˢ Aset →
       WellDenoted V (cons a (cons Aset ρ))
@@ -507,18 +578,20 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
           ∈ˢ piV (eqRecMotiveSpace V (ψ u1N) Aset a)
             (fun M => piV (app (app M a) pt) (fun _ => piV Aset
               (fun bb => piV (eqv a bb)
-                fun h => app (app M bb) h))) := by
+                (fun h => app (app M bb) h) (hs_h Aset a M bb)) (hs_bb Aset a M))
+              (hasSigmaPairs_const _ _)) (hs_M Aset a) := by
     intro Aset a hA ha
     obtain ⟨hmint, hmok⟩ := eqRecMotiveTy_data ρ hA ha
     have hstep := WellDenoted_lam_piV (V := V)
       (Aa := eqRecMotiveTy ψ)
       (F := fun M => piV (app (app M a) pt) (fun _ => piV Aset
-        (fun bb => piV (eqv a bb) fun h => app (app M bb) h)))
+        (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+        (hs_bb Aset a M)) (hasSigmaPairs_const _ _))
+      (hS := hmint ▸ hs_M Aset a)
       hmok.1 hmok.2
       (fun M hM => h4 Aset a M hA ha (by rwa [hmint] at hM))
       (fun _ _ => IsTy_piV)
-    rw [hmint] at hstep
-    exact hstep
+    exact ⟨hstep.1, (piV_ext hmint _ _ fun _ _ => rfl) ▸ hstep.2⟩
   -- level 2
   have h2 : ∀ Aset : V, Aset ∈ˢ (univ (ψ uN) : V) →
       WellDenoted V (cons Aset ρ)
@@ -537,7 +610,8 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
             piV (eqRecMotiveSpace V (ψ u1N) Aset a)
               (fun M => piV (app (app M a) pt) (fun _ => piV Aset
                 (fun bb => piV (eqv a bb)
-                  fun h => app (app M bb) h)))) := by
+                  (fun h => app (app M bb) h) (hs_h Aset a M bb)) (hs_bb Aset a M))
+                (hasSigmaPairs_const _ _)) (hs_M Aset a)) (hs_a Aset) := by
     intro Aset hA
     have hdom : interp V (cons Aset ρ) (Term.bvar 0) = Aset := by
       simp [interp_bvar, cons]
@@ -545,49 +619,51 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
       (Aa := Term.bvar 0)
       (F := fun a => piV (eqRecMotiveSpace V (ψ u1N) Aset a)
         (fun M => piV (app (app M a) pt) (fun _ => piV Aset
-          (fun bb => piV (eqv a bb) fun h => app (app M bb) h))))
+          (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+          (hs_bb Aset a M)) (hasSigmaPairs_const _ _)) (hs_M Aset a))
+      (hS := hdom ▸ hs_a Aset)
       trivial (by rw [hdom]; exact IsTy_of_mem_univ hA)
       (fun a ha => h3 Aset a hA (by rwa [hdom] at ha))
       (fun _ _ => IsTy_piV)
-    rw [hdom] at hstep
-    exact hstep
+    exact ⟨hstep.1, (piV_ext hdom _ _ fun _ _ => rfl) ▸ hstep.2⟩
   have hstep := WellDenoted_lam_piV (V := V)
     (Aa := .sort (ψ uN))
     (F := fun Aset => piV Aset (fun a =>
       piV (eqRecMotiveSpace V (ψ u1N) Aset a)
         (fun M => piV (app (app M a) pt) (fun _ => piV Aset
-          (fun bb => piV (eqv a bb) fun h => app (app M bb) h)))))
+          (fun bb => piV (eqv a bb) (fun h => app (app M bb) h) (hs_h Aset a M bb))
+          (hs_bb Aset a M)) (hasSigmaPairs_const _ _)) (hs_M Aset a)) (hs_a Aset))
+    (hS := (interp_sort V ρ (ψ uN)).symm ▸ hs_A)
     trivial (IsTy_univ _)
     (fun Aset hA => h2 Aset (by rwa [interp_sort] at hA))
     (fun _ _ => IsTy_piV)
   refine ⟨hstep.1, ?_⟩
-  rw [interp_sort] at hstep
-  refine (?_ : interp V ρ (eqRecTy ψ)
-    = piV (univ (ψ uN) : V) (fun Aset => piV Aset (fun a =>
-      piV (eqRecMotiveSpace V (ψ u1N) Aset a)
-        (fun M => piV (app (app M a) pt) (fun _ => piV Aset
-          (fun bb => piV (eqv a bb)
-            fun h => app (app M bb) h)))))) ▸ hstep.2
-  -- the type reading's own six function spaces, in the same order
-  rw [eqRecTy, interp_pi, interp_sort]
-  refine piV_congr fun Aset hAset => ?_
-  rw [interp_pi]
-  simp only [interp_bvar, cons]
-  refine piV_congr fun a ha => ?_
-  rw [interp_pi, (eqRecMotiveTy_data ρ hAset ha).1]
-  refine piV_congr fun M hM => ?_
-  rw [interp_pi, (eqRecMinorTy_data ρ hAset ha hM).1]
-  refine piV_congr fun mn _ => ?_
-  rw [interp_pi]
-  simp only [interp_bvar, cons]
-  refine piV_congr fun bb hbb => ?_
-  rw [interp_pi,
-    (eqSpine_interp (ρ := cons bb (cons mn (cons M (cons a
-        (cons Aset ρ))))) (i := 4) (j := 3) (k := 0)
-      (by simp [cons]) (by simp [cons]) (by simp [cons])
-      hAset ha hbb).1]
-  refine piV_congr fun h _ => ?_
-  simp [interp_app, interp_bvar, cons]
+  have hty_eq : interp V ρ (eqRecTy ψ)
+      = piV (univ (ψ uN) : V) (fun Aset => piV Aset (fun a =>
+        piV (eqRecMotiveSpace V (ψ u1N) Aset a)
+          (fun M => piV (app (app M a) pt) (fun _ => piV Aset
+            (fun bb => piV (eqv a bb)
+              (fun h => app (app M bb) h) (hs_h Aset a M bb)) (hs_bb Aset a M))
+            (hasSigmaPairs_const _ _)) (hs_M Aset a)) (hs_a Aset)) hs_A := by
+    rw [eqRecTy, interp_pi]
+    refine piV_ext (interp_sort V ρ (ψ uN)) _ _ fun Aset hAset => ?_
+    rw [interp_pi]
+    refine piV_ext (by simp [interp_bvar, cons]) _ _ fun a ha => ?_
+    rw [interp_pi]
+    refine piV_ext (eqRecMotiveTy_data ρ hAset ha).1 _ _ fun M hM => ?_
+    rw [interp_pi]
+    refine piV_ext (eqRecMinorTy_data ρ hAset ha ((eqRecMotiveTy_data ρ hAset ha).1 ▸ hM)).1
+      _ _ fun mn _ => ?_
+    rw [interp_pi]
+    refine piV_ext (by simp [interp_bvar, cons]) _ _ fun bb hbb => ?_
+    rw [interp_pi]
+    refine piV_ext
+      (eqSpine_interp (ρ := cons bb (cons mn (cons M (cons a
+          (cons Aset ρ))))) (i := 4) (j := 3) (k := 0)
+        (by simp [cons]) (by simp [cons]) (by simp [cons])
+        hAset ha hbb).1 _ _ fun h _ => ?_
+    simp [interp_app, interp_bvar, cons]
+  exact hty_eq ▸ (piV_ext (interp_sort V ρ (ψ uN)) _ _ fun _ _ => rfl) ▸ hstep.2
 
 /-! ### The two readings -/
 
@@ -677,12 +753,44 @@ theorem denote_eqRec_rhs (ψ : Name → Nat)
 
 /-! ### The RHS tower and the two firing sides -/
 
+theorem hasSigmaPairs_eqRecRa_M (u1 : Nat) (Aset a : V) :
+    HasSigmaPairs (eqRecMotiveSpace V u1 Aset a)
+      (fun M => piV (app (app M a) pt) (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _)) :=
+  hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+    (DefFun.app_apply (DefFun.app_apply (DefFun.proj 0) (DefFun.const a)) (DefFun.const pt))
+    (DefFun.app_apply (DefFun.app_apply (DefFun.proj 1) (DefFun.const a)) (DefFun.const pt)))
+
+theorem hasSigmaPairs_eqRecRa_a (u1 : Nat) (Aset : V) :
+    HasSigmaPairs Aset (fun a => piV (eqRecMotiveSpace V u1 Aset a)
+      (fun M => piV (app (app M a) pt) (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_eqRecRa_M u1 Aset a)) :=
+  hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+    (defFun_eqRecMotiveSpace u1 (DefFun.const Aset) (DefFun.proj 0))
+    (DefFun.piV_apply_curry
+      (DefFun.app_apply (DefFun.app_apply (DefFun.proj 0) (DefFun.proj 1)) (DefFun.const pt))
+      (DefFun.app_apply (DefFun.app_apply (DefFun.proj 1) (DefFun.proj 2)) (DefFun.const pt))))
+
+theorem hasSigmaPairs_eqRecRa_A (u u1 : Nat) :
+    HasSigmaPairs (univ u : V) (fun Aset => piV Aset (fun a =>
+      piV (eqRecMotiveSpace V u1 Aset a)
+        (fun M => piV (app (app M a) pt) (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_eqRecRa_M u1 Aset a)) (hasSigmaPairs_eqRecRa_a u1 Aset)) :=
+  hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+    (DefFun.proj 0)
+    (DefFun.piV_apply_curry
+      (defFun_eqRecMotiveSpace u1 (DefFun.proj 1) (DefFun.proj 0))
+      (DefFun.piV_apply_curry
+        (DefFun.app_apply (DefFun.app_apply (DefFun.proj 0) (DefFun.proj 1)) (DefFun.const pt))
+        (DefFun.app_apply (DefFun.app_apply (DefFun.proj 1) (DefFun.proj 2)) (DefFun.const pt)))))
+
 /-- The function space the RHS tower inhabits. -/
 noncomputable def eqRecRaSpace (V : Type w) [SetTheory V]
     (u u1 : Nat) : V :=
-  piV (univ u : V) fun Aset => piV Aset fun a =>
-    piV (eqRecMotiveSpace V u1 Aset a) fun M =>
-      piV (app (app M a) pt) fun _ => app (app M a) pt
+  piV (univ u : V) (fun Aset => piV Aset (fun a =>
+    piV (eqRecMotiveSpace V u1 Aset a) (fun M =>
+      piV (app (app M a) pt) (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_eqRecRa_M u1 Aset a)) (hasSigmaPairs_eqRecRa_a u1 Aset))
+    (hasSigmaPairs_eqRecRa_A u u1)
 
 theorem eqRecRa_data (ψ : Name → Nat)
     (ρ : Nat → V) :
@@ -695,12 +803,13 @@ theorem eqRecRa_data (ψ : Name → Nat)
           (.lam (eqRecMinorTy ψ) (.bvar 0)) ∧
         interp V (cons M (cons a (cons Aset ρ)))
             (.lam (eqRecMinorTy ψ) (.bvar 0))
-          ∈ˢ piV (app (app M a) pt) (fun _ => app (app M a) pt) := by
+          ∈ˢ piV (app (app M a) pt) (fun _ => app (app M a) pt)
+            (hasSigmaPairs_const _ _) := by
     intro Aset a M hA ha hM
     obtain ⟨hmint, hmok, hmuniv⟩ := eqRecMinorTy_data ρ hA ha hM
     have hstep := WellDenoted_lam_piV (V := V)
       (Aa := eqRecMinorTy ψ) (bd := .bvar 0)
-      (F := fun _ => app (app M a) pt) hmok.1 hmok.2
+      (F := fun _ => app (app M a) pt) (hS := hasSigmaPairs_const _ _) hmok.1 hmok.2
       (fun mn hmn => by
         rw [hmint] at hmn
         exact ⟨trivial, by
@@ -719,17 +828,19 @@ theorem eqRecRa_data (ψ : Name → Nat)
               (.lam (eqRecMinorTy ψ) (.bvar 0)))
           ∈ˢ piV (eqRecMotiveSpace V (ψ u1N) Aset a)
             (fun M => piV (app (app M a) pt)
-              (fun _ => app (app M a) pt)) := by
+              (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+            (hasSigmaPairs_eqRecRa_M (ψ u1N) Aset a) := by
     intro Aset a hA ha
     obtain ⟨hmint, hmok⟩ := eqRecMotiveTy_data ρ hA ha
     have hstep := WellDenoted_lam_piV (V := V)
       (Aa := eqRecMotiveTy ψ)
       (F := fun M => piV (app (app M a) pt)
-        (fun _ => app (app M a) pt)) hmok.1 hmok.2
+        (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+      (hS := hmint ▸ hasSigmaPairs_eqRecRa_M (ψ u1N) Aset a)
+      hmok.1 hmok.2
       (fun M hM => h4 Aset a M hA ha (by rwa [hmint] at hM))
       (fun _ _ => IsTy_piV)
-    rw [hmint] at hstep
-    exact hstep
+    exact ⟨hstep.1, (piV_ext hmint _ _ fun _ _ => rfl) ▸ hstep.2⟩
   have h2 : ∀ Aset : V, Aset ∈ˢ (univ (ψ uN) : V) →
       WellDenoted V (cons Aset ρ)
           (.lam (.bvar 0) (.lam (eqRecMotiveTy ψ)
@@ -740,7 +851,9 @@ theorem eqRecRa_data (ψ : Name → Nat)
           ∈ˢ piV Aset (fun a =>
             piV (eqRecMotiveSpace V (ψ u1N) Aset a)
               (fun M => piV (app (app M a) pt)
-                (fun _ => app (app M a) pt))) := by
+                (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+              (hasSigmaPairs_eqRecRa_M (ψ u1N) Aset a))
+            (hasSigmaPairs_eqRecRa_a (ψ u1N) Aset) := by
     intro Aset hA
     have hdom : interp V (cons Aset ρ) (Term.bvar 0) = Aset := by
       simp [interp_bvar, cons]
@@ -748,23 +861,28 @@ theorem eqRecRa_data (ψ : Name → Nat)
       (Aa := Term.bvar 0)
       (F := fun a => piV (eqRecMotiveSpace V (ψ u1N) Aset a)
         (fun M => piV (app (app M a) pt)
-          (fun _ => app (app M a) pt)))
+          (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_eqRecRa_M (ψ u1N) Aset a))
+      (hS := hdom ▸ hasSigmaPairs_eqRecRa_a (ψ u1N) Aset)
       trivial (by rw [hdom]; exact IsTy_of_mem_univ hA)
       (fun a ha => h3 Aset a hA (by rwa [hdom] at ha))
       (fun _ _ => IsTy_piV)
-    rw [hdom] at hstep
-    exact hstep
+    exact ⟨hstep.1, (piV_ext hdom _ _ fun _ _ => rfl) ▸ hstep.2⟩
   have hstep := WellDenoted_lam_piV (V := V)
     (Aa := .sort (ψ uN))
     (F := fun Aset => piV Aset (fun a =>
       piV (eqRecMotiveSpace V (ψ u1N) Aset a)
         (fun M => piV (app (app M a) pt)
-          (fun _ => app (app M a) pt))))
+          (fun _ => app (app M a) pt) (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_eqRecRa_M (ψ u1N) Aset a))
+      (hasSigmaPairs_eqRecRa_a (ψ u1N) Aset))
+    (hS := (interp_sort V ρ (ψ uN)).symm ▸ hasSigmaPairs_eqRecRa_A (ψ uN) (ψ u1N))
     trivial (IsTy_univ _)
     (fun Aset hA => h2 Aset (by rwa [interp_sort] at hA))
     (fun _ _ => IsTy_piV)
-  rw [interp_sort] at hstep
-  exact ⟨hstep.1, hstep.2⟩
+  refine ⟨hstep.1, ?_⟩
+  unfold eqRecRaSpace
+  exact (piV_ext (interp_sort V ρ (ψ uN)) _ _ fun _ _ => rfl) ▸ hstep.2
 
 /-- **`Eq.rec`'s recursor tower fires to the minor premise**: six
 `app_lamV`, each on its domain. -/
@@ -912,7 +1030,7 @@ theorem eqRecExtra {m : EnvModel V env}
       have h2 := WellDenoted_app_fibre h1.1 (hxsA x2 (by simp)) h1.2 f2
         (IsTy_of_mem_univ f1)
       have h3 := WellDenoted_app_fibre h2.1 (hxsA x3 (by simp)) h2.2 f3
-        IsTy_piV
+        (by unfold eqRecMotiveSpace; exact IsTy_piV)
       exact (WellDenoted_app_fibre h3.1 (hxsA x4 (by simp)) h3.2 f4
         (IsTy_of_mem_univ (eqRecMinorTy_data ρ f1 f2 f3).2.2)).1
   · rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
@@ -1064,7 +1182,12 @@ theorem eqRecFit {m : EnvModel V env}
     rw [hψ, Level.subst, Level.eval_subst_go]
   rw [show Level.eval φ (Level.subst [Name.anonymous.str "u_1", Name.anonymous.str "u"] us
     (Level.param (Name.anonymous.str "u_1"))) = ψ u1N from hu1]
-  have h1 := app_mem_piV f3 (show interp V ρ b ∈ˢ interp V ρ x1 by rw [hbv]; exact f2)
+  have f3' : interp V ρ x3 ∈ˢ piV (interp V ρ x1)
+      (fun b => piV (eqv (interp V ρ x2) b) (fun _ => (univ (ψ u1N) : V)) (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+        (DefFun.eqv_apply (DefFun.const (interp V ρ x2)) (DefFun.proj 0))
+        (DefFun.const (univ (ψ u1N))))) := f3
+  have h1 := app_mem_piV f3' (show interp V ρ b ∈ˢ interp V ρ x1 by rw [hbv]; exact f2)
   exact app_mem_piV h1 (by rw [hbv]; exact pt_mem_eqv_self _)
 
 /-- **`Eq.rec`'s type reading is graded** — six `WellDenoted_pi_of`
@@ -1083,10 +1206,12 @@ theorem eqRecTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
       (ρ := cons bb (cons mn (cons M (cons a (cons Aset ρ)))))
       (i := 4) (j := 3) (k := 0)
       (by simp [cons]) (by simp [cons]) (by simp [cons]) hA ha hbb
-    have hM0 : M ∈ˢ piV Aset (fun x => piV (eqv a x)
-        fun _ => (univ (ψ u1N) : V)) := hM
+    have hM0 : M ∈ˢ piV Aset
+        (fun x => piV (eqv a x) (fun _ => (univ (ψ u1N) : V)) (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_of_defFun1 (DefFun.piV_apply_curry
+          (DefFun.eqv_apply (DefFun.const a) (DefFun.proj 0)) (DefFun.const (univ (ψ u1N))))) := hM
     have hMb : app M bb ∈ˢ piV (eqv a bb)
-        fun _ => (univ (ψ u1N) : V) :=
+        (fun _ => (univ (ψ u1N) : V)) (hasSigmaPairs_const _ _) :=
       app_mem_piV hM0 hbb
     have hcodI : ∀ h : V, h ∈ˢ eqv a bb →
         interp V (cons h (cons bb (cons mn (cons M (cons a (cons Aset ρ))))))
@@ -1296,7 +1421,7 @@ theorem eqRecLaw {m : EnvModel V env}
     have h2 := WellDenoted_app_fibre h1.1 (hxsA x2 (by simp)) h1.2 f2
       (IsTy_of_mem_univ f1)
     have h3 := WellDenoted_app_fibre h2.1 (hxsA x3 (by simp)) h2.2 f3
-      IsTy_piV
+      (by unfold eqRecMotiveSpace; exact IsTy_piV)
     exact (WellDenoted_app_fibre h3.1 (hxsA x4 (by simp)) h3.2 f4
       (IsTy_of_mem_univ (eqRecMinorTy_data ρ f1 f2 f3).2.2)).1
 

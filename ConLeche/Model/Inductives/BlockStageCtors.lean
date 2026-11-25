@@ -289,11 +289,15 @@ theorem stageBlockCtorsAt {F : Nat}
       ∀ bs : List V, SpineFit ρ (((d.dsF m j ψ).drop d.nP)) bs →
         interp V (consList bs ρ)
             (Term.mkAppN (A m ψ) (paramBvars d.nP ctor.2 ++ d.esF m j ψ))
-          = sumSet (d.w ψ) (sumFibre (d.w ψ)
-              (consList (idxValsAt ρ (d.esF m j ψ) bs) ρ)
+          = sumSet (d.w ψ)
               (rChains (d.nIdxAt m) (d.nIdxAt m)
                 (fssOf d.nP (ctorDataList (d.dsF m) (d.esF m) ψ (d.ctorsM m) 0))
-                (essOf (ctorDataList (d.dsF m) (d.esF m) ψ (d.ctorsM m) 0)))) := by
+                (essOf (ctorDataList (d.dsF m) (d.esF m) ψ (d.ctorsM m) 0))).length
+              (sumFibre (d.w ψ)
+                (consList (idxValsAt ρ (d.esF m j ψ) bs) ρ)
+                (rChains (d.nIdxAt m) (d.nIdxAt m)
+                  (fssOf d.nP (ctorDataList (d.dsF m) (d.esF m) ψ (d.ctorsM m) 0))
+                  (essOf (ctorDataList (d.dsF m) (d.esF m) ψ (d.ctorsM m) 0)))) := by
     intro j ctor hj ψ ρ hρ bs hsp
     have hs0 : Sat V (d.params ψ).reverse ρ := hS.paramsOf m hm ψ ρ hρ 0 (by omega)
     have hD := (hdata m j ctor hj).2.2.1

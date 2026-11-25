@@ -194,18 +194,44 @@ theorem pt_mem_eqv_self (x : V) : (pt : V) ∈ˢ eqv x x :=
 
 /-- `pt`, `unitSet`, `univZero` and truth values live in every
 (inhabited) Grothendieck universe. -/
-theorem _root_.ConLeche.IsTGUniverse.pt_mem {U y : V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (pt : V) ∈ˢ U :=
-  hU.sing_mem hy (hU.upair_mem hy (hU.empty_mem hy)
-    (hU.sing_mem hy (hU.sing_mem hy (hU.empty_mem hy))))
+theorem _root_.ConLeche.IsGrothendieck.pt_mem {U y : V}
+    (hU : IsGrothendieck (Mem (V := V)) U) (hy : y ∈ˢ U) : (pt : V) ∈ˢ U :=
+  hU.sing_mem (hU.upair_mem (hU.empty_mem hy)
+    (hU.sing_mem (hU.sing_mem (hU.empty_mem hy))))
 
-theorem _root_.ConLeche.IsTGUniverse.unitSet_mem {U y : V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (unitSet : V) ∈ˢ U :=
-  hU.sing_mem hy (hU.pt_mem hy)
+theorem _root_.ConLeche.IsGrothendieck.unitSet_mem {U y : V}
+    (hU : IsGrothendieck (Mem (V := V)) U) (hy : y ∈ˢ U) : (unitSet : V) ∈ˢ U :=
+  hU.sing_mem (hU.pt_mem hy)
 
-theorem _root_.ConLeche.IsTGUniverse.univZero_mem {U y : V}
-    (hU : IsTGUniverse (Mem (V := V)) U) (hy : y ∈ˢ U) : (univZero : V) ∈ˢ U :=
+theorem _root_.ConLeche.IsGrothendieck.univZero_mem {U y : V}
+    (hU : IsGrothendieck (Mem (V := V)) U) (hy : y ∈ˢ U) : (univZero : V) ∈ˢ U :=
   hU.power_mem (hU.unitSet_mem hy)
+
+/-! ### First-order definability closure -/
+
+theorem DefFun.ptTag {k : Nat} : DefFun k fun _ => (SetTheory.ptTag (V := V)) :=
+  DefFun.const _
+
+theorem DefFun.pt {k : Nat} : DefFun k fun _ => (SetTheory.pt (V := V)) :=
+  DefFun.const _
+
+theorem DefFun.unitSet {k : Nat} : DefFun k fun _ => (SetTheory.unitSet (V := V)) :=
+  DefFun.const _
+
+theorem DefFun.univZero {k : Nat} : DefFun k fun _ => (SetTheory.univZero (V := V)) :=
+  DefFun.const _
+
+open Classical in
+theorem DefFun.truthVal_apply {k : Nat} {P : (Fin k → V) → Prop} (hP : DefRel k P) :
+    DefFun k fun env => truthVal (P env) := by
+  unfold truthVal
+  exact DefFun.ite hP (DefFun.unitSet (V := V)) (DefFun.empty (V := V))
+
+theorem DefFun.eqv_apply {k : Nat} {A B : (Fin k → V) → V}
+    (hA : DefFun k A) (hB : DefFun k B) :
+    DefFun k fun env => eqv (A env) (B env) := by
+  unfold eqv
+  exact DefFun.truthVal_apply (DefRel.eq_apply hA hB)
 
 attribute [irreducible] ptTag pt unitSet eqv
 

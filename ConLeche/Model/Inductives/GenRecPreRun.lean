@@ -821,6 +821,102 @@ theorem genRun_lic (mpC : EnvModelM V envC)
         (Nat.lt_of_lt_of_le hk0 (Nat.le_add_right _ _)) htD hgs
     rw [hsrc fs hsf, hsrc fs' hsf']
 
+/-- **`GenPreHyps.fitLen`**: every class's field count at constructor `j`
+matches the generated stage's declared field domains. -/
+theorem genRun_fitLen (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    {isRec : Bool} {A : Nat → (Name → Nat) → Term}
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List Term}
+    (hd : d = blockDataOf V p pk uOfD ppsOf) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    (hcore : BlockCtorsCore mpC.base2 d p.lps p.formers p isRec A d.k)
+    (hnames : p.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
+      = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (ψ : Name → Nat) :
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ((tgtClsD d Dc out c).fields (tgtClsψ cvc out ψ c) (tgtClsM mc p out c) j).length
+        = (tgtFdomsAV p out mpC.base2.acval envC ψ c j).length := by
+  intro c hc j hj
+  obtain ⟨cls, ctor, fvs, cb, -, -, hctorAt, -, -, -, -, -, hop, hfv, -, -, -⟩ :=
+    genRun_frame R hg hc hj
+  have hrhs : (tgtFdomsAV p out mpC.base2.acval envC ψ c j).length = ctor.2 := by
+    rw [tgtFdomsAV, readOpenedDoms_length_eq, hfv, ConLeche.Verify.openPisAtFvars_length _ hop]
+  rw [hrhs]
+  cases hmb : (tgtMajor out c).member with
+  | none =>
+    have hm : (tgtMajor out c).member.isSome = false := by rw [hmb]; rfl
+    simp only [tgtClsD, tgtClsψ, tgtClsM, hm, Bool.false_eq_true, ite_false]
+    have hcl := hcls c hc hmb
+    obtain ⟨hjL, hcAj⟩ := List.getElem?_eq_some_iff.mp hctorAt
+    have hjD : j < (Dc c).nctors (mc c) := by rw [← hcl.hlen]; exact hjL
+    obtain ⟨_, hf'⟩ := hcl.hctor j hjL
+    rw [hcAj] at hf'
+    obtain ⟨-, -, -, hrdC, -⟩ := mpC.lfp_ok _ hcl.hD
+    obtain ⟨cv', nPc', nF', iT', hf'', -, -, -, A', -, -, hA⟩ := hrdC.2 (mc c) hcl.hmm j hjD
+    rw [hf'] at hf''
+    injection hf'' with h1
+    injection h1 with _ _ hnf
+    rw [(hA (Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls)).2.1, hnf]
+  | some tm =>
+    have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
+    simp only [tgtClsD, tgtClsψ, tgtClsM, hm, ite_true, genRun_recTgt R hc hmb]
+    obtain ⟨-, cls', -, -, -, -, -, -, -, hM, -⟩ := genRun_at R hc
+    have hmb' : (R.Ms.getD cls' default).member = some tm := by rwa [← hM]
+    have hi : cls' < R.Ms.length := by
+      rcases Nat.lt_or_ge cls' R.Ms.length with hl | hl
+      · exact hl
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hl] at hmb'
+        exact nomatch hmb'
+    obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi
+    have hget : R.Ms.getD cls' default = { M₀ with nfs := nfs } := by
+      rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+    rw [hget] at hmb'
+    have hmaj := CR.major
+    cases hmaj with
+    | outside => exact nomatch hmb'
+    | member I t' ms hfn ht hms hpar nfs' =>
+      obtain rfl : t' = tm := by simpa using hmb'
+      have htk : t' < p.k := (List.getElem?_eq_some_iff.mp hms).1
+      have hmcs := congrArg (fun L => L[t']?) hnames
+      simp only [List.getElem?_map, hms, Option.map_some, Option.map_eq_some_iff] at hmcs
+      obtain ⟨cs, hcs, hmap⟩ := hmcs
+      have hctors_eq : (tgtMajor out c).ctors = ms.ctors := by
+        rw [hM, hget]
+      rw [hctors_eq] at hctorAt
+      obtain ⟨hjms, hmsj⟩ := List.getElem?_eq_some_iff.mp hctorAt
+      have hjcs : j < cs.length := by
+        have := congrArg List.length hmap
+        simp only [List.length_map] at this
+        omega
+      have hcj_d : (d.ctorsM t')[j]? = some cs[j] := by
+        subst hd
+        show (p.memberCtors.getD t' [])[j]? = some cs[j]
+        rw [List.getD_eq_getElem?_getD, hcs, Option.getD_some, List.getElem?_eq_getElem hjcs]
+      obtain ⟨hfindC, -, -⟩ := hcore.2.2 t' (by subst hd; exact htk) j cs[j] hcj_d
+      have hD_k : t' < d.toLfp.k := by subst hd; exact htk
+      have hjD : j < d.toLfp.nctors t' := by
+        subst hd
+        show j < (p.memberCtors.getD t' []).length
+        rw [List.getD_eq_getElem?_getD, hcs, Option.getD_some]
+        exact hjcs
+      have hcn : d.toLfp.ctorName t' j = cs[j].1.name := by
+        show ((d.ctorsM t').getD j default).1.name = cs[j].1.name
+        rw [List.getD_eq_getElem?_getD, hcj_d, Option.getD_some]
+      obtain ⟨-, -, -, hrdC, -⟩ := mpC.lfp_ok _ hlfp
+      obtain ⟨cv', nPc', nF', iT', hf'', -, -, -, A', -, -, hA⟩ := hrdC.2 t' hD_k j hjD
+      rw [hcn, hfindC] at hf''
+      injection hf'' with h1
+      injection h1 with _ _ hnf
+      have h2eq : cs[j].2 = ctor.2 := by
+        have hmapj := congrArg (fun L => L[j]?) hmap
+        simp only [List.getElem?_map, List.getElem?_eq_getElem hjcs, hctorAt,
+          Option.map_some, Option.some.injEq] at hmapj
+        exact (Prod.mk.inj hmapj).2
+      rw [(hA ψ).2.1, ← hnf, h2eq]
+
 end Run
 
 /-! ## `GenPreHyps` from the run and the class-side facts -/
@@ -910,6 +1006,7 @@ theorem genPreHyps_of_run
   nIdx := genRun_nIdx R hd
   din := genRun_din mpC hlfp hcls
   mN := genRun_mN mpC R hd hcls
+  fitLen := genRun_fitLen mpC R hg hd hlfp hcore hnames hcls ψ
   lic := by
     subst hd
     exact genRun_lic mpC R h hN hS hcore hnames hcls ψ ρ

@@ -92,10 +92,13 @@ theorem blockCtorsLoop
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop nP)) bs →
         interp V (consList bs ρ)
             (Term.mkAppN (leafT ψ) (paramBvars nP ctor.2 ++ esF j ψ))
-          = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ)
-              (consList (idxValsAt ρ (esF j ψ) bs) ρ)
+          = sumSet (resSort.eval ψ)
               (rChains nIdx nIdx (fssOf nP (ctorDataList dsF esF ψ ctorList 0))
-                (essOf (ctorDataList dsF esF ψ ctorList 0))))) :
+                (essOf (ctorDataList dsF esF ψ ctorList 0))).length
+              (sumFibre (resSort.eval ψ)
+                (consList (idxValsAt ρ (esF j ψ) bs) ρ)
+                (rChains nIdx nIdx (fssOf nP (ctorDataList dsF esF ψ ctorList 0))
+                  (essOf (ctorDataList dsF esF ψ ctorList 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ i, rest[i]? = ctorList[k + i]?) → k + rest.length = ctorList.length →
       env.find? T = some (.indInfo cvS caps) →

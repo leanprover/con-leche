@@ -44,12 +44,12 @@ Where accessibility comes from — the block's operator is accessible by
 positivity — is the environment section's business.
 
 Con-leche: `ConLeche/SetModel/Access.lean` — `AccTuple`,
-`accPathsN`/`accPaths`, `BT`, `AccIter.stage`/`code`/`pick`/`limTup`,
-`closed_of_acc`, `AccTuple.monoTuple`; this file mirrors its
-definitions and proof, line by line, over Lean-level families
-(`ι → V`) instead of tuples of graphs.  Con-leche's ordered pair of a
-path step is Kuratowski's (`kpair`); the fragment's is the tagged
-tuple it has anyway.
+`accPathsN`/`accPaths`, `tree`/`WF`, `stageOf`/`limTup`, `closed_of_acc`,
+`AccTuple.monoTuple`.  It is the same argument inside a first-order set theory:
+where this file has Lean-level trees (`BT`), a recursion on them and families
+`ι → V`, con-leche has the trees' codes (`WF`), the stage as a least relation
+(`G_stage`) and tuples of graphs.  Con-leche's ordered pair of a path step is
+Kuratowski's (`kpair`); the fragment's is the tagged tuple it has anyway.
 -/
 
 namespace Fragment
@@ -161,7 +161,7 @@ theorem accPaths_mem_univ {n : Nat} {A : V} (hn : n ≠ 0) (hA : A ∈ˢ univ n)
 /-! ## Well-founded trees, stages and codes -/
 
 /-- Lean-level well-founded trees branching over the sets: a leaf, or
-a node with a subtree for every set.  Con-leche: `BT`. -/
+a node with a subtree for every set.  Con-leche has their codes: `WF`. -/
 inductive BT (V : Type u) : Type u
   | leaf : BT V
   | node : (V → BT V) → BT V
@@ -175,20 +175,20 @@ Con-leche: `unionTup`. -/
 noncomputable def unionFam (F : V → ι → V) : ι → V := fun i => famUnion A fun a => F a i
 
 /-- **The stage at a tree**: the empty family at a leaf, `Φ` of the
-union of the subtrees' stages at a node.  Con-leche: `stage`. -/
+union of the subtrees' stages at a node.  Con-leche: `stageOf`. -/
 noncomputable def stage : BT V → ι → V
   | .leaf => fun _ => empty
   | .node f => Φ (unionFam A fun a => stage (f a))
 
 /-- **A tree's code**: its set of paths over `A` — the empty path at a
 node, and a step `a` onto every path of the subtree at `a`.
-Con-leche: `code`. -/
+Con-leche: `tree`. -/
 noncomputable def code : BT V → V
   | .leaf => empty
   | .node f => binUnion one (famUnion A fun a => image (pcons a) (code (f a)))
 
 open Classical in
-/-- A tree with the given code, if any.  Con-leche: `pick`. -/
+/-- A tree with the given code, if any.  Con-leche needs none. -/
 noncomputable def pick (c : V) : BT V :=
   if h : ∃ T, code A T = c then Classical.choose h else .leaf
 
@@ -209,7 +209,7 @@ theorem mem_code_node {f : V → BT V} {p : V} :
   rw [mem_binUnion, mem_one, mem_famUnion]
   simp only [mem_image]
 
-/-- A code is a set of paths over `A`.  Con-leche: `code_sub`. -/
+/-- A code is a set of paths over `A`.  Con-leche: `WF_subset`. -/
 theorem code_sub : ∀ T : BT V, code A T ⊆ˢ accPaths A
   | .leaf => by simp only [code]; exact empty_sub _
   | .node f => by
@@ -219,7 +219,7 @@ theorem code_sub : ∀ T : BT V, code A T ⊆ˢ accPaths A
     · exact pcons_mem_accPaths ha (code_sub (f a) q hq)
 
 /-- **The stage depends on the tree only through its code.**
-Con-leche: `stage_eq_of_code`. -/
+Con-leche: `existsUnique_stageOf`. -/
 theorem stage_eq_of_code : ∀ T T' : BT V, code A T = code A T' → stage Φ A T = stage Φ A T'
   | .leaf, .leaf, _ => rfl
   | .leaf, .node f, h => by
@@ -258,7 +258,7 @@ theorem stage_eq_of_code : ∀ T T' : BT V, code A T = code A T' → stage Φ A 
 variable {n : Nat}
 
 /-- Every stage is in the universe: the universe is closed under
-`A`-indexed unions.  Con-leche: `stage_mem`. -/
+`A`-indexed unions.  Con-leche: `stageOf_spec`. -/
 theorem stage_mem (hn : n ≠ 0) (hA : A ∈ˢ (univ n : V)) (hmaps : MapsFam n Φ) :
     ∀ T : BT V, InUniv n (stage Φ A T)
   | .leaf => fun _ => empty_mem_univ n

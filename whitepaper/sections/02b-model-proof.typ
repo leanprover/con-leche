@@ -34,10 +34,14 @@ fragment is proved against that class.
 
 #real[
   The real proof is parametric in
-  #src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface],
-  ZF without infinity plus a chain of Grothendieck universes (sets
-  closed under all the set-forming operations), from which it derives
-  the operators below.
+  #src("ConLeche/SetTheory/Core.lean", 69, 73)[a smaller interface],
+  first-order ZFC without infinity plus a chain of Grothendieck
+  universes (sets closed under all the set-forming operations), from
+  which it derives the operators below. Being first-order, it has
+  separation and replacement only for a property or function that a
+  formula of set theory defines, not for every one of Lean's logic,
+  so wherever the real proof separates or forms a graph it carries
+  such a definition.
 ]
 
 The laws come in four groups.
@@ -219,11 +223,11 @@ The point is no type, so no sort holds it.
 
 #real[
   con-leche's sorts denote the same sets:
-  #src("ConLeche/SetTheory/Derive/Univ.lean", 34, 35)[a sort's universe]
-  is #src("ConLeche/SetTheory/Derive/TypeU.lean", 195, 197)[the universe of types],
+  #src("ConLeche/SetTheory/Derive/Univ.lean", 35, 36)[a sort's universe]
+  is #src("ConLeche/SetTheory/Derive/TypeU.lean", 221, 223)[the universe of types],
   read off the same notions of a
-  #src("ConLeche/SetTheory/Derive/TypeU.lean", 57, 58)[strict set] and a
-  #src("ConLeche/SetTheory/Derive/TypeU.lean", 60, 61)[type].
+  #src("ConLeche/SetTheory/Derive/TypeU.lean", 54, 55)[strict set] and a
+  #src("ConLeche/SetTheory/Derive/TypeU.lean", 57, 58)[type].
 ]
 
 This is the whole of the interpretation. Nothing had to be

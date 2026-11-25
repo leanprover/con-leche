@@ -85,7 +85,7 @@ theorem ndMkTowerSet_mem {r : Nat} (hr : r ≠ 0) {F g : Nat → V} :
     rw [← unitAt_pos hr]; exact unitAt_mem_unitSetAt r
   | n + 1, s, hg => by
     show spair (g s) (ndMkTowerSet g (s + 1) n)
-      ∈ˢ sigmaSet r (F s) fun _ => ndTowerSet V r F (s + 1) n
+      ∈ˢ sigmaSet r (F s) (fun _ => ndTowerSet V r F (s + 1) n) (hasSigmaPairs_const _ _)
     exact spair_mem hr (hg s (by omega))
       (ndMkTowerSet_mem hr n (s + 1) fun m hm => hg m (by omega))
 
@@ -111,12 +111,29 @@ theorem projS_ndMkTowerSet {g : Nat → V} :
 /-- The pair constructor `psigmaMk.{r,r}` inhabits its function space,
 at the joint level `max r r = r`. -/
 theorem psigmaMkV_rr_mem (r : Nat) :
-    psigmaMkV V r r ∈ˢ piV (univ r : V) fun A =>
-      piV (psigmaFibreSpace V r A) fun B =>
-        piV A fun a => piV (SetTheory.app B a) fun _ =>
-          sigmaSet r A fun x => SetTheory.app B x := by
+    psigmaMkV V r r ∈ˢ piV (univ r : V) (fun A =>
+      piV (psigmaFibreSpace V r A) (fun B =>
+        piV A (fun a => piV (SetTheory.app B a) (fun _ =>
+          sigmaSet r A (fun x => SetTheory.app B x)
+            (hasSigmaPairs_of_defFun1 (DefFun.app_apply (DefFun.const B) (DefFun.proj 0))))
+          (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_of_defFun1
+            (DefFun.piV_apply_curry (DefFun.app_apply (DefFun.const B) (DefFun.proj 0))
+              (DefFun.sigmaSet_apply_curry r (DefFun.const A)
+                (DefFun.app_apply (DefFun.const B) (DefFun.proj 0))))))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry (DefFun.const A)
+            (DefFun.piV_apply_curry (DefFun.app_apply (DefFun.proj 1) (DefFun.proj 0))
+              (DefFun.sigmaSet_apply_curry r (DefFun.const A)
+                (DefFun.app_apply (DefFun.proj 3) (DefFun.proj 0)))))))
+      (hasSigmaPairs_of_defFun1
+        (DefFun.piV_apply_curry (defFun_psigmaFibreSpace r (DefFun.proj 0))
+          (DefFun.piV_apply_curry (DefFun.proj 1)
+            (DefFun.piV_apply_curry (DefFun.app_apply (DefFun.proj 1) (DefFun.proj 0))
+              (DefFun.sigmaSet_apply_curry r (DefFun.proj 3)
+                (DefFun.app_apply (DefFun.proj 3) (DefFun.proj 0))))))) := by
   have h := psigmaMkV_mem V r r
-  rwa [show Nat.max r r = r from Nat.max_self r] at h
+  simpa only [Nat.max_self] using h
 
 /-! ## The tuple value's two laws -/
 
@@ -147,8 +164,10 @@ theorem ndMkTowerAV_facts {r : Nat} (hr : r ≠ 0) {Gty G : Nat → Term} {F g :
     have hgs : g s ∈ˢ interp V ρ (Gty s) := by rw [hA]; exact hg s (by omega)
     have hBv : interp V ρ (.lam (Gty s) (ndTowerAV r Gty (s + 1) 1 n))
         = lamR (r + 1) (interp V ρ (Gty s))
-            fun _ => ndTowerSet V r F (s + 1) n := by
-      rw [interp_lam, lamV_congr fun x _ => htail x]
+            (fun _ => ndTowerSet V r F (s + 1) n)
+            (hasGraph_const (ndTowerSet V r F (s + 1) n) (interp V ρ (Gty s))) := by
+      rw [interp_lam]
+      refine (lamV_congr _ (hasGraph_const _ _) fun x _ => htail x).trans ?_
       exact lamV_eq_pos (Nat.succ_ne_zero r) hgs
         (IsTy_of_mem_univ (ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega))).ne_pt
     have hBmem : interp V ρ (.lam (Gty s) (ndTowerAV r Gty (s + 1) 1 n))
@@ -338,7 +357,58 @@ family tuple AS A VALUE (the frame's family slot, which the chains read
 through `projS`). -/
 noncomputable def blockStepG (w : Nat) (ρp : Nat → V) (Chs : Nat → List (List Term))
     (m : Nat) (Y t : V) : V :=
-  sumSet w (sumFibre w (cons t (cons Y ρp)) (Chs m))
+  sumSet w (Chs m).length (sumFibre w (cons t (cons Y ρp)) (Chs m))
+
+theorem defFun_ndMkTowerSet {k : Nat} (s n : Nat)
+    (G : Nat → (Fin k → V) → V) (hG : ∀ i, s ≤ i → i < s + n → DefFun k (G i)) :
+    DefFun k fun env => ndMkTowerSet (fun i => G i env) s n := by
+  induction n generalizing s with
+  | zero => exact DefFun.empty
+  | succ n ih =>
+    exact DefFun.spair_apply (hG s (Nat.le_refl _) (by omega))
+      (ih (s + 1) fun i h1 h2 => hG i (by omega) (by omega))
+
+theorem defFun_blockStepG (w : Nat) (ρp : Nat → V) (Chs : Nat → List (List Term))
+    (m : Nat) :
+    DefFun 2 fun v => blockStepG w ρp Chs m (v 1) (v 0) := by
+  unfold blockStepG
+  refine DefFun.sumSet_apply w (Chs m).length fun i hi => ?_
+  cases hget : (Chs m)[i]? with
+  | none =>
+    exact absurd ((List.getElem?_eq_some_iff.mpr ⟨hi, rfl⟩).symm.trans hget) (by simp)
+  | some Fs =>
+    have hF : DefFun 2 fun v : Fin 2 → V =>
+        towerSet w (teleOfFields (prepend v ρp) Fs)
+          ((defTeleS_teleOfFields ρp Fs 2).hasTeleS w v) :=
+      DefFun.towerSet_apply w (defTeleS_teleOfFields ρp Fs 2)
+    refine hF.congr fun v => ?_
+    have hvp : prepend v ρp = cons (v 0) (cons (v 1) ρp) := by
+      funext n
+      rcases n with _ | _ | n
+      · rfl
+      · rfl
+      · simp [prepend, cons]
+        intro h
+        omega
+    rw [sumFibre_of_getElem? hget]
+    have heq : ∀ (T₁ T₂ : SetTheory.Tower.TeleS V Fs.length)
+        (h₁ : SetTheory.Tower.HasTeleS w T₁) (h₂ : SetTheory.Tower.HasTeleS w T₂),
+        T₁ = T₂ → SetTheory.Tower.towerSet w T₁ h₁ = SetTheory.Tower.towerSet w T₂ h₂ := by
+      rintro T _ h₁ h₂ rfl
+      exact SetTheory.Tower.towerSet_irrel T h₁ h₂
+    exact heq _ _ _ _ (by rw [hvp])
+
+theorem hasGraph_blockStepG (w : Nat) (ρp : Nat → V) (Chs : Nat → List (List Term))
+    (m : Nat) (Y I : V) :
+    HasGraph I (blockStepG w ρp Chs m Y) := by
+  let gs : Fin 2 → (Fin 1 → V) → V
+    | ⟨0, _⟩ => fun v => v 0
+    | ⟨1, _⟩ => fun _ => Y
+  refine hasGraph_of_defFun1 ((defFun_blockStepG w ρp Chs m).comp (Gs := gs) ?_)
+  rintro ⟨j, hj⟩
+  match j with
+  | 0 => exact DefFun.proj 0
+  | 1 => exact DefFun.const Y
 
 /-- **The block's tuple operator**: componentwise the member's own
 family (`famOf`) over its own index-tuple set, the argument tuple passed
@@ -350,6 +420,105 @@ noncomputable def blockPhiG (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
     (Nat → V) → Nat → V :=
   fun Xs m => famOf (blockStepG w ρp Chs m (ndMkTowerSet Xs 0 k))
     (idxSet (uf m) ρp (Idss m))
+    (hasGraph_blockStepG w ρp Chs m (ndMkTowerSet Xs 0 k) (idxSet (uf m) ρp (Idss m)))
+
+private theorem defFun_ndMkTowerSet_pad (k : Nat) :
+    DefFun (V := V) k fun xs : Fin k → V => ndMkTowerSet (padTuple xs) 0 k := by
+  let G : Nat → (Fin k → V) → V := fun i xs =>
+    if h : i < k then xs ⟨i, h⟩ else empty
+  refine (defFun_ndMkTowerSet 0 k G fun i _ hik => by
+    have hik' : i < k := by omega
+    exact (DefFun.proj (k := k) ⟨i, hik'⟩).congr fun xs => by simp [G, hik']).congr
+    fun _ => rfl
+
+theorem defTupleOp_blockPhiG (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
+    (Idss : Nat → List Term) (Chs : Nat → List (List Term)) :
+    DefTupleOp k (blockPhiG k w ρp uf Idss Chs) := by
+  constructor
+  · intro X Y hXY m _
+    have hnd : ndMkTowerSet X 0 k = ndMkTowerSet Y 0 k := by
+      rw [ndMkTowerSet_zero, ndMkTowerSet_zero]
+      congr 1
+      exact List.map_congr_left fun i hi => hXY i (List.mem_range.mp hi)
+    unfold blockPhiG
+    refine famOf_congr _ _ fun t _ => ?_
+    rw [hnd]
+  · intro m _
+    unfold blockPhiG
+    refine DefFun.famOf_apply_curry ?_ (DefFun.const _)
+    let gs : Fin 2 → (Fin (k + 1) → V) → V
+      | ⟨0, _⟩ => fun v => v 0
+      | ⟨1, _⟩ => fun v => ndMkTowerSet (padTuple (ftail v)) 0 k
+    refine (defFun_blockStepG w ρp Chs m).comp (Gs := gs) ?_
+    rintro ⟨j, hj⟩
+    match j with
+    | 0 => exact DefFun.proj 0
+    | 1 => exact (defFun_ndMkTowerSet_pad k).weaken
+
+/-- Parametric `DefFun` closure for `blockPhiG` jointly in the `k`-tuple
+and the `d`-element parameter prefix over `tail`. -/
+theorem defFun_blockPhiG_param (k w d : Nat) (tail : Nat → V) (uf : Nat → Nat)
+    (Idss : Nat → List Term) (Chs : Nat → List (List Term)) (m : Nat) (_hm : m < k) :
+    DefFun (k + d) fun v =>
+      blockPhiG k w (prepend (fdrop v) tail) uf Idss Chs (padTuple (ftake v)) m := by
+  unfold blockPhiG
+  have hI_d : DefFun d fun ps : Fin d → V => idxSet (uf m) (prepend ps tail) (Idss m) := by
+    have htd := defTeleS_teleOfFields (V := V) tail (Idss m) d
+    refine (DefFun.towerSet_apply (uf m) htd
+      (h := fun ps => htd.hasTeleS (uf m) ps)).congr fun ps => ?_
+    exact SetTheory.Tower.towerSet_irrel _ _ _
+  have hI : DefFun (k + d) fun v : Fin (k + d) → V =>
+      idxSet (uf m) (prepend (fdrop v) tail) (Idss m) :=
+    hI_d.fdrop_apply
+  have hnd' : DefFun (k + d + 1) fun w' : Fin (k + d + 1) → V =>
+      ndMkTowerSet (padTuple (ftake (ftail w'))) 0 k :=
+    ((defFun_ndMkTowerSet_pad k).reIndex
+      fun i => ⟨i.val, Nat.lt_of_lt_of_le i.isLt (Nat.le_add_right k d)⟩).weaken
+  refine DefFun.famOf_apply_curry ?_ hI
+  unfold blockStepG
+  refine DefFun.sumSet_apply w (Chs m).length fun i hi => ?_
+  cases hget : (Chs m)[i]? with
+  | none =>
+    exact absurd ((List.getElem?_eq_some_iff.mpr ⟨hi, rfl⟩).symm.trans hget) (by simp)
+  | some Fs =>
+    have hF : DefFun (d + 2) fun u : Fin (d + 2) → V =>
+        towerSet w (teleOfFields (prepend u tail) Fs)
+          ((defTeleS_teleOfFields tail Fs (d + 2)).hasTeleS w u) :=
+      DefFun.towerSet_apply w (defTeleS_teleOfFields tail Fs (d + 2))
+    let gs : Fin (d + 2) → (Fin (k + d + 1) → V) → V
+      | ⟨0, _⟩ => fun w' => w' 0
+      | ⟨1, _⟩ => fun w' => ndMkTowerSet (padTuple (ftake (ftail w'))) 0 k
+      | ⟨j + 2, hj⟩ => fun w' => fdrop (ftail w') ⟨j, by omega⟩
+    have hcomp : DefFun (k + d + 1) fun w' : Fin (k + d + 1) → V =>
+        towerSet w (teleOfFields (prepend (fun idx => gs idx w') tail) Fs)
+          ((defTeleS_teleOfFields tail Fs (d + 2)).hasTeleS w (fun idx => gs idx w')) := by
+      refine hF.comp (Gs := gs) ?_
+      rintro ⟨j, hj⟩
+      rcases j with _ | _ | j
+      · exact DefFun.proj 0
+      · exact hnd'
+      · exact (DefFun.fdrop_proj (k := k) ⟨j, by omega⟩).weaken
+    refine hcomp.congr fun w' => ?_
+    have hvp : prepend (fun idx => gs idx w') tail =
+        cons (w' 0) (cons (ndMkTowerSet (padTuple (ftake (ftail w'))) 0 k)
+          (prepend (fdrop (ftail w')) tail)) := by
+      funext n
+      rcases n with _ | _ | n
+      · rfl
+      · rfl
+      · simp only [cons, prepend, gs]
+        by_cases hn : n < d
+        · have hn2 : n + 1 + 1 < d + 2 := by omega
+          simp [hn, hn2]
+        · have hn2 : ¬ (n + 1 + 1 < d + 2) := by omega
+          simp [hn, hn2, show n + 1 + 1 - (d + 2) = n - d from by omega]
+    rw [sumFibre_of_getElem? hget]
+    have heq : ∀ (T₁ T₂ : SetTheory.Tower.TeleS V Fs.length)
+        (h₁ : SetTheory.Tower.HasTeleS w T₁) (h₂ : SetTheory.Tower.HasTeleS w T₂),
+        T₁ = T₂ → SetTheory.Tower.towerSet w T₁ h₁ = SetTheory.Tower.towerSet w T₂ h₂ := by
+      rintro T _ h₁ h₂ rfl
+      exact SetTheory.Tower.towerSet_irrel T h₁ h₂
+    exact heq _ _ _ _ (by rw [hvp])
 
 /-- **The block's carrier**: the least pre-fixed tuple of its
 operator. -/
@@ -358,6 +527,7 @@ noncomputable def blockFamG (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
     Nat → V :=
   lfpTuple w k (blockIdx uf ρp Idss)
     (blockPhiG k w ρp uf Idss Chs)
+    (defTupleOp_blockPhiG k w ρp uf Idss Chs)
 
 /-! ## The premises and the level bookkeeping -/
 
@@ -395,7 +565,8 @@ theorem univ_uf_mem_blockS {m : Nat} (hm : m < k) :
 
 theorem famSpace_mem_blockR {m : Nat} (hm : m < k) {I : V} (hI : I ∈ˢ (univ (uf m) : V)) :
     lfpFamSpace V w I ∈ˢ (univ (blockR k w uf) : V) := by
-  have h := piV_mem_univ (u := uf m) (v := w + 1) hI (fun _ _ => univ_mem_univ w)
+  have h := piV_mem_univ (u := uf m) (v := w + 1) (hS := hasSigmaPairs_const _ _)
+    hI (fun _ _ => univ_mem_univ w)
   rw [ite_eq_right (Nat.succ_ne_zero _)] at h
   refine univ_mono ?_ _ h
   refine Nat.max_le_of_le_of_le (Nat.le_trans (uf_le_levMax hm) (Nat.le_max_left _ _)) ?_
@@ -453,11 +624,25 @@ end Facts
 
 /-- The block operator's value: one λ over the family tuple, the tuple
 of the members' families. -/
+theorem hasGraph_blockFunVG (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
+    (Idss : Nat → List Term) (Chs : Nat → List (List Term)) :
+    HasGraph (famsSpaceB k w ρp uf Idss) (fun Y =>
+      ndMkTowerSet (fun m => famOf (blockStepG w ρp Chs m Y) (idxSet (uf m) ρp (Idss m))
+        (hasGraph_blockStepG w ρp Chs m Y (idxSet (uf m) ρp (Idss m)))) 0 k) := by
+  refine hasGraph_of_defFun1 (defFun_ndMkTowerSet 0 k (fun m (v : Fin 1 → V) =>
+    famOf (blockStepG w ρp Chs m (v 0)) (idxSet (uf m) ρp (Idss m))
+      (hasGraph_blockStepG w ρp Chs m (v 0) (idxSet (uf m) ρp (Idss m)))) fun m _ _ => ?_)
+  refine DefFun.famOf_apply_curry ?_ (DefFun.const _)
+  exact (defFun_blockStepG w ρp Chs m).congr fun _ => rfl
+
 noncomputable def blockFunVG (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
     (Idss : Nat → List Term) (Chs : Nat → List (List Term)) :
     V :=
-  lamR (blockR k w uf) (famsSpaceB k w ρp uf Idss) fun Y =>
-    ndMkTowerSet (fun m => famOf (blockStepG w ρp Chs m Y) (idxSet (uf m) ρp (Idss m))) 0 k
+  lamR (blockR k w uf) (famsSpaceB k w ρp uf Idss)
+    (fun Y =>
+      ndMkTowerSet (fun m => famOf (blockStepG w ρp Chs m Y) (idxSet (uf m) ρp (Idss m))
+        (hasGraph_blockStepG w ρp Chs m Y (idxSet (uf m) ρp (Idss m)))) 0 k)
+    (hasGraph_blockFunVG k w ρp uf Idss Chs)
 
 section Operator
 
@@ -481,6 +666,7 @@ theorem blockStepG_strictU (hok : BlockChainsOkG k w ρp uf Idss Chs)
 theorem blockArmG_mem (hok : BlockChainsOkG k w ρp uf Idss Chs)
     {Y : V} (hY : Y ∈ˢ famsSpaceB k w ρp uf Idss) {m : Nat} (hm : m < k) :
     famOf (blockStepG w ρp Chs m Y) (idxSet (uf m) ρp (Idss m))
+        (hasGraph_blockStepG w ρp Chs m Y (idxSet (uf m) ρp (Idss m)))
       ∈ˢ lfpFamSpace V w (idxSet (uf m) ρp (Idss m)) :=
   famOf_mem_lfpFamSpace V fun _ ht => blockStepG_univ hok hY hm ht
 
@@ -497,12 +683,17 @@ theorem blockArmG_facts (hI : BlockIdxOk (V := V) k uf ρp Idss)
     (hok : BlockChainsOkG k w ρp uf Idss Chs)
     {Y : V} (hY : Y ∈ˢ famsSpaceB k w ρp uf Idss) {m : Nat} (hm : m < k) :
     interp V (cons Y ρp) (blockArmG w uf Idss Chs m)
-        = famOf (blockStepG w ρp Chs m Y) (idxSet (uf m) ρp (Idss m)) ∧
+        = famOf (blockStepG w ρp Chs m Y) (idxSet (uf m) ρp (Idss m))
+            (hasGraph_blockStepG w ρp Chs m Y (idxSet (uf m) ρp (Idss m))) ∧
       WellDenoted V (cons Y ρp) (blockArmG w uf Idss Chs m) := by
   obtain ⟨hiv, hiok⟩ := idxTyAV_lift1B (m := m) (hI m hm) Y
   constructor
   · unfold blockArmG
-    rw [interp_lam, hiv, lamV_congr fun t ht => sumBodyAV_interp (hok Y hY m hm t ht)]
+    rw [interp_lam]
+    refine (lamV_ext hiv _ (hasGraph_blockStepG w ρp Chs m Y (idxSet (uf m) ρp (Idss m)))
+      fun t ht => by
+        rw [hiv] at ht
+        exact sumBodyAV_interp (hok Y hY m hm t ht)).trans ?_
     exact lamV_eq_famOf V fun t ht => (IsTy_of_mem_univ (blockStepG_univ hok hY hm ht)).ne_pt
   · unfold blockArmG
     rw [WellDenoted_lam]
@@ -523,7 +714,8 @@ theorem blockFunG_facts (hI : BlockIdxOk (V := V) k uf ρp Idss)
           (fun m => (famTyAV (uf m) w (Idss m)).liftN 1 0)
           (fun m => blockArmG w uf Idss Chs m) 0 k)
         = ndMkTowerSet (fun m => famOf (blockStepG w ρp Chs m Y)
-            (idxSet (uf m) ρp (Idss m))) 0 k ∧
+            (idxSet (uf m) ρp (Idss m))
+            (hasGraph_blockStepG w ρp Chs m Y (idxSet (uf m) ρp (Idss m)))) 0 k ∧
       WellDenoted V (cons Y ρp) (ndMkTowerAV (blockR k w uf)
           (fun m => (famTyAV (uf m) w (Idss m)).liftN 1 0)
           (fun m => blockArmG w uf Idss Chs m) 0 k) := by
@@ -543,10 +735,13 @@ theorem blockFunG_facts (hI : BlockIdxOk (V := V) k uf ρp Idss)
     exact (famTyAV_facts (w := w) (hI m (by omega))).2.2
   refine ⟨?_, ?_⟩
   · unfold blockFunG blockFunVG
-    rw [interp_lam, hfv, lamV_congr fun Y hY => (hbody Y hY).1]
+    rw [interp_lam]
+    refine (lamV_ext hfv _ (hasGraph_blockFunVG k w ρp uf Idss Chs) fun Y hY => by
+      rw [hfv] at hY
+      exact (hbody Y hY).1).trans ?_
     -- the family-tuple space is inhabited: the tuple of empty families
     have hY₀ : ndMkTowerSet (fun m => famOf (fun _ => (empty : V))
-        (idxSet (uf m) ρp (Idss m))) 0 k ∈ˢ famsSpaceB k w ρp uf Idss :=
+        (idxSet (uf m) ρp (Idss m)) (hasGraph_const _ _)) 0 k ∈ˢ famsSpaceB k w ρp uf Idss :=
       ndMkTowerSet_mem (blockR_ne_zero k w uf) k 0 fun _ _ =>
         famOf_mem_lfpFamSpace V fun _ _ => empty_mem_univ w
     refine lamV_eq_pos (blockR_ne_zero k w uf) hY₀ ?_
@@ -592,10 +787,11 @@ theorem tupleFamsSpace_eq (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
 /-- The block's operator inhabits the constant's second domain. -/
 theorem blockFunVG_mem (hok : BlockChainsOkG k w ρp uf Idss Chs) :
     blockFunVG k w ρp uf Idss Chs
-      ∈ˢ piV (famsSpaceB k w ρp uf Idss) fun _ => famsSpaceB k w ρp uf Idss := by
+      ∈ˢ piV (famsSpaceB k w ρp uf Idss) (fun _ => famsSpaceB k w ρp uf Idss)
+          (hasSigmaPairs_const _ _) := by
   -- the family-tuple space is inhabited (the tuple of empty families) and strict
   have hY₀ : ndMkTowerSet (fun m => famOf (fun _ => (empty : V))
-      (idxSet (uf m) ρp (Idss m))) 0 k ∈ˢ famsSpaceB k w ρp uf Idss :=
+      (idxSet (uf m) ρp (Idss m)) (hasGraph_const _ _)) 0 k ∈ˢ famsSpaceB k w ρp uf Idss :=
     ndMkTowerSet_mem (blockR_ne_zero k w uf) k 0 fun _ _ =>
       famOf_mem_lfpFamSpace V fun _ _ => empty_mem_univ w
   have hs := Fib_ndTowerSet V (blockR k w uf)
@@ -633,8 +829,9 @@ theorem blockBodyG_app (hI : BlockIdxOk (V := V) k uf ρp Idss)
   have hIs := idxTup_mem (w := w) hI
   have hF : blockFunVG k w ρp uf Idss Chs
       ∈ˢ piV (tupleFamsSpace V k (blockUs k w uf) (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
-        fun _ => tupleFamsSpace V k (blockUs k w uf)
-          (ndMkTowerSet (blockIdx uf ρp Idss) 0 k) := by
+        (fun _ => tupleFamsSpace V k (blockUs k w uf)
+          (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
+        (hasSigmaPairs_const _ _) := by
     rw [tupleFamsSpace_eq k w ρp uf Idss]; exact blockFunVG_mem hok
   rw [lfpTupleV_app V hIs hF,
     ndMkTowerSet_zero (blockFamG k w ρp uf Idss Chs) k]
@@ -670,7 +867,7 @@ theorem blockFamG_tuple_mem (k w : Nat) (ρp : Nat → V) (uf : Nat → Nat)
       ∈ˢ famsSpaceB k w ρp uf Idss :=
   ndMkTowerSet_mem (blockR_ne_zero k w uf) k 0 fun m hm => by
     exact famSpace_subset_lfpFamSpace V w _ _
-      (lfpTuple_mem w k (blockIdx uf ρp Idss) _ m (by omega))
+      (lfpTuple_mem w k (blockIdx uf ρp Idss) _ (defTupleOp_blockPhiG k w ρp uf Idss Chs) m (by omega))
 
 /-- **The carrier tuple is graded.** -/
 theorem blockBodyG_wellDenoted (hI : BlockIdxOk (V := V) k uf ρp Idss)
@@ -683,17 +880,20 @@ theorem blockBodyG_wellDenoted (hI : BlockIdxOk (V := V) k uf ρp Idss)
       = lfpTupleV V k (blockUs k w uf) := rfl
   have hF : blockFunVG k w ρp uf Idss Chs
       ∈ˢ piV (tupleFamsSpace V k (blockUs k w uf) (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
-        fun _ => tupleFamsSpace V k (blockUs k w uf)
-          (ndMkTowerSet (blockIdx uf ρp Idss) 0 k) := by
+        (fun _ => tupleFamsSpace V k (blockUs k w uf)
+          (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
+        (hasSigmaPairs_const _ _) := by
     rw [tupleFamsSpace_eq k w ρp uf Idss]; exact blockFunVG_mem hok
   have hhead : SetTheory.app (interp V ρp (.const (.lfpTuple k) (blockUs k w uf)))
       (interp V ρp (idxTupAV k w uf Idss))
       ∈ˢ piV (piV
           (tupleFamsSpace V k (blockUs k w uf) (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
-          fun _ => tupleFamsSpace V k (blockUs k w uf)
+          (fun _ => tupleFamsSpace V k (blockUs k w uf)
             (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
-        fun _ => tupleFamsSpace V k (blockUs k w uf)
-          (ndMkTowerSet (blockIdx uf ρp Idss) 0 k) := by
+          (hasSigmaPairs_const _ _))
+        (fun _ => tupleFamsSpace V k (blockUs k w uf)
+          (ndMkTowerSet (blockIdx uf ρp Idss) 0 k))
+        (hasSigmaPairs_const _ _) := by
     rw [hc, hiv]
     exact app_mem_piV (lfpTupleV_mem V k (blockUs k w uf)) hIs
   show WellDenoted V ρp (.app (.app (.const (.lfpTuple k) (blockUs k w uf)) _) _)
@@ -785,7 +985,7 @@ theorem blockLeafBodyG_facts {ρ : Nat → V} {m : Nat} (hm : m < k)
       ∈ˢ idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m) := tupW_mem hsp
   have hfam : blockFamG k w (shiftE (Idss m).length 0 ρ) uf Idss Chs m
       ∈ˢ famSpace w (idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m)) :=
-    lfpTuple_mem w k _ _ m hm
+    lfpTuple_mem w k _ _ (defTupleOp_blockPhiG k w (shiftE (Idss m).length 0 ρ) uf Idss Chs) m hm
   refine ⟨?_, ?_, ?_⟩
   · rw [interp_app, hpv, htv]
   · rw [interp_app, hpv, htv]
@@ -793,7 +993,8 @@ theorem blockLeafBodyG_facts {ρ : Nat → V} {m : Nat} (hm : m < k)
   · rw [WellDenoted_app]
     refine ⟨hpok, htok, appliesTo_of_mem_piR (v := w + 1)
       (A := idxSet (uf m) (shiftE (Idss m).length 0 ρ) (Idss m))
-      (B := fun _ => (univ w : V)) ?_ (IsTy_of_mem_univ (idxTyAV_facts (hI m hm)).2.1) ?_⟩
+      (B := fun _ => (univ w : V)) (hS := hasSigmaPairs_const _ _) ?_
+      (IsTy_of_mem_univ (idxTyAV_facts (hI m hm)).2.1) ?_⟩
     · rw [hpv, ← lfpFamSpace_eq_pos V w htmem]
       exact famSpace_subset_lfpFamSpace V w _ _ hfam
     · rw [htv]; exact htmem
@@ -806,10 +1007,8 @@ theorem blockTyG_mem {m : Nat} (hm : m < k) :
         ∈ˢ interp V ρ (mkPisAV pps (.sort w))
   | [], _, h => (blockLeafBodyG_facts hm h).2.1
   | d :: pps, ρ, h => by
-    show (lamV (interp V ρ d)
-        fun a => interp V (cons a ρ) (mkLamsAV pps _))
-      ∈ˢ piV (interp V ρ d)
-        fun a => interp V (cons a ρ) (mkPisAV pps (.sort w))
+    unfold blockTyG
+    rw [mkLamsAV, mkPisAV, interp_lam, interp_pi]
     exact lamV_mem (fun a ha => blockTyG_mem hm (h.2.2 a ha))
       fun a _ => IsTy_mkPisAV_sort pps w (cons a ρ)
 
@@ -898,7 +1097,7 @@ theorem blockPhi_maps_of {Chs : Nat → List (List Term)}
     (hok : BlockChainsOkG k w ρp uf Idss Chs) :
     MapsTuple w k (blockIdx uf ρp Idss) (blockPhiG k w ρp uf Idss Chs) := by
   intro X hX m hm
-  show famOf _ (idxSet (uf m) ρp (Idss m)) ∈ˢ famSpace w (blockIdx uf ρp Idss m)
+  show famOf _ (idxSet (uf m) ρp (Idss m)) _ ∈ˢ famSpace w (blockIdx uf ρp Idss m)
   exact famOf_mem_famSpace fun t ht =>
     blockStepG_strictU hok (ndMkTowerSet_mem_famsSpaceB hX) hm ht
 
@@ -1127,7 +1326,7 @@ equations hold — the tag the chain's position, the point at a
 read the union. -/
 theorem sumSet_termChs_mem_iff {w : Nat} {σ : Nat → V}
     {Ents : List (List Term)} {Eqs : List (List (Term × Term))} {x : V} :
-    x ∈ˢ sumSet w (sumFibre w σ ((List.range Ents.length).map fun j =>
+    x ∈ˢ sumSet w Ents.length (sumFibre w σ ((List.range Ents.length).map fun j =>
         Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])) ↔
       ∃ j fs, j < Ents.length ∧ SpineFit σ (Ents.getD j []) fs ∧
         EqAll (consList fs σ) (Eqs.getD j []) ∧
@@ -1144,42 +1343,36 @@ theorem sumSet_termChs_mem_iff {w : Nat} {σ : Nat → V}
   · intro hx
     by_cases hw : w = 0
     · subst hw
-      obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
+      obtain ⟨rfl, j, a, hj, ha⟩ := sumSet_zero_elim hx
       unfold sumFibre at ha
-      rw [hget] at ha
-      by_cases hj : j < Ents.length
-      · rw [ite_eq_left hj] at ha
-        obtain ⟨-, as, hfit⟩ := towerSet_zero_elim _ ha
-        obtain ⟨fs, -, hsp, hall⟩ := spineFit_append_idxEq.mp (fitsS_teleOfFields.mp hfit)
-        exact ⟨j, fs, hj, hsp, hall, by rw [ite_eq_left rfl]⟩
-      · rw [ite_eq_right hj] at ha
-        exact absurd ha (not_mem_empty _)
-    · obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
+      rw [hget, ite_eq_left hj] at ha
+      obtain ⟨-, as, hfit⟩ := towerSet_zero_elim _
+        (hT := hasTeleS_teleOfFields 0 σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])) ha
+      obtain ⟨fs, -, hsp, hall⟩ := spineFit_append_idxEq.mp (fitsS_teleOfFields.mp hfit)
+      exact ⟨j, fs, hj, hsp, hall, by rw [ite_eq_left rfl]⟩
+    · obtain ⟨j, a, hj, ha, rfl⟩ := sumSet_elim hw hx
       unfold sumFibre at ha
-      rw [hget] at ha
-      by_cases hj : j < Ents.length
-      · rw [ite_eq_left hj] at ha
-        obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
-        obtain ⟨fs, hfs, hsp, hall⟩ := spineFit_append_idxEq.mp hfit
-        refine ⟨j, fs, hj, hsp, hall, ?_⟩
-        rw [ite_eq_right hw, heta, hfs]
-      · rw [ite_eq_right hj] at ha
-        exact absurd ha (not_mem_empty _)
+      rw [hget, ite_eq_left hj] at ha
+      obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
+      obtain ⟨fs, hfs, hsp, hall⟩ := spineFit_append_idxEq.mp hfit
+      refine ⟨j, fs, hj, hsp, hall, ?_⟩
+      rw [ite_eq_right hw, heta, hfs]
   · rintro ⟨j, fs, hj, hsp, hall, rfl⟩
     have hspE : SpineFit σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])
         (fs ++ [pt]) := spineFit_append_idxEq.mpr ⟨fs, rfl, hsp, hall⟩
     have hfib : sumFibre w σ ((List.range Ents.length).map fun j =>
           Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])]) j
-        = towerSet w (teleOfFields σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])) :=
+        = towerSet w (teleOfFields σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])]))
+            (hasTeleS_teleOfFields w σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])) :=
       sumFibre_of_getElem? (by rw [hget, ite_eq_left hj])
     by_cases hw : w = 0
     · subst hw
       rw [ite_eq_left rfl]
-      refine pt_mem_sumSet_zero (i := j) (a := pt) ?_
+      refine pt_mem_sumSet_zero (a := pt) hj ?_
       rw [hfib]
       exact pt_mem_tower_teleOfFields hspE
     · rw [ite_eq_right hw]
-      refine inj_mem hw ?_
+      refine inj_mem hw hj ?_
       rw [hfib]
       exact mkTower_mem_teleOfFields hw hspE
 
@@ -1196,6 +1389,7 @@ theorem blockStepG_termChs_mem_iff {w : Nat} {ρp : Nat → V}
         EqAll (consList fs (cons t (cons Y ρp))) ((Eqs m).getD j []) ∧
         x = (if w = 0 then (pt : V) else inj j (mkTower (fs ++ [pt]))) := by
   unfold blockStepG termChs
+  simp only [List.length_map, List.length_range]
   exact sumSet_termChs_mem_iff
 
 /-- **The fibre of the operator at the hole chains**: the injections of
@@ -1361,12 +1555,15 @@ theorem holeTmAV_wellDenoted (hIall : BlockIdxOk (V := V) k uf ρp Idss) {m : Na
       have := Xframe_X ρp is t Y
       rwa [hlenI] at this
     have htv := mkTowerGo_interp hbd his
-    have hXm : projS m Y ∈ˢ piR (w + 1) (idxSet (uf m) ρp (Idss m)) fun _ => (univ w : V) := by
+    have hXm : projS m Y ∈ˢ
+        piR (w + 1) (idxSet (uf m) ρp (Idss m)) (fun _ => (univ w : V))
+          (hasSigmaPairs_const _ _) := by
       rw [← lfpFamSpace_eq_pos V w (tupW_mem (u := uf m) hisR)]
       exact projS_mem_famsSpaceB hm hY
     rw [WellDenoted_app]
     refine ⟨?_, ?_, appliesTo_of_mem_piR (v := w + 1) (A := idxSet (uf m) ρp (Idss m))
-      (B := fun _ => (univ w : V)) ?_ (IsTy_of_mem_univ (idxTyAV_facts (hIall m hm)).2.1) ?_⟩
+      (B := fun _ => (univ w : V)) (hS := hasSigmaPairs_const _ _) ?_
+      (IsTy_of_mem_univ (idxTyAV_facts (hIall m hm)).2.1) ?_⟩
     · have hFu : ∀ c, c < 0 + k → lfpFamSpace V w (idxSet (uf c) ρp (Idss c))
           ∈ˢ (univ (blockR k w uf) : V) := fun c hc =>
         famSpace_mem_blockR (by omega) (idxTyAV_facts (hIall c (by omega))).2.1

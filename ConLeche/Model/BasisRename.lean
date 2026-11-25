@@ -992,8 +992,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env') (hwf :
     have e0 : m'.acval ConLeche.natZeroName = _ := hnl (n := ConLeche.natZeroName) rfl
     have e1 : m'.acval ConLeche.natSuccName = _ := hnl (n := ConLeche.natSuccName) rfl
     have e2 : m'.acval ConLeche.natName = _ := hnl (n := ConLeche.natName) rfl
-    rw [e0, e1, e2]
-    exact mp.nat_heads φ (h.natLit ▸ hsup) ρ
+    simpa only [e0, e1, e2] using mp.nat_heads φ (h.natLit ▸ hsup) ρ
   · -- `nat_ops`
     intro φ c hc ci hf
     have hc2 : c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames := List.mem_append_left _ hc

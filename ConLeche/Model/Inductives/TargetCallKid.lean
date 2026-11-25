@@ -65,8 +65,9 @@ constructor stack's owners). -/
 theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
     {par : Nat → Nat} {b : Nat} (hb0 : 0 < b) (hbl : b ≤ ns.length) {u : PosTree}
     (hub : ns.getD (b - 1) default = u)
-    {G : Nat → Nat → V → V → Prop} {σ : Nat → V}
-    (hσ : AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b) G u.anc σ) {Y : Nat → V}
+    {G : V} {σ : Nat → V}
+    (hσ : AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b)
+      (fun b' c t y => nenc b' c t y ∈ˢ G) u.anc σ) {Y : Nat → V}
     (hlive : nlLive mpC ctx d ns ψ ρ xs b)
     (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
     (hY : InTupleSpace ((lfpSel mpC d.toLfp u.key.cname).w (nodeψ envC ψ u))
@@ -81,7 +82,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
     (hanc : u'.anc = (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse
       ++ u.anc) :
     AdmVal mk mpC ctx d ns ψ ρ xs own'
-      (addOwn G b (nlDb mpC d ns b).N
+      (fun b' c t y => nenc b' c t y ∈ˢ addOwn G b (nlDb mpC d ns b).N
         ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y) u'.anc
       (consList (grpVals (lfpSel mpC d.toLfp u.key.cname) (nodeψ envC ψ u) u.grp
         (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) σ) Y) σ) := by
@@ -164,7 +165,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
       rw [hhi']; omega
     rw [hidx, hσN] at hy
     obtain ⟨h1, h2⟩ := hσ.member t ht as has y hy
-    refine ⟨fun a => Or.inl (h1 a), fun hn => ?_⟩
+    refine ⟨fun a => mem_addOwn_nenc.mpr (Or.inl (h1 a)), fun hn => ?_⟩
     rw [hidx, htvq]; exact h2 hn
   · -- a frame hole
     intro i hk hi
@@ -201,7 +202,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
           rw [hhi']; omega
         rw [hidx, hσN] at hy
         obtain ⟨g1, g2⟩ := hland is his y hy
-        refine ⟨fun f => Or.inl (g1 f), fun nf => ?_⟩
+        refine ⟨fun f => mem_addOwn_nenc.mpr (Or.inl (g1 f)), fun nf => ?_⟩
         rw [hidx, htvq]
         exact g2 nf
     · -- on the parent's group: the parent
@@ -267,7 +268,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
             (trueVal mpC ctx ψ ρ xs u.anc)) (D.ids mm' ψu) is :=
           ((spineFit_iff_of_mkPisAV_eq rfl hT is).1).mp hfitA
         rw [hcomp, hnlDb, hnlψ, hψ]
-        exact ⟨fun _ => Or.inr ⟨rfl, hmmN, tupW_mem hfitT, hy⟩,
+        exact ⟨fun _ => mem_addOwn_nenc.mpr (Or.inr ⟨rfl, hmmN, tupW_mem hfitT, hy⟩),
           fun hnf => absurd ⟨hlive, hfitT⟩ hnf⟩
       -- off the fit: the true value, the owner's hole value at its true carrier
       -- (the tower off a fitting spine reads neither the frame off the holes nor
@@ -286,7 +287,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
       have hC : InTupleSpace (D.w ψu) D.N
           (D.idx ψu (keyFrame dsaU (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc)))
           (D.carrier ψu (keyFrame dsaU (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc))) :=
-        lfpTuple_mem _ _ _ _
+        lfpTuple_mem _ _ _ _ _
       have hneC : ∀ ws, SpineFit ρ' (D.ids mm' ψu) ws →
           app (D.carrier ψu (keyFrame dsaU (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc))
             mm') (tupW (D.u mm' ψu) ws) ≠ pt := fun ws hws =>
@@ -296,7 +297,8 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
           app (Y mm') (tupW (D.u mm' ψu) ws) ≠ pt := fun ws hws =>
         (IsTy_of_mem_strictU (famSpace_app (hY mm' hmmN) (tupW_mem hws))).ne_pt
       unfold LfpDatum.holeVal at hy ⊢
-      rw [← holeFam_of_mkPisAV_eq rfl hT, holeFam_foldl_nofit hneC hneY hisl hfitA]
+      rw [← holeFam_of_mkPisAV_eq (hg := DefHoleFn.of_app_tupW _ _ _) rfl hT,
+        holeFam_foldl_nofit hneC hneY hisl hfitA]
       exact hy
 
 /-- **Below the frames**: an admissible valuation of a stack, its frame

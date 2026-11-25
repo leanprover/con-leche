@@ -32,34 +32,36 @@ variable {V : Type u} [SetTheory V]
 /-- `X` is `k` function spaces over `univ n`, at every argument. -/
 def TowerEnds : Nat → V → Nat → Prop
   | 0, X, n => X = univ n
-  | k + 1, X, n => ∃ (A : V) (B : V → V), X = piV A B ∧ ∀ a, a ∈ˢ A → TowerEnds k (B a) n
+  | k + 1, X, n =>
+    ∃ (A : V) (B : V → V) (h : HasSigmaPairs A B),
+      X = piV A B h ∧ ∀ a, a ∈ˢ A → TowerEnds k (B a) n
 
 /-- What a walk knows: `k` function spaces over `univ n`, unless a stage is the
 point. -/
 def TowerEndsPt : Nat → V → Nat → Prop
   | 0, X, n => X = pt ∨ X = univ n
-  | k + 1, X, n => X = pt ∨ ∃ (A : V) (B : V → V), X = piV A B ∧ ∀ a, a ∈ˢ A → TowerEndsPt k (B a) n
+  | k + 1, X, n => X = pt ∨
+    ∃ (A : V) (B : V → V) (h : HasSigmaPairs A B),
+      X = piV A B h ∧ ∀ a, a ∈ˢ A → TowerEndsPt k (B a) n
 
 /-- A tower with one chain of arguments. -/
 inductive TowerPath : Nat → V → Nat → Prop where
   | zero {n : Nat} : TowerPath 0 (univ n) n
-  | succ {k n : Nat} {A a : V} {B : V → V} :
+  | succ {k n : Nat} {A a : V} {B : V → V} {h : HasSigmaPairs A B} :
       (∀ x, x ∈ˢ A → TowerEnds k (B x) n) → a ∈ˢ A → TowerPath k (B a) n →
-      TowerPath (k + 1) (piV A B) n
+      TowerPath (k + 1) (piV A B h) n
 
-/-- A function space over inhabited fibres is inhabited. -/
-theorem piV_nonempty {A : V} {B : V → V} (h : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) :
-    ∃ f, f ∈ˢ piV A B := by
-  classical
+/-- A function space over inhabited fibres is inhabited (using internal
+set-theoretic choice `piSet_choose`). -/
+theorem piV_nonempty {A : V} {B : V → V} {hS : HasSigmaPairs A B}
+    (h : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) :
+    ∃ f, f ∈ˢ piV A B hS := by
   unfold piV
   by_cases hp : propN A B = 0
   · rw [hp, piR_zero, truthVal_eq_unitSet h]
     exact ⟨pt, pt_mem_unitSet⟩
   · rw [piR_pos hp]
-    let F : V → V := fun x => if hx : x ∈ˢ A then Classical.choose (h x hx) else x
-    refine ⟨graph F A, graph_mem_piSet fun x hx => ?_⟩
-    simp only [F, hx, dite_true]
-    exact Classical.choose_spec (h x hx)
+    exact piSet_choose hS h
 
 /-- A universe is inhabited: it holds the truth values. -/
 theorem univ_nonempty (n : Nat) : ∃ y, y ∈ˢ (univ n : V) :=
@@ -68,7 +70,7 @@ theorem univ_nonempty (n : Nat) : ∃ y, y ∈ˢ (univ n : V) :=
 /-- A tower is inhabited. -/
 theorem TowerEnds.nonempty : ∀ {k : Nat} {X : V} {n : Nat}, TowerEnds k X n → ∃ y, y ∈ˢ X
   | 0, _, n, h => by rw [show _ = _ from h]; exact univ_nonempty n
-  | _ + 1, _, _, ⟨_, _, rfl, hB⟩ => piV_nonempty fun x hx => (hB x hx).nonempty
+  | _ + 1, _, _, ⟨_, _, _, rfl, hB⟩ => piV_nonempty fun x hx => (hB x hx).nonempty
 
 /-- A strict inhabited set is no truth value. -/
 theorem not_mem_univZero_of {X : V} (hs : Strict X) (hn : ∃ y, y ∈ˢ X) : ¬ X ∈ˢ (univZero : V) := by
@@ -88,8 +90,9 @@ theorem TowerPath.strict : ∀ {k : Nat} {X : V} {n : Nat}, TowerPath k X n → 
     exact strict_piSet
 
 /-- A function space that is strict and inhabited is its graphs. -/
-theorem piV_eq_piSet_of {A : V} {B : V → V} (hs : Strict (piV A B)) (hn : ∃ y, y ∈ˢ piV A B) :
-    piV A B = piSet A B := by
+theorem piV_eq_piSet_of {A : V} {B : V → V} {hS : HasSigmaPairs A B}
+    (hs : Strict (piV A B hS)) (hn : ∃ y, y ∈ˢ piV A B hS) :
+    piV A B hS = piSet A B hS := by
   unfold piV at hs hn ⊢
   by_cases hp : propN A B = 0
   · exfalso
@@ -101,40 +104,54 @@ theorem piV_eq_piSet_of {A : V} {B : V → V} (hs : Strict (piV A B)) (hn : ∃ 
   · rw [piR_pos hp]
 
 /-- Two spaces of graphs, the one over inhabited fibres, have the one domain, and at
-a point of it the one fibre. -/
-theorem piSet_inj {A A' a : V} {B B' : V → V} (h : piSet A B = piSet A' B')
+a point of it the one fibre (choice-free via `piSet_choose` and one-point
+graph modification). -/
+theorem piSet_inj {A A' a : V} {B B' : V → V}
+    {hS : HasSigmaPairs A B} {hS' : HasSigmaPairs A' B'}
+    (h : piSet A B hS = piSet A' B' hS')
     (hB : ∀ x, x ∈ˢ A → ∃ y, y ∈ˢ B x) (ha : a ∈ˢ A) : a ∈ˢ A' ∧ B a = B' a := by
-  classical
-  -- a function through a chosen value at `a`
-  have thru : ∀ {C : V} {D : V → V}, (∀ x, x ∈ˢ C → ∃ y, y ∈ˢ D x) → ∀ {y : V},
-      (a ∈ˢ C → y ∈ˢ D a) → a ∈ˢ C →
-      ∃ f, f ∈ˢ piSet C D ∧ kpair a y ∈ˢ f := by
-    intro C D hD y hy hc
-    let F : V → V := fun x =>
-      if x = a then y else if hx : x ∈ˢ C then Classical.choose (hD x hx) else x
-    refine ⟨graph F C, graph_mem_piSet fun x hx => ?_, mem_graph.mpr ⟨a, hc, by simp [F]⟩⟩
-    by_cases hxa : x = a
-    · subst hxa; simp only [F, ite_true]; exact hy hc
-    · simp only [F, hxa, hx, ite_false, dite_true]; exact Classical.choose_spec (hD x hx)
-  obtain ⟨y₀, hy₀⟩ := hB a ha
-  obtain ⟨f₀, hf₀, hp₀⟩ := thru hB (y := y₀) (fun _ => hy₀) ha
-  -- the function lies in the other space too, whose fibres it inhabits
-  have hB' : ∀ x, x ∈ˢ A' → ∃ y, y ∈ˢ B' x := by
-    intro x hx
-    obtain ⟨hsub, htot⟩ := mem_piSet.mp (h ▸ hf₀)
-    obtain ⟨y, hy, -⟩ := htot x hx
-    obtain ⟨x₂, -, y₂, hy₂, heq₂⟩ := mem_sigmaPairs.mp (hsub _ hy)
-    obtain ⟨rfl, rfl⟩ := kpair_inj heq₂
-    exact ⟨_, hy₂⟩
+  -- modify a base function `f₀` at the single point `a` to output `y`
+  have thru : ∀ {C : V} {D : V → V} {hSC : HasSigmaPairs C D} {f₀ : V},
+      f₀ ∈ˢ piSet C D hSC → a ∈ˢ C → ∀ {y : V}, y ∈ˢ D a →
+      ∃ f, f ∈ˢ piSet C D hSC ∧ kpair a y ∈ˢ f := by
+    intro C D hSC f₀ hf₀ haC y hy
+    have hsep : HasSep f₀ (fun p => ¬ ∃ y', p = kpair a y') :=
+      hasSep_of_defPred
+        (DefRel.not (DefRel.exists_curry
+          (DefRel.eq_apply (DefFun.proj 1) (DefFun.kpair_apply (DefFun.const a) (DefFun.proj 0)))))
+    let f := binUnion (sep f₀ (fun p => ¬ ∃ y', p = kpair a y') hsep) (sing (kpair a y))
+    refine ⟨f, mem_piSet.mpr ⟨?_, ?_⟩, mem_binUnion.mpr (Or.inr (mem_sing.mpr rfl))⟩
+    · intro p hp
+      rcases mem_binUnion.mp hp with hp1 | hp2
+      · exact (mem_piSet.mp hf₀).1 p (mem_sep.mp hp1).1
+      · rw [mem_sing.mp hp2]
+        exact mem_sigmaPairs.mpr ⟨a, haC, y, hy, rfl⟩
+    · intro x hx
+      by_cases hxa : x = a
+      · subst hxa
+        refine ⟨y, mem_binUnion.mpr (Or.inr (mem_sing.mpr rfl)), fun y'' hy'' => ?_⟩
+        rcases mem_binUnion.mp hy'' with hp1 | hp2
+        · exact False.elim ((mem_sep.mp hp1).2 ⟨y'', rfl⟩)
+        · exact (kpair_inj (mem_sing.mp hp2)).2
+      · obtain ⟨yx, hyx, huniq⟩ := (mem_piSet.mp hf₀).2 x hx
+        have hkeep : kpair x yx ∈ˢ sep f₀ (fun p => ¬ ∃ y', p = kpair a y') hsep := by
+          refine mem_sep.mpr ⟨hyx, fun ⟨y', heq⟩ => ?_⟩
+          exact hxa (kpair_inj heq).1
+        refine ⟨yx, mem_binUnion.mpr (Or.inl hkeep), fun y'' hy'' => ?_⟩
+        rcases mem_binUnion.mp hy'' with hp1 | hp2
+        · exact huniq y'' (mem_sep.mp hp1).1
+        · exact False.elim (hxa (kpair_inj (mem_sing.mp hp2)).1)
+  obtain ⟨f₀, hf₀⟩ := piSet_choose hS hB
+  obtain ⟨y₀, hp₀, -⟩ := (mem_piSet.mp hf₀).2 a ha
   have hmem₀ := (mem_piSet.mp (h ▸ hf₀)).1 _ hp₀
   obtain ⟨x₁, hx₁, y₁, -, heq₁⟩ := mem_sigmaPairs.mp hmem₀
   obtain ⟨rfl, -⟩ := kpair_inj heq₁
   refine ⟨hx₁, ext fun y => ⟨fun hy => ?_, fun hy => ?_⟩⟩
-  · obtain ⟨f, hf, hp⟩ := thru hB (y := y) (fun _ => hy) ha
+  · obtain ⟨f, hf, hp⟩ := thru hf₀ ha hy
     obtain ⟨x₂, -, y₂, hy₂, heq₂⟩ := mem_sigmaPairs.mp ((mem_piSet.mp (h ▸ hf)).1 _ hp)
     obtain ⟨rfl, rfl⟩ := kpair_inj heq₂
     exact hy₂
-  · obtain ⟨f, hf, hp⟩ := thru hB' (y := y) (fun _ => hy) hx₁
+  · obtain ⟨f, hf, hp⟩ := thru (h ▸ hf₀) hx₁ hy
     obtain ⟨x₂, -, y₂, hy₂, heq₂⟩ := mem_sigmaPairs.mp ((mem_piSet.mp (h.symm ▸ hf)).1 _ hp)
     obtain ⟨rfl, rfl⟩ := kpair_inj heq₂
     exact hy₂
@@ -143,14 +160,14 @@ theorem piSet_inj {A A' a : V} {B B' : V → V} (h : piSet A B = piSet A' B')
 theorem TowerPath.univ_eq : ∀ {k : Nat} {X : V} {n m : Nat},
     TowerPath k X n → TowerEndsPt k X m → (univ n : V) = univ m
   | _, _, n, _, .zero, h => h.resolve_left (strict_univ n).1
-  | _, _, _, _, .succ (A := A) (B := B) (a := a) hB ha hp, h => by
-    have hstrict : Strict (piV A B) :=
+  | _, _, _, _, .succ (A := A) (B := B) (a := a) (h := hS) hB ha hp, h => by
+    have hstrict : Strict (piV A B hS) :=
       TowerPath.strict (.succ hB ha hp)
-    obtain ⟨A', B', heq, hB'⟩ := h.resolve_left hstrict.1
-    have hn : ∃ y, y ∈ˢ piV A B := piV_nonempty fun x hx => (hB x hx).nonempty
+    obtain ⟨A', B', hS', heq, hB'⟩ := h.resolve_left hstrict.1
+    have hn : ∃ y, y ∈ˢ piV A B hS := piV_nonempty fun x hx => (hB x hx).nonempty
     have h₁ := piV_eq_piSet_of hstrict hn
     have h₂ := piV_eq_piSet_of (heq ▸ hstrict) (heq ▸ hn)
-    have hs : piSet A B = piSet A' B' := by rw [← h₁, ← h₂, heq]
+    have hs : piSet A B hS = piSet A' B' hS' := by rw [← h₁, ← h₂, heq]
     obtain ⟨ha', hf⟩ := piSet_inj hs (fun x hx => (hB x hx).nonempty) ha
     exact hp.univ_eq (hf ▸ hB' a ha')
 

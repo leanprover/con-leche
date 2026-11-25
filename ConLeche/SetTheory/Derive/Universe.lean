@@ -5,18 +5,22 @@ public import ConLeche.SetTheory.Derive.Pair
 @[expose] public section
 
 /-!
-# Grothendieck universes: the diagonal argument and the closure laws
+# Grothendieck universes: closure laws from SGA4
 
-The engine room, recovering the Grothendieck-universe closure laws
-(SGA 4, Exp. I, Appendix) from the Axiom-A matrix `IsTGUniverse`
-(Tarski 1938) — applied downstream to the chain members `univChain n`.
-The inaccessibility clause offers, for any subset `S ⊆ u`, the
-disjunction `S ≈ u ∨ S ∈ u`; the single lemma `covered_mem` turns it
-into a closure property by refuting the first disjunct with Cantor's
-diagonal whenever `S` is covered by a function from a *member* of `u`.
-Everything else — pairing, power, binary union, replacement images,
-`⋃` of a member — reduces to it (`⋃` via a two-step surjection
-argument ending in a membership 2-cycle).
+Recovers the Grothendieck-universe closure laws from the four
+first-order SGA4 clauses of `IsGrothendieck` (`Core.lean`) — applied
+downstream to the chain members `univChain n`.
+
+* `transitive`, `upair_mem`, `power_mem` follow directly from the
+  first three clauses.
+* `mem_of_subset_mem` follows in one line from `power_mem` and
+  `transitive`.
+* `sUnion_mem`, `famUnion_mem`, and `image_mem` use SGA4 clause 4
+  (indexed union over an internal function graph `IsFunGraph Mem g I U`).
+  Notably, `image_mem` and `famUnion_mem` require a graph witness
+  `HasImage (fun x => kpair x (F x)) A` (or `DefFunOn A F`), since in
+  a countable first-order model mere existence of the image set does
+  not supply an internal function graph.
 -/
 
 namespace ConLeche.SetTheory
@@ -25,133 +29,211 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
-section IsTGUniverse
+section IsGrothendieck
 
-variable {U : V} (hU : IsTGUniverse (Mem (V := V)) U)
+variable {U : V} (hU : IsGrothendieck (Mem (V := V)) U)
 
 include hU
 
-theorem _root_.ConLeche.IsTGUniverse.transitive : ∀ {y z : V}, y ∈ˢ U → z ∈ˢ y → z ∈ˢ U :=
-  fun {y z} hy hz => hU.1 y z hy hz
+theorem _root_.ConLeche.IsGrothendieck.transitive : ∀ {y z : V}, y ∈ˢ U → z ∈ˢ y → z ∈ˢ U :=
+  fun {y z} hy hz => hU.transitivity y z hy hz
 
-theorem _root_.ConLeche.IsTGUniverse.mem_of_subset_mem : ∀ {y z : V}, y ∈ˢ U → z ⊆ˢ y → z ∈ˢ U :=
-  fun {y z} hy hz => hU.2.1 y z hy hz
-
-theorem _root_.ConLeche.IsTGUniverse.subset_of_mem {y : V} (hy : y ∈ˢ U) : y ⊆ˢ U :=
+theorem _root_.ConLeche.IsGrothendieck.subset_of_mem {y : V} (hy : y ∈ˢ U) : y ⊆ˢ U :=
   fun _ hz => hU.transitive hy hz
 
-theorem _root_.ConLeche.IsTGUniverse.power_mem {y : V} (hy : y ∈ˢ U) : power y ∈ˢ U := by
-  obtain ⟨p, hp, hsub⟩ := hU.2.2.1 y hy
-  exact hU.mem_of_subset_mem hp fun z hz => hsub z (mem_power.mp hz)
+theorem _root_.ConLeche.IsGrothendieck.upair_mem {a b : V} (ha : a ∈ˢ U) (hb : b ∈ˢ U) :
+    upair a b ∈ˢ U := by
+  obtain ⟨p, hp, hup⟩ := hU.pairing a b ha hb
+  rw [isUpair_iff] at hup
+  exact hup ▸ hp
 
-/-- Cantor's diagonal, in the form everything downstream uses: a subset
-of `U` covered by the image of a *member* of `U` is itself a member.
-The equinumerosity disjunct is refuted by diagonalizing the covering
-composed with the would-be surjection onto `U`. -/
-theorem _root_.ConLeche.IsTGUniverse.covered_mem {I S : V} {F : V → V}
-    (hI : I ∈ˢ U) (hS : S ⊆ˢ U)
-    (hcov : ∀ b, b ∈ˢ S → ∃ x, x ∈ˢ I ∧ F x = b) : S ∈ˢ U := by
-  rcases hU.2.2.2 S hS with ⟨f, -, -, hsurj⟩ | hmem
-  · -- `f : S ↠ U`; diagonalize `x ↦ f (F x) : I ↠ U` at
-    -- `D := {x ∈ I : x ∉ f (F x)}`.
-    exfalso
-    have hDU : sep I (fun x => ¬ x ∈ˢ f (F x)) ∈ˢ U :=
-      hU.mem_of_subset_mem hI sep_subset
-    obtain ⟨b, hbS, hfb⟩ := hsurj _ hDU
-    obtain ⟨j, hjI, hFj⟩ := hcov b hbS
-    have hGj : f (F j) = sep I (fun x => ¬ x ∈ˢ f (F x)) := by rw [hFj, hfb]
-    have hiff : j ∈ˢ sep I (fun x => ¬ x ∈ˢ f (F x)) ↔
-        ¬ j ∈ˢ sep I (fun x => ¬ x ∈ˢ f (F x)) := by
-      constructor
-      · intro hj
-        have := (mem_sep.mp hj).2
-        rwa [hGj] at this
-      · intro hn
-        exact mem_sep.mpr ⟨hjI, by rwa [hGj]⟩
-    rcases Classical.em (j ∈ˢ sep I (fun x => ¬ x ∈ˢ f (F x))) with hj | hj
-    · exact hiff.mp hj hj
-    · exact hj (hiff.mpr hj)
-  · exact hmem
+theorem _root_.ConLeche.IsGrothendieck.power_mem {y : V} (hy : y ∈ˢ U) : power y ∈ˢ U := by
+  obtain ⟨p, hp, hsub⟩ := hU.powerSet y hy
+  have heq : p = power y := ext fun z => (hsub z).trans mem_power.symm
+  exact heq ▸ hp
 
-/-- Replacement closure: the image of a member under a fibre-wise
-member-valued function is a member. -/
-theorem _root_.ConLeche.IsTGUniverse.image_mem {A : V} {F : V → V}
-    (hA : A ∈ˢ U) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ U) : image F A ∈ˢ U :=
-  hU.covered_mem hA
-    (fun z hz => by
-      obtain ⟨w, hw, rfl⟩ := mem_image.mp hz
-      exact hF w hw)
-    (fun b hb => by
-      obtain ⟨w, hw, rfl⟩ := mem_image.mp hb
-      exact ⟨w, hw, rfl⟩)
+theorem _root_.ConLeche.IsGrothendieck.mem_of_subset_mem :
+    ∀ {y z : V}, y ∈ˢ U → z ⊆ˢ y → z ∈ˢ U :=
+  fun {_y _z} hy hz => hU.transitive (hU.power_mem hy) (mem_power.mpr hz)
 
-theorem _root_.ConLeche.IsTGUniverse.empty_mem {y : V} (hy : y ∈ˢ U) : (empty : V) ∈ˢ U :=
+theorem _root_.ConLeche.IsGrothendieck.empty_mem {y : V} (hy : y ∈ˢ U) :
+    (empty : V) ∈ˢ U :=
   hU.mem_of_subset_mem hy (empty_subset y)
 
-open Classical in
-/-- Pairing closure, via `covered_mem` from the two-element member
-`power (power ∅) = {∅, {∅}}`. -/
-theorem _root_.ConLeche.IsTGUniverse.upair_mem {a b y : V} (hy : y ∈ˢ U)
-    (ha : a ∈ˢ U) (hb : b ∈ˢ U) : upair a b ∈ˢ U := by
-  have h2 : power (power (empty : V)) ∈ˢ U :=
-    (hU.empty_mem hy |> hU.power_mem) |> hU.power_mem
-  refine hU.covered_mem (F := fun x => if x = empty then a else b) h2 ?_ ?_
-  · intro z hz
-    rcases mem_upair.mp hz with h | h <;> subst h <;> assumption
-  · intro z hz
-    rcases mem_upair.mp hz with h | h <;> subst h
-    · exact ⟨empty, mem_power.mpr (empty_subset _), by simp⟩
-    · refine ⟨power empty, mem_power.mpr (Subset.refl _), ?_⟩
-      have hne : power (empty : V) ≠ empty :=
-        ne_empty_of_mem (mem_power.mpr (Subset.refl _))
-      simp [hne]
+theorem _root_.ConLeche.IsGrothendieck.sing_mem {a : V} (ha : a ∈ˢ U) : sing a ∈ˢ U :=
+  hU.upair_mem ha ha
 
-theorem _root_.ConLeche.IsTGUniverse.sing_mem {a y : V} (hy : y ∈ˢ U) (ha : a ∈ˢ U) :
-    sing a ∈ˢ U := hU.upair_mem hy ha ha
+theorem _root_.ConLeche.IsGrothendieck.kpair_mem {a b : V} (ha : a ∈ˢ U) (hb : b ∈ˢ U) :
+    kpair a b ∈ˢ U :=
+  hU.upair_mem (hU.sing_mem ha) (hU.upair_mem ha hb)
 
-/-- `⋃` closure.  A surjection `f : ⋃s ↠ U` would make `U` the union
-of the member `S = {f-image of w : w ∈ s}`, putting `S ∈ U ⊆ ⋃S` — a
-2-cycle. -/
-theorem _root_.ConLeche.IsTGUniverse.sUnion_mem {s : V} (hs : s ∈ˢ U) : sUnion s ∈ˢ U := by
-  have hsub : sUnion s ⊆ˢ U := fun z hz => by
-    obtain ⟨y, hy, hzy⟩ := mem_sUnion.mp hz
-    exact hU.transitive (hU.transitive hs hy) hzy
-  rcases hU.2.2.2 (sUnion s) hsub with ⟨f, hinto, -, hsurj⟩ | hmem
-  · exfalso
-    -- For each `w ∈ s`, the `f`-image of `w` is a member of `U` …
-    have himg : ∀ w, w ∈ˢ s → image f w ∈ˢ U := fun w hw =>
-      hU.image_mem (hU.transitive hs hw) fun x hx =>
-        hinto x (mem_sUnion.mpr ⟨w, hw, hx⟩)
-    -- … so the set of all these images is a member too …
-    have hS : image (fun w => image f w) s ∈ˢ U :=
-      hU.image_mem hs fun w hw => himg w hw
-    -- … but `U ⊆ ⋃(that set)`, giving `S ∈ U ⊆ ⋃S`: a 2-cycle.
-    obtain ⟨x, hx, hfx⟩ := hsurj _ hS
-    obtain ⟨w, hw, hxw⟩ := mem_sUnion.mp hx
-    have : image (fun w => image f w) s ∈ˢ image f w :=
-      hfx ▸ mem_image.mpr ⟨x, hxw, rfl⟩
-    exact no_two_cycle this (mem_image.mpr ⟨w, hw, rfl⟩)
-  · exact hmem
-
-theorem _root_.ConLeche.IsTGUniverse.binUnion_mem {a b y : V} (hy : y ∈ˢ U)
-    (ha : a ∈ˢ U) (hb : b ∈ˢ U) : binUnion a b ∈ˢ U :=
-  hU.sUnion_mem (hU.upair_mem hy ha hb)
-
-theorem _root_.ConLeche.IsTGUniverse.kpair_mem {a b y : V} (hy : y ∈ˢ U)
-    (ha : a ∈ˢ U) (hb : b ∈ˢ U) : kpair a b ∈ˢ U :=
-  hU.upair_mem hy (hU.sing_mem hy ha) (hU.upair_mem hy ha hb)
-
-theorem _root_.ConLeche.IsTGUniverse.sep_mem {a : V} {p : V → Prop} (ha : a ∈ˢ U) :
-    sep a p ∈ˢ U :=
+theorem _root_.ConLeche.IsGrothendieck.sep_mem {a : V} {p : V → Prop}
+    (ha : a ∈ˢ U) (h : HasSep a p) : sep a p h ∈ˢ U :=
   hU.mem_of_subset_mem ha sep_subset
 
-/-- Union of a member-indexed family of members. -/
-theorem _root_.ConLeche.IsTGUniverse.famUnion_mem {A : V} {F : V → V}
-    (hA : A ∈ˢ U) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ U) :
-    sUnion (image F A) ∈ˢ U :=
-  hU.sUnion_mem (hU.image_mem hA hF)
+/-- `⋃` closure, via the identity function graph `y ↦ ⟨y, y⟩` on `s`
+and SGA4 clause 4. -/
+theorem _root_.ConLeche.IsGrothendieck.sUnion_mem {s : V} (hs : s ∈ˢ U) :
+    sUnion s ∈ˢ U := by
+  have himg : HasImage (fun y : V => kpair y y) s := by
+    fo_def [DefFun.kpair_apply]
+  let g := image (fun y => kpair y y) s himg
+  have hfg : IsFunGraph (Mem (V := V)) g s U := by
+    constructor
+    · intro p hp
+      obtain ⟨y, hy, rfl⟩ := mem_image.mp hp
+      exact ⟨y, y, hy, hU.transitive hs hy, isKPair_kpair y y⟩
+    · intro x hx
+      refine ⟨x, ⟨hU.transitive hs hx, kpair x x,
+        mem_image.mpr ⟨x, hx, rfl⟩, isKPair_kpair x x⟩, ?_⟩
+      rintro y ⟨_, p, hp, hkp⟩
+      obtain ⟨w, _, rfl⟩ := mem_image.mp hp
+      rw [isKPair_iff] at hkp
+      obtain ⟨rfl, rfl⟩ := kpair_inj hkp
+      rfl
+  obtain ⟨w, hw, hzw⟩ := hU.indexedUnion s g hs hfg
+  have heq : w = sUnion s := ext fun z => by
+    rw [hzw z, mem_sUnion]
+    constructor
+    · rintro ⟨i, y, p, hi, _, hp, hkp, hzy⟩
+      obtain ⟨u, _, rfl⟩ := mem_image.mp hp
+      rw [isKPair_iff] at hkp
+      obtain ⟨rfl, rfl⟩ := kpair_inj hkp
+      exact ⟨u, hi, hzy⟩
+    · rintro ⟨y, hy, hzy⟩
+      exact ⟨y, y, kpair y y, hy, hU.transitive hs hy,
+        mem_image.mpr ⟨y, hy, rfl⟩, isKPair_kpair y y, hzy⟩
+  exact heq ▸ hw
 
-end IsTGUniverse
+theorem _root_.ConLeche.IsGrothendieck.binUnion_mem {a b : V}
+    (ha : a ∈ˢ U) (hb : b ∈ˢ U) : binUnion a b ∈ˢ U :=
+  hU.sUnion_mem (hU.upair_mem ha hb)
+
+/-- Union of a member-indexed family of members, given a set-level
+function graph witness `HasImage (fun x => kpair x (F x)) A`. -/
+theorem _root_.ConLeche.IsGrothendieck.famUnion_mem {A : V} {F : V → V}
+    (hA : A ∈ˢ U) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ U)
+    (hImg : HasImage F A) (hG : HasImage (fun x => kpair x (F x)) A) :
+    sUnion (image F A hImg) ∈ˢ U := by
+  let g := image (fun x => kpair x (F x)) A hG
+  have hfg : IsFunGraph (Mem (V := V)) g A U := by
+    constructor
+    · intro p hp
+      obtain ⟨x, hx, rfl⟩ := mem_image.mp hp
+      exact ⟨x, F x, hx, hF x hx, isKPair_kpair x (F x)⟩
+    · intro x hx
+      refine ⟨F x, ⟨hF x hx, kpair x (F x),
+        mem_image.mpr ⟨x, hx, rfl⟩, isKPair_kpair x (F x)⟩, ?_⟩
+      rintro y ⟨_, p, hp, hkp⟩
+      obtain ⟨w, _, rfl⟩ := mem_image.mp hp
+      rw [isKPair_iff] at hkp
+      obtain ⟨rfl, rfl⟩ := kpair_inj hkp
+      rfl
+  obtain ⟨w, hw, hzw⟩ := hU.indexedUnion A g hA hfg
+  have heq : w = sUnion (image F A hImg) := ext fun z => by
+    rw [hzw z, mem_sUnion]
+    constructor
+    · rintro ⟨i, y, p, hi, _, hp, hkp, hzy⟩
+      obtain ⟨x, _, rfl⟩ := mem_image.mp hp
+      rw [isKPair_iff] at hkp
+      obtain ⟨rfl, rfl⟩ := kpair_inj hkp
+      exact ⟨F x, mem_image.mpr ⟨x, hi, rfl⟩, hzy⟩
+    · rintro ⟨y, hy, hzy⟩
+      obtain ⟨i, hi, rfl⟩ := mem_image.mp hy
+      exact ⟨i, F i, kpair i (F i), hi, hF i hi,
+        mem_image.mpr ⟨i, hi, rfl⟩, isKPair_kpair i (F i), hzy⟩
+  exact heq ▸ hw
+
+/-- Convenience form of `famUnion_mem` when `F` is `DefFunOn A F`. -/
+theorem _root_.ConLeche.IsGrothendieck.famUnion_mem_of_def {A : V} {F : V → V}
+    (hA : A ∈ˢ U) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ U)
+    (hImg : HasImage F A) (hDef : DefFunOn A F) :
+    sUnion (image F A hImg) ∈ˢ U :=
+  hU.famUnion_mem hA hF hImg (hasImage_kpair hDef)
+
+open Classical in
+/-- Replacement closure: the image of a member under a fibre-wise
+member-valued function is a member, given a set-level graph witness
+`HasImage (fun x => kpair x (F x)) A`. -/
+theorem _root_.ConLeche.IsGrothendieck.image_mem {A : V} {F : V → V}
+    (hA : A ∈ˢ U) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ U)
+    (hImg : HasImage F A) (hG : HasImage (fun x => kpair x (F x)) A) :
+    image F A hImg ∈ˢ U := by
+  let R : V → (Fin 1 → V) → Prop := fun z v =>
+    ∃ x y, v 0 = kpair x y ∧ z = kpair x (sing y)
+  have hR : DefRel (1 + 1) fun w => R (w 0) (ftail w) := by
+    fo_def [DefFun.kpair_apply, DefFun.sing_apply]
+  let transform : V → V := fun p =>
+    if h : ExistsUnique fun z => R z (fcons p Fin.elim0) then Classical.choose h
+    else empty
+  have htransDef : DefFun 1 fun v => transform (v 0) := by
+    have huc := DefFun.uniqueChoice_curry hR
+    refine huc.congr fun v => ?_
+    have heqv : fcons (v 0) Fin.elim0 = v := by
+      funext ⟨i, hi⟩
+      match i with
+      | 0 => rfl
+    dsimp only [transform]
+    simp only [heqv]
+  have htrans_eq : ∀ x y : V, transform (kpair x y) = kpair x (sing y) := by
+    intro x y
+    have hex : ExistsUnique fun z => R z (fcons (kpair x y) Fin.elim0) := by
+      refine ⟨kpair x (sing y), ⟨x, y, rfl, rfl⟩, ?_⟩
+      rintro z ⟨x', y', hxy, rfl⟩
+      obtain ⟨rfl, rfl⟩ := kpair_inj hxy
+      rfl
+    have heq : transform (kpair x y) = Classical.choose hex := dite_eq_left hex
+    rw [heq]
+    obtain ⟨x', y', hxy, hchoose⟩ := (Classical.choose_spec hex).1
+    obtain ⟨rfl, rfl⟩ := kpair_inj hxy
+    exact hchoose
+  let g₀ := image (fun x => kpair x (F x)) A hG
+  have hgImg : HasImage transform g₀ := hasImage_of_defFun1 htransDef g₀
+  let g := image transform g₀ hgImg
+  have hg_mem : ∀ p, p ∈ˢ g ↔ ∃ x, x ∈ˢ A ∧ p = kpair x (sing (F x)) := by
+    intro p
+    rw [mem_image]
+    constructor
+    · rintro ⟨q, hq, rfl⟩
+      obtain ⟨x, hx, rfl⟩ := mem_image.mp hq
+      exact ⟨x, hx, htrans_eq x (F x)⟩
+    · rintro ⟨x, hx, rfl⟩
+      exact ⟨kpair x (F x), mem_image.mpr ⟨x, hx, rfl⟩, (htrans_eq x (F x)).symm⟩
+  have hfg : IsFunGraph (Mem (V := V)) g A U := by
+    constructor
+    · intro p hp
+      obtain ⟨x, hx, rfl⟩ := (hg_mem p).mp hp
+      exact ⟨x, sing (F x), hx, hU.sing_mem (hF x hx), isKPair_kpair x (sing (F x))⟩
+    · intro x hx
+      refine ⟨sing (F x), ⟨hU.sing_mem (hF x hx), kpair x (sing (F x)),
+        (hg_mem _).mpr ⟨x, hx, rfl⟩, isKPair_kpair x (sing (F x))⟩, ?_⟩
+      rintro y ⟨_, p, hp, hkp⟩
+      obtain ⟨w, _, rfl⟩ := (hg_mem p).mp hp
+      rw [isKPair_iff] at hkp
+      obtain ⟨rfl, rfl⟩ := kpair_inj hkp
+      rfl
+  obtain ⟨w, hw, hzw⟩ := hU.indexedUnion A g hA hfg
+  have heq : w = image F A hImg := ext fun z => by
+    rw [hzw z, mem_image]
+    constructor
+    · rintro ⟨i, y, p, hi, _, hp, hkp, hzy⟩
+      obtain ⟨x, _, rfl⟩ := (hg_mem p).mp hp
+      rw [isKPair_iff] at hkp
+      obtain ⟨rfl, rfl⟩ := kpair_inj hkp
+      exact ⟨x, hi, mem_sing.mp hzy⟩
+    · rintro ⟨i, hi, rfl⟩
+      exact ⟨i, sing (F i), kpair i (sing (F i)), hi, hU.sing_mem (hF i hi),
+        (hg_mem _).mpr ⟨i, hi, rfl⟩, isKPair_kpair i (sing (F i)), mem_sing.mpr rfl⟩
+  exact heq ▸ hw
+
+/-- Convenience form of `image_mem` when `F` is `DefFunOn A F`. -/
+theorem _root_.ConLeche.IsGrothendieck.image_mem_of_def {A : V} {F : V → V}
+    (hA : A ∈ˢ U) (hF : ∀ x, x ∈ˢ A → F x ∈ˢ U)
+    (hImg : HasImage F A) (hDef : DefFunOn A F) :
+    image F A hImg ∈ˢ U :=
+  hU.image_mem hA hF hImg (hasImage_kpair hDef)
+
+end IsGrothendieck
 
 /-- Chain membership generalizes along the ordering, by transitivity
 of the higher universe. -/
@@ -161,7 +243,7 @@ theorem univChain_mem_of_lt {m n : Nat} (h : m < n) :
   | zero => exact absurd h (Nat.not_lt_zero m)
   | succ n ih =>
     rcases Nat.lt_succ_iff_lt_or_eq.mp h with h' | rfl
-    · exact (univChain_tg (n + 1)).transitive (univChain_mem n) (ih h')
+    · exact (univChain_grothendieck (n + 1)).transitive (univChain_mem n) (ih h')
     · exact univChain_mem m
 
 end ConLeche.SetTheory

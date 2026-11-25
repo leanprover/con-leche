@@ -54,6 +54,14 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # first-order SetTheory refactor: `ContAccRel.lean`'s public statements name
+    # `grpVals`/`keyFrame` (`ContWalk`, :103) and `HoleQ`/`HoleRelA` (`NestPosAcc`, :55/:378),
+    # masked in the baseline by `pub.tsv` recording `LfpAcc`; `TargetNodePres.lean`'s public
+    # statements name `tgtClsD`/`tgtClsIs` (`TargetClassRows`, :627), masked by private
+    # `NestRecCls`.  Each measured by demoting it alone (unknown identifier at the cited line).
+    ('ConLeche.Model.Inductives.ContAccRel', 'ConLeche.Model.Inductives.ContWalk'),
+    ('ConLeche.Model.Inductives.ContAccRel', 'ConLeche.Model.Inductives.NestPosAcc'),
+    ('ConLeche.Model.Inductives.TargetNodePres', 'ConLeche.Model.Inductives.TargetClassRows'),
     # task #629 (con-ron #166): `PureRun.lean`'s statements name `BlockRun` (through `Scoped`) and
     # `FreshNames` (`PushChain`, through `IotaRead`); `IsModelRecords.lean`'s name `constantsOf`
     # (`IsModel`), `checkDecl` (`Kernel.CheckDecl`) and reach `ConstantInfo.dropCaps` by

@@ -221,11 +221,11 @@ theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
   have heF := hf hfa.app_fn hfb.app_fn hCa.app_fn hCb.app_fn hf₁ hf₂ ρ hρ
     hLa.app_fn hLb.app_fn hwa.app_fn hwb.app_fn hn₁ hn₂
   obtain ⟨F₁, A₁, hg₁, hT₁, hm₁⟩ := hwa.app_clause.resolve_left hn₁
-  obtain ⟨F₂, A₂, hg₂, -, hm₂⟩ := hwb.app_clause.resolve_left hn₂
-  rw [← heF] at hg₂
-  have hA : A₁ = A₂ := graph_dom_unique (hg₁.symm.trans hg₂)
+  obtain ⟨F₂, A₂, hg₂, hT₂, hm₂⟩ := hwb.app_clause.resolve_left hn₂
+  rw [← heF] at hT₂
+  have hA : A₁ = A₂ := graph_dom_unique (hT₁.symm.trans hT₂)
   rw [← hA] at hm₂
-  exact deqStep_appCong heF (hT₁.eq_of_ne_pt hm₁ hm₂ fun h₁ h₂ =>
+  exact deqStep_appCong heF (hm₁.1.eq_of_ne_pt hm₁.2 hm₂.2 fun h₁ h₂ =>
     ha hfa.app_arg hfb.app_arg hCa.app_arg hCb.app_arg hx₁ hx₂ ρ hρ
       hLa.app_arg hLb.app_arg hwa.app_arg hwb.app_arg h₁ h₂)
 
@@ -311,9 +311,8 @@ theorem DefEqLams.inner_sound {d : Nat} {ty₁ body₁ ty₂ body₂ t₁ t₂ :
       ρ hρ hLa.lam_ty hLb.lam_ty hwa.lam_dom.1 hwb.lam_dom.1
       hwa.lam_dom.ne_pt hwb.lam_dom.ne_pt
   simp only [interp_lam]
-  rw [hdom]
-  refine lamV_congr fun x hx => ?_
-  have hx₁ : x ∈ˢ interp V ρ ta₁ := hdom ▸ hx
+  refine lamV_ext hdom _ _ fun x hx₁ => ?_
+  have hx : x ∈ˢ interp V ρ ta₂ := hdom ▸ hx₁
   have hf₁ := hfa.lam_open hfb.lam_ty
   have hf₂ := hfb.lam_open hfb.lam_ty
   have hC₁ := CtxOkS.openS hCb.lam_ty hCa.lam_body hta₂
@@ -353,9 +352,8 @@ theorem DefEqLams.outer_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
       ρ hρ hLa.lam_ty hLb.lam_ty hwa.lam_dom.1 hwb.lam_dom.1
       hwa.lam_dom.ne_pt hwb.lam_dom.ne_pt
   simp only [interp_lam]
-  rw [hdom]
-  refine lamV_congr fun x hx => ?_
-  have hx₁ : x ∈ˢ interp V ρ ta₁ := hdom ▸ hx
+  refine lamV_ext hdom _ _ fun x hx₁ => ?_
+  have hx : x ∈ˢ interp V ρ ta₂ := hdom ▸ hx₁
   exact hbody (hfa.lam_open hfb.lam_ty) (hfb.lam_open hfb.lam_ty)
     (CtxOkS.openS hCb.lam_ty hCa.lam_body hta₂)
     (CtxOkS.openS hCb.lam_ty hCb.lam_body hta₂)
@@ -429,7 +427,8 @@ theorem DefEq.eta_core {d : Nat}
     hty hfW.forallE_ty hfty hCwr.forallE_ty hCty hta₂ hta ρ hρ
       hLwρ.forallE_ty hLtyρ hokTa₂.1 hokTa.1 hokTa₂.ne_pt hokTa.ne_pt
   have hmem : interp V ρ ba ∈ˢ piV (interp V ρ ta₂)
-      (fun x => interp V (cons x ρ) ba₂) := by
+      (fun x => interp V (cons x ρ) ba₂)
+      (interp_hasSigmaPairs_cons ρ (interp V ρ ta₂) ba₂) := by
     have h := hmemB
     rw [heqW, interp_pi] at h
     exact h
@@ -455,7 +454,8 @@ theorem DefEq.eta_core {d : Nat}
       (WellDenoted_liftN V 1 ba 0 (cons x ρ)).mpr (by rw [shiftE_zero]; exact hokB)
     rw [WellDenoted_app]
     refine ⟨hok0, by simp,
-      appliesTo_of_mem_piV (B := fun y => interp V (cons y ρ) ba₂) ?_ hokTa₂.2 ?_⟩
+      appliesTo_of_mem_piV (B := fun y => interp V (cons y ρ) ba₂)
+        (hS := interp_hasSigmaPairs_cons ρ (interp V ρ ta₂) ba₂) ?_ hokTa₂.2 ?_⟩
     · rw [hlift]; exact hmem
     · show x ∈ˢ _
       rw [hdom]; exact hx
@@ -517,8 +517,9 @@ theorem DefEq.eta_core {d : Nat}
         (hLopenBody x) (hLapp x) hw₁ (hokApp x hx) hn₁ hn₂,
       interp_app, hlift, interp_bvar]
     rfl
-  rw [interp_lam, lamV_congr hpt, ← hdom]
-  exact lamV_eta hmem fun x hx => hokW.pi_fib x hx
+  rw [interp_lam]
+  exact (lamV_ext hdom.symm _ _ fun x hx => hpt x hx).trans
+    (lamV_eta hmem fun x hx => hokW.pi_fib x hx)
 
 /-- **η, typed**, with `b`'s io-inferred type: where `b` is not the point,
 its io claim is a membership — for an atom-headed `b` (the fragment's

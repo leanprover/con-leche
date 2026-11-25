@@ -1137,7 +1137,8 @@ membership and the successor's, at the leaf valuation's own
     interp V ρ (m.acval natSuccName (Level.substFn φ [] []))
       ∈ˢ piR 1 (interp V ρ (m.acval natName (Level.substFn φ [] [])))
         (fun _ => interp V ρ
-          (m.acval natName (Level.substFn φ [] []))) ∧
+          (m.acval natName (Level.substFn φ [] [])))
+        (hasSigmaPairs_const _ _) ∧
     IsTy (interp V ρ (m.acval natName (Level.substFn φ [] [])))
 
 /-- **A definition's leaf against its value's reading**: the reading

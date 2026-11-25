@@ -52,15 +52,15 @@ theorem app_mem_pi {ρ : Nat → V} {Aa Ba : Term}
 
 /-- `pt` inhabits a function space whose fibres are inhabited truth
 values. -/
-theorem pt_mem_piV_of {A : V} {B : V → V}
+theorem pt_mem_piV_of {A : V} {B : V → V} {hS : HasSigmaPairs A B}
     (h : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ B x) :
-    (pt : V) ∈ˢ piV A B := by
+    (pt : V) ∈ˢ piV A B hS := by
   rw [piV_eq_zero fun x hx => (h x hx).1]
   exact pt_mem_piR_zero_of fun x hx => (h x hx).2
 
 /-- A function space whose fibres are truth values is a truth value. -/
-theorem piV_mem_univZero_of {A : V} {B : V → V}
-    (h : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) : piV A B ∈ˢ (univZero : V) := by
+theorem piV_mem_univZero_of {A : V} {B : V → V} {hS : HasSigmaPairs A B}
+    (h : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) : piV A B hS ∈ˢ (univZero : V) := by
   rw [piV_eq_zero h]; exact piR_zero_mem_univZero
 
 /-! ## The stored `Iff` family's shapes
@@ -101,7 +101,8 @@ the shape, and `app_mem_pi` once per argument. -/
 /-- **Two mutually inverse implications identify their propositions.** -/
 theorem eq_of_impls {A B f g : V} (hA : A ∈ˢ (univ 0 : V))
     (hB : B ∈ˢ (univ 0 : V))
-    (hf : f ∈ˢ piV A fun _ => B) (hg : g ∈ˢ piV B fun _ => A) :
+    {hAB : HasSigmaPairs A fun _ => B} {hBA : HasSigmaPairs B fun _ => A}
+    (hf : f ∈ˢ piV A (fun _ => B) hAB) (hg : g ∈ˢ piV B (fun _ => A) hBA) :
     A = B := by
   refine prop_ext hA hB (fun hptA => ?_) (fun hptB => ?_)
   · have h1 := app_mem_piV hf hptA
@@ -197,7 +198,7 @@ theorem iff_forces_eq (mp : EnvModelM V env)
   obtain ⟨M, hME⟩ : ∃ M : V, M = lamV
       (SetTheory.app (SetTheory.app
         (interp V ρ (mp.base2.acval iffName ψ)) A) B)
-      (fun _ => eqv A B) := ⟨_, rfl⟩
+      (fun _ => eqv A B) (hasGraph_const _ _) := ⟨_, rfl⟩
   have hMd : M ∈ˢ interp V (cons B (cons A ρ))
       (.pi (.app (.app (mp.base2.acval iffName ψ) (.bvar 1)) (.bvar 0))
         (.sort 0)) := by
@@ -209,8 +210,10 @@ theorem iff_forces_eq (mp : EnvModelM V env)
   -- ARG 4: the minor.  **Vacuous**: an implication and its converse in
   -- hand contradict `hne`, so the stored `Iff.intro` never appears
   obtain ⟨Min, hMinE⟩ : ∃ Min : V, Min = lamV
-      (piV A fun _ => B)
-      (fun _ => lamV (piV B fun _ => A) fun _ => pt) :=
+      (piV A (fun _ => B) (hasSigmaPairs_const _ _))
+      (fun _ => lamV (piV B (fun _ => A) (hasSigmaPairs_const _ _)) (fun _ => pt)
+        (hasGraph_const _ _))
+      (hasGraph_const _ _) :=
     ⟨_, rfl⟩
   have hMind : Min ∈ˢ interp V (cons M (cons B (cons A ρ)))
       (.pi (.pi (.bvar 2) (.bvar 2))
@@ -515,7 +518,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V env)
   -- ARG 2: the constantly-`∅` motive
   obtain ⟨M, hME⟩ : ∃ M : V, M = lamV
       (SetTheory.app (interp V ρ (mp.base2.acval nonemptyName ψ)) A)
-      (fun _ => (empty : V)) := ⟨_, rfl⟩
+      (fun _ => (empty : V)) (hasGraph_const _ _) := ⟨_, rfl⟩
   have hMd : M ∈ˢ interp V (cons A ρ)
       (.pi (.app (mp.base2.acval nonemptyName ψ) (.bvar 0)) (.sort 0)) := by
     rw [hME, interp_pi]
@@ -524,7 +527,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V env)
   have h2 := app_mem_pi h1 hMd
   -- ARG 3: the minor, vacuous over an empty `A`
   obtain ⟨Min, hMinE⟩ : ∃ Min : V,
-      Min = lamV A (fun _ => (empty : V)) := ⟨_, rfl⟩
+      Min = lamV A (fun _ => (empty : V)) (hasGraph_const _ _) := ⟨_, rfl⟩
   have hMind : Min ∈ˢ interp V (cons M (cons A ρ))
       (.pi (.bvar 1)
         (.app (.bvar 1)
@@ -639,6 +642,7 @@ theorem choice_mem (mp : EnvModelM V env)
     cons_zero, cons_succ, hNc]
   rw [choiceV]
   refine lamV_mem (fun A hA => ?_) fun _ _ => IsTy_piV
-  rw [← dneg_eq_nonempty mp hfN hlpN htyN hfNi hlpNi htyNi hfNr htyNr ψ ρ hA]
-  exact lamV_mem (fun _ hh => schoice_mem (exists_mem_of_dneg V hh).choose_spec)
+  rw [piV_ext (dneg_eq_nonempty mp hfN hlpN htyN hfNi hlpNi htyNi hfNr htyNr ψ ρ hA).symm
+    _ (hasSigmaPairs_const _ _) fun _ _ => rfl]
+  exact lamV_mem (fun _ hh => app_univChoiceFn_mem hA (exists_mem_of_dneg V hh))
     fun _ _ => IsTy_of_mem_univ hA

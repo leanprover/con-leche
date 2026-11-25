@@ -149,16 +149,16 @@ theorem wellDenoted_projNV_pt :
   | 0, e, ρ, hok, hpt => by
     show WellDenoted V ρ (.fst e)
     rw [WellDenoted_fst]
-    refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
-      fun _ _ => unitSet_mem_univ 0⟩
+    refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, hasSigmaPairs_const _ _, ?_,
+      unitSet_mem_univ 0, fun _ _ => unitSet_mem_univ 0⟩
     rw [hpt, nat_max_self]
     exact pt_mem_sigma pt_mem_unitSet pt_mem_unitSet
   | i + 1, e, ρ, hok, hpt => by
     show WellDenoted V ρ (projNV i (.snd e))
     refine wellDenoted_projNV_pt (i := i) ?_ ?_
     · rw [WellDenoted_snd]
-      refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
-        fun _ _ => unitSet_mem_univ 0⟩
+      refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, hasSigmaPairs_const _ _, ?_,
+        unitSet_mem_univ 0, fun _ _ => unitSet_mem_univ 0⟩
       rw [hpt, nat_max_self]
       exact pt_mem_sigma pt_mem_unitSet pt_mem_unitSet
     · rw [interp_snd, hpt, ssnd_pt]
@@ -168,7 +168,8 @@ graded: each pair step's Σ package is the tower's own level, with the
 tail in the fibre (`ssnd_mem_gen`). -/
 theorem wellDenoted_projNV_tower {w : Nat} :
     ∀ {i : Nat} {Fs : List Term} {ρ' : Nat → V} {x : V} {e : Term} {ρ : Nat → V},
-      FieldsBound w ρ' Fs → x ∈ˢ towerSet w (teleOfFields ρ' Fs) →
+      FieldsBound w ρ' Fs →
+      x ∈ˢ towerSet w (teleOfFields ρ' Fs) (hasTeleS_teleOfFields w ρ' Fs) →
       WellDenoted V ρ e → interp V ρ e = x → i < Fs.length →
       WellDenoted V ρ (projNV i e) := by
   intro i
@@ -177,32 +178,43 @@ theorem wellDenoted_projNV_tower {w : Nat} :
     intro Fs ρ' x e ρ hb hx hok hval hi
     match Fs, hb, hx, hi with
     | F :: Fs', hb, hx, _ =>
+      obtain ⟨Ffun, hS, hF, hEq⟩ := towerSet_cons_elim (hasTeleS_teleOfFields w ρ' (F :: Fs'))
+      have hx' : x ∈ˢ sigmaSet w (interp V ρ' F) Ffun hS := hEq ▸ hx
       show WellDenoted V ρ (.fst e)
       rw [WellDenoted_fst]
-      refine ⟨hok, w, w, interp V ρ' F,
-        fun a => towerSet w (teleOfFields (cons a ρ') Fs'), ?_, hb.1,
-        fun a ha => towerSet_univ_teleOfFields (hb.2 a ha)⟩
-      rw [hval, nat_max_self]
-      exact hx
+      refine ⟨hok, w, w, interp V ρ' F, Ffun, hS, ?_, hb.1, fun a ha => ?_⟩
+      · rw [hval, nat_max_self]; exact hx'
+      · have heq := HasTower.unique (hF a ha)
+          (Classical.choose_spec (hasTeleS_teleOfFields w (cons a ρ') Fs'))
+        rw [heq]
+        exact towerSet_univ_teleOfFields (hb.2 a ha)
   | succ i ih =>
     intro Fs ρ' x e ρ hb hx hok hval hi
     match Fs, hb, hx, hi with
     | F :: Fs', hb, hx, hi =>
+      obtain ⟨Ffun, hS, hF, hEq⟩ := towerSet_cons_elim (hasTeleS_teleOfFields w ρ' (F :: Fs'))
       show WellDenoted V ρ (projNV i (.snd e))
-      have hx' : x ∈ˢ sigmaSet (Nat.max w w) (interp V ρ' F)
-          (fun a => towerSet w (teleOfFields (cons a ρ') Fs')) := by
-        rw [nat_max_self]; exact hx
+      have hx' : x ∈ˢ sigmaSet (Nat.max w w) (interp V ρ' F) Ffun hS := by
+        rw [nat_max_self]; exact hEq ▸ hx
       have hA : interp V ρ' F ∈ˢ (univ w : V) := hb.1
-      have hB : ∀ a, a ∈ˢ interp V ρ' F →
-          towerSet w (teleOfFields (cons a ρ') Fs') ∈ˢ (univ w : V) :=
-        fun a ha => towerSet_univ_teleOfFields (hb.2 a ha)
+      have hB : ∀ a, a ∈ˢ interp V ρ' F → Ffun a ∈ˢ (univ w : V) := fun a ha => by
+        have heq := HasTower.unique (hF a ha)
+          (Classical.choose_spec (hasTeleS_teleOfFields w (cons a ρ') Fs'))
+        rw [heq]
+        exact towerSet_univ_teleOfFields (hb.2 a ha)
       have hfst := sfst_mem_gen V hA hx'
       have hsnd := ssnd_mem_gen V hA hB hx'
-      refine ih (Fs := Fs') (ρ' := cons (sfst x) ρ') (x := ssnd x) (hb.2 _ hfst) hsnd ?_ ?_
+      have heqs : Ffun (sfst x) = towerSet w (teleOfFields (cons (sfst x) ρ') Fs')
+          (hasTeleS_teleOfFields w (cons (sfst x) ρ') Fs') :=
+        HasTower.unique (hF _ hfst)
+          (Classical.choose_spec (hasTeleS_teleOfFields w (cons (sfst x) ρ') Fs'))
+      have hsnd' : ssnd x ∈ˢ towerSet w (teleOfFields (cons (sfst x) ρ') Fs')
+          (hasTeleS_teleOfFields w (cons (sfst x) ρ') Fs') :=
+        heqs ▸ hsnd
+      refine ih (Fs := Fs') (ρ' := cons (sfst x) ρ') (x := ssnd x) (hb.2 _ hfst) hsnd' ?_ ?_
         (by simpa using hi)
       · rw [WellDenoted_snd]
-        refine ⟨hok, w, w, interp V ρ' F,
-          fun a => towerSet w (teleOfFields (cons a ρ') Fs'), ?_, hA, hB⟩
+        refine ⟨hok, w, w, interp V ρ' F, Ffun, hS, ?_, hA, hB⟩
         rw [hval]; exact hx'
       · rw [interp_snd, hval]
 

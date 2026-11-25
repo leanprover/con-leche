@@ -83,7 +83,6 @@ theorem posNodeOk_ws {env : Env} {ctx : NestCtx} {ops : ConLeche.CheckerOps ConL
     ∀ x ∈ t.key.ds, Expr.WScoped (ctx.hiAt t.occ.length) x :=
   fun x hx => (hok.2.2.2.2.1 x hx).1
 
-omit [SetTheory V] in
 /-- A name of a recorded block is one of its members. -/
 theorem exists_member_of_mem_names {D : LfpDatum V} (hkN : D.names.length = D.k) {n : Name}
     (h : n ∈ D.names) : ∃ i, i < D.k ∧ D.member i = n := by

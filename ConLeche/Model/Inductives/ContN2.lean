@@ -166,10 +166,24 @@ theorem TeleEq.teleOfFields : ∀ {Fs : List Term} {ρ ρ' : Nat → V}, TeleEq 
     funext a
     exact TeleEq.teleOfFields (Fs := Fs) (h2 a)
 
-theorem TeleEq.idxSet {u : Nat} {Fs : List Term} {ρ ρ' : Nat → V} (h : TeleEq ρ ρ' Fs) :
-    idxSet u ρ Fs = idxSet u ρ' Fs := by
-  unfold ConLeche.Semantics.idxSet
-  rw [h.teleOfFields]
+private theorem hasSigmaPairs_idxSet (u : Nat) (ρ : Nat → V) (F : Term) (Fs : List Term) :
+    HasSigmaPairs (interp V ρ F) fun a => idxSet u (cons a ρ) Fs :=
+  hasSigmaPairs_of_defFun1
+    (DefFun.towerSet_apply u ((defTeleS_teleOfFields ρ Fs 1).congr fun v => by
+      rw [Semantics.prepend_one]))
+
+private theorem idxSet_cons (u : Nat) (ρ : Nat → V) (F : Term) (Fs : List Term) :
+    idxSet u ρ (F :: Fs) = sigmaSet u (interp V ρ F) (fun a => idxSet u (cons a ρ) Fs)
+      (hasSigmaPairs_idxSet u ρ F Fs) :=
+  Tower.towerSet_cons (fun a => hasTeleS_teleOfFields u (cons a ρ) Fs)
+    (hasSigmaPairs_idxSet u ρ F Fs)
+
+theorem TeleEq.idxSet {u : Nat} : ∀ {Fs : List Term} {ρ ρ' : Nat → V}, TeleEq ρ ρ' Fs →
+    idxSet u ρ Fs = idxSet u ρ' Fs
+  | [], _, _, _ => rfl
+  | F :: Fs, ρ, ρ', ⟨h1, h2⟩ => by
+    rw [idxSet_cons, idxSet_cons]
+    exact sigmaSet_ext h1 _ _ fun x _ => TeleEq.idxSet (h2 x)
 
 theorem TeleEq.spineFit : ∀ {Fs : List Term} {ρ ρ' : Nat → V}, TeleEq ρ ρ' Fs →
     ∀ as : List V, SpineFit ρ Fs as ↔ SpineFit ρ' Fs as
@@ -181,13 +195,11 @@ theorem TeleEq.spineFit : ∀ {Fs : List Term} {ρ ρ' : Nat → V}, TeleEq ρ �
     rw [h1, TeleEq.spineFit (Fs := Fs) (h2 a) as]
 
 theorem TeleEq.holeFam : ∀ {Fs : List Term} {ρ ρ' : Nat → V}, TeleEq ρ ρ' Fs →
-    ∀ g : List V → V, holeFam ρ Fs g = holeFam ρ' Fs g
-  | [], _, _, _, _ => rfl
-  | _ :: Fs, _, _, ⟨h1, h2⟩, g => by
-    simp only [ConLeche.Model.holeFam, h1]
-    congr 1
-    funext a
-    exact TeleEq.holeFam (Fs := Fs) (h2 a) _
+    ∀ (g : List V → V) {hg : DefHoleFn Fs.length g}, holeFam ρ Fs g hg = holeFam ρ' Fs g hg
+  | [], _, _, _, _, _ => by rw [holeFam_nil, holeFam_nil]
+  | _ :: Fs, _, _, ⟨h1, h2⟩, g, hg => by
+    rw [holeFam_cons, holeFam_cons]
+    exact lamV_ext h1 _ _ fun a _ => TeleEq.holeFam (Fs := Fs) (h2 a) _ (hg := hg.cons a)
 
 /-! ## Telescopes of one tower value at two frames
 
@@ -196,32 +208,36 @@ over sorts of one value have one set of fits (`spineFit_iff_of_mkPisAV_eq`), and
 or an index set reads of a telescope is fixed by its fits and by its domains along them. -/
 
 /-- **A λ-tower over a telescope with no fit is the point.** -/
-theorem holeFam_of_noFit : ∀ {ρ : Nat → V} {Fs : List Term} (g : List V → V),
-    (∀ vs, ¬ SpineFit ρ Fs vs) → holeFam ρ Fs g = pt
-  | _, [], _, h => absurd trivial (h [])
-  | _, _ :: _, g, h => lamV_eq_pt fun x hx =>
-    holeFam_of_noFit (fun as => g (x :: as)) fun vs hvs => h (x :: vs) ⟨hx, hvs⟩
+theorem holeFam_of_noFit : ∀ {ρ : Nat → V} {Fs : List Term} (g : List V → V)
+    {hg : DefHoleFn Fs.length g}, (∀ vs, ¬ SpineFit ρ Fs vs) → holeFam ρ Fs g hg = pt
+  | _, [], _, _, h => absurd trivial (h [])
+  | _, _ :: _, g, hg, h => by
+    rw [holeFam_cons]
+    exact lamV_eq_pt fun x hx =>
+      holeFam_of_noFit (fun as => g (x :: as)) (hg := hg.cons x) fun vs hvs => h (x :: vs) ⟨hx, hvs⟩
 
 /-- **Hole values over telescopes of one tower value are one**: along a fit the domains and the
 fibres agree (`mkPisAV_cons_eq`), elsewhere both are the point. -/
-theorem holeFam_of_mkPisAV_eq : ∀ {Fs Fs' : List Term} {ρ ρ' : Nat → V} {n n' : Nat},
-    Fs.length = Fs'.length →
+theorem holeFam_of_mkPisAV_eq : ∀ {Fs Fs' : List Term} {ρ ρ' : Nat → V} {n n' : Nat}
+    (hl : Fs.length = Fs'.length),
     interp V ρ (mkPisAV Fs (.sort n)) = interp V ρ' (mkPisAV Fs' (.sort n')) →
-    ∀ g : List V → V, holeFam ρ Fs g = holeFam ρ' Fs' g
-  | [], [], _, _, _, _, _, _, _ => rfl
-  | F :: Fs, F' :: Fs', ρ, ρ', n, n', hl, h, g => by
+    ∀ (g : List V → V) {hg : DefHoleFn Fs.length g},
+      holeFam ρ Fs g hg = holeFam ρ' Fs' g (hl ▸ hg)
+  | [], [], _, _, _, _, _, _, _, _ => by rw [holeFam_nil, holeFam_nil]
+  | F :: Fs, F' :: Fs', ρ, ρ', n, n', hl, h, g, hg => by
     by_cases hfit : ∃ vs, SpineFit ρ (F :: Fs) vs
     · obtain ⟨vs, hvs⟩ := hfit
       obtain ⟨hA, hfib⟩ := mkPisAV_cons_eq h hvs
-      show lamV _ _ = lamV _ _
-      rw [← hA]
-      exact lamV_congr fun x hx =>
-        holeFam_of_mkPisAV_eq (by simpa using hl) (hfib x hx) _
+      rw [holeFam_cons, holeFam_cons]
+      refine lamV_ext hA _ _ fun x hx => ?_
+      exact holeFam_of_mkPisAV_eq (Fs := Fs) (Fs' := Fs')
+        (by simpa using hl) (hfib x hx) (fun as => g (x :: as)) (hg := hg.cons x)
     · have hfit' : ∀ vs, ¬ SpineFit ρ' (F' :: Fs') vs := fun vs hvs =>
         hfit ⟨vs, (spineFit_of_mkPisAV_eq hl.symm h.symm hvs).1⟩
-      rw [holeFam_of_noFit g fun vs hvs => hfit ⟨vs, hvs⟩, holeFam_of_noFit g hfit']
-  | [], _ :: _, _, _, _, _, hl, _, _ => nomatch hl
-  | _ :: _, [], _, _, _, _, hl, _, _ => nomatch hl
+      rw [holeFam_of_noFit g (hg := hg) fun vs hvs => hfit ⟨vs, hvs⟩,
+        holeFam_of_noFit g (hg := hl ▸ hg) hfit']
+  | [], _ :: _, _, _, _, _, hl, _, _, _ => nomatch hl
+  | _ :: _, [], _, _, _, _, hl, _, _, _ => nomatch hl
 
 /-- **An index set over a telescope with no fit is empty.** -/
 theorem not_mem_idxSet_of_noFit {u : Nat} : ∀ {ρ : Nat → V} {Fs : List Term},
@@ -230,9 +246,7 @@ theorem not_mem_idxSet_of_noFit {u : Nat} : ∀ {ρ : Nat → V} {Fs : List Term
   | ρ, F :: Fs, h, z, hz => by
     have hB : ∀ x, x ∈ˢ interp V ρ F → ∀ y, ¬ y ∈ˢ idxSet u (cons x ρ) Fs := fun x hx =>
       not_mem_idxSet_of_noFit fun vs hvs => h (x :: vs) ⟨hx, hvs⟩
-    unfold ConLeche.Semantics.idxSet at hz hB
-    rw [teleOfFields_cons] at hz
-    change z ∈ˢ sigmaSet u _ _ at hz
+    rw [idxSet_cons] at hz
     by_cases hu : u = 0
     · subst hu
       rw [sigmaSet_zero, mem_truthVal] at hz
@@ -241,21 +255,6 @@ theorem not_mem_idxSet_of_noFit {u : Nat} : ∀ {ρ : Nat → V} {Fs : List Term
     · rw [sigmaSet_pos hu, mem_sigmaPairs] at hz
       obtain ⟨x, hx, y, hy, -⟩ := hz
       exact hB x hx y hy
-
-/-- A Σ-set is fixed by its fibres over its domain. -/
-theorem sigmaSet_congr {u : Nat} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x = B' x) :
-    sigmaSet u A B = sigmaSet u A B' := by
-  by_cases hu : u = 0
-  · subst hu
-    rw [sigmaSet_zero, sigmaSet_zero]
-    congr 1
-    exact propext ⟨fun ⟨x, hx, y, hy⟩ => ⟨x, hx, y, h x hx ▸ hy⟩,
-      fun ⟨x, hx, y, hy⟩ => ⟨x, hx, y, (h x hx).symm ▸ hy⟩⟩
-  · rw [sigmaSet_pos hu, sigmaSet_pos hu]
-    exact SetTheory.ext fun z => by
-      rw [mem_sigmaPairs, mem_sigmaPairs]
-      exact ⟨fun ⟨x, hx, y, hy, he⟩ => ⟨x, hx, y, h x hx ▸ hy, he⟩,
-        fun ⟨x, hx, y, hy, he⟩ => ⟨x, hx, y, (h x hx).symm ▸ hy, he⟩⟩
 
 /-- **Index sets over telescopes of one tower value are one.** -/
 theorem idxSet_of_mkPisAV_eq {u : Nat} : ∀ {Fs Fs' : List Term} {ρ ρ' : Nat → V} {n n' : Nat},
@@ -267,15 +266,8 @@ theorem idxSet_of_mkPisAV_eq {u : Nat} : ∀ {Fs Fs' : List Term} {ρ ρ' : Nat 
     by_cases hfit : ∃ vs, SpineFit ρ (F :: Fs) vs
     · obtain ⟨vs, hvs⟩ := hfit
       obtain ⟨hA, hfib⟩ := mkPisAV_cons_eq h hvs
-      unfold ConLeche.Semantics.idxSet
-      rw [teleOfFields_cons, teleOfFields_cons]
-      change sigmaSet u _ _ = sigmaSet u _ _
-      rw [← hA]
-      have hB : ∀ x, x ∈ˢ interp V ρ F →
-          Tower.towerSet u (teleOfFields (cons x ρ) Fs)
-            = Tower.towerSet u (teleOfFields (cons x ρ') Fs') :=
-        fun x hx => idxSet_of_mkPisAV_eq (by simpa using hl) (hfib x hx)
-      exact sigmaSet_congr hB
+      rw [idxSet_cons, idxSet_cons]
+      exact sigmaSet_ext hA _ _ fun x hx => idxSet_of_mkPisAV_eq (by simpa using hl) (hfib x hx)
     · have hfit' : ∀ vs, ¬ SpineFit ρ' (F' :: Fs') vs := fun vs hvs =>
         hfit ⟨vs, (spineFit_of_mkPisAV_eq hl.symm h.symm hvs).1⟩
       exact SetTheory.ext fun z =>
@@ -292,7 +284,7 @@ theorem TeleEq.tower {B : Term} : ∀ {Fs : List Term} {ρ ρ' : Nat → V}, Tel
   | F :: Fs, ρ, ρ', ⟨h1, h2⟩, hB => by
     show interp V ρ (.pi F (mkPisAV Fs B)) = interp V ρ' (.pi F (mkPisAV Fs B))
     rw [interp_pi, interp_pi, h1]
-    exact piV_congr fun x _ => TeleEq.tower (h2 x) hB
+    exact piV_congr _ _ fun x _ => TeleEq.tower (h2 x) hB
 
 /-- A telescope mentioning no position of `P` reads the same at frames
 agreeing off `P`. -/

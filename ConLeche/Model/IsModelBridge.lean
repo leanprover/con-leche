@@ -46,7 +46,16 @@ variable {V : Type w} [SetTheory V]
 
 /-- **Equality at the universe `k`**: `@Eq.{k} A a b` is the truth value of `a = b`. -/
 noncomputable def eqRel (k : Nat) : V :=
-  lamV (univ k) fun A => lamV A fun a => lamV A fun b => eqv a b
+  lamV (univ k)
+    (fun A => lamV A
+      (fun a => lamV A (fun b => eqv a b)
+        (hasGraph_of_defFun1 (DefFun.eqv_apply (DefFun.const a) (DefFun.proj 0))))
+      (hasGraph_of_defFun1 (DefFun.lamV_apply_curry
+        (DefFun.eqv_apply (DefFun.proj 1) (DefFun.proj 0)) (DefFun.const A))))
+    (hasGraph_of_defFun1 (DefFun.lamV_apply_curry
+      (DefFun.lamV_apply_curry
+        (DefFun.eqv_apply (DefFun.proj 1) (DefFun.proj 0)) (DefFun.proj 1))
+      (DefFun.proj 0)))
 
 /-- The internal valuation, positional: a stored constant's level values go to its level
 parameters in order.  An undeclared `Eq` is equality (`eqRel`); any other undeclared name is
@@ -86,21 +95,24 @@ theorem assign_map_eval (φ : LevelParam → Nat) :
 theorem eval_natLitToConstructor (model : Name → List Nat → V) (φ : LevelParam → Nat)
     (ρ : BVarIdx → V) (n : Nat) :
     Expr.eval model φ ρ (natLitToConstructor n) = Expr.eval model φ ρ (.lit (.natVal n)) := by
-  cases n <;> rfl
+  cases n with
+  | zero =>
+    simp only [natLitToConstructor, eval_const, eval_lit_nat, natLitVal, List.map_nil]
+  | succ n =>
+    simp only [natLitToConstructor, eval_app, eval_const, eval_lit_nat, natLitVal, List.map_nil]
 
 theorem eval_strLitToConstructor (model : Name → List Nat → V) (φ : LevelParam → Nat)
     (ρ : BVarIdx → V) (s : String) :
     Expr.eval model φ ρ (strLitToConstructor s) = Expr.eval model φ ρ (.lit (.strVal s)) := by
-  show SetTheory.app _ _ = strLitVal model s
-  unfold strLitVal
+  simp only [strLitToConstructor, eval_app, eval_const, eval_lit_str,
+    strLitVal, List.map_nil]
   congr 1
   induction s.toList with
-  | nil => rfl
+  | nil => simp only [List.foldr_nil, eval_app, eval_const, List.map_cons,
+      List.map_nil, Level.eval]
   | cons c cs ih =>
-    simp only [List.foldr_cons]
-    show SetTheory.app (SetTheory.app _ _) (Expr.eval model φ ρ (List.foldr _ _ cs)) = _
-    rw [ih]
-    rfl
+    simp only [List.foldr_cons, eval_app, eval_const, eval_lit_nat,
+      List.map_cons, List.map_nil, Level.eval, ih]
 
 /-- **A model agreeing with `posModel` on the stored names**: it reads every stored constant
 as the positional valuation does (what it gives an unstored name is free). -/
@@ -118,32 +130,26 @@ theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
     {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
     (h : Denotes cval env φ ρ e v) : Expr.eval model φ ρ e = v := by
   induction h with
-  | bvar => rfl
-  | sort => rfl
+  | bvar => rw [eval_bvar]
+  | sort => rw [eval_sort]
   | @const ρ n us ci hf hlen =>
-    show model n (us.map (Level.eval φ)) = _
-    rw [hag n ci hf]
+    rw [eval_const, hag n ci hf]
     unfold posModel
     rw [hf]
     exact hloc n ci hf _ _ (assign_map_eval φ _ us hlen)
   | app _ _ ihf iha =>
-    show SetTheory.app _ _ = _
-    rw [ihf, iha]
-  | lam _ _ ihA ihF =>
-    show lamV _ _ = _
-    rw [ihA]
-    exact lamV_congr fun x hx => ihF x hx
-  | pi _ _ ihA ihB =>
-    show piV _ _ = _
-    rw [ihA]
-    exact piV_congr fun x hx => ihB x hx
+    rw [eval_app, ihf, iha]
+  | lam _ _ _ ihA ihF =>
+    rw [eval_lam]
+    exact lamV_ext ihA _ _ fun x hx => ihF x (ihA ▸ hx)
+  | pi _ _ _ ihA ihB =>
+    rw [eval_forallE]
+    exact piV_ext ihA _ _ fun x hx => ihB x (ihA ▸ hx)
   | letE _ _ ihv ihb =>
-    show Expr.eval _ φ (push (Expr.eval _ φ _ _) _) _ = _
-    rw [ihv]
+    rw [eval_letE, ihv]
     exact ihb
   | proj_table _ _ ih =>
-    show field _ _ = _
-    rw [ih]
+    rw [eval_proj, ih]
   | @natLit ρ n X _ ih =>
     rw [← eval_natLitToConstructor]
     exact ih
@@ -201,37 +207,134 @@ theorem Denotes_strLit {cval : Name → (LevelParam → Nat) → V} {env : Env} 
   obtain ⟨X, hX⟩ := hlist s.toList
   exact ⟨_, .strLit (.app hOc hX)⟩
 
+def assignWith (φ : LevelParam → Nat) : List Name → List Nat → LevelParam → Nat
+  | k :: ks, v :: vs, p => if k = p then v else assignWith φ ks vs p
+  | _, _, p => φ p
+
+theorem assignWith_map_eval (φ : LevelParam → Nat) :
+    ∀ (ps : List Name) (us : List Level),
+      assignWith φ ps (us.map (Level.eval φ)) = Level.substFn φ ps us
+  | [], _ => rfl
+  | _ :: _, [] => rfl
+  | k :: ks, u :: us => by
+    funext p
+    simp only [List.map_cons, assignWith, Level.substFn]
+    split
+    · rfl
+    · exact congrFun (assignWith_map_eval φ ks us) p
+
+noncomputable def cvalModel (cval : Name → (LevelParam → Nat) → V) (env : Env)
+    (φ : LevelParam → Nat) : Name → List Nat → V := fun n vals =>
+  match env.find? n with
+  | some ci => cval n (assignWith φ ci.toConstantVal.levelParams vals)
+  | none => empty
+
+theorem cvalModel_const {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    {φ : LevelParam → Nat} {n : Name} {ci : ConstantInfo}
+    (hf : env.find? n = some ci) (us : List Level) :
+    cvalModel cval env φ n (us.map (Level.eval φ)) =
+      cval n (Level.substFn φ ci.toConstantVal.levelParams us) := by
+  simp only [cvalModel, hf, assignWith_map_eval]
+
+theorem Denotes_natLit_eval {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    {φ : LevelParam → Nat} (hs : natLitSupported env = true) (ρ : BVarIdx → V) :
+    ∀ n, Denotes cval env φ ρ (.lit (.natVal n))
+      (Expr.eval (cvalModel cval env φ) φ ρ (.lit (.natVal n))) := by
+  obtain ⟨_, _, cv0, _, _, _, cv1, _, _, _, -, hz, hsu, -, h0, h1, -⟩ := natLitSupported_inv hs
+  intro n
+  induction n with
+  | zero =>
+    rw [← eval_natLitToConstructor, natLitToConstructor, eval_const, List.map_nil,
+      show ([] : List Nat) = ([] : List Level).map (Level.eval φ) from rfl,
+      cvalModel_const hz []]
+    exact .natLit (.const hz (by show 0 = cv0.levelParams.length; rw [h0]; rfl))
+  | succ n ih =>
+    rw [← eval_natLitToConstructor, natLitToConstructor, eval_app, eval_const, List.map_nil,
+      show ([] : List Nat) = ([] : List Level).map (Level.eval φ) from rfl,
+      cvalModel_const hsu []]
+    exact .natLit (.app (.const hsu (by show 0 = cv1.levelParams.length; rw [h1]; rfl)) ih)
+
+theorem Denotes_strLit_eval {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    {φ : LevelParam → Nat} (hs : strLitSupported env = true) (ρ : BVarIdx → V) (s : String) :
+    Denotes cval env φ ρ (.lit (.strVal s))
+      (Expr.eval (cvalModel cval env φ) φ ρ (.lit (.strVal s))) := by
+  obtain ⟨hnat, _, ciO, _, ciN, ciC, ciH, ciF, _, pN, pC,
+    -, hO, -, hN, hC, hH, hF, -, hO0, -, hN1, hC1, hH0, hF0, -⟩ := strLitSupported_inv hs
+  have hNc : Denotes cval env φ ρ (.const listNilName [.zero])
+      (Expr.eval (cvalModel cval env φ) φ ρ (.const listNilName [.zero])) := by
+    rw [eval_const, cvalModel_const hN [.zero]]
+    exact .const hN (by rw [hN1]; rfl)
+  have hCc : Denotes cval env φ ρ (.const listConsName [.zero])
+      (Expr.eval (cvalModel cval env φ) φ ρ (.const listConsName [.zero])) := by
+    rw [eval_const, cvalModel_const hC [.zero]]
+    exact .const hC (by rw [hC1]; rfl)
+  have hHc : Denotes cval env φ ρ (.const charName [])
+      (Expr.eval (cvalModel cval env φ) φ ρ (.const charName [])) := by
+    rw [eval_const, cvalModel_const hH []]
+    exact .const hH (by rw [hH0]; rfl)
+  have hFc : Denotes cval env φ ρ (.const charOfNatName [])
+      (Expr.eval (cvalModel cval env φ) φ ρ (.const charOfNatName [])) := by
+    rw [eval_const, cvalModel_const hF []]
+    exact .const hF (by rw [hF0]; rfl)
+  have hOc : Denotes cval env φ ρ (.const stringOfListName [])
+      (Expr.eval (cvalModel cval env φ) φ ρ (.const stringOfListName [])) := by
+    rw [eval_const, cvalModel_const hO []]
+    exact .const hO (by rw [hO0]; rfl)
+  let tailE : List Char → Expr := fun cs => cs.foldr
+    (init := Expr.app (.const listNilName [.zero]) (.const charName []))
+    fun c e =>
+      Expr.app (Expr.app (Expr.app (.const listConsName [.zero]) (.const charName []))
+        (Expr.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e
+  have hlist : ∀ cs : List Char, Denotes cval env φ ρ (tailE cs)
+      (Expr.eval (cvalModel cval env φ) φ ρ (tailE cs)) := by
+    intro cs
+    induction cs with
+    | nil => exact .app hNc hHc
+    | cons c cs ih =>
+      exact .app (.app (.app hCc hHc) (.app hFc (Denotes_natLit_eval hnat ρ c.toNat))) ih
+  rw [← eval_strLitToConstructor]
+  exact .strLit (.app hOc (hlist s.toList))
+
+theorem Denotes_eval_of_resolves {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    (φ : LevelParam → Nat) :
+    ∀ (e : Expr) (ρ : BVarIdx → V), e.Resolves env →
+      Denotes cval env φ ρ e (Expr.eval (cvalModel cval env φ) φ ρ e)
+  | .bvar i, ρ, _ => by rw [eval_bvar]; exact .bvar
+  | .sort u, ρ, _ => by rw [eval_sort]; exact .sort
+  | .fvar _ _, _, h => h.elim
+  | .const n us, ρ, ⟨ci, hf, hlen⟩ => by
+    rw [eval_const, cvalModel_const hf us]
+    exact .const hf hlen
+  | .app f a, ρ, ⟨hf, ha⟩ => by
+    rw [eval_app]
+    exact .app (Denotes_eval_of_resolves φ f ρ hf) (Denotes_eval_of_resolves φ a ρ ha)
+  | .lam ty b, ρ, ⟨hty, hb⟩ => by
+    rw [eval_lam]
+    exact .lam (Denotes_eval_of_resolves φ ty ρ hty)
+      (fun x _ => Denotes_eval_of_resolves φ b (push x ρ) hb)
+      (eval_hasGraph_push (cvalModel cval env φ) φ ρ _ b)
+  | .forallE ty b, ρ, ⟨hty, hb⟩ => by
+    rw [eval_forallE]
+    exact .pi (Denotes_eval_of_resolves φ ty ρ hty)
+      (fun x _ => Denotes_eval_of_resolves φ b (push x ρ) hb)
+      (eval_hasSigmaPairs_push (cvalModel cval env φ) φ ρ _ b)
+  | .letE _ v b, ρ, ⟨hv, hb⟩ => by
+    rw [eval_letE]
+    exact .letE (Denotes_eval_of_resolves φ v ρ hv)
+      (Denotes_eval_of_resolves φ b (push _ ρ) hb)
+  | .proj _ _ e, ρ, ⟨ht, he⟩ => by
+    obtain ⟨entry, hentry⟩ := Option.isSome_iff_exists.mp ht
+    rw [eval_proj]
+    exact .proj_table hentry (Denotes_eval_of_resolves φ e ρ he)
+  | .lit (.natVal n), ρ, h => Denotes_natLit_eval h ρ n
+  | .lit (.strVal s), ρ, h => Denotes_strLit_eval h ρ s
+
 /-- **A resolving term denotes**, at every variable environment: `Denotes` asks only that its
 parts read (`Expr.Resolves`). -/
 theorem Denotes_of_resolves {cval : Name → (LevelParam → Nat) → V} {env : Env}
-    (φ : LevelParam → Nat) :
-    ∀ (e : Expr) (ρ : BVarIdx → V), e.Resolves env → ∃ v, Denotes cval env φ ρ e v
-  | .bvar _, _, _ => ⟨_, .bvar⟩
-  | .sort _, _, _ => ⟨_, .sort⟩
-  | .fvar _ _, _, h => h.elim
-  | .const _ _, _, ⟨_, hf, hlen⟩ => ⟨_, .const hf hlen⟩
-  | .app f a, ρ, ⟨hf, ha⟩ => by
-    obtain ⟨F, hF⟩ := Denotes_of_resolves φ f ρ hf
-    obtain ⟨X, hX⟩ := Denotes_of_resolves φ a ρ ha
-    exact ⟨_, .app hF hX⟩
-  | .lam ty b, ρ, ⟨hty, hb⟩ => by
-    obtain ⟨A, hA⟩ := Denotes_of_resolves φ ty ρ hty
-    have hB := fun x => Denotes_of_resolves (cval := cval) φ b (push x ρ) hb
-    exact ⟨_, .lam hA (F := fun x => (hB x).choose) fun x _ => (hB x).choose_spec⟩
-  | .forallE ty b, ρ, ⟨hty, hb⟩ => by
-    obtain ⟨A, hA⟩ := Denotes_of_resolves φ ty ρ hty
-    have hB := fun x => Denotes_of_resolves (cval := cval) φ b (push x ρ) hb
-    exact ⟨_, .pi hA (B := fun x => (hB x).choose) fun x _ => (hB x).choose_spec⟩
-  | .letE _ v b, ρ, ⟨hv, hb⟩ => by
-    obtain ⟨Y, hY⟩ := Denotes_of_resolves φ v ρ hv
-    obtain ⟨X, hX⟩ := Denotes_of_resolves φ b (push Y ρ) hb
-    exact ⟨_, .letE hY hX⟩
-  | .proj _ _ e, ρ, ⟨ht, he⟩ => by
-    obtain ⟨entry, hentry⟩ := Option.isSome_iff_exists.mp ht
-    obtain ⟨P, hP⟩ := Denotes_of_resolves φ e ρ he
-    exact ⟨_, .proj_table hentry hP⟩
-  | .lit (.natVal n), ρ, h => Denotes_natLit h ρ n
-  | .lit (.strVal s), ρ, h => Denotes_strLit h ρ s
+    (φ : LevelParam → Nat) (e : Expr) (ρ : BVarIdx → V) (h : e.Resolves env) :
+    ∃ v, Denotes cval env φ ρ e v :=
+  ⟨_, Denotes_eval_of_resolves φ e ρ h⟩
 
 /-! ## The clauses -/
 
@@ -264,11 +367,14 @@ theorem eval_tele {cval : Name → (LevelParam → Nat) → V} {env : Env} (hloc
           (pt : V) ∈ˢ Expr.eval model φ (push x ρ) (ds.foldr .forallE B) :=
       fun x hx => eval_tele hloc hag ds (push x ρ) (fun d' h' => hr d' (List.mem_cons_of_mem _ h'))
         fun vs ρ' hl hf => h (x :: vs) ρ' (by simp [hl]) (.cons hA hx hf)
-    show piV (Expr.eval _ φ ρ d) _ ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ piV (Expr.eval _ φ ρ d) _
-    rw [eval_of_Denotes hloc hag hA]
+    rw [show (d :: ds).foldr .forallE B = .forallE d (ds.foldr .forallE B) from rfl,
+      eval_forallE]
+    have hdom : Expr.eval model φ ρ d = A := eval_of_Denotes hloc hag hA
     refine ⟨?_, ?_⟩
-    · rw [piV_eq_zero fun x hx => (hz x hx).1]; exact piR_zero_mem_univZero
-    · exact (pt_mem_piV_iff fun x hx => Or.inl (hz x hx).1).mpr fun x hx => (hz x hx).2
+    · rw [piV_eq_zero fun x hx => (hz x (hdom ▸ hx)).1]; exact piR_zero_mem_univZero
+    · exact (pt_mem_piV_iff (hS := eval_hasSigmaPairs_push model φ ρ (Expr.eval model φ ρ d)
+          (ds.foldr .forallE B))
+        fun x hx => Or.inl (hz x (hdom ▸ hx)).1).mpr fun x hx => (hz x (hdom ▸ hx)).2
 
 /-- **`Eq` reads as equality** in the model the invariant carries, declared or not: at a type of
 the universe and two of its members, its triple application is the truth value of their

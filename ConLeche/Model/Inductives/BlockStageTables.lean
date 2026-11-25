@@ -85,7 +85,7 @@ structure BlockTablesStage (F : Nat) (d : BlockData V) (lps : List Name)
     ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((d.ppsM m ψ)) ts →
       ts.foldl SetTheory.app (interp V ρ (A m ψ))
-        = sumSet (d.w ψ) (sumFibre (d.w ψ) (consList ts ρ)
+        = sumSet (d.w ψ) 1 (sumFibre (d.w ψ) (consList ts ρ)
             [((d.dsF m 0 ψ).drop d.nP) ++ [idxEqAV []]])
   sortsF : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
     ∀ (ψ : Name → Nat) (ρ : Nat → V),

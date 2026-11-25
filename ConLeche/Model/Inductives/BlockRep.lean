@@ -83,7 +83,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The representation data of a block** (see the module
 docstring). -/
-structure BlockData (V : Type w) where
+structure BlockData (V : Type w) [SetTheory V] where
   /-- the parameter count (shared by the components) -/
   nP : Nat
   /-- the number of MEMBERS (the declared families) -/
@@ -135,9 +135,19 @@ structure BlockData (V : Type w) where
   frame: a meta-level function on tuples of families, component `c` a
   set-level family over component `c`'s index-tuple set -/
   Φ : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
+  /-- first-order tuple definability of `Φ ψ ρp` -/
+  hΦ : ∀ (ψ : Name → Nat) (ρp : Nat → V), DefTupleOp (k + nInst) (Φ ψ ρp)
+  /-- parametric first-order definability of `Φ ψ` across a `d`-element
+  parameter prefix and the `(k + nInst)`-tuple -/
+  hΦ_def : ∀ (ψ : Name → Nat) (tail : Nat → V) (d m : Nat), m < k + nInst →
+    DefFun ((k + nInst) + d) fun v =>
+      Φ ψ (ConLeche.Semantics.prepend (fdrop v) tail) (padTuple (ftake v)) m
   /-- **the constructor injections**: component `c`'s constructor `j`
   (component-local) at a field spine -/
   inj : (Name → Nat) → Nat → Nat → List V → V
+  /-- first-order definability of constructor injections at every arity -/
+  hinj_def : ∀ (ψ : Name → Nat) (c j n : Nat),
+    DefFun n fun xs => inj ψ c j (List.ofFn xs)
 
 namespace BlockData
 
@@ -269,7 +279,10 @@ The clause is produced in `BlockLfpHoles.lean`. -/
   ids := fun c ψ => d.IdsM c ψ
   u := fun c ψ => d.uM c ψ
   Φ := d.Φ
+  hΦ := d.hΦ
+  hΦ_def := d.hΦ_def
   inj := d.inj
+  hinj_def := d.hinj_def
   nctors := fun c => (d.ctorsM c).length
   ctorName := fun c j => ((d.ctorsM c).getD j default).1.name
   fields := d.absF
@@ -306,7 +319,8 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
   leaf : ∀ mm, mm < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
     SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) (d.IdsM mm ψ) is →
     (as ++ is).foldl app (interp V ρ (m.acval (d.memberName mm) ψ))
-      = app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ)) mm)
+      = app (lfpTuple (d.w ψ) d.N (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))
+            (d.hΦ ψ (consList as ρ)) mm)
           (d.tup ψ mm is)
   /-- **the constructors**: component `c`'s constructor `j` at fitting
   parameters and fields is its injection -/
@@ -332,7 +346,8 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
   every hole holds its member's carrier is the stored field) -/
   carrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
-      d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
+      d.toLfp.HFits ψ ρp
+          (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) (d.hΦ ψ ρp)) t c j fs ↔
         d.DeclaredFit ψ ρp t c j fs
   /-- at a `Prop`-valued block every injection is the point -/
   mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ c j fs, d.inj ψ c j fs = pt
@@ -357,7 +372,7 @@ theorem BlockModelAt.closed {m : EnvModel V env} {names : List Name} {d : BlockD
     (hM : BlockModelAt m names d) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (d.params ψ).reverse ρp) :
     ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L :=
-  (hM.acc ψ ρp hsat).closed (hM.maps ψ ρp hsat)
+  (hM.acc ψ ρp hsat).closed (hΦ := d.hΦ ψ ρp) (hM.maps ψ ρp hsat)
 
 /-- **The representation's operator is monotone**, from its accessibility. -/
 theorem BlockModelAt.mono {m : EnvModel V env} {names : List Name} {d : BlockData V}

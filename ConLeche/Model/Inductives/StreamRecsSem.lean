@@ -80,8 +80,7 @@ theorem TEqAt.interp_eq : ∀ {k : Nat} {ρ : Nat → V} {T T' : Term},
   | _ + 1, ρ, _, _, h => by
     obtain ⟨A, B, A', B', rfl, rfl, hA, hB⟩ := h
     simp only [interp_pi]
-    rw [← hA]
-    exact piV_congr fun x hx => (hB x hx).interp_eq
+    exact piV_ext hA _ _ fun x hx => (hB x hx).interp_eq
 
 /-- Agreement is symmetric. -/
 theorem TEqAt.symm : ∀ {k : Nat} {ρ : Nat → V} {T T' : Term}, TEqAt k ρ T T' → TEqAt k ρ T' T

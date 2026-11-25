@@ -50,7 +50,7 @@ Set constructions over an abstract `SetTheory V` that mention neither
 * `Access` — the closure witness (W) from ACCESSIBILITY:
   `closed_of_acc` (a uniformly
   bounded, accessible operator mapping the tuple space into itself has a
-  closed tuple — ordinal-free, along Brouwer trees coded by their
+  closed tuple — ordinal-free, along well-founded trees coded by their
   paths), `AccTuple.monoTuple`, the closure lemmas over readings, and
   `lfpP_acc` (the least tuple of an accessible joint operator is
   accessible in its parameter — the nested case, no key, no wide

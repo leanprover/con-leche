@@ -710,10 +710,11 @@ theorem interp_lamsApp_congr {h1 h2 : Term} {args : List Term} :
         interp_congr_below V e D σ σ' (by simpa using hargs e he) hag
     rw [← List.foldl_map, ← List.foldl_map (f := interp V σ'), hmap]
   | A :: tele, D, σ, σ', hT, hargs, hag, hh => by
-    show lamV (interp V σ A) (fun x => interp V (cons x σ) _)
-      = lamV (interp V σ' A) (fun x => interp V (cons x σ') _)
-    rw [← interp_congr_below V A D σ σ' hT.1 hag]
-    refine lamV_congr fun x _ => ?_
+    simp only [mkLamsAV, interp_lam]
+    refine lamV_ext (interp_congr_below V A D σ σ' hT.1 hag)
+      (interp_hasGraph_cons σ (interp V σ A) (mkLamsAV tele (Term.mkAppN h1 args)))
+      (interp_hasGraph_cons σ' (interp V σ' A) (mkLamsAV tele (Term.mkAppN h2 args)))
+      fun x _ => ?_
     refine interp_lamsApp_congr tele (D := D + 1) hT.2 (fun e he => ?_) (fun i hi => ?_)
       (fun bs hbs => ?_)
     · have := hargs e he

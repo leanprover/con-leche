@@ -150,10 +150,8 @@ theorem interp_mkPisAV_congr :
   | _, [], [], _, _, _, _ => rfl
   | Δ, d :: abD, e :: abN, B, h, ρ, hρ => by
     simp only [mkPisAV, interp_pi]
-    rw [h.1 ρ hρ]
-    refine piV_congr fun x hx => ?_
-    have hx' : x ∈ˢ interp V ρ d := (h.1 ρ hρ).symm ▸ hx
-    exact interp_mkPisAV_congr abD abN B h.2 _ (Sat_cons V hρ hx')
+    refine piV_ext (h.1 ρ hρ) _ _ fun x hx => ?_
+    exact interp_mkPisAV_congr abD abN B h.2 _ (Sat_cons V hρ hx)
   | _, [], _ :: _, _, h, _, _ => h.elim
   | _, _ :: _, [], _, h, _, _ => h.elim
 

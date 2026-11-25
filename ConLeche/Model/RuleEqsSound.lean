@@ -214,20 +214,20 @@ theorem Denotes_congr_below :
     intro k ρ' hb hag
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
     exact .app (ihf hb.1 hag) (iha hb.2 hag)
-  | lam _ _ ihA ihF =>
+  | lam _ _ hG ihA ihF =>
     intro k ρ' hb hag
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact .lam (ihA hb.1 hag) fun x hx => ihF x hx hb.2 fun i hi => by
+    exact .lam (ihA hb.1 hag) (fun x hx => ihF x hx hb.2 fun i hi => by
       cases i with
       | zero => rfl
-      | succ i => exact hag i (by omega)
-  | pi _ _ ihA ihB =>
+      | succ i => exact hag i (by omega)) hG
+  | pi _ _ hS ihA ihB =>
     intro k ρ' hb hag
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact .pi (ihA hb.1 hag) fun x hx => ihB x hx hb.2 fun i hi => by
+    exact .pi (ihA hb.1 hag) (fun x hx => ihB x hx hb.2 fun i hi => by
       cases i with
       | zero => rfl
-      | succ i => exact hag i (by omega)
+      | succ i => exact hag i (by omega)) hS
   | letE _ _ ihv ihb =>
     intro k ρ' hb hag
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
@@ -278,14 +278,14 @@ theorem Denotes_liftLooseBVars_inv {k : Nat} :
     | app hf ha => exact .app (Denotes_liftLooseBVars_inv f hf) (Denotes_liftLooseBVars_inv a ha)
   | .lam ty b, c, ρ, _, h => by
     cases h with
-    | lam hA hF =>
-      exact .lam (Denotes_liftLooseBVars_inv ty hA) fun x hx => by
-        rw [push_skipAt]; exact Denotes_liftLooseBVars_inv b (hF x hx)
+    | lam hA hF hG =>
+      exact .lam (Denotes_liftLooseBVars_inv ty hA) (fun x hx => by
+        rw [push_skipAt]; exact Denotes_liftLooseBVars_inv b (hF x hx)) hG
   | .forallE ty b, c, ρ, _, h => by
     cases h with
-    | pi hA hB =>
-      exact .pi (Denotes_liftLooseBVars_inv ty hA) fun x hx => by
-        rw [push_skipAt]; exact Denotes_liftLooseBVars_inv b (hB x hx)
+    | pi hA hB hS =>
+      exact .pi (Denotes_liftLooseBVars_inv ty hA) (fun x hx => by
+        rw [push_skipAt]; exact Denotes_liftLooseBVars_inv b (hB x hx)) hS
   | .letE ty v b, c, ρ, _, h => by
     cases h with
     | letE hv hb =>
@@ -335,18 +335,18 @@ theorem Denotes_instantiateLift_inv {vs : List Expr} {Ys : List V} {σ : Nat →
         (Denotes_instantiateLift_inv hlen hvs a hσ ha)
   | .lam ty b, d, ρ, _, hσ, h => by
     cases h with
-    | lam hA hF =>
-      exact .lam (Denotes_instantiateLift_inv hlen hvs ty hσ hA) fun x hx => by
+    | lam hA hF hG =>
+      exact .lam (Denotes_instantiateLift_inv hlen hvs ty hσ hA) (fun x hx => by
         rw [push_insAt]
         exact Denotes_instantiateLift_inv hlen hvs b
-          (fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i) (hF x hx)
+          (fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i) (hF x hx)) hG
   | .forallE ty b, d, ρ, _, hσ, h => by
     cases h with
-    | pi hA hB =>
-      exact .pi (Denotes_instantiateLift_inv hlen hvs ty hσ hA) fun x hx => by
+    | pi hA hB hS =>
+      exact .pi (Denotes_instantiateLift_inv hlen hvs ty hσ hA) (fun x hx => by
         rw [push_insAt]
         exact Denotes_instantiateLift_inv hlen hvs b
-          (fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i) (hB x hx)
+          (fun i => by rw [show i + (d + 1) = (i + d) + 1 by omega]; exact hσ i) (hB x hx)) hS
   | .letE ty v b, d, ρ, _, hσ, h => by
     cases h with
     | letE hv hb =>
@@ -372,14 +372,14 @@ theorem tele_inhabited_of : ∀ (ds : List Expr) {ρ : Nat → V} {body : Expr} 
   | [], _, _, _, h, hY => hY [] _ _ rfl .nil h
   | d :: ds, ρ, body, _, h, hY => by
     cases h with
-    | pi hA hB =>
+    | pi hA hB hS =>
       rename_i A B
       have hz : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ B x := fun x hx =>
         tele_inhabited_of ds (hB x hx) fun vs ρ' Y hl hf hYd =>
           hY (x :: vs) ρ' Y (by simp [hl]) (.cons hA hx hf) hYd
       refine ⟨?_, ?_⟩
       · rw [piV_eq_zero fun x hx => (hz x hx).1]; exact piR_zero_mem_univZero
-      · exact (pt_mem_piV_iff fun x hx => Or.inl (hz x hx).1).mpr fun x hx => (hz x hx).2
+      · exact (pt_mem_piV_iff (hS := hS) fun x hx => Or.inl (hz x hx).1).mpr fun x hx => (hz x hx).2
 
 /-- The empty fit is no fit. -/
 theorem Fits.nil_inv {ρ ρ' : Nat → V} {T R : Expr}

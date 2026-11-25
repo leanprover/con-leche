@@ -119,7 +119,6 @@ run's result instantiated at the key), the key checked against that result
 @[expose] def InGrp (D : LfpDatum V) (grp : List (Name × Expr)) (mm : Nat) : Prop :=
   mm < D.k ∧ (grp.map (·.1)).contains (D.member mm) = true
 
-omit [SetTheory V] in
 /-- **Every member is in the frame's group** (the group is the whole
 recorded block). -/
 theorem inGrp_of_lt {D : LfpDatum V} {grp : List (Name × Expr)}
@@ -159,7 +158,6 @@ key frame and `grpTuple`, at the larger side of the larger key frame and its car
       (grpTuple D ψ grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))) ρ ∧
     σ' = consList (grpVals D ψ grp (keyFrame dsa hi ρ') (D.carrier ψ (keyFrame dsa hi ρ'))) ρ'
 
-omit [SetTheory V] in
 theorem idxOf_member {D : LfpDatum V} (hnd : D.names.Nodup) (hkN : D.names.length = D.k)
     {mm : Nat} (hmm : mm < D.k) : D.names.idxOf (D.member mm) = mm := by
   have hmem : D.member mm = D.names[mm]'(by omega) := by
@@ -216,7 +214,6 @@ the key, the key checked against that result.  `GrpWf` gives it (`grpWf_ty`). -/
       instPisWith ds (ty.instantiateLevelParams cv.levelParams us) = some p.2 ∧
       ConLeche.Rules.CertsF env hi (ty.instantiateLevelParams cv.levelParams us) ds
 
-omit [SetTheory V] in
 /-- The group's hole of member `mm`. -/
 theorem grpHoles_member {D : LfpDatum V} {grp : List (Name × Expr)} {hi : Nat}
     (hall : ∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) (hkN : D.names.length = D.k) {mm : Nat}
@@ -608,7 +605,7 @@ variable (mp : EnvModelM V env) {D : LfpDatum V}
 
 include hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
 
-omit [SetTheory V] hD hnN hkN hfind hlps hnd hul hds hdsa hlenP in
+omit hD hnN hkN hfind hlps hnd hul hds hdsa hlenP in
 /-- Every constructor a group's walk visits is one of the group's
 members' constructors. -/
 theorem grpCtors_found
@@ -636,7 +633,7 @@ theorem grpCtors_found
   rw [List.contains_iff_mem, List.mem_map]
   exact ⟨p, hp, hpc⟩
 
-omit [SetTheory V] hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
+omit hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
 /-- A group member's constructor is one the group's walk visits. -/
 theorem grpCtor_found
     (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
@@ -848,9 +845,9 @@ theorem grpTuple_mem {ρ ρ' : Nat → V} (hag : AgreeOff (holeP hi ctx.nP hi) �
   by_cases hG : InGrp D grp c
   · rw [ite_eq_left hG, grp_idx_eq mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds
       hLds hG hag hs hs' hk hk']
-    exact lfpTuple_mem _ _ _ _ c hc
+    exact lfpTuple_mem _ _ _ _ _ c hc
   · rw [ite_eq_right hG]
-    exact lfpTuple_mem _ _ _ _ c hc
+    exact lfpTuple_mem _ _ _ _ _ c hc
 
 /-- **The group's hole values inhabit their context entries** (the members' runs' results
 instantiated at the key, read at the holes' depths) at a valuation satisfying the key's context
@@ -949,7 +946,7 @@ theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi
         hΔ hCds hLds _ _ h1 hk (grpTuple_mem mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin
           hΔ hCds hLds (hR₀.agree ρ ρ' hr) h1 h2 hk hk')),
       sat_of_spineFit h2 (grpVals_fit mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hin hΔ
-        hCds hLds _ _ h2 hk' (lfpTuple_mem _ _ _ _))⟩
+        hCds hLds _ _ h2 hk' (lfpTuple_mem _ _ _ _ _))⟩
   · -- the new holes grow: their values are the same at both sides
     rintro ρ ρ' ⟨hr, hk, hk'⟩ p hkn hkp hp is _
     have hp' : p < grp.length := by simpa [grpNews] using hp
@@ -965,7 +962,8 @@ theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi
         = D.carrier (Level.substFn φ lps us) (keyFrame dsa (ctx.hiAt prog.length) ρ') mm := by
       unfold grpTuple; rw [ite_eq_left hG]
     unfold LfpDatum.holeVal
-    rw [hY, holeFam_of_mkPisAV_eq rfl (hte ρ ρ' (hR₀.agree ρ ρ' hr) h1 h2 hk hk')]
+    simp only [hY]
+    rw [holeFam_of_mkPisAV_eq rfl (hte ρ ρ' (hR₀.agree ρ ρ' hr) h1 h2 hk hk')]
     exact Subset.refl _
 
 end Fits
@@ -1133,7 +1131,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
       (grpTuple_mem mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hag hd hd'
         hk hk')
     have hsatL := frameVals_sat mp hD hs'
-      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) (lfpTuple_mem _ _ _ _)
+      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) (lfpTuple_mem _ _ _ _ _)
     exact ctor_transfer hEqF hlen hp hpos hres hidx ⟨ρ, ρ', ⟨hr, hk, hk'⟩, rfl, rfl⟩ hS hLv hsatS
       hsatL t fs hf
   refine ⟨fun ρ ρ' hr hk hk' => ?_, htr⟩

@@ -50,10 +50,11 @@ variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
 
 /-- **Two members of a function space whose fibres are types are equal where
 all their applications are.** -/
-theorem piV_ext {A f g : V} {B : V → V} (hf : f ∈ˢ piV A B) (hg : g ∈ˢ piV A B)
+theorem piV_ext {A f g : V} {B : V → V} {hS : HasSigmaPairs A B}
+    (hf : f ∈ˢ piV A B hS) (hg : g ∈ˢ piV A B hS)
     (hB : ∀ x, x ∈ˢ A → IsTy (B x)) (h : ∀ x, x ∈ˢ A → app f x = app g x) : f = g := by
   rw [← lamV_eta hf hB, ← lamV_eta hg hB]
-  exact lamV_congr h
+  exact lamV_congr (hasGraph_app f A) (hasGraph_app g A) h
 
 /-! ## Opening a ∀ at a fresh variable -/
 
@@ -85,7 +86,8 @@ theorem open_app {d : Nat} {Δa : List Term} {a dom : Expr} {aa doma : Term}
       denote m.acval env φ (d + 1) (.app a (.fvar d dom)) = some (.app aa.lift (.bvar 0)) ∧
       (∀ z : V, LeavesGr m φ (d + 1) (.app a (.fvar d dom)) (cons z ρ)) ∧
       (∀ z : V, interp V (cons z ρ) (.app aa.lift (.bvar 0)) = SetTheory.app (interp V ρ aa) z) ∧
-      (∀ (B : V → V) (z : V), WellDenoted V ρ aa → interp V ρ aa ∈ˢ piV (interp V ρ doma) B →
+      (∀ (B : V → V) (hS : HasSigmaPairs (interp V ρ doma) B) (z : V),
+        WellDenoted V ρ aa → interp V ρ aa ∈ˢ piV (interp V ρ doma) B hS →
         z ∈ˢ interp V ρ doma → WellDenoted V (cons z ρ) (.app aa.lift (.bvar 0))) := by
   have hdaUp : denote m.acval env φ (d + 1) a = some aa.lift := by
     rw [denote_weaken_top m.acval_closed hfa.1, hda]; rfl
@@ -102,13 +104,13 @@ theorem open_app {d : Nat} {Δa : List Term} {a dom : Expr} {aa doma : Term}
   refine ⟨CtxOkS.app (CtxOkS.weakenTop hCa) hCfvar, ?_,
     fun z => LeavesGr.app (LeavesGr.weakenTop (ρ := cons z ρ) hCa hLa) (hLfvar z),
     fun z => by rw [interp_app, interp_lift_cons, interp_bvar]; rfl,
-    fun B z hok hmem hz => ?_⟩
+    fun B hS z hok hmem hz => ?_⟩
   · rw [denote, hdaUp, denote_fvar]
     simp
   · have hok0 : WellDenoted V (cons z ρ) aa.lift :=
       (WellDenoted_liftN V 1 aa 0 (cons z ρ)).mpr (by rw [shiftE_zero]; exact hok)
     rw [WellDenoted_app]
-    refine ⟨hok0, by simp, appliesTo_of_mem_piV (B := B) ?_ hokd.2 hz⟩
+    refine ⟨hok0, by simp, appliesTo_of_mem_piV (B := B) (hS := hS) ?_ hokd.2 hz⟩
     rw [interp_lift_cons]; exact hmem
 
 /-! ## The η-expansion (`DefEqExpand`) -/
@@ -144,7 +146,7 @@ theorem DefEqExpand.step_sound {d : Nat} {a b dom body : Expr}
     hCA hCB (CtxOkS.openS hCd hCT.forallE_body hdoma) hdA hdB hbda (cons z ρ)
     (Sat_cons V hρ hz) (hLA z) (hLB z)
     (LeavesGr.open hCd hCT.forallE_body hLd hLT.forallE_body hdoma hokd)
-    (hwA _ z hwa hma hz) (hwB' _ z hwb hmb hz) ⟨hwB z hz, htyB z hz⟩
+    (hwA _ _ z hwa hma hz) (hwB' _ _ z hwb hmb hz) ⟨hwB z hz, htyB z hz⟩
     (by rw [hiA]; exact app_mem_piV hma hz) (by rw [hiB]; exact app_mem_piV hmb hz)
   rwa [hiA, hiB] at h
 

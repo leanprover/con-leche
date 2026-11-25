@@ -199,7 +199,8 @@ theorem natArg_succ (m : EnvModel V env) {ψ : Name → Nat}
   have hNty := (hnh hs ρ).2.2
   have hnatEq : interp V ρ (m.acval ConLeche.natName (Level.substFn ψ [] []))
       = natLeafV m ψ ρ := by rw [substFn_nil]; rfl
-  rw [hnatEq] at hsucc hNty
+  rw [piR_ext hnatEq _ (hasSigmaPairs_const _ _) (fun _ _ => hnatEq)] at hsucc
+  rw [hnatEq] at hNty
   refine ⟨?_, ?_⟩
   · rw [WellDenoted_app]
     exact ⟨m.acval_wellDenoted _ _ ρ, htok, appliesTo_of_mem_piR hsucc hNty htm⟩
@@ -222,9 +223,10 @@ def NatBinHead (m : EnvModel V env) (ψ : Name → Nat) (f : Expr)
       WellDenoted V ρ fa ∧ IsTy (natLeafV m ψ ρ) ∧
       ∃ b₁ b₂ : Nat,
         interp V ρ fa ∈ˢ piR b₁ (natLeafV m ψ ρ)
-          (fun _ => piR b₂ (natLeafV m ψ ρ) (fun _ => codS ρ)) ∧
+          (fun _ => piR b₂ (natLeafV m ψ ρ) (fun _ => codS ρ) (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_const _ _) ∧
         (b₁ = 0 → ∀ x, x ∈ˢ natLeafV m ψ ρ →
-          piR b₂ (natLeafV m ψ ρ) (fun _ => codS ρ) ∈ˢ (univZero : V)) ∧
+          piR b₂ (natLeafV m ψ ρ) (fun _ => codS ρ) (hasSigmaPairs_const _ _) ∈ˢ (univZero : V)) ∧
         (b₂ = 0 → ∀ x, x ∈ˢ natLeafV m ψ ρ → codS ρ ∈ˢ (univZero : V))
 
 /-- A unary head over the pinned `Nat`, with codomain set `codS`. -/
@@ -234,7 +236,7 @@ def NatUnHead (m : EnvModel V env) (ψ : Name → Nat) (f : Expr)
     ∀ ρ : Nat → V, Sat V (natCtx2 m ψ) ρ →
       WellDenoted V ρ fa ∧ IsTy (natLeafV m ψ ρ) ∧
       ∃ b₁ : Nat,
-        interp V ρ fa ∈ˢ piR b₁ (natLeafV m ψ ρ) (fun _ => codS ρ) ∧
+        interp V ρ fa ∈ˢ piR b₁ (natLeafV m ψ ρ) (fun _ => codS ρ) (hasSigmaPairs_const _ _) ∧
         (b₁ = 0 → ∀ x, x ∈ˢ natLeafV m ψ ρ → codS ρ ∈ˢ (univZero : V))
 
 /-- **The binary application rule**: a binary head applied to two
@@ -257,7 +259,7 @@ theorem natBinHead_app (m : EnvModel V env) {ψ : Name → Nat}
   obtain ⟨hyok, hym⟩ := hyg ρ hρ
   -- the inner application's membership, at whatever regime
   have hinner : SetTheory.app (interp V ρ fa) (interp V ρ xa)
-      ∈ˢ piR b₂ (natLeafV m ψ ρ) (fun _ => codS ρ) :=
+      ∈ˢ piR b₂ (natLeafV m ψ ρ) (fun _ => codS ρ) (hasSigmaPairs_const _ _) :=
     app_mem_piR hfm hxm hB1
   have houter : SetTheory.app
       (SetTheory.app (interp V ρ fa) (interp V ρ xa))
@@ -451,24 +453,24 @@ theorem natBinHead_of_parts (m : EnvModel V env) {ψ : Name → Nat}
         (.pi (m.acval ConLeche.natName ψ) (m.acval codN ψ)))
         : Term)) :
     NatBinHead m ψ f (fun ρ => interp V ρ (m.acval codN ψ)) := by
-  have hfibEq : ∀ ρ : Nat → V, (fun x => interp V (cons x ρ)
-        ((.pi (m.acval ConLeche.natName ψ) (m.acval codN ψ)) : Term))
-      = fun _ => piV (natLeafV m ψ ρ) (fun _ => interp V ρ (m.acval codN ψ)) := by
-    intro ρ
-    funext x
+  have hfibEq : ∀ (ρ : Nat → V) (x : V), interp V (cons x ρ)
+        ((.pi (m.acval ConLeche.natName ψ) (m.acval codN ψ)) : Term)
+      = piV (natLeafV m ψ ρ) (fun _ => interp V ρ (m.acval codN ψ))
+          (hasSigmaPairs_const _ _) := by
+    intro ρ x
     rw [interp_pi]
-    congr 1
-    · exact acval_interp_closed m _ ψ _ ρ
-    · funext y
-      exact acval_interp_closed m _ ψ _ ρ
+    exact piV_ext (acval_interp_closed m _ ψ _ ρ) _ _ fun y _ =>
+      acval_interp_closed m _ ψ _ ρ
   refine ⟨fa, hfa, fun ρ _ => ⟨hok ρ,
     (cast (WellDenoted_pi V ρ _ _) (htok ρ)).2.1,
     propN (natLeafV m ψ ρ)
-      (fun _ => piV (natLeafV m ψ ρ) (fun _ => interp V ρ (m.acval codN ψ))),
+      (fun _ => piV (natLeafV m ψ ρ) (fun _ => interp V ρ (m.acval codN ψ))
+        (hasSigmaPairs_const _ _)),
     propN (natLeafV m ψ ρ) (fun _ => interp V ρ (m.acval codN ψ)), ?_, ?_, ?_⟩⟩
   · -- the membership, with the fibres closed off
     have h := hmem ρ
-    rw [interp_pi, hfibEq ρ] at h
+    rw [interp_pi] at h
+    rw [piV_congr _ (hasSigmaPairs_const _ _) fun x _ => hfibEq ρ x] at h
     exact h
   · intro hz x hx
     exact propN_eq_zero.mp hz x hx
@@ -491,11 +493,8 @@ theorem natUnHead_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     propN (natLeafV m ψ ρ) (fun _ => interp V ρ (m.acval codN ψ)), ?_, ?_⟩⟩
   · have h := hmem ρ
     rw [interp_pi] at h
-    have hfib : (fun x => interp V (cons x ρ) (m.acval codN ψ))
-        = fun _ => interp V ρ (m.acval codN ψ) := by
-      funext x
-      exact acval_interp_closed m _ ψ _ ρ
-    rw [hfib] at h
+    rw [piV_congr _ (hasSigmaPairs_const _ _) fun x _ =>
+      acval_interp_closed m _ ψ (cons x ρ) ρ] at h
     exact h
   · intro hz x hx
     exact propN_eq_zero.mp hz x hx

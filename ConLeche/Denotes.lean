@@ -126,15 +126,17 @@ inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ :
   domain -/
   | lam {ρ : BVarIdx → V} {ty body : Expr} {A : V} {F : V → V}
       (hA : Denotes cval env φ ρ ty A)
-      (hF : ∀ x, x ∈ˢ A → Denotes cval env φ (push x ρ) body (F x)) :
-      Denotes cval env φ ρ (.lam ty body) (lamV A F)
+      (hF : ∀ x, x ∈ˢ A → Denotes cval env φ (push x ρ) body (F x))
+      (hG : HasGraph A F) :
+      Denotes cval env φ ρ (.lam ty body) (lamV A F hG)
   /-- a `∀` denotes the set of dependent function graphs over its
   domain, or a truth value where its body denotes a truth value on the
   whole domain -/
   | pi {ρ : BVarIdx → V} {ty body : Expr} {A : V} {B : V → V}
       (hA : Denotes cval env φ ρ ty A)
-      (hB : ∀ x, x ∈ˢ A → Denotes cval env φ (push x ρ) body (B x)) :
-      Denotes cval env φ ρ (.forallE ty body) (piV A B)
+      (hB : ∀ x, x ∈ˢ A → Denotes cval env φ (push x ρ) body (B x))
+      (hS : HasSigmaPairs A B) :
+      Denotes cval env φ ρ (.forallE ty body) (piV A B hS)
   /-- a `let` denotes its body at its value; the type is not read -/
   | letE {ρ : BVarIdx → V} {ty v body : Expr} {Y X : V}
       (hv : Denotes cval env φ ρ v Y) (hb : Denotes cval env φ (push Y ρ) body X) :
@@ -172,16 +174,16 @@ theorem Denotes_functional {V : Type w} [SetTheory V]
   | app _ _ ihf iha =>
     cases hw with
     | app hf' ha' => rw [ihf hf', iha ha']
-  | lam _ _ ihA ihF =>
+  | lam _ _ hG ihA ihF =>
     cases hw with
-    | lam hA' hF' =>
+    | lam hA' hF' hG' =>
       obtain rfl := ihA hA'
-      exact ConLeche.SetModel.lamV_congr fun x hx => ihF x hx (hF' x hx)
-  | pi _ _ ihA ihB =>
+      exact ConLeche.SetModel.lamV_congr hG hG' fun x hx => ihF x hx (hF' x hx)
+  | pi _ _ hS ihA ihB =>
     cases hw with
-    | pi hA' hB' =>
+    | pi hA' hB' hS' =>
       obtain rfl := ihA hA'
-      exact ConLeche.SetModel.piV_congr fun x hx => ihB x hx (hB' x hx)
+      exact ConLeche.SetModel.piV_congr hS hS' fun x hx => ihB x hx (hB' x hx)
   | letE _ _ ihv ihb =>
     cases hw with
     | letE hv' hb' =>

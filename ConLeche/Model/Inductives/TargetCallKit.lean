@@ -69,7 +69,8 @@ theorem spineFit_of_wellDenoted_mkAppN_pi {R : Term} :
     have hhne : interp V τ h ≠ pt := fun h0 =>
       hne (interp_mkAppN_pt (by rw [interp_app, h0, app_pt]) args)
     have hmem' : interp V τ h ∈ˢ piSet (interp V σ d)
-        (fun x => interp V (cons x σ) (mkPisAV pds R)) := by
+        (fun x => interp V (cons x σ) (mkPisAV pds R))
+        (interp_hasSigmaPairs_cons σ (interp V σ d) (mkPisAV pds R)) := by
       have := hmem
       simp only [mkPisAV, interp_pi] at this
       exact mem_piSet_of_mem_piV this hhne
@@ -100,13 +101,13 @@ theorem projNV_agree {ρ : Nat → V} :
   | 0, e2, e1, hv, hw => by
     refine ⟨by simp [projNV, hv], fun h => ?_⟩
     simp only [projNV, WellDenoted_fst] at h ⊢
-    obtain ⟨h1, u, v, A, Bf, h2, h3, h4⟩ := h
-    exact ⟨hw h1, u, v, A, Bf, hv ▸ h2, h3, h4⟩
+    obtain ⟨h1, u, v, A, Bf, hS, h2, h3, h4⟩ := h
+    exact ⟨hw h1, u, v, A, Bf, hS, hv ▸ h2, h3, h4⟩
   | n + 1, e2, e1, hv, hw => by
     refine projNV_agree n (e2 := .snd e2) (e1 := .snd e1) (by simp [hv]) fun h => ?_
     simp only [WellDenoted_snd] at h ⊢
-    obtain ⟨h1, u, v, A, Bf, h2, h3, h4⟩ := h
-    exact ⟨hw h1, u, v, A, Bf, hv ▸ h2, h3, h4⟩
+    obtain ⟨h1, u, v, A, Bf, hS, h2, h3, h4⟩ := h
+    exact ⟨hw h1, u, v, A, Bf, hS, hv ▸ h2, h3, h4⟩
 
 section Abs
 
@@ -302,8 +303,8 @@ theorem targetAbs_read
       simpa [consList_append] using this
     refine ⟨?_, fun hw => ?_⟩
     · first
-      | (rw [interp_lam, interp_lam, hAv]; exact lamV_congr fun x _ => (hbx x).1)
-      | (rw [interp_pi, interp_pi, hAv]; exact piV_congr fun x _ => (hbx x).1)
+      | (rw [interp_lam, interp_lam]; exact lamV_ext hAv _ _ fun x _ => (hbx x).1)
+      | (rw [interp_pi, interp_pi]; exact piV_ext hAv _ _ fun x _ => (hbx x).1)
     · first
       | (rw [WellDenoted_lam] at hw ⊢
          obtain ⟨w1, wt, w2⟩ := hw

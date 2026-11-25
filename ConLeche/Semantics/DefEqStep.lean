@@ -50,7 +50,7 @@ theorem deqStep_piCong {ρ : Nat → V}
     (hB : ∀ x, x ∈ˢ interp V ρ Aa →
       interp V (cons x ρ) Ba = interp V (cons x ρ) Bb) :
     interp V ρ (.pi Aa Ba) = interp V ρ (.pi Ab Bb) := by
-  simp only [interp_pi, ← hA]
-  exact piV_congr hB
+  rw [interp_pi, interp_pi]
+  exact piV_ext hA _ _ hB
 
 end ConLeche.Semantics

@@ -144,10 +144,10 @@ variable {V : Type w} [SetTheory V]
 
 theorem Denotes_pi_inv {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
     {ρ : BVarIdx → V} {A B : Expr} {X : V} (h : Denotes cval env φ ρ (.forallE A B) X) :
-    ∃ A' B', X = piV A' B' ∧ Denotes cval env φ ρ A A' ∧
+    ∃ (A' : V) (B' : V → V) (hS : HasSigmaPairs A' B'), X = piV A' B' hS ∧ Denotes cval env φ ρ A A' ∧
       ∀ x, x ∈ˢ A' → Denotes cval env φ (push x ρ) B (B' x) := by
   cases h with
-  | pi hA hB => exact ⟨_, _, rfl, hA, hB⟩
+  | pi hA hB hS => exact ⟨_, _, hS, rfl, hA, hB⟩
 
 theorem Denotes_app_inv {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
     {ρ : BVarIdx → V} {f a : Expr} {X : V} (h : Denotes cval env φ ρ (.app f a) X) :
@@ -200,10 +200,13 @@ theorem tele_app {env : Env} (M : Model V env)
     (hX : Denotes M.cval env one ρ (pi "motive" tMotive <| pi "a" tMinA <| pi "b" tMinB body) X)
     (hx : x ∈ˢ X) :
     ∃ Y, Denotes M.cval env one
-        (push unitSet (push empty (push (lamV (M.cval tN one) fun _ => univ 0) ρ))) body Y ∧
-      app (app (app x (lamV (M.cval tN one) fun _ => univ 0)) empty) unitSet ∈ˢ Y := by
+        (push unitSet (push empty (push (lamV (M.cval tN one) (fun _ => univ 0)
+          (hasGraph_of_defFun1 (DefFun.const (univ 0)))) ρ))) body Y ∧
+      app (app (app x (lamV (M.cval tN one) (fun _ => univ 0)
+        (hasGraph_of_defFun1 (DefFun.const (univ 0))))) empty) unitSet ∈ˢ Y := by
   let cT := M.cval tN one
-  let m : V := lamV cT fun _ => univ 0
+  let hGm : HasGraph cT (fun _ => univ 0) := hasGraph_of_defFun1 (DefFun.const (univ 0))
+  let m : V := lamV cT (fun _ => univ 0) hGm
   have hTd := Denotes_T M hT
   have happ : ∀ {c : Name} {cv : ConstantVal}, cv.name = c → cv.levelParams = [] →
       cv.type = cnst tN → env.find? c = some (.ctorInfo cv 0 0 tN) →
@@ -216,21 +219,236 @@ theorem tele_app {env : Env} (M : Model V env)
     rw [h0, substFn_nil]
     exact app_lamV (mem_ctor M hT hn ht hf)
   -- the motive
-  obtain ⟨A1, B1, rfl, hA1, hB1⟩ := Denotes_pi_inv hX
-  obtain rfl := Denotes_functional hA1 (.pi (hTd ρ) fun _ _ => .sort)
-  have hm : m ∈ˢ piV cT (fun _ => univ (Level.eval one u)) :=
+  obtain ⟨A1, B1, hS1, rfl, hA1, hB1⟩ := Denotes_pi_inv hX
+  obtain rfl := Denotes_functional hA1 (.pi (hTd ρ) (fun _ _ => .sort) (hasSigmaPairs_const _ _))
+  have hm : m ∈ˢ piV cT (fun _ => univ (Level.eval one u)) (hasSigmaPairs_const cT _) :=
     lamV_mem (fun _ _ => univ_mem_univ 0) (fun _ _ => IsTy_univ _)
   -- the first minor
-  obtain ⟨A2, B2, hB2e, hA2, hB2⟩ := Denotes_pi_inv (hB1 m hm)
+  obtain ⟨A2, B2, hS2, hB2e, hA2, hB2⟩ := Denotes_pi_inv (hB1 m hm)
   have hx1 := app_mem_piV hx hm
   rw [hB2e] at hx1
   obtain rfl := happ (c := taN) rfl rfl rfl hTa 0 _ rfl _ hA2
   have hx2 := app_mem_piV hx1 (empty_mem_univ 0)
   -- the second minor
-  obtain ⟨A3, B3, hB3e, hA3, hB3⟩ := Denotes_pi_inv (hB2 empty (empty_mem_univ 0))
+  obtain ⟨A3, B3, hS3, hB3e, hA3, hB3⟩ := Denotes_pi_inv (hB2 empty (empty_mem_univ 0))
   rw [hB3e] at hx2
   obtain rfl := happ (c := tbN) rfl rfl rfl hTb 1 _ rfl _ hA3
   exact ⟨_, hB3 unitSet (unitSet_mem_univ 0), app_mem_piV hx2 (unitSet_mem_univ 0)⟩
+
+private theorem denotes_natLit_indep {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    {φ : LevelParam → Nat} :
+    ∀ (n : Nat) (ρ₁ ρ₂ : BVarIdx → V) (Y₁ Y₂ : V),
+      Denotes cval env φ ρ₁ (.lit (.natVal n)) Y₁ →
+      Denotes cval env φ ρ₂ (.lit (.natVal n)) Y₂ → Y₁ = Y₂
+  | 0, _, _, _, _, h1, h2 => by
+    cases h1 with
+    | natLit h1' =>
+      cases h2 with
+      | natLit h2' =>
+        cases h1' with
+        | const hf1 _ =>
+          cases h2' with
+          | const hf2 _ => rw [hf1] at hf2; cases hf2; rfl
+  | k + 1, ρ₁, ρ₂, _, _, h1, h2 => by
+    cases h1 with
+    | natLit h1' =>
+      cases h2 with
+      | natLit h2' =>
+        cases h1' with
+        | app hf1 ha1 =>
+          cases h2' with
+          | app hf2 ha2 =>
+            cases hf1 with
+            | const hcf1 _ =>
+              cases hf2 with
+              | const hcf2 _ =>
+                rw [hcf1] at hcf2; cases hcf2
+                rw [denotes_natLit_indep k ρ₁ ρ₂ _ _ ha1 ha2]
+
+private theorem denotes_strLit_foldr_indep {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    {φ : LevelParam → Nat} :
+    ∀ (cs : List Char) (ρ₁ ρ₂ : BVarIdx → V) (Y₁ Y₂ : V),
+      Denotes cval env φ ρ₁
+        (cs.foldr
+          (init := .app (.const listNilName [.zero]) (.const charName []))
+          fun c e =>
+            .app (.app (.app (.const listConsName [.zero]) (.const charName []))
+              (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e) Y₁ →
+      Denotes cval env φ ρ₂
+        (cs.foldr
+          (init := .app (.const listNilName [.zero]) (.const charName []))
+          fun c e =>
+            .app (.app (.app (.const listConsName [.zero]) (.const charName []))
+              (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e) Y₂ →
+      Y₁ = Y₂
+  | [], _, _, _, _, h1, h2 => by
+    cases h1 with
+    | app hf1 ha1 =>
+      cases h2 with
+      | app hf2 ha2 =>
+        cases hf1 with
+        | const hcf1 _ =>
+          cases hf2 with
+          | const hcf2 _ =>
+            cases ha1 with
+            | const hca1 _ =>
+              cases ha2 with
+              | const hca2 _ =>
+                rw [hcf1] at hcf2; cases hcf2
+                rw [hca1] at hca2; cases hca2
+                rfl
+  | c :: cs, ρ₁, ρ₂, _, _, h1, h2 => by
+    cases h1 with
+    | app hf1 ha1 =>
+      cases h2 with
+      | app hf2 ha2 =>
+        cases hf1 with
+        | app hff1 hfa1 =>
+          cases hf2 with
+          | app hff2 hfa2 =>
+            cases hff1 with
+            | app hfff1 hffa1 =>
+              cases hff2 with
+              | app hfff2 hffa2 =>
+                cases hfff1 with
+                | const hc1 _ =>
+                  cases hfff2 with
+                  | const hc2 _ =>
+                    cases hffa1 with
+                    | const hca1 _ =>
+                      cases hffa2 with
+                      | const hca2 _ =>
+                        cases hfa1 with
+                        | app hch1 hnat1 =>
+                          cases hfa2 with
+                          | app hch2 hnat2 =>
+                            cases hch1 with
+                            | const hchc1 _ =>
+                              cases hch2 with
+                              | const hchc2 _ =>
+                                rw [hc1] at hc2; cases hc2
+                                rw [hca1] at hca2; cases hca2
+                                rw [hchc1] at hchc2; cases hchc2
+                                rw [denotes_natLit_indep c.toNat ρ₁ ρ₂ _ _ hnat1 hnat2,
+                                    denotes_strLit_foldr_indep cs ρ₁ ρ₂ _ _ ha1 ha2]
+
+private theorem denotes_strLit_indep {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    {φ : LevelParam → Nat} (s : String) (ρ₁ ρ₂ : BVarIdx → V) (Y₁ Y₂ : V)
+    (h1 : Denotes cval env φ ρ₁ (.lit (.strVal s)) Y₁)
+    (h2 : Denotes cval env φ ρ₂ (.lit (.strVal s)) Y₂) : Y₁ = Y₂ := by
+  cases h1 with
+  | strLit h1' =>
+    cases h2 with
+    | strLit h2' =>
+      cases h1' with
+      | app hf1 ha1 =>
+        cases h2' with
+        | app hf2 ha2 =>
+          cases hf1 with
+          | const hcf1 _ =>
+            cases hf2 with
+            | const hcf2 _ =>
+              rw [hcf1] at hcf2; cases hcf2
+              rw [denotes_strLit_foldr_indep s.toList ρ₁ ρ₂ _ _ ha1 ha2]
+
+open Classical in
+theorem Denotes_defFun {cval : Name → (LevelParam → Nat) → V} {env : Env}
+    {φ : LevelParam → Nat} :
+    ∀ (e : Expr) (d : Nat) (ρ : BVarIdx → V),
+      ∃ f : (Fin d → V) → V, DefFun d f ∧
+        ∀ (xs : Fin d → V) (Y : V), Denotes cval env φ (prepend xs ρ) e Y → Y = f xs
+  | .bvar i, d, ρ =>
+    if h : i < d then
+      ⟨fun xs => xs ⟨i, h⟩, DefFun.proj ⟨i, h⟩, fun xs Y hd => by
+        cases hd; simp [prepend, h]⟩
+    else
+      ⟨fun _ => ρ (i - d), DefFun.const _, fun xs Y hd => by
+        cases hd; simp [prepend, h]⟩
+  | .fvar _ _, _, _ =>
+    ⟨fun _ => empty, DefFun.empty, fun _ _ hd => by cases hd⟩
+  | .sort u, _, _ =>
+    ⟨fun _ => univ (Level.eval φ u), DefFun.const _, fun _ _ hd => by cases hd; rfl⟩
+  | .const n us, _, _ =>
+    ⟨fun _ =>
+        if h : ∃ ci, env.find? n = some ci ∧ us.length = ci.toConstantVal.levelParams.length then
+          cval n (Level.substFn φ (Classical.choose h).toConstantVal.levelParams us)
+        else empty,
+      DefFun.const _,
+      fun _ Y hd => by
+        cases hd with
+        | const hf hlen =>
+          have hex : ∃ ci, env.find? n = some ci ∧
+              us.length = ci.toConstantVal.levelParams.length := ⟨_, hf, hlen⟩
+          rw [dite_eq_left hex]
+          have hspec := (Classical.choose_spec hex).1
+          have hceq := Option.some.inj (hf.symm.trans hspec)
+          subst hceq; rfl⟩
+  | .app g a, d, ρ => by
+    obtain ⟨fg, hfg, hdg⟩ := Denotes_defFun g d ρ
+    obtain ⟨fa, hfa, hda⟩ := Denotes_defFun a d ρ
+    refine ⟨fun xs => app (fg xs) (fa xs), DefFun.app_apply hfg hfa, fun xs Y hd => ?_⟩
+    cases hd with
+    | app hf ha => rw [hdg xs _ hf, hda xs _ ha]
+  | .lam ty body, d, ρ => by
+    obtain ⟨fty, hfty, hdty⟩ := Denotes_defFun ty d ρ
+    obtain ⟨fbody, hfbody, hdbody⟩ := Denotes_defFun body (d + 1) ρ
+    refine ⟨fun xs => lamV (fty xs) (fun x => fbody (fcons x xs))
+        (hasGraph_of_defFun1 (defFun1_fcons hfbody xs)),
+      DefFun.lamV_apply hfbody hfty, fun xs Y hd => ?_⟩
+    cases hd with
+    | lam hA hF hG =>
+      have hAeq := hdty xs _ hA
+      refine lamV_ext hAeq hG _ fun x hx => ?_
+      have hFx := hF x hx
+      rw [← prepend_fcons] at hFx
+      exact hdbody (fcons x xs) _ hFx
+  | .forallE ty body, d, ρ => by
+    obtain ⟨fty, hfty, hdty⟩ := Denotes_defFun ty d ρ
+    obtain ⟨fbody, hfbody, hdbody⟩ := Denotes_defFun body (d + 1) ρ
+    refine ⟨fun xs => piV (fty xs) (fun x => fbody (fcons x xs))
+        (hasSigmaPairs_of_defFun1 (defFun1_fcons hfbody xs)),
+      DefFun.piV_apply hfty hfbody, fun xs Y hd => ?_⟩
+    cases hd with
+    | pi hA hB hS =>
+      have hAeq := hdty xs _ hA
+      refine piV_ext hAeq hS _ fun x hx => ?_
+      have hBx := hB x hx
+      rw [← prepend_fcons] at hBx
+      exact hdbody (fcons x xs) _ hBx
+  | .letE _ v body, d, ρ => by
+    obtain ⟨fv, hfv, hdv⟩ := Denotes_defFun v d ρ
+    obtain ⟨fbody, hfbody, hdbody⟩ := Denotes_defFun body (d + 1) ρ
+    refine ⟨fun xs => fbody (fcons (fv xs) xs), defFun_subst0 hfbody hfv, fun xs Y hd => ?_⟩
+    cases hd with
+    | letE hv hb =>
+      have hveq := hdv xs _ hv
+      rw [hveq, ← prepend_fcons (fv xs) xs ρ] at hb
+      exact hdbody (fcons (fv xs) xs) _ hb
+  | .proj _ i a, d, ρ => by
+    obtain ⟨fa, hfa, hda⟩ := Denotes_defFun a d ρ
+    refine ⟨fun xs => field (i + 1) (fa xs), DefFun.field_apply (i + 1) hfa, fun xs Y hd => ?_⟩
+    cases hd with
+    | proj_table _ he => rw [hda xs _ he]
+  | .lit (.natVal n), _, _ =>
+    ⟨fun _ =>
+        if h : ∃ ρ' Y, Denotes cval env φ ρ' (.lit (.natVal n)) Y then
+          Classical.choose (Classical.choose_spec h)
+        else empty,
+      DefFun.const _,
+      fun xs Y hd => by
+        have hex : ∃ ρ' Y, Denotes cval env φ ρ' (.lit (.natVal n)) Y := ⟨_, Y, hd⟩
+        rw [dite_eq_left hex]
+        exact denotes_natLit_indep n _ _ _ _ hd (Classical.choose_spec (Classical.choose_spec hex))⟩
+  | .lit (.strVal s), _, _ =>
+    ⟨fun _ =>
+        if h : ∃ ρ' Y, Denotes cval env φ ρ' (.lit (.strVal s)) Y then
+          Classical.choose (Classical.choose_spec h)
+        else empty,
+      DefFun.const _,
+      fun xs Y hd => by
+        have hex : ∃ ρ' Y, Denotes cval env φ ρ' (.lit (.strVal s)) Y := ⟨_, Y, hd⟩
+        rw [dite_eq_left hex]
+        exact denotes_strLit_indep s _ _ _ _ hd (Classical.choose_spec (Classical.choose_spec hex))⟩
 
 /-- Every piece of an equation of `T.rec` denotes at every valuation, once `Eq` is stored. -/
 theorem den_pi {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
@@ -238,14 +456,30 @@ theorem den_pi {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : Le
     (hB : ∀ ρ, ∃ Y, Denotes cval env φ ρ body Y) (ρ : BVarIdx → V) :
     ∃ X, Denotes cval env φ ρ (.forallE ty body) X := by
   obtain ⟨A, hA⟩ := hA ρ
-  exact ⟨_, .pi hA fun x _ => (hB (push x ρ)).choose_spec⟩
+  obtain ⟨f, hf, hfun⟩ := Denotes_defFun (cval := cval) (env := env) (φ := φ) body 1 ρ
+  have hf1 : DefFun 1 fun v => f (fun _ => v 0) :=
+    hf.congr fun v => congrArg f (funext fun ⟨0, _⟩ => rfl)
+  have hS : HasSigmaPairs A fun x => (hB (push x ρ)).choose := by
+    refine (hasSigmaPairs_of_defFun1 (B := fun x => f (fun _ => x)) hf1).congr fun x _ => ?_
+    refine (hfun (fun _ => x) _ ?_).symm
+    rw [prepend_one]
+    exact (hB (push x ρ)).choose_spec
+  exact ⟨_, .pi hA (fun x _ => (hB (push x ρ)).choose_spec) hS⟩
 
 theorem den_lam {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
     {ty body : Expr} (hA : ∀ ρ, ∃ A, Denotes cval env φ ρ ty A)
     (hB : ∀ ρ, ∃ Y, Denotes cval env φ ρ body Y) (ρ : BVarIdx → V) :
     ∃ X, Denotes cval env φ ρ (.lam ty body) X := by
   obtain ⟨A, hA⟩ := hA ρ
-  exact ⟨_, .lam hA fun x _ => (hB (push x ρ)).choose_spec⟩
+  obtain ⟨f, hf, hfun⟩ := Denotes_defFun (cval := cval) (env := env) (φ := φ) body 1 ρ
+  have hf1 : DefFun 1 fun v => f (fun _ => v 0) :=
+    hf.congr fun v => congrArg f (funext fun ⟨0, _⟩ => rfl)
+  have hG : HasGraph A fun x => (hB (push x ρ)).choose := by
+    refine (hasGraph_of_defFun1 (F := fun x => f (fun _ => x)) hf1).congr fun x _ => ?_
+    refine (hfun (fun _ => x) _ ?_).symm
+    rw [prepend_one]
+    exact (hB (push x ρ)).choose_spec
+  exact ⟨_, .lam hA (fun x _ => (hB (push x ρ)).choose_spec) hG⟩
 
 theorem den_app {cval : Name → (LevelParam → Nat) → V} {env : Env} {φ : LevelParam → Nat}
     {f a : Expr} (hf : ∀ ρ, ∃ F, Denotes cval env φ ρ f F)
@@ -312,13 +546,14 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env) (heq : EqLaw M)
   intro hab
   let ρ : BVarIdx → V := fun _ => empty
   let cT := M.cval tN one
-  let m : V := lamV cT fun _ => univ 0
+  let hGm : HasGraph cT (fun _ => univ 0) := hasGraph_of_defFun1 (DefFun.const (univ 0))
+  let m : V := lamV cT (fun _ => univ 0) hGm
   let ρ3 : BVarIdx → V := push unitSet (push empty (push m ρ))
   have hRmem := List.mem_of_find?_eq_some hR
   -- the recursor's value at the motive, the minors and a constructor is a truth value
   obtain ⟨XR, hXR, hmR⟩ := M.mem _ hRmem one ρ
   obtain ⟨Y4, hY4, hy4⟩ := tele_app M hT hTa hTb hXR hmR
-  obtain ⟨A4, B4, rfl, hA4, hB4⟩ := Denotes_pi_inv hY4
+  obtain ⟨A4, B4, hS4, rfl, hA4, hB4⟩ := Denotes_pi_inv hY4
   obtain rfl := Denotes_functional hA4 (Denotes_T M hT ρ3)
   have hrecTy : ∀ {c : Name} {cv : ConstantVal}, cv.name = c → cv.levelParams = [] →
       cv.type = cnst tN → env.find? c = some (.ctorInfo cv 0 0 tN) →
@@ -366,11 +601,13 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env) (heq : EqLaw M)
     rw [heq u one ρ3 E _ _ _ hE (univ_mem_univ 0) (hrecTy hn hl ht hf) hselU] at hy
     exact eq_of_mem_eqv hy
   -- the right-hand sides: the first and the second minor
-  have hlam : ∀ (r : Expr) (sel : V → V → V), (∀ a b (ρ' : BVarIdx → V), Denotes M.cval env one
-      (push b (push a ρ')) r (sel a b)) →
+  have hlam : ∀ (r : Expr) (sel : V → V → V),
+      DefFun 2 (fun v => sel (v 0) (v 1)) →
+      (∀ a b (ρ' : BVarIdx → V), Denotes M.cval env one
+        (push b (push a ρ')) r (sel a b)) →
       Denotes M.cval env one ρ3 (Expr.mkAppN (lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB r)
         [bv 2, bv 1, bv 0]) (sel empty unitSet) := by
-    intro r sel hr
+    intro r sel hsel_def hr
     have hmin : ∀ {c : Name} {cv : ConstantVal}, cv.name = c → cv.levelParams = [] →
         cv.type = cnst tN → env.find? c = some (.ctorInfo cv 0 0 tN) →
         ∀ (i : Nat) (ρ' : BVarIdx → V) (m' : V), ρ' i = m' →
@@ -380,13 +617,38 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env) (heq : EqLaw M)
         (show Denotes _ _ _ _ (cnst c) _ from Denotes_const0 (ρ := ρ') hf hl)
       rw [h, substFn_nil] at h2
       exact h2
-    let A1 : V := piV cT fun _ => univ (Level.eval one u)
+    let A1 : V := piV cT (fun _ => univ (Level.eval one u)) (hasSigmaPairs_const cT _)
+    have hGb : ∀ m' a : V, HasGraph (app m' (M.cval tbN one)) fun b => sel a b := fun _ a =>
+      hasGraph_of_defFun1 (DefFun.comp2 hsel_def (DefFun.const a) (DefFun.proj 0))
+    have hLam2Def : DefFun 2 fun v =>
+        lamV (app (v 1) (M.cval tbN one)) (fun b => sel (v 0) b) (hGb (v 1) (v 0)) :=
+      DefFun.lamV_apply_curry
+        (DefFun.comp2 hsel_def (DefFun.proj 1) (DefFun.proj 0))
+        (DefFun.app_apply (DefFun.proj 1) (DefFun.const _))
+    have hGa : ∀ m' : V, HasGraph (app m' (M.cval taN one))
+        fun a => lamV (app m' (M.cval tbN one)) (fun b => sel a b) (hGb m' a) := fun m' =>
+      hasGraph_of_defFun1 (DefFun.comp2
+        (f := fun a m'' => lamV (app m'' (M.cval tbN one)) (fun b => sel a b) (hGb m'' a))
+        hLam2Def (DefFun.proj 0) (DefFun.const m'))
+    have hLam1Def : DefFun 1 fun v =>
+        lamV (app (v 0) (M.cval taN one))
+          (fun a => lamV (app (v 0) (M.cval tbN one)) (fun b => sel a b) (hGb (v 0) a))
+          (hGa (v 0)) :=
+      DefFun.lamV_apply_curry
+        (hLam2Def.congr fun _ => rfl)
+        (DefFun.app_apply (DefFun.proj 0) (DefFun.const _))
+    have hGm1 : HasGraph A1 fun m' =>
+        lamV (app m' (M.cval taN one))
+          (fun a => lamV (app m' (M.cval tbN one)) (fun b => sel a b) (hGb m' a))
+          (hGa m') :=
+      hasGraph_of_defFun1 hLam1Def
     have hL : Denotes M.cval env one ρ3 (lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB r)
-        (lamV A1 fun m' => lamV (app m' (M.cval taN one)) fun a =>
-          lamV (app m' (M.cval tbN one)) fun b => sel a b) :=
-      .lam (.pi (Denotes_T M hT ρ3) fun _ _ => .sort) fun m' _ =>
-        .lam (hmin (c := taN) (cv := taCV) rfl rfl rfl hTa 0 _ m' rfl) fun a _ =>
-          .lam (hmin (c := tbN) (cv := tbCV) rfl rfl rfl hTb 1 _ m' rfl) fun b _ => hr a b _
+        (lamV A1 (fun m' => lamV (app m' (M.cval taN one)) (fun a =>
+          lamV (app m' (M.cval tbN one)) (fun b => sel a b) (hGb m' a)) (hGa m')) hGm1) :=
+      .lam (.pi (Denotes_T M hT ρ3) (fun _ _ => .sort) (hasSigmaPairs_const _ _)) (fun m' _ =>
+        .lam (hmin (c := taN) (cv := taCV) rfl rfl rfl hTa 0 _ m' rfl) (fun a _ =>
+          .lam (hmin (c := tbN) (cv := tbCV) rfl rfl rfl hTb 1 _ m' rfl) (fun b _ => hr a b _)
+            (hGb m' a)) (hGa m')) hGm1
     have hm : m ∈ˢ A1 := lamV_mem (fun _ _ => univ_mem_univ 0) (fun _ _ => IsTy_univ _)
     have hval := Denotes.app (Denotes.app (Denotes.app hL (Denotes.bvar (i := 2)))
       (Denotes.bvar (i := 1))) (Denotes.bvar (i := 0) (ρ := ρ3))
@@ -400,9 +662,9 @@ theorem T_a_ne_T_b {env : Env} (M : Model V env) (heq : EqLaw M)
     rw [e2, e1, e0, app_lamV hm, app_lamV ha0, app_lamV hb0] at hval
     exact hval
   have ha := hrule (c := taN) (cv := taCV) (rl := ruleA) empty rfl rfl rfl hTa (by simp) (iotaEq_ruleA hTa)
-    (hlam (bv 1) (fun a _ => a) fun _ _ _ => .bvar) (empty_mem_univ 0)
+    (hlam (bv 1) (fun a _ => a) (DefFun.proj 0) fun _ _ _ => .bvar) (empty_mem_univ 0)
   have hb := hrule (c := tbN) (cv := tbCV) (rl := ruleB) unitSet rfl rfl rfl hTb (by simp) (iotaEq_ruleB hTb)
-    (hlam (bv 0) (fun _ b => b) fun _ _ _ => .bvar) (unitSet_mem_univ 0)
+    (hlam (bv 0) (fun _ b => b) (DefFun.proj 1) fun _ _ _ => .bvar) (unitSet_mem_univ 0)
   rw [hab, hb] at ha
   exact not_mem_empty pt (ha ▸ pt_mem_unitSet)
 

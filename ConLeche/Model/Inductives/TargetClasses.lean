@@ -193,19 +193,16 @@ theorem tgtClsCr_mem (hm : (tgtMajor out c).member.isSome = true) (xs : List V) 
   simp only [tgtClsCr, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, ite_true]
   rfl
 
-omit [SetTheory V] in
 theorem tgtClsInj_mem (hm : (tgtMajor out c).member.isSome = true) :
     tgtClsInj d Dc mc cvc p out ψ c = d.inj ψ (p.recTgtAt c) := by
   simp only [tgtClsInj, tgtClsD, tgtClsψ, tgtClsM, hm, ite_true]
   rfl
 
-omit [SetTheory V] in
 theorem tgtClsU_mem (hm : (tgtMajor out c).member.isSome = true) :
     tgtClsU d Dc mc cvc p out ψ c = d.uM (p.recTgtAt c) ψ := by
   simp only [tgtClsU, tgtClsD, tgtClsψ, tgtClsM, hm, ite_true]
   rfl
 
-omit [SetTheory V] in
 theorem tgtClsNIdx_mem (hm : (tgtMajor out c).member.isSome = true) :
     tgtClsNIdx d p out c = d.nIdxAt (p.recTgtAt c) := by
   simp only [tgtClsNIdx, hm, ite_true]
@@ -221,7 +218,6 @@ theorem tgtClsFit_mem (hm : (tgtMajor out c).member.isSome = true) (xs : List V)
   simp only [tgtClsFit, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, ite_true]
   rfl
 
-omit [SetTheory V] in
 theorem tgtClsNIdx_out (hMo : (tgtMajor out c).member = none) :
     tgtClsNIdx d p out c = (tgtMajor out c).nIdx := by
   simp only [tgtClsNIdx, hMo, Option.isSome_none]

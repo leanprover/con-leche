@@ -69,7 +69,6 @@ theorem natHeads_cons_offNat (mp : EnvModelM V env)
     (hacval : m2.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : NatHeads m2 φ := by
   intro hg ρ
-  rw [hacval]
   -- the three lookups are the prefix's, so the guard reflects
   have hfind : ∀ p : Name, c₀.name ≠ p →
       (⟨c₀ :: env.consts, env.tables⟩ : Env).find? p = env.find? p := by
@@ -84,16 +83,12 @@ theorem natHeads_cons_offNat (mp : EnvModelM V env)
     rw [hfind _ hnZ] at h2
     rw [hfind _ hnS] at h3
     exact ⟨⟨h1, h2⟩, h3⟩
-  have e1 : acvalWith mp.base2.acval c₀.name A natZeroName
-      = mp.base2.acval natZeroName :=
-    acvalWith_ne (fun h => hnZ h.symm)
-  have e2 : acvalWith mp.base2.acval c₀.name A natSuccName
-      = mp.base2.acval natSuccName :=
-    acvalWith_ne (fun h => hnS h.symm)
-  have e3 : acvalWith mp.base2.acval c₀.name A natName
-      = mp.base2.acval natName :=
-    acvalWith_ne (fun h => hnN h.symm)
-  have := mp.nat_heads φ hgold ρ
-  simpa only [e1, e2, e3] using this
+  have e1 : m2.acval natZeroName = mp.base2.acval natZeroName := by
+    rw [hacval]; exact acvalWith_ne (fun h => hnZ h.symm)
+  have e2 : m2.acval natSuccName = mp.base2.acval natSuccName := by
+    rw [hacval]; exact acvalWith_ne (fun h => hnS h.symm)
+  have e3 : m2.acval natName = mp.base2.acval natName := by
+    rw [hacval]; exact acvalWith_ne (fun h => hnN h.symm)
+  simpa only [e1, e2, e3] using mp.nat_heads φ hgold ρ
 
 end ConLeche.Model

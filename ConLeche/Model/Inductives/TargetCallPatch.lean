@@ -66,9 +66,9 @@ theorem admVal_frame0 (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : N
     (hids : ∀ t, t < ctx.names.length → (d.toLfp.ids t ψ).length = ctx.nIdxs.getD t 0)
     {Y : Nat → V}
     (hY : InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ)) Y)
-    (own : Nat → Nat) (G : Nat → Nat → V → V → Prop) :
+    (own : Nat → Nat) (G : V) :
     AdmVal mk mpC ctx d ns ψ ρ xs own
-      (addOwn G 0 (nlDb mpC d ns 0).N
+      (fun b' c t y => nenc b' c t y ∈ˢ addOwn G 0 (nlDb mpC d ns 0).N
         ((nlDb mpC d ns 0).idx (nlψ envC ns ψ 0) (nlFr mpC ctx d ns ψ ρ xs 0)) Y) []
       (d.toLfp.frame ψ (consList (xs.take d.nP) ρ) Y) := by
   classical
@@ -115,7 +115,7 @@ theorem admVal_frame0 (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : N
     have hisl : is.length = (d.toLfp.ids t ψ).length := by rw [hids t ht, his]
     by_cases hfit : SpineFit (consList (xs.take d.nP) ρ) (d.toLfp.ids t ψ) is
     · rw [LfpDatum.holeVal_app hfit] at hy
-      exact ⟨fun _ => Or.inr ⟨rfl, Nat.lt_of_lt_of_le htk hcl.kN, tupW_mem hfit, hy⟩,
+      exact ⟨fun _ => mem_addOwn_nenc.mpr (Or.inr ⟨rfl, Nat.lt_of_lt_of_le htk hcl.kN, tupW_mem hfit, hy⟩),
         fun hn => absurd (by rw [hnP]; exact hfit) hn⟩
     refine ⟨fun h => absurd (by rw [← hnP]; exact h) hfit, fun _ => ?_⟩
     have hxs' : ctx.nP ≤ xs.length := by rw [H.hnP]; exact hxs
@@ -142,7 +142,7 @@ theorem admVal_frame0 (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : N
     rw [H.hnP, hfe]
     have htN : t < d.toLfp.N := Nat.lt_of_lt_of_le htk hcl.kN
     have hC : InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ (consList (xs.take d.nP) ρ))
-        (d.toLfp.carrier ψ (consList (xs.take d.nP) ρ)) := lfpTuple_mem _ _ _ _
+        (d.toLfp.carrier ψ (consList (xs.take d.nP) ρ)) := lfpTuple_mem _ _ _ _ _
     have hne : ∀ (Z : Nat → V), InTupleSpace (d.toLfp.w ψ) d.toLfp.N
         (d.toLfp.idx ψ (consList (xs.take d.nP) ρ)) Z →
         ∀ ws, SpineFit (consList (xs.take d.nP) ρ) (d.toLfp.ids t ψ) ws →

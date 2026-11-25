@@ -316,7 +316,7 @@ What a term denotes, and what a model is, are one short module a
 reader can take in at one sitting, and it reads the INPUT: the
 constants of the records of `ds` as the stream carries them, nothing of the environment
 the checker builds. The reading is a total function,
-[`Expr.eval` in `ConLeche/IsModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L128-L129),
+[`Expr.eval` in `ConLeche/IsModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L275-L276),
 one equation per syntax form on the checker's own terms — a bound
 variable reads its environment, `Sort u` the types of a level of the
 universe chain, a constant `c.{us}` the model's set for `c` at the
@@ -326,7 +326,7 @@ where its body denotes a truth value at every value of its domain, a
 `λ` the graph of its body, or the proof point where its body denotes
 the proof point at every value of its domain, a projection a component
 of a pair chain. A model is
-[`IsModel` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L212-L213):
+[`IsModel` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L424-L425):
 every constant of every declaration of `ds` holds (`ModelOf`), each on
 its own: the clause reads the constant and nothing else. So every
 theorem the stream proves is true in the model. A definition is what
@@ -369,7 +369,7 @@ the default mode, which is the verified one, and the default worker
 count; nothing is said about `--help` or the other flags. If an outcome
 of `runArgs` is an exit 0 on a snapshot where the file's bytes are a
 `jsonWithTheoremFalse` file, then `False` holds
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L55-L57)).
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L57-L59)).
 The file is described at the level of its text
 ([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L53-L63)):
 a name entry for `False`, an expression entry for the constant `False`,
@@ -466,7 +466,7 @@ capture check passed agrees by the branch that passed it. So
 `main_modular` below holds of the files.
 
 Over the files, the modular theorem is
-[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L109-L120):
+[`main_modular` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L111-L122):
 where `--check-graph -- <root>` and `--olean --module` at every module of the headers' closure
 exit 0 on one snapshot (or `--olean --modular -- <root>` does, `main_modular_one`), there is one
 model per module of the closure of `root` (`Olean.InClosure`, over the private views), each a
@@ -484,7 +484,7 @@ false.
 
 **A challenge and its solution** have their own theorems, about `--olean --compare` (§2), which
 checks the solution's closure and then the challenge's, its axioms justified by the solution.
-[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L88-L94):
+[`main_compare_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L90-L96):
 every exit 0 at `--olean --compare --trusted-search-path=<T> --search-path=<D> -- <c> <s>` says of
 every snapshot that agrees with the run's under the challenge's directories (`Driver.trustedOr`:
 `T`, or `D` where `T` names none; every path the reader forms there has the same real path, kind
@@ -498,7 +498,7 @@ holds `def f : Nat := 3` and a hole `t : f = 5` has no model, whatever the solut
 does one with a constant of type `False`, since `False` denotes the empty set.
 
 The same question **module by module** has the theorem of the modular runs' shape.
-[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L143-L160):
+[`main_modular_compare` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L145-L162):
 on a snapshot where every command `--schedule-commands --compare -- <c> <s>` prints exits 0 (the
 graph check, `--olean --module` at every module of the headers' closure of `C` and `S` but `C`,
 the compare worker at `C`, each with `--trusted-search-path=<T> --search-path=<D>`), on every
@@ -1310,7 +1310,7 @@ interpretation reads this syntax.
 
 **Interpretation.** The interpretation maps a term to a set, totally
 and term-directed
-([function `interp` in `ConLeche/Semantics/Interp.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/Interp.lean#L134-L145)):
+([function `interp` in `ConLeche/Semantics/Interp.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/Interp.lean#L291-L292)):
 a Π whose fibres over its domain are all truth values is a truth value,
 otherwise a dependent function space; a λ whose body values over its
 domain are all the proof point is the proof point, otherwise its graph
@@ -1331,7 +1331,7 @@ hereditarily, every application applies the point to anything, or a
 graph to a member of its domain, which is a type; every binder's
 domain is a type, every projection hits a pair, and so on. Unlike syntactic typing it is preserved by β and
 the other reduction steps
-([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L123-L287)).
+([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L125-L291)).
 An environment carries the invariant for every stored constant, plus
 closedness and the pins of the basis constants
 ([structure `EnvModel` in `ConLeche/Model/Env/EnvModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Env/EnvModel.lean#L35-L63)).
@@ -1646,14 +1646,14 @@ and no fields), exactly under the official kernel's conditions.
 
 **In the model** the block's carrier is the least fixed point of its
 family functor over the index fibres
-([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L387-L388)),
+([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L838-L840)),
 for several members a least fixed tuple of families, and a container
 field reads the container's own least fixed point at the holes'
 values. That the fixed point is a member of the universe follows from
 one abstract theorem about *accessible* operators, those where every
 element of the output needs only elements of the input indexed by one
 fixed set of the universe
-([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L243)):
+([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L919)):
 such an operator has a closed tuple in the universe. The run of the
 positivity check shows the block's operator accessible, for finitary,
 reflexive and nested fields alike. Each recursor is read as the unique
@@ -1929,7 +1929,7 @@ instead of trusting the operation's name.
   whatever kind of constant is stored there (the fast path fires by
   name), reads the operation's membership off its pinned type shape
   and proves the literal semantics from the certified recurrences
-  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1046)).
+  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1045)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
   [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L479))
@@ -1955,7 +1955,7 @@ instead of trusting the operation's name.
   arbitrary variant, because what it consumes is the certificates'
   verdict in the accepted environment and not where the matched
   variant came from:
-  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1968).
+  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1961).
   That is why the two statements of §1 quantify over the list: the pins
   buy accepted `Nat.div` streams, never consistency.
 * **The maximum `Nat` size.** As the official kernel does, the checker
@@ -2011,21 +2011,38 @@ instead of trusting the operation's name.
 
 ## 7. The set-theory assumption
 
-Everything is parametric in a class
-([class `SetTheory` in `ConLeche/SetTheory/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L95-L156)):
-membership, extensionality, pairing, union, power set, regularity,
-replacement for arbitrary Lean functions, and an ω-chain of universes,
-each a Tarski–Grothendieck universe
-([predicate `IsTGUniverse` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L89))
-and a member of the next. Infinity is derivable; choice is inherited
-from the meta-logic. The derived operations the model uses live in
-`ConLeche/SetTheory/Derive/*`.
+Everything is parametric in a strictly first-order class
+([class `SetTheory` in `ConLeche/SetTheory/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L69-L172)):
+membership, extensionality, pairing, union, power set, regularity, a
+first-order replacement schema over countable object-language formulas
+(`Formula` in `ConLeche/SetTheory/Formula.lean`, evaluated over `Mem`
+with finite tuples of parameters in `V`), the first-order Jech-form
+Axiom of Choice (`choice` yielding an internal choice function
+`IsChoiceFn`), and an ω-chain of universes, each a Grothendieck
+universe
+([structure `IsGrothendieck` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L56-L67))
+and a member of the next. Infinity is derivable; choice is an explicit
+first-order axiom on `V` rather than global meta-level selection.
+Compositional first-order definability witnesses (`DefRel`, `DefFun` in
+`ConLeche/SetTheory/Definable.lean`) certify replacement instances
+(`HasImage`, `HasSep`), and proof-carrying set constructors
+(`HasGraph` for function graphs and `lamV`, `HasSigmaPairs` for
+dependent pairs/sums and `piV`, choice-free `quotLiftR` for quotients,
+and internal `WF A` tree codes in `ConLeche/SetModel/Access.lean` for
+`closed_of_acc`) keep every set-forming step inside first-order ZFC⁻
+plus universes. The derived operations the model uses live in
+`ConLeche/SetTheory/Derive/*`. The `*_no_False` theorems in
+`ConLeche/Challenge.lean` and `ConLeche/MainTheorem.lean` package the
+existence of a model as
+[`ModelExists` in `ConLeche/SetTheory/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L174-L188)
+— essentially the consistency / non-vacuity assumption of this
+first-order set theory.
 
 The interface is instantiated in a separate Lake package,
 `bridge/lean4lean-model`, on Mathlib's `ZFSet` from the ω-many
 inaccessible cardinals hypothesis of Carneiro's consistency analysis of
 Lean
-([theorem `carneiro_implies_conleche` in `bridge/lean4lean-model/ConLecheBridge/Carneiro.lean`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202)).
+([theorem `carneiro_implies_conleche` in `bridge/lean4lean-model/ConLecheBridge/Carneiro.lean`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L336-L338)).
 So the assumption is no stronger than the one already accepted for
 Lean's own consistency. The main repository does not depend on Mathlib;
 the bridge builds in its own CI job.
@@ -2053,7 +2070,8 @@ A stream may use exactly the standard axioms `propext` and
 they quantify over are pinned to the toolchain's
 ([the pinned standard axioms in `ConLeche/Kernel/StdAxioms.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/StdAxioms.lean#L33-L37));
 both are true in the model, `propext` by extensionality of
-propositions and `Classical.choice` by global choice. `Quot.sound` is
+propositions and `Classical.choice` by the internal universe choice
+function `univChoiceFn` derived from `SetTheory.choice`. `Quot.sound` is
 part of the pinned `Quot` block. Any other axiom declaration is a
 positive decline at its own record, with one tolerated exception:
 `sorryAx`. An export declares that axiom whenever the module it came
@@ -2247,6 +2265,10 @@ binary link gate (`tests/binary-link.sh`: the compiled binary links no module of
 package, so no proof module the driver imports brings `Lean.Meta` along), the pin
 dump freshness, the challenge gate (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else),
+the old set theory gate (`tests/old-set-theory.sh`: the second-order
+`SetTheory` class this one replaced is kept, identical but for its
+namespace, and the test library derives the current class from it, so
+every model of that class is a model of this one),
 the self-check (`scripts/selfcheck.sh`: con-leche's `--compare` of the
 challenge against the solution, from the `.olean` files and from the
 exporter's JSON, accepts both and justifies exactly the names

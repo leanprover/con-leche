@@ -60,7 +60,8 @@ theorem FormerSort.pi_sound {d n : Nat} {e dom b : Expr} {s : Level}
   have hLty : Expr.LeavesBounded dom := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
   have hLbody : Expr.LeavesBounded b := fun l hl => hLb l (by simp [Expr.fvarLeaves, hl])
   obtain ⟨hwopen, hbopen, hLopen⟩ := frame_open2 hws.1 hbd.1 hws.2 hbd.2 hLty hLbody
-  refine .inr ⟨_, _, heq.trans (interp_pi V ρ tyA baA), fun x hx => ?_⟩
+  refine .inr ⟨_, _, interp_hasSigmaPairs_cons ρ (interp V ρ tyA) baA,
+    heq.trans (interp_pi V ρ tyA baA), fun x hx => ?_⟩
   have hdomTy : WellDenotedTy V ρ tyA := ⟨hw'.1, hw'.2.1⟩
   exact hrec ⟨hwopen, hbopen, hLopen⟩ (CtxOkS.openS hC'.forallE_ty hC'.forallE_body htyA) hbaA
     (cons x ρ) (Sat_cons V hρ hx)

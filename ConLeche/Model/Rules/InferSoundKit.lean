@@ -120,7 +120,7 @@ theorem charList_facts {ρ : Nat → V}
       ((.pi KNat KH) : Term))
     (hz : interp V ρ Kz ∈ˢ interp V ρ KNat)
     (hsucc : interp V ρ Ks
-      ∈ˢ piR 1 (interp V ρ KNat) fun _ => interp V ρ KNat) :
+      ∈ˢ piR 1 (interp V ρ KNat) (fun _ => interp V ρ KNat) (hasSigmaPairs_const _ _)) :
     ∀ cs : List Char,
       WellDenoted V ρ (charListT (.app KN KH) (.app KC KH) KF Kz Ks cs) ∧
         interp V ρ (charListT (.app KN KH) (.app KC KH) KF Kz Ks cs)

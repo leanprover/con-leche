@@ -256,7 +256,7 @@ theorem posD_red (hin : RulesInputs V m φ) {ctx : NestCtx} {F : Nat} :
     · intro ρ hρ
       rw [heq ρ hρ]
       simp only [interp_pi]
-      exact piV_congr fun x hx => heqn _ (Sat_cons V hρ hx)
+      exact piV_congr _ _ fun x hx => heqn _ (Sat_cons V hρ hx)
   | hole hw => intro hfr _ _ hC hea hgr; exact red_whnf hin hw hfr hC hea hgr
   | frameHole hw => intro hfr _ _ hC hea hgr; exact red_whnf hin hw hfr hC hea hgr
   | contNew hw => intro hfr _ _ hC hea hgr; exact red_whnf hin hw hfr hC hea hgr

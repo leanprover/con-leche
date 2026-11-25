@@ -26,12 +26,13 @@ Four features of ConLeche recur in every comparison below.
   accept. Completeness with respect to the official kernel is measured
   empirically (the kernel arena, Mathlib), not proved.
 * **The model is Werner's, mechanised, behind an interface.** The
-  target theory is a class `SetTheory V`: ZF-style operators plus a
-  tower of Tarski–Grothendieck universes. The consistency proof is
-  parametric in an instance; the instance is produced separately, on
-  Mathlib's `ZFSet`, from the ω-inaccessibles hypothesis of Carneiro's
-  analysis of Lean. Propositions are subsets of a one-point set, so
-  proof irrelevance and propositional extensionality are built in.
+  target theory is a class `SetTheory V`: first-order ZFC without the
+  axiom of infinity, plus a chain of Grothendieck universes. The
+  consistency proof is parametric in an instance; the instance is
+  produced separately, on Mathlib's `ZFSet`, from the ω-inaccessibles
+  hypothesis of Carneiro's analysis of Lean. Propositions are subsets
+  of a one-point set, so proof irrelevance and propositional
+  extensionality are built in.
 * **The verified code is the code that runs.** The definitions the
   theorem is about are compiled by Lean's own compiler; performance
   variants are connected to them by proved `@[csimp]` equations, not
@@ -54,7 +55,7 @@ inductive types are least fixed points reached by iteration below the
 inaccessible. ConLeche's interpretation is this construction:
 propositions are subsets of `{pt}`, a Π whose codomain is a
 proposition is a predicate space with a single proof point, sorts are
-a chain of Tarski–Grothendieck universes, and an inductive block's
+a chain of Grothendieck universes, and an inductive block's
 carrier is the least fixed point of its family functor.
 
 *Sets in types* goes the other way: ZF is encoded inside type theory
@@ -115,9 +116,10 @@ shape "axiomatise the target set theory as an interface inside the
 proof assistant, then model the calculus against the interface" is
 exactly ConLeche's `SetTheory` class, and Barras's observation that
 replacement in its general form wants a type-level choice principle
-has its counterpart in ConLeche's interface: replacement is a
-Lean-level scheme over functions `V → V`, and choice is inherited from
-the meta-logic rather than being a field.
+has its counterpart in ConLeche's interface, which is first-order:
+replacement is the schema over formulas, asked of a formula that is
+functional on the set rather than of a function `V → V`, and choice is
+an axiom of the set theory, a field of the class.
 
 The differences: Barras models a calculus, given by a typing relation,
 and proves the interpretation of derivations sound; ConLeche models

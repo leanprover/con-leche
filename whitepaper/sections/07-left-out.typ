@@ -20,7 +20,7 @@ the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
-(#src("ConLeche/Model/Inductives/FixKit.lean", 667, 672)[its typing
+(#src("ConLeche/Model/Inductives/FixKit.lean", 674, 679)[its typing
 and ι laws]).]
 
 #left-out[Mutual inductive types][Several types declared together,
@@ -39,12 +39,12 @@ constructor form when reduction needs it
 binary `Nat` operations] on literals with machine arithmetic. The folding is sound only for
 the operations as the toolchain defines them, so the checker compares
 each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a pinned copy] and the model
-#src("ConLeche/Model/NatEqs.lean", 1046, 1050)[establishes the operations' recurrences] from that comparison.]
+#src("ConLeche/Model/NatEqs.lean", 1045, 1050)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
-axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
+axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 188, 191)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2772, 2778)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2896, 2902)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker has hand-written
@@ -67,9 +67,9 @@ names.]
 #left-out[Axioms][The fragment has none outside the holes of
 @sec:compare, which a solution fills. Checked on its own, the real
 checker accepts exactly Lean's three standard axioms: `propext` and `Classical.choice`,
-each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 600, 606)[true in the
+each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 603, 609)[true in the
 model] (`propext` by the extensionality of truth values, `choice` by
-choice in the meta-logic), and `Quot.sound` as
+the set theory's axiom of choice), and `Quot.sound` as
 part of the pinned `Quot` block above. Any other axiom record declines
 the stream, with two tolerated exceptions: a declared but unused
 `sorryAx` installs nothing, and Lean's deprecated compiler-trust axioms are
@@ -131,7 +131,7 @@ applied), and built-in constants at concrete levels. That reading,
 #src("ConLeche/Verify/Denote.lean", 153, 154)[`denote`], is partial only for
 syntactic reasons: an unknown constant, a wrong number of levels, or a
 projection with no table. The interpretation
-#src("ConLeche/Semantics/Interp.lean", 134, 145)[`interp`] then maps
+#src("ConLeche/Semantics/Interp.lean", 289, 292)[`interp`] then maps
 the term to a set, interpreting each Π-type and lambda-expression from
 the values, as @sec:interp does. The paper folds the two steps into one
 denotation on the terms themselves.
@@ -158,11 +158,11 @@ recomposition] puts them together, claim by claim. It bridges the run,
 applies the soundness, and hands the result to the declaration fold.
 
 *The statement over `Expr.eval`.* The main theorem is stated over
-#src("ConLeche/IsModel.lean", 212, 213)[`IsModel`], a notion of model of the
+#src("ConLeche/IsModel.lean", 424, 425)[`IsModel`], a notion of model of the
 input stream itself: a model gives every constant a set at
 the values of its universe levels, and every constant of every declaration holds in it, each
 on its own. Its
-terms are read by #src("ConLeche/IsModel.lean", 128, 129)[`Expr.eval`], a total
+terms are read by #src("ConLeche/IsModel.lean", 275, 276)[`Expr.eval`], a total
 function on the checker's own terms with one equation per syntax form. A constant is a
 member of what its type denotes, a definition is what its value denotes, and every recursor
 rule's ι equation holds.
@@ -180,9 +180,9 @@ is equality because of their declarations' own clauses, and the checker accepts 
 declaring them only as the prelude does, which the corollaries use.
 
 The proofs' own model is of the environment the checker builds,
-read by a relation `Denotes`\; #src("ConLeche/Model/IsModelBridge.lean", 116, 118)[a theorem]
+read by a relation `Denotes`\; #src("ConLeche/Model/IsModelBridge.lean", 128, 130)[a theorem]
 says that `Expr.eval` agrees with it wherever it reads, and
-#src("ConLeche/Model/IsModelBridge.lean", 665, 668)[the bridge] carries that model to one of
+#src("ConLeche/Model/IsModelBridge.lean", 771, 774)[the bridge] carries that model to one of
 the input, and to every model agreeing with it on the stored names. The paper's theorem
 has the same shape over the fragment's terms (@def:input-model), with the rules of the
 fragment's generated recursors read off their types; its proofs' model is of the environment
@@ -214,7 +214,7 @@ run, and
 of an import closure together give the local checks].
 
 Over the files themselves,
-#src("ConLeche/MainTheorem.lean", 109, 120)[the modular theorem] gives one model per module
+#src("ConLeche/MainTheorem.lean", 111, 122)[the modular theorem] gives one model per module
 of the closure, each a model of its module's constants as the `.olean` files hold them, and a
 name a module sees as another module's (its header loads a part of that module holding a
 constant of that name: `Sees`, over `Loads`, Lean's import lattice) has the value that

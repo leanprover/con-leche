@@ -31,32 +31,9 @@ lawful).  The terminator is `{∅}`/`∅` rather than `{pt}`/`pt` (task
 #342 C) so that a carrier never contains the proof point; `∅` is no
 pair, so the destructors read it as they read `pt`.
 
-**ProjCoherence by uniform tupling**: the constructor is one
-instantiation-independent function with global left inverses
-(`kpair_inj` iterated), so the parked study's boundary predicate is
-discharged by representation — tier form `mkTower_inj`, proved through
-the iota law alone.
-
-**Projections need no zero-ness datum — `pt` is separate from pairs** (user refinement,
-2026-09-04): the interface keeps the proof point apart from every
-Kuratowski pair (`pt_ne_kpair`, the `Derive/Pt.lean` selection
-principle, surfaced as `sfst_pt`/`ssnd_pt`; the task-#109 pt-freshness
-battery is the systematic form), so the destructors fix `pt` and
-`projS i pt = pt` holds outright.  A `Prop` structure's element
-denotes `pt` and its proof fields denote `pt`, so projection-of-`pt`
-is the *correct* answer by proof irrelevance — iota and membership
-hold with one uniform `projS`, no per-structure variant.  The squash
-membership law carries the proof-field premise `PropS` (every field
-set a truth value — the levelwise `structSort = 0 → field sort = 0`
-bound); that is not a datum on the projection but the per-use
-legality the checker's own `infer_proj` Prop restriction discharges.
-The two regimes are disjoint by the same separation: graph-regime
-members of a nonempty tower are pairs, never `pt` (`pt_ne_kpair`),
-squash members are exactly `pt`.
-
-Everything here is over the bare `SetTheory` interface; no syntax, no
-environment.  Kernel wiring is out of scope (post-B4; see the DESIGN
-handoff record).
+Under the strictly first-order `SetTheory` axiomatization, `towerSet w T`
+is **proof-carrying and zero-junk**, taking `h : HasTeleS w T` (witnessed
+for any first-order definable telescope family `DefTeleS`).
 -/
 
 namespace ConLeche.SetTheory.Tower
@@ -79,12 +56,91 @@ def FitsS : {n : Nat} → TeleS V n → List V → Prop
   | _, .cons _ _, [] => False
   | _, .cons A B, a :: as => a ∈ˢ A ∧ FitsS (B a) as
 
-/-- The carrier: the right-nested `sigmaSet w` tower over the
-telescope, terminated by the unit at level `w` (`unitSetAt w`: `{pt}`
-at `0`, `{∅}` above — task #342 C). -/
-noncomputable def towerSet (w : Nat) : {n : Nat} → TeleS V n → V
-  | _, .nil => unitSetAt w
-  | _, .cons A B => sigmaSet w A (fun a => towerSet w (B a))
+/-- Relational specification of `towerSet w T = t`: `t` is the right-nested
+`sigmaSet w` tower over `T` terminated by `unitSetAt w`. -/
+def HasTower (w : Nat) : {n : Nat} → TeleS V n → V → Prop
+  | _, .nil, t => t = unitSetAt w
+  | _, .cons A B, t =>
+    ∃ (F : V → V) (hS : HasSigmaPairs A F),
+      (∀ a, a ∈ˢ A → HasTower w (B a) (F a)) ∧
+      t = sigmaSet w A F hS
+
+theorem HasTower.unique {w : Nat} : ∀ {n : Nat} {T : TeleS V n} {t₁ t₂ : V},
+    HasTower w T t₁ → HasTower w T t₂ → t₁ = t₂
+  | _, .nil, _, _, h₁, h₂ => h₁.trans h₂.symm
+  | _, .cons _ _, _, _, h₁, h₂ => by
+    obtain ⟨_, hS₁, hB₁, rfl⟩ := h₁
+    obtain ⟨_, hS₂, hB₂, rfl⟩ := h₂
+    exact sigmaSet_congr hS₁ hS₂ fun a ha => HasTower.unique (hB₁ a ha) (hB₂ a ha)
+
+/-- Proof-carrying predicate asserting that `towerSet w T` exists as a set
+in `V`. -/
+def HasTeleS (w : Nat) {n : Nat} (T : TeleS V n) : Prop :=
+  ∃ t : V, HasTower w T t
+
+/-- Proof-carrying, zero-junk carrier: the right-nested `sigmaSet w` tower
+over the telescope, terminated by the unit at level `w` (`unitSetAt w`:
+`{pt}` at `0`, `{∅}` above — task #342 C). -/
+noncomputable def towerSet (w : Nat) {n : Nat} (T : TeleS V n) (h : HasTeleS w T) : V :=
+  Classical.choose h
+
+theorem towerSet_irrel {w n : Nat} (T : TeleS V n) (h₁ h₂ : HasTeleS w T) :
+    towerSet w T h₁ = towerSet w T h₂ :=
+  HasTower.unique (Classical.choose_spec h₁) (Classical.choose_spec h₂)
+
+theorem hasTeleS_nil (w : Nat) : HasTeleS w (.nil : TeleS V 0) :=
+  ⟨unitSetAt w, rfl⟩
+
+theorem towerSet_nil {w : Nat} {h : HasTeleS w (.nil : TeleS V 0)} :
+    towerSet w (.nil : TeleS V 0) h = unitSetAt w :=
+  Classical.choose_spec h
+
+theorem towerSet_eq_of_nil {w : Nat} {T : TeleS V 0} (h : HasTeleS w T) :
+    towerSet w T h = unitSetAt w := by
+  cases T
+  exact towerSet_nil
+
+theorem hasTeleS_cons_of {w n : Nat} {A : V} {B : V → TeleS V n}
+    (hB : ∀ a, a ∈ˢ A → HasTeleS w (B a))
+    {F : V → V} (hF : ∀ a, (ha : a ∈ˢ A) → F a = towerSet w (B a) (hB a ha))
+    (hS : HasSigmaPairs A F) : HasTeleS w (.cons A B) :=
+  ⟨sigmaSet w A F hS, F, hS, fun a ha =>
+    (hF a ha) ▸ Classical.choose_spec (hB a ha), rfl⟩
+
+open Classical in
+theorem hasTeleS_cons {w n : Nat} {A : V} {B : V → TeleS V n}
+    (hB : ∀ a, a ∈ˢ A → HasTeleS w (B a))
+    (hS : HasSigmaPairs A (fun a => if ha : a ∈ˢ A then towerSet w (B a) (hB a ha) else empty)) :
+    HasTeleS w (.cons A B) :=
+  hasTeleS_cons_of hB (fun _ ha => dite_eq_left ha) hS
+
+theorem towerSet_cons_elim {w n : Nat} {A : V} {B : V → TeleS V n}
+    (h : HasTeleS w (.cons A B)) :
+    ∃ (F : V → V) (hS : HasSigmaPairs A F),
+      (∀ a, a ∈ˢ A → HasTower w (B a) (F a)) ∧
+      towerSet w (.cons A B) h = sigmaSet w A F hS :=
+  Classical.choose_spec h
+
+theorem HasTeleS.tail {w n : Nat} {A : V} {B : V → TeleS V n}
+    (h : HasTeleS w (.cons A B)) {a : V} (ha : a ∈ˢ A) : HasTeleS w (B a) := by
+  obtain ⟨_, F, _, hF, _⟩ := h
+  exact ⟨F a, hF a ha⟩
+
+theorem towerSet_cons_eq {w n : Nat} {A : V} {B : V → TeleS V n}
+    {h : HasTeleS w (.cons A B)}
+    (hB : ∀ a, a ∈ˢ A → HasTeleS w (B a))
+    {F : V → V} (hF : ∀ a, (ha : a ∈ˢ A) → F a = towerSet w (B a) (hB a ha))
+    (hS : HasSigmaPairs A F) :
+    towerSet w (.cons A B) h = sigmaSet w A F hS :=
+  HasTower.unique (Classical.choose_spec h)
+    ⟨F, hS, fun a ha => (hF a ha) ▸ Classical.choose_spec (hB a ha), rfl⟩
+
+theorem towerSet_cons {w n : Nat} {A : V} {B : V → TeleS V n}
+    {h : HasTeleS w (.cons A B)}
+    (hB : ∀ a, HasTeleS w (B a))
+    (hS : HasSigmaPairs A (fun a => towerSet w (B a) (hB a))) :
+    towerSet w (.cons A B) h = sigmaSet w A (fun a => towerSet w (B a) (hB a)) hS :=
+  towerSet_cons_eq (fun a _ => hB a) (fun _ _ => rfl) hS
 
 /-- The uniform tupler: the right-nested Kuratowski pair tower with
 `∅` (the sole member of the positive-level unit `unitSetAt (w+1)`) as
@@ -215,23 +271,33 @@ theorem fitsS_replicate_of_prop : ∀ {n} {T : TeleS V n} {as : List V},
 /-- **Intro** (graph regime): a fitting tuple's tower is in the
 carrier. -/
 theorem mkTower_mem {w : Nat} (hw : w ≠ 0) :
-    ∀ {n} {T : TeleS V n} {as : List V},
-    FitsS T as → mkTower as ∈ˢ towerSet w T
-  | _, .nil, [], _ => by
+    ∀ {n} {T : TeleS V n} {hT : HasTeleS w T} {as : List V},
+    FitsS T as → mkTower as ∈ˢ towerSet w T hT
+  | _, .nil, _, [], _ => by
+    rw [towerSet_nil]
     show (empty : V) ∈ˢ unitSetAt w
     rw [← unitAt_pos hw]; exact unitAt_mem_unitSetAt w
-  | _, .cons _ B, a :: _, hf =>
-    spair_mem hw hf.1 (mkTower_mem hw (T := B a) hf.2)
+  | _, .cons _ B, hT, a :: _, hf => by
+    obtain ⟨F, hS, hF, heq⟩ := towerSet_cons_elim hT
+    rw [heq]
+    have hBa : HasTeleS w (B a) := ⟨F a, hF a hf.1⟩
+    have hFa : F a = towerSet w (B a) hBa :=
+      HasTower.unique (hF a hf.1) (Classical.choose_spec hBa)
+    exact spair_mem hw hf.1 (hFa ▸ mkTower_mem hw (hT := hBa) hf.2)
 
 /-- **Intro** (squash regime): the carrier at `w = 0` is the truth
 value of fittability. -/
-theorem pt_mem_tower : ∀ {n} {T : TeleS V n} {as : List V},
-    FitsS T as → (pt : V) ∈ˢ towerSet 0 T
-  | _, .nil, [], _ => by
-    show (pt : V) ∈ˢ unitSetAt 0
-    rw [unitSetAt_zero]; exact pt_mem_unitSet
-  | _, .cons _ B, a :: _, hf =>
-    pt_mem_sigma hf.1 (pt_mem_tower (T := B a) hf.2)
+theorem pt_mem_tower : ∀ {n} {T : TeleS V n} {hT : HasTeleS 0 T} {as : List V},
+    FitsS T as → (pt : V) ∈ˢ towerSet 0 T hT
+  | _, .nil, _, [], _ => by
+    rw [towerSet_nil, unitSetAt_zero]; exact pt_mem_unitSet
+  | _, .cons _ B, hT, a :: _, hf => by
+    obtain ⟨F, hS, hF, heq⟩ := towerSet_cons_elim hT
+    rw [heq]
+    have hBa : HasTeleS 0 (B a) := ⟨F a, hF a hf.1⟩
+    have hFa : F a = towerSet 0 (B a) hBa :=
+      HasTower.unique (hF a hf.1) (Classical.choose_spec hBa)
+    exact pt_mem_sigma hf.1 (hFa ▸ pt_mem_tower (hT := hBa) hf.2)
 
 /-- **Iota — UNCONDITIONAL**: no membership premise, no level.  The
 checker's `.proj`/`mk` reduction is denotation-sound with no typing of
@@ -264,17 +330,23 @@ theorem projS_mkTower_getD {fs : List V} {i : Nat} (hi : i < fs.length) :
 /-- **Eta + elim** (graph regime): every carrier member IS the tower
 of its own projections, and those projections fit the telescope. -/
 theorem towerSet_elim {w : Nat} (hw : w ≠ 0) :
-    ∀ {n} (T : TeleS V n) {x : V}, x ∈ˢ towerSet w T →
+    ∀ {n} (T : TeleS V n) {hT : HasTeleS w T} {x : V},
+    x ∈ˢ towerSet w T hT →
     FitsS T (projList n x) ∧ x = mkTower (projList n x)
-  | _, .nil, x, hx => ⟨trivial, by
+  | _, .nil, _, x, hx => ⟨trivial, by
+    rw [towerSet_nil] at hx
     have := mem_unitSetAt_iff.mp hx
     rwa [unitAt_pos hw] at this⟩
-  | _, .cons A B, x, hx => by
-    obtain ⟨a, b, ha, hb, -, hpos⟩ :=
-      mem_sigma_elim (A := A) (B := fun a => towerSet w (B a)) hx
+  | _, .cons A B, hT, x, hx => by
+    obtain ⟨F, hS, hF, heq⟩ := towerSet_cons_elim hT
+    rw [heq] at hx
+    obtain ⟨a, b, ha, hb, -, hpos⟩ := mem_sigma_elim hx
     have hx' : x = spair a b := hpos hw
     subst hx'
-    obtain ⟨hfit, heta⟩ := towerSet_elim hw (B a) hb
+    have hBa : HasTeleS w (B a) := ⟨F a, hF a ha⟩
+    have hFa : F a = towerSet w (B a) hBa :=
+      HasTower.unique (hF a ha) (Classical.choose_spec hBa)
+    obtain ⟨hfit, heta⟩ := towerSet_elim hw (B a) (hT := hBa) (hFa ▸ hb)
     constructor
     · show sfst (spair a b) ∈ˢ A ∧ FitsS (B (sfst (spair a b)))
         (projList _ (ssnd (spair a b)))
@@ -286,21 +358,26 @@ theorem towerSet_elim {w : Nat} (hw : w ≠ 0) :
 
 /-- **Elim** (squash regime): a `w = 0` carrier member is `pt`, and
 some tuple fits. -/
-theorem towerSet_zero_elim : ∀ {n} (T : TeleS V n) {x : V},
-    x ∈ˢ towerSet 0 T → x = pt ∧ ∃ as, FitsS T as
-  | _, .nil, x, hx => ⟨by
+theorem towerSet_zero_elim : ∀ {n} (T : TeleS V n) {hT : HasTeleS 0 T} {x : V},
+    x ∈ˢ towerSet 0 T hT → x = pt ∧ ∃ as, FitsS T as
+  | _, .nil, _, x, hx => ⟨by
+    rw [towerSet_nil] at hx
     have := mem_unitSetAt_iff.mp hx
     rwa [unitAt_zero] at this, [], trivial⟩
-  | _, .cons A B, x, hx => by
-    obtain ⟨a, b, ha, hb, hz, -⟩ :=
-      mem_sigma_elim (A := A) (B := fun a => towerSet 0 (B a)) hx
-    obtain ⟨-, as, hfit⟩ := towerSet_zero_elim (B a) hb
+  | _, .cons _ B, hT, x, hx => by
+    obtain ⟨F, hS, hF, heq⟩ := towerSet_cons_elim hT
+    rw [heq] at hx
+    obtain ⟨a, b, ha, hb, hz, -⟩ := mem_sigma_elim hx
+    have hBa : HasTeleS 0 (B a) := ⟨F a, hF a ha⟩
+    have hFa : F a = towerSet 0 (B a) hBa :=
+      HasTower.unique (hF a ha) (Classical.choose_spec hBa)
+    obtain ⟨-, as, hfit⟩ := towerSet_zero_elim (B a) (hT := hBa) (hFa ▸ hb)
     exact ⟨hz rfl, a :: as, ha, hfit⟩
 
 /-- **Membership** (graph regime): the `i`-th projection lands in the
 `i`-th field set at the earlier projections. -/
-theorem projS_mem {w : Nat} (hw : w ≠ 0) {n} {T : TeleS V n} {x : V}
-    (hx : x ∈ˢ towerSet w T) (i : Nat) (h : i < n) :
+theorem projS_mem {w : Nat} (hw : w ≠ 0) {n} {T : TeleS V n} {hT : HasTeleS w T}
+    {x : V} (hx : x ∈ˢ towerSet w T hT) (i : Nat) (h : i < n) :
     projS i x ∈ˢ teleNth T i (projList i x) := by
   obtain ⟨hfit, -⟩ := towerSet_elim hw T hx
   have hm := fitsS_mem_teleNth hfit i h
@@ -312,8 +389,8 @@ theorem projS_mem {w : Nat} (hw : w ≠ 0) {n} {T : TeleS V n} {x : V}
 proof-field premise `PropS` in place of `w ≠ 0` — every member is
 `pt`, `projS` fixes it, and every truth-value field set at the
 all-`pt` prefix contains it (proof irrelevance, semantically). -/
-theorem projS_mem_zero {n} {T : TeleS V n} {x : V} (hP : PropS T)
-    (hx : x ∈ˢ towerSet 0 T) (i : Nat) (h : i < n) :
+theorem projS_mem_zero {n} {T : TeleS V n} {hT : HasTeleS 0 T} {x : V}
+    (hP : PropS T) (hx : x ∈ˢ towerSet 0 T hT) (i : Nat) (h : i < n) :
     projS i x ∈ˢ teleNth T i (projList i x) := by
   obtain ⟨rfl, as, hfit⟩ := towerSet_zero_elim T hx
   have hrep := fitsS_replicate_of_prop hP hfit
@@ -335,13 +412,19 @@ theorem mkTower_inj {as bs : List V} (hlen : as.length = bs.length)
 /-- **Formation**: the carrier lives at the structure's own level,
 given the per-field bound (cumulativity is applied by the consumer
 when a field's sort is `< w`). -/
-theorem towerSet_mem_univ {w : Nat} : ∀ {n} (T : TeleS V n),
-    BoundS w T → towerSet w T ∈ˢ (univ w : V)
-  | _, .nil, _ => unitSetAt_mem_univ w
-  | _, .cons A B, hb => by
-    simp only [towerSet]
-    have h := sigma_mem_univ (u := w) (v := w) hb.1
-      (fun a ha => towerSet_mem_univ (B a) (hb.2 a ha))
+theorem towerSet_mem_univ {w : Nat} : ∀ {n} (T : TeleS V n) {hT : HasTeleS w T},
+    BoundS w T → towerSet w T hT ∈ˢ (univ w : V)
+  | _, .nil, _, _ => by
+    rw [towerSet_nil]; exact unitSetAt_mem_univ w
+  | _, .cons _ B, hT, hb => by
+    obtain ⟨F, hS, hF, heq⟩ := towerSet_cons_elim hT
+    rw [heq]
+    have h := sigma_mem_univ (u := w) (v := w) (B := F) hb.1 (fun a ha => by
+      have hBa : HasTeleS w (B a) := ⟨F a, hF a ha⟩
+      have hFa : F a = towerSet w (B a) hBa :=
+        HasTower.unique (hF a ha) (Classical.choose_spec hBa)
+      rw [hFa]
+      exact towerSet_mem_univ (B a) (hT := hBa) (hb.2 a ha)) hS
     rwa [show Nat.max w w = w from Nat.max_self w] at h
 
 /-- **Formation, squash regime — UNCONDITIONAL**: at `w = 0` the
@@ -349,19 +432,168 @@ carrier is a truth value with no field bounds at all (`sigmaSet 0`
 truncates whatever its arguments are), so definitely-`Prop`
 structures with arbitrary-sorted data fields (`Exists`) still get a
 lawful carrier; only their *projections* wait on `PropS`. -/
-theorem towerSet_zero_mem_univZero : ∀ {n} (T : TeleS V n),
-    towerSet 0 T ∈ˢ (univZero : V)
-  | _, .nil => univ_zero (V := V) ▸ unitSetAt_mem_univ 0
-  | _, .cons _ B => by
-    show sigmaSet 0 _ (fun a => towerSet 0 (B a)) ∈ˢ (univZero : V)
-    rw [sigmaSet_zero]
+theorem towerSet_zero_mem_univZero : ∀ {n} (T : TeleS V n) {hT : HasTeleS 0 T},
+    towerSet 0 T hT ∈ˢ (univZero : V)
+  | _, .nil, _ => by
+    rw [towerSet_nil]
+    exact univ_zero (V := V) ▸ unitSetAt_mem_univ 0
+  | _, .cons _ _, hT => by
+    obtain ⟨_, hS, _, heq⟩ := towerSet_cons_elim hT
+    rw [heq, sigmaSet_zero]
     exact truthVal_mem_univZero _
 
-/-- **The 0-field degeneracy**: the empty tower is the unit at its
-level — hence unit-likeness and, at `w = 0`, the correct truth value
-`⟦True⟧`. -/
-theorem towerSet_nil {w : Nat} : towerSet w (.nil : TeleS V 0) = unitSetAt w := by
-  rfl
+theorem Fib_towerSet (w : Nat) : ∀ {n} (T : TeleS V n) (hT : HasTeleS w T),
+    Fib (decide (w = 0)) (towerSet w T hT)
+  | _, .nil, _ => by
+    rw [towerSet_nil]; exact Fib_unitSetAt w
+  | _, .cons _ _, hT => by
+    obtain ⟨_, _, _, heq⟩ := towerSet_cons_elim hT
+    rw [heq]; exact Fib_sigmaSet w _ _
+
+theorem IsTy_towerSet (w : Nat) {n} (T : TeleS V n) (hT : HasTeleS w T) :
+    IsTy (towerSet w T hT) :=
+  IsTy_of_Fib (Fib_towerSet w T hT)
+
+theorem towerSet_ne_pt (w : Nat) {n} (T : TeleS V n) (hT : HasTeleS w T) :
+    towerSet w T hT ≠ (pt : V) :=
+  (IsTy_towerSet w T hT).ne_pt
+
+/-! ## First-order definability (`DefTeleS` and `DefFun` closures) -/
+
+/-- First-order definability of a `k`-parameterized telescope family
+`T : (Fin k → V) → TeleS V n`: each head domain is `DefFun k` and each
+tail is `DefTeleS (k + 1)` under `fcons`. -/
+def DefTeleS : {k n : Nat} → ((Fin k → V) → TeleS V n) → Prop
+  | _, 0, _ => True
+  | k, _ + 1, T =>
+    ∃ (A : (Fin k → V) → V) (B : (Fin (k + 1) → V) → TeleS V _),
+      (∀ env, T env = .cons (A env) (fun x => B (fcons x env))) ∧
+      DefFun k A ∧
+      DefTeleS B
+
+theorem DefTeleS.nil {k : Nat} : DefTeleS (V := V) (k := k) fun _ => .nil :=
+  trivial
+
+theorem DefTeleS.cons {k n : Nat} {A : (Fin k → V) → V}
+    {B : (Fin (k + 1) → V) → TeleS V n}
+    (hA : DefFun k A) (hB : DefTeleS B) :
+    DefTeleS fun env => .cons (A env) (fun x => B (fcons x env)) :=
+  ⟨A, B, fun _ => rfl, hA, hB⟩
+
+theorem DefTeleS.cons_curry {k n : Nat} {A : (Fin k → V) → V}
+    {B : V → (Fin k → V) → TeleS V n}
+    (hA : DefFun k A) (hB : DefTeleS fun v => B (v 0) (ftail v)) :
+    DefTeleS fun env => .cons (A env) (fun x => B x env) :=
+  DefTeleS.cons (B := fun v => B (v 0) (ftail v)) hA hB
+
+theorem DefTeleS.congr : ∀ {k n : Nat} {T T' : (Fin k → V) → TeleS V n},
+    DefTeleS T → (∀ env, T env = T' env) → DefTeleS T'
+  | _, 0, _, _, _, _ => trivial
+  | _, _ + 1, _, _, ⟨A, B, hEq, hA, hB⟩, h =>
+    ⟨A, B, fun env => (h env).symm.trans (hEq env), hA, hB⟩
+
+theorem DefTeleS.reIndex : ∀ {n m r : Nat} {T : (Fin m → V) → TeleS V n},
+    DefTeleS T → (f : Fin m → Fin r) →
+    DefTeleS fun env => T (fun i => env (f i))
+  | 0, _, _, _, _, _ => trivial
+  | _ + 1, _, _, _, ⟨A, B, hEq, hA, hB⟩, f => by
+    refine ⟨fun env => A (fun i => env (f i)),
+      fun v => B (fcons (v 0) (fun i => ftail v (f i))),
+      fun env => hEq (fun i => env (f i)),
+      hA.reIndex f, ?_⟩
+    have hB' := DefTeleS.reIndex hB (Formula.liftFin f)
+    refine DefTeleS.congr hB' fun v => ?_
+    congr 1
+    funext ⟨j, hj⟩
+    cases j with
+    | zero => rfl
+    | succ j => rfl
+
+theorem DefTeleS.weaken {k n : Nat} {T : (Fin k → V) → TeleS V n} (hT : DefTeleS T) :
+    DefTeleS fun env => T (ftail env) :=
+  hT.reIndex Fin.succ
+
+private theorem defTeleS_has_and_defFun :
+    ∀ {n k : Nat} (w : Nat) {T : (Fin k → V) → TeleS V n}, DefTeleS T →
+      ∃ h : ∀ env, HasTeleS w (T env),
+        DefFun k fun env => towerSet w (T env) (h env)
+  | 0, k, w, T, _ => by
+    have h : ∀ env, HasTeleS w (T env) := fun env => by
+      cases T env
+      exact hasTeleS_nil w
+    refine ⟨h, (DefFun.unitSetAt_const (k := k) w).congr fun env => ?_⟩
+    exact (towerSet_eq_of_nil (h env)).symm
+  | n + 1, k, w, T, ⟨A, B, hEq, hA, hB⟩ => by
+    obtain ⟨hHasB, hDefB⟩ := defTeleS_has_and_defFun (n := n) (k := k + 1) w hB
+    have hDefB_fix : ∀ env : Fin k → V,
+        DefFun 1 fun v => towerSet w (B (fcons (v 0) env)) (hHasB (fcons (v 0) env)) := by
+      intro env
+      let Gs : Fin (k + 1) → (Fin 1 → V) → V
+        | ⟨0, _⟩ => fun v => v 0
+        | ⟨j + 1, hj⟩ => fun _ => env ⟨j, Nat.lt_of_succ_lt_succ hj⟩
+      have hGs : ∀ i : Fin (k + 1), DefFun 1 (Gs i) := by
+        rintro ⟨j, hj⟩
+        cases j with
+        | zero => exact DefFun.proj 0
+        | succ j => exact DefFun.const _
+      have heqv : ∀ v : Fin 1 → V, (fun i : Fin (k + 1) => Gs i v) = fcons (v 0) env := by
+        intro v
+        funext ⟨j, hj⟩
+        cases j with
+        | zero => rfl
+        | succ j => rfl
+      exact (hDefB.comp hGs).congr fun v => by rw [heqv v]
+    have hS : ∀ env, HasSigmaPairs (A env)
+        (fun x => towerSet w (B (fcons x env)) (hHasB (fcons x env))) := fun env =>
+      hasSigmaPairs_of_defFun1 (hDefB_fix env)
+    have hT : ∀ env, HasTeleS w (T env) := fun env =>
+      (hEq env).symm ▸ hasTeleS_cons_of (fun x _ => hHasB (fcons x env))
+        (fun _ _ => rfl) (hS env)
+    refine ⟨hT, (DefFun.sigmaSet_apply w (h := hS) hA hDefB).congr fun env => ?_⟩
+    exact (towerSet_cons_eq (h := hEq env ▸ hT env)
+      (fun x _ => hHasB (fcons x env)) (fun _ _ => rfl) (hS env) |>.symm).trans (by
+        congr 1; exact (hEq env).symm)
+
+theorem DefTeleS.hasTeleS {k n : Nat} (w : Nat) {T : (Fin k → V) → TeleS V n}
+    (hT : DefTeleS T) (env : Fin k → V) : HasTeleS w (T env) :=
+  (defTeleS_has_and_defFun w hT).choose env
+
+theorem _root_.ConLeche.SetTheory.DefFun.towerSet_apply {k n : Nat} (w : Nat)
+    {T : (Fin k → V) → TeleS V n} {h : ∀ env, HasTeleS w (T env)}
+    (hT : DefTeleS T) :
+    DefFun k fun env => towerSet w (T env) (h env) := by
+  obtain ⟨h', hdef⟩ := defTeleS_has_and_defFun w hT
+  exact hdef.congr fun env => towerSet_irrel (T env) (h' env) (h env)
+
+theorem _root_.ConLeche.SetTheory.DefFun.projS_apply {k : Nat} (i : Nat)
+    {X : (Fin k → V) → V} (hX : DefFun k X) :
+    DefFun k fun env => projS i (X env) := by
+  induction i generalizing k X with
+  | zero => exact DefFun.sfst_apply hX
+  | succ i ih => exact ih (DefFun.ssnd_apply hX)
+
+theorem _root_.ConLeche.SetTheory.DefFun.dropS_apply {k : Nat} (m : Nat)
+    {X : (Fin k → V) → V} (hX : DefFun k X) :
+    DefFun k fun env => dropS m (X env) := by
+  induction m generalizing k X with
+  | zero => exact hX
+  | succ m ih => exact ih (DefFun.ssnd_apply hX)
+
+theorem _root_.ConLeche.SetTheory.DefFun.mkTower_apply {k : Nat} :
+    ∀ (as : List ((Fin k → V) → V)), (∀ f ∈ as, DefFun k f) →
+      DefFun k fun env => mkTower (as.map fun f => f env)
+  | [], _ => DefFun.empty
+  | a :: as, h =>
+    DefFun.spair_apply (h a (List.Mem.head _))
+      (DefFun.mkTower_apply as fun f hf => h f (List.Mem.tail _ hf))
+
+theorem _root_.ConLeche.SetTheory.DefFun.mkTower_range_apply {k : Nat} (n : Nat)
+    {F : Nat → (Fin k → V) → V} (hF : ∀ i, i < n → DefFun k (F i)) :
+    DefFun k fun env => mkTower ((List.range n).map fun i => F i env) := by
+  have h := DefFun.mkTower_apply ((List.range n).map F) (fun f hf => by
+    obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hf
+    exact hF i (List.mem_range.mp hi))
+  exact h.congr fun env => by rw [List.map_map]; rfl
 
 /-! ## Degeneracy checks (build-time regressions) -/
 
@@ -376,7 +608,8 @@ example (a b : V) : projS 0 (mkTower [a, b]) = a ∧ projS 1 (mkTower [a, b]) = 
 
 /-- `n = 0`: the empty tower's sole member is `mkTower []` (graph
 regime). -/
-example {w : Nat} (hw : w ≠ 0) {x : V} (hx : x ∈ˢ towerSet w (.nil : TeleS V 0)) :
+example {w : Nat} (hw : w ≠ 0) {x : V}
+    (hx : x ∈ˢ towerSet w (.nil : TeleS V 0) (hasTeleS_nil w)) :
     x = mkTower [] :=
   (towerSet_elim hw .nil hx).2
 

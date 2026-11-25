@@ -34,6 +34,10 @@ theorem tg_mem_of_subset_mem {w : Nat} {y z : V} (hy : y ∈ˢ (tg w : V)) (hz :
   · rw [tg_zero] at hy ⊢
     rw [mem_univZero] at hy ⊢
     exact hz.trans hy
-  · exact (tg_isTGUniverse (Nat.pos_iff_ne_zero.mp hw)).mem_of_subset_mem hy hz
+  · exact (tg_isGrothendieck (Nat.pos_iff_ne_zero.mp hw)).mem_of_subset_mem hy hz
+
+theorem tg_sep_mem {w : Nat} {a : V} {p : V → Prop}
+    (ha : a ∈ˢ (tg w : V)) (h : HasSep a p) : sep a p h ∈ˢ (tg w : V) :=
+  tg_mem_of_subset_mem ha sep_subset
 
 end ConLeche.SetTheory

@@ -74,7 +74,11 @@ theorem natLit_facts (m : EnvModel V env) (hnh : NatHeads m φ)
       interp V ρ (natLit m φ n)
         ∈ˢ interp V ρ (m.acval ConLeche.natName φ) := by
   obtain ⟨hz, hsucc, hNty⟩ := hnh hs ρ
-  rw [substFn_nil] at hz hsucc hNty
+  rw [substFn_nil] at hz hNty
+  have hnat : interp V ρ (m.acval ConLeche.natName (Level.substFn φ [] [])) =
+      interp V ρ (m.acval ConLeche.natName φ) := by rw [substFn_nil]
+  rw [piR_ext hnat _ (hasSigmaPairs_const _ _) fun _ _ => hnat] at hsucc
+  rw [substFn_nil] at hsucc
   have h := natLit_factsAV (V := V)
     (za := m.acval ConLeche.natZeroName φ)
     (sa := m.acval ConLeche.natSuccName φ)

@@ -50,12 +50,14 @@ theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b 
   json_isModel V h hb
 
 open Frontend in
-/-- **No accepted file declares a theorem of type `False`**: no exit 0 of `-- <file>` reads a
-`jsonWithTheoremFalse` file. -/
-theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+/-- **No accepted file declares a theorem of type `False`**: assuming `ModelExists` — i.e., that
+our first-order set theory (`ZFC⁻` + an ω-chain of Grothendieck universes) has a model, which is
+essentially its consistency and is needed so the statement is non-vacuous — no exit 0 of
+`-- <file>` reads a `jsonWithTheoremFalse` file. -/
+theorem main_no_False (hM : ModelExists.{w}) {file : String} {fs : FS} {b : ByteArray}
     (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
     (hF : jsonWithTheoremFalse [b]) : False :=
-  json_no_False V h hb hF
+  hM.elim fun ⟨V, _⟩ => json_no_False V h hb hF
 
 open Frontend in
 /-- **An accepted comparison's challenge file has a model**: an exit 0 of `--compare -- <c> <s>`
@@ -176,11 +178,12 @@ theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {
   Driver.Compose.modular_compare_one V hc hs h
 
 open Frontend in
-/-- **No accepted modular comparison's challenge module holds a constant of type `False`**: no
-snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` in
-the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
+/-- **No accepted modular comparison's challenge module holds a constant of type `False`**:
+assuming `ModelExists` (essentially the consistency / non-vacuity of our first-order set theory),
+no snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False`
+in the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
 through its solution too, which the family of `main_modular_compare` does not. -/
-theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
+theorem main_modular_compare_no_False (hM : ModelExists.{w}) {T D c s : String}
     {C S : Name} {fs : FS} {ci : ConstantInfo}
     (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
     (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
@@ -196,6 +199,7 @@ theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : Stri
     (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
       fs C .private ci)
     (hty : ci.type = .const falseName []) : False :=
-  Driver.Compose.modular_compare_graph_no_False V hc hs hgraph hwork hcmp (.root (by simp)) hci hty
+  hM.elim fun ⟨V, _⟩ =>
+    Driver.Compose.modular_compare_graph_no_False V hc hs hgraph hwork hcmp (.root (by simp)) hci hty
 
 end ConLeche

@@ -51,7 +51,7 @@ lean4lean-model @lean4lean-model, built on Lean4Lean's judgement,
 states as its target theorem the consistency of that judgement
 assuming $omega$ inaccessible cardinals, a proof still to be supplied
 at the time of writing; the set theory con-leche assumes
-#src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 200, 202)[follows from that hypothesis].
+#src("bridge/lean4lean-model/ConLecheBridge/Carneiro.lean", 336, 338)[follows from that hypothesis].
 
 *Werner, "Sets in types, types in sets".* Werner @werner1997
 interprets the Calculus of Inductive Constructions in ZFC with an

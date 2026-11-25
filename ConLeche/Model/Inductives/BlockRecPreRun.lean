@@ -81,10 +81,12 @@ theorem blockCarrier_case {env : Env} {mo : EnvModel V env} {names : List Name}
     {d : BlockData V} (hM : BlockModelAt mo names d) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (d.params ψ).reverse ρp) {c : Nat} (hc : c < d.N) {t : V}
     (ht : t ∈ˢ d.idx ψ ρp c) {x : V}
-    (hx : x ∈ˢ app (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) c) t) :
+    (hx : x ∈ˢ app (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) (d.hΦ ψ ρp) c) t) :
     ∃ j fs, d.DeclaredFit ψ ρp t c j fs ∧ x = d.inj ψ c j fs := by
-  rw [← app_lfpTuple_eq (hM.closed hsat) (hM.mono hsat) (hM.maps ψ ρp hsat) hc ht] at hx
-  obtain ⟨j, fs, hf, rfl⟩ := (hM.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht x).mp hx
+  rw [← app_lfpTuple_eq (k := d.N) (hΦ := d.hΦ ψ ρp) (hM.closed hsat) (hM.mono hsat)
+    (hM.maps ψ ρp hsat) hc ht] at hx
+  obtain ⟨j, fs, hf, rfl⟩ :=
+    (hM.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _ (d.hΦ ψ ρp)) c hc t ht x).mp hx
   exact ⟨j, fs, (hM.carrier ψ ρp hsat c hc t ht j fs).mp hf, rfl⟩
 
 /-! ## 3. The recursor classes at the block's own carriers
@@ -164,7 +166,7 @@ component of the block's least pre-fixed tuple. -/
 @[expose] noncomputable def blockRecCr (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
     (mem : Nat → Nat) (xs : List V) (c : Nat) : V :=
   lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
-    (d.Φ ψ (consList (xs.take d.nP) ρ)) (mem c)
+    (d.Φ ψ (consList (xs.take d.nP) ρ)) (d.hΦ ψ (consList (xs.take d.nP) ρ)) (mem c)
 
 end ClassData
 

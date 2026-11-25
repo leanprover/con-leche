@@ -366,7 +366,8 @@ theorem instCtor_fit {c j : Nat} (_hc : c < D.k) (_hj : j < D.nctors c) {nF : Na
               (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)))) e := by
   have hS := instTau_frame mp hD hlps hul hds hdsa hlenP ρ hs
   have hsat := frameVals_sat mp hD hs
-    (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) (lfpTuple_mem _ _ _ _)
+    (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ))
+    (lfpTuple_mem _ _ _ _ (D.hΦ (Level.substFn φ lps us) (keyFrame dsa hi ρ)))
   have hfit : ∀ fs : List V,
       SpineFit ρ ((Term.substTele (instTau mp φ D us hi ds) 0 ab)) fs ↔
         SpineFit (D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ)

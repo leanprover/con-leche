@@ -35,7 +35,7 @@ constants of the closure's views (`ConLeche/OleanInput.lean`).
 
 `Expr.eval model φ ρ e` is the set the checker term `e` denotes, when `φ` assigns a natural to
 every universe parameter (`LevelParam`, a name) and `ρ` a set to every de Bruijn index
-(`BVarIdx`).  It is a total function by structural recursion, one equation per syntax form:
+(`BVarIdx`).  It is a total function with one equation per syntax form (`eval_bvar` … `eval_proj`):
 
 * a constant `c.{us}` denotes `model c` at the values of `us`;
 * `Sort u` denotes `univ (Level.eval φ u)`, the types at that level;
@@ -59,15 +59,15 @@ stores only closed, well-formed terms, and the theorems speak of nothing else.
 
 **Why a total function on the checker's `Expr`.**  The proofs interpret the checker's terms
 through their own translation (`interp` over the internal `Term`, `ConLeche/Semantics`), which
-is partial — it reads only where the checker's invariant says it can — and carries the
-proof's bookkeeping.  A reader of the theorem needs neither: `Expr.eval` reads the input's own
-terms, directly, in a dozen lines, and the proofs show that it agrees with their translation
-wherever that one reads.
+is partial and carries the proof's bookkeeping; they show that `Expr.eval` agrees with it
+wherever it reads.  A reader of the theorem needs only the equations above.  They are theorems:
+the set theory is first-order, so `lamV` and `piV` ask that the body's graph is a set, and the
+recursion (`Expr.evalDef`) carries a first-order definition of each value (`DefFun`).
 
 ## The set theory
 
 `SetTheory V` (`ConLeche/SetTheory/Core.lean`) is membership `∈ˢ` with extensionality,
-pairing, union, power set, regularity, replacement, and an ω-chain of Grothendieck universes.
+pairing, union, power set, regularity, first-order replacement, choice, and an ω-chain of Grothendieck universes.
 The reading uses these derived sets (`ConLeche/SetTheory/Derive/*`): `empty`; the pair with its
 projections `sfst`/`ssnd`; `app f a`, the value of a graph at a point (`app pt _ = pt`); the
 proof point `pt`, the truth values `truthVal p` (`{pt}` if `p`, `∅` otherwise) and
@@ -124,22 +124,234 @@ noncomputable def strLitVal (model : Name → List Nat → V) (s : String) : V :
         app (app (app (model listConsName [0]) (model charName []))
           (app (model charOfNatName []) (natLitVal model c.toNat))) acc
 
+/-- `field i` preserves first-order definability. -/
+theorem DefFun.field_apply {k : Nat} : ∀ (i : Nat) {P : (Fin k → V) → V},
+    DefFun k P → DefFun k fun env => field i (P env)
+  | 0, _, hP => DefFun.sfst_apply hP
+  | i + 1, _, hP => DefFun.field_apply i (DefFun.ssnd_apply hP)
+
+/-- Prepend a finite `d`-tuple `xs` in front of a de Bruijn environment `ρ`. -/
+def prepend {d : Nat} (xs : Fin d → V) (ρ : BVarIdx → V) : BVarIdx → V :=
+  fun i => if h : i < d then xs ⟨i, h⟩ else ρ (i - d)
+
+omit [SetTheory V] in
+@[simp] theorem prepend_zero (ρ : BVarIdx → V) :
+    prepend (Fin.elim0 : Fin 0 → V) ρ = ρ := by
+  funext i
+  simp [prepend]
+
+omit [SetTheory V] in
+theorem prepend_one (xs : Fin 1 → V) (ρ : BVarIdx → V) :
+    prepend xs ρ = push (xs 0) ρ := by
+  funext i
+  cases i with
+  | zero => rfl
+  | succ i => simp [prepend, push]
+
+omit [SetTheory V] in
+theorem prepend_fcons {d : Nat} (x : V) (xs : Fin d → V) (ρ : BVarIdx → V) :
+    prepend (fcons x xs) ρ = push x (prepend xs ρ) := by
+  funext i
+  cases i with
+  | zero => rfl
+  | succ i =>
+    by_cases h : i < d
+    · have h' : i + 1 < d + 1 := Nat.succ_lt_succ h
+      simp [prepend, push, h, h', fcons]
+    · have h' : ¬ (i + 1 < d + 1) := fun hlt => h (Nat.lt_of_succ_lt_succ hlt)
+      simp [prepend, push, h, h']
+
+theorem defFun1_fcons {d : Nat} {F : (Fin (d + 1) → V) → V}
+    (hF : DefFun (d + 1) F) (xs : Fin d → V) :
+    DefFun 1 fun v => F (fcons (v 0) xs) := by
+  let Gs : Fin (d + 1) → (Fin 1 → V) → V
+    | ⟨0, _⟩ => fun v => v 0
+    | ⟨i + 1, h⟩ => fun _ => xs ⟨i, Nat.lt_of_succ_lt_succ h⟩
+  have hGs : ∀ j : Fin (d + 1), DefFun 1 (Gs j) := by
+    rintro ⟨j, hj⟩
+    cases j with
+    | zero => exact DefFun.proj 0
+    | succ j => exact DefFun.const (xs ⟨j, Nat.lt_of_succ_lt_succ hj⟩)
+  refine (DefFun.comp hF hGs).congr fun v => ?_
+  congr 1
+  funext ⟨j, hj⟩
+  cases j with
+  | zero => rfl
+  | succ j => rfl
+
+theorem defFun_subst0 {d : Nat} {B : (Fin (d + 1) → V) → V} {A : (Fin d → V) → V}
+    (hB : DefFun (d + 1) B) (hA : DefFun d A) :
+    DefFun d fun xs => B (fcons (A xs) xs) := by
+  let Gs : Fin (d + 1) → (Fin d → V) → V
+    | ⟨0, _⟩ => A
+    | ⟨i + 1, hi⟩ => fun xs => xs ⟨i, Nat.lt_of_succ_lt_succ hi⟩
+  have hGs : ∀ j : Fin (d + 1), DefFun d (Gs j) := by
+    rintro ⟨j, hj⟩
+    cases j with
+    | zero => exact hA
+    | succ j => exact DefFun.proj ⟨j, Nat.lt_of_succ_lt_succ hj⟩
+  refine (DefFun.comp hB hGs).congr fun xs => ?_
+  congr 1
+  funext ⟨j, hj⟩
+  cases j with
+  | zero => rfl
+  | succ j => rfl
+
+/-- Proof-carrying worker for `Expr.eval`: evaluates `e` under `d` bound-variable
+parameters `xs : Fin d → V` prepended to `ρ`, paired with a `DefFun d` witness. -/
+noncomputable def Expr.evalDef (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) : (d : Nat) → Expr → { f : (Fin d → V) → V // DefFun d f }
+  | d, .bvar i =>
+    if h : i < d then ⟨fun xs => xs ⟨i, h⟩, DefFun.proj ⟨i, h⟩⟩
+    else ⟨fun _ => ρ (i - d), DefFun.const _⟩
+  | _, .fvar _ _ => ⟨fun _ => empty, DefFun.empty⟩
+  | _, .sort u => ⟨fun _ => univ (Level.eval φ u), DefFun.const _⟩
+  | _, .const n us => ⟨fun _ => model n (us.map (Level.eval φ)), DefFun.const _⟩
+  | d, .app f a =>
+    let f' := Expr.evalDef model φ ρ d f
+    let a' := Expr.evalDef model φ ρ d a
+    ⟨fun xs => SetTheory.app (f'.val xs) (a'.val xs), DefFun.app_apply f'.property a'.property⟩
+  | d, .lam ty body =>
+    let ty' := Expr.evalDef model φ ρ d ty
+    let body' := Expr.evalDef model φ ρ (d + 1) body
+    ⟨fun xs => lamV (ty'.val xs) (fun x => body'.val (fcons x xs))
+        (hasGraph_of_defFun1 (defFun1_fcons body'.property xs)),
+      DefFun.lamV_apply body'.property ty'.property⟩
+  | d, .forallE ty body =>
+    let ty' := Expr.evalDef model φ ρ d ty
+    let body' := Expr.evalDef model φ ρ (d + 1) body
+    ⟨fun xs => piV (ty'.val xs) (fun x => body'.val (fcons x xs))
+        (hasSigmaPairs_of_defFun1 (defFun1_fcons body'.property xs)),
+      DefFun.piV_apply ty'.property body'.property⟩
+  | d, .letE _ v body =>
+    let v' := Expr.evalDef model φ ρ d v
+    let body' := Expr.evalDef model φ ρ (d + 1) body
+    ⟨fun xs => body'.val (fcons (v'.val xs) xs), defFun_subst0 body'.property v'.property⟩
+  | _, .lit (.natVal n) => ⟨fun _ => natLitVal model n, DefFun.const _⟩
+  | _, .lit (.strVal s) => ⟨fun _ => strLitVal model s, DefFun.const _⟩
+  | d, .proj _ i e =>
+    let e' := Expr.evalDef model φ ρ d e
+    ⟨fun xs => field (i + 1) (e'.val xs), DefFun.field_apply (i + 1) e'.property⟩
+
+theorem evalDef_prepend (model : Name → List Nat → V) (φ : LevelParam → Nat) :
+    ∀ (e : Expr) (d : Nat) (xs : Fin d → V) (ρ : BVarIdx → V),
+      (Expr.evalDef model φ ρ d e).val xs =
+        (Expr.evalDef model φ (prepend xs ρ) 0 e).val Fin.elim0
+  | .bvar i, d, xs, ρ => by
+    by_cases h : i < d
+    · simp [Expr.evalDef, prepend, h]
+    · simp [Expr.evalDef, prepend, h]
+  | .fvar _ _, _, _, _ => rfl
+  | .sort _, _, _, _ => rfl
+  | .const _ _, _, _, _ => rfl
+  | .app f a, d, xs, ρ => by
+    simp only [Expr.evalDef]
+    rw [evalDef_prepend model φ f d xs ρ, evalDef_prepend model φ a d xs ρ]
+  | .lam ty body, d, xs, ρ => by
+    simp only [Expr.evalDef]
+    refine lamV_ext (evalDef_prepend model φ ty d xs ρ) _ _ fun x _ => ?_
+    rw [evalDef_prepend model φ body (d + 1) (fcons x xs) ρ,
+        evalDef_prepend model φ body 1 (fcons x Fin.elim0) (prepend xs ρ),
+        prepend_fcons, prepend_fcons, prepend_zero]
+  | .forallE ty body, d, xs, ρ => by
+    simp only [Expr.evalDef]
+    refine piV_ext (evalDef_prepend model φ ty d xs ρ) _ _ fun x _ => ?_
+    rw [evalDef_prepend model φ body (d + 1) (fcons x xs) ρ,
+        evalDef_prepend model φ body 1 (fcons x Fin.elim0) (prepend xs ρ),
+        prepend_fcons, prepend_fcons, prepend_zero]
+  | .letE _ v body, d, xs, ρ => by
+    simp only [Expr.evalDef]
+    rw [evalDef_prepend model φ v d xs ρ,
+        evalDef_prepend model φ body (d + 1) (fcons _ xs) ρ,
+        evalDef_prepend model φ body 1 (fcons _ Fin.elim0) (prepend xs ρ),
+        prepend_fcons, prepend_fcons, prepend_zero]
+  | .lit (.natVal _), _, _, _ => rfl
+  | .lit (.strVal _), _, _, _ => rfl
+  | .proj _ i e, d, xs, ρ => by
+    simp only [Expr.evalDef]
+    rw [evalDef_prepend model φ e d xs ρ]
+
 /-- **The set a term denotes**: see the module docstring. -/
-noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
-    (BVarIdx → V) → Expr → V
-  | ρ, .bvar i => ρ i
-  | _, .fvar _ _ => empty
-  | _, .sort u => univ (Level.eval φ u)
-  | _, .const n us => model n (us.map (Level.eval φ))
-  | ρ, .app f a => SetTheory.app (Expr.eval model φ ρ f) (Expr.eval model φ ρ a)
-  | ρ, .lam ty body =>
-    lamV (Expr.eval model φ ρ ty) fun x => Expr.eval model φ (push x ρ) body
-  | ρ, .forallE ty body =>
-    piV (Expr.eval model φ ρ ty) fun x => Expr.eval model φ (push x ρ) body
-  | ρ, .letE _ v body => Expr.eval model φ (push (Expr.eval model φ ρ v) ρ) body
-  | _, .lit (.natVal n) => natLitVal model n
-  | _, .lit (.strVal s) => strLitVal model s
-  | ρ, .proj _ i e => field (i + 1) (Expr.eval model φ ρ e)
+noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (e : Expr) : V :=
+  (Expr.evalDef model φ ρ 0 e).val Fin.elim0
+
+theorem eval_defFun_prepend (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (d : Nat) (e : Expr) :
+    DefFun d fun xs => Expr.eval model φ (prepend xs ρ) e := by
+  refine (Expr.evalDef model φ ρ d e).property.congr fun xs => ?_
+  exact evalDef_prepend model φ e d xs ρ
+
+theorem eval_hasGraph_push (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (A : V) (body : Expr) :
+    HasGraph A fun x => Expr.eval model φ (push x ρ) body :=
+  hasGraph_of_defFun1 <| (eval_defFun_prepend model φ ρ 1 body).congr fun xs => by
+    rw [prepend_one]
+
+theorem eval_hasSigmaPairs_push (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (A : V) (body : Expr) :
+    HasSigmaPairs A fun x => Expr.eval model φ (push x ρ) body :=
+  hasSigmaPairs_of_defFun1 <| (eval_defFun_prepend model φ ρ 1 body).congr fun xs => by
+    rw [prepend_one]
+
+@[simp] theorem eval_bvar (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (i : BVarIdx) :
+    Expr.eval model φ ρ (.bvar i) = ρ i := by
+  simp [Expr.eval, Expr.evalDef]
+
+@[simp] theorem eval_fvar (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (idx : Nat) (ty : Expr) :
+    Expr.eval model φ ρ (.fvar idx ty) = empty := rfl
+
+@[simp] theorem eval_sort (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (u : Level) :
+    Expr.eval model φ ρ (.sort u) = univ (Level.eval φ u) := rfl
+
+@[simp] theorem eval_const (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (n : Name) (us : List Level) :
+    Expr.eval model φ ρ (.const n us) = model n (us.map (Level.eval φ)) := rfl
+
+@[simp] theorem eval_app (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (f a : Expr) :
+    Expr.eval model φ ρ (.app f a) =
+      SetTheory.app (Expr.eval model φ ρ f) (Expr.eval model φ ρ a) := rfl
+
+@[simp] theorem eval_lam (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (ty body : Expr) :
+    Expr.eval model φ ρ (.lam ty body) =
+      lamV (Expr.eval model φ ρ ty) (fun x => Expr.eval model φ (push x ρ) body)
+        (eval_hasGraph_push model φ ρ (Expr.eval model φ ρ ty) body) := by
+  simp only [Expr.eval, Expr.evalDef]
+  refine lamV_congr _ _ fun x _ => ?_
+  rw [evalDef_prepend model φ body 1 (fcons x Fin.elim0) ρ, prepend_fcons, prepend_zero]
+
+@[simp] theorem eval_forallE (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (ty body : Expr) :
+    Expr.eval model φ ρ (.forallE ty body) =
+      piV (Expr.eval model φ ρ ty) (fun x => Expr.eval model φ (push x ρ) body)
+        (eval_hasSigmaPairs_push model φ ρ (Expr.eval model φ ρ ty) body) := by
+  simp only [Expr.eval, Expr.evalDef]
+  refine piV_congr _ _ fun x _ => ?_
+  rw [evalDef_prepend model φ body 1 (fcons x Fin.elim0) ρ, prepend_fcons, prepend_zero]
+
+@[simp] theorem eval_letE (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (ty v body : Expr) :
+    Expr.eval model φ ρ (.letE ty v body) =
+      Expr.eval model φ (push (Expr.eval model φ ρ v) ρ) body := by
+  simp only [Expr.eval, Expr.evalDef]
+  rw [evalDef_prepend model φ body 1 (fcons _ Fin.elim0) ρ, prepend_fcons, prepend_zero]
+
+@[simp] theorem eval_lit_nat (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (n : Nat) :
+    Expr.eval model φ ρ (.lit (.natVal n)) = natLitVal model n := rfl
+
+@[simp] theorem eval_lit_str (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (s : String) :
+    Expr.eval model φ ρ (.lit (.strVal s)) = strLitVal model s := rfl
+
+@[simp] theorem eval_proj (model : Name → List Nat → V) (φ : LevelParam → Nat)
+    (ρ : BVarIdx → V) (T : Name) (i : Nat) (e : Expr) :
+    Expr.eval model φ ρ (.proj T i e) = field (i + 1) (Expr.eval model φ ρ e) := rfl
 
 /-- The variable environment a closed term is read at (it reads none of it). -/
 noncomputable def ρ₀ : BVarIdx → V := fun _ => empty

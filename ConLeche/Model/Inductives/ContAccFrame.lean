@@ -14,6 +14,8 @@ import ConLeche.Model.Inductives.ContCtor
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Inductives.TypeStep
+import ConLeche.SetModel.Access
+import ConLeche.SetTheory.Derive.Natrec
 
 public section
 
@@ -101,6 +103,87 @@ theorem outTele_list {ctx : NestCtx} {prog : List NestHole} :
 
 /-! ## A walked telescope, over its normal form -/
 
+private theorem shiftQ_congr_caf {Q Q' : Nat → Nat → Prop} (h : ∀ i n, Q i n ↔ Q' i n) :
+    ∀ i n, shiftQ Q i n ↔ shiftQ Q' i n
+  | 0, _ => Iff.rfl
+  | i + 1, n => h i n
+
+private theorem teleAccP_of_piAccThen_def {w : Nat} {ctx : NestCtx} {prog : List NestHole}
+    {Qf : FrameRel V → Term → Prop} :
+    ∀ (abD abN : List Term) (B : Term) (d l : Nat) (nds : List Expr)
+      (Δ : List Term) (R : FrameRel V) (Q : Nat → Nat → Prop),
+      FieldsEqOn V Δ abD abN →
+      (∀ ρ ρ₀, R ρ ρ₀ → Sat V Δ ρ ∧ Sat V Δ ρ₀) →
+      (∀ ρ ρ₀, R ρ ρ₀ → w ≠ 0 → FieldsBound w ρ abN) →
+      (∀ i n, HoleQ ctx prog d i n ↔ Q i n) → ctx.hiAt prog.length ≤ d →
+      PiAccThen w ctx prog Qf abD.length d nds R (mkPisAV abD B) →
+      ∃ Af : Nat → (Nat → V) → V, TeleAccP w Af l Q R abN ∧
+        (∀ (i : Nat) (nd : Expr), i < abD.length → nds[i]? = some nd →
+          InvOn (MentP ctx.nP (ctx.hiAt prog.length) (d + i) nd) (Af (l + i))) ∧
+        (∀ l', l ≤ l' → l' < l + abD.length → DefBound (d + (l' - l)) (Af l')) ∧
+        Qf (R.underBothTele abN) B
+  | [], [], B, _, _, _, _, R, _, _, _, _, _, _, hP =>
+    ⟨fun _ _ => empty, trivial, fun _ _ h => absurd h (Nat.not_lt_zero _),
+      fun _ hl1 hl2 => absurd hl2 (by simp at hl2 ⊢; omega), hP⟩
+  | x :: abD, y :: abN, B, d, l, nds, Δ, R, Q, hE, hdom, hok, hQ, hd, hP => by
+    obtain ⟨h0, hrest⟩ := hE
+    match nds, hP with
+    | [], hP => exact hP.elim
+    | nd :: nds', ⟨⟨Af0, hacc0, hsz0, hinv0, hdef0⟩, hP'⟩ =>
+      have hUE : R.underBoth x = R.underBoth y := underBoth_eq_of_eqOn h0 hdom
+      have hok' : ∀ σ σ₀, R.underBoth x σ σ₀ → w ≠ 0 →
+          FieldsBound w σ abN := by
+        rintro _ _ ⟨a, ρ, ρ₀, rfl, rfl, hR, ha, -⟩ hw
+        have hok0 := hok ρ ρ₀ hR hw
+        exact hok0.2 a (h0 ρ (hdom ρ ρ₀ hR).1 ▸ ha)
+      have hQ' : ∀ i n, HoleQ ctx prog (d + 1) i n ↔ shiftQ Q i n := by
+        intro i n
+        rw [← shiftQ_holeQ hd i n]
+        exact shiftQ_congr_caf hQ i n
+      obtain ⟨Af', htele', hinv', hdef', hQf⟩ :=
+        teleAccP_of_piAccThen_def abD abN B (d + 1) (l + 1) nds' (x :: Δ) (R.underBoth x)
+          (shiftQ Q) hrest (underBoth_dom hdom) hok' hQ' (by omega) hP'
+      classical
+      refine ⟨fun l' => if l' = l then Af0 else Af' l', ?_, ?_, ?_, ?_⟩
+      · refine ⟨?_, ?_, fun ρ ρ₀ hR => ?_, ?_⟩
+        · simp only
+          exact AccOn.of_eqOn (P := Sat V Δ) hdom (fun ρ hρ => (h0 ρ hρ).symm)
+            (AccOn.congrQ hQ hacc0)
+        · simp only
+          exact hsz0
+        · intro hw
+          have hok0 := hok ρ ρ₀ hR hw
+          exact mem_tg_of_mem_univ hok0.1
+        · rw [← hUE]
+          exact TeleAccP.congr _ (l + 1) (shiftQ Q) _
+            (fun l' hl' _ => by simp only [ite_eq_right (show l' ≠ l by omega)]) htele'
+      · intro i nd' hi hnd
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hnd
+          subst hnd
+          simp only [Nat.add_zero]
+          exact hinv0
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hnd
+          simp only [ite_eq_right (show l + (i + 1) ≠ l by omega)]
+          have := hinv' i nd' (by simpa using hi) hnd
+          rwa [show d + 1 + i = d + (i + 1) by omega, show l + 1 + i = l + (i + 1) by omega]
+            at this
+      · intro l' hl1 hl2
+        by_cases hll : l' = l
+        · subst hll
+          simp only [↓reduceIte, Nat.sub_self, Nat.add_zero]
+          exact hdef0
+        · simp only [ite_eq_right hll]
+          have hd' := hdef' l' (by omega) (by simp only [List.length_cons] at hl2; omega)
+          rwa [show d + 1 + (l' - (l + 1)) = d + (l' - l) by omega] at hd'
+      · show Qf ((R.underBoth y).underBothTele abN) B
+        rw [← hUE]
+        exact hQf
+  | [], _ :: _, _, _, _, _, _, _, _, hE, _, _, _, _, _ => hE.elim
+  | _ :: _, [], _, _, _, _, _, _, _, hE, _, _, _, _, _ => hE.elim
+
 set_option maxHeartbeats 800000 in
 /-- **A walked telescope is accessible over its normal form** (see the
 module docstring): at any frames `prog`, the base depth the walk's hole
@@ -124,6 +207,7 @@ theorem walkTele_acc {w : Nat} {ctx : NestCtx} {prog : List NestHole} {b : Nat}
       TeleAccP w Af 0 (HoleQ ctx prog b) R N ∧
       (∀ l τ τ', TAgrM 0 (ParamPos b ctx.nP) (fun l => ks.getD l .ordinary == .ordinary) l τ τ' →
         Af l τ = Af l τ') ∧
+      (∀ l, DefBound (b + l) (Af l)) ∧
       (∀ (i : Nat) (G : Term), N[i]? = some G → (ks.getD i .ordinary == .ordinary) = true →
         ∀ τ τ', TAgrM 0 (ParamPos b ctx.nP) (fun l => ks.getD l .ordinary == .ordinary) i τ τ' →
           interp V τ G = interp V τ' G) ∧
@@ -141,7 +225,7 @@ theorem walkTele_acc {w : Nat} {ctx : NestCtx} {prog : List NestHole} {b : Nat}
   let abN : List Term := N
   have habN : abN = N := rfl
   rw [← hlen] at hP
-  obtain ⟨Af, htele, hinv, hQf⟩ := teleAccP_of_piAccThen abD abN B b 0 nds Δ R
+  obtain ⟨Af, htele, hinv, hdef, hQf⟩ := teleAccP_of_piAccThen_def abD abN B b 0 nds Δ R
     (HoleQ ctx prog b) (by rw [habN]; exact hE) hdom
     (fun ρ ρ₀ h hw => by rw [habN]; exact FieldsBound.of_eqOn hE (hdom ρ ρ₀ h).1 (hbd ρ ρ₀ h hw))
     (fun _ _ => Iff.rfl) (by omega) hP
@@ -164,7 +248,7 @@ theorem walkTele_acc {w : Nat} {ctx : NestCtx} {prog : List NestHole} {b : Nat}
       rw [ConLeche.Verify.openPisAtFvars_length nF hop] at this; exact this
     have hne : ks.getD j .ordinary ≠ .ordinary := by simpa [ord] using hoj
     exact u4_nestOccAt hop hW (hU4 j (by omega) hne) (by omega) hjl hx
-  refine ⟨fun l => if l < nF then Af l else fun _ => empty, N, hE, ?_, ?_, ?_, hQf⟩
+  refine ⟨fun l => if l < nF then Af l else fun _ => empty, N, hE, ?_, ?_, ?_, ?_, hQf⟩
   · refine TeleAccP.congr _ 0 _ _ (fun l' _ hl' => ?_) htele
     have : l' < nF := by simp at hl'; omega
     simp only [ite_eq_left this]
@@ -196,6 +280,14 @@ theorem walkTele_acc {w : Nat} {ctx : NestCtx} {prog : List NestHole} {b : Nat}
         · refine ⟨by omega, Nat.lt_of_not_le fun hge => hnh ⟨hlt, ?_, ?_⟩⟩ <;> omega
         · exact ⟨by omega, by omega⟩
     · simp only [ite_eq_right hl]
+  · -- definability of the bounds
+    intro l'
+    by_cases hl : l' < nF
+    · simp only [ite_eq_left hl]
+      have hd := hdef l' (Nat.zero_le _) (by rw [Nat.zero_add, hlen]; exact hl)
+      simpa only [Nat.sub_zero] using hd
+    · simp only [ite_eq_right hl]
+      exact DefBound.const (b + l') empty
   · -- the ordinary readings read the ordinary slots and the parameters
     intro i G hGi hoi τ τ' hag
     have hi : i < nF := by
@@ -401,38 +493,518 @@ theorem holds_frameVal_ge {D : LfpDatum V} {ψ : Name → Nat} {grp : List (Name
     show i - grp.length + grp.length - grp.length = i - grp.length by omega]
 
 /-- **What one constructor of a frame's group gives** (`frameCtor_acc`): a
-bound of the level reading only the parameter positions of the frame's
-depth `b`, and supports of the frame's walk valuation carrying a fit at a
-tuple mixed into the carrier to any related frame and tuple. -/
+definable bound of the level reading only the parameter positions of the
+frame's depth `b`, and set-level support graphs of the frame's walk
+valuation carrying a fit at a tuple mixed into the carrier to any
+related frame and tuple. -/
 @[expose] def FrameCtorAcc (w b nP : Nat) (Q' : Nat → Nat → Prop) (R₀ : FrameRel V)
     (D : LfpDatum V) (ψ : Name → Nat) (grp : List (Name × Expr)) (dsa : List Term) (hi : Nat)
     (g j : Nat) : Prop :=
   ∃ TB : (Nat → V) → V, (∀ σ, w ≠ 0 → TB σ ∈ˢ (tg w : V)) ∧
     (∀ σ σ', (∀ q, ParamPos b nP q → σ q = σ' q) → TB σ = TB σ') ∧
+    DefBound b TB ∧
     ∀ ρ ρ₀ Y, R₀ ρ ρ₀ → InTupleSpace (D.w ψ) D.N (D.idx ψ (keyFrame dsa hi ρ)) Y →
       ∀ t fs, D.HFits ψ (keyFrame dsa hi ρ) (mixT (InGrp D grp) (D.carrier ψ (keyFrame dsa hi ρ)) Y)
           t g j fs →
-        ∃ (B : V) (gi : V → Occ V), B ⊆ˢ TB (frameVal D ψ grp dsa hi ρ Y) ∧
-          (∀ b, b ∈ˢ B → Adm Q' (gi b) ∧ Holds (frameVal D ψ grp dsa hi ρ Y) (gi b)) ∧
+        ∃ (B g' : V), B ⊆ˢ TB (frameVal D ψ grp dsa hi ρ Y) ∧
+          (∃ U : V, g' ∈ˢ piSet B (fun _ => U) (hasSigmaPairs_const _ _)) ∧
+          (∀ b, b ∈ˢ B → AdmItem Q' (app g' b) ∧ HoldsNonPt (frameVal D ψ grp dsa hi ρ Y) (app g' b)) ∧
           ∀ ρ' Y', R₀ ρ ρ' → InTupleSpace (D.w ψ) D.N (D.idx ψ (keyFrame dsa hi ρ')) Y' →
-            (∀ b, b ∈ˢ B → Holds (frameVal D ψ grp dsa hi ρ' Y') (gi b)) →
+            (∀ b, b ∈ˢ B → HoldsItem (frameVal D ψ grp dsa hi ρ' Y') (app g' b)) →
             D.HFits ψ (keyFrame dsa hi ρ') (mixT (InGrp D grp) (D.carrier ψ (keyFrame dsa hi ρ')) Y')
               t g j fs
 
-/-- **A frame's accessibility**: a bound of the
+/-- **A frame's accessibility**: a definable bound of the
 level reading only the parameter positions at the key's depth, and every
 group member's carrier at the key frame accessible along the enclosing
-relation with admissible enclosing items. -/
+relation with set-level support graphs of admissible enclosing items. -/
 @[expose] def FrameAccOut (w : Nat) (ctx : NestCtx) (prog : List NestHole) (hi : Nat)
     (R₀ : FrameRel V) (D : LfpDatum V) (ψ : Name → Nat) (dsa : List Term) (G : Nat → Prop) :
     Prop :=
   ∃ A : (Nat → V) → V, (∀ ρ, w ≠ 0 → A ρ ∈ˢ (tg w : V)) ∧ InvOn (ParamPos hi ctx.nP) A ∧
+    DefBound hi A ∧
     ∀ c, G c → ∀ ρ ρ₀, R₀ ρ ρ₀ → ∀ i, i ∈ˢ D.idx ψ (keyFrame dsa hi ρ) c →
       ∀ x, x ∈ˢ app (D.carrier ψ (keyFrame dsa hi ρ) c) i →
-        ∃ (B : V) (g : V → Occ V), B ⊆ˢ A ρ ∧
-          (∀ b, b ∈ˢ B → Adm (HoleQ ctx prog hi) (g b) ∧ Holds ρ (g b)) ∧
-          ∀ ρ', R₀ ρ ρ' → (∀ b, b ∈ˢ B → Holds ρ' (g b)) →
+        ∃ (B g : V), B ⊆ˢ A ρ ∧
+          (∃ U : V, g ∈ˢ piSet B (fun _ => U) (hasSigmaPairs_const _ _)) ∧
+          (∀ b, b ∈ˢ B → AdmItem (HoleQ ctx prog hi) (app g b) ∧ HoldsNonPt ρ (app g b)) ∧
+          ∀ ρ', R₀ ρ ρ' → (∀ b, b ∈ˢ B → HoldsItem ρ' (app g b)) →
             x ∈ˢ app (D.carrier ψ (keyFrame dsa hi ρ') c) i
+
+private noncomputable def mkTowerEnc (s : V) : Nat → V
+  | 0 => empty
+  | n + 1 => spair (sfst s) (mkTowerEnc (ssnd s) n)
+
+private theorem mkTowerEnc_encSpineY :
+    ∀ {vs : List V} {y : V}, mkTowerEnc (encSpineY vs y) vs.length = Tower.mkTower vs
+  | [], _ => rfl
+  | _ :: _, _ => by
+    rw [List.length_cons, mkTowerEnc, encSpineY, Tower.mkTower, sfst_kpair, ssnd_kpair,
+      mkTowerEnc_encSpineY]
+
+private theorem defFun_mkTowerEnc_apply {k : Nat} :
+    ∀ (n : Nat) {S : (Fin k → V) → V}, DefFun k S →
+      DefFun k fun env => mkTowerEnc (S env) n
+  | 0, _, _ => DefFun.empty
+  | n + 1, _, hS =>
+    DefFun.spair_apply (DefFun.sfst_apply hS) (defFun_mkTowerEnc_apply n (DefFun.ssnd_apply hS))
+
+private noncomputable def tupWEnc (u n : Nat) (s : V) : V :=
+  if u = 0 then pt else mkTowerEnc s n
+
+private theorem tupWEnc_encSpineY (u : Nat) {vs : List V} {y : V} :
+    tupWEnc u vs.length (encSpineY vs y) = tupW u vs := by
+  unfold tupWEnc
+  by_cases hu : u = 0
+  · subst hu; rw [ite_eq_left rfl, tupW_zero]
+  · rw [ite_eq_right hu, tupW_pos hu, mkTowerEnc_encSpineY]
+
+private theorem defFun_tupWEnc_apply {k : Nat} (u n : Nat) {S : (Fin k → V) → V}
+    (hS : DefFun k S) : DefFun k fun env => tupWEnc u n (S env) := by
+  unfold tupWEnc
+  by_cases hu : u = 0
+  · subst hu; exact DefFun.pt.congr fun _ => by simp
+  · exact (defFun_mkTowerEnc_apply n hS).congr fun _ => by simp [hu]
+
+private noncomputable def downOccN : Nat → V → V
+  | 0, o => o
+  | n + 1, o => downOccN n (downOcc o)
+
+private theorem downOccN_occEncItem :
+    ∀ (n i : Nat) {vs : List V} {y : V}, n ≤ i →
+      downOccN n (occEncItem i vs y) = occEncItem (i - n) vs y
+  | 0, i, _, _, _ => by simp [downOccN]
+  | n + 1, i, vs, y, hle => by
+    obtain ⟨m, rfl⟩ : ∃ m, i = m + 1 := ⟨i - 1, by omega⟩
+    rw [downOccN, downOcc_occEncItem, downOccN_occEncItem n m (by omega)]
+    congr 1; omega
+
+private theorem defFun_downOccN {k : Nat} :
+    ∀ (n : Nat) {O : (Fin k → V) → V}, DefFun k O →
+      DefFun k fun env => downOccN n (O env)
+  | 0, _, hO => hO
+  | n + 1, _, hO => defFun_downOccN n (DefFun.downOcc_apply hO)
+
+private noncomputable def frameOccEnc (D : LfpDatum V) (ψ : Name → Nat)
+    (grp : List (Name × Expr)) : Nat → V → V
+  | 0, _ => empty
+  | j + 1, o =>
+      open Classical in
+      if sfst o = vnat (grp.length - 1 - j) then
+        let mm := D.names.idxOf (grp.getD j default).1
+        kpair pt (occEnc mm (tupWEnc (D.u mm ψ) (D.ids mm ψ).length (ssnd (ssnd o)))
+          (lastVal (ssnd (ssnd o)) (D.ids mm ψ).length))
+      else frameOccEnc D ψ grp j o
+
+private theorem defFun_frameOccEnc (D : LfpDatum V) (ψ : Name → Nat)
+    (grp : List (Name × Expr)) :
+    ∀ k' : Nat, DefFun 1 fun v => frameOccEnc D ψ grp k' (v 0)
+  | 0 => DefFun.empty
+  | j + 1 => by
+    unfold frameOccEnc
+    refine DefFun.ite
+      (DefRel.eq_apply (DefFun.sfst_apply (DefFun.proj 0))
+        (DefFun.const (vnat (grp.length - 1 - j))))
+      ?_ (defFun_frameOccEnc D ψ grp j)
+    let mm := D.names.idxOf (grp.getD j default).1
+    exact DefFun.kpair_apply DefFun.pt
+      (DefFun.occEnc_apply mm
+        (defFun_tupWEnc_apply (D.u mm ψ) (D.ids mm ψ).length
+          (DefFun.ssnd_apply (DefFun.ssnd_apply (DefFun.proj 0))))
+        (DefFun.lastVal_apply (D.ids mm ψ).length
+          (DefFun.ssnd_apply (DefFun.ssnd_apply (DefFun.proj 0)))))
+
+private theorem frameOccEnc_eq (D : LfpDatum V) (ψ : Name → Nat) (grp : List (Name × Expr)) :
+    ∀ (k' : Nat), k' ≤ grp.length → ∀ {j : Nat} (_hjk : j < k') (_hjg : j < grp.length)
+      {vs : List V} {y : V},
+      vs.length = (D.ids (D.names.idxOf (grp.getD j default).1) ψ).length →
+      frameOccEnc D ψ grp k' (occEncItem (grp.length - 1 - j) vs y) =
+        kpair pt (occEnc (D.names.idxOf (grp.getD j default).1)
+          (tupW (D.u (D.names.idxOf (grp.getD j default).1) ψ) vs) y)
+  | 0, _, _, hjk, _, _, _, _ => absurd hjk (Nat.not_lt_zero _)
+  | j' + 1, hk', j, hjk, hjg, vs, y, hlen => by
+    unfold frameOccEnc
+    by_cases heq : j = j'
+    · subst heq
+      rw [ite_eq_left (by unfold occEncItem; rw [sfst_kpair])]
+      unfold occEncItem
+      rw [ssnd_kpair, ssnd_kpair]
+      dsimp only
+      rw [← hlen, tupWEnc_encSpineY, lastVal_encSpineY]
+    · have hne : sfst (occEncItem (grp.length - 1 - j) vs y) ≠
+          vnat (grp.length - 1 - j') := by
+        unfold occEncItem
+        rw [sfst_kpair]
+        intro hv
+        have := vnat_inj hv
+        omega
+      rw [ite_eq_right hne]
+      exact frameOccEnc_eq D ψ grp j' (by omega) (by omega) hjg hlen
+
+private noncomputable def frameItemMap (D : LfpDatum V) (ψ : Name → Nat)
+    (grp : List (Name × Expr)) (o : V) : V :=
+  open Classical in
+  if ∃ i : Fin grp.length, sfst o = vnat i.val
+  then frameOccEnc D ψ grp grp.length o
+  else kpair empty (downOccN grp.length o)
+
+private theorem defFun_frameItemMap (D : LfpDatum V) (ψ : Name → Nat)
+    (grp : List (Name × Expr)) :
+    DefFun 1 fun v => frameItemMap D ψ grp (v 0) := by
+  unfold frameItemMap
+  refine (DefFun.ite (DefRel.finExists fun i : Fin grp.length =>
+      DefRel.eq_apply (DefFun.sfst_apply (DefFun.proj 0)) (DefFun.const (vnat i.val)))
+    (defFun_frameOccEnc D ψ grp grp.length)
+    (DefFun.kpair_apply DefFun.empty (defFun_downOccN grp.length (DefFun.proj 0)))).congr fun v => by
+    by_cases h : ∃ i : Fin grp.length, sfst (v 0) = vnat i.val <;> simp [h]
+
+private theorem frameItemMap_lt (D : LfpDatum V) (ψ : Name → Nat) (grp : List (Name × Expr))
+    {i : Nat} (hi : i < grp.length) {vs : List V} {y : V}
+    (hlen : vs.length = (D.ids (D.names.idxOf (grp.getD (grp.length - 1 - i) default).1) ψ).length) :
+    frameItemMap D ψ grp (occEncItem i vs y) =
+      kpair pt (occEnc (D.names.idxOf (grp.getD (grp.length - 1 - i) default).1)
+        (tupW (D.u (D.names.idxOf (grp.getD (grp.length - 1 - i) default).1) ψ) vs) y) := by
+  unfold frameItemMap
+  have hex : ∃ i' : Fin grp.length, sfst (occEncItem i vs y) = vnat i'.val :=
+    ⟨⟨i, hi⟩, by unfold occEncItem; rw [sfst_kpair]⟩
+  rw [ite_eq_left hex]
+  let j := grp.length - 1 - i
+  have hj : j < grp.length := by omega
+  have hji : grp.length - 1 - j = i := by dsimp [j]; omega
+  have hlen' : vs.length = (D.ids (D.names.idxOf (grp.getD j default).1) ψ).length := by
+    simpa [j] using hlen
+  have h1 := frameOccEnc_eq D ψ grp grp.length (Nat.le_refl _) hj hj (y := y) hlen'
+  rw [hji] at h1
+  simpa [j] using h1
+
+private theorem frameItemMap_ge (D : LfpDatum V) (ψ : Name → Nat) (grp : List (Name × Expr))
+    {i : Nat} (hi : grp.length ≤ i) {vs : List V} {y : V} :
+    frameItemMap D ψ grp (occEncItem i vs y) =
+      kpair empty (occEncItem (i - grp.length) vs y) := by
+  unfold frameItemMap
+  have hne : ¬ ∃ i' : Fin grp.length, sfst (occEncItem i vs y) = vnat i'.val := by
+    rintro ⟨i', heq⟩
+    unfold occEncItem at heq
+    rw [sfst_kpair] at heq
+    have := vnat_inj heq
+    omega
+  rw [ite_eq_right hne, downOccN_occEncItem _ _ hi]
+
+private theorem defHoleFn_cons_list_caf {r n : Nat} {g : List V → V} (hg : DefHoleFn (r + n) g) :
+    ∀ (as : List V), as.length = r → DefHoleFn n fun vs => g (as ++ vs) := by
+  induction r generalizing g with
+  | zero =>
+    intro as hlen
+    obtain rfl := List.eq_nil_of_length_eq_zero hlen
+    rw [Nat.zero_add] at hg
+    simpa only [List.nil_append] using hg
+  | succ r ih =>
+    intro as hlen
+    cases as with
+    | nil => simp at hlen
+    | cons a as =>
+      rw [Nat.succ_add] at hg
+      exact ih (hg.cons a) as (by simpa using hlen)
+
+private theorem defFun_mkTower_ofFn_caf {k : Nat} :
+    ∀ {r : Nat} (As : Fin r → (Fin k → V) → V), (∀ i, DefFun k (As i)) →
+      DefFun k fun env => Tower.mkTower (List.ofFn fun i => As i env)
+  | 0, _, _ => DefFun.empty.congr fun _ => by simp [Tower.mkTower]
+  | r + 1, As, hAs => by
+    have hrest := defFun_mkTower_ofFn_caf (fun i : Fin r => As i.succ) (fun i => hAs i.succ)
+    exact (DefFun.spair_apply (hAs 0) hrest).congr fun env => by
+      simp [List.ofFn_succ, Tower.mkTower]
+
+private theorem defFun_tupW_ofFn_caf (u : Nat) {k r : Nat}
+    (As : Fin r → (Fin k → V) → V) (hAs : ∀ i, DefFun k (As i)) :
+    DefFun k fun env => tupW u (List.ofFn fun i => As i env) := by
+  by_cases hu : u = 0
+  · subst hu
+    exact DefFun.pt.congr fun _ => (tupW_zero _).symm
+  · exact (defFun_mkTower_ofFn_caf As hAs).congr fun _ => (tupW_pos hu _).symm
+
+private theorem holeFam_congr_caf {Fs : List Term} {ρ ρ' : Nat → V} {g g' : List V → V}
+    {hg : DefHoleFn Fs.length g} {hg' : DefHoleFn Fs.length g'}
+    (hρ : ρ = ρ') (hg_eq : g = g') :
+    holeFam ρ Fs g hg = holeFam ρ' Fs g' hg' := by
+  subst hρ hg_eq
+  rfl
+
+private theorem defFun_holeFam_app_ofFn_caf (u : Nat) (tail : Nat → V) :
+    ∀ (Fs : List Term) {k m r : Nat}
+      (Xs : Fin m → (Fin k → V) → V) (_ : ∀ i, DefFun k (Xs i))
+      (Y : (Fin k → V) → V) (_ : DefFun k Y)
+      (As : Fin r → (Fin k → V) → V) (_ : ∀ i, DefFun k (As i)),
+      DefFun k fun env =>
+        holeFam (Semantics.prepend (fun i => Xs i env) tail) Fs
+          (fun vs => app (Y env) (tupW u (List.ofFn (fun i => As i env) ++ vs)))
+          (defHoleFn_cons_list_caf (DefHoleFn.of_app_tupW (Y env) u (r + Fs.length))
+            (List.ofFn fun i => As i env) List.length_ofFn)
+  | [], k, m, r, Xs, hXs, Y, hY, As, hAs =>
+    (DefFun.app_apply hY (defFun_tupW_ofFn_caf u As hAs)).congr fun env => by
+      rw [holeFam_nil, List.append_nil]
+  | F :: Fs, k, m, r, Xs, hXs, Y, hY, As, hAs => by
+    have hF : DefFun k fun env => interp V (Semantics.prepend (fun i => Xs i env) tail) F :=
+      (interp_defFun_prepend tail m F).comp hXs
+    let Xs' : Fin (m + 1) → (Fin (k + 1) → V) → V := fun i w =>
+      if h0 : i.val = 0 then w 0 else Xs ⟨i.val - 1, by omega⟩ (ftail w)
+    have hXs' : ∀ i, DefFun (k + 1) (Xs' i) := fun ⟨i, hi⟩ => by
+      dsimp only [Xs']
+      split
+      · exact DefFun.proj 0
+      · exact (hXs _).weaken
+    let Y' : (Fin (k + 1) → V) → V := fun w => Y (ftail w)
+    have hY' : DefFun (k + 1) Y' := hY.weaken
+    let As' : Fin (r + 1) → (Fin (k + 1) → V) → V := fun i w =>
+      if hi : i.val < r then As ⟨i.val, hi⟩ (ftail w) else w 0
+    have hAs' : ∀ i, DefFun (k + 1) (As' i) := fun ⟨i, hi⟩ => by
+      dsimp only [As']
+      split
+      · exact (hAs _).weaken
+      · exact DefFun.proj 0
+    have hrec := defFun_holeFam_app_ofFn_caf u tail Fs Xs' hXs' Y' hY' As' hAs'
+    let hg_all : ∀ env, DefHoleFn (F :: Fs).length
+        (fun vs => app (Y env) (tupW u (List.ofFn (fun i => As i env) ++ vs))) := fun env =>
+      defHoleFn_cons_list_caf (DefHoleFn.of_app_tupW (Y env) u (r + (F :: Fs).length))
+        (List.ofFn fun i => As i env) List.length_ofFn
+    let F_lam : V → (Fin k → V) → V := fun x env =>
+      holeFam (cons x (Semantics.prepend (fun i => Xs i env) tail)) Fs
+        (fun vs => app (Y env) (tupW u (List.ofFn (fun i => As i env) ++ x :: vs)))
+        ((hg_all env).cons x)
+    have hrec' : DefFun (k + 1) fun w => F_lam (w 0) (ftail w) := by
+      refine hrec.congr fun w => ?_
+      have hρ : Semantics.prepend (fun i => Xs' i w) tail =
+          cons (w 0) (Semantics.prepend (fun i => Xs i (ftail w)) tail) := by
+        funext j
+        cases j with
+        | zero => simp [Semantics.prepend, Xs']
+        | succ j =>
+          by_cases hj : j < m
+          · have hj1 : j + 1 < m + 1 := by omega
+            simp [Semantics.prepend, hj, hj1, Xs', cons]
+          · have hj1 : ¬ (j + 1 < m + 1) := by omega
+            simp only [Semantics.prepend, hj, hj1, ↓reduceDIte, cons]
+            congr 1; omega
+      have hA_eq : List.ofFn (fun i => As' i w) =
+          List.ofFn (fun i => As i (ftail w)) ++ [w 0] := by
+        apply List.ext_getElem (by simp)
+        intro j h1 h2
+        simp only [List.length_ofFn] at h1
+        simp only [List.getElem_ofFn, As']
+        by_cases hj : j < r
+        · simp [hj, List.getElem_append_left]
+        · have hjr : j = r := by omega
+          subst hjr
+          simp [List.getElem_append_right]
+      have h_fn : (fun vs => app (Y' w) (tupW u (List.ofFn (fun i => As' i w) ++ vs))) =
+          (fun vs => app (Y (ftail w)) (tupW u (List.ofFn (fun i => As i (ftail w)) ++ w 0 :: vs))) := by
+        funext vs
+        change app (Y (ftail w)) (tupW u (List.ofFn (fun i => As' i w) ++ vs)) = _
+        rw [hA_eq, List.append_assoc, List.singleton_append]
+      exact holeFam_congr_caf hρ h_fn
+    have hGraph : ∀ env, HasGraph (interp V (Semantics.prepend (fun i => Xs i env) tail) F)
+        (fun x => F_lam x env) := fun env =>
+      holeFam_hasGraph (Semantics.prepend (fun i => Xs i env) tail) F Fs _ (hg_all env)
+    refine (DefFun.lamV_apply_curry (F := F_lam) (h := hGraph) hrec' hF).congr fun env => ?_
+    exact (holeFam_cons (Semantics.prepend (fun i => Xs i env) tail) F Fs _ (hg_all env)).symm
+
+private noncomputable def finUnion_caf (f : Nat → V) : Nat → V
+  | 0 => empty
+  | n + 1 => binUnion (finUnion_caf f n) (f n)
+
+private theorem subset_finUnion_caf {f : Nat → V} :
+    ∀ {n i : Nat}, i < n → f i ⊆ˢ finUnion_caf f n
+  | 0, _, h => absurd h (by omega)
+  | n + 1, i, h => by
+    intro x hx
+    show x ∈ˢ binUnion (finUnion_caf f n) (f n)
+    by_cases hin : i = n
+    · subst hin; exact mem_binUnion.mpr (Or.inr hx)
+    · exact mem_binUnion.mpr (Or.inl (subset_finUnion_caf (by omega) x hx))
+
+private theorem finUnion_mem_caf {w' : Nat} (hw : w' ≠ 0) {f : Nat → V} :
+    ∀ {n : Nat}, (∀ i, i < n → f i ∈ˢ (tg w' : V)) → finUnion_caf f n ∈ˢ (tg w' : V)
+  | 0, _ => empty_mem_tg w'
+  | n + 1, h => (tg_isGrothendieck hw).binUnion_mem
+      (finUnion_mem_caf hw fun i hi => h i (by omega)) (h n (by omega))
+
+private theorem defFun_finUnion_caf {p : Nat} :
+    ∀ (n : Nat) {f : Nat → (Fin p → V) → V}, (∀ i, i < n → DefFun p (f i)) →
+      DefFun p fun env => finUnion_caf (fun i => f i env) n
+  | 0, _, _ => DefFun.empty
+  | n + 1, f, hf =>
+    DefFun.binUnion_apply (defFun_finUnion_caf n fun i hi => hf i (by omega)) (hf n (by omega))
+
+private theorem defFun_accPaths_apply {p : Nat} {A : (Fin p → V) → V} (hA : DefFun p A) :
+    DefFun p fun env => accPaths (A env) := by
+  have hN : DefFun (p + 1) fun w => accPathsN (A (ftail w)) (w 0) := by
+    unfold accPathsN
+    have hS : DefFun (((p + 1) + 2) + 2) fun w =>
+        accPathsStep (A (ftail (ftail (ftail (ftail (ftail w)))))) (w 0) (w 1) := by
+      unfold accPathsStep
+      exact DefFun.sigmaPairs_apply_curry hA.weaken.weaken.weaken.weaken.weaken (DefFun.proj 2)
+    have hAtt := defRel_isAttempt_param
+      (Z := fun _ : Fin ((p + 1) + 2) → V => (unitSet : V))
+      (S := fun w => accPathsStep (A (ftail (ftail (ftail (ftail (ftail w)))))) (w 0) (w 1))
+      (N := fun w : Fin ((p + 1) + 2) → V => w 2)
+      (G := fun w : Fin ((p + 1) + 2) → V => w 0)
+      DefFun.unitSet hS (DefFun.proj 2) (DefFun.proj 0)
+    have hAtt' : DefRel ((p + 1) + 2) fun w =>
+        IsAttempt unitSet (accPathsStep (A (ftail (ftail (ftail w))))) (w 2) (w 0) :=
+      hAtt.congr fun _ => by simp only [fcons_zero]; exact Iff.rfl
+    have hR : DefRel ((p + 1) + 1) fun v =>
+        ∃ g, IsAttempt unitSet (accPathsStep (A (ftail (ftail v)))) (v 1) g ∧ kpair (v 1) (v 0) ∈ˢ g :=
+      DefRel.exists_curry (DefRel.and hAtt'
+        (DefRel.mem_apply (DefFun.kpair_apply (DefFun.proj 2) (DefFun.proj 1)) (DefFun.proj 0)))
+    exact (DefFun.uniqueChoice_curry hR).congr fun _ => rfl
+  exact DefFun.omegaUnion_apply_curry hN
+
+private theorem keyFrame_prepend_eq_caf {dsa : List Term} {hi : Nat} (tail : Nat → V)
+    (xs : Fin hi → V) :
+    keyFrame dsa hi (Semantics.prepend xs tail) =
+      Semantics.prepend (fun j : Fin dsa.length =>
+        interp V (Semantics.prepend xs tail) (dsa[dsa.length - 1 - j.val]'(by omega))) tail := by
+  funext k
+  unfold keyFrame
+  have htail : (fun j => Semantics.prepend xs tail (j + hi)) = tail := by
+    funext j
+    have hge : ¬ (j + hi < hi) := by omega
+    simp only [Semantics.prepend, hge, ↓reduceDIte]
+    congr 1; omega
+  rw [htail]
+  by_cases hk : k < dsa.length
+  · simp only [Semantics.prepend, hk, ↓reduceDIte]
+    have hk' : dsa.length - 1 - k < dsa.length := by omega
+    have hpos := consList_getElem_pos (ρ := tail)
+      (by simp : (List.map (interp V (Semantics.prepend xs tail)) dsa).length = dsa.length) hk'
+    rw [show dsa.length - 1 - (dsa.length - 1 - k) = k by omega] at hpos
+    rw [hpos]
+    simp [List.getElem_map]
+  · obtain ⟨m, rfl⟩ : ∃ m, k = m + dsa.length := ⟨k - dsa.length, by omega⟩
+    have hm_not : ¬ (m + dsa.length < dsa.length) := by omega
+    simp only [Semantics.prepend, hm_not, ↓reduceDIte, Nat.add_sub_cancel]
+    have hlen : m + dsa.length = m + (List.map (interp V (Semantics.prepend xs tail)) dsa).length := by simp
+    rw [hlen, consList_apply_add]
+
+private theorem defRel_holdsQ_prepend {qs : List (Nat × Nat)} {d : Nat} (tail : Nat → V) :
+    DefRel (d + 1) fun v => HoldsQ (Semantics.prepend (ftail v) tail) qs (v 0) := by
+  induction qs with
+  | nil => exact DefRel.false
+  | cons p qs ih =>
+    unfold HoldsQ
+    refine DefRel.or ?_ ih
+    by_cases hp : p.1 < d
+    · exact (DefRel.holdsAt_apply p.1 p.2
+        (DefFun.proj (k := d + 1) ⟨p.1 + 1, by omega⟩) (DefFun.proj 0)).congr fun v => by
+        simp [Semantics.prepend, ftail, hp]
+    · exact (DefRel.holdsAt_apply p.1 p.2
+        (DefFun.const (tail (p.1 - d))) (DefFun.proj 0)).congr fun v => by
+        simp [Semantics.prepend, hp]
+
+private theorem defRel_exists_spineFit_prepend {d : Nat} (tail : Nat → V) :
+    ∀ (Ts : List Term) {m : Nat} (Xs : Fin m → (Fin d → V) → V), (∀ i, DefFun d (Xs i)) →
+      DefRel d fun v => ∃ is : List V, SpineFit (Semantics.prepend (fun i => Xs i v) tail) Ts is
+  | [], _, _, _ => DefRel.true.congr fun _ => ⟨fun _ => ⟨[], trivial⟩, fun _ => trivial⟩
+  | F :: Ts, m, Xs, hXs => by
+    let Xs' : Fin (m + 1) → (Fin (d + 1) → V) → V := fun i w =>
+      if h0 : i.val = 0 then w 0 else Xs ⟨i.val - 1, by omega⟩ (ftail w)
+    have hXs' : ∀ i, DefFun (d + 1) (Xs' i) := fun ⟨i, hi⟩ => by
+      dsimp only [Xs']
+      split
+      · exact DefFun.proj 0
+      · exact (hXs _).weaken
+    have ih := defRel_exists_spineFit_prepend tail Ts Xs' hXs'
+    have hF : DefFun (d + 1) fun w =>
+        interp V (Semantics.prepend (fun i => Xs i (ftail w)) tail) F :=
+      ((interp_defFun_prepend tail m F).comp hXs).weaken
+    let R_body : V → (Fin d → V) → Prop := fun a v =>
+      a ∈ˢ interp V (Semantics.prepend (fun i => Xs i v) tail) F ∧
+        ∃ is : List V, SpineFit (Semantics.prepend (fun i => Xs' i (fcons a v)) tail) Ts is
+    have hBody : DefRel (d + 1) fun w => R_body (w 0) (ftail w) := by
+      refine (DefRel.and (DefRel.mem_apply (DefFun.proj 0) hF) ih).congr fun w => ?_
+      dsimp only [R_body]
+      have hfw : fcons (w 0) (ftail w) = w := by
+        funext i; cases i using Fin.cases with | zero => rfl | succ i => rfl
+      rw [hfw]
+    refine (DefRel.exists_curry (R := R_body) hBody).congr fun v => ?_
+    constructor
+    · rintro ⟨a, ha, vs, hvs⟩
+      refine ⟨a :: vs, ha, ?_⟩
+      have hp : Semantics.prepend (fun i => Xs' i (fcons a v)) tail =
+          cons a (Semantics.prepend (fun i => Xs i v) tail) := by
+        funext j
+        cases j with
+        | zero => simp [Semantics.prepend, Xs', fcons_zero]
+        | succ j =>
+          by_cases hj : j < m
+          · have hj1 : j + 1 < m + 1 := by omega
+            simp [Semantics.prepend, hj, hj1, Xs', cons]
+          · have hj1 : ¬ (j + 1 < m + 1) := by omega
+            simp only [Semantics.prepend, hj, hj1, ↓reduceDIte, cons]
+            congr 1; omega
+      rwa [← hp]
+    · rintro ⟨(_ | ⟨a, vs⟩), hsp⟩
+      · exact hsp.elim
+      · refine ⟨a, hsp.1, vs, ?_⟩
+        have hp : Semantics.prepend (fun i => Xs' i (fcons a v)) tail =
+            cons a (Semantics.prepend (fun i => Xs i v) tail) := by
+          funext j
+          cases j with
+          | zero => simp [Semantics.prepend, Xs', fcons_zero]
+          | succ j =>
+            by_cases hj : j < m
+            · have hj1 : j + 1 < m + 1 := by omega
+              simp [Semantics.prepend, hj, hj1, Xs', cons]
+            · have hj1 : ¬ (j + 1 < m + 1) := by omega
+              simp only [Semantics.prepend, hj, hj1, ↓reduceDIte, cons]
+              congr 1; omega
+        rw [hp]
+        exact hsp.2
+
+private theorem defRel_sat_prepend {d m : Nat} (tail : Nat → V)
+    (Xs : Fin m → (Fin d → V) → V) (hXs : ∀ i, DefFun d (Xs i))
+    (Δ : List Term) :
+    DefRel d fun v => Sat V Δ (Semantics.prepend (fun i => Xs i v) tail) := by
+  refine (DefRel.finForall (R := fun (idx : Fin Δ.length) (v : Fin d → V) =>
+      Semantics.prepend (fun i => Xs i v) tail idx.val ∈ˢ
+        interp V (fun j => Semantics.prepend (fun i => Xs i v) tail (j + idx.val + 1)) Δ[idx.val])
+    fun idx => ?_).congr fun v => ?_
+  · have hhead : DefFun d fun v => Semantics.prepend (fun i => Xs i v) tail idx.val := by
+      by_cases hi : idx.val < m
+      · exact (hXs ⟨idx.val, hi⟩).congr fun v => by simp [Semantics.prepend, hi]
+      · exact (DefFun.const (tail (idx.val - m))).congr fun v => by simp [Semantics.prepend, hi]
+    let m' := m - (idx.val + 1)
+    let tail' : Nat → V := fun j =>
+      if h : idx.val + 1 ≤ m then tail j else tail (j + (idx.val + 1 - m))
+    let Xs' : Fin m' → (Fin d → V) → V := fun k v =>
+      Xs ⟨k.val + idx.val + 1, by dsimp [m'] at k; omega⟩ v
+    have hXs' : ∀ k, DefFun d (Xs' k) := fun k => hXs _
+    have harg : DefFun d fun v =>
+        interp V (fun j => Semantics.prepend (fun i => Xs i v) tail (j + idx.val + 1)) Δ[idx.val] := by
+      refine ((interp_defFun_prepend tail' m' Δ[idx.val]).comp hXs').congr fun v => ?_
+      congr 1
+      funext j
+      by_cases hm : idx.val + 1 ≤ m
+      · by_cases hj : j < m'
+        · have hj' : j + idx.val + 1 < m := by dsimp [m'] at hj; omega
+          simp only [Semantics.prepend, hj, hj', ↓reduceDIte, Xs']
+        · have hj' : ¬ (j + idx.val + 1 < m) := by dsimp [m'] at hj; omega
+          simp only [Semantics.prepend, hj, hj', ↓reduceDIte, tail', hm]
+          congr 1; dsimp [m']; omega
+      · have hj1 : ¬ (j < m') := by dsimp [m']; omega
+        have hj2 : ¬ (j + idx.val + 1 < m) := by omega
+        simp only [Semantics.prepend, hj1, hj2, ↓reduceDIte, tail', hm]
+        congr 1; dsimp [m']; omega
+    exact DefRel.mem_apply hhead harg
+  · unfold Sat
+    constructor
+    · intro h i Aa hi
+      have hil : i < Δ.length := (List.getElem?_eq_some_iff.mp hi).1
+      rw [List.getElem?_eq_getElem hil, Option.some.injEq] at hi
+      subst hi
+      exact h ⟨i, hil⟩
+    · intro h idx
+      exact h idx.val _ (List.getElem?_eq_getElem idx.isLt)
 
 /-! ## One frame constructor -/
 
@@ -544,7 +1116,7 @@ theorem frameCtor_acc (hin : RulesInputs V mp.base2 φ) {w : Nat}
   have hb : ctx.hiAt ((grpNews us ds hi grp).reverse ++ prog).length = hi + grp.length := by
     rw [List.length_append, List.length_reverse, grpNews_length, ← hhi]
     simp only [NestCtx.hiAt]; omega
-  obtain ⟨Af, N, hEN, htele, hAf, hF, hRes⟩ := walkTele_acc (m := mp.base2) (φ := φ) hb
+  obtain ⟨Af, N, hEN, htele, hAf, hAfDef, hF, hRes⟩ := walkTele_acc (m := mp.base2) (φ := φ) hb
     hnl hcurcl hU4 hlenW hRA.dom hbd hPi hO
   let ord : Nat → Bool := fun l => ks.getD l .ordinary == .ordinary
   -- the substituted result head is the member's hole
@@ -563,7 +1135,8 @@ theorem frameCtor_acc (hin : RulesInputs V mp.base2 φ) {w : Nat}
     rw [← Option.some.inj hr']
     exact ⟨hi + grp.length - 1 - (hi + i) + nF, by simp⟩
   obtain ⟨p, hp⟩ := hhead
-  refine ⟨teleBound w ord Af 0 N, fun σ hw => teleBound_mem hw _ _ _ _ _, fun σ σ' hq => ?_, ?_⟩
+  refine ⟨teleBound w ord Af 0 N, fun σ hw => teleBound_mem hw _ _ _ _ _, fun σ σ' hq => ?_,
+    DefBound.teleBound w ord (hi + grp.length) N 0 (fun l' _ _ => hAfDef l'), ?_⟩
   · refine teleBound_agrM (k := 0) (M0 := ParamPos (hi + grp.length) ctx.nP) hAf N 0
       (fun i G hG' ho τ τ' hτ => hF i G (by simpa using hG') (by simpa using ho) τ τ'
         (by simpa using hτ)) σ σ' fun i => ⟨fun h => absurd h (Nat.not_lt_zero _),
@@ -576,12 +1149,12 @@ theorem frameCtor_acc (hin : RulesInputs V mp.base2 φ) {w : Nat}
     ⟨ρ, ρ, Y, Y, hR₀.lrefl ρ ρ₀ hR, hY, hY, rfl, rfl⟩
   obtain ⟨hS, hsat⟩ := hvals ρ Y (hfit ρ ρ₀ hR).1 hY
   have hspN := spineFitN_of_hfits hEqF hEN hS hsat (hRA.dom _ _ hRσ).1 hf
-  obtain ⟨B, gi, hB, hgi, hs⟩ := teleBound_support (k := 0) (ord := ord)
-    (fun l τ τ' hτ => hAf l τ τ' (hτ.toM _)) N 0 _ _
+  obtain ⟨B, g', hB, hg', hitems, hs⟩ := teleBound_support (k := 0) (ord := ord)
+    (fun l τ τ' hτ => hAf l τ τ' (hτ.toM _)) (fun l' _ => hAfDef l') N 0 _ _
     (fun i G hG' ho τ τ' hτ => hF i G (by simpa using hG') (by rw [Nat.zero_add] at ho; exact ho)
       τ τ' (by rw [Nat.zero_add] at hτ; exact hτ.toM _))
     htele _ hRσ fs hspN
-  refine ⟨B, gi, hB, hgi, fun ρ' Y' hR' hY' hheld => ?_⟩
+  refine ⟨B, g', hB, hg', hitems, fun ρ' Y' hR' hY' hheld => ?_⟩
   rw [hfits_mixT_grp hkN hg]
   have hRσL : frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi
       (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y)
@@ -601,7 +1174,9 @@ theorem frame_item_fwd (hin : RulesInputs V mp.base2 φ) {Δh : List Term} (hΔ 
     (hH : Holds (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y) o) :
     (o.1 < grp.length ∧ InGrp D grp (frameOcc D (Level.substFn φ lps us) grp o).1 ∧
       InTup D.N (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y
-        (frameOcc D (Level.substFn φ lps us) grp o) ∧
+        (occEnc (frameOcc D (Level.substFn φ lps us) grp o).1
+          (frameOcc D (Level.substFn φ lps us) grp o).2.1
+          (frameOcc D (Level.substFn φ lps us) grp o).2.2) ∧
       ∀ ρ', AgreeOff (holeP hi ctx.nP hi) ρ ρ' → Sat V Δh ρ' → KeyFit D (Level.substFn φ lps us) dsa hi ρ' →
         SpineFit (keyFrame dsa hi ρ')
           (D.ids (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)) o.2.1) ∨
@@ -648,7 +1223,7 @@ theorem frame_item_fwd (hin : RulesInputs V mp.base2 φ) {Δh : List Term} (hΔ 
       · have := grp_inGrp mp hD hnN hkN hfind hlps hg hmem
         rwa [hidx] at this
       rw [he] at hH
-      exact ⟨⟨Nat.lt_of_lt_of_le hmm (mp.lfp_ok D hD).1.kN, tupW_mem hfit, hH⟩,
+      exact ⟨occEnc_mem_occSpace.mpr ⟨Nat.lt_of_lt_of_le hmm (mp.lfp_ok D hD).1.kN, tupW_mem hfit, hH⟩,
         fun ρ' hag hs' hk' =>
           ((spineFit_iff_of_mkPisAV_eq rfl (hte ρ ρ' hag hs hs' hkF hk') vs).1).mp hfit⟩
     · exact Or.inr (Or.inr ⟨by omega, by omega, hnf⟩)
@@ -663,7 +1238,9 @@ theorem frame_item_bwd {ρ' Y' : Nat → V} {o : Occ V} (hlt : o.1 < grp.length)
     (hfit : SpineFit (keyFrame dsa hi ρ')
       (D.ids (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)) o.2.1)
     (hin : InTup D.N (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ')) Y'
-      (frameOcc D (Level.substFn φ lps us) grp o)) :
+      (occEnc (frameOcc D (Level.substFn φ lps us) grp o).1
+        (frameOcc D (Level.substFn φ lps us) grp o).2.1
+        (frameOcc D (Level.substFn φ lps us) grp o).2.2)) :
     Holds (frameVal D (Level.substFn φ lps us) grp dsa hi ρ' Y') o := by
   obtain ⟨i, vs, y⟩ := o
   have h2 := LfpDatum.holeVal_app (X := Y') hfit
@@ -671,7 +1248,7 @@ theorem frame_item_bwd {ρ' Y' : Nat → V} {o : Occ V} (hlt : o.1 < grp.length)
   unfold Holds
   simp only at hlt h2 hin ⊢
   rw [frameVal_lt ρ' Y' hlt, h2]
-  exact hin.2.2
+  exact (occEnc_mem_occSpace.mp hin).2.2
 
 omit hnd hul in
 /-- **A new-hole item off its fit is held alike at every related frame**:
@@ -716,7 +1293,9 @@ theorem frame_item_nofit (hin : RulesInputs V mp.base2 φ) {Δh : List Term} (h�
     (IsTy_of_mem_strictU (famSpace_app (hY' mm hmmN)
       (tupW_mem (((spineFit_iff_of_mkPisAV_eq rfl hT ws).1).mp hws)))).ne_pt
   unfold LfpDatum.holeVal at hH ⊢
-  rw [← holeFam_of_mkPisAV_eq rfl hT, holeFam_foldl_nofit hne' hne hlen hn]
+  rw [← holeFam_of_mkPisAV_eq (hg := DefHoleFn.of_app_tupW (Y' mm)
+    (D.u mm (Level.substFn φ lps us)) (D.ids mm (Level.substFn φ lps us)).length) rfl hT,
+    holeFam_foldl_nofit hne' hne hlen hn]
   exact hH
 
 omit hnd hul in
@@ -741,7 +1320,6 @@ theorem frameAccOut_of (hin : RulesInputs V mp.base2 φ) {w : Nat}
         (Level.substFn φ lps us) grp dsa hi g j) :
     FrameAccOut w ctx prog hi R₀ D (Level.substFn φ lps us) dsa (InGrp D grp) := by
   classical
-  haveI : Nonempty (Occ V) := ⟨(0, [], empty)⟩
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
   have hkNN := h.kN
   have hfit : ∀ ρ ρ', R₀ ρ ρ' →
@@ -756,18 +1334,20 @@ theorem frameAccOut_of (hin : RulesInputs V mp.base2 φ) {w : Nat}
   have hTB : ∀ g j (hG : InGrp D grp g) (hj : j < D.nctors g),
       (∀ σ, w ≠ 0 → TBt g j σ ∈ˢ (tg w : V)) ∧
       (∀ σ σ', (∀ q, ParamPos (hi + grp.length) ctx.nP q → σ q = σ' q) → TBt g j σ = TBt g j σ') ∧
+      DefBound (hi + grp.length) (TBt g j) ∧
       ∀ ρ ρ₀ Y, R₀ ρ ρ₀ → InTupleSpace (D.w (Level.substFn φ lps us)) D.N
           (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y →
         ∀ t fs, D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ)
             (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y) t g j fs →
-          ∃ (B : V) (gi : V → Occ V),
+          ∃ (B g' : V),
             B ⊆ˢ TBt g j (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y) ∧
-            (∀ b, b ∈ˢ B → Adm (HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog)
-                (hi + grp.length)) (gi b) ∧
-              Holds (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y) (gi b)) ∧
+            (∃ U : V, g' ∈ˢ piSet B (fun _ => U) (hasSigmaPairs_const _ _)) ∧
+            (∀ b, b ∈ˢ B → AdmItem (HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog)
+                (hi + grp.length)) (app g' b) ∧
+              HoldsNonPt (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y) (app g' b)) ∧
             ∀ ρ' Y', R₀ ρ ρ' → InTupleSpace (D.w (Level.substFn φ lps us)) D.N
                 (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ')) Y' →
-              (∀ b, b ∈ˢ B → Holds (frameVal D (Level.substFn φ lps us) grp dsa hi ρ' Y') (gi b)) →
+              (∀ b, b ∈ˢ B → HoldsItem (frameVal D (Level.substFn φ lps us) grp dsa hi ρ' Y') (app g' b)) →
               D.HFits (Level.substFn φ lps us) (keyFrame dsa hi ρ')
                 (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) Y')
                 t g j fs := by
@@ -781,6 +1361,11 @@ theorem frameAccOut_of (hin : RulesInputs V mp.base2 φ) {w : Nat}
     by_cases hgj : InGrp D grp g ∧ j < D.nctors g
     · exact (hTB g j hgj.1 hgj.2).1 σ hw
     · simp only [TBt, dite_eq_right hgj]; exact empty_mem_tg w
+  have hTBdef : ∀ g j, DefBound (hi + grp.length) (TBt g j) := by
+    intro g j
+    by_cases hgj : InGrp D grp g ∧ j < D.nctors g
+    · exact (hTB g j hgj.1 hgj.2).2.2.1
+    · intro _; exact DefFun.empty.congr fun _ => by simp only [TBt, dite_eq_right hgj]
   -- the frame valuations of two frames agreeing at the parameters agree at the parameters
   have hpar : ∀ (ρ ρ' Y Y' : Nat → V), (∀ q, ParamPos hi ctx.nP q → ρ q = ρ' q) →
       ∀ q, ParamPos (hi + grp.length) ctx.nP q →
@@ -800,90 +1385,71 @@ theorem frameAccOut_of (hin : RulesInputs V mp.base2 φ) {w : Nat}
     · simp only [TBt, dite_eq_right hgj]
   -- the bound
   let A0 : (Nat → V) → V := fun ρ =>
-    LfpDatum.finUnion (fun c => LfpDatum.finUnion (fun j => TBt c j (frameVal D (Level.substFn φ lps us) grp dsa hi ρ
+    finUnion_caf (fun c => finUnion_caf (fun j => TBt c j (frameVal D (Level.substFn φ lps us) grp dsa hi ρ
       (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)))) (D.nctors c)) D.N
   have hA0 : ∀ ρ, w ≠ 0 → A0 ρ ∈ˢ (tg w : V) := fun ρ hw =>
-    LfpDatum.finUnion_mem hw fun c _ => LfpDatum.finUnion_mem hw fun j _ => hTBsz c j _ hw
+    finUnion_mem_caf hw fun c _ => finUnion_mem_caf hw fun j _ => hTBsz c j _ hw
+  have hA0_def : DefBound hi fun ρ => accPaths (A0 ρ) := fun tail => by
+    let ψ := Level.substFn φ lps us
+    let Xs_kf : Fin dsa.length → (Fin hi → V) → V := fun l ps =>
+      interp V (Semantics.prepend ps tail) (dsa[dsa.length - 1 - l.val]'(by omega))
+    have hXs_kf : ∀ l, DefFun hi (Xs_kf l) := fun l =>
+      interp_defFun_prepend tail hi (dsa[dsa.length - 1 - l.val]'(by omega))
+    have hslot_def : ∀ q : Fin (hi + grp.length), DefFun hi fun ps : Fin hi → V =>
+        frameVal D ψ grp dsa hi (Semantics.prepend ps tail)
+          (D.carrier ψ (keyFrame dsa hi (Semantics.prepend ps tail))) q.val := by
+      intro ⟨q, hq⟩
+      by_cases hqg : q < grp.length
+      · let j := grp.length - 1 - q
+        have hj : j < grp.length := by dsimp [j]; omega
+        obtain ⟨mm, hmm, -, hidx, -⟩ := grpMember mp hD hnN hkN hfind hlps hg (List.getElem_mem hj)
+        have hmmN : mm < D.N := Nat.lt_of_lt_of_le hmm hkNN
+        have hcarr_def : DefFun hi fun ps : Fin hi → V =>
+            D.carrier ψ (keyFrame dsa hi (Semantics.prepend ps tail)) mm := by
+          refine ((D.defFun_carrier ψ tail dsa.length mm hmmN).comp hXs_kf).congr fun ps => ?_
+          rw [keyFrame_prepend_eq_caf]
+        have hhole_def : DefFun hi fun ps : Fin hi → V =>
+            D.holeVal ψ (keyFrame dsa hi (Semantics.prepend ps tail))
+              (D.carrier ψ (keyFrame dsa hi (Semantics.prepend ps tail))) mm := by
+          refine (defFun_holeFam_app_ofFn_caf (D.u mm ψ) tail (D.ids mm ψ)
+            Xs_kf hXs_kf _ hcarr_def Fin.elim0 (fun i => Fin.elim0 i)).congr fun ps => ?_
+          unfold LfpDatum.holeVal
+          rw [keyFrame_prepend_eq_caf]
+          refine holeFam_congr_caf rfl (funext fun vs => by simp)
+        refine hhole_def.congr fun ps => ?_
+        rw [frameVal_lt _ _ hqg, show grp.length - 1 - q = j by omega,
+          List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, Option.getD_some, hidx]
+      · have hge : grp.length ≤ q := by omega
+        exact (DefFun.proj (k := hi) ⟨q - grp.length, by omega⟩).congr fun ps => by
+          have hqv : (⟨q, hq⟩ : Fin (hi + grp.length)).val = (q - grp.length) + grp.length := by
+            dsimp; omega
+          rw [hqv, frameVal_ge]
+          simp [Semantics.prepend, show q - grp.length < hi by omega]
+    have hA0_inner : DefFun hi fun ps => A0 (Semantics.prepend ps tail) := by
+      dsimp only [A0]
+      refine defFun_finUnion_caf D.N fun c _ => defFun_finUnion_caf (D.nctors c) fun j _ => ?_
+      refine ((hTBdef c j tail).comp hslot_def).congr fun ps => ?_
+      dsimp only [ψ]
+      congr 1
+      funext k
+      by_cases hk : k < hi + grp.length
+      · simp [Semantics.prepend, hk]
+      · obtain ⟨m', rfl⟩ : ∃ m', k = m' + (hi + grp.length) := ⟨k - (hi + grp.length), by omega⟩
+        have hm' : ¬ (m' + (hi + grp.length) < hi + grp.length) := by omega
+        have hm'' : ¬ (m' + hi < hi) := by omega
+        simp only [Semantics.prepend, hm', ↓reduceDIte]
+        rw [show m' + (hi + grp.length) = (m' + hi) + grp.length by omega, frameVal_ge]
+        simp only [Semantics.prepend, hm'', ↓reduceDIte]
+        congr 1; omega
+    exact defFun_accPaths_apply hA0_inner
   -- the relation's tails and index sets
   have hagree : ∀ ρ ρ', R₀ ρ ρ' → AgreeOff (holeP hi ctx.nP hi) ρ ρ' := by
     intro ρ ρ' hr; have := hR₀.agree ρ ρ' hr; rwa [hhi] at this
-  have htail : ∀ ρ ρ', R₀ ρ ρ' → (fun j => ρ (j + hi)) = (fun j => ρ' (j + hi)) := by
-    intro ρ ρ' hr; funext j
-    exact hagree ρ ρ' hr (j + hi) fun hp => by have := hp.1; omega
   have hIs : ∀ p p', R₀ p p' → ∀ m, InGrp D grp m →
       D.idx (Level.substFn φ lps us) (keyFrame dsa hi p) m
         = D.idx (Level.substFn φ lps us) (keyFrame dsa hi p') m :=
     fun p p' hr m hm => grp_idx_eq mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hm
       (hagree p p' hr) (hR₀.dom p p' hr).1 (hR₀.dom p p' hr).2 (hkf p p' hr).1 (hkf p p' hr).2
-  -- the joint accessibility
-  have hacc : AccJointG (D.w (Level.substFn φ lps us)) D.N
-      (fun p => D.idx (Level.substFn φ lps us) (keyFrame dsa hi p)) (fun p => ∃ p₀, R₀ p p₀) R₀
-      (fun p o => Adm (HoleQ ctx prog hi) o ∧ Holds p o) (InGrp D grp)
-      (fun p Y => D.Φ (Level.substFn φ lps us) (keyFrame dsa hi p)
-        (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p)) Y)) A0 := by
-    rintro p Y ⟨p₀, hp⟩ hY m hm hGm i hiI x hx
-    have hs := (hfit p p₀ hp).1
-    have hmixS := mixT_mem (G := InGrp D grp)
-      (C := D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p)) (lfpTuple_mem _ _ _ _) hY
-    obtain ⟨j, fs, hf, rfl⟩ := (h.fibre _ _ hs _ hmixS m hm i hiI x).mp hx
-    have hj := hf.1
-    obtain ⟨-, -, hsup⟩ := hTB m j hGm hj
-    obtain ⟨B, gi, hB, hgi, htr⟩ := hsup p p₀ Y hp hY i fs hf
-    let item : V → Occ V ⊕ (Nat × V × V) := fun b =>
-      if (gi b).1 < grp.length then .inr (frameOcc D (Level.substFn φ lps us) grp (gi b))
-      else .inl ((gi b).1 - grp.length, (gi b).2)
-    -- a new-hole item off its fit is no occurrence, but it is held alike at
-    -- every related frame (`frame_item_nofit`): the support drops it
-    let NF : V → Prop := fun b => (gi b).1 < grp.length ∧ ¬ SpineFit (keyFrame dsa hi p)
-      (D.ids (frameOcc D (Level.substFn φ lps us) grp (gi b)).1 (Level.substFn φ lps us))
-      (gi b).2.1
-    refine ⟨sep B fun b => ¬ NF b, item, fun b hb => ?_, fun b hb => ?_, ?_⟩
-    · have hb' := hB b (sep_subset b hb)
-      rw [hTBeq m j p p Y (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p))
-        fun _ _ => rfl] at hb'
-      exact LfpDatum.subset_finUnion (f := fun c => LfpDatum.finUnion (fun j => TBt c j
-        (frameVal D (Level.substFn φ lps us) grp dsa hi p
-          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p)))) (D.nctors c)) hm _
-        (LfpDatum.subset_finUnion (f := fun j => TBt m j (frameVal D (Level.substFn φ lps us) grp dsa hi p
-          (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p)))) hj _ hb')
-    · obtain ⟨hbB, hNF⟩ := mem_sep.mp hb
-      obtain ⟨hQ, hH⟩ := hgi b hbB
-      rcases frame_item_fwd mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hhi
-          (hR₀.dom p p₀ hp).1 (hkf p p₀ hp).1 hQ hH with
-        ⟨hlt, hGc, hin, -⟩ | ⟨hge, hQo, hHo⟩ | ⟨hlt, -, hnf⟩
-      · simp only [item, ite_eq_left hlt]; exact ⟨hGc, hin⟩
-      · simp only [item, ite_eq_right (show ¬ (gi b).1 < grp.length by omega)]; exact ⟨hQo, hHo⟩
-      · exact absurd ⟨hlt, hnf⟩ hNF
-    · rintro p' Y' hR' ⟨p₀', hp'⟩ hY' hitems
-      have hs' := (hfit p' p₀' hp').1
-      have hf' := htr p' Y' hR' hY' fun b hb => by
-        obtain ⟨hQ, hH⟩ := hgi b hb
-        by_cases hNF : NF b
-        · exact frame_item_nofit mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds
-            hNF.1 (hagree p p' hR') (hR₀.dom p p' hR').1 (hR₀.dom p p' hR').2 (hkf p p' hR').1
-            (hkf p p' hR').2 hY hY'
-            (by
-              rcases frame_item_fwd mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds
-                  hLds hhi (hR₀.dom p p₀ hp).1 (hkf p p₀ hp).1 hQ hH
-                with ⟨-, -, -, hfit0⟩ | ⟨hge, -⟩ | ⟨-, hl, -⟩
-              · exact absurd (hfit0 p (fun _ _ => rfl) (hR₀.dom p p₀ hp).1 (hkf p p₀ hp).1) hNF.2
-              · exact absurd hNF.1 (by omega)
-              · exact hl)
-            hNF.2 hH
-        have hib := hitems b (mem_sep.mpr ⟨hb, hNF⟩)
-        rcases frame_item_fwd mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hhi
-          (hR₀.dom p p₀ hp).1 (hkf p p₀ hp).1 hQ hH with
-          ⟨hlt, -, -, hfit0⟩ | ⟨hge, -, -⟩ | ⟨hlt, -, hnf⟩
-        · simp only [item, ite_eq_left hlt] at hib
-          exact frame_item_bwd hlt (hfit0 p' (hagree p p' hR') (hR₀.dom p p' hR').2
-            (hkf p p' hR').2) hib.2
-        · simp only [item, ite_eq_right (show ¬ (gi b).1 < grp.length by omega)] at hib
-          exact (holds_frameVal_ge hge).mpr hib.2
-        · exact absurd ⟨hlt, hnf⟩ hNF
-      have hmixS' := mixT_mem (G := InGrp D grp)
-        (C := D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p')) (lfpTuple_mem _ _ _ _) hY'
-      exact (h.fibre _ _ hs' _ hmixS' m hm i (by rw [← hIs p p' hR' m hGm]; exact hiI) _).mpr
-        ⟨j, fs, hf', rfl⟩
   -- the stored container's accessibility at the key frame, and its monotonicity
   have hDacc : ∀ p p₀, R₀ p p₀ → ∃ A', AccTuple (D.w (Level.substFn φ lps us)) D.N
       (D.idx (Level.substFn φ lps us) (keyFrame dsa hi p)) D.N
@@ -898,35 +1464,441 @@ theorem frameAccOut_of (hin : RulesInputs V mp.base2 φ) {w : Nat}
       (D.idx (Level.substFn φ lps us) (keyFrame dsa hi p))
       (D.Φ (Level.substFn φ lps us) (keyFrame dsa hi p)) :=
     fun p p₀ hp => h.maps _ _ (hfit p p₀ hp).1
-  have hmain := lfpP_acc_group (O := Occ V) hIs
-    (fun p ⟨p₀, hp⟩ => ⟨_, mixT_isClosed (G := InGrp D grp)
-      (h.closed (hfit p p₀ hp).1) (hDmono p p₀ hp) (hDmaps p p₀ hp)⟩)
-    (fun p ⟨p₀, hp⟩ => mixT_mapsTuple (hDmaps p p₀ hp) (lfpTuple_mem _ _ _ _))
-    (fun p ⟨p₀, hp⟩ => (hDacc p p₀ hp).elim fun A' hA' =>
-      ⟨A', accTuple_mixT (G := InGrp D grp) hA' (lfpTuple_mem _ _ _ _)⟩) hacc
-  -- the carrier on the group is the mixed operator's least tuple
-  have hcarr : ∀ ρ ρ₀, R₀ ρ ρ₀ → ∀ c, InGrp D grp c →
-      lfpTuple (D.w (Level.substFn φ lps us)) D.N
-          (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ))
-          (fun Y => D.Φ (Level.substFn φ lps us) (keyFrame dsa hi ρ)
-            (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y)) c
-        = D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c := by
-    intro ρ ρ₀ hr c hc
-    exact lfpTuple_mixT (h.closed (hfit ρ ρ₀ hr).1) (hDmono ρ ρ₀ hr) (hDmaps ρ ρ₀ hr) c
-      (Nat.lt_of_lt_of_le hc.1 hkNN) hc
-  refine ⟨fun ρ => accPaths (A0 ρ), fun ρ hw => accPaths_mem hw (hA0 ρ hw), fun ρ ρ' hag => ?_, ?_⟩
+  obtain ⟨qs, hqs⟩ := finQ_holeQ ctx prog hi
+  refine ⟨fun ρ => accPaths (A0 ρ), fun ρ hw => accPaths_mem hw (hA0 ρ hw), fun ρ ρ' hag => ?_, hA0_def, ?_⟩
   · show accPaths (A0 ρ) = accPaths (A0 ρ')
     have : A0 ρ = A0 ρ' := by
-      show LfpDatum.finUnion _ _ = LfpDatum.finUnion _ _
+      show finUnion_caf _ _ = finUnion_caf _ _
       congr 1; funext c; congr 1; funext j
       exact hTBeq c j ρ ρ' _ _ hag
     rw [this]
   · intro c hc ρ ρ₀ hr i hiI x hx
-    rw [← hcarr ρ ρ₀ hr c hc] at hx
-    obtain ⟨B, g, hB, hg', htr⟩ := hmain ρ ⟨ρ₀, hr⟩ c (Nat.lt_of_lt_of_le hc.1 hkNN) hc i hiI x hx
-    refine ⟨B, g, hB, hg', fun ρ' hr' hheld => ?_⟩
-    have hx' := htr ρ' hr' ⟨ρ, hR₀.symm ρ ρ' hr'⟩ fun b hb => ⟨(hg' b hb).1, hheld b hb⟩
-    rwa [hcarr ρ' ρ (hR₀.symm ρ ρ' hr') c hc] at hx'
+    let ψ := Level.substFn φ lps us
+    let tail : Nat → V := fun j => ρ₀ (j + hi)
+    let IsY : (Fin hi → V) → Nat → V := fun p m =>
+      D.idx ψ (keyFrame dsa hi (Semantics.prepend p tail)) m
+    let Sp : (Fin hi → V) → Prop := fun p =>
+      R₀ (Semantics.prepend p tail) (Semantics.prepend p tail)
+    let Rp : (Fin hi → V) → (Fin hi → V) → Prop := fun p p' =>
+      R₀ (Semantics.prepend p tail) (Semantics.prepend p' tail)
+    let HasP : (Fin hi → V) → V → Prop := fun p o =>
+      HoldsQ (Semantics.prepend p tail) qs o
+    let Θ : (Fin hi → V) → (Nat → V) → Nat → V := fun p Y =>
+      D.Φ ψ (keyFrame dsa hi (Semantics.prepend p tail))
+        (mixT (InGrp D grp) (D.carrier ψ (keyFrame dsa hi (Semantics.prepend p tail))) Y)
+    let A : (Fin hi → V) → V := fun p => A0 (Semantics.prepend p tail)
+    let O_sp : (Fin hi → V) → V := fun p => occSpaceQ (Semantics.prepend p tail) qs
+    have hSp : DefRel hi Sp := by
+      let Gs : Fin (hi + hi) → (Fin hi → V) → V := fun j v =>
+        if hj : j.val < hi then v ⟨j.val, hj⟩ else v ⟨j.val - hi, by omega⟩
+      have hGs : ∀ j : Fin (hi + hi), DefFun hi (Gs j) := fun j => by
+        dsimp only [Gs]; split
+        · exact DefFun.proj _
+        · exact DefFun.proj _
+      refine ((hR₀.defRel.2 tail).comp hGs).congr fun v => ?_
+      have e1 : ftake (fun j => Gs j v) = v := by funext ⟨j, hj⟩; simp [ftake, Gs, hj]
+      have e2 : fdrop (fun j => Gs j v) = v := by
+        funext ⟨j, hj⟩
+        have hge : ¬ (hi + j < hi) := by omega
+        simp [fdrop, Gs, hge]
+      rw [e1, e2]
+    have hRp : DefRel (hi + hi) fun v => Rp (ftake v) (fdrop v) :=
+      (hR₀.defRel.2 tail).congr fun _ => Iff.rfl
+    have hHasP : DefRel (hi + 1) fun v => HasP (ftail v) (v 0) :=
+      defRel_holdsQ_prepend tail
+    let Xs_kf : Fin dsa.length → (Fin hi → V) → V := fun l ps =>
+      interp V (Semantics.prepend ps tail) (dsa[dsa.length - 1 - l.val]'(by omega))
+    have hXs_kf : ∀ l, DefFun hi (Xs_kf l) := fun l =>
+      interp_defFun_prepend tail hi (dsa[dsa.length - 1 - l.val]'(by omega))
+    have hIsY_def : ∀ m, m < D.N → DefFun hi fun p => IsY p m := fun m _ => by
+      refine ((D.defFun_idx ψ tail dsa.length m).comp hXs_kf).congr fun p => ?_
+      dsimp only [IsY]
+      rw [keyFrame_prepend_eq_caf]
+    have hΘ : ∀ p, DefTupleOp D.N (Θ p) := fun p =>
+      mixT_defTupleOp (InGrp D grp) (D.carrier ψ (keyFrame dsa hi (Semantics.prepend p tail)))
+        (D.hΦ ψ (keyFrame dsa hi (Semantics.prepend p tail)))
+    have hΘ_def : ∀ m, m < D.N → DefFun (D.N + hi) fun v => Θ (fdrop v) (padTuple (ftake v)) m :=
+      fun m hm => by
+        refine (D.hΦ_param ψ tail (G := InGrp D grp) hXs_kf hm).congr fun v => ?_
+        dsimp only [Θ]
+        rw [keyFrame_prepend_eq_caf]
+    have hIs' : ∀ p p', Rp p p' → ∀ m, InGrp D grp m → IsY p m = IsY p' m :=
+      fun p p' hr' m hm => hIs _ _ hr' m hm
+    have hcl : ∀ p, Sp p → ∃ L, IsClosedTuple (D.w ψ) D.N (IsY p) (Θ p) L :=
+      fun p hp => ⟨_, mixT_isClosed (G := InGrp D grp)
+        (h.closed (hfit _ _ hp).1) (hDmono _ _ hp) (hDmaps _ _ hp)⟩
+    have hmaps : ∀ p, Sp p → MapsTuple (D.w ψ) D.N (IsY p) (Θ p) :=
+      fun p hp => mixT_mapsTuple (hDmaps _ _ hp) (lfpTuple_mem _ _ _ _ (D.hΦ _ _))
+    have hsacc : ∀ p, Sp p → ∃ A', AccTuple (D.w ψ) D.N (IsY p) D.N (IsY p) (Θ p) A' :=
+      fun p hp => (hDacc _ _ hp).elim fun A' hA' =>
+        ⟨A', accTuple_mixT (G := InGrp D grp) hA' (lfpTuple_mem _ _ _ _ (D.hΦ _ _))⟩
+    have hlen_of_holeQ : ∀ {qi n : Nat}, qi < grp.length →
+        HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) qi n →
+        n = (D.ids (D.names.idxOf (grp.getD (grp.length - 1 - qi) default).1) ψ).length := by
+      intro qi n hlt hQ_q
+      have hQ' : HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog)
+          (ctx.hiAt prog.length + (grpNews us ds hi grp).length) qi n := by
+        rw [grpNews_length, hhi]; exact hQ_q
+      rcases holeQ_frame_iff.mp hQ' with ⟨jj, hk, hjj, hqi, hn⟩ | ⟨hle, -⟩
+      · have hjl : jj < grp.length := by
+          have := (List.getElem?_eq_some_iff.mp hjj).1; rwa [grpNews_length] at this
+        have har := grp_arity mp hD hnN hkN hfind hg ψ grp[jj] (List.getElem_mem hjl)
+        have hkey : hk.nIdx = grp[jj].2.piBinders.1.length := by
+          simp only [grpNews, List.getElem?_map, List.getElem?_eq_getElem hjl, Option.map_some,
+            Option.some.injEq] at hjj
+          rw [← hjj]
+        rw [grpNews_length] at hqi
+        rw [hn, hkey]
+        obtain ⟨mm', hmm', -, hidx', -⟩ := grpMember mp hD hnN hkN hfind hlps hg (List.getElem_mem hjl)
+        rw [show grp.length - 1 - qi = jj by omega, List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem hjl, Option.getD_some]
+        rw [hidx'] at har ⊢
+        rw [parsLen_dsa mp hD hdsa hlenP hmm', ← DenoteSpine.length_eq hdsa] at har
+        omega
+      · rw [grpNews_length] at hle; omega
+    have hacc : AccJointG (D.w ψ) D.N IsY Sp Rp HasP (InGrp D grp) Θ A O_sp := by
+      rintro p Y hp hY m hm hGm j hjI z hz
+      have hs := (hfit _ _ hp).1
+      have hmixS := mixT_mem (G := InGrp D grp)
+        (C := D.carrier ψ (keyFrame dsa hi (Semantics.prepend p tail)))
+        (lfpTuple_mem _ _ _ _ (D.hΦ _ _)) hY
+      obtain ⟨j', fs, hf, rfl⟩ := (h.fibre _ _ hs _ hmixS m hm j hjI z).mp hz
+      have hj' := hf.1
+      obtain ⟨-, -, -, hsup⟩ := hTB m j' hGm hj'
+      obtain ⟨B, g0, hB, ⟨U0, hg0⟩, hitems, htr⟩ := hsup _ _ Y hp hY j fs hf
+      let Good : V → Prop := fun o => ∀ q : Fin grp.length,
+        sfst o = vnat q.val →
+        evalSpineY
+          (D.holeVal ψ (keyFrame dsa hi (Semantics.prepend p tail)) Y
+            (D.names.idxOf (grp.getD (grp.length - 1 - q.val) default).1))
+          (ssnd (ssnd o))
+          (D.ids (D.names.idxOf (grp.getD (grp.length - 1 - q.val) default).1) ψ).length ≠ pt
+      have hGood_def : DefPred fun b => Good (app g0 b) := by
+        refine DefRel.finForall fun q : Fin grp.length => DefRel.imp
+          (DefRel.eq_apply (DefFun.sfst_apply (DefFun.app_apply (DefFun.const g0) (DefFun.proj 0)))
+            (DefFun.const (vnat q.val)))
+          (DefRel.ne_apply
+            (DefFun.evalSpineY_apply
+              (D.ids (D.names.idxOf (grp.getD (grp.length - 1 - q.val) default).1) ψ).length
+              (DefFun.const _)
+              (DefFun.ssnd_apply (DefFun.ssnd_apply (DefFun.app_apply (DefFun.const g0) (DefFun.proj 0)))))
+            DefFun.pt)
+      let B_good : V := sep B (fun b => Good (app g0 b)) (hasSep_of_defPred hGood_def)
+      let g : V := graph (fun b => frameItemMap D ψ grp (app g0 b)) B_good
+        (hasGraph_of_defFun1 ((defFun_frameItemMap D ψ grp).comp1
+          (DefFun.app_apply (DefFun.const g0) (DefFun.proj 0))))
+      refine ⟨B_good, g, ?_, ?_, ?_, ?_⟩
+      · intro b hb
+        have hb' := hB b (sep_subset b hb)
+        rw [hTBeq m j' _ _ Y (D.carrier ψ (keyFrame dsa hi (Semantics.prepend p tail)))
+          fun _ _ => rfl] at hb'
+        exact subset_finUnion_caf (f := fun c' => finUnion_caf (fun j'' => TBt c' j''
+          (frameVal D ψ grp dsa hi (Semantics.prepend p tail)
+            (D.carrier ψ (keyFrame dsa hi (Semantics.prepend p tail))))) (D.nctors c')) hm b
+          (subset_finUnion_caf (f := fun j'' => TBt m j''
+            (frameVal D ψ grp dsa hi (Semantics.prepend p tail)
+              (D.carrier ψ (keyFrame dsa hi (Semantics.prepend p tail))))) hj' b hb')
+      · refine graph_mem_piSet fun b hb => ?_
+        obtain ⟨hbB, hGd⟩ := mem_sep.mp hb
+        obtain ⟨hQ, hH⟩ := hitems b hbB
+        have hg_app : frameItemMap D ψ grp (app g0 b) = _ := rfl
+        rw [hg_app]
+        obtain ⟨qi, vs, y, heq, hnp, hy⟩ := hH
+        have hQ_adm : Adm (HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)) (qi, vs, y) := by
+          obtain ⟨q1, vs1, y1, hE1, hQ1⟩ := hQ
+          rw [heq] at hE1
+          obtain ⟨rfl, rfl, rfl⟩ := occEncItem_inj hE1
+          exact hQ1
+        have hH_occ : Holds (frameVal D ψ grp dsa hi (Semantics.prepend p tail) Y) (qi, vs, y) := by
+          unfold Holds; exact hy
+        rcases frame_item_fwd mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hhi
+            (hR₀.dom _ _ hp).1 (hkf _ _ hp).1 hQ_adm hH_occ with
+          ⟨hlt, hGc, hin', -⟩ | ⟨hge, hQo, hHo⟩ | ⟨hlt, hlen, hnf⟩
+        · have hlen' := hlen_of_holeQ hlt hQ_adm
+          rw [heq, frameItemMap_lt D ψ grp hlt hlen']
+          refine mem_binUnion.mpr (Or.inr (mem_image.mpr ⟨_, ?_, rfl⟩))
+          exact hin'
+        · rw [heq, frameItemMap_ge D ψ grp hge]
+          refine mem_binUnion.mpr (Or.inl (mem_image.mpr ⟨_, ?_, rfl⟩))
+          have hA_down : AdmItem (HoleQ ctx prog hi) (occEncItem (qi - grp.length) vs y) :=
+            ⟨qi - grp.length, vs, y, rfl, hQo⟩
+          have hH_down : HoldsNonPt (Semantics.prepend p tail) (occEncItem (qi - grp.length) vs y) := by
+            refine ⟨qi - grp.length, vs, y, rfl, ?_, hHo⟩
+            have hnp' := hnp
+            rw [show qi = (qi - grp.length) + grp.length by omega, frameVal_ge] at hnp'
+            exact hnp'
+          exact occEncItem_mem_occSpaceQ hqs hA_down hH_down
+        · exfalso
+          have hsf : sfst (app g0 b) = vnat qi := by rw [heq]; unfold occEncItem; rw [sfst_kpair]
+          have hne_gd := hGd ⟨qi, hlt⟩ hsf
+          rw [heq] at hne_gd
+          unfold occEncItem at hne_gd
+          rw [ssnd_kpair, ssnd_kpair] at hne_gd
+          unfold frameOcc at hlen
+          simp only at hlen
+          rw [← hlen, evalSpineY_encSpineY] at hne_gd
+          rcases grp_hole_full (D := D) (lps := lps) (us := us) (φ := φ)
+              (keyFrame dsa hi (Semantics.prepend p tail)) Y (vs := vs) hlen with
+            ⟨hfit', -⟩ | ⟨-, he | he⟩
+          · exact hnf hfit'
+          · unfold Holds at hH_occ; simp only at hH_occ
+            rw [frameVal_lt _ _ hlt] at hH_occ
+            rw [he] at hH_occ
+            exact not_mem_empty _ hH_occ
+          · exact hne_gd he
+      · intro b hb
+        have hg_app : app g b = frameItemMap D ψ grp (app g0 b) :=
+          app_graph hb
+        rw [hg_app]
+        obtain ⟨hbB, hGd⟩ := mem_sep.mp hb
+        obtain ⟨hQ, qi, vs, y, heq, hnp, hy⟩ := hitems b hbB
+        have hQ_adm : Adm (HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)) (qi, vs, y) := by
+          obtain ⟨q1, vs1, y1, hE1, hQ1⟩ := hQ
+          rw [heq] at hE1
+          obtain ⟨rfl, rfl, rfl⟩ := occEncItem_inj hE1
+          exact hQ1
+        have hH_occ : Holds (frameVal D ψ grp dsa hi (Semantics.prepend p tail) Y) (qi, vs, y) := by
+          unfold Holds; exact hy
+        rcases frame_item_fwd mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hhi
+            (hR₀.dom _ _ hp).1 (hkf _ _ hp).1 hQ_adm hH_occ with
+          ⟨hlt, hGc, hin', -⟩ | ⟨hge, hQo, hHo⟩ | ⟨hlt, hlen, hnf⟩
+        · have hlen' := hlen_of_holeQ hlt hQ_adm
+          rw [heq, frameItemMap_lt D ψ grp hlt hlen']
+          obtain ⟨-, hi_in, hy_in⟩ := occEnc_mem_occSpace.mp hin'
+          exact Or.inr ⟨(frameOcc D ψ grp (qi, vs, y)).1, Nat.lt_of_lt_of_le hGc.1 hkNN, hGc,
+            (tupW (D.u (frameOcc D ψ grp (qi, vs, y)).1 ψ) vs), y, hi_in, hy_in, rfl⟩
+        · rw [heq, frameItemMap_ge D ψ grp hge]
+          refine Or.inl ⟨occEncItem (qi - grp.length) vs y, rfl, ?_⟩
+          exact holdsQ_iff.mpr ⟨⟨qi - grp.length, vs, y, rfl, (hqs _ _).mp hQo⟩,
+            ⟨qi - grp.length, vs, y, rfl, hHo⟩⟩
+        · exfalso
+          have hsf : sfst (app g0 b) = vnat qi := by rw [heq]; unfold occEncItem; rw [sfst_kpair]
+          have hne_gd := hGd ⟨qi, hlt⟩ hsf
+          rw [heq] at hne_gd
+          unfold occEncItem at hne_gd
+          rw [ssnd_kpair, ssnd_kpair] at hne_gd
+          unfold frameOcc at hlen
+          simp only at hlen
+          rw [← hlen, evalSpineY_encSpineY] at hne_gd
+          rcases grp_hole_full (D := D) (lps := lps) (us := us) (φ := φ)
+              (keyFrame dsa hi (Semantics.prepend p tail)) Y (vs := vs) hlen with
+            ⟨hfit', -⟩ | ⟨-, he | he⟩
+          · exact hnf hfit'
+          · unfold Holds at hH_occ; simp only at hH_occ
+            rw [frameVal_lt _ _ hlt] at hH_occ
+            rw [he] at hH_occ
+            exact not_mem_empty _ hH_occ
+          · exact hne_gd he
+      · rintro p' Y' hR' hp' hY' hitems'
+        have hs' := (hfit _ _ hR').2
+        have hf' := htr _ Y' hR' hY' fun b hb => by
+          obtain ⟨hQ, qi, vs, y, heq, -, hy⟩ := hitems b hb
+          have hQ_adm : Adm (HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)) (qi, vs, y) := by
+            obtain ⟨q1, vs1, y1, hE1, hQ1⟩ := hQ
+            rw [heq] at hE1
+            obtain ⟨rfl, rfl, rfl⟩ := occEncItem_inj hE1
+            exact hQ1
+          have hH_occ : Holds (frameVal D ψ grp dsa hi (Semantics.prepend p tail) Y) (qi, vs, y) := by
+            unfold Holds; exact hy
+          by_cases hGd : Good (app g0 b)
+          · have hb' : b ∈ˢ B_good := mem_sep.mpr ⟨hb, hGd⟩
+            have hg_app : app g b = frameItemMap D ψ grp (app g0 b) :=
+              app_graph hb'
+            have hib := hitems' b hb'
+            rw [hg_app] at hib
+            rcases frame_item_fwd mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hhi
+                (hR₀.dom _ _ hp).1 (hkf _ _ hp).1 hQ_adm hH_occ with
+              ⟨hlt, -, -, hfit0⟩ | ⟨hge, -, -⟩ | ⟨hlt, hlen, hnf⟩
+            · have hlen' := hlen_of_holeQ hlt hQ_adm
+              rw [heq, frameItemMap_lt D ψ grp hlt hlen'] at hib
+              rcases hib with ⟨o', ho', -⟩ | ⟨mm', hm', -, i', y', -, hy', ho'⟩
+              · exfalso
+                obtain ⟨hpt, -⟩ := kpair_inj ho'
+                exact pt_ne_empty hpt
+              · obtain ⟨-, hocc⟩ := kpair_inj ho'
+                obtain ⟨rmm, rtup, ry⟩ := occEnc_inj hocc
+                subst rmm ry
+                have hfit1 := hfit0 _ (hagree _ _ hR') (hR₀.dom _ _ hR').2 (hkf _ _ hR').2
+                have hbw := frame_item_bwd hlt hfit1 (occEnc_mem_occSpace.mpr ⟨hm',
+                  by dsimp only [frameOcc]; exact tupW_mem hfit1,
+                  by dsimp only [frameOcc]; rw [rtup]; exact hy'⟩)
+                exact ⟨qi, vs, y, heq, hbw⟩
+            · rw [heq, frameItemMap_ge D ψ grp hge] at hib
+              rcases hib with ⟨o', ho', hHas'⟩ | ⟨_, _, _, _, _, _, _, ho'⟩
+              · obtain ⟨-, rfl⟩ := kpair_inj ho'
+                obtain ⟨qi', vs', y', heq', hy'⟩ := (holdsQ_iff.mp hHas').2
+                obtain ⟨rqi, rvs, ry⟩ := occEncItem_inj heq'
+                have rqi' : qi' = qi - grp.length := rqi.symm
+                rw [rqi', ← rvs, ← ry] at hy'
+                exact ⟨qi, vs, y, heq, (holds_frameVal_ge hge).mpr hy'⟩
+              · exfalso
+                obtain ⟨hpt, -⟩ := kpair_inj ho'
+                exact pt_ne_empty hpt.symm
+            · exfalso
+              have hsf : sfst (app g0 b) = vnat qi := by rw [heq]; unfold occEncItem; rw [sfst_kpair]
+              have hne_gd := hGd ⟨qi, hlt⟩ hsf
+              rw [heq] at hne_gd
+              unfold occEncItem at hne_gd
+              rw [ssnd_kpair, ssnd_kpair] at hne_gd
+              unfold frameOcc at hlen
+              simp only at hlen
+              rw [← hlen, evalSpineY_encSpineY] at hne_gd
+              rcases grp_hole_full (D := D) (lps := lps) (us := us) (φ := φ)
+                  (keyFrame dsa hi (Semantics.prepend p tail)) Y (vs := vs) hlen with
+                ⟨hfit', -⟩ | ⟨-, he | he⟩
+              · exact hnf hfit'
+              · unfold Holds at hH_occ; simp only at hH_occ
+                rw [frameVal_lt _ _ hlt] at hH_occ
+                rw [he] at hH_occ
+                exact not_mem_empty _ hH_occ
+              · exact hne_gd he
+          · have hnot : ∃ q : Fin grp.length, sfst (app g0 b) = vnat q.val ∧
+                evalSpineY (D.holeVal ψ (keyFrame dsa hi (Semantics.prepend p tail)) Y
+                  (D.names.idxOf (grp.getD (grp.length - 1 - q.val) default).1))
+                  (ssnd (ssnd (app g0 b)))
+                  (D.ids (D.names.idxOf (grp.getD (grp.length - 1 - q.val) default).1) ψ).length = pt :=
+              Classical.byContradiction fun hn' =>
+                hGd fun q hsf heq_pt => hn' ⟨q, hsf, heq_pt⟩
+            obtain ⟨q, hsf, heq_pt⟩ := hnot
+            rw [heq] at hsf
+            unfold occEncItem at hsf
+            rw [sfst_kpair] at hsf
+            have hqi : qi = q.val := vnat_inj hsf
+            have hlt : qi < grp.length := hqi ▸ q.isLt
+            rcases frame_item_fwd mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds hhi
+                (hR₀.dom _ _ hp).1 (hkf _ _ hp).1 hQ_adm hH_occ with
+              ⟨hlt', hGc, hin', hfit0⟩ | ⟨hge, -, -⟩ | ⟨hlt', hlen, hnf⟩
+            · exfalso
+              rw [heq] at heq_pt
+              unfold occEncItem at heq_pt
+              rw [ssnd_kpair, ssnd_kpair] at heq_pt
+              have hlen_eq : vs.length = (D.ids (D.names.idxOf (grp.getD (grp.length - 1 - q.val) default).1) ψ).length := by
+                rw [← hqi]; exact hlen_of_holeQ hlt hQ_adm
+              rw [← hlen_eq, evalSpineY_encSpineY, ← hqi] at heq_pt
+              have hsp_fit := hfit0 _ (fun _ _ => rfl) (hR₀.dom _ _ hp).1 (hkf _ _ hp).1
+              unfold frameOcc at hsp_fit
+              simp only at hsp_fit
+              obtain ⟨-, hi_in, -⟩ := occEnc_mem_occSpace.mp hin'
+              unfold frameOcc at hi_in
+              simp only at hi_in
+              have hlt_sub : grp.length - 1 - qi < grp.length := by omega
+              have hmm_in := grpMember mp hD hnN hkN hfind hlps hg (List.getElem_mem hlt_sub)
+              obtain ⟨mm', hmm', -, hidx', -⟩ := hmm_in
+              rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt_sub, Option.getD_some] at hsp_fit hi_in heq_pt
+              rw [hidx'] at hsp_fit heq_pt
+              have hne_pt := (IsTy_of_mem_strictU (famSpace_app (hY _ (Nat.lt_of_lt_of_le hmm' hkNN))
+                (by rw [← hidx']; exact hi_in))).ne_pt
+              rw [hidx'] at hne_pt
+              exact hne_pt (by
+                rw [← LfpDatum.holeVal_app (X := Y) hsp_fit]
+                exact heq_pt)
+            · exact absurd hlt (by omega)
+            · have h_nf := frame_item_nofit mp hD hnN hkN hfind hlps hds hdsa hlenP hg hin hΔ hCds hLds
+                hlt' (hagree _ _ hR') (hR₀.dom _ _ hR').1 (hR₀.dom _ _ hR').2
+                (hkf _ _ hR').1 (hkf _ _ hR').2 hY hY' hlen hnf hH_occ
+              exact ⟨qi, vs, y, heq, h_nf⟩
+        have hmixS' := mixT_mem (G := InGrp D grp)
+          (C := D.carrier ψ (keyFrame dsa hi (Semantics.prepend p' tail)))
+          (lfpTuple_mem _ _ _ _ (D.hΦ _ _)) hY'
+        exact (h.fibre _ _ hs' _ hmixS' m hm j (by change j ∈ˢ IsY p' m; rw [← hIs' p p' hR' m hGm]; exact hjI)
+          (D.inj (Level.substFn φ lps us) m j' fs)).mpr ⟨j', fs, hf', rfl⟩
+    have hmain := lfpP_acc_group hSp hRp hHasP hIsY_def hΘ hΘ_def hIs' hcl hmaps hsacc hacc
+    -- the carrier on the group is the mixed operator's least tuple
+    have hcarr : ∀ ρ₁ ρ₂, R₀ ρ₁ ρ₂ → ∀ c', InGrp D grp c' →
+        lfpTuple (D.w ψ) D.N (D.idx ψ (keyFrame dsa hi ρ₁))
+            (fun Y => D.Φ ψ (keyFrame dsa hi ρ₁)
+              (mixT (InGrp D grp) (D.carrier ψ (keyFrame dsa hi ρ₁)) Y))
+            (mixT_defTupleOp (InGrp D grp) (D.carrier ψ (keyFrame dsa hi ρ₁))
+              (D.hΦ ψ (keyFrame dsa hi ρ₁))) c'
+          = D.carrier ψ (keyFrame dsa hi ρ₁) c' := by
+      intro ρ₁ ρ₂ hr' c' hc'
+      exact lfpTuple_mixT (hΦ := D.hΦ ψ (keyFrame dsa hi ρ₁))
+        (h.closed (hfit ρ₁ ρ₂ hr').1) (hDmono ρ₁ ρ₂ hr') (hDmaps ρ₁ ρ₂ hr') c'
+        (Nat.lt_of_lt_of_le hc'.1 hkNN) hc'
+    let p : Fin hi → V := fun q => ρ q.val
+    have hp_eq : Semantics.prepend p tail = ρ := by
+      funext k
+      by_cases hk : k < hi
+      · simp [Semantics.prepend, hk, p]
+      · simp only [Semantics.prepend, hk, ↓reduceDIte, tail]
+        rw [show k - hi + hi = k by omega]
+        exact (hagree ρ ρ₀ hr k (fun hpar => by exact absurd hpar.1 hk)).symm
+    have hp_sp : Sp p := by dsimp [Sp]; rw [hp_eq]; exact hR₀.lrefl ρ ρ₀ hr
+    rw [← hp_eq] at hiI hx
+    rw [← hcarr (Semantics.prepend p tail) (Semantics.prepend p tail) (by dsimp [Sp] at hp_sp; exact hp_sp) c hc] at hx
+    obtain ⟨B, g, hB, hg', hitems, htr⟩ := hmain p hp_sp c (Nat.lt_of_lt_of_le hc.1 hkNN) hc i hiI x hx
+    dsimp only [A] at hB
+    rw [hp_eq] at hB
+    let B' : V := sep B (fun b => app g b ∈ˢ occSpaceQ ρ qs)
+      (hasSep_of_defPred (DefRel.mem_apply (DefFun.app_apply (DefFun.const g) (DefFun.proj 0))
+        (DefFun.const (occSpaceQ ρ qs))))
+    let g' : V := graph (fun b => app g b) B'
+      (hasGraph_of_defFun1 (DefFun.app_apply (DefFun.const g) (DefFun.proj 0)))
+    refine ⟨B', g', fun b hb => hB b (sep_subset b hb),
+      ⟨O_sp p, graph_mem_piSet fun b hb => app_mem_of_mem_piSet hg' (sep_subset b hb)⟩,
+      fun b hb => ?_, fun ρ' hr' hheld => ?_⟩
+    · have hb' := mem_sep.mp hb
+      have h_app : app g' b = app g b := app_graph hb
+      rw [h_app]
+      obtain ⟨hA_item, -⟩ := holdsQ_iff.mp (hitems b hb'.1)
+      refine ⟨(admItem_congrQ hqs).mpr hA_item, ?_⟩
+      obtain ⟨⟨qj, qn⟩, -, ho_mem⟩ := mem_occSpaceQ_iff.mp hb'.2
+      obtain ⟨vs, y, -, heq, hnp, hy⟩ := mem_graphOccs_iff.mp ho_mem
+      exact ⟨qj, vs, y, heq, hnp, hy⟩
+    · have hpt_eq : Semantics.prepend (fun q : Fin hi => ρ' q.val) tail = ρ' := by
+        funext k
+        by_cases hk : k < hi
+        · simp [Semantics.prepend, hk]
+        · simp only [Semantics.prepend, hk, ↓reduceDIte, tail]
+          rw [show k - hi + hi = k by omega]
+          have h1 := hagree ρ ρ₀ hr k (fun hpar => absurd hpar.1 hk)
+          have h2 := hagree ρ ρ' hr' k (fun hpar => absurd hpar.1 hk)
+          exact h1.symm.trans h2
+      let p' : Fin hi → V := fun q => ρ' q.val
+      have hp'_rp : Rp p p' := by dsimp [Rp]; rw [hp_eq, hpt_eq]; exact hr'
+      have hp'_sp : Sp p' := by
+        dsimp [Sp]; rw [hpt_eq]; exact hR₀.lrefl ρ' ρ (hR₀.symm ρ ρ' hr')
+      have hsub : ∀ b, b ∈ˢ B → HasP p' (app g b) := by
+        intro b hb
+        have h_src := hitems b hb
+        dsimp only [HasP] at h_src
+        rw [hp_eq] at h_src
+        obtain ⟨hA_src, qi, vs, y, heq, hy⟩ := holdsQ_iff.mp h_src
+        have hQ_src : HoleQ ctx prog hi qi vs.length := by
+          obtain ⟨qi', vs', y', heq', hqin⟩ := hA_src
+          rw [heq] at heq'
+          obtain ⟨rfl, rfl, rfl⟩ := occEncItem_inj heq'
+          exact (hqs _ _).mpr hqin
+        by_cases hb_occ : app g b ∈ˢ occSpaceQ ρ qs
+        · have hb' : b ∈ˢ B' := mem_sep.mpr ⟨hb, hb_occ⟩
+          have h_tgt := hheld b hb'
+          rw [app_graph hb'] at h_tgt
+          dsimp [HasP]; rw [hpt_eq]
+          exact holdsQ_iff.mpr ⟨hA_src, h_tgt⟩
+        · have hnp : ¬ NoPtPrefix (ρ qi) vs := by
+            intro hnp'
+            exact hb_occ (heq ▸ occEncItem_mem_occSpaceQ hqs ⟨qi, vs, y, rfl, hQ_src⟩
+              ⟨qi, vs, y, rfl, hnp', hy⟩)
+          have hpt_sub := hR₀.ptHit ρ ρ' hr' qi vs (hhi ▸ hQ_src) hnp
+          have hy_pt : y ∈ˢ (pt : V) := by
+            rwa [← foldlApp_eq_pt_of_not_noPtPrefix hnp]
+          dsimp [HasP]; rw [hpt_eq]
+          exact holdsQ_iff.mpr ⟨hA_src, qi, vs, y, heq, hpt_sub y hy_pt⟩
+      have hx' := htr p' hp'_rp hp'_sp hsub
+      have h_lfp_congr : ∀ {Is₁ Is₂ : Nat → V} {Φ₁ Φ₂ : (Nat → V) → Nat → V}
+          {h₁ : DefTupleOp D.N Φ₁} {h₂ : DefTupleOp D.N Φ₂},
+          Is₁ = Is₂ → Φ₁ = Φ₂ → lfpTuple (D.w ψ) D.N Is₁ Φ₁ h₁ = lfpTuple (D.w ψ) D.N Is₂ Φ₂ h₂ := by
+        rintro _ _ _ _ _ _ rfl rfl; rfl
+      have h_lfp_eq := h_lfp_congr
+        (Is₁ := IsY p') (Is₂ := D.idx ψ (keyFrame dsa hi ρ'))
+        (h₁ := hΘ p')
+        (h₂ := mixT_defTupleOp (InGrp D grp) (D.carrier ψ (keyFrame dsa hi ρ'))
+          (D.hΦ ψ (keyFrame dsa hi ρ')))
+        (by dsimp only [IsY]; rw [hpt_eq])
+        (by dsimp only [Θ]; rw [hpt_eq])
+      rw [h_lfp_eq] at hx'
+      rw [← hcarr ρ' ρ (hR₀.symm ρ ρ' hr') c hc]
+      exact hx'
 
 set_option maxHeartbeats 1600000 in
 /-- **A frame's constructors make it accessible** (the accessibility
@@ -961,7 +1933,20 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat}
     FrameAccOut w ctx prog hi (fitRel R₀ D (Level.substFn φ lps us) dsa hi) D
       (Level.substFn φ lps us) dsa (InGrp D grp) := by
   have hQ := grpCtors_found hg hcov hgc
-  have hR₁ := hR₀.restrict (KeyFit D (Level.substFn φ lps us) dsa hi)
+  have hR₁ := hR₀.restrict (KeyFit D (Level.substFn φ lps us) dsa hi) fun tail => by
+    let ψ := Level.substFn φ lps us
+    let Xs_kf : Fin dsa.length → (Fin hi → V) → V := fun l ps =>
+      interp V (Semantics.prepend ps tail) (dsa[dsa.length - 1 - l.val]'(by omega))
+    have hXs_kf : ∀ l, DefFun hi (Xs_kf l) := fun l =>
+      interp_defFun_prepend tail hi (dsa[dsa.length - 1 - l.val]'(by omega))
+    have h1 := defRel_sat_prepend tail Xs_kf hXs_kf (D.params ψ).reverse
+    have h2 : DefRel hi fun v => ∃ mm, mm < D.k ∧ ∃ is,
+        SpineFit (Semantics.prepend (fun l => Xs_kf l v) tail) (D.ids mm ψ) is :=
+      DefRel.finExists_lt fun mm _ => defRel_exists_spineFit_prepend tail (D.ids mm ψ) Xs_kf hXs_kf
+    refine (DefRel.and h1 h2).congr fun v => ?_
+    change (_ ∧ _) ↔ D.FrFit ψ (keyFrame dsa hi (Semantics.prepend v tail))
+    unfold LfpDatum.FrFit
+    rw [keyFrame_prepend_eq_caf]
   have hkf : ∀ ρ ρ', fitRel R₀ D (Level.substFn φ lps us) dsa hi ρ ρ' →
       KeyFit D (Level.substFn φ lps us) dsa hi ρ ∧ KeyFit D (Level.substFn φ lps us) dsa hi ρ' :=
     fun _ _ hr => hr.2

@@ -40,21 +40,28 @@ calls (`GenClassInd`, `GenRecAssembly.lean`). -/
     (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
     (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
     (ψ : Name → Nat) (ρ : Nat → V) (call : List V → Nat → Nat → List V → V → Prop) : Prop :=
-  ∀ xs : List V, ∀ P : V → Prop,
-    (∀ u, u ∈ˢ unionSet (tgtRs out).length
+  ∀ xs : List V,
+    (hSep : ∀ c j fs, HasSep (unionSet (tgtRs out).length
         (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
-        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) →
-      (∃ e, graphDecG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-          (tgtClsInj d Dc mc cvc p out ψ) (blockRecNCt (tgtRs out))
-          (tgtRs out).length
-          (tgtClsFit d Dc mc cvc acval envC p out ψ ρ) xs u e ∧
-        ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-            (tgtClsCr d Dc mc cvc acval envC p out ψ ρ)
-            (tgtRs out).length call xs e →
-          P v) → P u) →
-    ∀ u, u ∈ˢ unionSet (tgtRs out).length
+        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs)) (call xs c j fs)) →
+    ∀ P : V → Prop,
+      HasSep (unionSet (tgtRs out).length
         (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
-        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) → P u
+        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs)) P →
+      (∀ u, u ∈ˢ unionSet (tgtRs out).length
+          (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) →
+        (∃ e, graphDecG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
+            (tgtClsInj d Dc mc cvc p out ψ) (blockRecNCt (tgtRs out))
+            (tgtRs out).length
+            (tgtClsFit d Dc mc cvc acval envC p out ψ ρ) xs u e ∧
+          ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
+              (tgtClsCr d Dc mc cvc acval envC p out ψ ρ)
+              (tgtRs out).length call xs e (hSep e.1 e.2.1 e.2.2) →
+            P v) → P u) →
+      ∀ u, u ∈ˢ unionSet (tgtRs out).length
+          (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) → P u
 
 section Rows
 

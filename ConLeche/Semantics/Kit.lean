@@ -145,7 +145,7 @@ theorem interp_congr_below :
   | lam A b ihA ihb =>
     intro k ρ ρ' hb hag
     simp only [interp_lam, ihA k ρ ρ' hb.1 hag]
-    refine lamV_congr fun x _ => ihb (k + 1) _ _ hb.2 ?_
+    refine lamV_congr _ _ fun x _ => ihb (k + 1) _ _ hb.2 ?_
     intro i hi
     cases i with
     | zero => rfl
@@ -153,7 +153,7 @@ theorem interp_congr_below :
   | pi A B ihA ihB =>
     intro k ρ ρ' hb hag
     simp only [interp_pi, ihA k ρ ρ' hb.1 hag]
-    refine piV_congr fun x _ => ihB (k + 1) _ _ hb.2 ?_
+    refine piV_congr _ _ fun x _ => ihB (k + 1) _ _ hb.2 ?_
     intro i hi
     cases i with
     | zero => rfl

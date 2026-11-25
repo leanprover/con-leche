@@ -469,11 +469,15 @@ theorem extendNatSucc (mp : EnvModelM V env)
         = Term.const .natSucc [] := by
       rw [hac, show natSuccName = natSuccA.name from rfl,
         acvalWith_self]
-    rw [hZl, hNl, hSl]
-    exact ⟨by simpa [interp_const, bval] using
-        (natzero_mem : (natzero : V) ∈ˢ omega),
-      by simpa [interp_const, bval] using natSuccV_mem V,
-      by simpa [interp_const, bval] using (IsTy_omega : IsTy (omega : V))⟩
+    refine ⟨?_, ?_, ?_⟩
+    · rw [hZl, hNl]
+      simpa [interp_const, bval] using (natzero_mem : (natzero : V) ∈ˢ omega)
+    · have hN' : interp V ρ (m₂.acval natName (Level.substFn φ [] [])) = omega := by
+        rw [hNl, interp_const, bval]
+      rw [hSl, piR_ext hN' _ (hasSigmaPairs_const _ _) fun _ _ => hN']
+      simpa [interp_const, bval] using natSuccV_mem V
+    · rw [hNl]
+      simpa [interp_const, bval] using (IsTy_omega : IsTy (omega : V))
   · exact fun m₂ hac φ => recRules_cons_fresh mp (c₀ := natSuccA)
       hfresh (fun _ _ _ _ _ h => nomatch h) m₂ hac φ
 
@@ -503,10 +507,10 @@ theorem natStepTy_interp (ρ : Nat → V) (M z : V) :
     interp V (cons z (cons M ρ)) (natStepTy) = natStepSpace V M := by
   rw [natStepTy, interp_pi]
   simp only [interp_const, bval]
-  refine piV_congr fun n hn => ?_
+  refine piV_congr _ _ fun n hn => ?_
   rw [interp_pi]
   simp only [interp_app, interp_bvar, interp_const, cons, bval]
-  exact piV_congr fun _ _ => by rw [natSuccV_app V hn]
+  exact piV_congr _ _ fun _ _ => by rw [natSuccV_app V hn]
 
 /-- The `zero` rule's RHS reading. -/
 def natZeroRa (ψ : Name → Nat) : Term :=
@@ -618,7 +622,8 @@ theorem natStepTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) (M z : V)
         = app M (app (natSuccV V) n) := by
     intro n ih; simp [interp_app, interp_bvar, interp_const, cons,
       bval]
-  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := by
+  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) (fun _ => univ (ψ uN))
+      (hasSigmaPairs_const _ _) := by
     rw [← piV_univ_eq_pos (Nat.succ_ne_zero _) (natzero_mem (V := V)) _ fun _ _ => ⟨_, rfl⟩]
     exact hM
   refine ⟨trivial, IsTy_omega, fun n hn => ?_, fun _ _ => IsTy_piV⟩
@@ -645,13 +650,32 @@ theorem natStepTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) (M z : V)
 
 /-! ### The two RHS towers, interpreted and graded -/
 
+theorem defFun_natSuccRa_body {k : Nat} (u : Nat)
+    {M z s n : (Fin k → V) → V}
+    (hM : DefFun k M) (hz : DefFun k z) (hs : DefFun k s) (hn : DefFun k n) :
+    DefFun k fun env =>
+      app (app (s env) (n env))
+        (app (app (app (app (natRecV V u) (M env)) (z env)) (s env)) (n env)) :=
+  DefFun.app_apply (DefFun.app_apply hs hn)
+    (DefFun.app_apply (DefFun.app_apply (DefFun.app_apply
+      (DefFun.app_apply (DefFun.const (natRecV V u)) hM) hz) hs) hn)
+
 theorem natZeroRa_interp (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (natZeroRa ψ)
       = lamV (natMotiveSpace V (ψ uN))
           (fun M => lamV (app M natzero)
             (fun z => lamV
               (natStepSpace V M)
-              (fun _ => z))) := by
+              (fun _ => z)
+              (hasGraph_const _ _))
+            (hasGraph_of_defFun1
+              (DefFun.lamV_apply_curry (DefFun.proj 1)
+                (defFun_natStepSpace (DefFun.const M)))))
+          (hasGraph_of_defFun1
+            (DefFun.lamV_apply_curry
+              (DefFun.lamV_apply_curry (DefFun.proj 1)
+                (defFun_natStepSpace (DefFun.proj 1)))
+              (DefFun.app_apply (DefFun.proj 0) DefFun.natzero))) := by
   simp only [natZeroRa, interp_lam, interp_app, interp_bvar,
     interp_const, cons, bval, natMotiveTy_interp, natStepTy_interp]
 
@@ -663,8 +687,31 @@ theorem natSuccRa_interp (ψ : Name → Nat) (ρ : Nat → V) :
               (natStepSpace V M)
               (fun s => lamV omega
                 (fun n => app (app s n)
-                  (app (app (app (app (natRecV V (ψ uN)) M) z) s)
-                    n))))) := by
+                  (app (app (app (app (natRecV V (ψ uN)) M) z) s) n))
+                (hasGraph_of_defFun1
+                  (defFun_natSuccRa_body (ψ uN)
+                    (DefFun.const M) (DefFun.const z) (DefFun.const s) (DefFun.proj 0))))
+              (hasGraph_of_defFun1
+                (DefFun.lamV_apply_curry
+                  (defFun_natSuccRa_body (ψ uN)
+                    (DefFun.const M) (DefFun.const z) (DefFun.proj 1) (DefFun.proj 0))
+                  DefFun.omega_const)))
+            (hasGraph_of_defFun1
+              (DefFun.lamV_apply_curry
+                (DefFun.lamV_apply_curry
+                  (defFun_natSuccRa_body (ψ uN)
+                    (DefFun.const M) (DefFun.proj 2) (DefFun.proj 1) (DefFun.proj 0))
+                  DefFun.omega_const)
+                (defFun_natStepSpace (DefFun.const M)))))
+          (hasGraph_of_defFun1
+            (DefFun.lamV_apply_curry
+              (DefFun.lamV_apply_curry
+                (DefFun.lamV_apply_curry
+                  (defFun_natSuccRa_body (ψ uN)
+                    (DefFun.proj 3) (DefFun.proj 2) (DefFun.proj 1) (DefFun.proj 0))
+                  DefFun.omega_const)
+                (defFun_natStepSpace (DefFun.proj 1)))
+              (DefFun.app_apply (DefFun.proj 0) DefFun.natzero))) := by
   simp only [natSuccRa, interp_lam, interp_app, interp_bvar,
     interp_const, cons, bval, natMotiveTy_interp,
     natStepTy_interp, ConLeche.Term.lv, List.getD_cons_zero]
@@ -699,11 +746,11 @@ theorem natRecSpine_wellDenoted {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : Term}
     intro a1 a2
     rw [interp_pi]
     simp only [natTyAV, interp_const, bval]
-    refine piV_congr fun k hk => ?_
+    refine piV_congr _ _ fun k hk => ?_
     rw [interp_pi]
     simp only [natSuccAV, interp_app, interp_bvar, interp_const,
       cons, bval]
-    exact piV_congr fun _ _ => by rw [natSuccV_app V hk]
+    exact piV_congr _ _ fun _ _ => by rw [natSuccV_app V hk]
   have d4 : ∀ a1 a2 a3 : V,
       interp V (cons a3 (cons a2 (cons a1 ρ))) natTyAV = (omega : V) := by
     intro _ _ _; simp [natTyAV, interp_const, bval]
@@ -714,7 +761,7 @@ theorem natRecSpine_wellDenoted {u : Nat} (ρ : Nat → V) {e1 e2 e3 e4 : Term}
     · rw [WellDenoted_app]
       refine ⟨⟨trivial, h1, ?_⟩, h2, ?_⟩
       · exact bconst_appliesTo V .natRec [u] ρ rfl (by rw [hlv, d1]; exact m1)
-          (by rw [hlv, d1]; exact IsTy_piR _ _ _)
+          (by rw [hlv, d1]; exact IsTy_piV)
       · refine bconst_appliesTo_2 V .natRec [u] ρ rfl
           (by rw [hlv, d1]; exact m1) ?_
           (by rw [d2]; exact IsTy_of_mem_univ (natMotive_apply V m1 natzero_mem))
@@ -743,8 +790,9 @@ theorem natZeroRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
     intro M z hM
     rw [WellDenoted_lam, natStepTy_interp]
     exact ⟨natStepTy_wellDenoted ψ ρ M z hM, IsTy_piV, fun _ _ => trivial⟩
-  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piR _ _ _, fun M hM => ?_⟩
-  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := by
+  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piV, fun M hM => ?_⟩
+  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) (fun _ => univ (ψ uN))
+      (hasSigmaPairs_const _ _) := by
     rw [← piV_univ_eq_pos (Nat.succ_ne_zero _) (natzero_mem (V := V)) _ fun _ _ => ⟨_, rfl⟩]
     exact hM
   rw [WellDenoted_lam, hzty]
@@ -774,8 +822,10 @@ theorem natSuccRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
             (.app (.app (.app (.app (.const .natRec [ψ uN]) (.bvar 3))
               (.bvar 2)) (.bvar 1)) (.bvar 0))) := by
     intro M z s hM hz hs n hn
-    have hsn : app s n ∈ˢ piV (app M n) (fun _ => app M (natsucc n)) :=
-      app_mem_piV (B := fun k => piV (app M k) fun _ => app M (natsucc k)) hs hn
+    have hsn : app s n ∈ˢ piV (app M n) (fun _ => app M (natsucc n))
+        (hasSigmaPairs_const _ _) :=
+      app_mem_piV (B := fun k => piV (app M k) (fun _ => app M (natsucc k))
+        (hasSigmaPairs_const _ _)) hs hn
     have hrec : app (app (app (app (natRecV V (ψ uN)) M) z) s) n
         ∈ˢ app M n := by
       rw [natRecV_app V hM hz hs hn]
@@ -791,7 +841,8 @@ theorem natSuccRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
       simp [interp_app, interp_bvar, cons]
     have hap : AppliesTo s n :=
       appliesTo_of_mem_piV (A := omega)
-        (B := fun k => piV (app M k) fun _ => app M (natsucc k)) hs IsTy_omega hn
+        (B := fun k => piV (app M k) (fun _ => app M (natsucc k))
+          (hasSigmaPairs_const _ _)) hs IsTy_omega hn
     rw [WellDenoted_app]
     refine ⟨⟨trivial, trivial, by simpa [interp_bvar, cons] using hap⟩, ?_, ?_⟩
     · refine natRecSpine_wellDenoted (u := ψ uN) _ trivial trivial trivial
@@ -826,8 +877,9 @@ theorem natSuccRa_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
     exact ⟨natStepTy_wellDenoted ψ ρ M z hM, IsTy_piV,
       fun s hs => hlam4 M z s hM hz hs⟩
   rw [natSuccRa, WellDenoted_lam, natMotiveTy_interp]
-  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piR _ _ _, fun M hM => ?_⟩
-  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) fun _ => univ (ψ uN) := by
+  refine ⟨natMotiveTy_wellDenoted ψ ρ, IsTy_piV, fun M hM => ?_⟩
+  have hM' : M ∈ˢ piR (ψ uN + 1) (omega : V) (fun _ => univ (ψ uN))
+      (hasSigmaPairs_const _ _) := by
     rw [← piV_univ_eq_pos (Nat.succ_ne_zero _) (natzero_mem (V := V)) _ fun _ _ => ⟨_, rfl⟩]
     exact hM
   rw [WellDenoted_lam, hzty]
@@ -872,11 +924,17 @@ theorem natRecTelescope (ψ : Name → Nat) (ρ : Nat → V)
   refine ⟨M, z, s, rfl, h1, ?_, ?_, ?_⟩
   · simpa [Term.inst, Term.liftN_zero, interp_app, interp_bvar,
       interp_const, cons, bval] using h2
-  · have heq : (piV (omega : V) fun x =>
+  · have heq : (piV (omega : V) (fun x =>
           piV (app (interp V ρ M) x)
-            fun _ => app (interp V ρ M) (app (natSuccV V) x))
+            (fun _ => app (interp V ρ M) (app (natSuccV V) x))
+            (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_of_defFun1
+            (DefFun.piV_apply_curry
+              (DefFun.app_apply (DefFun.const (interp V ρ M)) (DefFun.proj 0))
+              (DefFun.app_apply (DefFun.const (interp V ρ M))
+                (DefFun.app_apply (DefFun.const (natSuccV V)) (DefFun.proj 1))))))
         = natStepSpace V (interp V ρ M) :=
-      piV_congr fun n hn => piV_congr fun _ _ => by rw [natSuccV_app V hn]
+      piV_congr _ _ fun n hn => piV_congr _ _ fun _ _ => by rw [natSuccV_app V hn]
     rw [← heq]
     simpa [Term.inst, Term.liftN_zero, natStepTy,
       interp_liftN2_inst1, interp_liftN3_inst2, interp_pi,
@@ -890,7 +948,15 @@ theorem natZeroRa_mem (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (natZeroRa ψ)
       ∈ˢ piV (natMotiveSpace V (ψ uN))
         (fun M => piV (app M natzero)
-          (fun _ => piV (natStepSpace V M) (fun _ => app M natzero))) := by
+          (fun _ => piV (natStepSpace V M) (fun _ => app M natzero)
+            (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry
+            (DefFun.app_apply (DefFun.proj 0) DefFun.natzero)
+            (DefFun.piV_apply_curry
+              (defFun_natStepSpace (DefFun.proj 1))
+              (DefFun.app_apply (DefFun.proj 2) DefFun.natzero)))) := by
   rw [natZeroRa_interp]
   refine lamV_mem (fun M hM => lamV_mem (fun z hz => lamV_mem (fun _ _ => hz)
     fun _ _ => ?_) fun _ _ => IsTy_piV) fun _ _ => IsTy_piV
@@ -903,13 +969,27 @@ theorem natSuccRa_mem (ψ : Name → Nat) (ρ : Nat → V) :
         (fun M => piV (app M natzero)
           (fun _ => piV (natStepSpace V M)
             (fun _ => piV omega
-              (fun n => app M (natsucc n))))) := by
+              (fun n => app M (natsucc n))
+              (hasSigmaPairs_of_defFun1
+                (DefFun.app_apply (DefFun.const M)
+                  (DefFun.natsucc_apply (DefFun.proj 0)))))
+            (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry
+            (DefFun.app_apply (DefFun.proj 0) DefFun.natzero)
+            (DefFun.piV_apply_curry
+              (defFun_natStepSpace (DefFun.proj 1))
+              (DefFun.piV_apply_curry DefFun.omega_const
+                (DefFun.app_apply (DefFun.proj 3)
+                  (DefFun.natsucc_apply (DefFun.proj 0))))))) := by
   rw [natSuccRa_interp]
   refine lamV_mem (fun M hM => lamV_mem (fun z hz =>
     lamV_mem (fun s hs => lamV_mem (fun n hn => ?_) fun n hn =>
       IsTy_of_mem_univ (natMotive_apply V hM (natsucc_mem hn)))
       fun _ _ => IsTy_piV) fun _ _ => IsTy_piV) fun _ _ => IsTy_piV
-  have hsn := app_mem_piV (B := fun k => piV (app M k) fun _ => app M (natsucc k)) hs hn
+  have hsn := app_mem_piV (B := fun k => piV (app M k) (fun _ => app M (natsucc k))
+    (hasSigmaPairs_const _ _)) hs hn
   refine app_mem_piV hsn ?_
   rw [natRecV_app V hM hz hs hn]
   exact natRecV_mem_fibre V hz hs hn
@@ -934,7 +1014,7 @@ theorem natZeroRa_transport (ψ : Name → Nat) (ρ : Nat → V)
   refine ⟨?_, okz, appliesTo_of_mem_piV h1 hMz hz⟩
   rw [WellDenoted_app]
   exact ⟨natZeroRa_wellDenoted ψ ρ, okM,
-    appliesTo_of_mem_piV (natZeroRa_mem ψ ρ) (IsTy_piR _ _ _) hM⟩
+    appliesTo_of_mem_piV (natZeroRa_mem ψ ρ) (IsTy_piV) hM⟩
 
 /-- The `succ` rule's transport: four steps. -/
 theorem natSuccRa_transport (ψ : Name → Nat) (ρ : Nat → V)
@@ -958,7 +1038,7 @@ theorem natSuccRa_transport (ψ : Name → Nat) (ρ : Nat → V)
     (IsTy_of_mem_univ (natMotive_apply V hM (natzero_mem (V := V)))) hz⟩
   rw [WellDenoted_app]
   exact ⟨natSuccRa_wellDenoted ψ ρ, okM,
-    appliesTo_of_mem_piV (natSuccRa_mem ψ ρ) (IsTy_piR _ _ _) hM⟩
+    appliesTo_of_mem_piV (natSuccRa_mem ψ ρ) (IsTy_piV) hM⟩
 
 /-- Both rows share this: the recursor's instantiated type reading,
 folded back into the two named domains. -/
