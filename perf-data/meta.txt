@@ -1,21 +1,11 @@
-sha	a0f1865afe2bbdf948a0cf90a224004080c14336
-shashort	a0f1865af
-binsha	f7b066c1022134d15fe067df29edf386a1491b1d
+sha	cfa7cd1df
 dirty	0
-date	2026-10-13T02:19:56+00:00
-host	bubblewrap
+toolchain	v4.36.0
+date	2026-11-25T17:56:10+00:00
 cpu	AMD EPYC 9455 48-Core Processor
 cores	96
 mem	125 GB
-kernelver	6.12.111
-official	<checkout>/_tmp/ref/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel
-binmd5	4f88173b2bc04a85c902516f498c8109
-mathlibstream	`<checkout>/_tmp/ref/mathlib-full.ndjson` (6069002157 bytes, 107820903 lines, raw)
-note	con-leche at `a0f1865a`, built with **Lean v4.35.0-rc3** (the repository's `lean-toolchain`), measured end to end in one session: one pair of binaries, one set of streams, no cell carried forward.  The `official v4.33.0` binary is the arena's own `checkers/official-v4.33.0` (`leanprover/lean-kernel-arena` at `aa259bf^`, the last revision that carried that directory; `echo leanprover/lean4:v4.33.0 > lean-toolchain && lake build`; md5 `6125c70e83490973a07be2ea69523a2c`).  The streams are Lean **v4.33.0** exports, read unchanged by both checkers: `mathlib-full` is `lean4export` at `15f6055` over the `Mathlib` module of mathlib4 `6f1ef4e5` (the last mathlib4 commit on v4.33.0), **6 069 002 157 bytes, 107 820 903 lines, 691 203 declaration records**; `init-full` is `lean4export` of `Init` at v4.33.0, 57 977 declaration records, 347 714 179 bytes.
-loadnote	shared machine throughout — the per-cell load average is recorded in `perf-data/table.tsv`
-configs	official trusted verified
-reps	1
-timeout	3000
-mathlibnote	**All of Mathlib, all three checkers, one stream.**  The `mathlib-full` row is the whole export described in the header.  **Every cell accepts**: official 707 578 declarations, con-leche 691 203 declaration records in both modes, at **0.69× verified and 0.62× trusted**, where `init-full` sits at 0.93× / 0.92×.  The count difference is the official binary's counting (see below), not a verdict difference.  **Parsing.**  The official checker's `--parse-only` mode costs a flat ~306 instructions per input byte: 106.83 G on `init-full`'s 347.7 MB and 1 852.40 G on this row's 6 069.0 MB (307.2 / 305.2 instr/B), so reading the file is 24.3 % of its `init-full` run and 18.1 % of its full-Mathlib run.  Charge con-leche its whole run, its own parse included, against official's run without its parse, and the verified ratio is 1.23× on `init-full` and 0.84× on `mathlib-full` (trusted 1.21× / 0.76×).  **Per declaration.**  Official's run without its parse costs 5.60 M instructions per declaration on `init-full` and 11.89 M on all of Mathlib, ×2.12; con-leche's whole verified run costs 7.04 M per record on `init-full` and 10.19 M on all of Mathlib, ×1.45.  Mathlib's declarations are heavier than Init's for both checkers; official's cost per declaration grows the faster of the two.
-allocnote	**The Lean runtime's allocator and reference counting are a large share of con-leche's instructions.**  The binary is built with Lean v4.35.0-rc3, whose small-object path is `lean_alloc_small_object_core`/`lean_free_object` over mimalloc.  A `perf record -e instructions:u` of the verified mode at `--jobs=1` puts the allocation and reference-counting symbols (`mi_*`, `lean_alloc*`, `lean_free*`, `lean_dec_ref*`, `lean_del*`) at **48 % of `grind-ring-5`, 45 % of `init-prelude` and 45 % of `init-full`**, `lean_dec_ref_cold` alone at 16–20 %; the same symbols are 25 % of a profile of official's `init-full` run.  Peak resident set on `mathlib-full` is 4.27 GiB in both modes, against official's 11.44 GiB.
-parallelnote	The run's own `stats: phases:` line splits each cell.  On `mathlib-full`: parse 18.4 s, install 28.4 s, check 834.0 s at one worker; 8.1 s, 9.6 s, 169.2 s at four; 5.4 s, 5.3 s, 88.5 s at eight.  On `init-full`: 1.4 s, 1.4 s, 35.7 s; 0.6 s, 0.7 s, 10.0 s; 0.3 s, 0.6 s, 5.6 s.  The parse and the install shorten with the worker count as the check does: on `mathlib-full` they take 47 s ahead of the check at one worker (5 % of the run) and 11 s at eight (11 %).  The pool costs instructions: `mathlib-full` takes 7.05 T at one worker and 7.29 T at four and at eight (+3.5 %), `init-full` 408.38 G, 419.08 G and 419.83 G (+2.6 %, +2.8 %).  The one-worker wall time is noisy: the battery's verified `mathlib-full` cell above is the same run at the same instruction count (7.05 T) and took 10.7 min, its check phase 594 s.  Each worker thread reserves about 1 GiB of address space (`con-leche --help`), so a run under an `ulimit -v` can afford only so many of them; none of the cells here runs under one.  Peak resident set on `mathlib-full` is 4.27, 4.67 and 4.74 GiB at one, four and eight workers.
+officiallabel	official v4.33.0
+official	the lean-kernel-arena's `checkers/official-v4.33.0` (md5 `6125c70e83490973a07be2ea69523a2c`)
+streams	Lean v4.33.0 `lean4export` NDJSON: the arena's tests, `Init`, and `Mathlib` at mathlib4 `6f1ef4e5`
+parsenote	Parsing is a large share of the official run: its `--parse-only` mode costs about 306 instructions per input byte, 106.83 G on `init-full` and 1.85 T on `mathlib-full`.  Against the official run without its parse, con-leche's whole run (its own parse included) is 0.76× on `init-full` and 0.60× on `mathlib-full`.

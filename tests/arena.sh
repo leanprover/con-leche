@@ -334,6 +334,9 @@ arena_half() {
 # lit_hash_low_bits: BELOW the default — checks in under a second, and a
 # literal hash that reads only the low 64 bits (lean4#15686) makes it
 # quadratic, minutes, so it fails here instead.
+# proj_app_lazy_delta: BELOW the default — checks at once, and a checker
+# that reduces the structures of applied projections before comparing
+# them (task #633, lean4#16613) evaluates four billion steps.
 # whnf_delta_loop, whnf_core_loop: their expected verdict IS the timeout
 # (exit 124: a head normalization that does not terminate, run in
 # constant stack); 5 s is plenty to tell it from a stack overflow.
@@ -343,6 +346,7 @@ declare -A E2E_TIMEOUT=(
   [complete_c05b_nest30_pi1000.ndjson]=600
   [proj_stuck_struct.ndjson]=10
   [strict_succ_counter.ndjson]=10
+  [proj_app_lazy_delta.ndjson]=10
   [omega_kloop.ndjson]=10
   [omega_demo2.ndjson]=10
   [k_rescue_stuck.ndjson]=10
@@ -764,7 +768,7 @@ echo "worker pool: $jobs_ok/$jobs_total as expected"
 # The end-of-run statistics: every run, flag or not, closes its stderr
 # with `con-leche: stats:` lines -- the phase times, the check phase's
 # utilisation (with the tail at more than one worker), the slowest checks
-# -- after the verdict is known.  They are performance-only: stdout and the
+# (only those of at least 10 s, so none on these fixtures) -- after the verdict is known.  They are performance-only: stdout and the
 # exit code are the same with them, which the worker-pool lane above
 # already checks with the lines dropped.  Checked here: present on an
 # accept and on a rejection, in one thread and on the pool.
@@ -781,12 +785,12 @@ stats_check() { # <description> <condition-result>
 for jn in 1 4; do
   s_good=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_GOOD" 2>&1 >/dev/null)
   s_bad=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD" 2>&1 >/dev/null)
-  stats_check "--jobs=$jn: an accept prints the phases, the report and the slowest records" \
+  stats_check "--jobs=$jn: an accept prints the phases and the report, no slowest records (all under 10 s)" \
     "$(printf '%s\n' "$s_good" | grep -q '^con-leche: stats: phases: parse .*, check [0-9]' && \
        printf '%s\n' "$s_good" | grep -q '^con-leche: stats: check.* wall, .* busy ' && \
-       printf '%s\n' "$s_good" | grep -q '^con-leche: stats: slowest checks: [0-9]' && echo ok)"
+       ! printf '%s\n' "$s_good" | grep -q '^con-leche: stats: slowest checks: ' && echo ok)"
   stats_check "--jobs=$jn: a rejection prints them too" \
-    "$(printf '%s\n' "$s_bad" | grep -q '^con-leche: stats: slowest checks: ' && echo ok)"
+    "$(printf '%s\n' "$s_bad" | grep -q '^con-leche: stats: check.* wall, .* busy ' && echo ok)"
 done
 s_pool=$(timeout 120 "$BIN" --jobs=4 "$SPLIT_GOOD" 2>&1 >/dev/null)
 stats_check "--jobs=4: the pool reports its tail" \

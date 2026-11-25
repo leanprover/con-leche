@@ -19,12 +19,12 @@ This README is actually human written (with AI only doing copy-editing, fact che
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axioms in the input stream.
 
-  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L306-L307) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L315-L316) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
-  With [`--compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L155), axioms in the challenge are accepted when justified by the solution.
+  With [`--compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L142), axioms in the challenge are accepted when justified by the solution.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in two phases: *parsing* the input stream and *checking*. Both stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L146).
+* The checker processes files in two phases: *parsing* the input stream and *checking*. Both stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L139).
 * The JSON and olean parsers are fast agentic-hand-written parsers over the input bytes (verified with respect to naive ones).
 * It can optionally check a development in a modular fashion, and also compare challenges against solutions (see below).
 
@@ -62,7 +62,7 @@ This is the interesting theorem if you want to be sure that con-leche interprets
 
 The theorems above talk about the whole checker, including the driver that parses arguments, reads files, runs parallel threads, all in the `IO` monad. This is out of reach for a completely rigorous verification, but we can still do something meaningful here.
 
-To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L403) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L141) type class modelling three kinds of operations:
+To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L324) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L141) type class modelling three kinds of operations:
 
 * File access (existence, reading)
 * A [`parMapExcept`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L168) operator for parallelism
@@ -75,7 +75,7 @@ We perform proofs about such generic code in an idealized (pure, nondeterministi
 
 In the model, we assume nothing about `liftIO a` or its return value, except of course its type. Using a subtype there allows us to run, say, parallel code and still know that the result is what we need for the proof (e.g. [`checkDeclsIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L85) returning a subtype mentioning [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L106-L107)).
 
-The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L95) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L403) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L28), flushing the output and exiting the process.
+The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L95) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L324) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L28), flushing the output and exiting the process.
 
 If you find this deeply unnerving, you can look at [`model_exists`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/PureChecker.lean#L31-L34) theorem that talks about the pure parts of the checker, and convince yourself that that is what the driver calculates.
 
@@ -97,7 +97,7 @@ Unfortunately, this rule can make a function type look like it is a proposition:
 
 A consequence of this is we have a bit less structure in the semantic value of a function type than we would like to. In particular, we may not be able to read the domain off a value in `[∀ (x : Empty), B x]`. The proof still goes through if we do some extra calls to `infer` and `defeq`. For example when comparing two `.lambda` expressions we additionally check whether their bodies have the same type.
 
-We call this extra work the *certification tax* of our proof: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L145) mode where these checks are omitted to quantify the cost.
+We call this extra work the *certification tax* of our proof: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L138) mode where these checks are omitted to quantify the cost.
 
 ### Nat operations
 
@@ -119,7 +119,7 @@ Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory o
 
 ## The `.olean` parser
 
-In addition to reading the official export format (`.ndjson`), `con-leche` can also read `.olean` files directly. This avoids the need to run `lean4export`. You can either check all modules reachable from a root module, or just [the dependencies of a specific constant](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L167). See the usage section in [OVERVIEW.md](./OVERVIEW.md#0-using-the-checker) for how to use it.
+In addition to reading the official export format (`.ndjson`), `con-leche` can also read `.olean` files directly. This avoids the need to run `lean4export`. You can either check all modules reachable from a root module, or just [the dependencies of a specific constant](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L153). See the usage section in [OVERVIEW.md](./OVERVIEW.md#0-using-the-checker) for how to use it.
 
 The `.olean` “format” is not well-specified. We ship our own “naive” parser [`decodeModuleSpec`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/View.lean#L81), used by the [`InModulePart`](https://github.com/leanprover/con-leche/blob/master/ConLeche/OleanInput.lean#L83-L85) you see in the main theorem, as a specification, and then prove that the actual parsers we use (which are optimized, and may read partial data as needed) are correct with regard to that one. We cannot prove that `decodeModuleSpec` matches how Lean interprets its data structures, only test it (using the [`olean-compare`](./OleanCompare.lean) tool).
 
@@ -145,9 +145,9 @@ Note that this theorem does *not* say that there is one global model that works 
 * each module has a model
 * whenever two modules `m` and `m'` [see](https://github.com/leanprover/con-leche/blob/master/ConLeche/OleanInput.lean#L97-L98) the same name `n`, the model agrees. This means [Lean's module system visibility rules](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Snapshot.lean#L52-L66) are part of the trusted specification here.
 
-The [`--modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L201) flag loads and checks all modules in one process, and is not that useful – if you can do that, you might as well use the [`--olean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L165) that ignores the module system. To get the benefit of modular checking (e.g. lower memory usage) you can use [`con-leche --schedule`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L206). Then an (unverified) scheduler will invoke a fresh `con-leche` process on each module, keep memory usage in check, resumes from aborted runs, etc. See `con-leche --help` or the OVERVIEW section. The meaning of the commands that are executed by the scheduler together forms theorem [`main_modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L109-L120).
+The [`--modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L156) flag loads and checks all modules in one process, and is not that useful – if you can do that, you might as well use the [`--olean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L148) that ignores the module system. To get the benefit of modular checking (e.g. lower memory usage) you can use [`con-leche --schedule`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L157). Then an (unverified) scheduler will invoke a fresh `con-leche` process on each module, keep memory usage in check, resumes from aborted runs, etc. See `con-leche --help` or the OVERVIEW section. The meaning of the commands that are executed by the scheduler together forms theorem [`main_modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L109-L120).
 
-If the scheduler does not serve you well you can use [`con-leche --schedule-commands`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L226) to get the list of commands to run and schedule them yourself (possibly even distributed to multiple machines, if that is necessary).
+If the scheduler does not serve you well you can use [`con-leche --schedule-commands`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L164) to get the list of commands to run and schedule them yourself (possibly even distributed to multiple machines, if that is necessary).
 
 ## --compare
 
@@ -167,7 +167,7 @@ theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : 
 
 It is worth noting that the conclusion of the theorem says nothing about the solution. It just says that the challenge has a model. This is intentional: The solution is what allows the checker to *accept* the challenge, but it does not and must not affect what the challenge *means*.
 
-When reading olean files, one can pass different search directories for the challenge and the solution. The proof also says that the meaning of the challenge, i.e. whether it has a model or not, only depends on the files in the [trusted search path](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L189), nothing else on the file system. This is part of the statement of [`main_compare_model`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L88-L94) (and of [`main_modular_compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L143-L155) for `--modular`):
+When reading olean files, one can pass different search directories for the challenge and the solution. The proof also says that the meaning of the challenge, i.e. whether it has a model or not, only depends on the files in the [trusted search path](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L151), nothing else on the file system. This is part of the statement of [`main_compare_model`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L88-L94) (and of [`main_modular_compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L143-L155) for `--modular`):
 
 ```lean
 open Frontend in

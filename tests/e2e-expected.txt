@@ -3609,6 +3609,13 @@
 # the low 64 bits alone puts every key in one bucket and takes minutes,
 # which the 10 s timeout in tests/arena.sh turns into a failure (exit 124).
 0 lit_hash_low_bits.ndjson
+# proj_app_lazy_delta.ndjson (task #633, lean4#16613; arena test
+# perf/proj-app-lazy-delta at N = 2^32): `small.1 a =?= (big N).1 a`, where
+# one delta step makes the structures equal and reducing them evaluates
+# `slow N`.  Accepted at once by the lazy-delta loop on the structures of
+# applied projections; a checker that reduces the structures first (official,
+# and con-leche before #633) runs into the 10 s timeout (exit 124).
+0 proj_app_lazy_delta.ndjson
 
 # --compare on two lean4export files: CHALLENGE checked, its axioms justified by SOLUTION
 # (task #619; pairs exported from tests/e2e/src/cmp_*.lean by scripts/mk_cmp_fixtures.sh).  The

@@ -468,22 +468,23 @@ theorem lazyDeltaReduction_bridge (hwc : WhnfCoreBridge .verified eager env
       subst h
       exact ⟨.refl, .refl⟩
 
-/-- **`a.i =?= b.i` by the scrutinees** (`lazyDeltaProjReduction`) is
-sound, at every budget. -/
+/-- **`a.i as =?= b.i bs` by the scrutinees** (`lazyDeltaProjReduction`)
+is sound, at every budget: the projections and the argument lists. -/
 theorem lazyDeltaProjReduction_bridge (hwc : WhnfCoreBridge .verified eager
     env fuel)
     (hw : WhnfBridge .verified eager env fuel) (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified
         eager env fuel)
-    (hio : InferIOBridge .verified eager env fuel) {d : Nat} {sn : Name} {i : Nat} :
+    (hio : InferIOBridge .verified eager env fuel) {d : Nat} {sn : Name} {i : Nat}
+    {as bs : List Expr} :
     ∀ (n : Nat) {a b : Expr},
-      lazyDeltaProjReductionFueled .verified eager env fuel d sn i n a b = .ok true →
-      DefEq env d (.proj sn i a) (.proj sn i b)
+      lazyDeltaProjReductionFueled .verified eager env fuel d sn i as bs n a b = .ok true →
+      DefEq env d (.proj sn i a) (.proj sn i b) ∧ DefEqList env d as bs
   | 0, _, _, h => by
     simp [lazyDeltaProjReductionFueled, lazyDeltaProjReduction, throw, throwThe,
       MonadExceptOf.throw] at h
   | n + 1, a, b, h => by
     simp only [lazyDeltaProjReductionFueled, lazyDeltaProjReduction, Bind.bind,
-      Except.bind, lazyDeltaStep_fold, reduceProjCore_fold, defeq_def] at h
+      Except.bind, lazyDeltaStep_fold, reduceProjCore_fold, defEqList_fold, defeq_def] at h
     cases hs : lazyDeltaStepFueled .verified eager env fuel d a b with
     | error err => rw [hs] at h; exact nomatch h
     | ok st =>
@@ -493,11 +494,20 @@ theorem lazyDeltaProjReduction_bridge (hwc : WhnfCoreBridge .verified eager
     cases st
     case cont a' b' =>
       obtain ⟨ha, hb⟩ := hss
-      exact .redBoth (.projArg ha) (.projArg hb)
-        (lazyDeltaProjReduction_bridge hwc hw hd hi hio n h)
-    case eq => exact .proj hss
+      obtain ⟨hp, hl⟩ := lazyDeltaProjReduction_bridge hwc hw hd hi hio n h
+      exact ⟨.redBoth (.projArg ha) (.projArg hb) hp, hl⟩
+    case eq =>
+      have hl := (defEqList_bridge hd h).reverse
+      simp only [List.reverse_reverse] at hl
+      exact ⟨.proj hss, hl⟩
     all_goals
       dsimp only at h
+      split at h
+      case isFalse => simp [pure, Except.pure] at h
+      next hnil =>
+      simp only [Bool.and_eq_true, List.isEmpty_iff] at hnil
+      obtain ⟨rfl, rfl⟩ := hnil
+      refine ⟨?_, .nil⟩
       cases hra : reduceProjCoreFueled .verified eager env fuel d sn i a with
       | error err => rw [hra] at h; exact nomatch h
       | ok oa =>
@@ -518,7 +528,8 @@ theorem lazyDeltaProjReduction_bridge (hwc : WhnfCoreBridge .verified eager
         exact .redBoth (reduceProjCore_bridge hw hra)
           (reduceProjCore_bridge hw hrb) (hd h)
 
-/-- The proj/proj check. -/
+/-- The proj/proj check: projection congruence on the heads, the
+argument lists pairwise (`DefEq.spine`). -/
 theorem defeqProjPair_bridge (hwc : WhnfCoreBridge .verified eager env fuel)
     (hw : WhnfBridge .verified eager env fuel) (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified
         eager env fuel)
@@ -527,11 +538,13 @@ theorem defeqProjPair_bridge (hwc : WhnfCoreBridge .verified eager env fuel)
     DefEq env d a b := by
   simp only [defeqProjPairFueled, defeqProjPair, lazyDeltaProjReduction_fold] at h
   split at h
-  · split at h
+  · next ha hb =>
+    split at h
     · next hii =>
       simp only [Bool.and_eq_true, beq_iff_eq] at hii
-      obtain ⟨rfl, rfl⟩ := hii
-      exact lazyDeltaProjReduction_bridge hwc hw hd hi hio _ h
+      obtain ⟨⟨rfl, rfl⟩, _⟩ := hii
+      obtain ⟨hp, hl⟩ := lazyDeltaProjReduction_bridge hwc hw hd hi hio _ h
+      exact .spine (by rw [ha, hb]; exact hp) hl
     · simp [pure, Except.pure] at h
   · simp [pure, Except.pure] at h
 
