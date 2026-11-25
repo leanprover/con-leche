@@ -303,7 +303,7 @@ abbrev lazyDeltaReductionFueled (mode : CheckMode) (eager : Bool) (env : Env) (f
 
 abbrev lazyDeltaProjReductionFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) :
     Nat →
-    Name → Nat → Nat → Expr → Expr → CheckM Bool :=
+    Name → Nat → List Expr → List Expr → Nat → Expr → Expr → CheckM Bool :=
   lazyDeltaProjReduction mode (pureFns mode eager env fuel) env
 
 abbrev defeqProjPairFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr

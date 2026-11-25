@@ -2618,18 +2618,20 @@ private theorem lazyDeltaReduction_shift (henv : EnvWF env)
   | diff => rfl
   | unknown => rfl
 
-/-- `lazy_delta_proj_reduction` is shift-invariant. -/
+/-- `lazy_delta_proj_reduction` is shift-invariant (the argument lists
+shifted with the scrutinees). -/
 private theorem lazyDeltaProjReduction_shift (henv : EnvWF env)
     (ih : ShiftClaims mode eager env fuel) {sn : Name} {i : Nat} :
-    ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {a b : Expr}, WScoped d a → WScoped d b →
-      lazyDeltaProjReduction mode (pureFns mode eager env fuel) env (d + 1) sn i n
-          (shiftFrom p a) (shiftFrom p b) =
-        lazyDeltaProjReduction mode (pureFns mode eager env fuel) env d sn i n a b := by
+    ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {as bs : List Expr}, (∀ x ∈ as, WScoped d x) →
+      (∀ x ∈ bs, WScoped d x) → ∀ {a b : Expr}, WScoped d a → WScoped d b →
+      lazyDeltaProjReduction mode (pureFns mode eager env fuel) env (d + 1) sn i
+          (as.map (shiftFrom p)) (bs.map (shiftFrom p)) n (shiftFrom p a) (shiftFrom p b) =
+        lazyDeltaProjReduction mode (pureFns mode eager env fuel) env d sn i as bs n a b := by
   intro n
   induction n with
-  | zero => intro p d _ a b _ _; rfl
+  | zero => intro p d _ as bs _ _ a b _ _; rfl
   | succ n ihN =>
-  intro p d hpd a b hwa hwb
+  intro p d hpd as bs hwas hwbs a b hwa hwb
   simp only [lazyDeltaProjReduction]
   refine bind_congr (DeltaStep.mapE (shiftFrom p))
     (lazyDeltaStep_shift henv ih hpd hwa hwb) ?_
@@ -2645,10 +2647,11 @@ private theorem lazyDeltaProjReduction_shift (henv : EnvWF env)
   cases st
   case cont a' b' =>
     obtain ⟨hwa', hwb'⟩ := lazyDeltaStep_WScoped henv hst hwa hwb
-    exact ihN hpd hwa' hwb'
-  case eq => rfl
+    exact ihN hpd hwas hwbs hwa' hwb'
+  case eq => exact defEqList_shift henv ih hpd hwas hwbs
   all_goals
-    simp only [DeltaStep.mapE]
+    simp only [DeltaStep.mapE, List.isEmpty_map]
+    refine ite_congr' (fun _ => ?_) (fun _ => rfl)
     refine bind_congr (Option.map (shiftFrom p)) (reduceProjCore_shift henv ih hpd hwa) ?_
     intro ox hox
     cases ox with
@@ -2669,17 +2672,21 @@ private theorem defeqProjPair_shift (henv : EnvWF env)
         (shiftFrom p b) =
       defeqProjPair mode (pureFns mode eager env fuel) env d a b := by
   unfold defeqProjPair
-  cases a with
-  | proj s₁ i₁ e₁ =>
-    cases b with
-    | proj s₂ i₂ e₂ =>
-      simp only [WScoped] at hwa hwb
-      exact ite_congr' (fun _ => lazyDeltaProjReduction_shift henv ih _ hpd hwa hwb)
-        (fun _ => rfl)
-    | fvar => first | rfl | (rw [shiftFrom_fvar]; try rfl)
-    | _ => rfl
-  | fvar => first | rfl | (rw [shiftFrom_fvar]; try rfl)
-  | _ => rfl
+  rw [getAppFn_shiftFrom, getAppFn_shiftFrom, getAppArgs_shiftFrom, getAppArgs_shiftFrom]
+  have hfa := hwa.getAppFn
+  have hfb := hwb.getAppFn
+  cases hga : a.getAppFn <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+  case proj s₁ i₁ e₁ =>
+  cases hgb : b.getAppFn <;> try rfl
+  case fvar => rw [shiftFrom_fvar]; rfl
+  case proj s₂ i₂ e₂ =>
+  rw [hga] at hfa
+  rw [hgb] at hfb
+  simp only [WScoped] at hfa hfb
+  simp only [shiftFrom, List.length_map]
+  exact ite_congr' (fun _ => lazyDeltaProjReduction_shift henv ih _ hpd hwa.getAppArgs
+    hwb.getAppArgs hfa hfb) (fun _ => rfl)
 
 /-- The stuck comparison is shift-invariant. -/
 private theorem defeqStuck_shift (henv : EnvWF env)
