@@ -1253,47 +1253,53 @@ These directories contain the set-theory bridge, tests, and development tools.
 
 ## 12. Gates
 
-`tests/arena.sh` is the standard battery: the layering fence
-(`tests/layering.sh`: no base module imports the model tier, no
-implementation module (`Kernel/*`, `Cached/*`, `Frontend/*`) imports the
-theory, the proof-carrying driver (`Driver/*`, `Main.lean`) imports
-`Verify/*` and nothing else of the theory, and no module of the
-rules tier of §4 has the pure implementation in the environment it
-elaborates in — its direct imports plus, transitively, their
-`public import`s, computed from source; the implementation modules
-that the base tiers' own re-exports still carry in are listed in the
-script and the list may only shrink; and the `.olean` reader imports only
-itself and a few base types, only `Files` and `Closure` reach the IO class,
-only `Records` the record builder, and the rest of the checker imports only its
-interface, `Olean.lean`), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the plain-tier reach gate
-(`tests/plain-reach.sh`: every specification-tier definition the compiled binary
-reaches from `main` is listed, with its reason, in `tests/plain-reach-allow.txt`, and a
-listed one no longer reached fails too; a definition with a cached twin is reached by
-nothing executed and is not listed), the
-binary link gate (`tests/binary-link.sh`: the compiled binary links no module of the `Lean`
-package, so no proof module the driver imports brings `Lean.Meta` along), the pin
-dump freshness, the challenge gate (`tests/challenge.sh`: the
-challenge module builds with its `sorry` warnings and nothing else),
-the self-check (`scripts/selfcheck.sh`: con-leche's `--compare` of the
-challenge against the solution, from the `.olean` files and from the
-exporter's JSON, accepts both and justifies exactly the names
-`comparator.json` lists),
-the arena tutorial tests, the end-to-end fixtures and the legacy
-binder-field fixtures with
-pinned verdicts, the `.olean` gate (`tests/olean.sh`: the committed
-fixtures and corrupted copies of them, each verdict pinned, with a home's read of its
-parts and a module's reads of what it loads through `olean-compare --home` and `--reads`), the two readers
-compared on `Init` (`tests/olean-compare.sh`), the display gate (three fixtures whose names and
-`safety` field carry control sequences, run with `--progress=1`; no
-raw control, bidi or zero-width character and no line starting with
-`::` may reach the output), and the trusted-mode sweep. `lake test` builds the test library with the axiom pins. CI runs
-both.
+The test gates check the project's boundaries, proof dependencies, and
+checker behavior. CI runs `lake test` and the standard battery,
+`tests/arena.sh`.
 
-The links in this document are part of the battery: `tests/overview-links.sh`
-extracts every linked segment into one text and compares it with
-`tests/overview-links-expected.txt`, so moving or changing the cited
-lines fails the gate and is the reminder to re-read the paragraph that
-cites them and to run `tests/overview-links.sh --update`.
+### Boundaries and proof dependencies
+
+These gates check what the checker and its proofs depend on:
+
+- `tests/layering.sh` enforces import boundaries between the implementation,
+  theory, driver, and `.olean` reader.
+- `tests/trust-surface.sh` scans for compiler escapes and checks restrictions
+  on runtime IO. It also pins the build file and native sources by content.
+- `tests/plain-reach.sh` checks the specification-tier declarations reachable
+  from the compiled `main` against a list of permitted declarations and their
+  reasons. `tests/binary-link.sh` checks that the binary links no module of
+  the `Lean` package.
+- `lake test` builds the test library, including the axiom pins for the
+  proofs. The standard battery also builds that library and checks that the
+  generated pin dump is current.
+
+### Checker tests
+
+The standard battery checks verdicts and behavior across input formats and
+execution modes:
+
+- The arena tutorial and end-to-end fixtures have pinned verdicts; the suites
+  also run in trusted mode and with different worker counts.
+- `tests/challenge.sh` checks that the challenge builds with only its expected
+  `sorry` warnings. `scripts/selfcheck.sh` compares the challenge with the
+  solution using both `.olean` files and exported JSON, and checks the
+  justified names against `comparator.json`.
+- `tests/olean.sh` checks committed and corrupted `.olean` fixtures, while
+  `tests/olean-compare.sh` compares the reader's records for `Init` with the
+  exporter's records.
+- Other fixtures check command-line behavior, output sanitization, and shared
+  expressions.
+
+### Documentation checks
+
+The documentation gates keep quoted declarations and source links current.
+`tests/quote-gate.sh` compares declaration-headed Lean quotes with their
+source. `tests/overview-links.sh` checks relative link targets and compares
+cited source lines in `OVERVIEW.md` and `README.md` with
+`tests/overview-links-expected.txt`.
+
+When a citation moves or its source changes, re-read the citing text and fix
+it if needed, then run `tests/overview-links.sh --update`.
 
 ## 13. What the environment stores beyond Lean's
 
