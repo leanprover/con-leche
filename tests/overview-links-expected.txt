@@ -563,8 +563,23 @@
     53          DefEqClaim m φ fuel ∧ InferClaim m φ fuel ∧
     54            InferClaimIO m φ fuel := by
 
-== ConLeche/Kernel/Basis/False.lean#L51
-    51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
+== ConLeche/Kernel/Inductives/BlockTail.lean#L153
+   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L283
+   283  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L552
+   552  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+
+== ConLeche/Kernel/Inductives/StreamRecs.lean#L187
+   187  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
+
+== ConLeche/Kernel/Inductives/IotaRead.lean#L211
+   211  def blockReadsOk (find? : Name → Option ConstantInfo) (p : BlockShape) :
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L99
+    99  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
 
 == ConLeche/Kernel/Basis.lean#L144-L151
    144  def basisNamesOk : Declaration → Bool
@@ -576,75 +591,29 @@
    150    | .quotDecl _ _ => true
    151    | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => !reservedBasisNames.contains cv.name
 
-== ConLeche/Verify/BasisBlock.lean#L308-L311
-   308  theorem blockInstall_pinned {nP : Nat} {block : List ConstantInfo} {kind : BasisKind}
-   309      {p : BlockShape} (hk : basisNameHit block = some kind) (hok : pinListOk block kind.decls = true)
-   310      (hp : readBlock nP block = .ok p) :
-   311      blockConstants p = kind.storedAt block ∧ blockTables p p.members = some [] := by
+== ConLeche/Kernel/Basis.lean#L175-L178
+   175  def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
+   176    Name.nodup cv.levelParams &&
+   177      cv.levelParams.length == (quotPin k).toConstantVal.levelParams.length &&
+   178      cv.beqP ((quotPin k).toConstantVal.atLps cv.levelParams)
 
-== ConLeche/Kernel/Basis.lean#L189-L194
-   189    | .ctor => hasQ
-   190    | .lift => hasEq && hasQ && hasM
-   191    | .ind => hasQ && hasM
-   192    | .sound => hasEq && hasQ && hasM
-   193  
-   194  /-! ## The pinned `And`
-
-== ConLeche/Kernel/Inductives/BlockShape.lean#L401
-   401  def readBlock (nPd : Nat) (block : List ConstantInfo) : Except CheckError BlockShape :=
-
-== ConLeche/Kernel/Env.lean#L418-L425
-   418  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   419    block.all fun ci => match ci with
-   420      | .indInfo cvT _ =>
-   421        match cvT.type.piSortTeleLen? with
-   422        | some n => decide (nP ≤ n)
-   423        | none => true
-   424      | .ctorInfo _ nPc _ _ => nPc == nP
-   425      | _ => true
-
-== ConLeche/Kernel/Inductives/BlockTail.lean#L153
-   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
-
-== ConLeche/Kernel/Inductives/RecCheck.lean#L239-L240
-   239  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
-   240      (mty : Expr) : m TargetMajor := do
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L821-L823
-   821  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-   822      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-   823      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L1047
-  1047  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L498
-   498  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
-
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L284
-   284      (p : BlockShape) :
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L552
-   552  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
-
-== ConLeche/Kernel/Inductives/StreamRecs.lean#L187
-   187  def streamRecsCheck (ops : CheckerOps m) (fe : FEnv) :
-
-== ConLeche/Verify/Cached/BlockPushes.lean#L273
-   273  theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
-
-== ConLeche/Kernel/Install.lean#L39
-    39  def recFire (p : BlockShape) (rc : RecShape) : RecRuleFire :=
-
-== ConLeche/Kernel/Inductives/IotaRead.lean#L211
-   211  def blockReadsOk (find? : Name → Option ConstantInfo) (p : BlockShape) :
-
-== ConLeche/SetModel/Value.lean#L387-L388
-   387  /-- `I → Sort w`, the family space, as the value reading has it. -/
-   388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piV I fun _ => univ w
+== ConLeche/Kernel/Basis.lean#L209-L214
+   209  def andPinOk : Declaration → Bool
+   210    | .indDecl block nP =>
+   211      !(block.any fun c => andPinNames.contains c.name) ||
+   212        (nP == 2 && canonEqList block andPin)
+   213    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
+   214    | .quotDecl _ cv => !andPinNames.contains cv.name
 
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
+
+== ConLeche/SetModel/GraphRec.lean#L36-L40
+    36  **The theorem** (`GraphRecKit.exu`): the graph has EXACTLY ONE value at
+    37  every major.  Its proof is the kit's `ind` — an induction principle
+    38  over the majors, the only fact ever asked of the carriers — with the
+    39  predicate "the graph's fibre is a singleton".  Existence needs the
+    40  step's typing (`hst`); uniqueness needs ONE sort-dependent fact,
 
 == ConLeche/Model/Inductives/BlockRunFacts.lean#L127-L136
    127  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
@@ -657,75 +626,6 @@
    134      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧
    135        ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
    136        NatFacts env₂ := by
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L99
-    99  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
-
-== ConLeche/Verify/EnvExt.lean#L480-L482
-   480  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
-   481      ∀ (fuel : Nat) (eager : Bool),
-   482        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
-
-== ConLeche/Verify/EnvExt/Reads.lean#L28-L29
-    28  structure StoredFacts (env : Env) : Prop where
-    29    wf : EnvWF env
-
-== ConLeche/Model/Inductives/FormerInEnv.lean#L29
-    29  structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVal) : Prop where
-
-== ConLeche/Kernel/CoreDefs.lean#L384
-   384  def litShapeOk (c : ConstantInfo) : Bool :=
-
-== ConLeche/Kernel/Inductives/ClassRead.lean#L130
-   130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
-
-== ConLeche/Kernel/Inductives/BlockTail.lean#L153
-   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
-
-== ConLeche/Kernel/Inductives/BlockTail.lean#L52
-    52  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
-
-== ConLeche/Kernel/Inductives/SumInstall.lean#L77
-    77  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L522
-   522  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L508
-   508  def classKeyOf (nP : Nat) (params : List Expr)
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L910
-   910  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L468
-   468  def nestHoleAt (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option NestHole :=
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L852
-   852  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L688
-   688  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L1019
-  1019  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
-
-== ConLeche/Kernel/Inductives/BlockTail.lean#L103
-   103  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L295
-   295  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L177
-   177  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L189
-   189  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L386
-   386  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L426
-   426  def classRuleCheck (ops : CheckerOps m) (feT feR : FEnv)
 
 == ConLeche/Kernel/CoreDefs.lean#L458-L466
    458  /-- The certified structural-`Nat` operations.  Six of them
