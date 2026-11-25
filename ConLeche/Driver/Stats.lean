@@ -6,7 +6,7 @@ public import Init.System.IO
 # Run statistics on stderr (task #329)
 
 The end-of-run summary every run prints on stderr — the slowest
-checks, the check phase's utilisation and its tail, the peak
+checks (those of at least 10 s), the check phase's utilisation and its tail, the peak
 resident set — and the `--progress` heartbeat's in-flight report (how
 many workers are busy, and the oldest record one of them is on).
 
@@ -104,10 +104,14 @@ def PoolRep.line (r : PoolRep) : String :=
   s!"{base}; tail {nsSecs tail} after the last start, {live.size} busy then, \
     {nsSecs inTail} worker-time in it ({pct inTail (r.workers * tail)})"
 
-/-- The slowest-records line, `label k` naming record `k`. -/
-def PoolRep.topLine (r : PoolRep) (what : String) (label : Nat → String) : String :=
-  let items := r.top.toList.map fun (d, k) => s!"{nsSecs d} {label k}"
-  s!"slowest {what}: {String.intercalate "; " items}"
+/-- The least time (nanoseconds, 10 s) for which the slowest-records line names a record. -/
+def statsSlowNs : Nat := 10000000000
+
+/-- The slowest-records line, `label k` naming record `k`: those of the slowest `statsTopN` that
+took at least `statsSlowNs`, and no line when none did. -/
+def PoolRep.topLine (r : PoolRep) (what : String) (label : Nat → String) : Option String :=
+  let items := (r.top.filter (·.1 ≥ statsSlowNs)).toList.map fun (d, k) => s!"{nsSecs d} {label k}"
+  if items.isEmpty then none else some s!"slowest {what}: {String.intercalate "; " items}"
 
 /-- Peak resident set (`VmHWM` in `/proc/self/status`), if readable. -/
 def peakRss : IO (Option String) := do

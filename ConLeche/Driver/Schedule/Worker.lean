@@ -17,7 +17,8 @@ all of it pure:
   the scheduler (`commandLines`, `--schedule-commands`), shell-quoted (`shellQuote`);
 * **what it printed** (`workerStats`, `reportedPeak`): its declarations (stdout's `accepted N
   declarations`), its parse and check phases (the `stats: phases:` line), its check pool's busy
-  time and its slowest single check (the pool's `stats:` line and `slowest checks:`), and its own
+  time and its slowest single check (the pool's `stats:` line and `slowest checks:`, printed only
+  for a check of at least 10 s), and its own
   peak resident set (`stats: peak RSS`);
 * **its verdict** (`exitVerdict`): its exit code (0 accept, 1 reject, 2 decline, 3 error), or
   what ended it otherwise (DESIGN #569): `Child.tryWait` returns 128 + the signal for a signalled
@@ -188,7 +189,7 @@ def secsMs (s : String) : Option Nat :=
 declarations (stdout, `con-leche: accepted N declarations`), its parse and check phases (ms,
 `con-leche: stats: phases: parse P (index I), check C`), its check pool's busy time and its slowest
 single check (ms, the pool's `con-leche: stats: check …: … busy B …` and `con-leche: stats:
-slowest checks: D …` lines). -/
+slowest checks: D …` lines; the latter only where a check took at least 10 s). -/
 structure WorkerStats where
   decls : Option Nat := none
   parse : Option Nat := none

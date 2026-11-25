@@ -18,7 +18,7 @@ public import Std.Data.HashSet.Basic
   the last value the scheduler sampled because the worker wrote no figure of its own), the ms
   since this run's start, and what the worker printed (`workerStats`, `-` where it printed
   nothing): its declarations, its parse and check phases in ms (to 0.1 s), its check pool's busy
-  time and its slowest single check in ms, the threads the worker ran with, and the
+  time and its slowest single check in ms (`-` below 10 s, which the worker does not print), the threads the worker ran with, and the
   `LEAN_STACK_SIZE_KB` of the scheduler's environment (`-` where unset).  The field order is
   fixed; new fields go at the end.
 * A kill (for memory, or by an interrupt), `killLine`:

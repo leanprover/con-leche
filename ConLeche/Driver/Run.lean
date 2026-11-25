@@ -34,14 +34,14 @@ def readStarts (pace : Pace) (label : String) : IO Unit := do
   beat (← IO.getStderr) pace s!"reading {label}"
 
 /-- The end-of-run statistics (performance-only): the phase times, the check's report (`PoolRep.line`,
-the slowest five), the peak resident set.  Every line starts `con-leche: stats:`. -/
+the slowest five of at least 10 s, if any), the peak resident set; each `con-leche: stats:`. -/
 def printStats (err : IO.FS.Stream) (parseMs indexMs checkMs : Nat)
     (chk : PoolRep) (chkLabel : Nat → String) : IO Unit := do
   let line (l : String) : IO Unit := err.putStr s!"con-leche: stats: {l}\n"
   let secs := ConLeche.Cached.msSecs
   line s!"phases: parse {secs parseMs}s (index {secs indexMs}s), check {secs checkMs}s"
   line chk.line
-  line (chk.topLine "checks" chkLabel)
+  if let some l := chk.topLine "checks" chkLabel then line l
   if let some r ← peakRss then line s!"peak RSS {r}"
   err.flush
 
