@@ -638,41 +638,8 @@
    465    [natPredName, natAddName, natSubName, natMulName, natPowName,
    466     natBeqName, natBleName]
 
-== ConLeche/Kernel/CoreDefs.lean#L391-L408
-   391    else if c.name = listNilName then listNilTyOk (some c)
-   392    else if c.name = listConsName then listConsTyOk (some c)
-   393    else if c.name = charName then charTyOk (some c)
-   394    else if c.name = charOfNatName then charOfNatTyOk (some c)
-   395    else true
-   396  
-   397  /-! ## Structural-Nat literal acceleration
-   398  
-   399  The official kernel accelerates the structural `Nat` operations on
-   400  literals (GMP-backed there).  Here the fast path is *certified*: an
-   401  operation participates only when its defining recurrence equations
-   402  hold by definitional equality — checked once, at its check: `checkDecl`
-   403  positively rejects a nonstandard definition under one of these names,
-   404  so *presence in the store is the certificate* (no runtime flag, no
-   405  re-checking; a reduction-time re-check would in fact livelock — the
-   406  certification's own `pred zero` equation re-enters the fast path).
-   407  
-   408  The certification runs in the environment *before* the operation is
-
-== ConLeche/Kernel/Checker.lean#L105-L112
-   105  def certifyNatEqs (ops : CheckerOps m) (env : Env) :
-   106      List (Expr × Expr) → m Bool
-   107    | [] => pure true
-   108    | eq :: rest => do
-   109      if ← ops.isDefEq env 2 eq.1 eq.2 then
-   110        certifyNatEqs ops env rest
-   111      else pure false
-   112  
-
 == ConLeche/Model/NatEqs.lean#L1046
   1046  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
-
-== ConLeche/Kernel/CoreDefs.lean#L479
-   479  def natDivModNames : List Name :=
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
@@ -692,61 +659,8 @@
     15  variants are listed in `natOpPinSets` in the order below.  That list is
     16  what the shipped binary hands the fold as its PIN-LIST PARAMETER (task
 
-== ConLeche/PinGen/Certs.lean#L7-L18
-     7  /-!
-     8  # Certificate theorems for the pin-certified Nat operations (elab-time)
-     9  
-    10  The characterization certificates of the pin-certified WF-recursive
-    11  `Nat` operations, elaborated against the ambient *toolchain* prelude,
-    12  where `Nat.div`/`Nat.mod`/… are the real operations.  The *statements*
-    13  fix the pinned spellings: guards via the already-certified `Nat.ble`
-    14  (never the `Nat.le`/`Nat.lt` `Prop` inductives), numerals via
-    15  `Nat.succ`/`Nat.zero` (never `OfNat`), so the model-side consumption
-    16  rides the existing `NatOps` literal semantics.
-    17  
-    18  The proofs are written with *controlled* dependencies: no `simp`, no
-
 == ConLeche/Model/DivModCert.lean#L1968
   1968  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
-
-== ConLeche/Cached/StateC.lean#L227-L240
-   227  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
-   228  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
-   229  bytes, and `0 <<< b = 0`. -/
-   230  def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
-   231    match op with
-   232    | .pow =>
-   233      if b > natCountMax then some (natCountTooBig "Nat.pow")
-   234      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
-   235        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-   236          exceed the maximum numeral size; raise it with --max-nat-size")
-   237      else none
-   238    | .shiftLeft =>
-   239      if a = 0 then none
-   240      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
-
-== ConLeche/Kernel/CoreDefs.lean#L589-L609
-   589  def natOpResult (c : Name) (a b : Nat) : Option Expr :=
-   590    if c = natPredName then some (.lit (.natVal (a - 1)))
-   591    else if c = natAddName then some (.lit (.natVal (a + b)))
-   592    else if c = natSubName then some (.lit (.natVal (a - b)))
-   593    else if c = natMulName then some (.lit (.natVal (a * b)))
-   594    else if c = natPowName then some (.lit (.natVal (a ^ b)))
-   595    else if c = natDivName then some (.lit (.natVal (a / b)))
-   596    else if c = natModName then some (.lit (.natVal (a % b)))
-   597    else if c = natGcdName then some (.lit (.natVal (Nat.gcd a b)))
-   598    else if c = natLandName then some (.lit (.natVal (Nat.land a b)))
-   599    else if c = natLorName then some (.lit (.natVal (Nat.lor a b)))
-   600    else if c = natXorName then some (.lit (.natVal (Nat.xor a b)))
-   601    else if c = natShiftLeftName then
-   602      some (.lit (.natVal (Nat.shiftLeft a b)))
-   603    else if c = natShiftRightName then
-   604      some (.lit (.natVal (Nat.shiftRight a b)))
-   605    else if c = natBeqName then
-   606      some (.const (if a = b then boolTrueName else boolFalseName) [])
-   607    else if c = natBleName then
-   608      some (.const (if a <= b then boolTrueName else boolFalseName) [])
-   609    else none
 
 == ConLeche/Kernel/CoreDefs.lean#L611-L638
    611  /-- Stored-constant guards for op `c`: the `Nat` basis, every
@@ -798,26 +712,6 @@
    174    (prepareD pre ds).decls
    175  
 
-== ConLeche/Frontend/NatOpGround.lean#L8-L25
-     8  /-!
-     9  # Hoisting a pinned `Nat` operation's stream-certified ground (task #191)
-    10  
-    11  The second half of the order-insensitivity fix, beside the built-in
-    12  prelude (`ConLeche/Frontend/Prelude.lean`).
-    13  
-    14  A pin-certified operation's certificate *statements* are spelled over
-    15  the structural `Nat` operations (`natOpDeps`: `Nat.shiftLeft`'s over
-    16  `Nat.ble` and `Nat.sub`, `Nat.land`'s over `Nat.mul`, …), and the
-    17  install guard `divModEnvGuard` requires those stored — they are what
-    18  the model reads the statements through.  They are NOT in the
-    19  operation's own dependency closure, so an export that orders
-    20  declarations by a DFS from arbitrary roots (`lean4export` walks
-    21  `env.constants` in hash order; the raw export of
-    22  `tests/e2e/src/natop_order.lean` emits `Nat.shiftLeft` before
-    23  `Nat.ble`/`Nat.sub`/`Bool`) declined at the install.
-    24  
-    25  They cannot go into the prelude: the structural operations are
-
 == ConLeche/Verify/Frontend/Prepare.lean#L171-L176
    171  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
    172  input plus additional declarations, but nothing missing"* — and the
@@ -825,6 +719,22 @@
    174  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
    175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    176        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
+
+== ConLeche/Cached/StateC.lean#L227-L240
+   227  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
+   228  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
+   229  bytes, and `0 <<< b = 0`. -/
+   230  def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
+   231    match op with
+   232    | .pow =>
+   233      if b > natCountMax then some (natCountTooBig "Nat.pow")
+   234      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
+   235        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
+   236          exceed the maximum numeral size; raise it with --max-nat-size")
+   237      else none
+   238    | .shiftLeft =>
+   239      if a = 0 then none
+   240      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
 
 == ConLeche/SetTheory/Core.lean#L95-L156
     95  /-- A model of set theory of exactly the strength the checker needs:

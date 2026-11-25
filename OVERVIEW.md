@@ -1000,110 +1000,71 @@ The model construction for an installed block is proved by
 
 ## 6. The Nat operations
 
-The official kernel accelerates the structural `Nat` operations on
-literals with GMP. ConLeche does the same, but certifies the fast path
-instead of trusting the operation's name.
+ConLeche reduces certain `Nat` operations on literals using Lean's `Nat`
+implementation. In verified mode, it checks the definitions and certificates
+needed to justify this fast path.
 
-* **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
-  `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L458-L466)):
-  when a definition under one of these names arrives, its checked
-  step certifies its defining recurrence equations by definitional
-  equality, in the environment *before* the operation is stored, with
-  the operation's self-references replaced by its definition value, so
-  the not-yet-enabled fast path cannot discharge its own equations
-  vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L391-L408),
-  [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L105-L112)).
-  A nonstandard definition is rejected; presence in the store is the
-  certificate, and `whnf` folds literals for stored operations only.
-  The operations a definition's recurrences mention (`Nat.add` for
-  `Nat.mul`) need only be stored: at a certified operation's name
-  nothing but a definition is accepted, and that definition's own step
-  pins its type and certifies its recurrences.
-  The model side states the operation's law at its stored name,
-  whatever kind of constant is stored there (the fast path fires by
-  name), reads the operation's membership off its pinned type shape
-  and proves the literal semantics from the certified recurrences
-  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1046)).
-* **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
-  `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L479))
-  are defined by well-founded recursion and have no recurrence the
-  kernel can check directly. The binary embeds *pinned* copies of
-  several supported toolchains' own definitions of each operation,
-  each with its pinned *certificate theorems* — `Nat.ble`-guarded
-  characterisations of the operation whose proof terms were produced
-  by Lean itself at pin-generation time. The install tries the pins in
-  order and uses the first whose pinned types of `Decidable.rec` and
-  `Decidable.casesOn` (the constants the certificates use whose types
-  differ between the supported toolchains) are definitionally equal to
-  the stream's, whose copy is definitionally equal to the stream's
-  definition, and whose certificates check, as theorem declarations,
-  without installing them; each step is a yes-or-no comparison, so
-  no error is caught, and a stream matching none of them declines
-  ([the pin module `ConLeche/Kernel/NatOpPins.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/NatOpPins.lean#L1-L16),
-  [the certificate library `ConLeche/PinGen/Certs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/PinGen/Certs.lean#L7-L18)).
-  The pins are committed per toolchain under `pins/`, each generated
-  on its toolchain with `lake exe natop-pins-export`. Which list the
-  gate tries is the fold's own argument rather than a constant inside
-  it, and the model side reads none of it — it is stated for an
-  arbitrary variant, because what it consumes is the certificates'
-  verdict in the accepted environment and not where the matched
-  variant came from:
-  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1968).
-  That is why the two statements of §1 quantify over the list: the pins
-  buy accepted `Nat.div` streams, never consistency.
-* **The maximum `Nat` size.** As the official kernel does, the checker
-  refuses a `Nat` numeral larger than a byte bound (128 MiB unless
-  `--max-nat-size` says otherwise), measured as the official kernel
-  measures it: 8 bytes per started 64 bits, at least 8. A literal is
-  refused where it is inferred, the result of `Nat.succ`, `Nat.add`,
-  `Nat.sub` or `Nat.mul` once computed, and `Nat.pow` and
-  `Nat.shiftLeft` before computing, from their operands: `a ^ b` when
-  `a > 1` and the size of `a` times `b` exceeds the maximum size, `a <<< b`
-  when `a > 0` and the size of `a` plus `b / 8` plus 1 does; both also
-  refuse a second argument that does not fit in 32 bits. A refusal
-  rejects the declaration
-  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L227-L240)).
-  Within the maximum size every operation folds, whatever the exponent:
-  the specification's reduct is the computation itself
-  ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L589-L609)),
-  and the bound is the cached core's alone, since a refusal only
-  throws.
-* **`Bool`.** `Nat.beq` and `Nat.ble` return `Bool.true` or
-  `Bool.false`, and the well-founded operations' certificates are
-  guarded by `Nat.ble`, so these operations install only once `Bool`
-  and its two constructors are stored, with no universe parameters,
-  the constructors at the type `Bool` itself, and with `Bool : Type`
-  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L611-L638),
-  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L669-L676)).
-  That is the only reason the checker knows the name. `Bool` is not
-  pinned: it is the stream's own block, installed like any other, and
-  nothing depends on what it denotes — the fast path's result is the
-  constant `Bool.true` or `Bool.false`, and the model proves from the
-  certified recurrences that the operation's application denotes
-  whatever that constant denotes. (The compiler-trust axiom
-  `Lean.ofReduceBool` of §8 likewise asks for a `Bool` of the standard
-  shape.)
-* **Order independence.** The certificates are spelled over the
-  structural operations, `Bool` and the basis blocks, which an export
-  may emit in any order. The checker therefore carries a small built-in
-  prelude: the pinned basis blocks, `Bool` and the pinned `And`
-  (§5), as the toolchain exports them. One pure pass between the parse and the fold puts every
-  prelude declaration at the front of the records — the stream's own
-  record where the stream has one, the prelude's copy only where it has
-  none — and moves the structural operations a pinned operation's
-  certificates are spelled over (`Nat.ble`, `Nat.sub`, `Nat.mul`),
-  which are not in its own dependency closure, ahead of it when the
-  stream has them later
-  ([`preparePrelude` in `ConLeche/Frontend/Prepare.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L168-L175),
-  [the reordering pass `ConLeche/Frontend/NatOpGround.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/NatOpGround.lean#L8-L25)).
-  Both are reorderings of the parsed records below the verified fold,
-  and that is a theorem about them: the prepared records are a
-  permutation of the file's plus prelude records the file did not
-  declare
-  ([theorem `preparePrelude_perm` in `ConLeche/Verify/Frontend/Prepare.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L171-L176)).
+### Structural operations
+
+The checker certifies the recurrence equations for `Nat.add`, `Nat.sub`,
+`Nat.mul`, `Nat.pow`, `Nat.beq` and `Nat.ble`. It also certifies `Nat.pred`,
+which is used by `Nat.sub` but has no literal fast path of its own. The
+[operation list](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L458-L466)
+identifies the certified names.
+
+When checking a definition at one of those names, the checker verifies its
+expected type and checks its recurrence equations by definitional equality.
+It performs the equation checks before storing the operation, so the operation's
+own fast path cannot justify them. The model proof derives the literal results
+from the certified equations
+([`natOps_install`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1046)).
+
+### Well-founded operations
+
+The checker also accelerates `Nat.div`, `Nat.mod`, `Nat.gcd`, `Nat.land`,
+`Nat.lor`, `Nat.xor`, `Nat.shiftLeft` and `Nat.shiftRight`. For these
+operations it embeds definitions and certificate proofs from supported Lean
+toolchains ([`NatOpPins.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/NatOpPins.lean#L1-L16)).
+
+To accept a definition, the checker must match it by definitional equality to
+a pinned definition, match the relevant pinned types, and check the associated
+certificate proofs. The certificates characterize the operation using
+`Nat.ble`; the model proof uses their checked statements to justify literal
+reduction ([`divMod_install`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1968)).
+The soundness theorem is parameterized by the list of pins.
+
+### Bool and declaration order
+
+The comparisons return `Bool` constructors, and the well-founded operations'
+certificates use `Nat.ble`. The checker therefore requires `Bool` and its
+constructors to have the expected types before accepting the relevant
+operations ([`natOpGuard`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L611-L638),
+[`natOpCod`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L669-L676)).
+`Bool` is installed from the stream like other inductive blocks; it is not
+pinned.
+
+Before checking declarations, the frontend puts the built-in prelude first,
+using the stream's own declarations where available, and moves the structural
+operations needed by certificates ahead of the corresponding well-founded
+operations ([`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L168-L175)).
+The prepared records are a permutation of the stream's records together with
+any missing prelude records
+([`preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L171-L176)).
+
+### Maximum numeral size
+
+The checker rejects numerals and certain computed results above a byte limit,
+defaulting to 128 MiB and configurable with `--max-nat-size`. Size is measured
+in 8-byte units, with a minimum of 8 bytes. The checker tests literals when
+inferring their types, and tests results of `Nat.succ`, `Nat.add`, `Nat.sub`
+and `Nat.mul` after computing them.
+
+For `Nat.pow` and `Nat.shiftLeft`, the checker can refuse an operation before
+computing its result based on its operands. It also refuses an exponent that
+does not fit in 32 bits, and a shift count that does not fit in 32 bits when
+the shifted value is nonzero
+([`natOpRefusal`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L227-L240)).
+A refusal rejects the declaration.
 
 ## 7. The set-theory assumption
 
