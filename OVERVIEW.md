@@ -1185,44 +1185,28 @@ the official kernel. §14 lists those and the other departures.
 
 ## 10. Naming conventions
 
-Every marker a reader has to know is in this table; **no suffix not
-listed here carries meaning**.
+Names in the checker and its proofs use recurring markers for variants and
+well-formedness conditions.
 
-| marker | reading |
-|---|---|
-| `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
-| `I` | the variant that also handles an inductive family's index arguments (`checkStructFieldSortsI`) |
-| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitSupportedF`) |
-| `D` | the direct parse and the functions over its output (`parseExportD`) |
-| `AV` | a `Term` spelled by the semantic and model tiers (`sumTyAV`, `mkPisAV`) |
-| `WF` | well-formedness (`EnvWF`, `BlockWF`) |
-| `_pure` / `_cached` | the final theorems over the pure fueled fold and over the cached fold `checkDecls` |
+| Marker | Meaning | Example |
+|---|---|---|
+| `C` | A cached-checker counterpart of a pure definition | [`checkDeclC`](./ConLeche/Cached/ParsedC.lean) |
+| `I` | A variant that also handles an inductive family's index arguments | [`checkStructFieldSortsI`](./ConLeche/Kernel/Inductives/SumInstall.lean) |
+| `F` | A definition over `FEnv`, an environment with a lookup index | [`natLitSupportedF`](./ConLeche/Kernel/FEnv.lean) |
+| `D` | The direct parser or a function over its output | [`parseExportD`](./ConLeche/Frontend/ExportC.lean) |
+| `AV` | A `Term` used by the semantic and model tiers | [`sumTyAV`](./ConLeche/Semantics/Tower/SumTower.lean) |
+| `WF` | Well-formedness | `EnvWF`, `BlockWF` |
+| `_pure`, `_cached` | Theorems about the pure fueled fold and the cached fold, respectively | [`no_proof_of_False_pure`](./ConLeche/Model/Fold.lean), [`no_proof_of_False_cached`](./ConLeche/Verify/Cached/MainC.lean) |
+| `Fueled` | A helper applied to the pure functions at a given fuel | [`iotaRecFueled`](./ConLeche/Verify/Knot.lean) |
 
-A few words name things rather than tiers. Every inductive block
-that is not pinned is installed by one installer (`checkBlock`,
-`Kernel/Inductives/Block*.lean`), whose model is a least fixed point
-and which generates the block's recursors. The `Struct*` and `Sum*` files inside
-those directories are parts of it, not separate routes: `Sum*` holds
-the type-former and constructor stages, `Struct*` the projection tables
-of structure-like members and the syntactic pieces of the generated
-recursors. `Fueled` marks a
-record-parameterised helper applied to the pure functions at a fuel
-(`Verify/Knot.lean`).
+### Module visibility
 
-**The module system.** Every file in the build carries the
-`module` header, so a declaration and an import are private unless said
-otherwise. The rule that decides which: *checker code is exposed, because
-it is the subject of the proofs* — `Kernel/*`, `Cached/*`, `Frontend/*`,
-`Driver/*` and `Main.lean` each open one `@[expose] public section`, since the
-Verify and Model tiers unfold their bodies — while *proof code is private
-by default*: `Model/*` and `Verify/*` open a plain `public section`, so a
-proof file's bodies and proof terms are both private and only its statements
-are interface.  The term language, the `SetTheory` interface, the pure
-set constructions and the denotation (`Term/*`, `SetTheory/*`, `SetModel/*`,
-`Semantics/*`) keep the blanket for the same reason the checker does — the
-tiers above unfold them. The only `import all` lines read toolchain
-bodies the module system hides (`Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`),
-and every such line carries its reason.
+The module headers distinguish exposed implementation bodies from proof
+interfaces. Checker files use `@[expose] public section` so the proofs can
+unfold their definitions. The term language, set-theory interface, set
+constructions, and semantics likewise expose their bodies. Model and
+verification files use `public section`, exposing statements while keeping
+proof bodies private.
 
 ## 11. Module map
 
