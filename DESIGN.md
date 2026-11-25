@@ -126282,3 +126282,90 @@ tree: `lake build`, `lake test` warning-free; `tests/arena.sh` in full, exit 0 (
 e2e 635/635, arena tutorial 90/92 as recorded, trusted/`--jobs=1`/`--jobs=4` sweeps clean,
 self-check both forms, 77 axiom pins, shake, pub-imports, plain-reach, binary-link, link and
 quote gates).
+
+## TASK #633 — applied projections compared by their structures, lazily (lean4#16613) (2026-11-25, agent/633-proj-app-lazy)
+
+**Why.**  The arena test `perf/proj-app-lazy-delta` (from
+[lean4#16613](https://github.com/leanprover/lean4/issues/16613)) compares `small.1 a =?= (big N).1 a`
+where one delta step makes `small` and `big N` equal, and reducing `big N` to a constructor costs
+Θ(N).  Official compares bare projections `s.i =?= t.i` lazily (`lazy_delta_proj_reduction`), but
+for applied ones the full `whnf_core` reduces both structures first.  Since Mathlib's `Set` is a
+structure (`a ∈ s` = `s.Mem a`), real code takes that path: the issue's second report (an RH
+formalization) spends 18.5 s of kernel time in one 60-line module on it.  The maintainer ruled
+(2026-11-25) to depart from official here, using con-leche for the experiment.
+
+**The change** (`Kernel/Core.lean`, twin in `Cached/CoreC.lean`).  `defeqProjPair` matches on the
+two spines' heads: two projections of the same field with equally many arguments go through
+`lazyDeltaProjReduction … as bs` on their scrutinees.  The loop gained the two argument lists:
+on `.eq` it compares them last to first, `defEqList as.reverse bs.reverse`, the order of
+`defeqSpine` and official `is_def_eq_args` (for bare pairs `[] []`, i.e. `true`, as before); on
+`.diff`/`.unknown` a bare pair projects both sides as before, an applied pair returns `false`, so
+`defeqLazy` continues to the full `whnfCore`, exactly the official path.  A `true` is projection
+congruence plus spine congruence; anything else falls through, so no verdict can turn from
+accept to reject; the only new cost is the lazy steps on the structures of applied pairs whose
+heads end up different, and the argument comparisons of pairs whose structures were equal.
+
+**The argument order matters.**  A first version compared the lists first to last;
+`tests/e2e/spine_arg_order` (`2*(x+5000000)+1+1 = 2*(x+5000000)+2`) then overflowed the stack:
+`+` is `HAdd.hAdd … inst a b`, which unfolds to the applied instance projection
+`inst.1 (M+1) 1 =?= inst.1 M 2`; the instances agree at once, and `M+1 =?= M` descends through
+every `succ` of `M` — the order divergence task #353 removed from `defeqSpine`.  Last to first,
+`1 =?= 2` fails at once and the official path takes over.  Instance projections applied to
+arguments are everywhere (every arithmetic operator), which is also where the measured saving
+comes from.
+
+**Proofs.**  `lazyDeltaProjReduction_bridge` now concludes `DefEq (proj a) (proj b) ∧ DefEqList as
+bs`; `defeqProjPair_bridge` closes with `DefEq.spine`.  The lemma families (`_fst_proj`,
+`_snd_proj`, `_atF`, `_shift`, `_rel`, `I_congr`) take the lists; the shift lemma shifts them with
+the scrutinees.  The cached simulation (`DiscC5`, `LazyProjSpec` with `AllWS` on the lists) is
+the same `sym … vcgen … finish`, with `defEqListC_spec` added to the list.
+
+**Fixture.**  `tests/e2e/src/proj_app_lazy_delta.lean`: the arena test at `N = 2^32`, accepted in
+0.02 s (master: timeout); arena timeout 10 s.
+
+**Measurements** (instructions:u, one run per stream, #634 → #634+#633): init-full 261.52 → 258.00 G
+(−1.35 %), mathlib-prefix 368.99 → 364.50 G (−1.22 %), grind-ring-5 −0.71 %, the other arena perf
+streams within −0.7/+1.2 % (tens of millions of instructions, mostly startup).  The first-to-last
+version measured −1.17 % / −1.06 %.  The applied-projection path is hot in ordinary code: Init and
+the Mathlib prefix save over a percent by not reducing instance structures.
+
+**Upstream.**  Same shape would fix lean4#16613 in `is_def_eq_core`: run
+`lazy_delta_proj_reduction` also when both sides are applications headed by projections of the same
+field with equally many arguments, comparing the arguments on success and falling through
+otherwise.
+
+## TASK #634 — the node hash: each child once through `mixHash`'s lossy slot (2026-11-25, agent/633-proj-app-lazy)
+
+**Why.**  Before #633, `proj-app-lazy-delta` evaluated `slow 100000`, an `acc + 1` chain, and con-leche
+timed out (60 s) where official took 2 s.  The chain's node hashes repeat (a 32-bit hash of
+`acc_{k+1}` is a fixed function of that of `acc_k`: a random-function orbit, expected length
+√(π·2³²/2) ≈ 82k); past that point every whnf-memo lookup collides with an older chain element and
+`Expr.beqGoX` walks it (quadratic).  The maintainer asked whether we hit it earlier than we must.
+We did: truncated to 32 bits, `mixHash h k = (h ⊕ mixk k)·m` is a bijection in `h` but lossy in
+`k`, and the node hash `mixHash TAG (mixHash h₁ h₂)` put the whole mixed value through the lossy
+slot once more per node (twice more for `letE` and `proj`, whose children were nested in it).
+Simulated orbit lengths of the `acc + 1` step map, random contexts: old 57.9k mean (2000 samples),
+official's `Lean.Expr` hash 82.5k, tag last 86k (200 samples).
+
+**The change** (`Kernel/Expr.lean`, `Expr.data`).  Truncated to 32 bits, `mixHash h k` is a
+bijection in the low 32 bits of `h` and ignores the rest of `h`; it reads all of `k`, lossily.  So:
+applications, binders and let-expressions fold their children's 32-bit hashes with the first child
+in the `h` slot and the tag last (`mixHash (mixHash h₁ h₂) TAG`), each child through `k` at most
+once; every 64-bit value (indices, name, level and literal hashes) enters through `k` (leaves as
+before; `fvar` and `proj` put tag, name and index first, the child last).  A first version that
+moved every tag last lost the upper halves of 64-bit leaf values in the `h` slot;
+`LitHashTests` (4000 literals differing only above bit 64) caught it.  No proof reads hash values.
+
+**Test.**  `tests/ConLecheTests/ExprHashTests.lean`: 2^18 variables applied to `1` have exactly as
+many distinct hashes as the variables (the old hash: 9 fewer).  No e2e fixture: the orbit length
+of one chain is a random draw (P(> 100k) ≈ 31 % at a mean of 82k), so a chain fixture passed or
+failed by the luck of its context's hashes (one at 100000 steps took 4.1 s with a first version of
+the change and timed out with the final one; master timed out on both).
+
+**Effect** (instructions:u, one run per stream, master → #634): init-full 262.01 → 261.52 G
+(−0.19 %), mathlib-prefix 369.64 → 368.99 G (−0.17 %), grind-ring-5 −0.24 %, the arena perf streams
+within −5.6/+1.1 %.
+
+**Not done.**  A combine that is bijective in every argument (MurmurHash3's step) would make a
+fixed-context chain a permutation orbit (≈ 2³¹ long), removing this pathology class entirely; it is
+a departure in hash design with no further evidence of need, so not pursued.
