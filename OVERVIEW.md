@@ -756,147 +756,68 @@ challenge with `ConLeche/MainTheorem.lean` using ConLeche itself.
 
 ## 3. The checker
 
-Two modes exist, `--verified` (default) and `--trusted`
-([the type `CheckMode` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L55)).
-Trusted mode is verified mode minus the certification-only steps —
-checks the official kernel does not make, which exist so that the proof
-can rely on their outcome; it is faster and is outside the theorem.
-Both use the same core.
+The checker infers types, reduces terms and compares them for definitional
+equality. It follows the shape of Lean's kernel, with the differences
+described below and in §14.
 
-The checker is a Lean-kernel-style type checker in the shape of the
-official one: `whnfCore` does β/ι/projection/quotient reduction (with
-the official `cheap_proj` mode, in which a projection's scrutinee is
-reduced by `whnfCore` itself rather than by `whnf`),
-`whnf` adds δ-unfolding of definitions — a theorem is opaque to
-reduction: its value is never unfolded, so whether a declaration
-type-checks never depends on a theorem's value — and the literal fast
-paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1157)),
-`inferType` computes a type, and `isDefEq` decides conversion in the
-order of the official `is_def_eq_core` (cheap head normalization, the
-easy cases, the lazy-delta loop — which compares two applications of
-the same definition argument by argument before unfolding them, last
-argument first as the official `is_def_eq_args` does
-([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1431)) —, the
-projection-against-projection comparison by scrutinees, the full head
-normalization and a restart, then the stuck comparisons) with two
-deliberate exceptions. The easy cases and proof irrelevance are tried on
-the unreduced pair, before any head normalization, so two proofs are
-compared by their types and never reduced (the official kernel reduces
-them first, and loops on a proof that has no normal form). And when one
-side is a closed constructor application, applied to all its parameters
-and fields, of a type that is never a proposition, has no η law and is
-not `Nat`, the other side is head-normalized at once: if its head is the
-same constructor, the comparison goes on with that normal form, and if
-it is another constructor, the answer is `false`, which no rule of
-conversion could change for such a type. The official kernel does this
-for the constant `Bool.true` alone; elsewhere it unfolds one definition
-at a time
-([function `defeqBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1866-L1884)). The checker
-reduces a proof only where a recursor's value depends on it: the major
-premise of a recursor over an inductive proposition, which is
-head-normalized to a constructor unless the K rule (which reads only
-the major's type) applies — and if the K rule's rescue *fails*, the
-major is left exactly as it is, never head-normalized, so a K-like
-recursor never reduces a proof. A structure major is likewise rescued
-from its type before it is reduced, in the order the official kernel
-adopts with its logic renovation (lean4#15371): the constructor of the
-major's projections is built from the major as found, and only if no
-rescue applies is the major head-normalized, so a major with no normal
-form does not stop the recursor. This too deviates from the official
-kernel on purpose (it head-normalizes the major regardless of the
-rescue's outcome): the rescue already decided the major's type is not
-the index the recursor needs, by the same comparison a normalized
-major's type would have to pass; the loss is confined to
-incompleteness corners of the checker's own conversion. Conversion uses lazy
-unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
-reduction as each inductive type's flags, read off its records at use,
-permit. One proposition, `And`, is additionally rescued: for a major
-proof `h`, `And.intro a b h.1 h.2` is built from `h`'s type, before
-`h` is reduced, and compared with `h` by proof irrelevance. The official kernel has no such rescue;
-this checker needs it because theorems are opaque here, so `And.rec`
-applied to a theorem would otherwise never reduce. The rescue is keyed
-on the name `And` only, to keep its reach small. Its check is
-proof irrelevance, so it would be sound whatever block the stream
-declared under that name; `And` is pinned (§5) so that the rescue is
-always there to fire. Two things differ from a textbook
-presentation and matter for the proof:
+### Checking modes
 
-* **Two inference grades, and the λ checks.** Inference runs at the
-  full grade on a declaration's own terms (application arguments, λ
-  domains and `let` values checked) and at the official kernel's
-  infer-only grade on the terms reduction and definitional equality
-  build on their way
-  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1341)).
-  Beyond the official kernel, the verified mode compares the opened
-  bodies' full-grade types at the innermost level of a λ/λ comparison
-  ([function `defeqBindersInner` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1453))
-  and at η; the proof consumes them. Two cheap guards are the proof's
-  too and never change a verdict on well-typed input: η, unit-likeness
-  at a Π-type and the η-expansion of a partially applied constructor
-  are tried only against a term whose head is no λ and no `let` (a
-  weak-head normal form; a λ meets them through η first), and a
-  recursor's stored type is checked to have the spine's number of
-  binders. The
-  synthetic constructor applications of the K and `And` rescues are
-  typed at the io grade only: their io type is compared with the
-  major's (both modes), then, at the verified mode, proof irrelevance
-  compares them with the major — a certificate family, off at the
-  trusted mode, as is the ι rule's case-3 decision (the constructor's
-  levels and parameters against the comparands, the constructor
-  telescope at the full grade, and the canonical-index comparison).
-  Binders carry no data the checker reads, and declarations are stored
-  as declared, `let`s included:
-  `whnfCore` ζ-reduces and inference runs the official `infer_let`.
-* **Fuel and memos.** The pure checker is fueled; the cached checker is
-  not, but its memos are proved to agree with the pure functions at
-  every fuel large enough to succeed
-  ([theorem `checkDeclStepC_run` in `ConLeche/Verify/Cached/BridgeC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L285)).
-  Nesting (a head, a scrutinee, a subterm's type) is bounded by the
-  shared fuel, an error when exhausted; the fuel is effectively
-  unbounded (2^62), since it exists for the proofs' induction. Each
-  level of nesting is native recursion, as in the official kernel, so
-  the native stack is the real limit: every checker thread has the Lean
-  runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
-  a recursion of about a million levels or more aborts with a stack
-  overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1944)).
-  Reduction *chains* are not bounded by it: the
-  `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
-  and the lazy-delta loop each iterate in constant native stack, a
-  `whnfCore` step returning the term to continue with instead of
-  calling the loop. A reduction that does not terminate (a proof built
-  from Coquand's paradox, in a position nothing lets the checker skip)
-  runs until the external timeout, as in the official kernel.
-  As in the official kernel, the head-normalization memos skip the easy
-  cases: `whnfCore` returns a sort, a free variable, a Π-type, a
-  lambda-expression, a constant or a literal, and `whnf` a sort, a free
-  variable, a Π-type or a literal, before any lookup, so a computed
-  literal never becomes a memo entry. The `whnfCore` memo is used as
-  in the official kernel: every step of a reduction chain looks its
-  term up, and at the chain's end the terms of its β, projection, ζ
-  and head-normalizing steps are stored with the answer; a step that
-  fires ι or answers a stuck application is not stored. An
-  application whose head is its own head normal form (a constant, say)
-  is answered by itself, nothing rebuilt, with ι tried once, at the one
-  argument count where it can fire, as in the official kernel's stuck
-  arm; and `whnf` returns a literal that a `Nat` operation computed at
-  once. The official kernel's cheap mode (definitional equality's
-  `cheap_proj`) reads the one memo and writes nothing; here it reads a
-  memo of its own, which the full mode fills with the chains the two
-  modes reduce alike (no projection, no head to normalize first), so a
-  cheap query is never answered with a result the cheap mode would not
-  compute.
-  Binder names and binder infos are not stored at all; `Expr` carries a
-  packed hash and loose-variable bounds as computed fields, which is
-  what makes traversals of shared terms (DAGs) cheap. The
-  substitutions memoise only the nodes the runtime reports as shared —
-  a reference-count read, with a memo keyed by the node's address and
-  validated by pointer identity, so an unshared node costs no key and
-  no probe — and every other traversal memo in the checker, structural
-  equality (`Expr.beq`) and the syntactic guard traversals included,
-  follows the same discipline
-  ([`withExclusive`'s account in `ConLeche/Kernel/Exclusive.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Exclusive.lean#L6-L42)).
+The checker has two [modes](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L55):
+
+* `--verified` is the default and is covered by the soundness theorem.
+* `--trusted` omits checks used for the soundness proof that the official
+  kernel does not make. It is outside the theorem.
+
+Both modes use the same core. Verified mode includes extra checks on lambda
+expressions and certificates for some reduction steps; the proof uses their
+results.
+
+### Reduction and definitional equality
+
+The checker reduces terms to weak-head normal form and uses reduction to
+compare terms for definitional equality. `whnfCore` performs β, ζ, ι,
+projection and quotient reduction; [`whnf`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1157)
+also unfolds definitions and reduces supported `Nat` operations on literals.
+Theorems are opaque: reduction never unfolds their values.
+
+[Definitional equality](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1866-L1884)
+uses lazy unfolding, function and structure η, proof irrelevance, and the
+inductive type's flags for unit-likeness and K-like reduction. It tries easy
+cases and proof irrelevance before head-normalizing the terms. For certain
+fully applied constructors of non-propositional types, it can head-normalize
+the other term immediately to compare constructor heads.
+
+### Recursor reduction
+
+A recursor normally reduces when its major premise reduces to a constructor.
+The checker can also construct a suitable major premise from its type or
+projections before reducing it. This rescue applies to K-like recursors and
+eligible structures. If a K-like rescue fails, the major premise is left
+unreduced.
+
+The checker also rescues a stuck proof `h` of `And a b` by constructing
+`And.intro a b h.1 h.2`. In verified mode it checks the constructed proof
+against `h` using proof irrelevance. This allows `And.rec` to reduce even
+when `h` is an opaque theorem. The declaration of `And` is pinned (§5).
+
+### Type inference
+
+The checker uses full inference for a declaration's own terms and
+[infer-only inference](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1341)
+for terms encountered during reduction and equality checking. Infer-only
+inference skips checks on application arguments, lambda domains, and
+let-expression types and values. Verified mode also compares the types of
+opened lambda bodies when comparing lambda expressions and during η
+comparison.
+
+### Fuel and caching
+
+The pure checker uses fuel to bound recursion; exhausting it is an error,
+not a rejection of the input. Reduction loops have separate fuel budgets.
+The cached checker uses memoization, and
+[`checkDeclStepC_run`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L285)
+relates a successful verified cached declaration check to a successful pure
+check with sufficient fuel.
 
 ## 4. The proof idea
 
