@@ -285,53 +285,55 @@ Lean kernel arena
 
 ## 1. What is proved
 
-ConLeche proves one guarantee, once for each way of running the binary:
-whatever input the checker accepts has a model in every set theory.
-This section says what a model is, which theorem covers which run, and
-what the theorems assume. The later sections explain how the theorems
-are reached.
+For each covered way of running the binary, ConLeche proves the same
+guarantee: any input the checker accepts has a model in every set
+theory. This section explains what a model is, which theorem covers each
+run, and what the theorems assume. Later sections explain the proofs.
 
 ### The main theorem
 
-The theorems of this section are forms of one statement. Those about
-runs are in `ConLeche/MainTheorem.lean`; `ConLeche/Challenge.lean`
-states them without proofs and explains every name in them.
+The theorems in this section express this guarantee in several forms.
+The run theorems are in `ConLeche/MainTheorem.lean`;
+`ConLeche/Challenge.lean` states them without proofs and explains every
+name in their statements.
 
 > **Main theorem.** Let `V` be any model of the `SetTheory` interface
 > (§7). If the checker accepts an input, the input has a model in `V`:
-> one set per constant and list of universe level values, such that
-> every constant is a member of what its type denotes, every definition
-> is what its value denotes, and every recursor rule's ι equation
-> holds.
+> a set for each constant at each list of universe level values. Each
+> constant's set belongs to the set denoted by its type, each definition's
+> set equals the set denoted by its value, and each recursor rule's ι
+> equation holds.
 
-Hence every theorem that the input proves is true in the model: a
-theorem is a constant, so it is a member of what its statement denotes.
-In particular, an input that declares `False` as Lean does holds no
-constant of type `False`.
+Every theorem proved by the input is therefore true in the model: the
+theorem is a constant, and its interpretation belongs to the set denoted
+by its statement. In particular, an input that declares `False` as Lean
+does contains no constant of type `False`.
 
 ### What a model is
 
 The definitions that give the theorem its meaning are in one module,
 `ConLeche/IsModel.lean`, written to be read from top to bottom. They
-read the input only: the constants as the input carries them, and
-nothing of the environment that the checker builds.
+refer only to the constants in the input, not to the environment that
+the checker builds.
 
 A model is a function `model : Name → List Nat → V`. It gives the set
 that a constant denotes at the values of its universe level parameters.
 [`IsModel V model C`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L212-L213)
-says that every constant in the set `C` holds in `model`. A constant
-`c` holds
+says that `model` satisfies every constant in the set `C`. It satisfies
+a constant `c`
 ([`ModelOf`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L201-L202))
 if, at every list of level values, one per level parameter of `c`:
 
 * `model c.name vals` is a member of what the type of `c` denotes;
-* if `c` is a definition, `model c.name vals` is what its value
-  denotes;
+* if `c` is a definition, `model c.name vals` equals the set denoted
+  by its value;
 * if `c` is a recursor, each of its rules holds (`RuleHolds`).
 
-The clause for `c` reads `c` and no other constant. Hence the order of
-the constants does not matter, and a name that two constants declare
-must satisfy both clauses.
+The conditions for `c` use its own record, without consulting the
+records of other constants. The order of the constants therefore does
+not matter. If two constants have the same
+name, the model's interpretation of that name must satisfy both sets of
+conditions.
 
 #### The constants of a declaration
 
@@ -361,9 +363,9 @@ if its ι equation denotes an inhabited set. The ι equation
 between the recursor applied to a constructor and the rule's
 right-hand side.
 
-The equation is read off the recursor's own type; no constructor is
-looked up. The checker accepts a recursor only where this reading is
-the one through its constructor (§14).
+The equation is constructed from the recursor's own type, without
+looking up a constructor. The checker accepts a recursor only when this
+construction agrees with the one obtained through its constructor (§14).
 
 ### How a term denotes a set
 
@@ -386,16 +388,16 @@ syntax form:
 | Literal | What its constructor form denotes. |
 
 Propositions denote subsets of a one-element set, whose element is the
-proof point. So proof irrelevance and impredicativity are part of the
-reading, and the reading consults no typing.
+proof point. This interpretation incorporates proof irrelevance and
+impredicativity; it does not consult typing information.
 
 Some terms denote junk; for example, a free variable denotes the empty
-set. The theorems speak only of the input's closed terms, so this does
-no harm.
+set. The theorems concern only closed terms in the input, so these junk
+values do not affect their conclusions.
 
 ### `False` and `Eq` get their meaning from their declarations
 
-The reading treats no constant specially: `False` and `Eq` denote
+The interpretation treats no constant specially: `False` and `Eq` denote
 whatever the model gives them. Their own declarations fix that meaning.
 
 * Where `C` declares `False.rec` as the prelude does
@@ -406,11 +408,11 @@ whatever the model gives them. Their own declarations fix that meaning.
   (`IsModel.eq_eqv` in the same file).
 
 The checker accepts a stream that declares `False` or `Eq` only if it
-declares them as the prelude does. An accepted stream that holds a
+declares them as the prelude does. An accepted stream that contains a
 constant of type `False` therefore declares the prelude's `False`
 ([`checkDecls_declaresFalse_of_constant` in `ConLeche/Semantics/NoFalse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/NoFalse.lean#L41-L45)).
 That constant would be a member of the empty set, so an accepted
-stream holds no such constant.
+stream contains no such constant.
 
 ### The theorems about a run
 
@@ -444,7 +446,7 @@ theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b 
     ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList)
 ```
 
-If exit 0 is possible on a snapshot where the file holds the bytes
+If exit 0 is possible on a snapshot where the file contains the bytes
 `b`, then `b` parses, and the parsed records have a model.
 
 ### No accepted file declares a theorem of type `False`
@@ -455,7 +457,7 @@ is the consistency corollary for a lean4export file: no exit 0 of
 `jsonWithTheoremFalse` file.
 
 [`jsonWithTheoremFalse`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L53-L63)
-describes the file as text. The file holds four lines in the
+describes the file as text. The file contains four lines in the
 exporter's own shapes, in this order, with any text before, between
 and after them:
 
@@ -464,9 +466,10 @@ and after them:
 3. a name entry for the theorem's own name;
 4. a theorem record whose type is that expression.
 
-This is one way of writing a theorem of type `False` into a file, not
-every proof of `False` that a file can hold. The predicate is about
-bytes, so the corollary leaves no question about what the parser does.
+This describes one way a file can contain a theorem of type `False`;
+it does not cover every proof of `False` that a file can contain. Because
+the predicate describes the bytes, the corollary applies directly to the
+file without assumptions about how the parser handles those lines.
 
 ### The checking function
 
@@ -494,12 +497,12 @@ consistency does not depend on them:
   checker takes in or computes (§6). A larger numeral only makes it
   reject.
 
-A second theorem says that the checker stores what it reads.
-[`checkDecls_consts` in `ConLeche/Model/StreamConsts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L215-L220):
-if `checkDecls` accepts `ds`, then every definition, theorem and
+A second theorem describes how the accepted declarations are stored.
+[`checkDecls_consts` in `ConLeche/Model/StreamConsts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L215-L220)
+says that if `checkDecls` accepts `ds`, then every definition, theorem and
 opaque of `ds`, and every axiom other than `sorryAx` and `Quot.sound`
 ([`Declaration.Declares`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L84-L90)),
-leaves a constant of its name in the returned environment, with the
+has a constant with the same name in the returned environment, with the
 record's own level parameters and type. The members of an inductive
 block are outside this claim: the checker may store a type former's
 telescope in weak head normal form.
@@ -508,14 +511,14 @@ telescope in weak head normal form.
 
 A comparison checks a challenge whose holes a solution fills (§0). A
 hole is an axiom of the challenge other than the standard ones, or a
-declaration whose value uses `sorry`; the model reads it as the axiom
-of its statement. The theorems are about the challenge's input alone.
+declaration whose value uses `sorry`; the model treats it as an axiom
+with that statement. The theorems are about the challenge's input alone.
 
 For two lean4export files,
 [`main_compare_json_model`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L63-L66)
-says that an exit 0 of `--compare -- <c> <s>` read the file `c`, the
-file parses, and its records have a model. The checking function's
-form is
+says that if `--compare -- <c> <s>` can exit 0, the run read the file
+`c`, the file parses, and its records have a model. The corresponding
+theorem for the checking functions is
 [`solution_model_exists`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/PureChecker.lean#L43-L47):
 if `checkDecls` accepts the solution's records, and
 [`checkChallenge`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Decls.lean#L114-L116)
@@ -540,7 +543,7 @@ Because the conclusion is a model, it excludes a challenge that states
 something false and leaves its proof as a hole. In a closure that
 declares `Nat` and `Eq` as Lean does, a challenge with
 `def f : Nat := 3` and a hole `t : f = 5` has no model, whatever the
-solution holds.
+solution contains.
 
 ### Modular checking
 
@@ -567,7 +570,7 @@ with two properties:
   `model m n = model m' n`.
 
 A module `m` sees `n` as `m'`'s if the header of `m` loads a part of
-`m'` that holds a constant named `n`. The loaded part is the private
+`m'` that contains a constant named `n`. The loaded part is the private
 part where some path of imports loads `m'` whole, else the exported
 part (`Olean.Loads`).
 
@@ -578,8 +581,8 @@ gives the same family from one exit 0 of
 #### A modular comparison
 
 [`main_modular_compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L143-L160)
-combines the two shapes. Its hypotheses are the commands that
-`--schedule-commands --compare -- <c> <s>` prints, each with
+combines modular checking with comparison. Its hypotheses are the
+commands that `--schedule-commands --compare -- <c> <s>` prints, each with
 `--trusted-search-path=<T> --search-path=<D>`, on one snapshot:
 
 * the graph check, `--check-graph --compare`;
@@ -594,8 +597,8 @@ statement. `main_modular_compare_one` gives the same from one exit 0
 of `--olean --modular --compare`.
 
 [`main_modular_compare_no_False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L183-L198)
-adds, under the same hypotheses, that the private part of `C` holds no
-constant of type `False`, a hole `x : False` included. The family
+adds, under the same hypotheses, that the private part of `C` contains no
+constant of type `False`, including a hole `x : False`. The family
 alone does not give this: the compare worker reads `C` with the
 solution loaded whole, so `C` may see `False` through `S` only, which
 is outside the family.
@@ -607,8 +610,8 @@ The run theorems rest on a theorem about a sequence of modules
 [`modular_isModel` in `ConLeche/Model/Modular/IsModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Modular/IsModel.lean#L55-L61).
 If every module up to `i` passes the local checks (`LocalOk`,
 `ConLeche/Modular.lean`), then every such module has a model of its
-own constants, and gives each name of its context the value that the
-module it reads the name from gives it.
+own constants. Its model assigns each name in its context the value
+assigned by the module from which it reads that name.
 
 ### The axioms of the proofs
 
