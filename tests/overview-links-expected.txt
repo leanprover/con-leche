@@ -13,9 +13,6 @@
 == ConLeche/Driver/CheckMain.lean#L37
     37    | .notImplemented _ => 2
 
-== ConLeche/Kernel/Name.lean#L236
-   236  def render (n : Name) : String :=
-
 == ConLeche/Model/PureChecker.lean#L31-L34
     31  theorem model_exists (V : Type w) [SetTheory V]
     32      (pins : List NatOpPinSet) (maxNatSize : Nat) (ds : Array Declaration)

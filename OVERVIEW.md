@@ -10,171 +10,278 @@
 
 ## 0. Using the checker
 
-The binary reads a Lean export in `lean4export`'s NDJSON format, or a
-module with its import closure from its `.olean` files, and prints one
-verdict line:
+`con-leche` checks the declarations of a Lean development, as the Lean
+kernel does, and reports one verdict. It reads either an export file in
+[`lean4export`](https://github.com/leanprover/lean4export)'s NDJSON
+format, or compiled modules from their `.olean` files.
+
+Only a run that exits with code 0 in the default mode (`--verified`)
+carries the guarantee of [§1](#1-what-is-proved).
+
+### Building
 
 ```
-con-leche [--verified|--trusted] [--jobs=<n>] [--max-nat-size=<bytes>]
-          [--progress[=<stride>]] [--] FILE.ndjson
-con-leche [flags] --olean --search-path=DIR[:DIR...] [--constant=NAME]... [--] MODULE...
-con-leche [--jobs=<n>] --check-graph --search-path=DIR[:DIR...] [--] MODULE...
-con-leche [flags] --olean --module --search-path=DIR[:DIR...] [--] MODULE
-con-leche [flags] --olean --modular --search-path=DIR[:DIR...] [--] MODULE
-con-leche [flags] --olean --schedule[-OPT=V]... --search-path=DIR[:DIR...] [--] MODULE
-con-leche [flags] --olean --compare [--trusted-search-path=DIR[:DIR...]]
-          [--search-path=DIR[:DIR...]] [--constant=NAME]... [--] CHALLENGE SOLUTION
-con-leche [flags] (--check-graph | --olean (--module | --modular | --schedule[-OPT=V]...))
-          --compare [--trusted-search-path=DIR[:DIR...]] [--search-path=DIR[:DIR...]]
-          [--] CHALLENGE SOLUTION
-con-leche [flags] --compare [--] CHALLENGE.ndjson SOLUTION.ndjson
-con-leche --help
+lake build con-leche
 ```
 
-That is every flag the binary takes. `--verified` is the default and
-the mode the theorem is about; `--trusted` runs the same checker bodies
-with the certification-only work switched off, is faster, and is
-outside the theorem; `--jobs=<n>` sets the check phase's worker count
-(below); `--max-nat-size=<bytes>` sets the largest `Nat` numeral the
-checker takes in or computes, as the official kernel's
-`LEAN_NAT_MAX_SIZE` does (default 128 MiB; a larger numeral rejects the
-declaration, §6);
-`--progress[=<stride>]` turns on a heartbeat on stderr
-(below); `--olean` takes module names (`Init`, `Mathlib`) in place of the
-file, looked up in the directories `--search-path` lists, and checks every constant of their
-import closure, or with `--constant` only the named constants and what they mention (§2, the
-`.olean` reader); `--olean --module` checks one module's own declarations alone, against the
-records of the modules it loads that they read (§2, one module alone); `--olean --modular` checks
-every module of the root's closure so, in one process, and `--olean --schedule` by one
-`--module` process per module (§2, every module of a closure; `--modular` is of limited use: every
-module redoes its own reach, so on Mathlib it took 3.0 times the merged run's instructions at a
-lower peak (2.4 against 3.1 GiB), and the merged run, or the scheduler for isolation and memory
-limits, is the better choice); `--olean --compare` checks the module `CHALLENGE` with its axioms justified by the
-module `SOLUTION`, the challenge read through the directories `--trusted-search-path` lists alone
-(§2, a challenge and its solution), and with `--check-graph`, `--module`, `--modular` or
-`--schedule` the same question module by module, the challenge one more module of a modular run
-over both closures (§2, a challenge module by module; `--constant` is a usage error there);
-`--compare` without `--olean` checks the export `SOLUTION.ndjson`, then the export
-`CHALLENGE.ndjson` with it as a solution that justifies its axioms (§2, two lean4export files);
-`--check-graph` reads only
-the headers of those modules' import closure and checks that its import graph is acyclic and
-every import is on the search path (§2, the import graph); `--` ends the options, every argument after it being a
-file or a module, whatever it is called; `--help` before any `--` prints a summary of all this
-and exits 0
+The binary is `.lake/build/bin/con-leche`. Lake takes the Lean toolchain
+from the `lean-toolchain` file.
+
+### Quick start
+
+Check an export file:
+
+```
+con-leche Init.ndjson
+```
+
+Check a module and everything it imports, from `.olean` files:
+
+```
+con-leche --olean --search-path="$(lean --print-libdir)" Init
+```
+
+In a Lake project, after `lake build`, check a module of the project:
+
+```
+con-leche --olean --search-path="$(lake env printenv LEAN_PATH)" MyProject
+```
+
+On success, the last line of the output is the verdict, and the exit
+code is 0:
+
+```
+con-leche: accepted 12 declarations (--verified)
+```
+
+`con-leche --help` prints every invocation form and option
 ([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L138)).
-Any other option is a usage error: the run reports it, points at
-`--help` and exits 3 without reading its input, so a verdict's
-provenance can be read off the invocation.
 
-A name's component in `«»` is taken literally
-(`Challenge.«12.34».«5»`); in a `--constant` name, an unescaped component of
-digits is a number (`_private.M.0.foo`). A `--constant` the closure does not hold is
-an error (exit 3). `--search-path` takes the directories as `LEAN_PATH` lists them
-and may be repeated. A module is looked up as Lean does: in the directory
-holding its root (the first component of its name) as a directory `Root/`
-or a file `Root.olean`; each root is looked up once per run in every
-directory, and a root in two directories is an error (exit 3), a directory
-counted once however often it is listed or reached through a symbolic link.
-There its files are `M.olean` and, for a module of the module system, exactly
-`M.olean.server` and `M.olean.private` beside it; another directory is never
-looked at for them. A root on no directory, a module missing in its root's
-directory, and a missing or stray part are errors (exit 3).
+### Command-line rules
 
-The exit code follows the lean kernel arena convention
-([the exit-code mapping in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L37)):
+* An option's value follows an `=`: `--jobs=4`, not `--jobs 4`.
+* Options and arguments can come in any order.
+* `--` ends the options. Every argument after it is a file or module
+  name, even if it starts with `-`.
+* A usage error (an unknown option, a bad value, options that do not go
+  together) exits with code 3 before the checker reads any input.
+* Every setting is a command-line option. The checker has no
+  configuration file.
+
+### Input: a `lean4export` file
+
+```
+con-leche [OPTIONS] [--] FILE.ndjson
+```
+
+The run takes exactly one file and checks every declaration in it. The
+checker reads the file once, front to back, and writes no temporary
+files.
+
+### Input: `.olean` files
+
+```
+con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE...
+```
+
+The run reads the named modules (`Init`, `Mathlib`) and all modules they
+import, and checks every constant in them as one development. You do
+not need `lean4export`. [§2](#the-olean-reader) describes the reader.
+
+* `--olean`: read the arguments as module names, not as a file.
+* `--search-path=DIRS`: the directories that hold the `.olean` files,
+  separated by `:`, as in `LEAN_PATH`. Required. You can repeat the
+  option; the lists add up. In a Lake project, take the search path
+  from Lake: `--search-path="$(lake env printenv LEAN_PATH)"` covers the
+  project, its dependencies and the toolchain (build the project
+  first). For the toolchain's own modules alone, use
+  `--search-path="$(lean --print-libdir)"`.
+* `--constant=NAME`: check only the constant `NAME` and everything it
+  mentions, not the whole import closure. Use it to check one theorem
+  quickly. You can repeat the option. A name that the closure does not
+  hold is an error (exit 3).
+
+The checker finds a module as Lean does. It looks for the module's root
+(the first component of its name) as a directory `Root/` or a file
+`Root.olean` in the search path, and expects all files of the module in
+that directory. It is stricter than Lean in one point: a root that two
+different directories of the search path hold is an error (exit 3).
+Listing the same directory twice is not.
+
+In a module or constant name, write a component in `«»` to have it taken
+literally, dots included: `Challenge.«12.34».«5»`. In a `--constant`
+name, an unescaped component of digits is a number, as in
+`_private.M.0.foo`.
+
+The reader reads `.olean` format version 2. It declines a file of
+another version (exit 2).
+
+### General options
+
+* `--verified` (default): check in the mode that the soundness theorem
+  covers.
+* `--trusted`: skip the checks that only the soundness proof needs. The
+  run is faster, but the theorem does not cover it
+  ([§9](#9-what-the-theorem-does-not-cover)). Use it for debugging
+  only. The verdict line names the mode, so a log cannot pass a trusted
+  run for a verified one.
+* `--jobs=N`: the number of worker threads. Default: one per hardware
+  thread. The verdict, and the declaration that a rejection names, do
+  not depend on `N`. Each worker thread reserves about 1 GiB of address
+  space; if you run under an address-space limit (`ulimit -v`), lower
+  `N`, or the run aborts at start with `failed to create thread`.
+* `--max-nat-size=N`: the largest `Nat` numeral, in bytes, that the
+  checker takes in or computes. A declaration that needs a larger one
+  is rejected. Default: 134217728 (128 MiB), the default of the official
+  kernel's `LEAN_NAT_MAX_SIZE` ([§6](#6-the-nat-operations)).
+* `--progress[=PACE]`: report progress on stderr. `PACE` is `N` (a line
+  every `N` declarations), `P%` (a line per `P` percent of each phase)
+  or `Ss` (a line when a declaration finishes and `S` seconds have
+  passed since the last line). Without a value, the checker prints
+  every declaration with its name. Default: no progress lines. The
+  option changes neither the verdict nor what the theorem covers.
+* `--help`: print the help text and exit with code 0.
+
+### Comparing a challenge with a solution
+
+`--compare` takes two developments. The *challenge* states definitions
+and theorems and can leave holes. The *solution* fills them. A hole is
+an axiom of the challenge (other than Lean's standard axioms) or a
+declaration whose value uses `sorry`. The checker accepts a hole as an
+axiom of its statement if the solution has a constant of the same name
+and the same type (up to the names of universe level parameters), and
+everything that the type mentions is the same in both. The run checks
+the solution in full, and everything in the challenge that is not a
+hole. [§1](#1-what-is-proved) ("A challenge and its solution") states
+what an accepting run proves.
+
+* `--compare CHALLENGE.ndjson SOLUTION.ndjson`: compare two
+  `lean4export` files.
+* `--olean --compare --search-path=DIRS CHALLENGE SOLUTION`: compare
+  two modules, each with its import closure. With `--constant=NAME`
+  (a declaration of `CHALLENGE` itself), the run checks only `NAME` and
+  what it mentions.
+* `--compare` together with `--check-graph`, `--olean --module`,
+  `--olean --modular` or `--olean --schedule` (see
+  [Checking module by module](#checking-module-by-module)): the same
+  comparison, module by module. The challenge is one more module of a modular run
+  over both import closures. `--constant` is a usage error here.
+* `--trusted-search-path=DIRS` (with `--olean` or `--check-graph`): the
+  directories of the challenge. The challenge and everything it imports
+  must be in `DIRS`, and the checker reads them from there only. It
+  looks for the solution's modules in `DIRS` first, then in
+  `--search-path`. Use it when you do not trust the solution's
+  directories: the solution then cannot replace a module that the
+  challenge imports. Without the option, the checker reads both through
+  `--search-path`. The option also goes with `--olean --module` alone:
+  the module's closure is then looked up in `DIRS` first.
+
+An accepting run prints the verdict and one line per justified hole:
+
+```
+con-leche: accepted 300 declarations, 3 axioms justified by the solution S.ndjson (101 declarations accepted) (--verified)
+con-leche: def big justified by the solution
+con-leche: theorem big_lt justified by the solution
+con-leche: axiom ax justified by the solution
+```
+
+A hole that the solution does not justify is a rejection (exit 1), with
+the reason.
+
+### Checking module by module
+
+By default, an `--olean` run loads the whole import closure into one
+environment. The modular modes check each module on its own, against
+what it reads of the modules it imports. Use them to limit memory, to
+isolate modules from each other, or to spread the work over several
+processes or machines.
+
+The modular guarantee ([§1](#1-what-is-proved), "Modular checking")
+needs two things, on the same unchanged set of files: the import graph
+check exits 0, and the `--module` run of every module in the closure
+exits 0.
+
+* `--check-graph --search-path=DIRS MODULE...`: read only the headers of
+  the modules' import closure. Check that the import graph has no cycle
+  and that every import is on the search path. This mode does not take
+  `--olean`.
+* `--olean --module --search-path=DIRS MODULE`: check the declarations
+  of the one module `MODULE`, and no others.
+* `--olean --schedule --search-path=DIRS MODULE`: check every module of
+  `MODULE`'s import closure. The run does the graph check, then starts
+  one `--module` process per module. This is the usual way to check a
+  whole development module by module. No theorem is about the scheduler
+  itself: it only starts the runs and reports their exit codes.
+* `--olean --modular --search-path=DIRS MODULE`: check every module of
+  `MODULE`'s import closure as `--module` does, in one process. It does
+  much more work than the default `--olean` run and has no process
+  isolation. Prefer the default run or `--schedule`.
+
+The three `--olean` modes take exactly one module and no `--constant`.
+
+#### Scheduler options
+
+These options go with `--olean --schedule`. Each of them also selects
+the scheduler, so `--schedule` itself can be left out.
+
+* `--jobs=N`: here, the thread budget of the whole run. The threads of
+  all running workers add up to at most `N`.
+* `--schedule-memory=SIZE`: a hard limit on the memory of all running
+  workers together. `SIZE` needs a unit: `512M`, `47G` (`K`, `M`, `G` or
+  `T`). The scheduler starts workers so that they fit. If the workers
+  pass the limit, it kills the youngest ones and runs them again later.
+  Default: no limit.
+* `--schedule-timeout=S`: a time limit per worker, in seconds. Default:
+  none.
+* `--schedule-log=FILE`: append each finished module to `FILE`. If you
+  start the run again with the same log, it continues where it stopped.
+* `--schedule-order=shuffled|graph`: the order in which the modules
+  start. `shuffled` (default) is a fixed order from a hash of the module
+  names; `graph` is the order of the import graph.
+* `--worker-stack-size=SIZE`: the thread stack size of the workers,
+  with a unit (`8G`). Use it when a worker's verdict is `stack` (a stack
+  overflow). Default: the workers inherit `LEAN_STACK_SIZE_KB` from the
+  environment.
+* `--schedule-commands`: start nothing. Print the commands that check
+  the closure, one per line and quoted for a shell: the `--check-graph`
+  run, then one `--module` run per module. Use it to run the checks with
+  your own job system. All of them must exit 0.
+* `--progress=N` or `--progress=Ss`: print a line on stderr after `N`
+  milliseconds (at least one second) or `S` seconds without output. A
+  percentage is a usage error here.
+
+The scheduler prints one line per finished module on stdout: a status
+part in brackets (modules finished, workers and threads running, memory
+in use, estimated time left), then the module's time, its peak memory,
+`FAILED` with the verdict if the module was not accepted, and the
+module's name. It prints statistics on
+stderr at the end. On `SIGINT` or `SIGTERM` it kills its workers, prints
+the statistics and exits with code 130 or 143.
+[§2](#2-from-the-binary-to-the-theorem) ("Every module of a closure")
+describes the scheduler and the format of the log.
+
+### Exit codes
+
+The exit code is the verdict. The codes follow the convention of the
+Lean kernel arena
+([the exit-code mapping in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L37)).
 
 | exit | verdict | meaning |
 |---|---|---|
-| 0 | `accepted N declarations` | every declaration checked; `N` counts the stream's declaration records |
-| 1 | `rejected` | a declaration is invalid: a type error, a bad inductive block, a proof of the wrong statement |
-| 2 | `declined` | the checker positively detected a feature it does not support, and says which; nothing is claimed about the stream |
-| 3 | error | bad usage, malformed input, or an internal failure of unclear cause |
+| 0 | accepted | Every declaration checked. |
+| 1 | rejected | A declaration is invalid: for example a type error, a bad inductive type, or a proof of the wrong statement. |
+| 2 | declined | The checker found a feature that it does not support, and says which. It claims nothing about the input. |
+| 3 | error | Bad usage, malformed or missing input, or an internal failure. |
 
-The distinction between 1 and 2 is deliberate: a reject is a verdict
-about the input, a decline is a statement about the checker. A decline
-is never used for "something unexpectedly went wrong"; that is exit 3,
-which verification is meant to make rare. Only exit 0 carries the
-theorem's guarantee. The count `N` is a property of the input: a prelude
-declaration counts only where the input has its own record of it. The official kernel's `Accepted N
-declarations` counts an inductive record as its members, so it is larger;
-`scripts/stream-census.py` derives both numbers from a stream. An internal panic is not a verdict either, and
-does not end with one of these codes: the binary sets
-`LEAN_ABORT_ON_PANIC` and `LEAN_ABORT_ON_NONLINEAR` for itself at
-start-up, so every panic — the runtime's `INTERNAL PANIC: out of
-memory`, a Lean-level `panic!` or out-of-bounds `get!`, and a copy of
-one of the arrays the checker marks linear (the parse's tables, which
-must be updated in place) — prints
-its message on stderr and calls `abort()`: the process dies of
-`SIGABRT`, which a shell reports as exit status 134. An abort also
-writes a core dump where the shell's limit allows one, and at Mathlib
-scale that is gigabytes, so `tests/arena.sh` and
-`scripts/perf-tables.sh` run with `ulimit -c 0`, as should a large run
-started by hand.
-
-A run has two phases. The parse ends with the index of the whole
-stream: what each record declares, read off the record (a single pass,
-without threads). The check phase checks every record against the
-index's view of the records before it (see §2), from a fresh memo state.
-The flag `--jobs=<n>` runs the parse and the check phase on `n` worker
-threads; without it there is one worker per hardware thread. At
-`--jobs=1` the check phase runs on one worker thread.
-The check phase always runs on worker threads, never on the main
-thread: its per-record memo state is allocated out of the running
-thread's heap, and the main thread's heap is the one the parse has just
-fragmented, which at Mathlib scale costs the
-single-worker run a factor of two in wall time at the same
-instruction count. Each worker thread reserves about 1 GiB of address space (its stack
-reservation; the resident set grows by about 25 MB per worker), so a
-run under an address-space limit (`ulimit -v`) must lower the count
-to what the limit affords — about ten workers under 16 GB. At every
-worker count the records and the index are marked persistent once
-before the check phase, which removes the atomic reference counting the
-workers would otherwise pay on them and is worth 18–32 % of wall time on
-the pool, growing with the worker count, and 3.5 % at one worker. The
-verdict, and the declaration a rejection names, are the same at every
-`n`: the results are walked in record order, so the first failing
-record in fold order is the one reported. The flag
-`--progress[=N|P%|Ss]` prints a heartbeat on stderr, a line every `N` declarations, per `P` percent
-of a phase, or at the first declaration done once `S` seconds have passed (so a long single check,
-or a step with no declarations, says nothing until it ends): `check <done> (<percent>%)` after a
-completed check, with its name at `--progress=1`, each phase saying when it starts (`reading`,
-`checking`), bracketed by `parse done`, `check done` and a `done:` summary with the two phase
-durations and the worker count (bare, every declaration); on more than one worker, each `check`
-line ends with the number of busy workers and the oldest record one of them is on, with its age,
-only at `--progress=1` or once it has run for 10 s. With `--olean` the parse is preceded by
-`read:` lines, each with the time and the resident set: the import closure traced, the modules
-loading, at the pace asked for (a count of declarations counts their constants), then the merge, the blocks and the emission, so that a run
-that does not get through the read says how far it got and at what size.
-With or without the flag, every run closes its stderr with a few
-`stats:` lines: the phase times (the index's within the parse's); for the
-check phase the wall time,
-the worker count, the workers' busy time and utilisation (busy ÷
-(workers × wall)) and, on more than one worker, the tail (from the
-last record's start to the end of the phase, how many workers were
-still busy then and their busy time inside it); the five slowest
-checks with their fold positions; and the peak resident
-set. They cost two clock reads per record, kept per worker and merged
-when the pool ends, and change neither stdout nor the exit code. The heartbeat
-is printed between the steps of the one driver, which returns the
-proof that `checkDecls` — the function
-the theorem is about — accepts (see §2), so a run with the flag is
-covered exactly as a run without it, and so is a run on the pool.
-
-Every name and raw string these messages print comes from the input,
-so it is printed through one rendering
-([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L236)).
-A name component that is an identifier prints bare, as in Lean
-(`Nat.add_comm`, `α₁.ℕ`); any other is wrapped in `«…»` (`x.«3»`,
-`«a.b»`), with `\` doubled and with `»` and every control, format and
-separator character other than the ASCII space (ESC, newline, the bidi
-overrides, the zero-width characters) written as `\u{XXXX}`:
-`«evil\u{001B}[31m\u{000A}::error::x»`. Numeric components print as
-decimals and the anonymous name as `[anonymous]`. A raw string field
-(a `safety` value, a quotient kind) prints the same way between
-`"`…`"`, and a rendering longer than 512 characters ends in
-`…[N more characters]`. No input can move the cursor, recolour the
-terminal or start a line of the output, such as a GitHub Actions
-`::error::` command.
+* A rejection says something about the input. A decline says something
+  about the checker.
+* A modular run (`--modular`, `--schedule`) that does not accept every
+  module exits with the code of the first such module in the order of
+  the import graph.
+* An internal panic, or running out of memory, is not a verdict. The
+  process aborts with `SIGABRT`, which a shell reports as status 134.
+  An abort can write a core dump; for a large run, switch core dumps
+  off first (`ulimit -c 0`).
 
 ## 1. What is proved
 
