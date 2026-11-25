@@ -1252,23 +1252,23 @@ theorem lazyDeltaReduction_snd_proj (d : Nat) :
     unfold lazyDeltaReduction
     snd_core3 (first | rw [lazyDeltaStep_snd_proj] | rw [defeqOffset_snd_proj] | rw [lazyDeltaReduction_snd_proj d n])
 
-theorem lazyDeltaProjReduction_fst_proj (d : Nat) (sn : Name) (i : Nat) :
+theorem lazyDeltaProjReduction_fst_proj (d : Nat) (sn : Name) (i : Nat) (as bs : List Expr) :
     ∀ (n : Nat) (a b : Expr),
-      (lazyDeltaProjReduction mode (pairFns r₁ r₂ h) env d sn i n a b).val.1 =
-        lazyDeltaProjReduction mode r₁ env d sn i n a b
+      (lazyDeltaProjReduction mode (pairFns r₁ r₂ h) env d sn i as bs n a b).val.1 =
+        lazyDeltaProjReduction mode r₁ env d sn i as bs n a b
   | 0, _, _ => rfl
   | n + 1, a, b => by
     unfold lazyDeltaProjReduction
-    fst_core3 (first | rw [lazyDeltaStep_fst_proj] | rw [reduceProjCore_fst_proj] | rw [lazyDeltaProjReduction_fst_proj d sn i n])
+    fst_core3 (first | rw [lazyDeltaStep_fst_proj] | rw [reduceProjCore_fst_proj] | rw [defEqList_fst] | rw [lazyDeltaProjReduction_fst_proj d sn i as bs n])
 
-theorem lazyDeltaProjReduction_snd_proj (d : Nat) (sn : Name) (i : Nat) :
+theorem lazyDeltaProjReduction_snd_proj (d : Nat) (sn : Name) (i : Nat) (as bs : List Expr) :
     ∀ (n : Nat) (a b : Expr),
-      (lazyDeltaProjReduction mode (pairFns r₁ r₂ h) env d sn i n a b).val.2 =
-        lazyDeltaProjReduction mode r₂ env d sn i n a b
+      (lazyDeltaProjReduction mode (pairFns r₁ r₂ h) env d sn i as bs n a b).val.2 =
+        lazyDeltaProjReduction mode r₂ env d sn i as bs n a b
   | 0, _, _ => rfl
   | n + 1, a, b => by
     unfold lazyDeltaProjReduction
-    snd_core3 (first | rw [lazyDeltaStep_snd_proj] | rw [reduceProjCore_snd_proj] | rw [lazyDeltaProjReduction_snd_proj d sn i n])
+    snd_core3 (first | rw [lazyDeltaStep_snd_proj] | rw [reduceProjCore_snd_proj] | rw [defEqList_snd] | rw [lazyDeltaProjReduction_snd_proj d sn i as bs n])
 
 theorem defeqProjPair_fst_proj (d : Nat) (a b : Expr) :
     (defeqProjPair mode (pairFns r₁ r₂ h) env d a b).val.1 =
