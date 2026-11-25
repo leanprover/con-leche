@@ -1370,8 +1370,9 @@ ConLeche uses the following conversion and elimination rules:
   and structures whose fields are propositions or unit-like types (§3).
 * Universe levels are compared semantically.
 * A non-nested block with one family and one constructor, whose result sort
-  can be zero, can have a large eliminator when its fields satisfy the
-  checker's criterion; the released kernel gives it a small eliminator (§5).
+  can be zero, can have a large eliminator; the released kernel gives it a
+  small eliminator. For a `Prop` family, each field must be a proof or a
+  result index; otherwise each field's sort must be at most the result sort.
 * When proof irrelevance does not establish equality, the checker continues
   the comparison; the official kernel can stop with failure.
 * `And.rec` can rescue its major premise from an opaque proof of `And` and
@@ -1399,9 +1400,10 @@ its treatment of input records:
 * Well-founded `Nat` operations are accelerated only when their definitions
   match supported pins; a stream matching none is declined. The official
   kernel accelerates by name (§6).
-* The pinned basis and `And` declarations and names read by literals must
-  have the expected shapes; `Bool` must have the expected types where `Nat`
-  operations require it (§5, §6).
+* The pinned basis and `And` declarations must have the expected shapes (§5).
+* Declarations at names read by literals must have the expected level
+  parameters and types.
+* `Bool` must have the expected types where `Nat` operations require it (§6).
 * Inductive blocks must include recursor records; the official kernel
   generates its own (§5).
 * A recursor's minor premise may consume a constructor field annotation only
@@ -1440,7 +1442,15 @@ kernel does not make:
 * It checks the full-grade types of opened bodies in lambda comparisons and
   η, and proof irrelevance between the major and the constructor application
   in K-like and `And` rescues (§3).
-* It performs three additional checks in the inductive installer (§5).
+* It performs three additional checks in the inductive installer:
+  * For a `Type` block, the fields of each constructor's positivity normal
+    form have sorts bounded by the family's sort with members replaced by
+    variables.
+  * Each constructor type with its block members replaced by variables
+    type-checks in their context.
+  * At every recorded normal form of a constructor, each recursive field
+    agrees with the reference form's telescope, head and indices, and with
+    the class of its inductive hypothesis.
 
 Trusted mode omits checks used only by the proof and is outside the soundness
 theorem.
