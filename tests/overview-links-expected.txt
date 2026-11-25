@@ -789,12 +789,37 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== ConLeche/Kernel/StdAxioms.lean#L33-L37
-    33  /-- The name `propext`. -/
-    34  def propextName : Name := anonymous |>.str "propext"
-    35  
-    36  /-- The name `Classical.choice`. -/
-    37  def choiceName : Name := (anonymous |>.str "Classical") |>.str "choice"
+== ConLeche/Kernel/StdAxioms.lean#L185-L214
+   185  def stdAxiomOk (env : Env) (cv : ConstantVal) : Bool :=
+   186    if cv.name = propextName then
+   187      (env.find? eqName).isSome &&
+   188      (match env.find? iffName with
+   189       | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
+   190       | _ => false) &&
+   191      (match env.find? iffIntroName with
+   192       | some (.ctorInfo cvIi 2 2 _) =>
+   193         ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
+   194       | _ => false) &&
+   195      (match env.find? iffRecName with
+   196       | some (.recInfo cvIr 4 4 _ _) =>
+   197         ConstantVal.matchesPin cvIr iffRecA.toConstantVal
+   198       | _ => false) &&
+   199      ConstantVal.matchesPin cv propextA
+   200    else if cv.name = choiceName then
+   201      (match env.find? nonemptyName with
+   202       | some (.indInfo cvN _) =>
+   203         ConstantVal.matchesPin cvN nonemptyA.toConstantVal
+   204       | _ => false) &&
+   205      (match env.find? nonemptyIntroName with
+   206       | some (.ctorInfo cvNi 1 1 _) =>
+   207         ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
+   208       | _ => false) &&
+   209      (match env.find? nonemptyRecName with
+   210       | some (.recInfo cvNr 3 3 _ _) =>
+   211         ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal
+   212       | _ => false) &&
+   213      ConstantVal.matchesPin cv choiceA
+   214    else false
 
 == ConLeche/Kernel/TrustAxioms.lean#L9-L38
      9  /-!
