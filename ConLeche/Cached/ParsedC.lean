@@ -96,11 +96,11 @@ def checkOpaqueValCI (fe : FEnv) (cv : ConstantVal)
 /-- `checkQuotRecord`'s cached twin. -/
 def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEnv := do
   unless quotPinHit k cv do
-    throw (.notImplemented (match k with
-      | .sound => "quotient soundness axiom mismatch"
-      | _ => "quotient declaration mismatch"))
+    throw (match k with
+      | .sound => .notImplemented "quotient soundness axiom mismatch"
+      | _ => .invalid "quotient declaration mismatch")
   unless quotPredsOk fe.find? k do
-    throw (.notImplemented "quotient declaration before what it needs")
+    throw (.invalid "quotient declaration before what it needs")
   installBasisDeclF fe (quotAt k cv)
 
 /-- **An inductive block's install** (`checkDeclKind`'s `.indDecl` arm's

@@ -1368,8 +1368,9 @@
 # (`ConstantInfo.canonEq`).
 2 tower_axiom.ndjson
 # tower_quot: a `quot` record for `Quot` with a tower type -> divergent
-# quotient pin (`ConstantVal.canonEq`).
-2 tower_quot.ndjson
+# quotient pin (`ConstantVal.canonEq`); a `quot` record off its pin is a
+# REJECT (task #636), as in official's `add_quot` and the other checkers.
+1 tower_quot.ndjson
 # tower_prelude: an inductive block named `Bool` with a tower in its
 # constructor field.  Until task #293 this DECLINED, at the prelude
 # dedupe's `Declaration.sameCanon` — the point being that the comparison
@@ -3335,8 +3336,9 @@
 # every record at its own names, the reductions used: no record reads another's.
 0 basis_quot_all_other_names.ndjson
 # `Quot.lift.{y, z}` whose result is another variable: not the pin beyond its names.
-# DECLINE, as a quotient record that disagrees with its pin always did.
-2 basis_quot_lift_type_bad.ndjson
+# REJECT (task #636): a `quot` record that disagrees with its pin is invalid input,
+# as for the other checkers (arena `bugs/quot-bad-type`).
+1 basis_quot_lift_type_bad.ndjson
 # -- task #480: the literal fast path fires on a certified operation's name, as official's.
 # Only a definition may take such a name (its job holds it to the pin): a theorem or a family
 # there is refused.  natop_foreign_thm, natop_foreign_former: official 0 (run); 1 by the

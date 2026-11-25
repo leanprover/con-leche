@@ -883,8 +883,8 @@ tower_run tower_proj 0 \
   "a tower under a two-field structure's projection bodies accepts"
 tower_run tower_axiom 2 \
   "a tower in Quot.sound's type declines without walking it"
-tower_run tower_quot 2 \
-  "a tower in a quotient record's type declines without walking it"
+tower_run tower_quot 1 \
+  "a tower in a quotient record's type rejects without walking it"
 tower_run tower_prelude 0 \
   "a tower in a Bool-named block installs without walking it"
 tower_run tower_axiom_pin 2 \

@@ -461,16 +461,18 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
     s!"unsupported compiler-trust opaque declaration ({c})")
 
 /-- **A quotient record's check and install**: compared with its slot's
-pin, the slots it needs stored, and installed at its own names.  A record
-that does not match is a quotient this checker positively does not
-support. -/
+pin, the slots it needs stored, and installed at its own names.  A `quot`
+record that does not match its pin, or comes before the slots it needs, is
+rejected, as the arena and the other checkers do.  The soundness axiom
+is an ordinary `axiom` for official, which accepts it at any type, so a
+`Quot.sound` that does not match is declined. -/
 def checkQuotRecord (env : Env) (k : QuotKind) (cv : ConstantVal) : m Env := do
   unless quotPinHit k cv do
-    throw (.notImplemented (match k with
-      | .sound => "quotient soundness axiom mismatch"
-      | _ => "quotient declaration mismatch"))
+    throw (match k with
+      | .sound => .notImplemented "quotient soundness axiom mismatch"
+      | _ => .invalid "quotient declaration mismatch")
   unless quotPredsOk env.find? k do
-    throw (.notImplemented "quotient declaration before what it needs")
+    throw (.invalid "quotient declaration before what it needs")
   installBasisDecl env (quotAt k cv)
 
 end ConLeche
