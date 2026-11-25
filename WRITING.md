@@ -33,8 +33,13 @@ to every edit of it (and of the agent-editable parts of `README.md`).
 
 ## Sentences
 
-* Short sentences, active voice, simple tenses. Define a term at its
-  first use. The `simple-english` skill is a good check.
+* Natural, fluent technical prose, concise: say a thing once, in as few
+  words as precision allows. Do not pad with motivation or restatement.
+* One word, one meaning. Don't let a verb ("holds", "reads") cover several
+  relations; pick a plain, concrete verb for each and keep it.
+* Every pronoun and "these"/"those" has a clear referent; name the thing.
+* Explain rather than deduce: no chains of terse "hence" sentences that
+  read like a proof. Define a term at its first use.
 * Words: "Π-type" or "function space", not "product"; "let-expression",
   not "local definition"; "a lambda-expression", not "a λ" in prose.
   Never "load-bearing" or "licenses" ("needed", "used", "justifies").
