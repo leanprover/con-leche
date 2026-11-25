@@ -1141,69 +1141,47 @@ run a decision procedure to establish the proof.
 
 ## 9. What the theorem does not cover
 
-* The frontend. The theorem is about the list of declarations the
-  fold receives, not about the export file. The decoder emits the
-  file's records and nothing else; between it and the fold sit pure
-  transformations of that list. Two are reorderings, and a theorem says
-  so (`preparePrelude`, §6): the declarations the prelude names are
-  moved to the front, the prelude's own copy filling in only what the
-  file does not declare, and the structural operations a pinned Nat
-  operation's certificates mention are moved ahead of it. Nothing is
-  rewritten, and nothing is added but the prelude records the file
-  lacks.
-  Two guarantees have to be kept apart
-  here. What §5 and §6 establish is that everything the frontend
-  hands over is checked: the prelude's records and a Nat operation's
-  certificates are ordinary declarations to the fold. What the
-  frontend does *not* establish is that the list it hands over means
-  the same as the export: the decoder is written to be
-  meaning-preserving, but that is a review claim, not a theorem.
-* What Lean makes of an `.olean` file. The theorem is about the files as
-  `decodeModuleSpec` reads them; that Lean's own loader reads them the
-  same way is tested (`tests/olean-compare.sh`, on `Init`), not proved.
-  `--olean` reads each module's private view and does not compare a
-  module's files with each other, so the theorem says nothing about the
-  exported view that a `module` importing it sees. Beyond the format
-  version and the GMP flag, nothing says which toolchain wrote a file.
-  With `--constant`, only the named constants and what they mention are
-  checked.
-* The runtime's IO. The binary is the driver's generic code at `IO`;
-  the theorems are about its outcomes in the model of §2. Assumed: that
-  the binary's file operations give the model's answers on one snapshot
-  of the files — the same value where the model has one, an exception
-  where it has none, a read of an open file the next bytes of the
-  file, fewer only at its end (`IO.FS.Handle.read`); that the
-  actions passed to `liftIO` (output, the clock, `/proc/self/status`,
-  the threads and the computations on them) do not change what the
-  file operations see and do not end the process with exit code 0 (an
-  abnormal or nonzero end is harmless: that run has no exit 0 to
-  explain); and that Lean's compiler and runtime run the
-  code as written. `tests/trust-surface.sh` checks, textually, that
-  the modules written against the class reach the runtime only through
-  its operations and the arguments of `liftIO`, and, stricter than the
-  assumption needs, that
-  `IO.Process.exit` appears only in `main`, which with
-  `enableAbortOnNonlinear` is all `Main.lean` declares. Those few lines
-  are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>`, `--olean --search-path=<dirs> -- <root>`, `--olean --module --search-path=<dirs> -- <root>`, `--olean --modular --search-path=<dirs> -- <root>` and `--check-graph --search-path=<dirs> -- <root>`; other flags and `--help` are not
-  covered. The scheduler (`--schedule`), which no theorem is about, starts processes of the
-  binary, kills its own children and appends to its log under `liftIO`; the trust-surface gate
-  confines processes, kills and file writes to `ConLeche/Driver/Schedule/Run.lean`. A statement about several runs assumes one snapshot for all of them: the files do
-  not change while the runs read them. The checker carries one C function of its own, the
-  hash of a `Nat` literal of 2^64 and more (`native/nat_hash.c`: all its 64-bit words
-  mixed, Lean's own fix of the literal hash, vendored until the toolchain ships it); the
-  proofs see it as an opaque function of the number, so the assumption is that it is one.
-  It and the build file `lakefile.lean` are pinned by content in the trust-surface gate.
-* `--trusted` mode.
-* Non-acceptance: a decline or a reject carries no claim. The verdict
-  line reports the count of accepted stream records.
-* Four places where the checker deliberately accepts more than the
-  official kernel: a semantic comparison of universe levels; a
-  proof-irrelevance fall-through; the large eliminator of a
-  single-constructor block whose result sort can be zero — where the
-  official kernel generates only the small one, this checker takes the
-  subsingleton case under a per-field criterion; and the
-  `And` rescue of §3. All four are covered by the soundness proof.
-  §14 lists every deliberate departure from the official kernel.
+The soundness theorem has limits at the input, runtime and command-line
+boundaries. This section describes those limits and points to the covered
+runs in §1.
+
+### Input interpretation
+
+For lean4export input, the theorem describes the parsed declaration records;
+it does not prove that the decoder preserves the meaning of the export file.
+[`preparePrelude_perm`](ConLeche/Verify/Frontend/Prepare.lean) shows that
+preparation retains every parsed record unchanged and adds only prelude
+records; the fold checks the resulting declarations (§5 and §6).
+
+For `.olean` input, the theorem uses ConLeche's
+[`decodeModuleSpec`](ConLeche/Frontend/Olean/View.lean). Agreement with
+Lean's loader is tested on `Init` by `tests/olean-compare.sh`, not proved.
+The ordinary `--olean` closure run reads private views without comparing a
+module's views, so its theorem does not describe the exported view seen by
+an importing module. A module home check compares the views (§2).
+
+### Runtime assumptions
+
+The connection between a real run and the IO model is assumed (§2): file
+operations must agree with one snapshot, `liftIO` actions must not change
+what those operations see or terminate the process with exit code 0, and
+Lean's compiler and runtime must execute the code as written. A theorem
+composing several runs assumes the same snapshot for all of them.
+
+The checker also uses a C function to hash large `Nat` literals; the proof
+assumes it behaves as a function of the number. The boundary is described
+in [`CheckerIO`](ConLeche/Frontend/CheckerIO.lean), and
+`tests/trust-surface.sh` checks parts of it textually.
+
+### Runs and results
+
+The run theorems cover the exact argument forms listed in §1. They do not
+cover `--trusted` or the scheduler's own result (`--schedule`); the modular
+theorem instead composes the graph check and module worker results (§2).
+A decline or rejection carries no soundness claim.
+
+The soundness proof does cover the checker's deliberate acceptances beyond
+the official kernel. §14 lists those and the other departures.
 
 ## 10. Naming conventions
 
