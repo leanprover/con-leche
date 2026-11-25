@@ -206,10 +206,6 @@
    129  #guard_msgs in
    130  #print axioms ConLeche.main_json_model
 
-== ConLeche/Driver/Dispatch.lean#L66-L67
-    66    | .oleans sp roots cs mode maxNatSize pace jobs =>
-    67      checkMainG (.oleans sp roots cs) mode maxNatSize pace jobs
-
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
@@ -223,48 +219,6 @@
    326        parseChunks [b] = .ok r ∧
    327        Cached.checkDecls .verified natOpPinSets Cached.maxNatSizeDefault (preparePrelude pre r.decls) = .ok env := by
 
-== ConLeche/Driver/StreamParse.lean#L118-L119
-   118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
-   119      μ (Except (CheckError × Nat) ParseResultD) := do
-
-== ConLeche/Frontend/Scan/Equiv.lean#L1002
-  1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
-
-== ConLeche/Frontend/ExportC.lean#L622
-   622  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
-
-== ConLeche/Frontend/Stream.lean#L310-L312
-   310  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
-   311      (chunk : USize := chunkSize) : μ (Except (CheckError × Nat) ParseResultD) :=
-   312    foldChunks path chunk ((StateD.init.markLinear, .empty, 0, 0) : SerSt) serStep serFin
-
-== ConLeche/Driver/OwnerParse.lean#L494-L496
-   494  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
-   495      (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
-   496      IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
-
-== ConLeche/Verify/Frontend/Good.lean#L528
-   528  inductive Good (Γ : WCtx) : Nat → TV → Prop where
-
-== ConLeche/Verify/Frontend/Good.lean#L712-L716
-   712  theorem allOK_of_good {Γ : WCtx} {T : Tabs} {n : Nat} (hT : GoodTabs Γ T)
-   713      (hD : ∀ p (h : p < Γ.rs.length) d, Γ.rs[p] = .decl d →
-   714        ∃ x, declOf (cutLk T (Γ.ctr p)) d = .ok (.inl x))
-   715      (hP : ∀ p (h : p < Γ.rs.length), Γ.rs[p].placed (n + p == 0) = true) :
-   716      AllOK T Γ.c0 n Γ.rs := by
-
-== ConLeche/Verify/Frontend/Rounds.lean#L1740-L1749
-  1740  theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : List ByteArray}
-  1741      {W : Win}
-  1742      (hW : WinInv g.P bs W) (hc0 : W.c0 = g.c)
-  1743      {ps : Array FinPart} (hm : ps.size = bs.length) (hb : 0 < bs.length)
-  1744      (hps : ∀ c (h : c < ps.size) (hb : c < bs.length),
-  1745        FinOK g.P W ps.size (g.lineNo == 0) c bs[c] ps[c])
-  1746      (htot : g.total + (bs.map ByteArray.size).sum < USize.size) :
-  1747      GOK (done ++ bs) ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd, g.ds ++ joinD ps,
-  1748        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
-  1749        g.total + (bs.map ByteArray.size).sum⟩ := by
-
 == ConLeche/Driver/CheckMain.lean#L414-L419
    414  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode} {maxNatSize : Nat}
    415      {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
@@ -273,43 +227,6 @@
    418        Frontend.parseChunks [b] = .ok r ∧
    419        Cached.checkDecls mode natOpPinSets maxNatSize (Frontend.preparePrelude pre r.decls) = .ok env := by
 
-== ConLeche/Cached/Decls.lean#L52-L53
-    52  def declStep (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution) (p : Nat × FEnv)
-    53      (pd : Declaration) : Except (CheckError × Nat) (Nat × FEnv) :=
-
-== ConLeche/Kernel/Install.lean#L79-L91
-    79  def declConstants : Declaration → List ConstantInfo
-    80    | .defnDecl cv value hint => [.defnInfo cv value hint]
-    81    | .thmDecl cv _ => [.thmInfo cv]
-    82    | .opaqueDecl cv _ => [.axiomInfo cv]
-    83    | .axiomDecl cv =>
-    84      if cv.name = quotSoundName then [quotAt .sound cv]
-    85      else if cv.name = sorryAxName then []
-    86      else [.axiomInfo cv]
-    87    | .quotDecl k cv => [quotAt k cv]
-    88    | .indDecl block nP =>
-    89      match readBlock nP block with
-    90      | .ok p => blockConstants p
-    91      | .error _ => []
-
-== ConLeche/Verify/Cached/DeclPushes.lean#L698-L699
-   698          · exact Yields.ofThrow
-   699      · exact Yields.ofThrow
-
-== ConLeche/Cached/StreamIndex.lean#L65
-    65  def buildIndex (ds : Array Declaration) : StreamIndex :=
-
-== ConLeche/Cached/StreamIndex.lean#L97-L98
-    97  def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution)
-    98      (F : FrozenIndex) (k : Nat) (pd : Declaration) : Except CheckError Unit :=
-
-== ConLeche/Verify/Cached/ViewCongr.lean#L1340-L1344
-  1340    unfold checkDeclC
-  1341    refine RelRun.bind (checkDeclKindC_twin pins ht pd) fun a₁ a₂ h => ?_
-  1342    relrun
-  1343    all_goals exact RelRun.pure h
-  1344  
-
 == ConLeche/Verify/Cached/StreamIndex.lean#L527-L531
    527  theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
    528      (hds : sideRecords justify ds = ds)
@@ -317,56 +234,14 @@
    530        (buildIndex ds).freeze k ds[k] = .ok ()) :
    531      checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
 
-== ConLeche/Driver/CheckPool.lean#L69-L70
-    69  def Jobs.build (ds : Array Declaration) (justify : Option ConLeche.Env := none) :
-    70      IO (Jobs ds justify) := do
-
-== ConLeche/Driver/CheckPool.lean#L220-L222
-   220  def checkPool (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
-   221      {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify) :
-   222      IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J))) := do
-
-== ConLeche/Driver/CheckPool.lean#L155-L156
-   155  def collect (mode : ConLeche.CheckMode) (maxNatSize : Nat) {ds : Array Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify)
-   156      (rs : List (JPass mode maxNatSize J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode maxNatSize J)) :=
-
-== ConLeche/Driver/Run.lean#L85-L90
-    85  def checkDeclsIO (mode : ConLeche.CheckMode) (maxNatSize : Nat) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
-    86      {ds : Array ConLeche.Declaration} {justify : Option ConLeche.Env} (J : Jobs ds justify)
-    87      (hds : ConLeche.Cached.sideRecords justify ds = ds) :
-    88      IO (Except (ConLeche.CheckError × Nat)
-    89        (PLift (∃ env, ConLeche.Cached.checkDeclsWith mode ConLeche.natOpPinSets maxNatSize ds justify
-    90          = .ok env))) := do
-
 == ConLeche/Cached/Decls.lean#L61-L62
     61  inductive DeclsRun (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution) :
     62      List Declaration → Nat × FEnv → Nat × FEnv → Prop where
-
-== ConLeche/Cached/Decls.lean#L143-L147
-   143      | ok p₁ =>
-   144        simp only [hstep, Except.bind] at h
-   145        exact .cons hstep (DeclsRun.of_foldlM ds p₁ h)
-   146  
-   147  /-- A run extends at its end by one accepting step. -/
-
-== ConLeche/Cached/Decls.lean#L160-L164
-   160      {justify : Option Env} {env : Env}
-   161      (h : checkDeclsWith mode pins maxNatSize ds justify = .ok env) :
-   162      ∃ n fe, DeclsRun mode pins maxNatSize (solutionOf justify (sideRecords justify ds)) (sideRecords justify ds).toList
-   163        (0, mkFEnv Env.empty) (n, fe) ∧ fe.env = env := by
-   164    unfold checkDeclsWith at h
 
 == ConLeche/Model/DeclsRun.lean#L46-L48
     46  theorem declsRun_model {ds : List Declaration} {p q : Nat × FEnv}
     47      (hrun : DeclsRun .verified pins maxNatSize none ds p q) :
     48      p.2 = mkFEnv p.2.env → EnvModelOk V p.2.env → EnvModelOk V q.2.env := by
-
-== ConLeche/Verify/Cached/MainC.lean#L55-L59
-    55  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
-    56      {ds : Array Declaration} {env' : Env}
-    57      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
-    58      ∀ c ∈ env'.consts,
-    59        c.toConstantVal.type = .const falseName [] → False := by
 
 == ConLeche/Verify/Cached/MainC.lean#L34-L37
     34  theorem checkDecls_sound
@@ -374,86 +249,10 @@
     36      (h : checkDecls .verified pins maxNatSize ds = .ok env') :
     37      Nonempty (EnvModelM V env') := by
 
-== ConLeche/Semantics/DeclWF.lean#L356-L358
-   356  theorem checkDecls_envWF {maxNatSize : Nat} {ds : Array Declaration} {justify : Option Env}
-   357      {env' : Env} (h : checkDeclsWith .verified pins maxNatSize ds justify = .ok env') :
-   358      EnvWF env' := by
-
-== ConLeche/Verify/Cached/KnotCongr.lean#L706-L709
-   706  theorem knotI_congr (hfe : fe₁.find? = fe₂.find?) (htb : fe₁.findTable? = fe₂.findTable?) :
-   707      whnfCoreI mode fe₁ = whnfCoreI mode fe₂ ∧ whnfI mode fe₁ = whnfI mode fe₂ ∧
-   708        inferI mode fe₁ = inferI mode fe₂ ∧ defeqI mode fe₁ = defeqI mode fe₂ ∧
-   709        defeqEI mode fe₁ = defeqEI mode fe₂ ∧ ensureSortI mode fe₁ = ensureSortI mode fe₂ := by
-
-== ConLeche/Kernel/TypeChecker.lean#L29-L54
-    29  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
-    30      CheckM Expr :=
-    31    (pureFns mode eager env fuel).whnfCore cheap depth e
-    32  
-    33  /-- The full reduction loop (fueled). -/
-    34  def whnf (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-    35    (pureFns mode eager env fuel).whnf depth e
-    36  
-    37  /-- Full-grade type inference (fueled): the declaration front door's
-    38  entry — official's `infer_type_core(e, infer_only = false)`. -/
-    39  def inferTypeCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-    40    (pureFns mode eager env fuel).infer depth e
-    41  
-    42  /-- Type inference at the io grade (fueled): the knot's `inferIO` slot
-    43  — what every internal inference call site runs (task #170).  At every
-    44  mode it is the io lane (`inferTypeIO_on`, `Verify/Knot.lean`). -/
-    45  def inferTypeIO (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-    46    (pureFns mode eager env fuel).inferIO depth e
-    47  
-    48  /-- Definitional equality (fueled). -/
-    49  def isDefEqCore (env : Env) (fuel depth : Nat) (a b : Expr) : CheckM Bool :=
-    50    (pureFns mode eager env fuel).defeq depth a b
-    51  
-    52  /-- `ensureSort` over the pure knot (fueled). -/
-    53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
-    54    ensureSort (pureFns mode eager env fuel) env depth e
-
-== ConLeche/Kernel/Core.lean#L1899-L1904
-  1899        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1900        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1901        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1902        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1903        inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  1904    | fuel + 1 =>
-
-== ConLeche/Model/Fold.lean#L565-L572
-   565  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   566      {F : Nat}
-   567      {ds : List Declaration} {env' : Env}
-   568      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   569      ∀ c ∈ env'.consts,
-   570        c.toConstantVal.type = .const falseName [] → False := by
-   571    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   572    exact fun c hc hty => no_constant_of_False mp c hc hty
-
-== ConLeche/Model/Fold.lean#L484
-   484  theorem declStep_preserves
-
-== ConLeche/Model/Capstone.lean#L137-L143
-   137  theorem no_constant_of_False (mp : EnvModelM V env)
-   138      (c : ConstantInfo) (hc : c ∈ env.consts)
-   139      (hty : c.toConstantVal.type = .const falseName []) : False :=
-   140    no_constant_of_emptyPin mp (u := 0) (by decide)
-   141      (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Term.emptyT])
-   142      c hc hty
-   143  
-
-== ConLeche/Model/OfEnvModelM.lean#L62-L63
-    62  noncomputable def Model.ofEnvModelM {env : Env}
-    63      (m : EnvModelM V env) : ConLeche.Model V env where
-
 == tests/layering.sh#L1-L3
      1  #!/usr/bin/env bash
      2  # tests/layering.sh — THE LAYERING GATE (task #161, S1; re-cut at the
      3  # SetR removal, 2026-09-05).
-
-== ConLeche/Frontend/Olean/Lazy.lean#L296
-   296  def loadAt (i : Nat) (m : Name) (f : ModFiles) : Option Loaded := do
 
 == ConLeche/Frontend/Olean/Records.lean#L168-L169
    168  def readValue {μ : Type → Type} [CheckerIO μ] (sp : Roots) (values : Array ModRef)
