@@ -1,21 +1,14 @@
-let-ladder	official	6117891215	0.54	0	22	5.65	Accepted 22 declarations.	
-let-ladder	trusted	2763267756	0.22	0	13	5.65	con-leche: stats: phases: parse 0.0s, install 0.0s, check 0.1s con-leche: stats: install (	
-let-ladder	verified	2763280310	0.22	0	13	5.65	con-leche: stats: phases: parse 0.0s, install 0.0s, check 0.1s con-leche: stats: install (	
-beta-ladder	official	10126626215	1.08	0	20	5.65	Accepted 20 declarations.	
-beta-ladder	trusted	5216900304	0.41	0	11	5.65	con-leche: stats: phases: parse 0.0s, install 0.0s, check 0.3s con-leche: stats: install (	
-beta-ladder	verified	5216909791	0.41	0	11	5.65	con-leche: stats: phases: parse 0.0s, install 0.0s, check 0.3s con-leche: stats: install (	
-init-prelude	official	2207032372	0.19	0	2056	5.65	Accepted 2056 declarations.	
-init-prelude	trusted	2001856711	0.19	0	1777	5.65	con-leche: stats: phases: parse 0.0s, install 0.0s, check 0.0s con-leche: stats: install (	
-init-prelude	verified	2053524085	0.19	0	1777	5.65	con-leche: stats: phases: parse 0.0s, install 0.0s, check 0.0s con-leche: stats: install (	
-grind-ring-5	official	13402674859	1.28	0	2429	5.27	Accepted 2429 declarations.	
-grind-ring-5	trusted	15900721488	1.68	0	2185	5.27	con-leche: stats: phases: parse 0.0s, install 0.2s, check 1.3s con-leche: stats: install (	
-grind-ring-5	verified	16283830460	1.75	0	2185	5.27	con-leche: stats: phases: parse 0.0s, install 0.2s, check 1.4s con-leche: stats: install (	
-app-lam	official	29417810257	3.19	0	34	5.01	Accepted 34 declarations.	
-app-lam	trusted	23443538644	2.82	0	21	5.01	con-leche: stats: phases: parse 0.0s, install 0.0s, check 2.7s con-leche: stats: install (	
-app-lam	verified	23445567979	2.81	0	21	4.77	con-leche: stats: phases: parse 0.0s, install 0.0s, check 2.7s con-leche: stats: install (	
-init-full	official	439605039923	51.78	0	59430	4.77	Accepted 59430 declarations.	
-init-full	trusted	402659375162	37.26	0	57977	2.60	con-leche: stats: phases: parse 0.9s, install 1.3s, check 34.9s con-leche: stats: install 	
-init-full	verified	408355953653	37.91	0	57977	2.26	con-leche: stats: phases: parse 0.9s, install 1.3s, check 35.5s con-leche: stats: install 	
-mathlib-full	official	10262626251639	1733.81	0	707578	1.55	Accepted 707578 declarations.	11992724
-mathlib-full	trusted	6400836142784	588.11	0	691203	1.22	con-leche: accepted 691203 declarations (--trusted)	4479280
-mathlib-full	verified	7046567378708	642.26	0	691203	1.08	con-leche: accepted 691203 declarations (--verified)	4481716
+let-ladder	official	6130300435	0.47	0	22	10.43	Accepted 22 declarations. 	323140
+let-ladder	verified	2562178808	0.18	0	13	10.43	con-leche: accepted 13 declarations (--verified) 	229192
+beta-ladder	official	10128349749	1.02	0	20	10.43	Accepted 20 declarations. 	509596
+beta-ladder	verified	4939728756	0.35	0	11	10.43	con-leche: accepted 11 declarations (--verified) 	217280
+init-prelude	official	2207299153	0.19	0	2056	10.43	Accepted 2056 declarations. 	74312
+init-prelude	verified	1113045254	0.12	0	1777	10.43	con-leche: accepted 1777 declarations (--verified) 	28068
+grind-ring-5	official	13416151792	1.24	0	2429	10.43	Accepted 2429 declarations. 	235916
+grind-ring-5	verified	8646948629	0.87	0	2185	10.43	con-leche: accepted 2185 declarations (--verified) 	142360
+app-lam	official	29414133984	3.16	0	34	9.83	Accepted 34 declarations. 	1461156
+app-lam	verified	22091330571	2.58	0	21	9.83	con-leche: accepted 21 declarations (--verified) 	1282516
+init-full	official	439845680266	51.47	0	59430	9.36	Accepted 59430 declarations. 	596580
+init-full	verified	253373884614	22.75	0	57977	6.33	con-leche: accepted 57977 declarations (--verified) 	317320
+mathlib-full	official	10261106317178	1953.17	0	707578	3.12	Accepted 707578 declarations. 	11962448
+mathlib-full	verified	5061754277006	445.47	0	691203	4.10	con-leche: 2 declarations hoisted ahead of the pinned Nat operations they ground: Nat.mul.	4499040
