@@ -133,6 +133,52 @@ another version (exit 2).
   option changes neither the verdict nor what the theorem covers.
 * `--help`: print the help text and exit with code 0.
 
+### Comparing a challenge with a solution
+
+`--compare` takes two developments. The *challenge* states definitions
+and theorems and can leave holes. The *solution* fills them. A hole is
+an axiom of the challenge (other than Lean's standard axioms) or a
+declaration whose value uses `sorry`. The checker accepts a hole as an
+axiom of its statement if the solution has a constant of the same name
+and the same type (up to the names of universe level parameters), and
+everything that the type mentions is the same in both. The run checks
+the solution in full, and everything in the challenge that is not a
+hole. [§1](#1-what-is-proved) ("A challenge and its solution") states
+what an accepting run proves.
+
+* `--compare CHALLENGE.ndjson SOLUTION.ndjson`: compare two
+  `lean4export` files.
+* `--olean --compare --search-path=DIRS CHALLENGE SOLUTION`: compare
+  two modules, each with its import closure. With `--constant=NAME`
+  (a declaration of `CHALLENGE` itself), the run checks only `NAME` and
+  what it mentions.
+* `--compare` together with `--check-graph`, `--olean --module`,
+  `--olean --modular` or `--olean --schedule` (see
+  [Checking module by module](#checking-module-by-module)): the same
+  comparison, module by module. The challenge is one more module of a modular run
+  over both import closures. `--constant` is a usage error here.
+* `--trusted-search-path=DIRS` (with `--olean` or `--check-graph`): the
+  directories of the challenge. The challenge and everything it imports
+  must be in `DIRS`, and the checker reads them from there only. It
+  looks for the solution's modules in `DIRS` first, then in
+  `--search-path`. Use it when you do not trust the solution's
+  directories: the solution then cannot replace a module that the
+  challenge imports. Without the option, the checker reads both through
+  `--search-path`. The option also goes with `--olean --module` alone:
+  the module's closure is then looked up in `DIRS` first.
+
+An accepting run prints the verdict and one line per justified hole:
+
+```
+con-leche: accepted 300 declarations, 3 axioms justified by the solution S.ndjson (101 declarations accepted) (--verified)
+con-leche: def big justified by the solution
+con-leche: theorem big_lt justified by the solution
+con-leche: axiom ax justified by the solution
+```
+
+A hole that the solution does not justify is a rejection (exit 1), with
+the reason.
+
 ### Checking module by module
 
 By default, an `--olean` run loads the whole import closure into one
@@ -204,51 +250,6 @@ stderr at the end. On `SIGINT` or `SIGTERM` it kills its workers, prints
 the statistics and exits with code 130 or 143.
 [§2](#2-from-the-binary-to-the-theorem) ("Every module of a closure")
 describes the scheduler and the format of the log.
-
-### Comparing a challenge with a solution
-
-`--compare` takes two developments. The *challenge* states definitions
-and theorems and can leave holes. The *solution* fills them. A hole is
-an axiom of the challenge (other than Lean's standard axioms) or a
-declaration whose value uses `sorry`. The checker accepts a hole as an
-axiom of its statement if the solution has a constant of the same name
-and the same type (up to the names of universe level parameters), and
-everything that the type mentions is the same in both. The run checks
-the solution in full, and everything in the challenge that is not a
-hole. [§1](#1-what-is-proved) ("A challenge and its solution") states
-what an accepting run proves.
-
-* `--compare CHALLENGE.ndjson SOLUTION.ndjson`: compare two
-  `lean4export` files.
-* `--olean --compare --search-path=DIRS CHALLENGE SOLUTION`: compare
-  two modules, each with its import closure. With `--constant=NAME`
-  (a declaration of `CHALLENGE` itself), the run checks only `NAME` and
-  what it mentions.
-* `--compare` together with `--check-graph`, `--olean --module`,
-  `--olean --modular` or `--olean --schedule`: the same comparison,
-  module by module. The challenge is one more module of a modular run
-  over both import closures. `--constant` is a usage error here.
-* `--trusted-search-path=DIRS` (with `--olean` or `--check-graph`): the
-  directories of the challenge. The challenge and everything it imports
-  must be in `DIRS`, and the checker reads them from there only. It
-  looks for the solution's modules in `DIRS` first, then in
-  `--search-path`. Use it when you do not trust the solution's
-  directories: the solution then cannot replace a module that the
-  challenge imports. Without the option, the checker reads both through
-  `--search-path`. The option also goes with `--olean --module` alone:
-  the module's closure is then looked up in `DIRS` first.
-
-An accepting run prints the verdict and one line per justified hole:
-
-```
-con-leche: accepted 300 declarations, 3 axioms justified by the solution S.ndjson (101 declarations accepted) (--verified)
-con-leche: def big justified by the solution
-con-leche: theorem big_lt justified by the solution
-con-leche: axiom ax justified by the solution
-```
-
-A hole that the solution does not justify is a rejection (exit 1), with
-the reason.
 
 ### Exit codes
 
