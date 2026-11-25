@@ -23,6 +23,7 @@ import ConLecheTests.JobsTests
 import ConLecheTests.ModularTests
 import ConLecheTests.RefineTests
 import ConLecheTests.LitHashTests
+import ConLecheTests.ExprHashTests
 import ConLecheTests.IotaEqTests
 import ConLecheTests.CompareAttack
 import ConLecheTests.IsModelTests
