@@ -1351,109 +1351,64 @@ without its value and stores an opaque constant as an axiom
 
 ## 14. Where the checker departs from the official kernel
 
-The checker follows the official kernel's algorithm and order (§3,
-§5). This section lists the deliberate departures from the current
-release; each is described where its mechanism is.
+ConLeche follows the shape of Lean's kernel, but differs in conversion,
+accepted declarations and module checking. This section summarizes the
+differences; §3, §5, §6 and §8 describe the relevant checks.
 
-**Ahead of the kernel logic renovation.** The official kernel's logic
-renovation (lean4#14977) aims for a decidable definitional equality,
-proofs that never have to be reduced, and complete level comparison.
-Some of its changes are on lean4 master but in no release yet; others
-are still planned. The checker already has these:
-* Two proofs are compared by their types before either is reduced, so
-  a proof without a normal form does not stop a comparison on which
-  the released kernel loops (§3; lean4#15103, on master).
-* A theorem's value is never unfolded, so no proof is reduced to
-  decide a conversion (§3).
-* A recursor's major premise is rescued from its type before it is
-  reduced, and a K-like major whose rescue fails is not reduced at all
-  (§3; the order of lean4#15371, on master, which also covers more
-  structures than the checker does).
-* The wider unit-like η (a Π-type into a unit-like type, a structure of
-  propositions and unit-like fields) and the η of a partially applied
-  constructor (§3, §13; lean4#15372 and lean4#15373, on master).
-* Universe levels are compared semantically (§9; the planned complete
-  level comparison).
-* A single-constructor block whose result sort can be zero gets the
-  large eliminator under a per-field criterion, where the released
-  kernel generates only the small one (§9; the planned large
-  elimination of sort-polymorphic structures).
+### Conversion and elimination
 
-Not yet followed: `Acc` and the other recursive predicates keep their
-large eliminator (lean4#13851), `Quot` of a proposition stays a
-proposition (lean4#15023), partial recursor applications are not
-η-expanded (lean4#15374), and the inductive types' features are read
-off their declarations rather than from explicit flags.
+ConLeche uses the following conversion and elimination rules:
 
-**It accepts more**, beyond the renovation. The soundness proof covers
-each of these.
-* Proof irrelevance falls through (§9).
-* A major premise of `And.rec` is rescued from its type, since a
-  theorem's value, being opaque, cannot be reduced to `And.intro` (§3).
+* Theorems are opaque. The checker tries proof irrelevance before
+  head-normalizing terms, and never unfolds theorem values (§3).
+* For K-like recursors and eligible structures, the checker tries to
+  construct a major premise from its type or projections before reducing
+  the premise. For `And.rec`, it can construct a major premise from an
+  opaque proof of `And` and its projections (§3).
+* The checker supports η for partially applied constructors and a wider
+  notion of unit-likeness, including function spaces into unit-like types
+  and structures whose fields are propositions or unit-like types (§3).
+* Universe levels are compared semantically. A non-nested block with one
+  family and one constructor, whose result sort can be zero, can have a
+  large eliminator when its fields satisfy the checker's criterion (§5).
 
-**It rejects or declines more.**
-* An axiom other than the standard ones declines, with the exceptions
-  §8 names, and so does a proof by `native_decide` or `bv_decide` (§8).
-* The well-founded `Nat` operations are accelerated only for a
-  definition that matches a pin; a stream matching none of them
-  declines (§6). The official kernel accelerates by name.
-* The names the checker gives a meaning (the pinned basis types and
-  `And`, the names a literal's meaning reads, `Bool`) must have the
-  expected shape (§5).
-* A block without recursor records is invalid input; the official
-  kernel generates the recursors itself (§5).
-* A recursor's minor premise may consume a type annotation of its
-  constructor's field only where the annotation is stored as the
-  identity on its type (an `autoParam`'s argument type inhabited by a
-  stored constant), in a rule at the recursor's own parameters whose
-  types are the constructor's up to the same consumption (§5). The
-  official kernel consumes `optParam`, `autoParam`, `outParam` and
-  `semiOutParam` by name. No recursor Lean writes is rejected.
-* Any declaration at `Lean.reduceBool` or `Lean.reduceNat` other than
-  the opaque constant, and any at `sorryAx` other than the axiom, is
-  rejected (§8). Lean refuses these only through the declarations of
-  its own `Init`.
-* In modular checking (`--olean --module`), a module whose context
-  gives a name it reads another meaning than the module it reads it
-  from (name capture) is rejected (§2). Lean accepts such a module,
-  and can then prove `False`.
-* In modular checking, the files are untrusted input: a module's
-  three parts must agree with each other, the context's records must
-  pass their syntactic clauses (a constructor's family is the one its
-  type concludes in; a recursor rule is written as a function of the
-  rule prefix and the constructor's fields), and context records that
-  read each other are rejected (§2). Lean's own output always passes
-  these; the official kernel trusts the imported files.
-* In modular checking, every name two loaded modules store has the
-  statement of each copy checked as its own module reads it, and a
-  name whose statement means two things there is rejected (§2). Lean's
-  import accepts the pair, since it compares the two statements as
-  expressions. This is a bug in Lean's module system: such a pair
-  arises only where a module exports a constant whose statement reads
-  a name of a private import, which a correct build rejects; only a
-  stale or hand-made build produces it.
-* Where the opaque theorems and the rescue order of the renovation
-  leave a conversion incomplete, the checker rejects what the released
-  kernel accepts by reducing a proof (§3).
+The soundness proof covers the checker's acceptances beyond the official
+kernel. Opaque theorems and the order of recursor reduction can also make
+conversion incomplete: the checker can reject a declaration that Lean
+accepts by reducing a proof.
 
-**The verdict is the same, the route differs.**
-* When one side of a comparison is a closed, fully applied constructor
-  application of a type that is never a proposition, has no η law and
-  is not `Nat`, the other side is head-normalized at once. The official
-  kernel does this only for `Bool.true` (§3).
-* The structural `Nat` operations' fast path is certified at install
-  rather than trusted by name (§6).
-* A nested block is checked through its containers at their concrete
-  instantiations, with no auxiliary mutual block (§5).
-* The stream's recursors are installed once they agree with the
-  generated ones; the official kernel installs its own (§5).
-* A `Nat` literal's hash reads all its bits, as on lean4 master
-  (lean4#16146); the released kernel hashes its low 64 bits, so its
-  memo lookups among literals that agree there walk one bucket
-  (lean4#15686) (§2).
+### Restrictions on declarations
 
-**Checks that only the proof needs.**
-* In verified mode: the full-grade types of the opened bodies at a
-  λ/λ comparison and at η, and proof irrelevance between the K and
-  `And` rescues' constructor applications and the major (§3).
-* Three checks in the inductive installer (§5).
+ConLeche checks declarations against requirements needed by its model and
+its treatment of input records:
+
+* In ordinary checking, non-standard axioms and axioms generated by native
+  evaluation are declined, subject to the exceptions in §8.
+* Well-founded `Nat` operations must match supported pinned definitions;
+  structural operations must satisfy checked recurrence equations (§6).
+* The pinned basis and `And` declarations must have the expected shape;
+  `Bool` must have the expected types where `Nat` operations require it
+  (§5, §6).
+* Inductive blocks must include recursor records that agree with the
+  checker's generated recursors. The official kernel generates its own (§5).
+* Recursor minor premises must meet the checker's conditions for consuming
+  constructor field annotations (§5).
+* Declarations at `Lean.reduceBool`, `Lean.reduceNat` and `sorryAx` must
+  have the required declaration kinds (§8).
+
+### Modular checking
+
+Modular checking validates the `.olean` views and imported contexts instead
+of trusting the files (§2). It rejects name capture, inconsistent module
+views, malformed context records and context records that depend on each
+other. It also checks the meaning of each loaded copy of a name in its own
+module, rejecting copies whose statements have different meanings. Lean's
+import compares the statements as expressions and can accept such copies.
+
+### Checks used by the proof
+
+Verified mode performs checks that the soundness proof uses and the official
+kernel does not make. These include type checks on opened lambda bodies,
+proof-irrelevance checks for K-like and `And` recursor rescues, and checks
+in the inductive installer (§3, §5). Trusted mode omits checks used only by
+the proof and is outside the soundness theorem.
