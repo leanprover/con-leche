@@ -274,48 +274,6 @@ Lean kernel arena
   An abort can write a core dump; for a large run, switch core dumps
   off first (`ulimit -c 0`).
 
-### Output
-
-The accepting verdict goes to stdout. Everything else goes to stderr.
-
-* **Accept** (stdout): `con-leche: accepted N declarations (--verified)`.
-  `N` counts the declaration records of the input. The official kernel
-  counts constants (an inductive type with its constructors and
-  recursors as several), so its number is larger. A `--check-graph` run
-  prints `con-leche: graph: acyclic: M modules, E import edges`; the
-  modular runs print `con-leche: accepted M modules`.
-* **Reject** (stderr): a line that starts `con-leche: invalid:`, with
-  the reason and the declaration:
-
-  ```
-  con-leche: invalid: type mismatch in theorem badNative [at theorem badNative, fold position 23] (--verified) t=0.0s
-  ```
-
-  The fold position is the declaration's place in the checking order,
-  not a line of the file. Use the name to find the declaration.
-* **Decline** (stderr): a line that starts `con-leche: declined:` or
-  `con-leche: not implemented yet:`, with the unsupported feature.
-* **Error** (stderr): a line that starts `con-leche:`, with the problem.
-  After a usage error, a second line points to `--help`.
-* **Statistics** (stderr): a run that reaches the check phase prints a
-  few lines that start `con-leche: stats:`, before the verdict: the time
-  of each phase, the use of the worker threads, the five slowest
-  declarations and the peak memory. They are for information only.
-* **Progress** (stderr, with `--progress`): lines for the start and end
-  of each phase (`reading`, `parse done`, `checking`, `check done`,
-  `done`), and `check <count> (<percent>%)` lines at the pace you chose.
-  With `--olean`, lines that start `con-leche: read:` report the loading
-  of the modules, with the time and the memory in use.
-
-Names and strings in these messages come from the input. The checker
-prints them through one function
-([`Name.render` in `ConLeche/Kernel/Name.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Name.lean#L236))
-that escapes every control and formatting character as `\u{XXXX}` and
-wraps a name component that is not an identifier in `«»`. So an input
-cannot move the cursor, change the colours of the terminal, or start a
-line of its own in the output (for example a GitHub Actions `::error::`
-command).
-
 ## 1. What is proved
 
 The statement is two theorems: one about the declaration fold
