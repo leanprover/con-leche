@@ -821,178 +821,101 @@ check with sufficient fuel.
 
 ## 4. The proof idea
 
-There is no syntactic typing judgement and hence no theorem of the form
-"accepted ⇒ derivable". The *theory* is the set model. What is proved
-about the algorithm is stated only in the accepting direction, and it
-is stated semantically.
+The proof connects successful checker runs to the set model of §1.
+It establishes semantic guarantees directly, without a syntactic typing
+judgement or an accepted-implies-derivable theorem.
 
-**Terms.** A kernel `Expr` denotes, under a level valuation, a term
-([type `Term` in `ConLeche/Term/Syntax.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Term/Syntax.lean#L188-L219)):
-de Bruijn indices, sorts at concrete levels, built-in constants at
-concrete level instantiations, no names, no binder infos. The
-interpretation reads this syntax.
+### Terms and interpretation
 
-**Interpretation.** The interpretation maps a term to a set, totally
-and term-directed
-([function `interp` in `ConLeche/Semantics/Interp.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/Interp.lean#L134-L145)):
-a Π whose fibres over its domain are all truth values is a truth value,
-otherwise a dependent function space; a λ whose body values over its
-domain are all the proof point is the proof point, otherwise its graph
-(both read off the values, `piV`/`lamV` in
-`ConLeche/SetModel/Ops.lean`; over an empty domain a Π is `{pt}` and a
-λ the proof point); β holds on the domain with no other premise; a sort is
-the set of *types* in a universe of the chain (truth values, and sets
-that neither are the proof point nor contain it), cumulative in the
-level; nothing needs to be well-typed to be
-interpreted. Propositions are sets with at most one element, so proof
-irrelevance and propositional extensionality are built in, and a
-propositionally proven equation is a set equality.
+The proof interprets an intermediate term language before relating it
+to the statement of the main theorem. A checker expression is read at
+concrete universe levels as a
+[`Term`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Term/Syntax.lean#L188-L219),
+with de Bruijn indices and built-in constants.
 
-**The invariant.** In place of a typing judgement there is a semantic
-predicate
-([predicate `WellDenoted` in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L49-L72)):
-hereditarily, every application applies the point to anything, or a
-graph to a member of its domain, which is a type; every binder's
-domain is a type, every projection hits a pair, and so on. Unlike syntactic typing it is preserved by β and
-the other reduction steps
-([the preservation lemmas in `ConLeche/Semantics/WellDenoted.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L123-L287)).
-An environment carries the invariant for every stored constant, plus
-closedness and the pins of the basis constants
-([structure `EnvModel` in `ConLeche/Model/Env/EnvModel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Env/EnvModel.lean#L35-L63)).
+[`interp`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/Interp.lean#L134-L145)
+maps every such term to a set, without requiring it to be well typed.
+As in §1, propositions are subsets of a one-element set; its element
+is the proof point. The interpretation chooses the treatment of a
+Π-type or lambda-expression from the values of its body.
 
-**The statement's reading.** The main theorem is not stated over the
-`Term` and `interp` but over `Denotes` (§1), a
-relation on the checker's own terms. The two agree wherever the
-reading of a term is defined: `interp` of the reading is a
-`Denotes`-denotation of the term, since both read a binder's regime off
-the values
-([theorem `Denotes_of_denote` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L194-L200)).
-The relation reads a binder's body under the binder with de Bruijn
-indices while the checker opens it with a fresh free variable; a small
-closing operation translates between the two.
+The main theorem instead uses `Denotes`, a relation on checker
+expressions. [`Denotes_of_denote`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L194-L200)
+connects the two: under its scoping and closedness assumptions, the
+interpretation of a successful reading is a `Denotes`-denotation of
+the expression after closing its free variables.
 
-**The claims.** Each kernel function gets one claim, in the accepting
-direction only
-([the claim definitions in `ConLeche/Model/Claims.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Claims.lean#L49-L125)):
+### The semantic invariant
 
-* `whnfCore`/`whnf` return a term with the same denotation, with the
-  invariant preserved, wherever the term does not denote the proof
-  point;
-* `isDefEq` answering `true` means the two denotations are equal
-  wherever neither is the proof point;
-* `inferType` returns a type that denotes a type, and the term's
-  denotation is a member of it;
-* at the infer-only grade the claim is weaker and hereditary: the term
-  is the point, a member of its inferred type, or — where that type is
-  syntactically a Π-type — a function on the Π-type's domain, not
-  everywhere the point, each of whose applications satisfies the claim
-  at the Π-type's body
-  ([`IORel` in `ConLeche/Model/Rules/IORel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/IORel.lean)).
-  An argument the grade does not check can make an application the
-  point where its type has no point, and an abstraction whose body is
-  the point at some values is no member of its inferred Π-type; a
-  Π-type reduces only to itself, so where the inferred type reduces to
-  a family's application, or its sort to `Prop`, the claim is a
-  membership or the term is the point, which is all its consumers
-  read.
+[`WellDenoted`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/WellDenoted.lean#L49-L72)
+records the conditions the interpretation needs, recursively through a
+term. For example, a binder's domain must denote a type, and an
+application must apply either the proof point or a function graph to a
+member of its domain. The environment model
+[`EnvModel`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Env/EnvModel.lean#L35-L63)
+records the invariant and closedness for constant readings, together
+with facts about the stored environment and pinned basis constants.
 
-The first two say nothing about proofs. A type is never the point, so
-a comparison or reduction of types — which is what declarations,
-inference and the certificates run — is claimed outright; between two
-members of one type, the point does not separate them either, because
-a type's members are all the point or none.
+### Claims about the checker
 
-They are proved through a *relational description* of the checker.
-Mutually inductive relations over the checker's own terms say what
-moves the core makes — a reduction step, a definitional-equality
-decision, a λ-telescope comparison, an η-expansion, a unit-like type
-and its fields, a type inference (checking, or infer-only as in the
-official kernel's `infer_only` mode), and the certificate checks — with the fuel, the unfolding heuristics and the dispatch order
-out of sight; a rule's premises are exactly the certificates the
-checker ran at that site, and the symmetric and derived variants are
-theorems, not constructors
-([the relations in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L103-L107)).
-Definitional equality has no transitivity rule, deliberately, and
-none can be added: the relation is the checker's verdict on terms
-that are well-formed together, which no rule states, and every
-premise's subject is a subterm of the conclusion or the product of a
-reduction or an inference
-([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L329-L352)).
-The proof then has three parts. The *bridge*: an accepting run of any
-kernel entry point, at any fuel, yields a derivation — one induction
-on fuel, over both values of the eager flag at once,
-mechanical, each checker site landing on one rule
-([theorem `bridgeAt` in `ConLeche/Verify/Rules/Bridge.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Rules/Bridge.lean#L29-L32)).
-The *soundness*: a derivation implies the claim's conclusion — one
-structural induction over the relations, every case one lemma
-about one rule, stated over the environment's laws and never over the
-implementation, at one valuation at a time. β's lemma reads no premise:
-a redex that is not the point has a λ that is not the point, which is
-a function on its own domain, and the application's own slot puts the
-argument there. The other definitional-equality rules read the point
-the same way: two arguments of equal heads lie in one domain, a type,
-so they are both the point or neither is. ι reads the point the same
-way. A redex's spine is certified against the recursor's type, so the
-major lies in the major's domain, an instance of the family. Where the
-family is never `Prop` at the recursor's levels, that instance holds
-no point, so the major is not the point; its reduction is then an
-equation, and the constructor application, which is not the point
-either, fits its own type. Above `Prop` an injection reads neither the
-family's levels nor its parameters, so the major's membership in the
-domain makes the application one of the constructor at the recursor's
-levels and parameters, with the same fields; nothing is compared, as in
-Lean's kernel. A K-like recursor's value is the minor premise for any
-major in the domain, which the environment's law states. Where the
-family may be `Prop`, the checker certifies the constructor's spine and
-compares its levels, parameters and indices; where the major is the
-point, the constructor application is the point too. The comparisons the
-ι step ran become equations because both sides fit one telescope of
-types. All of this is stated as environment laws the installer proves
-(`RecRuleLaw` in `ConLeche/Model/Env/Laws.lean`). The literal
-accelerations read the argument's domain off the operation's graph,
-`Nat`, and equate the argument with its literal inside that type.
-Structure η and the structure-η major rescue read two environment laws
-of an η family: a member is the constructor at its type's parameters
-and its own projections, and that spine fits the constructor's own
-telescope (`EtaCoherent` in `ConLeche/Model/Env/Laws.lean`). The
-stuck side's type is a type, so its parameters fit the family's
-telescope with no certificate; the constructor side, not being the
-point, fits the constructor's telescope, so the comparisons the rule
-ran become equations there too.
-Unit-likeness reads the same two laws, stated for the family's
-projection table at every field count: two members of an η family fit
-the constructor's telescope at the same parameters, whose fields are
-propositions (every proof is the point) or unit-like (none, at a
-fieldless family), so they have the same projections and are the same
-member; two members of a Π-type whose codomain is unit-like agree at
-every argument. The η of a partially
-applied constructor compares the two sides' types, then their
-applications to a fresh variable: two members of one Π-type that agree
-at every argument are equal.
-λ-congruence compares the bodies' types at the innermost level of two
-λ-telescopes, and η the λ's body's type with the Π-type's body: two
-bodies in one type are both the point or neither, so the bodies' claim
-is an equation at every value of the variable, an equation of the λs
-([the master induction in `ConLeche/Model/Rules/Sound.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L75-L78)).
-And the *recomposition*, which is a few lines per claim: bridge the
-run, apply the soundness
-([theorem `checkSoundAtP5` in `ConLeche/Model/Rules/Recompose.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Recompose.lean#L49-L54)).
-The modules that state the relations and prove them sound import the
-term syntax and the environment, not the implementation; the fence
-of §12 checks it.
-This is where the usual difficulty of intensional soundness proofs, the
-injectivity of Π needed to invert the typing of `f` in an application,
-does not arise: `inferType` itself reduces `f`'s type to a syntactic Π,
-whose denotation *is* a function space, and membership in it is what
-`app` needs. Equality flows only from "defeq accepted" to "denotations
-equal", never back.
+The proof states semantic claims for successful reduction, equality
+checking and inference, subject to their scoping, environment and
+reading assumptions. The
+[claim definitions](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Claims.lean#L49-L125)
+give the precise conditions:
 
-**Declarations.** A definition or theorem is accepted when its value's
-inferred type is definitionally equal to its stated type; the claims
-then give the value's denotation a membership in the type's, which is
-what the environment invariant records. The step theorem covers every
-declaration kind, including the inductive installs of §5 and the Nat
-operations of §6.
+* Reduction preserves the denotation and `WellDenoted` when the original
+  term does not denote the proof point.
+* If definitional equality succeeds, the denotations are equal wherever
+  neither is the proof point.
+* Full type inference returns a type whose denotation contains the
+  term's denotation.
+
+The point condition still gives equality when comparing types, since a
+type is not the proof point. It also gives equality between two members
+of the same type: either both are the point or neither is.
+
+Infer-only mode has a weaker, recursive guarantee,
+[`IORel`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/IORel.lean#L53-L79).
+The term denotes the point, belongs to its inferred type, or, when that
+type is syntactically a Π-type, denotes a graph whose applications
+satisfy the same guarantee at the Π-type's body. This weaker claim
+accommodates checks that infer-only mode omits.
+
+### From checker runs to claims
+
+The proof factors the checker claims through a relational description
+of its operations. The
+[relations](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L18-L45)
+describe reduction, definitional equality, inference and auxiliary
+checks on the checker's expressions. Their rules capture the checks
+needed for soundness while leaving fuel and dispatch details out.
+
+The argument has three steps:
+
+1. The [bridge](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Rules/Bridge.lean#L29-L32)
+   turns a successful checker run into a derivation of the corresponding
+   relation.
+2. The [soundness proof](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L75-L78)
+   proves the semantic conclusion by induction on the derivation, using
+   laws of the environment.
+3. [Recomposition](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Recompose.lean#L49-L54)
+   combines the bridge and soundness to establish the checker claims at
+   every fuel value.
+
+The proof does not need Π-injectivity. For an application, inference
+reduces the function's type to a syntactic Π-type; the interpretation
+of that type supplies the function-space property needed for the
+application. The argument uses accepted definitional equality to prove
+equality of denotations, not the converse.
+
+### From claims to declarations
+
+The declaration checker uses these claims to extend the environment
+model. For a definition or theorem, it checks the value against the
+stated type; inference and definitional equality justify membership in
+the type's denotation. The declaration step also covers inductive
+installs (§5) and the Nat operations (§6).
 
 ## 5. Inductive types
 
