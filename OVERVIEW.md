@@ -41,6 +41,12 @@ Check a module and everything it imports, from `.olean` files:
 con-leche --olean --search-path="$(lean --print-libdir)" Init
 ```
 
+In a Lake project, after `lake build`, check a module of the project:
+
+```
+con-leche --olean --search-path="$(lake env printenv LEAN_PATH)" MyProject
+```
+
 On success, the last line of the output is the verdict, and the exit
 code is 0:
 
@@ -85,8 +91,11 @@ not need `lean4export`. [§2](#the-olean-reader) describes the reader.
 * `--olean`: read the arguments as module names, not as a file.
 * `--search-path=DIRS`: the directories that hold the `.olean` files,
   separated by `:`, as in `LEAN_PATH`. Required. You can repeat the
-  option; the lists add up. For the toolchain's own modules, use
-  `$(lean --print-libdir)`; for a Lake project, `.lake/build/lib/lean`.
+  option; the lists add up. In a Lake project, take the search path
+  from Lake: `--search-path="$(lake env printenv LEAN_PATH)"` covers the
+  project, its dependencies and the toolchain (build the project
+  first). For the toolchain's own modules alone, use
+  `--search-path="$(lean --print-libdir)"`.
 * `--constant=NAME`: check only the constant `NAME` and everything it
   mentions, not the whole import closure. Use it to check one theorem
   quickly. You can repeat the option. A name that the closure does not
