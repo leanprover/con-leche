@@ -55,7 +55,7 @@ con-leche: accepted 12 declarations (--verified)
 ```
 
 `con-leche --help` prints every invocation form and option
-([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L138)).
+([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L131)).
 
 ### Command-line rules
 

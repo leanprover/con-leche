@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== ConLeche/Driver/Cli.lean#L138
-   138  def helpText : String := String.intercalate "\n" [
+== ConLeche/Driver/Cli.lean#L131
+   131  def helpText : String := String.intercalate "\n" [
 
 == ConLeche/Driver/CheckMain.lean#L37
     37    | .notImplemented _ => 2
@@ -1386,11 +1386,11 @@
    304          else throw (.notImplemented
    305            s!"unsupported Lean.trustCompiler shape ({cv.name})")
 
-== ConLeche/Driver/Cli.lean#L155
-   155    "  --compare           CHALLENGE.ndjson SOLUTION.ndjson: check SOLUTION, then",
+== ConLeche/Driver/Cli.lean#L142
+   142    "  --compare           Check SOLUTION, then CHALLENGE with its axioms and",
 
-== ConLeche/Driver/Cli.lean#L146
-   146    "  --jobs=N            Worker threads (default: one per hardware thread)",
+== ConLeche/Driver/Cli.lean#L139
+   139    "  --jobs=N            Worker threads (default: one per hardware thread)",
 
 == ConLeche/Kernel/Basis/False.lean#L50-L51
     50  /-- The pinned `False` basis block, in install order. -/
@@ -1417,8 +1417,8 @@
    128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
    129      (BVarIdx → V) → Expr → V
 
-== ConLeche/Driver/Cli.lean#L403
-   403  here, not in `main`, so that the model sees it.  A verdict that is
+== ConLeche/Driver/Cli.lean#L324
+   324  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == ConLeche/Frontend/CheckerIO.lean#L141
    141  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -1442,8 +1442,8 @@
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L403
-   403  here, not in `main`, so that the model sees it.  A verdict that is
+== ConLeche/Driver/Cli.lean#L324
+   324  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == Main.lean#L28
     28  def enableAbortOnNonlinear : IO Unit := do
@@ -1500,11 +1500,11 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== ConLeche/Driver/Cli.lean#L145
-   145    "  --trusted           Skip the checks only the proof needs; outside the theorem",
+== ConLeche/Driver/Cli.lean#L138
+   138    "  --trusted           Skip the checks only the proof needs; outside the theorem",
 
-== ConLeche/Driver/Cli.lean#L167
-   167    "  --constant=NAME     Check only NAME and what it mentions; repeatable",
+== ConLeche/Driver/Cli.lean#L153
+   153    "  --constant=NAME     Check only NAME and what it mentions; repeatable",
 
 == ConLeche/Frontend/Olean/View.lean#L81
     81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do
@@ -1546,14 +1546,14 @@
     65          ¬ LoadsAt sp fs (!d.isModule) d.imports m' true
     66      | .server => False
 
-== ConLeche/Driver/Cli.lean#L201
-   201    "  --modular           Check every module of MODULE's closure as --module",
+== ConLeche/Driver/Cli.lean#L156
+   156    "  --modular           Check each module of the closure on its own",
 
-== ConLeche/Driver/Cli.lean#L165
-   165    "  --olean             Read modules and their import closure from .olean files",
+== ConLeche/Driver/Cli.lean#L148
+   148    "  --olean             Read modules and their imports from .olean files",
 
-== ConLeche/Driver/Cli.lean#L206
-   206    "  --schedule          Check every module of MODULE's closure by a --module",
+== ConLeche/Driver/Cli.lean#L157
+   157    "  --schedule          Check each module in its own --module process",
 
 == ConLeche/MainTheorem.lean#L109-L120
    109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
@@ -1569,8 +1569,8 @@
    119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
    120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
-== ConLeche/Driver/Cli.lean#L226
-   226    "  --schedule-commands      start nothing; print on stdout, one per line and",
+== ConLeche/Driver/Cli.lean#L164
+   164    "  --schedule-commands       Print the worker commands instead of running them",
 
 == ConLeche/Cached/Justify.lean#L73
     73  def justifiable : Declaration → Option ConstantVal
@@ -1584,8 +1584,8 @@
     65      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
     66        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
 
-== ConLeche/Driver/Cli.lean#L189
-   189    "  --trusted-search-path=DIRS",
+== ConLeche/Driver/Cli.lean#L151
+   151    "  --trusted-search-path=DIRS",
 
 == ConLeche/MainTheorem.lean#L88-L94
     88  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
