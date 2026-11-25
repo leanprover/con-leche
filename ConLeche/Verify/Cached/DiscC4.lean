@@ -411,6 +411,82 @@ theorem whnfStuckC_spec (ih : SSimC .verified eager env f)
       iotaNumArgs_eq_length, Expr.mkAppN_getApp, iotaTarget_notconst] =>
     vcgen [whnfStuckI.eq_def, iotaRecC_spec ih henv] <;> finish
 
+/-! ### Recursor η (task #632)
+
+The ι step at a spine (`iotaRecAtI`, the dispatch of `iotaRec`), the reduced
+η-expansion (`recEtaTeleI`, by induction on the missing arguments; the result's
+scope by the abstraction's, `wscoped_abstract1`, which the λ
+inference reads too), the certificate and the stuck
+fallback it opens. -/
+
+/-- Abstracting away the top variable lowers the scope bound. -/
+theorem wscoped_abstract1 {d : Nat} {e : Expr} (k : Nat) (h : Expr.WScoped (d + 1) e) :
+    Expr.WScoped d (e.abstract1 d k) :=
+  ConLeche.WScoped.abstract1 k h
+grind_pattern [conleche_grind] wscoped_abstract1 => Expr.WScoped (d + 1) e, e.abstract1 d k
+
+/-- The recursor-η gate reads the same store on both sides. -/
+theorem recEtaPartialC_eq (env : Env) (e : Expr) :
+    recEtaPartialC (mkFEnv env) e = recEtaPartial env e := by
+  unfold recEtaPartialC recEtaPartial
+  simp only [mkFEnv_find?, mkFEnv_find_fun]
+  cases e.getAppFn <;> rfl
+
+/-- The ι step at a spine simulates `iotaRec`. -/
+theorem iotaRecAtC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat}
+    {e : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ iotaRecAtI .verified (mkFEnv env) eager f d e
+    ⦃fun o s' => CSOK .verified eager env s' ∧
+      Runs (iotaRec .verified (fueledFns .verified eager env) env d e) o ∧ OptWS d o; ⊤⦄ := by
+  have hwa : AllWS d e.getAppArgs := allWS_getAppArgs hw
+  sym only [conleche_grind, iotaNumArgs_eq_length, Expr.mkAppN_getApp, List.take_length,
+      iotaRec_notconst] =>
+    vcgen [iotaRecAtI.eq_def, iotaRecC_spec ih henv] <;> finish
+
+/-- The reduced η-expansion simulates its fueled original. -/
+theorem recEtaTeleC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) :
+    ∀ {k d : Nat} {g T : Expr} {s₀ : CState}, CSOK .verified eager env s₀ →
+      Expr.WScoped d g → Expr.WScoped d T →
+      ⦃fun s => s = s₀⦄ recEtaTeleI .verified (mkFEnv env) eager f k d g T
+      ⦃fun o s' => CSOK .verified eager env s' ∧
+        Runs (recEtaTele .verified (fueledFns .verified eager env) env k d g T) o ∧
+        OptWS d o; ⊤⦄ := by
+  intro k
+  induction k with
+  | zero =>
+    intro d g T s₀ hs hwg hwT
+    sym only [conleche_grind, recEtaTele, CheckMode.verifiedChecks] =>
+      vcgen [recEtaTeleI.eq_def, iotaRecAtC_spec ih henv, ih.infer_spec, ih.defeq_spec] <;>
+        finish
+  | succ k ihk =>
+    intro d g T s₀ hs hwg hwT
+    sym only [conleche_grind, recEtaTele, abstract1C_spec] =>
+      vcgen [recEtaTeleI.eq_def, ih.whnf_spec,
+        inst1M_spec (mode := .verified) (eager := eager) (env := env), abstract1M, ihk] <;>
+        finish
+
+/-- `recEtaCertI` simulates its fueled original. -/
+theorem recEtaCertC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a)
+    (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ recEtaCertI .verified (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+        Runs (recEtaCert .verified (fueledFns .verified eager env) env d a b) v; ⊤⦄ := by
+  sym only [conleche_grind, recEtaCert, recEtaPartialC_eq] =>
+    vcgen [recEtaCertI.eq_def, ih.inferIO_spec, recEtaTeleC_spec ih henv, ih.defeq_spec] <;>
+      finish
+
+/-- `stuckIrrelI` simulates its fueled original. -/
+theorem stuckIrrelC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState}
+    (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ stuckIrrelI .verified (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+        Runs (stuckIrrel .verified (fueledFns .verified eager env) env d a b) v; ⊤⦄ := by
+  sym only [conleche_grind, stuckIrrel] =>
+    vcgen [stuckIrrelI.eq_def, recEtaCertC_spec ih henv, structEtaCertC_spec ih,
+      structUnitCertC_spec ih henv, proofIrrelC_spec ih] <;> finish
+
 /-- One head-normalization step simulates its pure mirror. -/
 theorem whnfCoreStepC_spec (ih : SSimC .verified eager env f)
     (henv : EnvWF env) {c : Bool} {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀)
@@ -1256,12 +1332,6 @@ theorem inferBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
       ensureSortC_spec ih, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
       inferSpineC_spec ih, inferPisC_tail_spec ih, inferLamsC_tail_spec ih henv,
       checkProjGuardC_spec ih henv] <;> finish
-
-/-- Abstracting away the top variable lowers the scope bound. -/
-theorem wscoped_abstract1 {d : Nat} {e : Expr} (k : Nat) (h : Expr.WScoped (d + 1) e) :
-    Expr.WScoped d (e.abstract1 d k) :=
-  ConLeche.WScoped.abstract1 k h
-grind_pattern [conleche_grind] wscoped_abstract1 => Expr.WScoped (d + 1) e, e.abstract1 d k
 
 /-- The cached io spine walk's answer is the io application clause's
 (`inferSpineIO_sound_body`). -/

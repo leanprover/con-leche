@@ -105,6 +105,18 @@ def etaCtorPartialC (fe : FEnv) (e : Expr) : Option Nat :=
     | _ => none
   | _ => none
 
+/-- Twin of `recEtaPartial`, through the run's lookup. -/
+def recEtaPartialC (fe : FEnv) (e : Expr) : Option Nat :=
+  match Expr.getAppFn e with
+  | .const c _ =>
+    match fe.find? c with
+    | some (.recInfo _ mI _ isK rules) =>
+      if (Expr.getAppArgs e).length ≤ mI ∧ (isK = true ∨ recMajorEta fe.find? rules = true) then
+        some (mI + 1 - (Expr.getAppArgs e).length)
+      else none
+    | _ => none
+  | _ => none
+
 /-! ## The state -/
 
 /-- **The mode-dependent memos** (task #353): the six entry-point

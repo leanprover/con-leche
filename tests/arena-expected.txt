@@ -218,7 +218,14 @@
 # group A of the header (stub recursor records).
 1 bad/tutorial/110_indexedStructEta.ndjson
 1 bad/tutorial/113_funEtaBad.ndjson
-1 bad/tutorial/114_etaRuleK.ndjson
+# 114 (etaRuleK): `Eq.rec … (a rfl) true = a` at `a : true = true → Bool`,
+# the η of a partially applied recursor of a K family.  The official kernel of
+# v4.29.1 (the arena's) rejects it; the official kernel since lean4#15374
+# accepts it (`eta_expand_iota_reduce_recursor`: the recursor side is
+# η-expanded and ι-reduced by the K rule; lean4's `tests/elab/12520_2.lean`, and
+# the renovation arena's `good/` test `etaRuleK`), and so does con-leche since
+# task #632.  ACCEPT, against the arena's `bad/` placement.
+0 bad/tutorial/114_etaRuleK.ndjson
 # 115 (etaCtor): `T.mk (x True.intro).val = x` at `x : True → T`, the
 # structure η of a partially applied constructor.  The official kernel of
 # v4.29.1 (the arena's) rejects it; the official kernel since lean4#15373

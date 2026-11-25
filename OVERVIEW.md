@@ -636,14 +636,14 @@ Read from the outside in:
    ([theorem `checkDecls_envWF` in `ConLeche/Semantics/DeclWF.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Semantics/DeclWF.lean#L374-L376)).
    A job's check at a view is the fold's step because the cached core
    reads its environment through the lookups alone
-   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L706-L709)).
+   ([theorem `knotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L738-L741)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` (and inference at the infer-only grade) are defined by one mutual
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L54));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1899-L1904)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1953-L1958)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L567-L574)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
@@ -1061,13 +1061,13 @@ reduced by `whnfCore` itself rather than by `whnf`),
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1157)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1211)),
 `inferType` computes a type, and `isDefEq` decides conversion in the
 order of the official `is_def_eq_core` (cheap head normalization, the
 easy cases, the lazy-delta loop — which compares two applications of
 the same definition argument by argument before unfolding them, last
 argument first as the official `is_def_eq_args` does
-([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1431)) —, the
+([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1485)) —, the
 projection-against-projection comparison by scrutinees, the full head
 normalization and a restart, then the stuck comparisons) with two
 deliberate exceptions. The easy cases and proof irrelevance are tried on
@@ -1082,7 +1082,7 @@ it is another constructor, the answer is `false`, which no rule of
 conversion could change for such a type. The official kernel does this
 for the constant `Bool.true` alone; elsewhere it unfolds one definition
 at a time
-([function `defeqBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1866-L1884)). The checker
+([function `defeqBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1920-L1938)). The checker
 reduces a proof only where a recursor's value depends on it: the major
 premise of a recursor over an inductive proposition, which is
 head-normalized to a constructor unless the K rule (which reads only
@@ -1099,9 +1099,9 @@ rescue's outcome): the rescue already decided the major's type is not
 the index the recursor needs, by the same comparison a normalized
 major's type would have to pass; the loss is confined to
 incompleteness corners of the checker's own conversion. Conversion uses lazy
-unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
-reduction as each inductive type's flags, read off its records at use,
-permit. One proposition, `And`, is additionally rescued: for a major
+unfolding, η, proof irrelevance, structure η, unit-likeness, K-like
+reduction and the η of a partially applied recursor as each inductive
+type's flags, read off its records at use, permit. One proposition, `And`, is additionally rescued: for a major
 proof `h`, `And.intro a b h.1 h.2` is built from `h`'s type, before
 `h` is reduced, and compared with `h` by proof irrelevance. The official kernel has no such rescue;
 this checker needs it because theorems are opaque here, so `And.rec`
@@ -1117,11 +1117,12 @@ presentation and matter for the proof:
   domains and `let` values checked) and at the official kernel's
   infer-only grade on the terms reduction and definitional equality
   build on their way
-  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1341)).
+  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1395)).
   Beyond the official kernel, the verified mode compares the opened
   bodies' full-grade types at the innermost level of a λ/λ comparison
-  ([function `defeqBindersInner` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1453))
-  and at η; the proof consumes them. Two cheap guards are the proof's
+  ([function `defeqBindersInner` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1507))
+  and at η, and the type of the reduct at the η of a partially applied
+  recursor with the Π-type's codomain; the proof consumes them. Two cheap guards are the proof's
   too and never change a verdict on well-typed input: η, unit-likeness
   at a Π-type and the η-expansion of a partially applied constructor
   are tried only against a term whose head is no λ and no `let` (a
@@ -1150,7 +1151,7 @@ presentation and matter for the proof:
   runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
   a recursion of about a million levels or more aborts with a stack
   overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1944)).
+  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1998)).
   Reduction *chains* are not bounded by it: the
   `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
   and the lazy-delta loop each iterate in constant native stack, a
@@ -1280,13 +1281,13 @@ official kernel's `infer_only` mode), and the certificate checks — with the fu
 out of sight; a rule's premises are exactly the certificates the
 checker ran at that site, and the symmetric and derived variants are
 theorems, not constructors
-([the relations in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L103-L107)).
+([the relations in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L105-L109)).
 Definitional equality has no transitivity rule, deliberately, and
 none can be added: the relation is the checker's verdict on terms
 that are well-formed together, which no rule states, and every
 premise's subject is a subterm of the conclusion or the product of a
 reduction or an inference
-([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L329-L352)).
+([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L331-L354)).
 The proof then has three parts. The *bridge*: an accepting run of any
 kernel entry point, at any fuel, yields a derivation — one induction
 on fuel, over both values of the eager flag at once,
@@ -1337,12 +1338,19 @@ member; two members of a Π-type whose codomain is unit-like agree at
 every argument. The η of a partially
 applied constructor compares the two sides' types, then their
 applications to a fresh variable: two members of one Π-type that agree
-at every argument are equal.
+at every argument are equal. The η of a partially applied recursor
+applies it to fresh variables along its type, reduces the application
+by ι and abstracts the reduct back to a λ: the reduct and the
+application lie in one type, by the reduct's type comparison, so they
+are both the point or neither, and are equal where neither is; at every
+argument the λ is then the recursor's application, so it is the
+recursor, which is not the point, and the other side's comparison with
+the λ is an equation.
 λ-congruence compares the bodies' types at the innermost level of two
 λ-telescopes, and η the λ's body's type with the Π-type's body: two
 bodies in one type are both the point or neither, so the bodies' claim
 is an equation at every value of the variable, an equation of the λs
-([the master induction in `ConLeche/Model/Rules/Sound.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L75-L78)).
+([the master induction in `ConLeche/Model/Rules/Sound.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L76-L79)).
 And the *recomposition*, which is a few lines per claim: bridge the
 run, apply the soundness
 ([theorem `checkSoundAtP5` in `ConLeche/Model/Rules/Recompose.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Recompose.lean#L49-L54)).
@@ -1904,7 +1912,7 @@ instead of trusting the operation's name.
   when `a > 0` and the size of `a` plus `b / 8` plus 1 does; both also
   refuse a second argument that does not fit in 32 bits. A refusal
   rejects the declaration
-  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L227-L240)).
+  ([function `natOpRefusal` in `ConLeche/Cached/StateC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L239-L252)).
   Within the maximum size every operation folds, whatever the exponent:
   the specification's reduct is the computation itself
   ([function `natOpResult` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L589-L609)),
@@ -2249,7 +2257,7 @@ projection's type from the constructor's type when it meets one
 (`infer_proj`). What `infer_proj` requires of a `Prop` structure, that the
 field and every earlier field a later one uses are propositions, is checked
 at the use here too
-([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1207-L1208)),
+([function `checkProjGuard` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1261-L1262)),
 from the stored constructor type at the environment of the use; nothing
 about it is stored.
 
@@ -2283,6 +2291,9 @@ are still planned. The checker already has these:
 * The wider unit-like η (a Π-type into a unit-like type, a structure of
   propositions and unit-like fields) and the η of a partially applied
   constructor (§3, §13; lean4#15372 and lean4#15373, on master).
+* The η of a partially applied recursor of a K-like or η type: it is
+  η-expanded up to its major premise and ι-reduced, the major rescued
+  (§3, §13; lean4#15374, on master).
 * Universe levels are compared semantically (§9; the planned complete
   level comparison).
 * A single-constructor block whose result sort can be zero gets the
@@ -2299,9 +2310,6 @@ are still planned. The checker already has these:
 * An input that declares `Quot` at `Sort (max 1 u)` (lean4#15023) has
   quotients of propositions as types (§5). An input in the released form
   keeps them propositions.
-
-Not yet followed: partial recursor applications are not η-expanded
-(lean4#15374).
 
 **It accepts more**, beyond the renovation. The soundness proof covers
 each of these.
@@ -2376,6 +2384,7 @@ each of these.
 
 **Checks that only the proof needs.**
 * In verified mode: the full-grade types of the opened bodies at a
-  λ/λ comparison and at η, and proof irrelevance between the K and
+  λ/λ comparison and at η, the full-grade type of the reduct at the η of
+  a partially applied recursor, and proof irrelevance between the K and
   `And` rescues' constructor applications and the major (§3).
 * Three checks in the inductive installer (§5).

@@ -213,6 +213,7 @@ ConLeche.natSuccOk
 ConLeche.natXorName
 ConLeche.natZeroOk
 ConLeche.recFireLevelCount
+ConLeche.recMajorEta
 ConLeche.reservedRecName
 ConLeche.strLitToConstructor
 ConLeche.stringOfListTyOk

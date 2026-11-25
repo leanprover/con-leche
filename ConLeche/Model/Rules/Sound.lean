@@ -5,6 +5,7 @@ import ConLeche.Model.Rules.RedSound
 import ConLeche.Model.Rules.IotaSound
 import ConLeche.Model.Rules.DefEqSound
 import ConLeche.Model.Rules.UnitSound
+import ConLeche.Model.Rules.RecEtaSound
 import ConLeche.Model.Rules.InferSound
 import ConLeche.Model.Rules.GuardSound
 import ConLeche.Model.Rules.FormerSound
@@ -145,6 +146,8 @@ theorem defeq_sound (hin : RulesInputs V m φ) :
   | _, _, _, .etaExpand hna hnb hta htb hd hex =>
     DefEq.etaExpand_sound hna hnb (infer_sound hin hta) (infer_sound hin htb)
       (defeq_sound hin hd) (defEqExpand_sound hin hex)
+  | _, _, _, .recEta hnb htb hx hd =>
+    DefEq.recEta_sound hnb (infer_sound hin htb) (recEtaTele_sound hin hx) (defeq_sound hin hd)
   | _, _, _, .eta hneu htb hwtb hty hbody ht₁ htB =>
     DefEq.eta_sound hneu (infer_sound hin htb) (red_sound hin hwtb)
       (defeq_sound hin hty) (defeq_sound hin hbody) (infer_sound hin ht₁)
@@ -159,6 +162,12 @@ theorem defEqExpand_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {a b T : Expr}, DefEqExpand env d a b T → DefEqExpandSem m φ d a b T
   | _, _, _, _, .done h => DefEqExpand.done_sound (defeq_sound hin h)
   | _, _, _, _, .step h => DefEqExpand.step_sound (defEqExpand_sound hin h)
+
+theorem recEtaTele_sound (hin : RulesInputs V m φ) :
+    ∀ {d : Nat} {f T e : Expr}, RecEtaTele env d f T e → RecEtaTeleSem m φ d f T e
+  | _, _, _, _, .done hr hi hd =>
+    RecEtaTele.done_sound (red_sound hin hr) (infer_sound hin hi) (defeq_sound hin hd)
+  | _, _, _, _, .step hr h => RecEtaTele.step_sound (red_sound hin hr) (recEtaTele_sound hin h)
 
 theorem unitLike_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {T : Expr}, UnitLike env d T → UnitLikeSem m φ d T

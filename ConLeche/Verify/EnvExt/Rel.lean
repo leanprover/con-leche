@@ -359,16 +359,6 @@ theorem etaCert_rel (mode : CheckMode) {ty₁ body₁ b : Expr} (ht : Res env₁
       exact Rel.iteB v'' (fun _ => Rel.ok trivial) fun _ => Rel.ok trivial
   | _ => exact Rel.ok trivial
 
-theorem stuckIrrel_rel (hx : EnvExt env₁ env₂) {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
-    Rel TT (stuckIrrel r₂ env₂ d a b) (stuckIrrel r₁ env₁ d a b) := by
-  unfold stuckIrrel
-  refine Rel.bind (structEtaCert_rel K d hx ha hb) fun v _ => ?_
-  refine Rel.iteB v (fun _ => Rel.ok trivial) fun _ => ?_
-  refine Rel.bind (structEtaCert_rel K d hx hb ha) fun v' _ => ?_
-  refine Rel.iteB v' (fun _ => Rel.ok trivial) fun _ => ?_
-  refine Rel.bind (structUnitCert_rel K d hx ha hb) fun v'' _ => ?_
-  exact Rel.iteB v'' (fun _ => Rel.ok trivial) fun _ => proofIrrel_rel K d ha hb
-
 omit K in
 theorem formerSortLoop_rel (K : KR env₁ r₂ r₁) : ∀ (n d : Nat) {e : Expr}, Res env₁ e →
     Rel TT (formerSortLoop r₂.whnf d n e) (formerSortLoop r₁.whnf d n e)

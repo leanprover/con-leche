@@ -88,7 +88,7 @@ _definitional equality_ $Gamma tack a equiv b$, and _inference_
 $Gamma tack e => T$.  A context $Gamma$ lists the variables in scope
 with their types.  The complete rule sets are
 #src("whitepaper/Fragment/Rules.lean", 56, 798)[one mutual inductive definition],
-#src("ConLeche/Rules/Rel.lean", 102, 106)[as in con-leche].
+#src("ConLeche/Rules/Rel.lean", 104, 108)[as in con-leche].
 
 *How to read them.*  The three relations describe what the checker
 does. $Gamma tack a equiv b$ means that on the terms $a$ and $b$ the
@@ -111,7 +111,7 @@ e$.  Chains of any length are read the same way.
 
 Reduction chains the head steps the checker makes when it normalises
 a term.  It is #src("whitepaper/Fragment/Rules.lean", 58, 69)[reflexive and transitive], and it
-#src("ConLeche/Rules/Rel.lean", 106, 122)[reaches inside the head] of an application.
+#src("ConLeche/Rules/Rel.lean", 108, 124)[reaches inside the head] of an application.
 
 #rules(
   rule(name: "refl", $Gamma tack e red e$),
@@ -144,7 +144,7 @@ never takes a symmetry step; the rule is there so that each one-sided
 rule below (red-l, $eta$) need be written once, and its mirror image
 follows. The test interleaves with reduction in one way: reduce the
 left side, then continue.  Sorts
-are #src("ConLeche/Rules/Rel.lean", 362, 364)[compared through the level oracle].
+are #src("ConLeche/Rules/Rel.lean", 364, 366)[compared through the level oracle].
 
 #rules(
   rule(name: "refl", $Gamma tack a equiv a$),
@@ -224,16 +224,16 @@ site. The model justifies it (@sec:interp): every proof denotes the point, so tw
 proofs of two propositions denote the same set.
 
 The list has #src("whitepaper/Fragment/Rules.lean", 529, 546)[no transitivity rule], and
-#src("ConLeche/Rules/Rel.lean", 324, 347)[none can be added]\; @sec:claims
+#src("ConLeche/Rules/Rel.lean", 326, 349)[none can be added]\; @sec:claims
 explains why. Instead of chaining equalities, the checker chains
 reductions: it reduces a side, then continues (red-l).
 
 #real[
   In con-leche a transitivity rule would also combine two rules that
   are each sound alone into an unsound one. Free variables are
-  #src("ConLeche/Rules/Rel.lean", 365, 371)[compared by index], not by
+  #src("ConLeche/Rules/Rel.lean", 367, 373)[compared by index], not by
   the types they carry, and a
-  #src("ConLeche/Rules/Rel.lean", 429, 435)[fast path] equates two
+  #src("ConLeche/Rules/Rel.lean", 431, 437)[fast path] equates two
   terms whose heads' declared types say they are proofs. Chained, the
   two would equate any two variables: give each the type of a
   proposition, then compare the two proofs.
@@ -242,7 +242,7 @@ reductions: it reduces a side, then continues (red-l).
 === Inference <sec:infer>
 
 A variable's type is #src("whitepaper/Fragment/Rules.lean", 740, 748)[read off the context], and a sort
-#src("ConLeche/Rules/Rel.lean", 589, 605)[has the next sort]. The rules
+#src("ConLeche/Rules/Rel.lean", 621, 637)[has the next sort]. The rules
 of this subsection are the checker's _full inference_. The checker
 also has a cheaper mode, `infer_only`, which skips some of their
 checks; @sec:io presents it.
@@ -271,7 +271,7 @@ the sort of that type is not computed.
 )
 
 An #src("whitepaper/Fragment/Rules.lean", 772, 781)[application infers the head's type], reduces it to a Π-type,
-infers the argument's type and #src("ConLeche/Rules/Rel.lean", 657, 661)[compares it with the domain].
+infers the argument's type and #src("ConLeche/Rules/Rel.lean", 689, 693)[compares it with the domain].
 A #src("whitepaper/Fragment/Rules.lean", 782, 796)[let-expression] checks that its type has a
 sort and that its value's type agrees with it, as the official kernel does, and then
 infers the type of the body with the value substituted.
@@ -319,8 +319,8 @@ itself in place of the variable.
 
 #real[
   The checker substitutes the value in the same way, both when it
-  #src("ConLeche/Kernel/Core.lean", 1074, 1076)[reduces] and when it
-  #src("ConLeche/Kernel/Core.lean", 1318, 1323)[infers]\; it keeps no
+  #src("ConLeche/Kernel/Core.lean", 1128, 1130)[reduces] and when it
+  #src("ConLeche/Kernel/Core.lean", 1372, 1377)[infers]\; it keeps no
   variables bound to values.
   The official kernel opens the body at such a variable instead, which
   avoids copying the value when the body uses it many times; for

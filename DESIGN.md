@@ -126526,3 +126526,138 @@ unchanged (they are generic in the prelude); the prelude tests count six records
 bad, the last two the `Quot` pair): 101/101; `quotOfPropNoProofIrrel` is rejected as a type
 mismatch in the theorem. Own fixtures: `quot_lifted_no_sound` (0) and
 `quot_lifted_no_sound_rfl_bad` (1), from `scripts/mk_quot_lifted_fixtures.py`.
+
+## TASK #632 — η-expansion of partially applied recursors, lean4#15374 (2026-11-25, agent/632-rec-eta; base renovation c8e13b0f1)
+
+**Why.** The arena preview of the renovation (lean-kernel-arena PR #391) runs this branch; its
+only red results were `renovation/etaRecStruct` and `renovation/etaRuleK` (the long-standing
+`perf/proj-app-lazy-delta` timeout aside). Both are lean4#15374 (merged 2026-11-24): a recursor of
+a K-like type, or of a type with η, applied to fewer arguments than its major premise needs, is
+η-expanded and ι-reduced when compared with another term.
+
+**Rulings (coordinator).** Port official's rule in both tiers, verified like every other defeq
+step; the structure gate is the inductive's η flag (`IndCaps.eta`, lean4#16595's `hasEta`), K the
+recursor's stored K flag; the step goes first in the stuck fallback, for pairs where neither side
+is a λ, both directions, before structure η; official's shape (all missing arguments at once,
+ι with the existing rescues, compared against the λ), no one-binder-at-a-time substitute.
+
+**Official** (`type_checker.cpp`, `eta_expand_iota_reduce_recursor` and
+`try_eta_expansion_core`). `s`'s head is a recursor applied to at most `major_idx` arguments,
+the recursor is K or `has_eta(major_induct)`; `n = major_idx + 1 - #args` fresh variables are
+taken along `whnf(infer_type(s))`, each rest head-normalised, giving up at a rest that is no Π;
+`inductive_reduce_rec` (full `whnf` of the major, the K and structure rescues) on `s x⃗`; on
+success `λ x⃗. r`. `try_eta_expansion_core(t, s)`: a λ `t` against a non-λ `s` takes the function
+η, else the recursor expansion of `s` is compared with `t`; `try_eta_expansion` tries both
+orders. It runs after `is_def_eq_app`, before `try_eta_struct`; so a λ side never reaches it.
+
+**Checker** (`Kernel/Core.lean`, twins in `Cached/CoreC.lean`, `Cached/StateC.lean`).
+* `recEtaPartial` (`Kernel/CoreDefs.lean`; twin `recEtaPartialC`): the gate, read off the
+  records before any inference: a stored recursor head, `#args ≤ mI`, `isK` or `recMajorEta`
+  (the single rule's constructor's family carries `caps.eta`; an η family has one constructor,
+  so its recursor one rule, whose constructor's family is the major's inductive — official's
+  `get_major_induct`). The guard follows the rescue's (`etaRescueTable?` reads `caps.eta` too);
+  `recMajorEta` reads only the flag, as official's `has_eta` does, not the rescue's table and
+  level-parameter conditions: the gate only decides whether to try, and the ι step's rescues
+  decide whether anything fires.
+* `recEtaTele k depth f T`: at `k + 1` `whnf T`, a ∀ `dom body` opens `.fvar depth dom`,
+  recursion on `.app f fv` at the opened body, result `.lam dom (e.abstract1 depth)`; at `0`
+  `iotaRec` on the full application (the ι step with `prepareMajor`'s full `whnf`, K, η and
+  `And` rescues), and, at the verified mode, **the typing certificate** (below). The final rest
+  is not head-normalised (official's last `whnf` is unused). Cached: the ι dispatch is
+  `iotaRecAtI` (as `whnfAppI`'s: the head's record, `iotaNumArgs = mI + 1`, the level count, then
+  `iotaRecI` on the argument array), the abstraction `abstract1M` (memoized).
+* `recEtaCert a b`: `a` neutral (in the stuck fallback the sides are weak-head normal, so this
+  is "`a` is no λ", official's arm order), `recEtaPartial b = some k`, io-infer `b`,
+  `recEtaTele`, then `defeq a λ`. `stuckIrrel` (now taking the mode) tries it `a b` then `b a`,
+  then structure η both ways, unit-likeness, proof irrelevance.
+
+**The typing certificate — the one addition to official's shape.** At the verified mode the
+reduct's full-grade type is compared with the codomain at the variables (`defeq (infer r) T`), as
+the λ/η tax does at η (task #342 S0, T2). Without it the rule is not provable: `Red`'s claim
+says nothing where the redex is the point, and `b x⃗` is the point wherever the codomain at `x⃗`
+is a proposition (a motive into `Prop` at some arguments), while `b` itself is not; there the
+reduct's value is unknown, so `λ x⃗. r` and `b` could differ. The certificate puts the reduct
+and the application in one type, both the point or neither. It changes no verdict on the
+fixtures, the renovation suite or the perf streams; it is listed with the other verified-only
+checks in OVERVIEW §14. Cost: one full inference of the reduct per expansion, on the stuck path
+only.
+
+**Rules tier** (`Rules/Rel.lean`). `DefEq.recEta` (`b.ioNeutral`, `Infer .io b tb`,
+`RecEtaTele env d b tb lam`, `DefEq a lam` ⟹ `DefEq a b`; the other direction by `symm`) and the
+new relation `RecEtaTele` in the mutual block: `done` (`Red f e`, `Infer .full e te`,
+`DefEq te T`), `step` (`Red T (∀ dom body)`, the expansion one level down at
+`.app f (.fvar d dom)`, result `.lam dom (e.abstract1 d)`). The recursor and the gate are the
+checker's business: the rule holds of any neutral side. `Refine.lean`: two more cases (the rule
+reads no environment).
+
+**Soundness** (`Model/Rules/RecEtaSound.lean`, motive `RecEtaTeleSem` in `Motive.lean`: the
+result reads, its leaves are the side's or its type's, and where the side is a member of its
+graded type the result is graded and equal to it, the point included). `done`: the reduct's
+full-grade inference makes it a member of its type, the comparison makes that type the side's
+(types are never the point), `IsTy.eq_of_ne_pt` and the reduction equate them. `step`: the
+reduct's leaves at index `d` are the variable's (`LeafCond`), so the abstraction round-trips
+(`abstract1_instantiate1`), the result reads as `.lam doma ea`, and at every value of the domain
+`ea` is the side's application (the opened claim, `open_app`), so the λ is `lamV A (app f ·)`,
+which is `f` (`lamV_congr`, `lamV_eta`). The rule: a neutral side not the point is a member of
+its io type (`IORelN`), hence equal to its expansion, which is then not the point, and the
+comparison equates the other side with it. No new law, no new axiom.
+
+**Verify.** Inversions `recEtaTele_zero_inv`, `recEtaTele_succ_inv`, `recEtaCert_inv`,
+`ioNeutral_of_recEtaPartial` (`InferLemmas`); bridges `recEtaTele_bridge`, `recEtaCert_bridge`
+and the six-arm `stuckIrrel_bridge`, moved from `Rules/Certs.lean` to `Rules/DefEqBridge.lean`
+(they need `iotaRec_bridge`) and at `.verified`; fuel (`Fueled`: `iotaRec_atF`,
+`prepareMajor_atF`, `majorToCtor_atF` generalised to the body mode `mi`), pair monad (`PairM`),
+shift (`Deep`: `recEtaPartial_shiftFrom`, `recEtaTele_WScoped`, `recEtaTele_shift` through
+`shiftFrom_abstract1`, `recEtaCert_shift`, `stuckIrrel_shift` moved after `iotaRec_shift`),
+environment extension (`EnvExt/Reads`: `recMajorEta_ext`, `recEtaPartial_ext`;
+`EnvExt/Whnf`: `recEtaTele_rel`, `recEtaCert_rel`, `stuckIrrel_rel` moved there from
+`EnvExt/Rel`), cached congruences (`KnotCongr`) and the cached simulation (`DiscC4`:
+`iotaRecAtC_spec`, `recEtaTeleC_spec` by induction, `recEtaCertC_spec`, `stuckIrrelC_spec`
+moved from `DiscC2`, each one `sym … => vcgen … <;> finish`; `wscoped_abstract1` moved up).
+`iotaRecC_spec` is stated at `.verified` only, so `stuckIrrelC_spec`, `defeqStuckC_spec` and the
+`DiscC5` body specs after it are now at `.verified` (their only consumer, `KnotC`, is). The
+plain-reach allowlist gains `recMajorEta` (a two-lookup reader, the best code).
+
+**Fixtures** (`tests/e2e`, exported with the pinned v4.29.1 recipe, the good ones through
+`rfl_unchecked`): `rec_eta` 0 (lean4's `tests/elab/12520_2.lean` good examples: `Eq.rec` with K
+against `fun h => a h` and against `a`, both orientations; `PUnit.rec`; `Prod.rec` against
+`fun b => a b`, against `a` both orientations, and under a binder — the arena's `etaRuleK` and
+`etaRecStruct` are `re_k` and `re_prod`); must-reject controls, all terminating: `rec_eta_eqrec_bad`
+(`@Eq.rec = g`: the K rescue's type check fails at the fresh major), `rec_eta_andrec_bad`
+(`@And.rec = g`), `rec_eta_noeta_bad` (a two-constructor recursor, not expanded),
+`rec_eta_struct_bad` (`Prod.rec` with swapped fields). Before this task `rec_eta` was 1; the
+controls 1 before and after. The vendored tutorial test `bad/tutorial/114_etaRuleK` (the same
+statement as the renovation's `etaRuleK`) is now accepted, as by the official kernel since
+lean4#15374: its row in `tests/arena-expected.txt` is 0 with the reason, as 115's (task #515).
+The renovation arena tests are not wired into `tests/arena.sh`; regenerated from
+`_tmp/arena-beta/renovation` (toolchain `pr-release-16595-55bd690`, `OUT=… lake build`), the
+suite is 129/129 (base binary: 127/129, the two `good/` tests 122_etaRecStruct and 123_etaRuleK
+rejected).
+
+**Performance** (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, base
+`c8e13b0f1`):
+
+| stream | base | task #632 | Δ |
+|---|---:|---:|---:|
+| `app-lam` | 22 173 322 348 | 22 173 095 797 | -0.001 % |
+| `args-before-unfold` | 73 375 202 | 73 382 325 | +0.010 % |
+| `beta-ladder` | 4 962 363 381 | 4 948 268 830 | -0.284 % |
+| `church-numerals` | 216 550 150 | 216 665 331 | +0.053 % |
+| `discarded-argument-match` | 216 886 128 | 217 689 392 | +0.370 % |
+| `discarded-argument` | 86 413 606 | 87 152 578 | +0.855 % |
+| `folded-constant-first` | 85 580 555 | 85 569 638 | -0.013 % |
+| `folded-constant-last` | 85 519 023 | 85 520 738 | +0.002 % |
+| `grind-ring-5` | 8 665 749 643 | 8 666 335 637 | +0.007 % |
+| `identical-nesting` | 41 385 000 | 41 371 028 | -0.034 % |
+| `irrelevance-before-evaluation` | 43 081 218 | 43 073 774 | -0.017 % |
+| `let-ladder` | 2 579 336 417 | 2 579 347 122 | +0.000 % |
+| `repeated-subproblem` | 42 690 268 | 42 697 721 | +0.017 % |
+| `shared-subterm` | 149 361 803 | 149 350 583 | -0.008 % |
+| `shift-cascade` | 71 619 435 | 71 604 027 | -0.022 % |
+| `unroll-versus-evaluate` | 47 748 927 | 47 736 740 | -0.026 % |
+| `init-prelude` | 1 130 490 545 | 1 130 524 561 | +0.003 % |
+| `init-full` | 253 983 142 028 | 254 166 228 782 | +0.072 % |
+
+All verdicts unchanged (exit 0). The step sits on the stuck path behind a syntactic gate; the
+largest relative deltas are again the two small `discarded-argument` streams (+0.7 M and
++0.8 M instructions absolute, the same streams as task #515's), not attributed further.

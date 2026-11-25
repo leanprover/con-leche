@@ -12,7 +12,7 @@ that name, or the axiom of its constant value (its statement: a definition, theo
 presented without its value), and every table `env₁` stores is `env₂`'s.  `env₂` may store more.
 
 **Every derivation at a refinement is a derivation at the refined environment**
-(`Red.refine` and its thirteen siblings, one mutual structural recursion).  Every premise of every
+(`Red.refine` and its fourteen siblings, one mutual structural recursion).  Every premise of every
 rule reads the environment positively: a constant stored as a given kind (a definition to
 unfold, a recursor, a constructor, a family), a constant's stored type (which a statement keeps),
 a table entry, or a literal's constants stored.  A statement answers the kind-reads `none`, so
@@ -477,6 +477,13 @@ theorem DefEq.refine (h : EnvRefines env₁ env₂) :
   | _, _, _, .etaExpand hna hnb hta htb hd hx =>
     .etaExpand hna hnb (Infer.refine h hta) (Infer.refine h htb) (DefEq.refine h hd)
       (DefEqExpand.refine h hx)
+  | _, _, _, .recEta hnb htb hx hd =>
+    .recEta hnb (Infer.refine h htb) (RecEtaTele.refine h hx) (DefEq.refine h hd)
+
+theorem RecEtaTele.refine (h : EnvRefines env₁ env₂) :
+    ∀ {d : Nat} {f T e : Expr}, RecEtaTele env₁ d f T e → RecEtaTele env₂ d f T e
+  | _, _, _, _, .done hr hi hd => .done (Red.refine h hr) (Infer.refine h hi) (DefEq.refine h hd)
+  | _, _, _, _, .step hr h₁ => .step (Red.refine h hr) (RecEtaTele.refine h h₁)
 
 theorem DefEqExpand.refine (h : EnvRefines env₁ env₂) :
     ∀ {d : Nat} {a b T : Expr}, DefEqExpand env₁ d a b T → DefEqExpand env₂ d a b T

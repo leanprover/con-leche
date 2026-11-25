@@ -370,17 +370,6 @@ theorem structEtaCertC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr}
     vcgen [structEtaCertI.eq_def, structEtaFullC_spec ih, ih.inferIO_spec, ih.defeq_spec,
       structEtaExpandC_spec ih] <;> finish
 
-/-- `stuckIrrelI` simulates its fueled original. -/
-theorem stuckIrrelC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
-    {s₀ : CState}
-    (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ stuckIrrelI mode (mkFEnv env) eager f d a b
-    ⦃fun v s' => CSOK mode eager env s' ∧
-        Runs (stuckIrrel (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
-  sym only [conleche_grind, stuckIrrel] =>
-    vcgen [stuckIrrelI.eq_def, structEtaCertC_spec ih, structUnitCertC_spec ih henv,
-      proofIrrelC_spec ih] <;> finish
-
 end Walks4
 
 

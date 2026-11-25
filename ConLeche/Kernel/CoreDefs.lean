@@ -751,6 +751,40 @@ def etaCtorPartial (env : Env) (a : Expr) : Option Nat :=
     | _ => none
   | _ => none
 
+/-- **Does a recursor's major premise range over an η family?**  The
+single rule's constructor's family carries the η flag (`IndCaps.eta`,
+lean4#16595's `hasEta`).  Official reads the recursor's major inductive
+(`has_eta(rec_val.get_major_induct())`); an η family has exactly one
+constructor, so its recursor has exactly one rule, whose constructor's
+family is that inductive. -/
+def recMajorEta (find? : Name → Option ConstantInfo) : List RecRule → Bool
+  | [rl] =>
+    match find? rl.ctor with
+    | some (.ctorInfo _ _ _ T) =>
+      match find? T with
+      | some (.indInfo _ caps) => caps.eta
+      | _ => false
+    | _ => false
+  | _ => false
+
+/-- **A partially applied recursor that η-expands** (official's
+`eta_expand_iota_reduce_recursor` gate since lean4#15374): the
+candidate's head is a stored recursor applied to at most `mI` arguments
+(its major, and possibly more before it, missing), whose recursor is K or
+whose major ranges over an η family (`recMajorEta`).  `some k`, `k > 0` the
+arguments it lacks up to the major.  Read off the stored records alone,
+before any inference, as official's gate is. -/
+def recEtaPartial (env : Env) (e : Expr) : Option Nat :=
+  match e.getAppFn with
+  | .const c _ =>
+    match env.find? c with
+    | some (.recInfo _ mI _ isK rules) =>
+      if e.getAppArgs.length ≤ mI ∧ (isK = true ∨ recMajorEta env.find? rules = true) then
+        some (mI + 1 - e.getAppArgs.length)
+      else none
+    | _ => none
+  | _ => none
+
 /-- **The constructor shortcut's target** (`defeqBody`): `some c` when
 `e` is a closed application of the stored constructor `c` to exactly its
 parameters and fields, whose family is never a proposition

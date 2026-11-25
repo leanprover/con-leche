@@ -3544,6 +3544,17 @@
 0 eta_partial_ctor.ndjson
 1 eta_partial_ctor_bad.ndjson
 1 eta_partial_ctor_alias_bad.ndjson
+# η for a partially applied recursor of a K or η family (task #632; official's
+# `eta_expand_iota_reduce_recursor` since lean4#15374, ported from lean4's
+# `tests/elab/12520_2.lean` and the renovation arena's `etaRecStruct` /
+# `etaRuleK`), and its must-reject controls: `@Eq.rec = g` and `@And.rec = g`
+# (the test's two), a recursor of neither kind, and a wrong minor.  Official
+# 0/1/1/1/1; before task #632 the first was 1.
+0 rec_eta.ndjson
+1 rec_eta_eqrec_bad.ndjson
+1 rec_eta_andrec_bad.ndjson
+1 rec_eta_noeta_bad.ndjson
+1 rec_eta_struct_bad.ndjson
 # lean4's tests whose master elaboration needs the wider unit-like η
 # (task #515): `tests/elab/13371.lean` and the family of
 # `tests/elab/match4.lean`, exported from a lean4 master build (the

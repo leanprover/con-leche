@@ -793,7 +793,7 @@ that is the function space's domain, which therefore holds the argument.
 #real[
   The checker substitutes the arguments and fields into $R_j$'s body
   under its leading lambdas at once, the application's β steps
-  (#src("ConLeche/Rules/Rel.lean", 190, 242)[the rule there]).
+  (#src("ConLeche/Rules/Rel.lean", 192, 244)[the rule there]).
   In the checker's rule every premise on the constructor application
   is conditional on the certified case. A K rule, and a family that is
   never a proposition, fire comparing nothing, as in the official

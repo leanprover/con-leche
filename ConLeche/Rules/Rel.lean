@@ -32,6 +32,8 @@ checker does):
   at the innermost level only (`inner`/`outer`).
 * `DefEqExpand env d a b T` — two sides of one type compared after
   their η-expansion along the type's binders (task #515).
+* `RecEtaTele env d f T e` — a side η-expanded along its type and
+  reduced, abstracted back to a λ (task #632).
 * `UnitLike env d T`, `UnitFields env d tele n` — official's
   `is_unit_like` (task #515): a ∀ with a unit-like codomain, or an η
   family whose fields (possibly none) are propositions or unit-like.
@@ -499,6 +501,36 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       DefEq env d tb ta →
       DefEqExpand env d a b ta →
       DefEq env d a b
+  /-- **Recursor η** (`recEtaCert`, `Kernel/Core.lean`; official's
+  `try_eta_expansion_core` since lean4#15374): a neutral side `b` (the
+  checker's `b` is a partially applied recursor), η-expanded along its
+  io-inferred type and ι-reduced (`RecEtaTele`) to a λ, against which
+  `a` is definitionally equal.  The recursor and the K / η gate are the
+  checker's business: the rule holds of any neutral side. -/
+  | recEta {d : Nat} {a b tb lam : Expr} :
+      b.ioNeutral = true →
+      Infer env .io d b tb →
+      RecEtaTele env d b tb lam →
+      DefEq env d a lam →
+      DefEq env d a b
+
+/-- **The η-expansion of a side along its type, reduced**
+(`recEtaTele`, `Kernel/Core.lean`): along the type's binders, each
+reached by reduction, the side is applied to a fresh variable; the full
+application reduces (`done`: the checker's ι step) to a term whose
+FULL-grade type is definitionally equal to the codomain at the
+variables, and the result is that reduct abstracted over the variables
+(`step`: `λ dom. e`, `e` closed over the variable by `abstract1`).  The
+type comparison puts the reduct and the application in one type, so
+that the two are both the point or neither. -/
+inductive RecEtaTele (env : Env) : Nat → Expr → Expr → Expr → Prop where
+  | done {d : Nat} {f T e te : Expr} :
+      Red env d f e → Infer env .full d e te → DefEq env d te T →
+      RecEtaTele env d f T e
+  | step {d : Nat} {f T dom body e : Expr} :
+      Red env d T (.forallE dom body) →
+      RecEtaTele env (d + 1) (.app f (.fvar d dom)) (body.instantiate1 (.fvar d dom)) e →
+      RecEtaTele env d f T (.lam dom (e.abstract1 d))
 
 /-- **The η-expansion of two sides of one type** (`structEtaExpand`,
 `Kernel/Core.lean`): along the type's syntactic ∀ binders both sides are

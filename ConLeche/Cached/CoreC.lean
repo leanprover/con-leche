@@ -790,15 +790,6 @@ def etaCertI (eager : Bool) (lv : Nat) (depth : Nat)
   | _ => pure false
 termination_by (lv, 18, 0, 0)
 
-/-- Twin of `stuckIrrel`. -/
-def stuckIrrelI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) :
-    CheckCM Bool := do
-  if ← structEtaCertI eager lv depth a b then pure true
-  else if ← structEtaCertI eager lv depth b a then pure true
-  else if ← structUnitCertI eager lv depth a b then pure true
-  else proofIrrelI eager lv depth a b
-termination_by (lv, 19, 0, 0)
-
 /-- Twin of `formerSortLoop`, through the shared instantiation. -/
 def formerSortLoopI (eager : Bool) (lv : Nat) : Nat → Nat → Expr → CheckCM (Option Level)
   | d, 0, e => do
@@ -1078,6 +1069,73 @@ def iotaRecI (eager : Bool) (lv : Nat) (depth : Nat) (c : Name) (us : List Level
     | .stuck _ => pure none
   else pure none
 termination_by (lv, 27, 0, 0)
+
+/-- The ι step at a spine `e` (the dispatch of `iotaRec`): a stored
+recursor at its own number of levels, applied to exactly `mI + 1`
+arguments, as `whnfAppI` tries it. -/
+def iotaRecAtI (eager : Bool) (lv : Nat) (depth : Nat) (e : Expr) :
+    CheckCM (Option Expr) :=
+  match Expr.getAppFn e with
+  | .const c us =>
+    match fe.find? c with
+    | some (.recInfo cv mI rP isK rules) =>
+      if iotaNumArgs e 0 = mI + 1 ∧ us.length = cv.levelParams.length then
+        iotaRecI eager lv depth c us cv mI rP isK rules (getAppArgsArr e)
+      else pure none
+    | _ => pure none
+  | _ => pure none
+termination_by (lv, 27, 1, 0)
+
+/-- Twin of `recEtaTele`. -/
+def recEtaTeleI (eager : Bool) (lv : Nat) :
+    Nat → Nat → Expr → Expr → CheckCM (Option Expr)
+  | 0, depth, f, T => do
+    match ← iotaRecAtI eager lv depth f with
+    | some e =>
+      -- the typing certificate (task #632; see `recEtaTele`)
+      if mode.verifiedChecks then do
+        let te ← inferI eager lv false depth e
+        if ← defeqI eager lv depth te T then pure (some e)
+        else pure none
+      else pure (some e)
+    | none => pure none
+  | k + 1, depth, f, T => do
+    let w ← whnfI eager lv depth T
+    match w with
+    | .forallE dom body => do
+      let fv ← pure (Expr.fvar depth dom)
+      let body' ← inst1M body fv
+      match ← recEtaTeleI eager lv k (depth + 1) (.app f fv) body' with
+      | some e => do
+        let eAbs ← abstract1M e depth
+        pure (some (Expr.lam dom eAbs))
+      | none => pure none
+    | _ => pure none
+termination_by k _ _ _ => (lv, 27, k + 2, 0)
+
+/-- Twin of `recEtaCert`. -/
+def recEtaCertI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) :
+    CheckCM Bool := do
+  if !a.ioNeutral then pure false else
+  match recEtaPartialC fe b with
+  | some k => do
+    let tb ← inferI eager lv true depth b
+    match ← recEtaTeleI eager lv k depth b tb with
+    | some lam => defeqI eager lv depth a lam
+    | none => pure false
+  | none => pure false
+termination_by (lv, 28, 1, 0)
+
+/-- Twin of `stuckIrrel`. -/
+def stuckIrrelI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) :
+    CheckCM Bool := do
+  if ← recEtaCertI eager lv depth a b then pure true
+  else if ← recEtaCertI eager lv depth b a then pure true
+  else if ← structEtaCertI eager lv depth a b then pure true
+  else if ← structEtaCertI eager lv depth b a then pure true
+  else if ← structUnitCertI eager lv depth a b then pure true
+  else proofIrrelI eager lv depth a b
+termination_by (lv, 28, 2, 0)
 
 /-- Twin of `reduceProjCore`. -/
 def reduceProjCoreI (eager : Bool) (lv : Nat) (depth : Nat) (sn : Name)

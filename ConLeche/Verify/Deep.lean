@@ -1017,24 +1017,6 @@ private theorem etaCert_shift (henv : EnvWF env)
     intro _ _
     rfl
 
-private theorem stuckIrrel_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
-    (hwa : WScoped d a) (hwb : WScoped d b) :
-    stuckIrrel (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
-        (shiftFrom p b) =
-      stuckIrrel (pureFns mode eager env fuel) env d a b := by
-  simp only [stuckIrrel]
-  refine bind_congr_eq (structEtaCert_shift henv ih hpd hwa hwb) ?_
-  intro b₃ _
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  refine bind_congr_eq (structEtaCert_shift henv ih hpd hwb hwa) ?_
-  intro b₄ _
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  refine bind_congr_eq (structUnitCert_shift henv ih hpd hwa hwb) ?_
-  intro b₅ _
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
-  exact proofIrrel_shift henv ih hpd hwa hwb
-
 /-- The hoisted `Prop`-branch test (task #168): the fast arm reads
 head symbols only, which the shift preserves (`notProofFast_shiftFrom`);
 the slow branch is `proofIrrel_shift`'s `Prop` branch. -/
@@ -1750,6 +1732,131 @@ private theorem whnfCore_step (henv : EnvWF env)
         exact ih.whnfCore hpd (reduceProjCore_pres (WScoped d)
           (fun hx => hx.getAppArgs) (fun h hx => whnf_WScoped henv fuel h hx)
           (fun s _ => strLitToConstructor_WScoped s d) ho hwe₂)
+
+
+/-- `recEtaPartial` reads the head constant and the spine length, both
+shift-invariant. -/
+private theorem recEtaPartial_shiftFrom {env : Env} (p : Nat) (e : Expr) :
+    recEtaPartial env (shiftFrom p e) = recEtaPartial env e := by
+  unfold recEtaPartial
+  rw [getAppFn_shiftFrom, getAppArgs_shiftFrom, List.length_map]
+  generalize e.getAppFn = f
+  cases f <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+
+/-- The scoping of the reduced η-expansion (task #632). -/
+theorem recEtaTele_WScoped (henv : EnvWF env) :
+    ∀ (k d : Nat) {f T e : Expr},
+      recEtaTeleFueled mode eager env fuel k d f T = .ok (some e) →
+      WScoped d f → WScoped d T → WScoped d e
+  | 0, _, _, _, _, h, hwf, _ => iotaRec_WScoped henv (recEtaTele_zero_inv h).1 hwf
+  | k + 1, d, f, T, _, h, hwf, hwT => by
+    obtain ⟨dom, body, e', hw, hr, rfl⟩ := recEtaTele_succ_inv h
+    have hwW := whnf_WScoped henv fuel hw hwT
+    simp only [WScoped] at hwW
+    have h' := recEtaTele_WScoped henv k (d + 1) hr
+      (by simp only [WScoped]; exact ⟨hwf.mono (Nat.le_succ d), Nat.lt_succ_self d, hwW.1⟩)
+      (WScoped.instantiate1 hwW.1 0 hwW.2)
+    simp only [WScoped]
+    exact ⟨hwW.1, WScoped.abstract1 0 h'⟩
+
+private theorem recEtaTele_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode eager env fuel) {p : Nat} :
+    ∀ (k d : Nat) {f T : Expr}, p ≤ d → WScoped d f → WScoped d T →
+      recEtaTele mode (pureFns mode eager env fuel) env k (d + 1) (shiftFrom p f)
+          (shiftFrom p T) =
+        (recEtaTele mode (pureFns mode eager env fuel) env k d f T).map
+          (Option.map (shiftFrom p))
+  | 0, d, f, T, hpd, hwf, hwT => by
+    simp only [recEtaTele]
+    refine bind_rel _ _ (iotaRec_shift henv ih hpd hwf) ?_
+    intro o ho
+    cases o with
+    | none => rfl
+    | some e =>
+      have hwe : WScoped d e := iotaRec_WScoped henv ho hwf
+      dsimp only [Option.map]
+      by_cases hv : mode.verifiedChecks = true
+      · simp only [hv, ↓reduceIte]
+        refine bind_rel _ _ (ih.infer hpd hwe) ?_
+        intro te hte
+        have hwte : WScoped d te := inferTypeCore_WScoped henv fuel hte hwe
+        refine bind_rel_eq _ (ih.defeq hpd hwte hwT) ?_
+        intro v _
+        cases v <;> rfl
+      · simp only [hv, Bool.false_eq_true, ↓reduceIte]
+        rfl
+  | k + 1, d, f, T, hpd, hwf, hwT => by
+    simp only [recEtaTele]
+    refine bind_rel _ _ (ih.whnf hpd hwT) ?_
+    intro w hw
+    have hwW := whnf_WScoped henv fuel hw hwT
+    cases w with
+    | forallE dom body =>
+      simp only [WScoped] at hwW
+      simp only [shiftFrom]
+      have h := recEtaTele_shift henv ih k (d + 1) (p := p) (by omega)
+        (show WScoped (d + 1) (Expr.app f (.fvar d dom)) by
+          simp only [WScoped]; exact ⟨hwf.mono (Nat.le_succ d), Nat.lt_succ_self d, hwW.1⟩)
+        (WScoped.instantiate1 hwW.1 0 hwW.2)
+      rw [shiftFrom_instantiate1 hpd, shiftFrom_app, shiftFrom_fvar_ge hpd] at h
+      refine bind_rel _ _ h ?_
+      intro o _
+      cases o with
+      | none => rfl
+      | some e =>
+        show pure _ = Except.map _ (pure _)
+        rw [← shiftFrom_abstract1 hpd]; rfl
+    | fvar i ty =>
+      simp only [shiftFrom]
+      by_cases hi : i ≥ p <;> simp only [hi, ↓reduceIte] <;> rfl
+    | _ => rfl
+
+private theorem recEtaCert_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    recEtaCert mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
+        (shiftFrom p b) =
+      recEtaCert mode (pureFns mode eager env fuel) env d a b := by
+  simp only [recEtaCert]
+  rw [ioNeutral_shiftFrom, recEtaPartial_shiftFrom]
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  cases recEtaPartial env b with
+  | none => rfl
+  | some k =>
+  dsimp only
+  refine bind_congr _ (ih.inferIO hpd hwb) ?_
+  intro tb htb
+  have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
+  refine bind_congr _ (recEtaTele_shift henv ih k d hpd hwb hwtb) ?_
+  intro o ho
+  cases o with
+  | none => rfl
+  | some lam => exact ih.defeq hpd hwa (recEtaTele_WScoped henv k d ho hwb hwtb)
+
+private theorem stuckIrrel_shift (henv : EnvWF env)
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (hwa : WScoped d a) (hwb : WScoped d b) :
+    stuckIrrel mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
+        (shiftFrom p b) =
+      stuckIrrel mode (pureFns mode eager env fuel) env d a b := by
+  simp only [stuckIrrel]
+  refine bind_congr_eq (recEtaCert_shift henv ih hpd hwa hwb) ?_
+  intro b₁ _
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine bind_congr_eq (recEtaCert_shift henv ih hpd hwb hwa) ?_
+  intro b₂ _
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine bind_congr_eq (structEtaCert_shift henv ih hpd hwa hwb) ?_
+  intro b₃ _
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine bind_congr_eq (structEtaCert_shift henv ih hpd hwb hwa) ?_
+  intro b₄ _
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine bind_congr_eq (structUnitCert_shift henv ih hpd hwa hwb) ?_
+  intro b₅ _
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  exact proofIrrel_shift henv ih hpd hwa hwb
 
 /-- The reduction *loop* commutes with the shift, by induction on its
 own step budget (task #106); the per-step head normalization comes
@@ -2689,8 +2796,8 @@ private theorem defeqStuck_shift (henv : EnvWF env)
         (shiftFrom p wb) =
       defeqStuck mode (pureFns mode eager env fuel) env d wa wb := by
   unfold defeqStuck
-  have hstuck : stuckIrrel (pureFns mode eager env fuel) env (d + 1) (shiftFrom p wa)
-      (shiftFrom p wb) = stuckIrrel (pureFns mode eager env fuel) env d wa wb :=
+  have hstuck : stuckIrrel mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p wa)
+      (shiftFrom p wb) = stuckIrrel mode (pureFns mode eager env fuel) env d wa wb :=
     stuckIrrel_shift henv ih hpd hwwa hwwb
   cases wa <;> cases wb <;>
     try (first

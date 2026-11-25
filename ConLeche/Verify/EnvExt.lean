@@ -344,23 +344,23 @@ theorem defeqProjPair_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
 
 theorem defeqStuck_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
     Rel TT (defeqStuck mode r₂ env₂ d a b) (defeqStuck mode r₁ env₁ d a b) := by
-  have hst := fun {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) => stuckIrrel_rel K d hx ha hb
+  have hst := fun {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) => stuckIrrel_rel K d hx mode ha hb
   have hlam : ∀ {t body c : Expr} (_ : Res env₁ t) (_ : Res env₁ body) (_ : Res env₁ c),
       Rel TT (do
           if ← etaCert mode r₂ env₂ d t body c then pure true
-          else stuckIrrel r₂ env₂ d (.lam t body) c)
+          else stuckIrrel mode r₂ env₂ d (.lam t body) c)
         (do
           if ← etaCert mode r₁ env₁ d t body c then pure true
-          else stuckIrrel r₁ env₁ d (.lam t body) c) := fun ht hbo hc =>
+          else stuckIrrel mode r₁ env₁ d (.lam t body) c) := fun ht hbo hc =>
     Rel.bind (etaCert_rel K d mode ht hbo hc) fun v _ =>
       Rel.iteB v (fun _ => Rel.ok trivial) fun _ => hst (res_lam.mpr ⟨ht, hbo⟩) hc
   have hlam' : ∀ {t body c : Expr} (_ : Res env₁ t) (_ : Res env₁ body) (_ : Res env₁ c),
       Rel TT (do
           if ← etaCert mode r₂ env₂ d t body c then pure true
-          else stuckIrrel r₂ env₂ d c (.lam t body))
+          else stuckIrrel mode r₂ env₂ d c (.lam t body))
         (do
           if ← etaCert mode r₁ env₁ d t body c then pure true
-          else stuckIrrel r₁ env₁ d c (.lam t body)) := fun ht hbo hc =>
+          else stuckIrrel mode r₁ env₁ d c (.lam t body)) := fun ht hbo hc =>
     Rel.bind (etaCert_rel K d mode ht hbo hc) fun v _ =>
       Rel.iteB v (fun _ => Rel.ok trivial) fun _ => hst hc (res_lam.mpr ⟨ht, hbo⟩)
   unfold defeqStuck

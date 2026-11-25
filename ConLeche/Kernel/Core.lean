@@ -522,15 +522,6 @@ def etaCert (mode : CheckMode) (r : CoreFns m) (_env : Env) (depth : Nat)
     else pure false
   | _ => pure false
 
-/-- The fallback for structurally distinct stuck terms: structural eta
-in either direction, unit-likeness, else proof irrelevance. -/
-def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
-    m Bool := do
-  if ← structEtaCert r env depth a b then pure true
-  else if ← structEtaCert r env depth b a then pure true
-  else if ← structUnitCert r env depth a b then pure true
-  else proofIrrel r depth a b
-
 /-- **Official's walk to a family's sort** (the loop of `check_inductive_types`
 at the use): `n` binders down, each reached by head normalization, then a sort.
 `none` where the type does not get there at this environment. -/
@@ -972,6 +963,69 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       else pure none
     | _ => pure none
   | _ => pure none
+
+/-- **The η-expansion of a partially applied recursor, ι-reduced**
+(official's `eta_expand_iota_reduce_recursor`, lean4#15374): `f`, of type
+`T`, is applied to `k` fresh variables along `T`'s binders, each reached
+by head normalization (official: `whnf` of each rest); the full
+application is ι-reduced (`iotaRec`, with the stuck-major rescues on a
+neutral major); the result is the reduct abstracted over the variables,
+`λ x⃗. r`.  `none` where a rest is no ∀ or the ι step does not fire.
+
+At the verified mode the reduct's full-grade type is compared with the
+codomain at the variables (the typing certificate, task #632): a
+reduction claims nothing of a redex that is the point, so without it the
+reduct's value is unknown where `f x⃗` is a proof.  Official compares no
+type here. -/
+def recEtaTele (r : CoreFns m) (env : Env) : Nat → Nat → Expr → Expr → m (Option Expr)
+  | 0, depth, f, T => do
+    match ← iotaRec mode r env depth f with
+    | some e =>
+      if mode.verifiedChecks then
+        if ← r.defeq depth (← r.infer depth e) T then pure (some e)
+        else pure none
+      else pure (some e)
+    | none => pure none
+  | k + 1, depth, f, T => do
+    match ← r.whnf depth T with
+    | .forallE dom body =>
+      match ← recEtaTele r env k (depth + 1) (.app f (.fvar depth dom))
+          (body.instantiate1 (.fvar depth dom)) with
+      | some e => pure (some (.lam dom (e.abstract1 depth)))
+      | none => pure none
+    | _ => pure none
+
+/-- **Recursor η** (official's `try_eta_expansion_core` arm since
+lean4#15374): `b` is a partially applied recursor whose recursor is K or
+whose major ranges over an η family (`recEtaPartial`), expanded and
+ι-reduced to `λ x⃗. r` (`recEtaTele`, along `b`'s io-inferred type), and
+`a` is definitionally equal to that λ.  Official tries this only where
+neither side is a λ (a λ side takes the function η, `etaCert`); the sides
+are in weak-head normal form, so `a`'s head is a λ exactly where it is
+not neutral. -/
+def recEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  if !a.ioNeutral then pure false else
+  match recEtaPartial env b with
+  | some k =>
+    let tb ← r.inferIO depth b
+    match ← recEtaTele mode r env k depth b tb with
+    | some lam => r.defeq depth a lam
+    | none => pure false
+  | none => pure false
+
+/-- The fallback for structurally distinct stuck terms: recursor η in
+either direction (official's `try_eta_expansion`, whose function-η half
+is `etaCert`), structural eta in either direction, unit-likeness, else
+proof irrelevance. -/
+def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool := do
+  if ← recEtaCert mode r env depth a b then pure true
+  else if ← recEtaCert mode r env depth b a then pure true
+  else if ← structEtaCert r env depth a b then pure true
+  else if ← structEtaCert r env depth b a then pure true
+  else if ← structUnitCert r env depth a b then pure true
+  else proofIrrel r depth a b
 
 /-- **The structural projection's check** (task #175 W6): the redex
 `proj_i (C p⃗ x⃗)` fires only where `C`'s stored type has the spine's
@@ -1723,7 +1777,7 @@ def defeqProjPair (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 free variable, a string literal against `String.ofList`
 (`try_string_lit_expansion`), the application spine
 (`is_def_eq_app`), η on a one-sided λ; every failing arm ends in
-`stuckIrrel` (proof irrelevance, structure η, unit-likeness).  Two
+`stuckIrrel` (recursor η, structure η, unit-likeness, proof irrelevance).  Two
 constants or two free variables are inert under `whnfCore`, so checking
 them here, after the restart, instead of before it is the same
 verdict. -/
@@ -1741,24 +1795,24 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     | .strVal st, .const cO usO =>
       if cO = stringOfListName ∧ usO = [] ∧ strLitStored env then
         r.defeq depth (strLitToConstructor st) (.app (.const cO usO) x)
-      else stuckIrrel r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
-    | _, _ => stuckIrrel r env depth (.lit l) (.app f x)
+      else stuckIrrel mode r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
+    | _, _ => stuckIrrel mode r env depth (.lit l) (.app f x)
   | .app f x, .lit l =>
     match l, f with
     | .strVal st, .const cO usO =>
       if cO = stringOfListName ∧ usO = [] ∧ strLitStored env then
         r.defeq depth (.app (.const cO usO) x) (strLitToConstructor st)
-      else stuckIrrel r env depth (.app (.const cO usO) x) (.lit (.strVal st))
-    | _, _ => stuckIrrel r env depth (.app f x) (.lit l)
+      else stuckIrrel mode r env depth (.app (.const cO usO) x) (.lit (.strVal st))
+    | _, _ => stuckIrrel mode r env depth (.app f x) (.lit l)
   | .fvar i ty₁, .fvar j ty₂ =>
     if i == j then pure true
-    else stuckIrrel r env depth (.fvar i ty₁) (.fvar j ty₂)
+    else stuckIrrel mode r env depth (.fvar i ty₁) (.fvar j ty₂)
   | .const n us, .const n' us' =>
     if n = n' then do
       if ← liftFueled "level comparison" (Level.isEquivList us us') then
         pure true
-      else stuckIrrel r env depth (.const n us) (.const n' us')
-    else stuckIrrel r env depth (.const n us) (.const n' us')
+      else stuckIrrel mode r env depth (.const n us) (.const n' us')
+    else stuckIrrel mode r env depth (.const n us) (.const n' us')
   | .app f₁ a₁, .app f₂ a₂ => do
     -- Stuck applications: **spine-wise** congruence (the official
     -- kernel's `is_def_eq_app`, lean4lean's `isDefEqApp`, nanoda's
@@ -1771,20 +1825,20 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
           (Expr.app f₂ a₂).getAppFn then
         if ← defEqList r env depth (Expr.app f₁ a₁).getAppArgs
             (Expr.app f₂ a₂).getAppArgs then pure true
-        else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
-      else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
-    else stuckIrrel r env depth (.app f₁ a₁) (.app f₂ a₂)
+        else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
+      else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
+    else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
   -- One-sided λ: eta, else the stuck fallbacks.  (Two λs never get
   -- here: `quickDefEq` decides them.)
   | .lam ty₁ body₁, b₂ => do
     if ← etaCert mode r env depth ty₁ body₁ b₂ then pure true
-    else stuckIrrel r env depth (.lam ty₁ body₁) b₂
+    else stuckIrrel mode r env depth (.lam ty₁ body₁) b₂
   | a₁, .lam ty₂ body₂ => do
     if ← etaCert mode r env depth ty₂ body₂ a₁ then pure true
-    else stuckIrrel r env depth a₁ (.lam ty₂ body₂)
+    else stuckIrrel mode r env depth a₁ (.lam ty₂ body₂)
   -- Distinct whnf-stuck head symbols: only the stuck fallbacks can
   -- equate them; `false` is always sound.
-  | e₁, e₂ => stuckIrrel r env depth e₁ e₂
+  | e₁, e₂ => stuckIrrel mode r env depth e₁ e₂
 
 /-- **The lazy comparison**: the official kernel's `is_def_eq_core` past
 its syntactic fast path and its eq-true clause, clause for clause except
