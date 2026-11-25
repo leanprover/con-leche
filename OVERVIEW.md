@@ -839,8 +839,9 @@ As in §1, propositions are subsets of a one-element set; its element
 is the proof point. The interpretation chooses the treatment of a
 Π-type or lambda-expression from the values of its body.
 
-The main theorem instead uses `Denotes`, a relation on checker
-expressions. [`Denotes_of_denote`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L194-L200)
+The model that the proofs build for an environment instead uses
+`Denotes`, a relation on checker expressions; the main theorem's
+`IsModel` (§1) is obtained from that model. [`Denotes_of_denote`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L194-L200)
 connects the two: under its scoping and closedness assumptions, the
 interpretation of a successful reading is a `Denotes`-denotation of
 the expression after closing its free variables.
@@ -1001,8 +1002,8 @@ The model construction for an installed block is proved by
 ## 6. The Nat operations
 
 ConLeche reduces certain `Nat` operations on literals using Lean's `Nat`
-implementation. In verified mode, it checks the definitions and certificates
-needed to justify this fast path.
+implementation. It checks the definitions and certificates needed to justify
+this fast path.
 
 ### Structural operations
 
@@ -1367,12 +1368,12 @@ ConLeche uses the following conversion and elimination rules:
 * The checker supports η for partially applied constructors and a wider
   notion of unit-likeness, including function spaces into unit-like types
   and structures whose fields are propositions or unit-like types (§3).
-* Universe levels are compared semantically (§9).
+* Universe levels are compared semantically.
 * A non-nested block with one family and one constructor, whose result sort
   can be zero, can have a large eliminator when its fields satisfy the
   checker's criterion; the released kernel gives it a small eliminator (§5).
 * When proof irrelevance does not establish equality, the checker continues
-  the comparison; the official kernel can stop with failure (§3).
+  the comparison; the official kernel can stop with failure.
 * `And.rec` can rescue its major premise from an opaque proof of `And` and
   its projections (§3).
 * Opaque theorems and the order of recursor reduction can make conversion
@@ -1383,7 +1384,7 @@ ConLeche uses the following conversion and elimination rules:
   head-normalized at once. The official kernel does this only for
   `Bool.true` (§3).
 * A `Nat` literal's hash reads all its bits; the released kernel hashes its
-  low 64 bits, so literals that agree there share a memo bucket (§2).
+  low 64 bits, so literals that agree there share a memo bucket (§9).
 
 The soundness proof covers the checker's acceptances beyond the official
 kernel.
@@ -1407,7 +1408,7 @@ its treatment of input records:
   when it is stored as the identity on its type, in a rule at the recursor's
   own parameters whose types match the constructor's up to that consumption.
   The official kernel consumes `optParam`, `autoParam`, `outParam` and
-  `semiOutParam` by name (§5).
+  `semiOutParam` by name.
 * Declarations at `Lean.reduceBool` and `Lean.reduceNat` must be opaque
   constants, and `sorryAx` must be an axiom (§8).
 * The structural `Nat` operations' fast path is certified at install; the
