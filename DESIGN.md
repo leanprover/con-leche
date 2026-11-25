@@ -126369,3 +126369,32 @@ within −5.6/+1.1 %.
 **Not done.**  A combine that is bijective in every argument (MurmurHash3's step) would make a
 fixed-context chain a permutation orbit (≈ 2³¹ long), removing this pathology class entirely; it is
 a departure in hash design with no further evidence of need, so not pursued.
+
+
+## TASK #635 — PERF.md re-measured and pruned (2026-11-25, agent/perf-refresh; base master cfa7cd1df)
+
+PERF.md was last measured on 2026-10-13 (a0f1865af, v4.35.0-rc3).  Re-measured at
+cfa7cd1df (v4.36.0) against the same official v4.33.0 binary (md5 `6125c70e…`) on the
+same streams.  The `mathlib-full` stream had been lost with a tmpfs and was re-exported by
+the recorded recipe (mathlib4 `6f1ef4e5`, `lake exe cache get`, `lean4export` `15f6055`):
+byte-identical size and line count (6 069 002 157 B, 107 820 903 lines), now at
+`_tmp/ref/mathlib-full.ndjson` in the main checkout.  Official's cells reproduce the old ones
+within 0.1 % (init-full 439.61 → 439.85 G, mathlib-full 10.26 T both times; `--parse-only`
+106.83 G and 1.85 T exactly as before), so the kit is unchanged.
+
+con-leche `--verified --jobs=1`, instructions:u, old → new: init-full 408.36 → 253.37 G
+(0.93× → 0.58× official), mathlib-full 7.05 → 5.06 T (0.69× → 0.49×), grind-ring-5 16.28 →
+8.65 G (1.21× → 0.64×), init-prelude 2.05 → 1.11 G, app-lam 23.45 → 22.09 G, the ladders
+−7 % and −5 %.  Mathlib wall at one worker 7.4 min (was 10.7), peak RSS 4.29 GiB (was 4.27).
+Worker sweep, now five runs per cell (median, min–max): Mathlib 7.4 min / 2.2 min / 70.6 s
+at 1/4/8 workers, init-full 22.6 / 6.1 / 3.7 s.
+
+Pruned: the `--trusted` column (verified is the shipped mode; standing ruling), the input
+census table and the two count notes (one sentence now), the allocator profile (measured on
+an older binary), the phase-split paragraph, the notes on method history.  The battery no
+longer runs `stream-census.py` (`perf-data/census.tsv` deleted; the script stays as a tool).
+`scripts/perf-tables.sh` resolves its inputs from the main checkout's `_tmp/ref/` (works from
+a worktree), documents the Mathlib export recipe, gains `--parallel` (the worker sweep, which
+was unscripted), merges a partial run's cells last-wins into `perf-data/table.tsv`, and takes
+the declaration count from the `accepted N declarations` line (Mathlib prints a hoisting
+notice with a count first).
