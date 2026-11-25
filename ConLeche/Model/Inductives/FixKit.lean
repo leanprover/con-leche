@@ -338,10 +338,13 @@ theorem ctorsLoopAt
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP)) bs →
         interp V (consList bs ρ)
             (Term.mkAppN (leafT ψ) (paramBvars p.nP ctor.2 ++ esF j ψ))
-          = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ)
-              (consList (idxValsAt ρ (esF j ψ) bs) ρ)
+          = sumSet (p.resSort.eval ψ)
               (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0))
-                (essOf (ctorDataList dsF esF ψ ctorList 0))))) :
+                (essOf (ctorDataList dsF esF ψ ctorList 0))).length
+              (sumFibre (p.resSort.eval ψ)
+                (consList (idxValsAt ρ (esF j ψ) bs) ρ)
+                (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0))
+                  (essOf (ctorDataList dsF esF ψ ctorList 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ i, rest[i]? = ctorList[k + i]?) → k + rest.length = ctorList.length →
       env.find? p.cvT.name = some (.indInfo cvS caps) →
@@ -389,10 +392,13 @@ theorem ctorsLoopAt
         Sat V (((ppsAll ψ).take p.nP)).reverse ρ →
         ∀ bs : List V, SpineFit ρ (((dsF k ψ).drop p.nP)) bs →
           interp V (consList bs ρ) (ctorBodyAVI mp.base2 p.cvT.name p.nP ctor.2 ψ (esF k ψ))
-            = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ)
-                (consList (idxValsAt ρ (esF k ψ) bs) ρ)
+            = sumSet (p.resSort.eval ψ)
                 (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0))
-                  (essOf (ctorDataList dsF esF ψ ctorList 0)))) := by
+                  (essOf (ctorDataList dsF esF ψ ctorList 0))).length
+                (sumFibre (p.resSort.eval ψ)
+                  (consList (idxValsAt ρ (esF k ψ) bs) ρ)
+                  (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0))
+                    (essOf (ctorDataList dsF esF ψ ctorList 0)))) := by
       intro ψ ρ hρ bs hsp
       unfold ctorBodyAVI
       rw [hleafT ψ]
@@ -694,38 +700,32 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps ProjEntry)
 tagged point-terminated tuples fitting the fields, the tuple a member
 of the restricted tower. -/
 theorem fixFibre_elim {w : Nat} (hw : w ≠ 0) {ρ' : Nat → V} {Fs : List Term} {x : V}
-    (hx : x ∈ˢ sumSet w (sumFibre w ρ' [Fs ++ [idxEqAV []]])) :
+    (hx : x ∈ˢ sumSet w 1 (sumFibre w ρ' [Fs ++ [idxEqAV []]])) :
     ∃ fs : List V, x = inj 0 (mkTower (fs ++ [pt])) ∧ SpineFit ρ' Fs fs ∧
-      mkTower (fs ++ [pt]) ∈ˢ towerSet w (teleOfFields ρ' (Fs ++ [idxEqAV []])) := by
-  obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
-  cases j with
-  | zero =>
-    rw [sumFibre_of_getElem? rfl] at ha
-    obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
-    obtain ⟨fs, hfs, hsp, -⟩ := spineFit_append_idxEq.mp hfit
-    refine ⟨fs, ?_, hsp, ?_⟩
-    · rw [heta, hfs]
-    · rw [← hfs, ← heta]; exact ha
-  | succ j =>
-    rw [sumFibre_of_ge (by simp)] at ha
-    exact absurd ha (not_mem_empty _)
+      mkTower (fs ++ [pt]) ∈ˢ
+        towerSet w (teleOfFields ρ' (Fs ++ [idxEqAV []]))
+          (hasTeleS_teleOfFields w ρ' (Fs ++ [idxEqAV []])) := by
+  obtain ⟨j, a, hj, ha, rfl⟩ := sumSet_elim hw hx
+  obtain rfl : j = 0 := by omega
+  rw [sumFibre_of_getElem? rfl] at ha
+  obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
+  obtain ⟨fs, hfs, hsp, -⟩ := spineFit_append_idxEq.mp hfit
+  refine ⟨fs, ?_, hsp, ?_⟩
+  · rw [heta, hfs]
+  · rw [← hfs, ← heta]; exact ha
 
 /-- The one-constructor fibre in the squash regime: the point, with a
 fitting field spine. -/
 theorem fixFibre_zero_elim {ρ' : Nat → V} {Fs : List Term} {x : V}
-    (hx : x ∈ˢ sumSet 0 (sumFibre 0 ρ' [Fs ++ [idxEqAV []]])) :
+    (hx : x ∈ˢ sumSet 0 1 (sumFibre 0 ρ' [Fs ++ [idxEqAV []]])) :
     x = pt ∧ ∃ fs : List V, SpineFit ρ' Fs fs := by
-  obtain ⟨rfl, j, a, ha⟩ := sumSet_zero_elim hx
+  obtain ⟨rfl, j, a, hj, ha⟩ := sumSet_zero_elim hx
   refine ⟨rfl, ?_⟩
-  cases j with
-  | zero =>
-    rw [sumFibre_of_getElem? rfl] at ha
-    obtain ⟨-, as, hfits⟩ := towerSet_zero_elim _ ha
-    obtain ⟨fs, -, hsp, -⟩ := spineFit_append_idxEq.mp (fitsS_teleOfFields.mp hfits)
-    exact ⟨fs, hsp⟩
-  | succ j =>
-    rw [sumFibre_of_ge (by simp)] at ha
-    exact absurd ha (not_mem_empty _)
+  obtain rfl : j = 0 := by omega
+  rw [sumFibre_of_getElem? rfl] at ha
+  obtain ⟨-, as, hfits⟩ := towerSet_zero_elim _ ha
+  obtain ⟨fs, -, hsp, -⟩ := spineFit_append_idxEq.mp (fitsS_teleOfFields.mp hfits)
+  exact ⟨fs, hsp⟩
 
 /-- The tuple below the tag. -/
 theorem dropS_one_inj (j : Nat) (a : V) : dropS 1 (inj j a) = a := by
@@ -749,29 +749,29 @@ theorem fieldsBound_append_idxEq {w : Nat} {ρ' : Nat → V} {Fs : List Term} (h
 theorem wellDenoted_proj1_sum {w : Nat} (hw : w ≠ 0) {ρ' ρ : Nat → V} {Fs : List Term}
     {e : Term} (hb : FieldsBound w ρ' (Fs ++ [idxEqAV []]))
     (hok : WellDenoted V ρ e)
-    (hval : interp V ρ e ∈ˢ sumSet w (sumFibre w ρ' [Fs ++ [idxEqAV []]])) :
+    (hval : interp V ρ e ∈ˢ sumSet w 1 (sumFibre w ρ' [Fs ++ [idxEqAV []]])) :
     WellDenoted V ρ (.snd e) := by
   rw [WellDenoted_snd]
-  refine ⟨hok, w, w, omega, natFibre (sumFibre w ρ' [Fs ++ [idxEqAV []]]), ?_, ?_, ?_⟩
+  refine ⟨hok, w, w, omega, boundFibre 1 (sumFibre w ρ' [Fs ++ [idxEqAV []]]),
+    hasSigmaPairs_boundFibre omega 1 _, ?_, ?_, ?_⟩
   · rw [nat_max_self]; exact hval
   · obtain ⟨w', rfl⟩ : ∃ w', w = w' + 1 := ⟨w - 1, by omega⟩
     exact omega_mem_univ_succ w'
-  · intro k hk
-    obtain ⟨j, rfl, hfib⟩ := natFibre_of_mem _ hk
-    rw [hfib]
-    cases j with
-    | zero =>
+  · intro k _
+    rcases boundFibre_cases 1 (sumFibre w ρ' [Fs ++ [idxEqAV []]]) k with
+      ⟨j, hj, _, hfib⟩ | ⟨_, hfib⟩
+    · rw [hfib]
+      obtain rfl : j = 0 := by omega
       rw [sumFibre_of_getElem? rfl]
       exact towerSet_mem_univ _ (boundS_teleOfFields.mpr hb)
-    | succ j =>
-      rw [sumFibre_of_ge (by simp)]
+    · rw [hfib]
       exact empty_mem_univ w
 
 /-- `.snd` of the point is graded (the squash regime). -/
 theorem wellDenoted_proj1_pt {ρ : Nat → V} {e : Term} (hok : WellDenoted V ρ e)
     (hpt : interp V ρ e = (pt : V)) : WellDenoted V ρ (.snd e) := by
   rw [WellDenoted_snd]
-  refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, ?_, unitSet_mem_univ 0,
+  refine ⟨hok, 0, 0, unitSet, fun _ => unitSet, hasSigmaPairs_const _ _, ?_, unitSet_mem_univ 0,
     fun _ _ => unitSet_mem_univ 0⟩
   rw [hpt, nat_max_self]
   exact pt_mem_sigma pt_mem_unitSet pt_mem_unitSet
@@ -781,7 +781,7 @@ one-constructor fibre (both regimes). -/
 theorem wellDenoted_projNV_succ_fibre {w i : Nat} {ρ' ρ : Nat → V} {Fs : List Term}
     {e : Term} (hokB : w ≠ 0 → FieldsOkB w ρ' Fs)
     (hok : WellDenoted V ρ e)
-    (hval : interp V ρ e ∈ˢ sumSet w (sumFibre w ρ' [Fs ++ [idxEqAV []]]))
+    (hval : interp V ρ e ∈ˢ sumSet w 1 (sumFibre w ρ' [Fs ++ [idxEqAV []]]))
     (hi : i < Fs.length) : WellDenoted V ρ (projNV (i + 1) e) := by
   show WellDenoted V ρ (projNV i (.snd e))
   by_cases hw : w = 0
@@ -813,7 +813,7 @@ theorem fixEntry_zero_pt {nP : Nat} {pps ds : List Term} {L : Term}
     (hlam : ∃ B, L = mkLamsAV pps B)
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps) ts →
       ts.foldl SetTheory.app (interp V ρ L)
-        = sumSet 0 (sumFibre 0 (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
+        = sumSet 0 1 (sumFibre 0 (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
     {ρ : Nat → V} {vs : List Term} {x : Term} (hlenVs : vs.length = nP)
     (hokApp : WellDenoted V ρ (Term.mkAppN L vs))
     (hneApp : interp V ρ (Term.mkAppN L vs) ≠ pt)
@@ -850,15 +850,15 @@ theorem fixEntryTypingCore {w nP nF i : Nat} {pps ds eds : List Term}
     -- the family at the parameters is the one-constructor fibre
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps) ts →
       ts.foldl SetTheory.app (interp V ρ L)
-        = sumSet w (sumFibre w (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
+        = sumSet w 1 (sumFibre w (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
     (hres : ∀ ρ : Nat → V,
-      ρ 0 ∈ˢ sumSet w (sumFibre w (fun j => ρ (j + 1)) [((ds.drop nP)) ++ [idxEqAV []]]) →
+      ρ 0 ∈ˢ sumSet w 1 (sumFibre w (fun j => ρ (j + 1)) [((ds.drop nP)) ++ [idxEqAV []]]) →
       Sat V ((ds.take nP)).reverse (fun j => ρ (j + 1)) →
       interp V ρ R
         = interp V (consList (projList i (dropS 1 (ρ 0))) (fun j => ρ (j + 1)))
             (((ds.drop nP)).getD i default))
     (hokR : ∀ ρ : Nat → V,
-      ρ 0 ∈ˢ sumSet w (sumFibre w (fun j => ρ (j + 1)) [((ds.drop nP)) ++ [idxEqAV []]]) →
+      ρ 0 ∈ˢ sumSet w 1 (sumFibre w (fun j => ρ (j + 1)) [((ds.drop nP)) ++ [idxEqAV []]]) →
       Sat V ((ds.take nP)).reverse (fun j => ρ (j + 1)) →
       WellDenoted V ρ R) :
     ∀ (ρ : Nat → V) (vs : List Term) (x rest : Term),
@@ -883,7 +883,7 @@ theorem fixEntryTypingCore {w nP nF i : Nat} {pps ds eds : List Term}
     exact h
   have hlenAs : (vs.map (interp V ρ)).length = nP := by simp [hlenVs]
   -- the member of the fibre
-  have hx : interp V ρ x ∈ˢ sumSet w
+  have hx : interp V ρ x ∈ˢ sumSet w 1
       (sumFibre w (consList (vs.map (interp V ρ)) ρ) [((ds.drop nP)) ++ [idxEqAV []]]) := by
     rw [interp_mkAppN_foldl, hfold ρ _ hsp] at hmem
     exact hmem
@@ -898,7 +898,7 @@ theorem fixEntryTypingCore {w nP nF i : Nat} {pps ds eds : List Term}
     unfold chain
     rw [consN_eq_consList, List.map_append, consList_append]
     rfl
-  have hframeX : (cons (interp V ρ x) (consList (vs.map (interp V ρ)) ρ)) 0 ∈ˢ sumSet w
+  have hframeX : (cons (interp V ρ x) (consList (vs.map (interp V ρ)) ρ)) 0 ∈ˢ sumSet w 1
       (sumFibre w (fun j => (cons (interp V ρ x) (consList (vs.map (interp V ρ)) ρ)) (j + 1))
         [((ds.drop nP)) ++ [idxEqAV []]]) := hx
   have hframeS : Sat V ((ds.take nP)).reverse
@@ -1032,7 +1032,7 @@ theorem fixEntryEtaCore {w nP nF : Nat} {pps ds : List Term}
       FieldsOkB w ρ ((ds.drop nP)))
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps) ts →
       ts.foldl SetTheory.app (interp V ρ L)
-        = sumSet w (sumFibre w (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
+        = sumSet w 1 (sumFibre w (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
     (ts : List V) (x : V) (hlen : ts.length = nP)
     (hsp : SpineFit ρ (pps) ts)
     (hx : x ∈ˢ ts.foldl SetTheory.app (interp V ρ L)) :
@@ -1084,7 +1084,7 @@ theorem fixEntryEtaFitCore {w nP nF : Nat} {pps ds : List Term}
       Sat V ((ds.take nP)).reverse ρ)
     (hfold : ∀ (ρ : Nat → V) (ts : List V), SpineFit ρ (pps) ts →
       ts.foldl SetTheory.app (interp V ρ L)
-        = sumSet w (sumFibre w (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
+        = sumSet w 1 (sumFibre w (consList ts ρ) [((ds.drop nP)) ++ [idxEqAV []]]))
     (ts : List V) (x : V) (hlen : ts.length = nP)
     (hsp : SpineFit ρ (pps) ts)
     (hx : x ∈ˢ ts.foldl SetTheory.app (interp V ρ L)) (hxne : x ≠ pt) :
@@ -1193,7 +1193,7 @@ theorem stageFixTable (mp : EnvModelM V env)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((pps ψ)) ts →
       ts.foldl SetTheory.app (interp V ρ (L ψ))
-        = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList ts ρ)
+        = sumSet (resSort.eval ψ) 1 (sumFibre (resSort.eval ψ) (consList ts ρ)
             [((ds ψ).drop nP) ++ [idxEqAV []]]))
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V ((pps ψ)).reverse ρ ↔
@@ -1390,7 +1390,7 @@ theorem stageFixTable (mp : EnvModelM V env)
         (hCDread₂ (Level.substFn φ lps us))
         (fun ρ h => hfields _ ρ h) (hsortsF _)
         (used := ConLeche.structUsedLater cvCa.type nP) (hfree _ i hi)
-        (fun ρ => ρ 0 ∈ˢ sumSet (resSort.eval (Level.substFn φ lps us))
+        (fun ρ => ρ 0 ∈ˢ sumSet (resSort.eval (Level.substFn φ lps us)) 1
           (sumFibre (resSort.eval (Level.substFn φ lps us)) (fun j => ρ (j + 1))
             [((ds (Level.substFn φ lps us)).drop nP) ++ [idxEqAV []]]))
         (fun ρ hx _ hw => by
@@ -1551,7 +1551,7 @@ theorem stageFixTable (mp : EnvModelM V env)
             (hCDread₂ (Level.substFn φ lps us))
             (fun ρ h => hfields _ ρ h) hsorts'
             (used := ConLeche.structUsedLater cvCa.type nP) (hfree _ i hi)
-            (fun ρ => ρ 0 ∈ˢ sumSet (resSort.eval (Level.substFn φ lps us))
+            (fun ρ => ρ 0 ∈ˢ sumSet (resSort.eval (Level.substFn φ lps us)) 1
               (sumFibre (resSort.eval (Level.substFn φ lps us)) (fun j => ρ (j + 1))
                 [((ds (Level.substFn φ lps us)).drop nP) ++ [idxEqAV []]]))
             (fun ρ hx _ hw => by

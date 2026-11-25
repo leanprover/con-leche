@@ -10,10 +10,11 @@ public import ConLeche.SetTheory.Derive.Sep
 Singleton and ordered pair are derived from the unordered pair — the
 Kuratowski pair `⟨a, b⟩ := {{a}, {a, b}}` (Kuratowski, Fund. Math. 2
 (1921)); binary union is the union of an unordered pair.  The payoff
-lemmas are the
-injectivity of the Kuratowski pair and the fact that an ordered pair is
-never `{∅}` — the tag that keeps the proof point `pt` apart from
-function graphs (`Derive/Pt.lean`, `Derive/Graphs.lean`).
+lemmas are the injectivity of the Kuratowski pair, the fact that an
+ordered pair is never `{∅}` — the tag that keeps the proof point `pt`
+apart from function graphs (`Derive/Pt.lean`, `Derive/Graphs.lean`) —
+and the bridge to the relational predicates `IsUpair`/`IsKPair` in
+`Core.lean`, plus `DefFun` closure.
 -/
 
 namespace ConLeche.SetTheory
@@ -104,5 +105,54 @@ theorem mem_kpair_nonempty {a b z : V} (hz : z ∈ˢ kpair a b) : ∃ w, w ∈ˢ
   rcases mem_upair.mp hz with h | h <;> subst h
   · exact ⟨a, mem_sing.mpr rfl⟩
   · exact ⟨a, mem_upair_left a b⟩
+
+/-! ### Bridges to relational `IsUpair` / `IsKPair` -/
+
+theorem isUpair_upair (a b : V) : IsUpair (Mem (V := V)) (upair a b) a b :=
+  fun _ => mem_upair
+
+theorem isUpair_iff {p a b : V} : IsUpair (Mem (V := V)) p a b ↔ p = upair a b :=
+  ⟨fun h => ext fun z => (h z).trans mem_upair.symm,
+   fun h => h ▸ isUpair_upair a b⟩
+
+theorem isKPair_kpair (a b : V) : IsKPair (Mem (V := V)) (kpair a b) a b :=
+  ⟨sing a, upair a b, isUpair_upair a a, isUpair_upair a b, isUpair_upair _ _⟩
+
+theorem isKPair_iff {p a b : V} : IsKPair (Mem (V := V)) p a b ↔ p = kpair a b := by
+  constructor
+  · rintro ⟨s, t, hs, ht, hp⟩
+    rw [isUpair_iff] at hs ht hp
+    subst hs; subst ht; exact hp
+  · rintro rfl
+    exact isKPair_kpair a b
+
+/-! ### First-order definability closure -/
+
+theorem DefFun.sing_apply {k : Nat} {A : (Fin k → V) → V} (hA : DefFun k A) :
+    DefFun k fun env => sing (A env) :=
+  DefFun.upair_apply hA hA
+
+theorem DefFun.binUnion_apply {k : Nat} {A B : (Fin k → V) → V}
+    (hA : DefFun k A) (hB : DefFun k B) :
+    DefFun k fun env => binUnion (A env) (B env) :=
+  DefFun.sUnion_apply (DefFun.upair_apply hA hB)
+
+theorem DefFun.kpair_apply {k : Nat} {A B : (Fin k → V) → V}
+    (hA : DefFun k A) (hB : DefFun k B) :
+    DefFun k fun env => kpair (A env) (B env) :=
+  DefFun.upair_apply (DefFun.sing_apply hA) (DefFun.upair_apply hA hB)
+
+theorem hasImage_kpair {F : V → V} {A : V} (hF : DefFunOn A F) :
+    HasImage (fun x => kpair x (F x)) A := by
+  obtain ⟨G, hG, heq⟩ := hF
+  have hdef : DefFun 1 fun v => kpair (v 0) (G (v 0)) :=
+    DefFun.kpair_apply (DefFun.proj 0) hG
+  exact (hasImage_of_defFun1 hdef A).congr fun x hx => by rw [heq x hx]
+
+theorem DefFun.image_kpair {k : Nat} {F : V → (Fin k → V) → V} {A : (Fin k → V) → V}
+    {h : ∀ env, HasImage (fun x => kpair x (F x env)) (A env)}
+    (hF : DefFun (k + 1) fun v => F (v 0) (ftail v)) (hA : DefFun k A) :
+    DefFun k fun env => image (fun x => kpair x (F x env)) (A env) (h env) :=
+  DefFun.image_apply_curry (DefFun.kpair_apply (DefFun.proj 0) hF) hA
 
 end ConLeche.SetTheory

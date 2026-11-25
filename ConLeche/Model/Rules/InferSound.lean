@@ -553,7 +553,7 @@ theorem Infer.lam_soundIO {d : Nat} {ty body bt : Expr}
   rw [lamV_eq_graph (lamV_ne_pt_of hx₀ hx₀')]
   refine Or.inr (Or.inr ?_)
   rw [IOHered_forallE]
-  refine ⟨tyA, htyA, hokty, ⟨_, rfl⟩,
+  refine ⟨tyA, htyA, hokty, ⟨_, _, rfl⟩,
     ⟨x₀, hx₀, by rw [app_graph hx₀]; exact hx₀'⟩, fun x hx => ?_⟩
   rw [app_graph hx, hround]
   exact hrow x hx
@@ -775,7 +775,8 @@ theorem Infer.app_soundIO {d : Nat}
     -- "not pt" source (1): the head's inferred type `tfa` is a type
     obtain ⟨hokpa, hredfρ⟩ :=
       hredf ρ hρ (hL.app_fn.of_subset htfsub) hgtfa.1 hgtfa.ne_pt
-    have hf' : interp V ρ fa ∈ˢ piV (interp V ρ Aa) fun x => interp V (cons x ρ) Ba := by
+    have hf' : interp V ρ fa ∈ˢ piV (interp V ρ Aa) (fun x => interp V (cons x ρ) Ba)
+        (interp_hasSigmaPairs_cons ρ (interp V ρ Aa) Ba) := by
       have h2 := hrowfM
       rw [hredfρ, interp_pi] at h2
       exact h2
@@ -801,7 +802,7 @@ theorem Infer.app_soundIO {d : Nat}
     injection heq with hty hbody
     subst hty hbody
     rw [IOHered_forallE] at h
-    obtain ⟨tya, htya, -, ⟨F, hF⟩, -, hall⟩ := h
+    obtain ⟨tya, htya, -, ⟨F, hG, hF⟩, -, hall⟩ := h
     have ha2 : interp V ρ aa ∈ˢ interp V ρ tya := by
       rw [hF] at hap; exact (appliesTo_graph.mp hap).2
     have hsub := IORel_substFvarAt hws.2 hb.2 haa (body.instantiate1 (.fvar d ty)) d ρ

@@ -30,6 +30,11 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
+private theorem lfpTuple_eq_of_eq {w k k' : Nat} {Is : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
+    (hk : k = k') (hΦeq : Φ = Φ') (h : DefTupleOp k Φ) (h' : DefTupleOp k' Φ') :
+    lfpTuple w k Is Φ h = lfpTuple w k' Is Φ' h' := by
+  subst hk; subst hΦeq; rfl
+
 /-! ## `BlockModelAt` from the stages' three records
 
 `declBlock` hands the recursor stage the block data `dR` with the three
@@ -154,21 +159,20 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
   -- at the least tuple the hole fit is the stored fit (the override law)
   have hcarrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
-        d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
+        d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) (d.hΦ ψ ρp)) t c j fs ↔
           d.DeclaredFit ψ ρp t c j fs := by
     intro ψ ρp hs c hc t _ j fs
     have hck : c < d.k := by rw [← hNk]; exact hc
-    have hfam : lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)
+    have hfam : lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) (d.hΦ ψ ρp)
         = blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-            (d.toLfp.holeChains ψ) := by
-      rw [hPhi]
-      show lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ)
-          (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ))
-        = lfpTuple (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp fun c => d.IdsM c ψ)
-          (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-            (d.toLfp.holeChains ψ))
-      rw [hNk]
-      rfl
+            (d.toLfp.holeChains ψ) :=
+      lfpTuple_eq_of_eq hNk (by
+          rw [hPhi]
+          show blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+              (d.toLfp.holeChains ψ) = _
+          rw [hNk]) (d.hΦ ψ ρp)
+        (defTupleOp_blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+          (d.toLfp.holeChains ψ))
     rw [hfam]
     exact blockHFits_lfp_iff hH hinst (fun c _ => hS.leaf c ψ) hs (fun c hc => hS.lenPps c ψ hc)
       (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hck
@@ -258,16 +262,14 @@ theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
   intro ψ ρp hs c hc j hj fs hfit
   have hfam : d.toLfp.carrier ψ ρp
       = blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-          (d.toLfp.holeChains ψ) := by
-    show lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) = _
-    rw [hPhi]
-    show lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ)
-        (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ))
-      = lfpTuple (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp fun c => d.IdsM c ψ)
-        (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-          (d.toLfp.holeChains ψ))
-    rw [hNk]
-    rfl
+          (d.toLfp.holeChains ψ) :=
+    lfpTuple_eq_of_eq hNk (by
+        rw [hPhi]
+        show blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+            (d.toLfp.holeChains ψ) = _
+        rw [hNk]) (d.hΦ ψ ρp)
+      (defTupleOp_blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+        (d.toLfp.holeChains ψ))
   rw [hfam] at hfit ⊢
   exact blockResIdxFit_lfp hH (fun c _ => hS.leaf c ψ) hs (fun c hc => hS.lenPps c ψ hc)
     (fun c hc => hidxOk ψ ρp hs c (by rw [hNk]; exact hc)) (hS.holeOk ψ ρp hs) hc

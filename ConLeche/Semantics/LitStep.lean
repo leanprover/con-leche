@@ -43,7 +43,7 @@ theorem natLit_factsAV {ρ : Nat → V} {za sa natA : Term}
     (hokz : WellDenoted V ρ za) (hoks : WellDenoted V ρ sa)
     (hz : interp V ρ za ∈ˢ interp V ρ natA)
     (hsucc : interp V ρ sa
-      ∈ˢ piR 1 (interp V ρ natA) fun _ => interp V ρ natA)
+      ∈ˢ piR 1 (interp V ρ natA) (fun _ => interp V ρ natA) (hasSigmaPairs_const _ _))
     (hnat : IsTy (interp V ρ natA)) :
     ∀ n : Nat,
       WellDenoted V ρ (natLitT za sa n) ∧

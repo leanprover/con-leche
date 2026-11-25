@@ -285,8 +285,8 @@ theorem congr :
     show WellDenoted V σ (.fst e')
     have h : WellDenoted V σ (.fst e) := hok
     rw [WellDenoted_fst] at h ⊢
-    obtain ⟨-, u, v, A, Bf, hs, hA, hB⟩ := h
-    exact ⟨hok', u, v, A, Bf, heq ▸ hs, hA, hB⟩
+    obtain ⟨-, u, v, A, Bf, hS, hs, hA, hB⟩ := h
+    exact ⟨hok', u, v, A, Bf, hS, heq ▸ hs, hA, hB⟩
   | i + 1, e, e', σ, heq, hok', hok => by
     show WellDenoted V σ (projNV i (.snd e'))
     have hok1 : WellDenoted V σ (.snd e) :=
@@ -294,8 +294,8 @@ theorem congr :
     refine congr (i := i) (e := .snd e) (e' := .snd e') ?_ ?_ hok
     · simp only [interp_snd, heq]
     · rw [WellDenoted_snd] at hok1 ⊢
-      obtain ⟨-, u, v, A, Bf, hs, hA, hB⟩ := hok1
-      exact ⟨hok', u, v, A, Bf, heq ▸ hs, hA, hB⟩
+      obtain ⟨-, u, v, A, Bf, hS, hs, hA, hB⟩ := hok1
+      exact ⟨hok', u, v, A, Bf, hS, heq ▸ hs, hA, hB⟩
 
 /-- `WellDenoted` form of the congruence. -/
 theorem congrV {i : Nat} {e e' : Term} {σ : Nat → V}

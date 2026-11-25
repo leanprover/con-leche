@@ -89,7 +89,17 @@ injections**, at a chosen per-member constructor pick. -/
   absFF := fun c j => (pk c).absF j
   nfFF := fun c j => (pk c).nf j
   Φ := fun _ _ X => X
+  hΦ := fun _ _ =>
+    ⟨fun _ _ h m hm => h m hm, fun m hm =>
+      (DefFun.proj (k := q.k + 0) ⟨m, hm⟩).congr fun xs => by
+        dsimp only
+        rw [padTuple_lt xs hm]⟩
+  hΦ_def := fun _ _ _ m hm =>
+    (DefFun.proj ⟨m, Nat.lt_of_lt_of_le hm (Nat.le_add_right _ _)⟩).congr fun v => by
+      rw [padTuple_lt (ftake v) hm]
+      rfl
   inj := fun _ _ _ _ => SetTheory.pt
+  hinj_def := fun _ _ _ _ => DefFun.pt
 
 /-- **The tuple operator and the injections, over the record's own
 derived fields**: the hole operator of the record's fields with holes
@@ -98,8 +108,37 @@ derived fields**: the hole operator of the record's fields with holes
 @[expose] noncomputable def BlockData.withPhi (d : BlockData V) : BlockData V :=
   { d with
     Φ := fun ψ ρp => d.toLfp.holeOp ψ ρp
+    hΦ := fun ψ ρp =>
+      defTupleOp_blockPhiG d.N (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+        (d.toLfp.holeChains ψ)
+    hΦ_def := fun ψ tail dp m hm =>
+      defFun_blockPhiG_param d.N (d.w ψ) dp tail (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
+        (d.toLfp.holeChains ψ) m hm
     inj := fun ψ _ j fs =>
-      if d.w ψ = 0 then (SetTheory.pt : V) else ConLeche.SetTheory.Tower.inj j (mkTower (fs ++ [SetTheory.pt])) }
+      if d.w ψ = 0 then (SetTheory.pt : V) else ConLeche.SetTheory.Tower.inj j (mkTower (fs ++ [SetTheory.pt]))
+    hinj_def := fun ψ _ j n => by
+      by_cases hw : d.w ψ = 0
+      · exact DefFun.pt.congr fun xs => by simp [hw]
+      · let gs : Fin (n + 1) → (Fin n → V) → V := fun i xs =>
+          if h : i.val < n then xs ⟨i.val, h⟩ else SetTheory.pt
+        have hgs : ∀ i : Fin (n + 1), DefFun n (gs i) := fun i => by
+          by_cases h : i.val < n
+          · exact (DefFun.proj ⟨i.val, h⟩).congr fun xs => by simp [gs, h]
+          · exact DefFun.pt.congr fun xs => by simp [gs, h]
+        have hmt : DefFun n fun xs : Fin n → V => mkTower (List.ofFn xs ++ [SetTheory.pt]) := by
+          refine ((DefFun.mkTower_ofFn (n + 1)).comp (Gs := gs) hgs).congr fun xs => ?_
+          congr 1
+          refine List.ext_getElem (by simp) fun i hi1 hi2 => ?_
+          simp only [List.length_ofFn] at hi1
+          by_cases hi : i < n
+          · rw [List.getElem_append_left (by simp [hi]), List.getElem_ofFn, List.getElem_ofFn]
+            simp only [gs, dite_eq_left hi]
+          · have hin : i = n := by omega
+            subst hin
+            rw [List.getElem_append_right (by simp), List.getElem_ofFn]
+            simp only [gs, dite_eq_right hi, List.length_ofFn, Nat.sub_self,
+              List.getElem_singleton]
+        exact (DefFun.inj_apply j hmt).congr fun xs => by simp [hw] }
 
 /-- **The block's representation record**, at a pick. -/
 @[expose] noncomputable def blockDataOf (V : Type w) [SetTheory V] (q : BlockShape)
@@ -1294,7 +1333,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
         SpineFit ρ ((ppsOf m ψ)) ts →
         ts.foldl SetTheory.app (interp V ρ
             (blockLeafH (blockDataOf V q pk uOf ppsOf) m ψ))
-          = sumSet (q.resSort.eval ψ) (sumFibre (q.resSort.eval ψ) (consList ts ρ)
+          = sumSet (q.resSort.eval ψ) 1 (sumFibre (q.resSort.eval ψ) (consList ts ρ)
               [((((pk m).dsF 0 ψ).drop q.nP)) ++ [idxEqAV []]]) := by
     intro m ctor hm hcs hnIdx0 ψ ρ ts hsp
     have hctor : (q.memberCtors.getD m [])[0]? = some ctor := by rw [hcs]; rfl

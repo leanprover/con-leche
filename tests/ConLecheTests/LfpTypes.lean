@@ -42,9 +42,15 @@ theorem strict_pair {a : V} (ha : a ≠ ptTag) (hpa : a ≠ pt) : Strict (upair 
 /-- `{ptTag, ∅}` and `{ptTag, {∅}}` are strict, and their intersection is
 the point: the closed fibres of `F X i = if ∅ ∈ X i then {ptTag, ∅} else
 {ptTag, {∅}}`, whose raw least fibre is therefore not a type. -/
+theorem hasSep_countermodel :
+    HasSep (upair ptTag empty : V) (fun x => x ∈ˢ upair ptTag (sing empty)) :=
+  hasSep_of_defPred
+    (DefRel.mem_apply (DefFun.proj 0) (DefFun.const (upair ptTag (sing empty))))
+
 theorem countermodel :
     Strict (upair ptTag empty : V) ∧ Strict (upair ptTag (sing empty) : V) ∧
-      sep (upair ptTag empty : V) (fun x => x ∈ˢ upair ptTag (sing empty)) = pt := by
+      sep (upair ptTag empty : V) (fun x => x ∈ˢ upair ptTag (sing empty))
+        hasSep_countermodel = pt := by
   have hs0 : (sing empty : V) ≠ ptTag := fun h => ptTag_ne_sing empty h.symm
   have hspt : (sing empty : V) ≠ pt := fun h =>
     ptTag_ne_empty (mem_sing.mp (h ▸ ptTag_mem_pt : (ptTag : V) ∈ˢ sing empty))
@@ -63,7 +69,9 @@ theorem countermodel :
 
 /-- At a positive level the drop sends that intersection to `∅`. -/
 example {w : Nat} (hw : w ≠ 0) :
-    dropTo (strictU w) (sep (upair ptTag empty : V) (fun x => x ∈ˢ upair ptTag (sing empty)))
+    dropTo (strictU w)
+        (sep (upair ptTag empty : V) (fun x => x ∈ˢ upair ptTag (sing empty))
+          hasSep_countermodel)
       = empty := by
   rw [countermodel.2.2]
   unfold dropTo

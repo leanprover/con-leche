@@ -60,8 +60,8 @@ namespace ConLeche.Model
 open ConLeche.Term (Term)
 open ConLeche.Semantics
 open ConLeche.SetTheory
-open ConLeche.SetModel (lamV app_lamV lamV_eq_pt lamV_ne_pt_of lamV_eq_graph)
-open ConLeche.SetTheory.Tower (projS)
+open ConLeche.SetModel (lamV lamV_congr lamV_ext app_lamV lamV_eq_pt lamV_ne_pt_of lamV_eq_graph)
+open ConLeche.SetTheory.Tower (mkTower projS)
 
 
 open ConLeche (Name Level)
@@ -72,13 +72,277 @@ section HoleFam
 
 variable {V : Type w} [SetTheory V]
 
+/-- Definability of a hole leaf function `g : List V → V` at arity `n`. -/
+@[expose] def DefHoleFn (n : Nat) (g : List V → V) : Prop :=
+  DefFun n fun xs : Fin n → V => g (List.ofFn xs)
+
+theorem DefHoleFn.cons (a : V) {n : Nat} {g : List V → V}
+    (hg : DefHoleFn (n + 1) g) : DefHoleFn n fun as => g (a :: as) := by
+  unfold DefHoleFn at hg ⊢
+  let Gs : Fin (n + 1) → (Fin n → V) → V
+    | ⟨0, _⟩ => fun _ => a
+    | ⟨i + 1, hi⟩ => fun xs => xs ⟨i, Nat.lt_of_succ_lt_succ hi⟩
+  have hGs : ∀ j : Fin (n + 1), DefFun n (Gs j) := by
+    rintro ⟨j, hj⟩
+    cases j with
+    | zero => exact DefFun.const a
+    | succ j => exact DefFun.proj ⟨j, Nat.lt_of_succ_lt_succ hj⟩
+  refine (DefFun.comp hg hGs).congr fun xs => ?_
+  congr 1
+  rw [List.ofFn_succ]
+  rfl
+
+theorem DefHoleFn.append (ps : List V) {n : Nat} {g : List V → V}
+    (hg : DefHoleFn (ps.length + n) g) : DefHoleFn n fun bs => g (ps ++ bs) := by
+  induction ps generalizing n g with
+  | nil => simpa using hg
+  | cons p ps ih =>
+    have hg' : DefHoleFn (ps.length + n) (fun vs => g (p :: vs)) :=
+      DefHoleFn.cons p (by simpa [List.length_cons, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hg)
+    simpa [List.cons_append] using ih hg'
+
+theorem DefFun.mkTower_ofFn :
+    ∀ (n : Nat), DefFun (V := V) n fun xs : Fin n → V => mkTower (List.ofFn xs)
+  | 0 => DefFun.empty.congr fun xs => by
+    rw [@List.ofFn_zero _ xs]
+    rfl
+  | n + 1 => by
+    have ih := (DefFun.mkTower_ofFn n).reIndex Fin.succ
+    refine (DefFun.spair_apply (DefFun.proj 0) ih).congr fun xs => ?_
+    rw [List.ofFn_succ]
+    rfl
+
+theorem DefHoleFn.of_app_tupW (X : V) (u n : Nat) :
+    DefHoleFn n fun vs => app X (tupW u vs) := by
+  unfold DefHoleFn
+  by_cases hu : u = 0
+  · subst hu
+    exact (DefFun.const (app X pt)).congr fun xs => by dsimp only; rw [tupW_zero]
+  · exact (DefFun.app_apply (DefFun.const X) (DefFun.mkTower_ofFn n)).congr fun xs => by
+      dsimp only; rw [tupW_pos hu]
+
+theorem DefHoleFn.of_interp (ρ : Nat → V) (n : Nat) (b : Term) :
+    DefHoleFn n fun vs => interp V (consList vs ρ) b := by
+  unfold DefHoleFn
+  have hre : DefFun n fun xs : Fin n → V =>
+      interp V (prepend (fun i : Fin n => xs ⟨n - 1 - i.val, by omega⟩) ρ) b :=
+    (interp_defFun_prepend ρ n b).reIndex fun i => ⟨n - 1 - i.val, by omega⟩
+  refine hre.congr fun xs => ?_
+  congr 1
+  have hcons : ∀ (m : Nat) (ys : Fin m → V) (σ : Nat → V),
+      consList (List.ofFn ys) σ =
+        prepend (fun i : Fin m => ys ⟨m - 1 - i.val, by omega⟩) σ := by
+    intro m
+    induction m with
+    | zero =>
+      intro ys σ
+      rw [@List.ofFn_zero _ ys, consList_nil]
+      funext i
+      simp [prepend]
+    | succ m ih =>
+      intro ys σ
+      rw [List.ofFn_succ, consList_cons, ih (fun j => ys j.succ) (ConLeche.Semantics.cons (ys 0) σ)]
+      funext i
+      by_cases hi : i < m
+      · have hi' : i < m + 1 := Nat.lt_succ_of_lt hi
+        simp only [prepend, hi, hi', ↓reduceDIte]
+        congr 1
+        apply Fin.ext
+        dsimp
+        omega
+      · by_cases heq : i = m
+        · subst heq
+          simp only [prepend, Nat.lt_irrefl, Nat.lt_succ_self, ↓reduceDIte, Nat.sub_self,
+            ConLeche.Semantics.cons]
+          congr 1
+          apply Fin.ext
+          dsimp
+          omega
+        · have hge : m + 1 ≤ i := by omega
+          have hge' : m ≤ i := by omega
+          simp only [prepend, Nat.not_lt_of_le hge, Nat.not_lt_of_le hge', ↓reduceDIte]
+          have hsub : i - m = (i - (m + 1)) + 1 := by omega
+          rw [hsub]
+          rfl
+  exact (hcons n xs ρ).symm
+
+theorem defFun1_fcons_hole {d : Nat} {F : (Fin (d + 1) → V) → V}
+    (hF : DefFun (d + 1) F) (xs : Fin d → V) :
+    DefFun 1 fun v => F (fcons (v 0) xs) := by
+  let Gs : Fin (d + 1) → (Fin 1 → V) → V
+    | ⟨0, _⟩ => fun v => v 0
+    | ⟨i + 1, h⟩ => fun _ => xs ⟨i, Nat.lt_of_succ_lt_succ h⟩
+  have hGs : ∀ j : Fin (d + 1), DefFun 1 (Gs j) := by
+    rintro ⟨j, hj⟩
+    cases j with
+    | zero => exact DefFun.proj 0
+    | succ j => exact DefFun.const (xs ⟨j, Nat.lt_of_succ_lt_succ hj⟩)
+  refine (DefFun.comp hF hGs).congr fun v => ?_
+  congr 1
+  funext ⟨j, hj⟩
+  cases j with
+  | zero => rfl
+  | succ j => rfl
+
+theorem defFun_prepend_tail {d n : Nat} (xs : Fin d → V)
+    {G : (Fin (d + n) → V) → V} (hG : DefFun (d + n) G) :
+    DefFun (0 + n) fun bs : Fin (0 + n) → V =>
+      G fun i => if h : i.val < d then xs ⟨i.val, h⟩
+        else bs ⟨i.val - d, by omega⟩ := by
+  let Gs : Fin (d + n) → (Fin (0 + n) → V) → V := fun i =>
+    if h : i.val < d then fun _ => xs ⟨i.val, h⟩
+    else fun bs => bs ⟨i.val - d, by omega⟩
+  have hGs : ∀ i : Fin (d + n), DefFun (0 + n) (Gs i) := fun i => by
+    dsimp only [Gs]
+    split
+    · exact DefFun.const _
+    · exact DefFun.proj _
+  refine (DefFun.comp hG hGs).congr fun bs => ?_
+  congr 1
+  funext i
+  dsimp only [Gs]
+  split <;> rfl
+
+/-- Proof-carrying worker for `holeFam`. -/
+noncomputable def holeFamDef (d : Nat) (ρ : Nat → V) :
+    (Fs : List Term) → (G : (Fin (d + Fs.length) → V) → V) → DefFun (d + Fs.length) G →
+    { f : (Fin d → V) → V // DefFun d f }
+  | [], G, hG => ⟨G, hG⟩
+  | F :: Fs, G, hG =>
+    let re : Fin (d + (Fs.length + 1)) → Fin ((d + 1) + Fs.length) := fun i =>
+      if h : i.val < d then ⟨i.val + 1, by omega⟩
+      else if h' : i.val = d then ⟨0, by omega⟩
+      else ⟨i.val, by omega⟩
+    let G' : (Fin ((d + 1) + Fs.length) → V) → V := fun w => G (fun i => w (re i))
+    have hG' : DefFun ((d + 1) + Fs.length) G' := hG.reIndex re
+    let F' := interpDef V ρ d F
+    let tail' := holeFamDef (d + 1) ρ Fs G' hG'
+    ⟨fun xs => lamV (F'.val xs) (fun a => tail'.val (fcons a xs))
+        (hasGraph_of_defFun1 (defFun1_fcons_hole tail'.property xs)),
+      ConLeche.SetModel.DefFun.lamV_apply tail'.property F'.property⟩
+
+theorem holeFamDef_congr (d : Nat) (ρ : Nat → V) :
+    ∀ (Fs : List Term) {G G' : (Fin (d + Fs.length) → V) → V}
+      (hG : DefFun (d + Fs.length) G) (hG' : DefFun (d + Fs.length) G'),
+      (∀ w, G w = G' w) →
+      ∀ xs, (holeFamDef d ρ Fs G hG).val xs = (holeFamDef d ρ Fs G' hG').val xs
+  | [], _, _, _, _, heq, xs => heq xs
+  | F :: Fs, G, G', hG, hG', heq, xs => by
+    simp only [holeFamDef]
+    refine lamV_congr _ _ fun a _ => ?_
+    exact holeFamDef_congr (d + 1) ρ Fs _ _ (fun w => heq _) (fcons a xs)
+
+theorem holeFamDef_prepend :
+    ∀ (Fs : List Term) (d : Nat) (xs : Fin d → V) (ρ : Nat → V)
+      (G : (Fin (d + Fs.length) → V) → V) (hG : DefFun (d + Fs.length) G),
+      (holeFamDef d ρ Fs G hG).val xs =
+        (holeFamDef 0 (prepend xs ρ) Fs
+          (fun bs => G fun i => if h : i.val < d then xs ⟨i.val, h⟩ else bs ⟨i.val - d, by omega⟩)
+          (defFun_prepend_tail xs hG)).val Fin.elim0
+  | [], d, xs, ρ, G, hG => by
+    simp only [holeFamDef]
+    congr 1
+    funext ⟨i, hi⟩
+    simp [hi]
+  | F :: Fs, d, xs, ρ, G, hG => by
+    simp only [holeFamDef]
+    have hF : (interpDef V ρ d F).val xs = (interpDef V (prepend xs ρ) 0 F).val Fin.elim0 :=
+      interpDef_prepend V F d xs ρ
+    refine lamV_ext hF _ _ fun a _ => ?_
+    rw [holeFamDef_prepend Fs (d + 1) (fcons a xs) ρ]
+    rw [holeFamDef_prepend Fs 1 (fcons a Fin.elim0) (prepend xs ρ)]
+    simp only [prepend_fcons, prepend_zero]
+    refine holeFamDef_congr 0 (cons a (prepend xs ρ)) Fs _ _ (fun bs => ?_) Fin.elim0
+    congr 1
+    funext ⟨i, hi⟩
+    by_cases h1 : i < d
+    · have h2 : i < d + 1 := Nat.lt_succ_of_lt h1
+      simp [h1, fcons]
+    · by_cases h2 : i = d
+      · subst h2
+        simp [h1]
+      · have h3 : ¬ i < d + 1 := by omega
+        have h4 : i - d ≠ 0 := by omega
+        have h5 : ¬ i - d < 1 := by omega
+        simp only [h1, h2, h3, Nat.not_lt_zero, h4, h5, ↓reduceDIte]
+        congr 1
+
 /-- **The λ-tower over a telescope** `Fs`, read progressively from `ρ`,
-of `g` at the bound values — value-read (`lamV`), the reading of the
-spelled hole term (the hole values): a level all of whose continuations
-are empty is the point. -/
-@[expose] noncomputable def holeFam (ρ : Nat → V) : List Term → (List V → V) → V
-  | [], g => g []
-  | F :: Fs, g => lamV (interp V ρ F) fun a => holeFam (cons a ρ) Fs fun as => g (a :: as)
+of `g` at the bound values — proof-carrying value-read (`lamV`), the
+reading of the spelled hole term (the hole values): a level all of whose
+continuations are empty is the point. -/
+@[expose] noncomputable def holeFam (ρ : Nat → V) :
+    (Fs : List Term) → (g : List V → V) → DefHoleFn Fs.length g → V
+  | Fs, g, hg =>
+    (holeFamDef 0 ρ Fs
+      (fun xs => g (List.ofFn fun i : Fin Fs.length =>
+        xs ⟨i.val, Nat.lt_of_lt_of_eq i.isLt (Nat.zero_add Fs.length).symm⟩))
+      (hg.reIndex fun i => ⟨i.val, Nat.lt_of_lt_of_eq i.isLt (Nat.zero_add Fs.length).symm⟩)).val
+      Fin.elim0
+
+theorem holeFam_nil (ρ : Nat → V) (g : List V → V) (hg : DefHoleFn ([] : List Term).length g) :
+    holeFam ρ [] g hg = g [] := by
+  simp only [holeFam, holeFamDef]
+  rw [@List.ofFn_zero _ _]
+
+theorem holeFam_hasGraph (ρ : Nat → V) (F : Term) (Fs : List Term) (g : List V → V)
+    (hg : DefHoleFn (F :: Fs).length g) :
+    HasGraph (interp V ρ F) fun a =>
+      holeFam (cons a ρ) Fs (fun as => g (a :: as)) (hg.cons a) := by
+  let re : Fin (0 + (Fs.length + 1)) → Fin (1 + Fs.length) := fun i =>
+    if h : i.val < 0 then ⟨i.val + 1, by omega⟩
+    else if h' : i.val = 0 then ⟨0, by omega⟩
+    else ⟨i.val, by omega⟩
+  let G0 : (Fin (0 + (Fs.length + 1)) → V) → V := fun xs =>
+    g (List.ofFn fun i : Fin (Fs.length + 1) =>
+      xs ⟨i.val, Nat.lt_of_lt_of_eq i.isLt (Nat.zero_add (Fs.length + 1)).symm⟩)
+  have hG0 : DefFun (0 + (Fs.length + 1)) G0 :=
+    hg.reIndex fun i => ⟨i.val, Nat.lt_of_lt_of_eq i.isLt (Nat.zero_add (Fs.length + 1)).symm⟩
+  let tail' := holeFamDef 1 ρ Fs (fun w => G0 fun i => w (re i)) (hG0.reIndex re)
+  refine (hasGraph_of_defFun1 (F := fun a => tail'.val (fcons a Fin.elim0))
+    (defFun1_fcons_hole tail'.property Fin.elim0)).congr fun a _ => ?_
+  dsimp only [tail']
+  rw [holeFamDef_prepend Fs 1 (fcons a Fin.elim0) ρ]
+  rw [prepend_fcons, prepend_zero]
+  unfold holeFam
+  refine holeFamDef_congr 0 (cons a ρ) Fs _ _ (fun bs => ?_) Fin.elim0
+  dsimp only [G0]
+  congr 1
+  rw [List.ofFn_succ]
+  congr 1
+
+theorem holeFam_cons (ρ : Nat → V) (F : Term) (Fs : List Term) (g : List V → V)
+    (hg : DefHoleFn (F :: Fs).length g) :
+    holeFam ρ (F :: Fs) g hg =
+      lamV (interp V ρ F) (fun a => holeFam (cons a ρ) Fs (fun as => g (a :: as)) (hg.cons a))
+        (holeFam_hasGraph ρ F Fs g hg) := by
+  simp only [holeFam, holeFamDef]
+  refine lamV_ext rfl _ _ fun a _ => ?_
+  rw [holeFamDef_prepend Fs 1 (fcons a Fin.elim0) ρ, prepend_fcons, prepend_zero]
+  refine holeFamDef_congr 0 (cons a ρ) Fs _ _ (fun bs => ?_) Fin.elim0
+  congr 1
+  rw [List.ofFn_succ]
+  congr 1
+
+theorem holeFam_defFun_prepend (d : Nat) (ρ : Nat → V) (Fs : List Term) (g : List V → V)
+    (hg : DefHoleFn Fs.length g) :
+    DefFun d fun xs => holeFam (prepend xs ρ) Fs g hg := by
+  let G : (Fin (d + Fs.length) → V) → V := fun w =>
+    g (List.ofFn fun i : Fin Fs.length => w ⟨d + i.val, by omega⟩)
+  have hG : DefFun (d + Fs.length) G :=
+    hg.reIndex fun i => ⟨d + i.val, by omega⟩
+  refine (holeFamDef d ρ Fs G hG).property.congr fun xs => ?_
+  rw [holeFamDef_prepend Fs d xs ρ G hG]
+  unfold holeFam
+  refine holeFamDef_congr 0 (prepend xs ρ) Fs _ _ (fun bs => ?_) Fin.elim0
+  dsimp only [G]
+  congr 1
+  apply List.ext_getElem (by simp)
+  intro i h1 h2
+  simp only [List.length_ofFn] at h1
+  simp only [List.getElem_ofFn]
+  have hnot : ¬ d + i < d := by omega
+  simp [hnot]
 
 omit [SetTheory V] in
 theorem shiftE_one_succ (n : Nat) (ρ : Nat → V) :
@@ -130,7 +394,7 @@ end HoleFam
 
 /-- **The part of a block's representation the lfp clause reads** (see
 the module docstring).  A uniform block's is `BlockData.toLfp`. -/
-structure LfpDatum (V : Type w) where
+structure LfpDatum (V : Type w) [SetTheory V] where
   /-- the members' names, by position -/
   names : List Name
   /-- the number of MEMBERS -/
@@ -151,8 +415,18 @@ structure LfpDatum (V : Type w) where
   u : Nat → (Name → Nat) → Nat
   /-- **the tuple operator**, at a level assignment and a parameter frame -/
   Φ : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
+  /-- first-order tuple definability of `Φ ψ ρp` -/
+  hΦ : ∀ (ψ : Name → Nat) (ρp : Nat → V), DefTupleOp N (Φ ψ ρp)
+  /-- parametric first-order definability of `Φ ψ` across a `d`-element
+  parameter prefix and the `N`-tuple -/
+  hΦ_def : ∀ (ψ : Name → Nat) (tail : Nat → V) (d m : Nat), m < N →
+    DefFun (N + d) fun v =>
+      Φ ψ (Semantics.prepend (fdrop v) tail) (padTuple (ftake v)) m
   /-- the constructor injections -/
   inj : (Name → Nat) → Nat → Nat → List V → V
+  /-- first-order definability of constructor injections at every arity -/
+  hinj_def : ∀ (ψ : Name → Nat) (c j n : Nat),
+    DefFun n fun xs => inj ψ c j (List.ofFn xs)
   /-- **the hole reading** (charter item 2): component `c`'s
   constructor count -/
   nctors : Nat → Nat
@@ -187,14 +461,74 @@ determines nothing there, task #443). -/
 
 /-- **The carrier**: the least pre-fixed tuple of the operator. -/
 @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
-  lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+  lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) (D.hΦ ψ ρp)
+
+/-- First-order definability of component `c`'s index-tuple set across a `d`-element
+parameter prefix. -/
+theorem defFun_idx (ψ : Name → Nat) (tail : Nat → V) (d c : Nat) :
+    DefFun d fun ps => D.idx ψ (Semantics.prepend ps tail) c :=
+  DefFun.towerSet_apply (D.u c ψ) (defTeleS_teleOfFields tail (D.ids c ψ) d)
+
+/-- First-order definability of component `m` of `D.carrier` across a `d`-element
+parameter prefix. -/
+theorem defFun_carrier (ψ : Name → Nat) (tail : Nat → V) (d m : Nat) (hm : m < D.N) :
+    DefFun d fun ps => D.carrier ψ (Semantics.prepend ps tail) m :=
+  DefFun.lfpTuple_apply
+    (fun c _ => D.defFun_idx ψ tail d c)
+    (fun ps => D.hΦ ψ (Semantics.prepend ps tail))
+    (fun m' hm' => D.hΦ_def ψ tail d m' hm')
+    hm
+
+/-- Composition of `D.hΦ_def` with definable parameter slots `ρs` and tuple slots `Xs`. -/
+theorem hΦ_comp (ψ : Name → Nat) (tail : Nat → V) {r n : Nat}
+    {ρs : Fin r → (Fin n → V) → V} (hρs : ∀ i, DefFun n (ρs i))
+    {Xs : (Fin n → V) → Nat → V} (hXs : ∀ m, m < D.N → DefFun n fun v => Xs v m)
+    {m : Nat} (hm : m < D.N) :
+    DefFun n fun v => D.Φ ψ (Semantics.prepend (fun i => ρs i v) tail) (Xs v) m := by
+  let Gs : Fin (D.N + r) → (Fin n → V) → V := fun j v =>
+    if hj : j.val < D.N then Xs v j.val
+    else ρs ⟨j.val - D.N, by omega⟩ v
+  have hGs : ∀ j : Fin (D.N + r), DefFun n (Gs j) := fun j => by
+    dsimp only [Gs]
+    split
+    · next hj => exact hXs j.val hj
+    · exact hρs ⟨j.val - D.N, by omega⟩
+  refine ((D.hΦ_def ψ tail r m hm).comp hGs).congr fun v => ?_
+  have hfdrop : fdrop (fun j : Fin (D.N + r) => Gs j v) = fun i => ρs i v := by
+    funext ⟨i, hi⟩
+    have hge : ¬ (D.N + i < D.N) := by omega
+    simp only [fdrop, Gs, hge, ↓reduceDIte]
+    congr 1
+    apply Fin.ext
+    dsimp
+    omega
+  rw [hfdrop]
+  refine (D.hΦ ψ (Semantics.prepend (fun i => ρs i v) tail)).1 _ _ (fun m' hm' => ?_) m hm
+  simp only [padTuple_lt _ hm', ftake, Gs, hm', ↓reduceDIte]
+
+/-- Parametric first-order definability of `D.Φ` on `mixT G (D.carrier ...) (padTuple (ftake v))`
+across a `d`-element parameter frame mapped by `ρs`. -/
+theorem hΦ_param (ψ : Name → Nat) (tail : Nat → V) {G : Nat → Prop} {r d : Nat}
+    {ρs : Fin r → (Fin d → V) → V} (hρs : ∀ i, DefFun d (ρs i))
+    {m : Nat} (hm : m < D.N) :
+    DefFun (D.N + d) fun v =>
+      D.Φ ψ (Semantics.prepend (fun i => ρs i (fdrop v)) tail)
+        (mixT G (D.carrier ψ (Semantics.prepend (fun i => ρs i (fdrop v)) tail))
+          (padTuple (ftake v))) m := by
+  refine D.hΦ_comp ψ tail (fun i => (hρs i).fdrop_apply) (fun m' hm' => ?_) hm
+  by_cases hG : G m'
+  · exact (DefFun.ftake_proj ⟨m', hm'⟩).congr fun v => by
+      simp only [mixT, hG, ↓reduceIte, padTuple_lt _ hm']
+  · exact ((D.defFun_carrier ψ tail r m' hm').comp fun i => (hρs i).fdrop_apply).congr fun v => by
+      simp only [mixT, hG, ↓reduceIte]
 
 /-- **Member `m`'s hole value** at the tuple `X`: the
 λ-tower over `m`'s indices (read at the parameter frame) of `X m` at the
 index tuple — the family of `X`, curried (a hole stands for the member's
 WHOLE application to the block's parameters, `nestCrest`). -/
 @[expose] noncomputable def holeVal (ψ : Name → Nat) (ρp X : Nat → V) (m : Nat) : V :=
-  holeFam ρp (D.ids m ψ) fun vs => app (X m) (tupW (D.u m ψ) vs)
+  holeFam ρp (D.ids m ψ) (fun vs => app (X m) (tupW (D.u m ψ) vs))
+    (DefHoleFn.of_app_tupW (X m) (D.u m ψ) (D.ids m ψ).length)
 
 /-- **The hole frame** at `(ρp, X)`: the parameter frame with member
 `m`'s hole value at the variable `nP + m` (so the last member is
@@ -207,7 +541,6 @@ read at the variable `nP + m` (over the parameters and the earlier holes). -/
 @[expose] def holeTys (ψ : Name → Nat) : List Term :=
   (List.range D.k).map fun m => (mkPisAV (D.ids m ψ) (.sort (D.w ψ))).liftN m 0
 
-omit [SetTheory V] in
 theorem holeTys_length (ψ : Name → Nat) : (D.holeTys ψ).length = D.k := by
   simp [holeTys]
 
@@ -223,14 +556,15 @@ index tuple `t`. -/
 
 /-- **The hole fit is accessible with the bound `A`** (task #327): a
 spine fitting a constructor at the hole frame of a tuple of the space has
-a SUPPORT — occurrences of the tuple, indexed by a subset of `A` — and
-fits at the hole frame of every tuple of the space holding it. -/
+a SUPPORT — set-encoded occurrences of the tuple via a graph `g` over
+`B ⊆ˢ A` — and fits at the hole frame of every tuple of the space holding it. -/
 @[expose] def FitAcc (ψ : Name → Nat) (ρp : Nat → V) (A : V) : Prop :=
   ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ (t : V) (j : Nat) (fs : List V),
-    D.HFits ψ ρp X t c j fs → ∃ (B : V) (g : V → Nat × V × V), B ⊆ˢ A ∧
-      (∀ b, b ∈ˢ B → InTup D.N (D.idx ψ ρp) X (g b)) ∧
+    D.HFits ψ ρp X t c j fs → ∃ (B g : V), B ⊆ˢ A ∧
+      g ∈ˢ piSet B (fun _ => occSpace D.N (D.idx ψ ρp) X) (hasSigmaPairs_const _ _) ∧
       ∀ X', InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X' →
-        (∀ b, b ∈ˢ B → InTup D.N (D.idx ψ ρp) X' (g b)) → D.HFits ψ ρp X' t c j fs
+        (∀ a, a ∈ˢ B → app g a ∈ˢ occSpace D.N (D.idx ψ ρp) X') →
+        D.HFits ψ ρp X' t c j fs
 
 variable {D}
 
@@ -242,8 +576,7 @@ theorem FitAcc.mono {ψ : Name → Nat} {ρp : Nat → V} {A : V} (h : D.FitAcc 
     {c : Nat} (hc : c < D.N) {t : V} {j : Nat} {fs : List V} (hf : D.HFits ψ ρp X t c j fs) :
     D.HFits ψ ρp Y t c j fs := by
   obtain ⟨B, g, -, hg, hs⟩ := h X hX c hc t j fs hf
-  exact hs Y hY fun b hb =>
-    ⟨(hg b hb).1, (hg b hb).2.1, hXY _ (hg b hb).1 _ (hg b hb).2.1 _ (hg b hb).2.2⟩
+  exact hs Y hY fun a ha => occSpace_mono hXY _ (app_mem_of_mem_piSet hg ha)
 
 /-- **An operator whose fibres are the injections of an accessible fit is
 accessible**, with the fit's bound. -/
@@ -269,7 +602,11 @@ theorem FitAcc.congr {D' : LfpDatum V} {ψ : Name → Nat} {ρp : Nat → V} {A 
   have hfr : ∀ X, D.frame ψ ρp X = D'.frame ψ ρp X := by
     intro X
     unfold frame holeVal
-    simp only [hk, hu, hi]
+    simp only [hk]
+    congr 1
+    apply List.map_congr_left
+    intro m _
+    simp only [hu, hi]
   have hH : ∀ X t c j fs, D.HFits ψ ρp X t c j fs ↔ D'.HFits ψ ρp X t c j fs := by
     intro X t c j fs
     unfold HFits
@@ -285,12 +622,24 @@ theorem FitAcc.congr {D' : LfpDatum V} {ψ : Name → Nat} {ρp : Nat → V} {A 
       exact ⟨hj0, hsp, hr⟩
   have hidx : D.idx ψ ρp = D'.idx ψ ρp := by
     unfold idx
+    funext c
     simp only [hu, hi]
+  have hocc : ∀ X, occSpace D.N (D.idx ψ ρp) X = occSpace D'.N (D'.idx ψ ρp) X := by
+    intro X
+    apply SetTheory.ext fun u => ?_
+    rw [mem_occSpace, mem_occSpace, hN, hidx]
   unfold FitAcc at h ⊢
-  rw [← hw, ← hN, ← hidx]
   intro X hX c hc t j fs hfit
-  obtain ⟨B, g, hB, hg, hs⟩ := h X hX c hc t j fs ((hH X t c j fs).mpr hfit)
-  exact ⟨B, g, hB, hg, fun X' hX' h' => (hH X' t c j fs).mp (hs X' hX' h')⟩
+  have hX0 : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X := by
+    rw [hw, hN, hidx]; exact hX
+  have hc0 : c < D.N := hN ▸ hc
+  obtain ⟨B, g, hB, hg, hs⟩ := h X hX0 c hc0 t j fs ((hH X t c j fs).mpr hfit)
+  have hg' : g ∈ˢ piSet B (fun _ => occSpace D'.N (D'.idx ψ ρp) X) (hasSigmaPairs_const _ _) := by
+    rwa [← hocc X]
+  refine ⟨B, g, hB, hg', fun X' hX' h' => (hH X' t c j fs).mp ?_⟩
+  have hX'0 : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X' := by
+    rw [hw, hN, hidx]; exact hX'
+  exact hs X' hX'0 fun a ha => (hocc X') ▸ h' a ha
 
 end LfpDatum
 
@@ -302,29 +651,32 @@ variable {V : Type w} [SetTheory V]
 
 /-- A λ-tower applied to a spine fitting its telescope computes. -/
 theorem holeFam_app :
-    ∀ {ρ : Nat → V} {Fs : List Term} {as : List V} (g : List V → V),
-      SpineFit ρ Fs as → as.foldl app (holeFam ρ Fs g) = g as
-  | _, [], [], _, _ => rfl
-  | _, [], _ :: _, _, h => h.elim
-  | _, _ :: _, [], _, h => h.elim
-  | ρ, F :: Fs, a :: as, g, h => by
-    show as.foldl app (app (lamV (interp V ρ F) _) a) = g (a :: as)
-    rw [app_lamV h.1]
+    ∀ {ρ : Nat → V} {Fs : List Term} {as : List V} (g : List V → V)
+      {hg : DefHoleFn Fs.length g},
+      SpineFit ρ Fs as → as.foldl app (holeFam ρ Fs g hg) = g as
+  | _, [], [], g, hg, _ => by rw [holeFam_nil]; rfl
+  | _, [], _ :: _, _, _, h => h.elim
+  | _, _ :: _, [], _, _, h => h.elim
+  | ρ, F :: Fs, a :: as, g, hg, h => by
+    rw [List.foldl_cons, holeFam_cons, app_lamV h.1]
     exact holeFam_app (fun bs => g (a :: bs)) h.2
 
 /-- **Where the tower is the point**: with leaves that are never the
 point at a fitting spine, a level is the point exactly when no spine
 fits its telescope — the same for any two such leaf families. -/
 theorem holeFam_eq_pt_iff :
-    ∀ {ρ : Nat → V} {Fs : List Term} {g g' : List V → V},
+    ∀ {ρ : Nat → V} {Fs : List Term} {g g' : List V → V}
+      {hg_def : DefHoleFn Fs.length g} {hg'_def : DefHoleFn Fs.length g'},
       (∀ vs, SpineFit ρ Fs vs → g vs ≠ pt) → (∀ vs, SpineFit ρ Fs vs → g' vs ≠ pt) →
-      (holeFam ρ Fs g = pt ↔ holeFam ρ Fs g' = pt)
-  | _, [], _, _, hg, hg' => ⟨fun h => absurd h (hg [] trivial), fun h => absurd h (hg' [] trivial)⟩
-  | ρ, F :: Fs, g, g', hg, hg' => by
-    show lamV _ _ = pt ↔ lamV _ _ = pt
+      (holeFam ρ Fs g hg_def = pt ↔ holeFam ρ Fs g' hg'_def = pt)
+  | _, [], _, _, _, _, hg, hg' => by
+    rw [holeFam_nil, holeFam_nil]
+    exact ⟨fun h => absurd h (hg [] trivial), fun h => absurd h (hg' [] trivial)⟩
+  | ρ, F :: Fs, g, g', hg_def, hg'_def, hg, hg' => by
+    rw [holeFam_cons, holeFam_cons]
     have key : ∀ x, x ∈ˢ interp V ρ F →
-        (holeFam (cons x ρ) Fs (fun as => g (x :: as)) = pt ↔
-          holeFam (cons x ρ) Fs (fun as => g' (x :: as)) = pt) := fun x hx =>
+        (holeFam (cons x ρ) Fs (fun as => g (x :: as)) (hg_def.cons x) = pt ↔
+          holeFam (cons x ρ) Fs (fun as => g' (x :: as)) (hg'_def.cons x) = pt) := fun x hx =>
       holeFam_eq_pt_iff (fun vs hvs => hg (x :: vs) ⟨hx, hvs⟩)
         (fun vs hvs => hg' (x :: vs) ⟨hx, hvs⟩)
     constructor
@@ -339,22 +691,26 @@ theorem holeFam_eq_pt_iff :
 leaves** (as long as they are never the point at a fitting spine): it is
 the point where a level is, `∅` where a graph is applied off its domain. -/
 theorem holeFam_foldl_nofit :
-    ∀ {ρ : Nat → V} {Fs : List Term} {vs : List V} {g g' : List V → V},
+    ∀ {ρ : Nat → V} {Fs : List Term} {vs : List V} {g g' : List V → V}
+      {hg_def : DefHoleFn Fs.length g} {hg'_def : DefHoleFn Fs.length g'},
       (∀ vs, SpineFit ρ Fs vs → g vs ≠ pt) → (∀ vs, SpineFit ρ Fs vs → g' vs ≠ pt) →
       vs.length = Fs.length → ¬ SpineFit ρ Fs vs →
-      vs.foldl app (holeFam ρ Fs g) = vs.foldl app (holeFam ρ Fs g')
-  | _, [], [], _, _, _, _, _, hn => absurd trivial hn
-  | _, [], _ :: _, _, _, _, _, h, _ => by simp at h
-  | _, _ :: _, [], _, _, _, _, h, _ => by simp at h
-  | ρ, F :: Fs, a :: vs, g, g', hg, hg', hlen, hn => by
-    show vs.foldl app (app (lamV (interp V ρ F) _) a) = vs.foldl app (app (lamV (interp V ρ F) _) a)
+      vs.foldl app (holeFam ρ Fs g hg_def) = vs.foldl app (holeFam ρ Fs g' hg'_def)
+  | _, [], [], _, _, _, _, _, _, _, hn => absurd trivial hn
+  | _, [], _ :: _, _, _, _, _, _, _, h, _ => by simp at h
+  | _, _ :: _, [], _, _, _, _, _, _, h, _ => by simp at h
+  | ρ, F :: Fs, a :: vs, g, g', hg_def, hg'_def, hg, hg', hlen, hn => by
+    rw [List.foldl_cons, List.foldl_cons, holeFam_cons, holeFam_cons]
     by_cases ha : a ∈ˢ interp V ρ F
     · rw [app_lamV ha, app_lamV ha]
       exact holeFam_foldl_nofit (fun ws hws => hg (a :: ws) ⟨ha, hws⟩)
         (fun ws hws => hg' (a :: ws) ⟨ha, hws⟩) (by simpa using hlen) fun h => hn ⟨ha, h⟩
-    · have hpt := holeFam_eq_pt_iff (ρ := ρ) (Fs := F :: Fs) hg hg'
-      change lamV _ _ = pt ↔ lamV _ _ = pt at hpt
-      by_cases hp : lamV (interp V ρ F) (fun x => holeFam (cons x ρ) Fs fun as => g (x :: as)) = pt
+    · have hpt := holeFam_eq_pt_iff (ρ := ρ) (Fs := F :: Fs)
+        (hg_def := hg_def) (hg'_def := hg'_def) hg hg'
+      rw [holeFam_cons, holeFam_cons] at hpt
+      by_cases hp : lamV (interp V ρ F)
+          (fun x => holeFam (cons x ρ) Fs (fun as => g (x :: as)) (hg_def.cons x))
+          (holeFam_hasGraph ρ F Fs g hg_def) = pt
       · rw [hp, hpt.mp hp, app_pt]
       · have hp' := fun h => hp (hpt.mpr h)
         rw [lamV_eq_graph hp, lamV_eq_graph hp', app_graph_of_not_mem ha,
@@ -522,7 +878,7 @@ theorem fitsMono (h : LfpClause acval D) (ψ : Name → Nat) (ρp : Nat → V)
 theorem closed (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (D.params ψ).reverse ρp) :
     ∃ L, IsClosedTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) L :=
-  (h.acc ψ ρp hsat).closed (h.maps ψ ρp hsat)
+  (h.acc ψ ρp hsat).closed (hΦ := D.hΦ ψ ρp) (h.maps ψ ρp hsat)
 
 /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
 theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
@@ -544,7 +900,7 @@ theorem carrier_case (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → 
     (ht : t ∈ˢ D.idx ψ ρp c) {x : V} (hx : x ∈ˢ app (D.carrier ψ ρp c) t) :
     ∃ j fs, D.HFits ψ ρp (D.carrier ψ ρp) t c j fs ∧ x = D.inj ψ c j fs := by
   rw [← h.carrier_eq hsat hc] at hx
-  exact (h.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht x).mp hx
+  exact (h.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _ _) c hc t ht x).mp hx
 
 
 /-- **The fibre in hole form**: component `c`'s fibre at `(X, t)` is the

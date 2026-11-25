@@ -95,7 +95,7 @@ theorem teleRed_read (hin : RulesInputs V m φ) :
     · intro ρ hρ
       rw [heq ρ hρ]
       simp only [interp_pi, mkPisAV]
-      exact piV_congr fun x hx => heqn _ (Sat_cons V hρ hx)
+      exact piV_congr _ _ fun x hx => heqn _ (Sat_cons V hρ hx)
     · simp only [closeTelescope, Expr.WScoped]
       exact ⟨hws.1, WScoped.abstract1 0 hwsn⟩
     · simp only [closeTelescope, Expr.looseBVarsBounded, Bool.and_eq_true]

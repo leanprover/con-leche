@@ -205,10 +205,11 @@ theorem genClassNodes {F : Nat}
       (pp.formers.map (·.type)) out Dc mc cvc ns ψ ρ xs
       (genCallT (tgtClsTup dR Dc mc cvc pp out ψ) ρ
         (fun c j => genIhdAV mpC.base2.acval envC R.g R.rd ψ c j)) := {
-    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs par
-    hAdm := dyn_hAdm H ψ ρ xs hparams hxs par
-    top := dyn_top H ψ ρ xs hparams hxs hPP
-    trans := dyn_trans H ψ ρ xs hparams hxs par
+    Adm := nodeAdmSet mk mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs par
+    hAdm_def := fun b _ => dyn_nodeAdmSet_def ψ ρ xs par b
+    hAdm := dyn_hAdmSet H ψ ρ xs hparams hxs par
+    top := dyn_topSet H ψ ρ xs hparams hxs hPP
+    trans := dyn_transSet H ψ ρ xs hparams hxs par
     hcall := genNodeCalls hbase R h hg hTbl hmkC hmk hag hsubC htr hcoreK hok
       hkids hpar hsem hctxR hfrec hmemF hPP hF hcls hsel hparams hxs hfrT }
   have hrs : ∀ c (hc : c < (tgtRs out).length),

@@ -88,7 +88,7 @@ theorem denote_leavesAlike {a a' : Name → (Name → Nat) → Term} (h : Leaves
     obtain ⟨B', hB', eB⟩ := ih2 hB
     exact ⟨_, ⟨A', hA', B', hB', rfl⟩, fun ρ => by
       simp only [interp_pi, eA ρ]
-      exact congrArg _ (funext fun x => eB _)⟩
+      exact piV_congr _ _ fun x _ => eB (cons x ρ)⟩
   | case7 d ty body ih1 ih2 =>
     simp only [denote, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.some.injEq] at ht ⊢
     obtain ⟨A, hA, B, hB, rfl⟩ := ht
@@ -96,7 +96,7 @@ theorem denote_leavesAlike {a a' : Name → (Name → Nat) → Term} (h : Leaves
     obtain ⟨B', hB', eB⟩ := ih2 hB
     exact ⟨_, ⟨A', hA', B', hB', rfl⟩, fun ρ => by
       simp only [interp_lam, eA ρ]
-      exact congrArg _ (funext fun x => eB _)⟩
+      exact lamV_congr _ _ fun x _ => eB (cons x ρ)⟩
   | case8 d f x ih1 ih2 =>
     simp only [denote, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.some.injEq] at ht ⊢
     obtain ⟨F, hF, X, hX, rfl⟩ := ht

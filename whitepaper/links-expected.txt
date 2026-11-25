@@ -32,31 +32,30 @@
     33      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
     34      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
 
-== ConLeche/IsModel.lean#L212-L213
-   212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   213      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L424-L425
+   424  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   425      (C : ConstantInfo → Prop) : Prop :=
 
-== ConLeche/MainTheorem.lean#L109-L120
-   109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
-   110      (hr : Olean.parseModName root = some r)
-   111      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   112        fs 0)
-   113      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   114        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   115          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   116      ∃ model : Name → (Name → List Nat → V),
-   117        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   118          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
-   119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L111-L122
+   111  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   112      (hr : Olean.parseModName root = some r)
+   113      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   114        fs 0)
+   115      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   116        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   117          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   118      ∃ model : Name → (Name → List Nat → V),
+   119        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   120          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   121        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   122          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
-== ConLeche/SetTheory/Core.lean#L95-L100
-    95  /-- A model of set theory of exactly the strength the checker needs:
-    96  membership, the six ZF⁻ axioms (extensionality, pairing, union, power
-    97  set, regularity, Lean-level replacement), and an ω-chain of
-    98  Grothendieck universes.  Infinity is derivable; choice is inherited
-    99  from the meta-logic (`Classical.choice`); see the module docstring. -/
-   100  class SetTheory (V : Type u) where
+== ConLeche/SetTheory/Core.lean#L69-L73
+    69  /-- A strictly first-order model of set theory of the strength the
+    70  checker needs: membership, extensionality, pairing, union, power set,
+    71  regularity, the first-order replacement schema, Jech-form choice, and
+    72  an ω-chain of SGA4 Grothendieck universes. -/
+    73  class SetTheory (V : Type u) where
 
 == ConLeche/Rules/Rel.lean#L106
    106  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
@@ -1361,13 +1360,12 @@
    124    /-- (3): no graph is a member of the point. -/
    125    graph_not_mem_pt : ∀ {F : V → V} {A : V}, ¬ Mem (graph F A) pt
 
-== ConLeche/SetTheory/Core.lean#L95-L100
-    95  /-- A model of set theory of exactly the strength the checker needs:
-    96  membership, the six ZF⁻ axioms (extensionality, pairing, union, power
-    97  set, regularity, Lean-level replacement), and an ω-chain of
-    98  Grothendieck universes.  Infinity is derivable; choice is inherited
-    99  from the meta-logic (`Classical.choice`); see the module docstring. -/
-   100  class SetTheory (V : Type u) where
+== ConLeche/SetTheory/Core.lean#L69-L73
+    69  /-- A strictly first-order model of set theory of the strength the
+    70  checker needs: membership, extensionality, pairing, union, power set,
+    71  regularity, the first-order replacement schema, Jech-form choice, and
+    72  an ω-chain of SGA4 Grothendieck universes. -/
+    73  class SetTheory (V : Type u) where
 
 == whitepaper/Fragment/Lib.lean#L64-L65
     64    /-- Extensionality. -/
@@ -1562,22 +1560,22 @@
     62      ¬ Strict (piV A B) := by
     63    rw [piV_of_empty h]; exact fun hs => hs.2 (mem_one.mpr rfl)
 
-== ConLeche/SetTheory/Derive/Univ.lean#L34-L35
-    34  /-- **What `Sort n` means**: the universe of types `tyU n`. -/
-    35  noncomputable def univ : Nat → V := tyU
+== ConLeche/SetTheory/Derive/Univ.lean#L35-L36
+    35  /-- **What `Sort n` means**: the universe of types `tyU n`. -/
+    36  noncomputable def univ : Nat → V := tyU
 
-== ConLeche/SetTheory/Derive/TypeU.lean#L195-L197
-   195  open Classical in
-   196  /-- **The universe of types at level `n`**: the truth values at `0`,
-   197  above the members of the axiomatic level `tg n` that are types. -/
+== ConLeche/SetTheory/Derive/TypeU.lean#L221-L223
+   221  open Classical in
+   222  /-- **The universe of types at level `n`**: the truth values at `0`,
+   223  above the members of the axiomatic level `tg n` that are types. -/
+
+== ConLeche/SetTheory/Derive/TypeU.lean#L54-L55
+    54  /-- A **strict** set: not the point, and the point is not a member. -/
+    55  def Strict (X : V) : Prop := X ≠ pt ∧ ¬ pt ∈ˢ X
 
 == ConLeche/SetTheory/Derive/TypeU.lean#L57-L58
-    57  /-- A **strict** set: not the point, and the point is not a member. -/
-    58  def Strict (X : V) : Prop := X ≠ pt ∧ ¬ pt ∈ˢ X
-
-== ConLeche/SetTheory/Derive/TypeU.lean#L60-L61
-    60  /-- A **type**: a truth value, or a strict set. -/
-    61  def IsTy (X : V) : Prop := X ∈ˢ univZero ∨ Strict X
+    57  /-- A **type**: a truth value, or a strict set. -/
+    58  def IsTy (X : V) : Prop := X ∈ˢ univZero ∨ Strict X
 
 == whitepaper/Fragment/Interp.lean#L242-L246
    242  /-- **The β-substitution lemma**: substituting for the innermost
@@ -3600,7 +3598,7 @@
 
 == whitepaper/Fragment/Univ.lean#L177-L194
    177  /-- **The union of an indexed family** `⋃ a ∈ A, F a`: replacement,
-   178  then union.  Con-leche: `IsTGUniverse.famUnion_mem`,
+   178  then union.  Con-leche: `IsGrothendieck.famUnion_mem`,
    179  `ConLeche/SetTheory/Derive/Universe.lean`. -/
    180  def famUnion (A : V) (F : V → V) : V := sUnion (image F A)
    181  
@@ -3620,8 +3618,8 @@
 
 == whitepaper/Fragment/Univ.lean#L212-L231
    212  /-- **The countable union** `F 0 ∪ F 1 ∪ …`: the union over `ω`, each
-   213  numeral read back as its number.  Con-leche: `Tower.natUnion`,
-   214  `ConLeche/SetModel/Iter.lean`. -/
+   213  numeral read back as its number.  Con-leche: `Tower.omegaUnion`, over the
+   214  members of its own `ω` (`ConLeche/SetModel/Iter.lean`). -/
    215  noncomputable def natUnion (F : Nat → V) : V := famUnion omega fun z => F (idx z)
    216  
    217  theorem mem_natUnion {F : Nat → V} {z : V} : z ∈ˢ natUnion F ↔ ∃ k, z ∈ˢ F k := by
@@ -3634,7 +3632,7 @@
    224      exact ⟨nat k, mem_omega.mpr ⟨k, rfl⟩, by rw [idx_nat]; exact hk⟩
    225  
    226  /-- A countable union of members of a positive universe is a member —
-   227  the one use of `ω`.  Con-leche: `Tower.natUnion_mem_univ_pos`,
+   227  the one use of `ω`.  Con-leche: `Tower.omegaUnion_mem_tg_pos`,
    228  `ConLeche/SetModel/Iter.lean`. -/
    229  theorem natUnion_mem_univ {n : Nat} {F : Nat → V} (hn : n ≠ 0) (h : ∀ k, F k ∈ˢ univ n) :
    230      natUnion F ∈ˢ (univ n : V) :=
@@ -3649,20 +3647,26 @@
     34  exactly once: the set of finite paths over the bound is a countable
     35  union (`natUnion`).
 
-== ConLeche/SetTheory/Core.lean#L89-L93
-    89  def IsTGUniverse {V : Type u} (mem : V → V → Prop) (u : V) : Prop :=
-    90    (∀ y z, mem y u → mem z y → mem z u) ∧
-    91    (∀ y z, mem y u → (∀ w, mem w z → mem w y) → mem z u) ∧
-    92    (∀ y, mem y u → ∃ p, mem p u ∧ ∀ z, (∀ w, mem w z → mem w y) → mem z p) ∧
-    93    (∀ y, (∀ w, mem w y → mem w u) → Equinumerous mem y u ∨ mem y u)
+== ConLeche/SetTheory/Core.lean#L56-L67
+    56  structure IsGrothendieck {V : Type u} (Mem : V → V → Prop) (u : V) : Prop where
+    57    /-- *Transitivity*: members of members are members. -/
+    58    transitivity : ∀ y z, Mem y u → Mem z y → Mem z u
+    59    /-- *Pairing*: unordered pairs of members are members. -/
+    60    pairing : ∀ a b, Mem a u → Mem b u → ∃ p, Mem p u ∧ IsUpair Mem p a b
+    61    /-- *Power sets*: power sets of members are members. -/
+    62    powerSet : ∀ y, Mem y u → ∃ p, Mem p u ∧ ∀ z, Mem z p ↔ ∀ w, Mem w z → Mem w y
+    63    /-- *Indexed union*: the union of the range of any internal function graph
+    64    `g : I → u` with `I ∈ u` is a member of `u`. -/
+    65    indexedUnion : ∀ I g, Mem I u → IsFunGraph Mem g I u →
+    66      ∃ w, Mem w u ∧ ∀ z, Mem z w ↔
+    67        ∃ i y p, Mem i I ∧ Mem y u ∧ Mem p g ∧ IsKPair Mem p i y ∧ Mem z y
 
-== ConLeche/SetTheory/Core.lean#L95-L100
-    95  /-- A model of set theory of exactly the strength the checker needs:
-    96  membership, the six ZF⁻ axioms (extensionality, pairing, union, power
-    97  set, regularity, Lean-level replacement), and an ω-chain of
-    98  Grothendieck universes.  Infinity is derivable; choice is inherited
-    99  from the meta-logic (`Classical.choice`); see the module docstring. -/
-   100  class SetTheory (V : Type u) where
+== ConLeche/SetTheory/Core.lean#L69-L73
+    69  /-- A strictly first-order model of set theory of the strength the
+    70  checker needs: membership, extensionality, pairing, union, power set,
+    71  regularity, the first-order replacement schema, Jech-form choice, and
+    72  an ω-chain of SGA4 Grothendieck universes. -/
+    73  class SetTheory (V : Type u) where
 
 == whitepaper/Fragment/IndSem.lean#L282-L303
    282  /-- **The set a field ranges over**, relative to a family `W` (index
@@ -3980,10 +3984,10 @@
    173  `ConLeche/SetModel/Access.lean`. -/
    174  theorem closedFam_zero {Φ : (ι → V) → ι → V} (hmaps : MapsFam 0 Φ) : ∃ L, IsClosedFam 0 Φ L := by
 
-== ConLeche/Model/Env/LfpHoleOp.lean#L104-L106
-   104  /-- **The hole operator**: the block operator at the hole chains. -/
-   105  @[expose] noncomputable def holeOp (ψ : Name → Nat) (ρp : Nat → V) : (Nat → V) → Nat → V :=
-   106    blockPhiG D.N (D.w ψ) ρp (fun c => D.u c ψ) (fun c => D.ids c ψ) (D.holeChains ψ)
+== ConLeche/Model/Env/LfpHoleOp.lean#L114-L116
+   114  /-- **The hole operator**: the block operator at the hole chains. -/
+   115  @[expose] noncomputable def holeOp (ψ : Name → Nat) (ρp : Nat → V) : (Nat → V) → Nat → V :=
+   116    blockPhiG D.N (D.w ψ) ρp (fun c => D.u c ψ) (fun c => D.ids c ψ) (D.holeChains ψ)
 
 == ConLeche/Semantics/Inductives/HoleMono.lean#L71-L73
     71  /-- **Hole-free**: the reading is the same at related frames. -/
@@ -4002,18 +4006,16 @@
    138      (hT : ∀ ρ ρ', R ρ ρ' → (∀ x, x ∈ˢ interp V ρ A → IsTy (interp V (cons x ρ) B)) ∧
    139        (∀ x, x ∈ˢ interp V ρ' A → IsTy (interp V (cons x ρ') B))) :
 
-== ConLeche/Semantics/Inductives/HoleAcc.lean#L233-L243
-   233  /-- **Π over a hole-free domain**: the support of a member over a small
-   234  domain is the glued supports of its values, the body's items one binder
-   235  down (the bound variable is no admissible position); a member over a
-   236  domain that is not small (`w ≠ 0`) is the point, whose membership needs
-   237  no item (`PtOn`).  At the target frame the member lies in the Π by
-   238  `mem_piV_of_app`, the fibres at both frames being types (`hT`, the
-   239  grading: "not pt" source (1)). -/
-   240  theorem AccOn.pi {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : Term}
-   241      (hD : ConstOn R D)
-   242      {Bb : (Nat → V) → V} (hB : AccOn w (shiftQ Q) (R.underBoth D) Bb B)
-   243      (hT : FibTyOn R D B) (hP : w ≠ 0 → PtOn (R.underBoth D) B) :
+== ConLeche/Semantics/Inductives/HoleAcc.lean#L849-L857
+   849  /-- **Π over a hole-free domain** (first-order `piSet_choose` Skolemization):
+   850  uses finite `(i, n)` listing `hQfin`, finite-support definability `hRdef` at depth `dep`,
+   851  and `DefBound (dep + 1) Bb`. -/
+   852  theorem AccOn.pi {w dep : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : Term}
+   853      (hD : ConstOn R D) (hQfin : FinQ Q) (hRdef : R.Def dep)
+   854      {Bb : (Nat → V) → V} (hBdef : DefBound (dep + 1) Bb)
+   855      (hB : AccOn w (shiftQ Q) (R.underBoth D) Bb B)
+   856      (hT : FibTyOn R D B) (hP : w ≠ 0 → PtOn (R.underBoth D) B) :
+   857      AccOn w Q R (piBound w D Bb) (.pi D B) := by
 
 == ConLeche/Semantics/Inductives/HoleMono.lean#L158-L162
    158  /-- **`holeApp`**: a hole applied to hole-free arguments, at its full
@@ -4022,45 +4024,51 @@
    161      (hh : HoleOn R h es.length) (hes : ∀ e ∈ es, ConstOn R e) :
    162      MonoOn R (Term.mkAppN (.bvar h) es) := by
 
-== ConLeche/Semantics/Inductives/HoleAcc.lean#L321-L324
-   321  /-- **A member hole at its full arity, at hole-free arguments.** -/
-   322  theorem AccOn.holeApp {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {h : Nat}
-   323      {es : List Term} (hQ : Q h es.length) (hes : ∀ e ∈ es, ConstOn R e) :
-   324      AccOn w Q R (fun _ => unitSet) (Term.mkAppN (.bvar h) es) := by
+== ConLeche/Semantics/Inductives/HoleAcc.lean#L1072-L1078
+  1072  /-- **A member hole at its full arity, at hole-free arguments.**
+  1073  Non-`pt` spines use the singleton occurrence graph `{occEncItem h vs x}`;
+  1074  `pt`-hitting spines are dropped with `B = ∅` via `FrameRel.PtHitStable`. -/
+  1075  theorem AccOn.holeApp {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {h : Nat}
+  1076      {es : List Term} (hQ : Q h es.length) (hes : ∀ e ∈ es, ConstOn R e)
+  1077      (hRhit : R.PtHitStable Q) :
+  1078      AccOn w Q R (fun _ => unitSet) (Term.mkAppN (.bvar h) es) := by
 
-== ConLeche/Model/Inductives/BlockAccRunCont.lean#L311-L316
-   311  frame**, with a bound that is a set of the level at a `Type`-valued one
-   312  — whence the operator's accessibility, (W) and monotonicity: the block theorem with the
-   313  container rules read at the walk's carrier (coverage) and the walk
-   314  context's sort (the block's level). -/
-   315  theorem blockAcc_of_run {F : Nat}
-   316      {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name} {p₁ : BlockShape} {isRec : Bool} {p : BlockShape}
+== ConLeche/Model/Inductives/BlockAccRunCont.lean#L418-L424
+   418  /-- **The hole fit of a uniform block is accessible at every parameter
+   419  frame**, with a bound that is a set of the level at a `Type`-valued one
+   420  — whence the operator's accessibility, (W) and monotonicity: the block theorem with the
+   421  container rules read at the walk's carrier (coverage) and the walk
+   422  context's sort (the block's level). -/
+   423  theorem blockAcc_of_run {F : Nat}
+   424      {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name} {p₁ : BlockShape} {isRec : Bool} {p : BlockShape}
 
-== ConLeche/SetModel/Access.lean#L56-L63
-    56  /-- **`A`-accessibility** of an operator from `kI`-tuples over `IsI` to
-    57  `kO`-tuples over `IsO`. -/
-    58  def AccTuple (w kI : Nat) (IsI : Nat → V) (kO : Nat) (IsO : Nat → V)
-    59      (Φ : (Nat → V) → Nat → V) (A : V) : Prop :=
-    60    ∀ X, InTupleSpace w kI IsI X → ∀ m, m < kO → ∀ i, i ∈ˢ IsO m → ∀ x, x ∈ˢ app (Φ X m) i →
-    61      ∃ (B : V) (g : V → Nat × V × V), B ⊆ˢ A ∧ (∀ a, a ∈ˢ B → InTup kI IsI X (g a)) ∧
-    62        ∀ X', InTupleSpace w kI IsI X' → (∀ a, a ∈ˢ B → InTup kI IsI X' (g a)) →
-    63          x ∈ˢ app (Φ X' m) i
+== ConLeche/SetModel/Access.lean#L177-L186
+   177  /-- **`A`-accessibility** of an operator from `kI`-tuples over `IsI` to
+   178  `kO`-tuples over `IsO`, using set-level support graphs `g`. -/
+   179  def AccTuple (w kI : Nat) (IsI : Nat → V) (kO : Nat) (IsO : Nat → V)
+   180      (Φ : (Nat → V) → Nat → V) (A : V) : Prop :=
+   181    ∀ X, InTupleSpace w kI IsI X → ∀ m, m < kO → ∀ i, i ∈ˢ IsO m → ∀ x, x ∈ˢ app (Φ X m) i →
+   182      ∃ (B g : V), B ⊆ˢ A ∧
+   183        g ∈ˢ piSet B (fun _ => occSpace kI IsI X) (hasSigmaPairs_const _ _) ∧
+   184        ∀ X', InTupleSpace w kI IsI X' →
+   185          (∀ a, a ∈ˢ B → app g a ∈ˢ occSpace kI IsI X') →
+   186          x ∈ˢ app (Φ X' m) i
 
-== ConLeche/Model/Env/BlockLfp.lean#L527-L531
-   527  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
-   528  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-   529      (hsat : Sat V (D.params ψ).reverse ρp) :
-   530      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
-   531    (h.acc ψ ρp hsat).mono
+== ConLeche/Model/Env/BlockLfp.lean#L883-L887
+   883  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
+   884  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   885      (hsat : Sat V (D.params ψ).reverse ρp) :
+   886      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
+   887    (h.acc ψ ρp hsat).mono
 
-== ConLeche/Model/Env/BlockLfp.lean#L466-L472
-   466    /-- **the constructors' fields are small** at a `Type`-valued block, at
-   467    every hole frame of the tuple space (the frame walk of a container reads its constructors' fields along the
-   468    accessibility relation, which supports small elements only — the
-   469    install's own `FieldsOkB`, recorded) -/
-   470    fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →
-   471      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ j, j < D.nctors c →
-   472        FieldsOkB (D.w ψ) (D.frame ψ ρp X) (D.fields ψ c j)
+== ConLeche/Model/Env/BlockLfp.lean#L822-L828
+   822    /-- **the constructors' fields are small** at a `Type`-valued block, at
+   823    every hole frame of the tuple space (the frame walk of a container reads its constructors' fields along the
+   824    accessibility relation, which supports small elements only — the
+   825    install's own `FieldsOkB`, recorded) -/
+   826    fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →
+   827      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ j, j < D.nctors c →
+   828        FieldsOkB (D.w ψ) (D.frame ψ ρp X) (D.fields ψ c j)
 
 == whitepaper/Fragment/LfpSet.lean#L64-L67
     64  /-- A **closed family** of `Φ`: in the universe, and a pre-fixed point.
@@ -4082,16 +4090,18 @@
    302  theorem closed_of_acc (hn : n ≠ 0) (hA : A ∈ˢ (univ n : V)) (hmaps : MapsFam n Φ)
    303      (hacc : AccFam n Φ A) : ∃ L, IsClosedFam n Φ L := by
 
-== ConLeche/SetModel/Access.lean#L240-L244
-   240  /-- **(W) from accessibility.**  At a positive level, an operator that
-   241  maps the tuple space into itself and is `A`-accessible for a set `A` of
-   242  the level has a closed tuple.  No monotonicity is used. -/
-   243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
-   244      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
+== ConLeche/SetModel/Access.lean#L916-L922
+   916  /-- **(W) from accessibility.**  At a positive level, a `DefTupleOp` operator
+   917  that maps the tuple space into itself and is `A`-accessible (`A ∈ˢ tg w`) has
+   918  a closed tuple. Uses **one** `piSet_choose` call over internal `WF A`. -/
+   919  theorem closed_of_acc {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V} {A : V}
+   920      (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hΦ : DefTupleOp k Φ)
+   921      (hmaps : MapsTuple w k Is Φ) (hacc : AccTuple w k Is k Is Φ A) :
+   922      ∃ L, IsClosedTuple w k Is Φ L := by
 
 == whitepaper/Fragment/Access.lean#L163-L198
    163  /-- Lean-level well-founded trees branching over the sets: a leaf, or
-   164  a node with a subtree for every set.  Con-leche: `BT`. -/
+   164  a node with a subtree for every set.  Con-leche has their codes: `WF`. -/
    165  inductive BT (V : Type u) : Type u
    166    | leaf : BT V
    167    | node : (V → BT V) → BT V
@@ -4105,20 +4115,20 @@
    175  noncomputable def unionFam (F : V → ι → V) : ι → V := fun i => famUnion A fun a => F a i
    176  
    177  /-- **The stage at a tree**: the empty family at a leaf, `Φ` of the
-   178  union of the subtrees' stages at a node.  Con-leche: `stage`. -/
+   178  union of the subtrees' stages at a node.  Con-leche: `stageOf`. -/
    179  noncomputable def stage : BT V → ι → V
    180    | .leaf => fun _ => empty
    181    | .node f => Φ (unionFam A fun a => stage (f a))
    182  
    183  /-- **A tree's code**: its set of paths over `A` — the empty path at a
    184  node, and a step `a` onto every path of the subtree at `a`.
-   185  Con-leche: `code`. -/
+   185  Con-leche: `tree`. -/
    186  noncomputable def code : BT V → V
    187    | .leaf => empty
    188    | .node f => binUnion one (famUnion A fun a => image (pcons a) (code (f a)))
    189  
    190  open Classical in
-   191  /-- A tree with the given code, if any.  Con-leche: `pick`. -/
+   191  /-- A tree with the given code, if any.  Con-leche needs none. -/
    192  noncomputable def pick (c : V) : BT V :=
    193    if h : ∃ T, code A T = c then Classical.choose h else .leaf
    194  
@@ -4149,14 +4159,14 @@
 == whitepaper/Fragment/Access.lean#L183-L188
    183  /-- **A tree's code**: its set of paths over `A` — the empty path at a
    184  node, and a step `a` onto every path of the subtree at `a`.
-   185  Con-leche: `code`. -/
+   185  Con-leche: `tree`. -/
    186  noncomputable def code : BT V → V
    187    | .leaf => empty
    188    | .node f => binUnion one (famUnion A fun a => image (pcons a) (code (f a)))
 
 == whitepaper/Fragment/Access.lean#L221-L223
    221  /-- **The stage depends on the tree only through its code.**
-   222  Con-leche: `stage_eq_of_code`. -/
+   222  Con-leche: `existsUnique_stageOf`. -/
    223  theorem stage_eq_of_code : ∀ T T' : BT V, code A T = code A T' → stage Φ A T = stage Φ A T'
 
 == whitepaper/Fragment/Access.lean#L284-L290
@@ -4316,71 +4326,69 @@
   1542      (hco : S.ContOk M ls ps) (hz : S.z ls = true) {is : List V} {t : V} :
   1543      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
-== ConLeche/SetTheory/Derive/LfpTuple.lean#L78-L87
-    78  /-- **The least pre-fixed tuple of `Φ`** — componentwise, fibrewise the
-    79  intersection of the closed tuples when there is one (separated from a
-    80  chosen closed tuple), dropped to `∅` if it left `strictU w`; the empty
-    81  tuple otherwise. -/
-    82  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Nat → V :=
-    83    fun m =>
-    84      if h : ∃ L, IsClosedTuple w k Is Φ L then
-    85        famOf (fun i => dropTo (strictU w) (sep (app (Classical.choose h m) i)
-    86          (fun x => ∀ X, IsClosedTuple w k Is Φ X → x ∈ˢ app (X m) i))) (Is m)
-    87      else famOf (fun _ => empty) (Is m)
+== ConLeche/SetTheory/Derive/LfpTuple.lean#L472-L478
+   472  /-- **The least pre-fixed tuple of `Φ`** — componentwise, fibrewise the
+   473  intersection of the closed tuples when there is one (separated from a
+   474  chosen closed tuple), dropped to `∅` if it left `strictU w`; the empty
+   475  tuple otherwise. -/
+   476  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
+   477      (hΦ : DefTupleOp k Φ) : Nat → V :=
+   478    fun m => famOf (lfpTupleFibre w k Is Φ hΦ m) (Is m) (hasGraph_lfpTuple w k Is Φ hΦ m)
 
-== ConLeche/Model/Env/BlockLfp.lean#L404-L411
-   404    /-- **`Φ` maps the tuple space into itself** -/
-   405    maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   406      MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
-   407    /-- **the hole fit is accessible**, with a bound of the level at a
-   408    `Type`-valued block (task #327): the operator's accessibility, (W) and
-   409    monotonicity, and the fit's growth follow at every level -/
-   410    fitAcc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   411      ∃ A, (D.w ψ ≠ 0 → A ∈ˢ (tg (D.w ψ) : V)) ∧ D.FitAcc ψ ρp A
+== ConLeche/Model/Env/BlockLfp.lean#L760-L767
+   760    /-- **`Φ` maps the tuple space into itself** -/
+   761    maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   762      MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+   763    /-- **the hole fit is accessible**, with a bound of the level at a
+   764    `Type`-valued block (task #327): the operator's accessibility, (W) and
+   765    monotonicity, and the fit's growth follow at every level -/
+   766    fitAcc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   767      ∃ A, (D.w ψ ≠ 0 → A ∈ˢ (tg (D.w ψ) : V)) ∧ D.FitAcc ψ ρp A
 
-== ConLeche/SetModel/Access.lean#L298-L303
-   298  theorem AccW.closed {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
-   299      (h : AccW w k Is Φ) (hmaps : MapsTuple w k Is Φ) : ∃ L, IsClosedTuple w k Is Φ L := by
-   300    by_cases hw : w = 0
-   301    · subst hw; exact closedTuple_zero hmaps
-   302    · obtain ⟨A, hA, hacc⟩ := h
-   303      exact closed_of_acc hw (hA hw) hmaps hacc
+== ConLeche/SetModel/Access.lean#L1039-L1045
+  1039  theorem AccW.closed {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
+  1040      {hΦ : DefTupleOp k Φ} (h : AccW w k Is Φ) (hmaps : MapsTuple w k Is Φ) :
+  1041      ∃ L, IsClosedTuple w k Is Φ L := by
+  1042    by_cases hw : w = 0
+  1043    · subst hw; exact closedTuple_zero hmaps
+  1044    · obtain ⟨A, hA, hacc⟩ := h
+  1045      exact closed_of_acc hw (hA hw) hΦ hmaps hacc
 
-== ConLeche/Model/Env/BlockLfp.lean#L527-L531
-   527  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
-   528  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-   529      (hsat : Sat V (D.params ψ).reverse ρp) :
-   530      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
-   531    (h.acc ψ ρp hsat).mono
+== ConLeche/Model/Env/BlockLfp.lean#L883-L887
+   883  /-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
+   884  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   885      (hsat : Sat V (D.params ψ).reverse ρp) :
+   886      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
+   887    (h.acc ψ ρp hsat).mono
 
-== ConLeche/Model/Env/BlockLfp.lean#L412-L417
-   412    /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
-   413    injections of the spines fitting one of `c`'s constructors -/
-   414    fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   415      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
-   416      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
-   417        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
+== ConLeche/Model/Env/BlockLfp.lean#L768-L773
+   768    /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
+   769    injections of the spines fitting one of `c`'s constructors -/
+   770    fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   771      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
+   772      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
+   773        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
 
-== ConLeche/Model/Env/BlockLfp.lean#L188-L190
-   188  /-- **The carrier**: the least pre-fixed tuple of the operator. -/
-   189  @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
-   190    lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+== ConLeche/Model/Env/BlockLfp.lean#L462-L464
+   462  /-- **The carrier**: the least pre-fixed tuple of the operator. -/
+   463  @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
+   464    lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) (D.hΦ ψ ρp)
 
-== ConLeche/Model/Env/BlockLfp.lean#L533-L536
-   533  /-- **The carrier is a fixed point**, componentwise. -/
-   534  theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-   535      (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) :
-   536      D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c :=
+== ConLeche/Model/Env/BlockLfp.lean#L889-L892
+   889  /-- **The carrier is a fixed point**, componentwise. -/
+   890  theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   891      (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) :
+   892      D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c :=
 
-== ConLeche/SetModel/TaggedSum.lean#L65
-    65  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
+== ConLeche/SetModel/TaggedSum.lean#L240
+   240  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
 
-== ConLeche/SetModel/TupleTower.lean#L93
-    93  noncomputable def mkTower : List V → V
+== ConLeche/SetModel/TupleTower.lean#L149
+   149  noncomputable def mkTower : List V → V
 
-== ConLeche/SetModel/TaggedSum.lean#L61-L62
-    61  noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
-    62    sigmaSet w omega (natFibre f)
+== ConLeche/SetModel/TaggedSum.lean#L228-L229
+   228  noncomputable def sumSet (w n : Nat) (f : Nat → V) : V :=
+   229    sigmaSet w omega (boundFibre n f) (hasSigmaPairs_boundFibre omega n f)
 
 == whitepaper/Fragment/IndRec.lean#L89-L92
     89  /-- **The recursor's graph**: the least fixed point of `rstep`.
@@ -4504,29 +4512,31 @@
    324      {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
    325      S.recSem M ls ps m mins is t ∈ˢ appList m (is.reverse ++ [t]) := by
 
-== ConLeche/SetModel/GraphRec.lean#L100-L104
-   100  /-- **The recursor family's graph**: the least fixed point of the graph
-   101  functor, over families of the axiomatic level `tg ℓ` — a relation,
-   102  whose fibres are sets of values, not types (no drop ever fires: the
-   103  level is closed under subsets). -/
-   104  noncomputable def gGraph : V := lfpFamIn (tg ℓ) U (gStep ℓ U Dec pred B st)
+== ConLeche/SetModel/GraphRec.lean#L340-L345
+   340  /-- **The recursor family's graph**: the least fixed point of the graph
+   341  functor, over families of the axiomatic level `tg ℓ` — a relation,
+   342  whose fibres are sets of values, not types (no drop ever fires: the
+   343  level is closed under subsets). -/
+   344  noncomputable def gGraph (h : HasGraphStep ℓ U Dec pred B st) : V :=
+   345    lfpFamIn (tg ℓ) U (gStep ℓ U Dec pred B st h)
 
-== ConLeche/SetModel/GraphRec.lean#L232-L234
-   232  /-- **The recursion theorem, from induction**: the graph has exactly
-   233  one value at every major. -/
-   234  theorem exu : ∀ u, u ∈ˢ U → Single K.G u := by
+== ConLeche/SetModel/GraphRec.lean#L554-L556
+   554  /-- **The recursion theorem, from induction**: the graph has exactly
+   555  one value at every major. -/
+   556  theorem exu : ∀ u, u ∈ˢ U → Single K.G u := by
 
-== ConLeche/SetModel/GraphRec.lean#L270-L274
-   270  /-- **The ι law, at ANY decoding**: the recursor at a major is the
-   271  step at that decoding, the `ih`s being the recursor at the
-   272  predecessors. -/
-   273  theorem rec_eq {u : V} {d : R} (hu : u ∈ˢ U) (hd : K.Dec u d) :
-   274      K.recAt u = K.st d (graph (fun j => K.recAt j) (K.pred d)) := by
+== ConLeche/SetModel/GraphRec.lean#L594-L599
+   594  /-- **The ι law, at ANY decoding**: the recursor at a major is the
+   595  step at that decoding, the `ih`s being the recursor at the
+   596  predecessors. -/
+   597  theorem rec_eq {u d : V} (hu : u ∈ˢ U) (hd : K.Dec u d)
+   598      {hG : HasGraph (K.pred d) (fun j => K.recAt j)} :
+   599      K.recAt u = K.st d (graph (fun j => K.recAt j) (K.pred d) hG) := by
 
-== ConLeche/SetModel/GraphRec.lean#L190-L192
-   190    /-- **the sort-dependent fact**: decodings are unique, or the bound is a subsingleton -/
-   191    huniq : ∀ u, u ∈ˢ U → ∀ d d', Dec u d → Dec u d' →
-   192      d = d' ∨ ∀ v v', v ∈ˢ B u → v' ∈ˢ B u → v = v'
+== ConLeche/SetModel/GraphRec.lean#L501-L503
+   501    /-- **the sort-dependent fact**: decodings are unique, or the bound is a subsingleton -/
+   502    huniq : ∀ u, u ∈ˢ U → ∀ d d', Dec u d → Dec u d' →
+   503      d = d' ∨ ∀ v v', v ∈ˢ B u → v' ∈ˢ B u → v = v'
 
 == ConLeche/Model/Inductives/ClassGenUniq.lean#L13-L19
     13  * **`huniq`** (`genUniq`): two decodings of a major are equal, or the
@@ -5287,9 +5297,9 @@
     61      (hrec : C recName (IndSpec.falseSpec name recName elim).recInfo)
     62      {t : Name} {ci : ConstInfo} (ht : C t ci) (hty : ci.type = .const name []) : False := by
 
-== ConLeche/Semantics/IsModelBasis.lean#L136-L137
-   136  theorem IsModel.no_false_record (h : IsModel V model R) (hF : DeclaresFalse R) {t : Name}
-   137      {ps : List LevelParam} (ht : HasConstant R t ps (.const falseName [])) : False := by
+== ConLeche/Semantics/IsModelBasis.lean#L176-L177
+   176  theorem IsModel.no_false_record (h : IsModel V model R) (hF : DeclaresFalse R) {t : Name}
+   177      {ps : List LevelParam} (ht : HasConstant R t ps (.const falseName [])) : False := by
 
 == whitepaper/Fragment/Main.lean#L89-L91
     89  theorem no_empty_prop_inhabitant {ds : List Decl} (h : Checks Env.empty ds) {name recName elim : Name}
@@ -5862,13 +5872,28 @@
     43    indices, is the least pre-fixed tuple's component at the index
     44    tuple.
 
-== ConLeche/Semantics/Inductives/HoleAcc.lean#L50-L55
-    50  | case | accessibility | bound | the point |
-    51  |---|---|---|---|
-    52  | a hole-free reading | `ConstOn.accOn` | `∅` | `ConstOn.ptOn` |
-    53  | the `whnf` step | `AccOn.of_eqOn` | the reduct's | `PtOn.of_eqOn` |
-    54  | Π, hole-free domain | `AccOn.pi` | `piBound` | `PtOn.pi` |
-    55  | a hole at hole-free arguments | `AccOn.holeApp` | `{pt}` | `PtOn.holeApp` |
+== ConLeche/Semantics/Inductives/HoleAcc.lean#L8-L28
+     8  # Accessibility in the holes, case by case (strictly first-order)
+     9  
+    10  The twin of `HoleMono.lean` for the closure witness (W), formulated over
+    11  purely first-order ZFC + Grothendieck set theory:
+    12  
+    13  * **Set-valued occurrence space (`AppPaths`, `GraphOccs`, `occSpaceQ`).**
+    14    An occurrence `(i, vs, y)` is encoded as
+    15    `occEncItem i vs y := kpair (vnat i) (kpair (vnat vs.length) (encSpineY vs y))`.
+    16    Because `app pt v = pt` holds over the proper class of all `v : V`, a
+    17    `foldl app` prefix hitting `pt` cannot form a set of spines in `V`.
+    18    Whenever `f ≠ pt`, `app_eq_empty_of_not_mem` guarantees that any `v` with
+    19    `app f v ≠ ∅` lies in the domain set `domSet f := sUnion (sUnion f)`.
+    20    Iterating `sigmaPairs` over `domSet f := if f = pt then ∅ else sUnion (sUnion f)`
+    21    for `n` steps builds the genuine set `AppPaths f n` (`GraphOccs ρ i n`,
+    22    `occSpaceQ ρ qs`), and `pt`-hitting prefixes are dropped with empty support
+    23    in `AccOn.holeApp` via `FrameRel.PtHitStable`.
+    24  * **First-order Skolemization (`AccOn.pi`).**  Replaced meta-level `Classical.choose`
+    25    over `V → Occ V` with `piSet_choose` over finite-support `DefRel` relations
+    26    (`FrameRel.Def d`), finite `(i, n)` listings (`FinQ Q`), and definable bounds
+    27    (`DefBound d A`), returning a genuine set-level support graph `g : V`.
+    28  -/
 
 == ConLeche/Model/Inductives/ContAcc.lean#L14-L33
     14  /-!
@@ -5892,18 +5917,14 @@
     32  container is empty (`LfpClause.injNePt`).
     33  -/
 
-== ConLeche/SetModel/Access.lean#L530-L540
-   530  /-- **THE NESTED CASE: the least tuple is accessible in its parameter.**
-   531  If the joint operator `Θ` (parameter components first, then its own) is
-   532  `A`-accessible and maps the space into itself, then `X ↦ lfp_Y Θ(X, Y)`
-   533  is `accPaths A`-accessible — no key, no wide operator, no container
-   534  presentation.  (W) of each section and its monotonicity come from
-   535  `closed_of_acc` / `AccTuple.monoTuple`. -/
-   536  theorem lfpP_acc {Θ : (Nat → V) → Nat → V} {A : V} (hA : w ≠ 0 → A ∈ˢ (tg w : V))
-   537      (hmaps : ∀ X Y, InTupleSpace w kX IsX X → InTupleSpace w kY IsY Y →
-   538        InTupleSpace w kY IsY (Θ (catT kX X Y)))
-   539      (hacc : AccTuple w (kX + kY) (catT kX IsX IsY) kY IsY Θ A) :
-   540      AccTuple w kX IsX kY IsY (lfpP w kX kY IsY Θ) (accPaths A) := by
+== ConLeche/SetModel/Access.lean#L1537-L1543
+  1537  /-- **THE NESTED CASE: the least tuple is accessible in its parameter.** -/
+  1538  theorem lfpP_acc {Θ : (Nat → V) → Nat → V} {A : V}
+  1539      (hΘ : DefTupleOp (kX + kY) Θ) (hA : w ≠ 0 → A ∈ˢ (tg w : V))
+  1540      (hmaps : ∀ X Y, InTupleSpace w kX IsX X → InTupleSpace w kY IsY Y →
+  1541        InTupleSpace w kY IsY (Θ (catT kX X Y)))
+  1542      (hacc : AccTuple w (kX + kY) (catT kX IsX IsY) kY IsY Θ A) :
+  1543      AccTuple w kX IsX kY IsY (lfpP w kX kY IsY Θ hΘ) (accPaths A) := by
 
 == ConLeche/Semantics/Inductives/HoleMono.lean#L17-L23
     17  | `nestPos` case | lemma |
@@ -5920,7 +5941,7 @@
     19    `G`-components replaced by `B`'s, does: a container frame abstracts
     20    only the reached part of its group, the rest is read concretely.
 
-== ConLeche/SetModel/NestRec.lean#L8-L46
+== ConLeche/SetModel/NestRec.lean#L8-L41
      8  /-!
      9  # The nested recursor's graph kit: majors over several CLASSES
     10  
@@ -5939,7 +5960,7 @@
     23  * its container fields' classes are reached, during the induction, at
     24    SEPARATED frames — the instantiation read at the enclosing class's
     25    separated tuple; which frames count is the kit's `Adm` (admissible:
-    26    "a frame whose parameter positions hold elements satisfying `G`");
+    26    "a frame whose parameter positions hold elements satisfying `G : V`");
     27  * at such a frame the class's own induction runs with the predicate
     28    "lies in the TRUE class ∧ the property"; membership in the true class
     29    is re-established at each constructor by the class's clause at the
@@ -5948,20 +5969,15 @@
     32    (`trans`).  The only inclusion the induction itself produces is the
     33    separation `sep ⊆ carrier`.
     34  
-    35  **What is used of a class** (charter items 2, 4): its clause at each
-    36  frame the induction visits (`OkAt`: monotone in its own holes, a closed
-    37  tuple, the fibre law) and ONE fact per class tying a frame to the true
-    38  one, `trans`: a constructor fitting at an admissible frame, at holes
-    39  below the true carrier, fits at the true frame and the true carrier.  At
-    40  the term level `trans` is `LfpDatum.hfits_mono` along the relation
-    41  between the instantiation's two hole frames (the constructor's
-    42  positivity AT THE INSTANTIATION, `CtorPos` — what `nestPos`'s container
-    43  descent certifies, keyed by the instantiation) followed by the clause's
-    44  own `fitsMono` at the true frame.  Nothing is asked of a container "in
-    45  its parameter": no monotonicity of its value or carrier, no Bekić, no
-    46  joint (wide) operator.
+    35  In this first-order formulation, frames of class `b` are finite tuples
+    36  `Fin (frLen b) → V`, `G : V` is an unbounded set of encoded majors
+    37  `nenc b c t y`, `SClause` carries `DefTupleOp`, and `NestKit.ind` is
+    38  guarded by `HasSep K.U P`.
+    39  
+    40  Everything here is over the bare `SetTheory` interface; no syntax.
+    41  -/
 
-== ConLeche/SetModel/NestRecCls.lean#L6-L29
+== ConLeche/SetModel/NestRecCls.lean#L6-L32
      6  /-!
      7  # The nested kit's induction at the RECURSOR's classes
      8  
@@ -5984,8 +6000,11 @@
     25  nodes), on a set `S` of classes that have nodes.
     26  The property is read back along every node of a class: `P'` holds at the
     27  node major `nenc b (mOf c b) t x` when `P` holds at `tagged c t x`
-    28  for every related recursor `c`; the kit's predecessors must contain every
-    29  related recursor's call targets (`hpredR`).
+    28  for every related recursor `c` (discharged via `HasSep` on
+    29  `unionSet Kr Is Cr` and `DefRel.finForall_lt` over `c < Kr`, `b < K.nC`);
+    30  the kit's predecessors must contain every related recursor's call
+    31  targets (`hpredR`).
+    32  -/
 
 == ConLeche/Model/Inductives/BlockRecLaw.lean#L940-L946
    940  /-- **A new block recursor's rule law, at either firing**.  `hpins` is
@@ -6087,15 +6106,15 @@
    172  theorem truthVal_congr {p q : Prop} (h : p ↔ q) : (truthVal p : V) = truthVal q :=
    173    ext fun z => by rw [mem_truthVal, mem_truthVal, h]
 
-== ConLeche/Model/AxiomMem.lean#L261-L268
-   261  /-- **`propext` inhabits its stored type's reading.** -/
-   262  theorem propext_mem (mp : EnvModelM V env)
-   263      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
-   264      (hn : cv.name = propextName)
-   265      (ψ : Name → Nat) (ta : Term)
-   266      (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
-   267      (ρ : Nat → V) :
-   268      interp V ρ (.const .propext []) ∈ˢ interp V ρ ta := by
+== ConLeche/Model/AxiomMem.lean#L264-L271
+   264  /-- **`propext` inhabits its stored type's reading.** -/
+   265  theorem propext_mem (mp : EnvModelM V env)
+   266      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
+   267      (hn : cv.name = propextName)
+   268      (ψ : Name → Nat) (ta : Term)
+   269      (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
+   270      (ρ : Nat → V) :
+   271      interp V ρ (.const .propext []) ∈ˢ interp V ρ ta := by
 
 == whitepaper/Fragment/EtaIota.lean#L242-L260
    242  /-- **ι through the projections, the semantic core**: given
@@ -6173,10 +6192,10 @@
    459        {cvT : ConstantVal} {caps : IndCaps} {tbl : ProjTable} :
    460        Infer env .io d b tb → Red env d tb wtb →
 
-== ConLeche/Model/Rules/DefEqSound.lean#L554-L556
-   554  theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
-   555      {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
-   556      {cnP cnF : Nat} {cT T : Name} {us' : List Level} {cvT : ConstantVal}
+== ConLeche/Model/Rules/DefEqSound.lean#L555-L557
+   555  theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
+   556      {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+   557      {cnP cnF : Nat} {cT T : Name} {us' : List Level} {cvT : ConstantVal}
 
 == ConLeche/Rules/Rel.lean#L272-L281
    272    /-- **The structure-η rescue** (`majorToCtor`'s η branch,
@@ -6203,9 +6222,9 @@
     76        nparams := p.nP
     77        nIdx := nIdx
 
-== ConLeche/Model/Inductives/FixKit.lean#L673-L674
-   673    (`sumMkAV_fold`: the application folds to the tagged tuple);
-   674  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
+== ConLeche/Model/Inductives/FixKit.lean#L680-L681
+   680  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
+   681    the parameters and its own projections below the tag.
 
 == ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
     10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
@@ -6215,8 +6234,8 @@
 == ConLeche/Rules/Rel.lean#L485
    485        UnitLike env d wta →
 
-== ConLeche/Model/Rules/UnitSound.lean#L487
-   487  theorem DefEq.unitLike_sound {d : Nat} {a ta wta b tb wtb : Expr}
+== ConLeche/Model/Rules/UnitSound.lean#L489
+   489  theorem DefEq.unitLike_sound {d : Nat} {a ta wta b tb wtb : Expr}
 
 == ConLeche/Model/Inductives/FixKit.lean#L1331
   1331    · -- the table's η law, at every field count
@@ -7122,13 +7141,13 @@
     46      (challenge : (checkChallenge .verified pins maxNatSize dsS ds).isOk) :
     47      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) :=
 
-== ConLeche/MainTheorem.lean#L61-L66
-    61  /-- **An accepted comparison's challenge file has a model**: an exit 0 of `--compare -- <c> <s>`
-    62  read the file `c` as records that have a model in every set theory. -/
-    63  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
-    64      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
-    65      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
-    66        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
+== ConLeche/MainTheorem.lean#L63-L68
+    63  /-- **An accepted comparison's challenge file has a model**: an exit 0 of `--compare -- <c> <s>`
+    64  read the file `c` as records that have a model in every set theory. -/
+    65  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    66      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    67      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+    68        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
 
 == whitepaper/Fragment/Compare.lean#L771-L776
    771  theorem compare_solves (dev : Nat → Module) (c : Nat) (h : ∀ j ≤ c, LocalOk dev j) :
@@ -7243,67 +7262,68 @@
    257      solution has no constant of this name)")
    258    else .ok ()
 
-== ConLeche/MainTheorem.lean#L138-L175
-   138  /-- **An accepted modular comparison's challenge closure has a family of models**: on a
-   139  snapshot where every command `--schedule-commands --compare` prints for the challenge `C` and
-   140  its solution `S` exits 0 (the graph check, a worker at every module of the headers' closure of
-   141  `C` and `S` but `C`, the compare worker at `C`), on every snapshot that agrees with it under the
-   142  challenge's directories, the family of `main_modular` for the closure of `C`. -/
-   143  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   144      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   145      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   146        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   147      (hwork : ∀ m, Olean.HdrClosure
-   148          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   149          [C, S] m → m ≠ C →
-   150        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   151          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   152            root']) fs 0)
-   153      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   154        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   155      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   156      ∀ fs', FS.AgreeUnder sp fs fs' →
-   157        ∃ model : Name → (Name → List Nat → V),
-   158          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   159          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   160            model m n = model m' n) :=
-   161    Driver.Compose.modular_compare_graph V hc hs hgraph hwork hcmp
-   162  
-   163  open Frontend in
-   164  /-- **The same, in one process**: every exit 0 of `--olean --modular --compare` has the family
-   165  of `main_modular_compare`. -/
-   166  theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   167      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   168      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
-   169        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   170      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   171      ∀ fs', FS.AgreeUnder sp fs fs' →
-   172        ∃ model : Name → (Name → List Nat → V),
-   173          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   174          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   175            model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L140-L177
+   140  /-- **An accepted modular comparison's challenge closure has a family of models**: on a
+   141  snapshot where every command `--schedule-commands --compare` prints for the challenge `C` and
+   142  its solution `S` exits 0 (the graph check, a worker at every module of the headers' closure of
+   143  `C` and `S` but `C`, the compare worker at `C`), on every snapshot that agrees with it under the
+   144  challenge's directories, the family of `main_modular` for the closure of `C`. -/
+   145  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   146      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   147      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   148        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   149      (hwork : ∀ m, Olean.HdrClosure
+   150          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   151          [C, S] m → m ≠ C →
+   152        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   153          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   154            root']) fs 0)
+   155      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   156        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   157      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   158      ∀ fs', FS.AgreeUnder sp fs fs' →
+   159        ∃ model : Name → (Name → List Nat → V),
+   160          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   161          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   162            model m n = model m' n) :=
+   163    Driver.Compose.modular_compare_graph V hc hs hgraph hwork hcmp
+   164  
+   165  open Frontend in
+   166  /-- **The same, in one process**: every exit 0 of `--olean --modular --compare` has the family
+   167  of `main_modular_compare`. -/
+   168  theorem main_modular_compare_one (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   169      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   170      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--modular", "--compare",
+   171        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   172      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   173      ∀ fs', FS.AgreeUnder sp fs fs' →
+   174        ∃ model : Name → (Name → List Nat → V),
+   175          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   176          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   177            model m n = model m' n) :=
 
-== ConLeche/MainTheorem.lean#L179-L198
-   179  /-- **No accepted modular comparison's challenge module holds a constant of type `False`**: no
-   180  snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False` in
-   181  the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
-   182  through its solution too, which the family of `main_modular_compare` does not. -/
-   183  theorem main_modular_compare_no_False (V : Type w) [SetTheory V] {T D c s : String}
-   184      {C S : Name} {fs : FS} {ci : ConstantInfo}
-   185      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   186      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   187        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   188      (hwork : ∀ m, Olean.HdrClosure
-   189          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   190          [C, S] m → m ≠ C →
-   191        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   192          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   193            root']) fs 0)
-   194      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   195        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   196      (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
-   197        fs C .private ci)
-   198      (hty : ci.type = .const falseName []) : False :=
+== ConLeche/MainTheorem.lean#L181-L201
+   181  /-- **No accepted modular comparison's challenge module holds a constant of type `False`**:
+   182  assuming `ModelExists` (essentially the consistency / non-vacuity of our first-order set theory),
+   183  no snapshot where every command of `main_modular_compare` exits 0 has a constant of type `False`
+   184  in the challenge module `C`, read through the challenge's directories.  This covers what `C` sees
+   185  through its solution too, which the family of `main_modular_compare` does not. -/
+   186  theorem main_modular_compare_no_False (hM : ModelExists.{w}) {T D c s : String}
+   187      {C S : Name} {fs : FS} {ci : ConstantInfo}
+   188      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   189      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   190        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   191      (hwork : ∀ m, Olean.HdrClosure
+   192          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   193          [C, S] m → m ≠ C →
+   194        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   195          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   196            root']) fs 0)
+   197      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   198        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   199      (hci : Olean.InModulePart (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D))
+   200        fs C .private ci)
+   201      (hty : ci.type = .const falseName []) : False :=
 
 >>> whitepaper/sections/07-left-out.typ
 
@@ -7351,13 +7371,13 @@
     11  every member with ONE constructor and no index, nothing at any other
     12  member — with `stageFixTable` at each table (abstract in the former's
 
-== ConLeche/Model/Inductives/FixKit.lean#L667-L672
-   667  
-   668  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
-   669    `i + 1` into the body's residual — the graph regime by the tower's
-   670    projection membership below the tag, the squash regime by the point;
-   671  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
-   672    projection of a graded constructor application is the selected field
+== ConLeche/Model/Inductives/FixKit.lean#L674-L679
+   674  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
+   675    `i + 1` into the body's residual — the graph regime by the tower's
+   676    projection membership below the tag, the squash regime by the point;
+   677  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
+   678    projection of a graded constructor application is the selected field
+   679    (`sumMkAV_fold`: the application folds to the tagged tuple);
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L8-L12
      8  
@@ -7406,12 +7426,13 @@
     20  definitionally equal to the stream's stored types and value, and whose
     21  certificates check enables the operation's fast path.  The hand-pinned certificate *statements* the proofs are checked against
 
-== ConLeche/Model/NatEqs.lean#L1046-L1050
-  1046  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
-  1047      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
-  1048      (hprev : NatOps mp.base2 φ)
-  1049      {c : Name} {lps : List Name} {type' value' : Expr}
-  1050      {hint : ReducibilityHint}
+== ConLeche/Model/NatEqs.lean#L1045-L1050
+  1045  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+  1046      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
+  1047      (hprev : NatOps mp.base2 φ)
+  1048      {c : Name} {lps : List Name} {type' value' : Expr}
+  1049      {hint : ReducibilityHint}
+  1050      (hcmem : c ∈ ConLeche.natOpNames)
 
 == ConLeche/Kernel/Basis/Quot.lean#L8-L14
      8  # The pinned `Quot` basis block
@@ -7422,19 +7443,20 @@
     13  synthetic rule each (applying the lift/ind slot to the packed
     14  element), and `Quot.sound` as a stored axiom (true in the set model).
 
-== ConLeche/SetTheory/Derive/Quot.lean#L65-L67
-    65  /-- The quotient (see module docs). -/
-    66  noncomputable def quotSet (u : Nat) (A R : V) : V :=
-    67    if u = 0 then image (fun _ => pt) A else image (fun a => kpair empty (qclass A R a)) A
+== ConLeche/SetTheory/Derive/Quot.lean#L188-L191
+   188  /-- The quotient (see module docs). -/
+   189  noncomputable def quotSet (u : Nat) (A R : V) : V :=
+   190    if u = 0 then image (fun _ => pt) A (hasImage_const_pt A)
+   191    else image (fun a => kpair empty (qclass A R a)) A (hasImage_quotClass_pos A R)
 
-== ConLeche/Model/BasisQuot.lean#L2772-L2778
-  2772  theorem extendQuotLift (mp : EnvModelM V env)
-  2773      (hQ : env.find? quotName = some (quotA.atLps [q]))
-  2774      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
-  2775      (hE : EqStored env)
-  2776      (hfresh : env.find? quotLiftA.name = none)
-  2777      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
-  2778      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
+== ConLeche/Model/BasisQuot.lean#L2896-L2902
+  2896  theorem extendQuotLift (mp : EnvModelM V env)
+  2897      (hQ : env.find? quotName = some (quotA.atLps [q]))
+  2898      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
+  2899      (hE : EqStored env)
+  2900      (hfresh : env.find? quotLiftA.name = none)
+  2901      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
+  2902      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
 
 == ConLeche/Kernel/Basis/False.lean#L37-L39
     37  /-- `False : Prop`. -/
@@ -7473,14 +7495,14 @@
     14  recursor) — so the checker accepts exactly these two axioms, after
     15  pinning their types and the *shapes of the inductives they quantify
 
-== ConLeche/Model/AxiomMem.lean#L600-L606
-   600  theorem choice_mem (mp : EnvModelM V env)
-   601      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
-   602      (hn : cv.name = choiceName)
-   603      (ψ : Name → Nat) (ta : Term)
-   604      (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
-   605      (ρ : Nat → V) :
-   606      interp V ρ (.const .choice [ψ uN]) ∈ˢ interp V ρ ta := by
+== ConLeche/Model/AxiomMem.lean#L603-L609
+   603  theorem choice_mem (mp : EnvModelM V env)
+   604      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
+   605      (hn : cv.name = choiceName)
+   606      (ψ : Name → Nat) (ta : Term)
+   607      (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
+   608      (ρ : Nat → V) :
+   609      interp V ρ (.const .choice [ψ uN]) ∈ˢ interp V ρ ta := by
 
 == ConLeche/Rules/Rel.lean#L143-L146
    143    `lazyDeltaStep`): one definition unfolded
@@ -7585,19 +7607,11 @@
    153  @[expose] def denote (cval : Name → (Name → Nat) → Term) (env : Env)
    154      (φ : Name → Nat) : (d : Nat) → Expr → Option Term
 
-== ConLeche/Semantics/Interp.lean#L134-L145
-   134  noncomputable def interp : (Nat → V) → Term → V
-   135    | ρ, .bvar i => ρ i
-   136    | _, .sort u => univ u
-   137    | _, .const c us => bval V c us
-   138    | ρ, .app f a => SetTheory.app (interp ρ f) (interp ρ a)
-   139    | ρ, .lam A b => lamV (interp ρ A) fun x => interp (cons x ρ) b
-   140    | ρ, .pi A B => piV (interp ρ A) fun x => interp (cons x ρ) B
-   141    | ρ, .letE v b => interp (cons (interp ρ v) ρ) b
-   142    | ρ, .eqE a b => eqv (interp ρ a) (interp ρ b)
-   143    | ρ, .fst e => sfst (interp ρ e)
-   144    | ρ, .snd e => ssnd (interp ρ e)
-   145    | _, .prf => pt
+== ConLeche/Semantics/Interp.lean#L289-L292
+   289  /-- The interpretation: total, term-directed, environment-free; the
+   290  binders read their regime off the values. -/
+   291  noncomputable def interp (ρ : Nat → V) (t : Term) : V :=
+   292    (interpDef V ρ 0 t).val Fin.elim0
 
 == ConLeche/Rules/Rel.lean#L754-L763
    754  /-- **The full-grade telescope certificate** (`iotaCertsFull`,
@@ -7679,27 +7693,27 @@
     54            InferClaimIO m φ fuel := by
     55    have hin : RulesInputs V m φ := h
 
-== ConLeche/IsModel.lean#L212-L213
-   212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   213      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L424-L425
+   424  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   425      (C : ConstantInfo → Prop) : Prop :=
 
-== ConLeche/IsModel.lean#L128-L129
-   128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
-   129      (BVarIdx → V) → Expr → V
+== ConLeche/IsModel.lean#L275-L276
+   275  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat)
+   276      (ρ : BVarIdx → V) (e : Expr) : V :=
 
 == ConLeche/Kernel/Inductives/IotaEq.lean#L119
    119  def iotaEqOf (cv : ConstantVal) (mI rP i : Nat) (rl : RecRule) : Option Expr := do
 
-== ConLeche/Model/IsModelBridge.lean#L116-L118
-   116  theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
-   117      (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
-   118      {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
+== ConLeche/Model/IsModelBridge.lean#L128-L130
+   128  theorem eval_of_Denotes {cval : Name → (LevelParam → Nat) → V} {env : Env}
+   129      (hloc : CvalLocal cval env) {model : Name → List Nat → V} (hag : AgreesOn model cval env)
+   130      {φ : LevelParam → Nat} {ρ : BVarIdx → V} {e : Expr} {v : V}
 
-== ConLeche/Model/IsModelBridge.lean#L665-L668
-   665  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
-   666      (hrec : RecordsStored R env) {model : Name → List Nat → V}
-   667      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
-   668      IsModel V model R := by
+== ConLeche/Model/IsModelBridge.lean#L771-L774
+   771  theorem isModel_of_agree {R : ConstantInfo → Prop} {env : Env} (m : Model.EnvModelM V env)
+   772      (hrec : RecordsStored R env) {model : Name → List Nat → V}
+   773      (hag : AgreesOn model (Model.cvalOf m.base2.acval) env) (heq : EqReads model) :
+   774      IsModel V model R := by
 
 == ConLeche/Cached/CoreC.lean#L8-L11
      8  # The cached checker core
@@ -7759,19 +7773,19 @@
    346  theorem localOk (j : Nat) : LocalOk pins R.dev j :=
    347    R.localOk_of (fun _ hM _ _ hh => R.home_rank hM hh) R.reads_ok j
 
-== ConLeche/MainTheorem.lean#L109-L120
-   109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
-   110      (hr : Olean.parseModName root = some r)
-   111      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   112        fs 0)
-   113      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   114        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   115          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   116      ∃ model : Name → (Name → List Nat → V),
-   117        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   118          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
-   119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L111-L122
+   111  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   112      (hr : Olean.parseModName root = some r)
+   113      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   114        fs 0)
+   115      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   116        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   117          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   118      ∃ model : Name → (Name → List Nat → V),
+   119        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   120          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   121        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   122          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
 == ConLeche/Frontend/Prepare.lean#L173-L174
    173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
@@ -7783,10 +7797,10 @@
 
 >>> whitepaper/sections/08-related.typ
 
-== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
-   200  theorem carneiro_implies_conleche :
-   201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
-   202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
+== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L336-L338
+   336  theorem carneiro_implies_conleche :
+   337      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
+   338    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 >>> whitepaper/README.md
 

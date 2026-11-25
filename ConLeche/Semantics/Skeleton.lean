@@ -118,9 +118,9 @@ general forms `mem_sigma_elim` supports directly). -/
 
 /-- First projection: a member of a `Σ` has its first component in the
 base. -/
-theorem sfst_mem_gen {u v : Nat} {A p : V} {Bf : V → V}
+theorem sfst_mem_gen {u v : Nat} {A p : V} {Bf : V → V} {hS : HasSigmaPairs A Bf}
     (hA : A ∈ˢ (univ u : V))
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A Bf) : sfst p ∈ˢ A := by
+    (hp : p ∈ˢ sigmaSet (Nat.max u v) A Bf hS) : sfst p ∈ˢ A := by
   obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
   by_cases hw : Nat.max u v = 0
   · have hu : u = 0 := Nat.le_zero.mp (hw ▸ Nat.le_max_left u v)
@@ -130,10 +130,10 @@ theorem sfst_mem_gen {u v : Nat} {A p : V} {Bf : V → V}
 
 /-- Second projection: the second component lies in the fibre over the
 first. -/
-theorem ssnd_mem_gen {u v : Nat} {A p : V} {Bf : V → V}
+theorem ssnd_mem_gen {u v : Nat} {A p : V} {Bf : V → V} {hS : HasSigmaPairs A Bf}
     (hA : A ∈ˢ (univ u : V))
     (hB : ∀ x, x ∈ˢ A → Bf x ∈ˢ (univ v : V))
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A Bf) :
+    (hp : p ∈ˢ sigmaSet (Nat.max u v) A Bf hS) :
     ssnd p ∈ˢ Bf (sfst p) := by
   obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
   by_cases hw : Nat.max u v = 0

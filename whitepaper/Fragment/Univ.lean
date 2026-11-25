@@ -20,9 +20,9 @@ a subset of a member is a member (so a separation is), the empty set,
 singletons, binary and indexed unions, and the countable union.
 
 Con-leche's core (`ConLeche/SetTheory/Core.lean`) states universehood
-as the matrix of Tarski's Axiom A with a transitivity clause
-(`IsTGUniverse`) and derives these closure laws and infinity from it
-(`ConLeche/SetTheory/Derive/Universe.lean`, `Univ.lean`,
+by four first-order clauses — transitive, closed under pairs, power sets and
+indexed unions (`IsGrothendieck`) — and derives these closure laws and infinity
+from it (`ConLeche/SetTheory/Derive/Universe.lean`, `Univ.lean`,
 `Omega.lean`); the fragment takes the derived laws as its interface,
 as `SetLib` does for the rest.
 
@@ -175,7 +175,7 @@ theorem image_congr {A : V} {f g : V → V} (h : ∀ a, a ∈ˢ A → f a = g a)
     · rintro ⟨a, ha, rfl⟩; exact ⟨a, ha, (h a ha).symm⟩
 
 /-- **The union of an indexed family** `⋃ a ∈ A, F a`: replacement,
-then union.  Con-leche: `IsTGUniverse.famUnion_mem`,
+then union.  Con-leche: `IsGrothendieck.famUnion_mem`,
 `ConLeche/SetTheory/Derive/Universe.lean`. -/
 def famUnion (A : V) (F : V → V) : V := sUnion (image F A)
 
@@ -210,8 +210,8 @@ theorem idx_nat (k : Nat) : idx (nat k : V) = k := by
   exact nat_inj (Classical.choose_spec h)
 
 /-- **The countable union** `F 0 ∪ F 1 ∪ …`: the union over `ω`, each
-numeral read back as its number.  Con-leche: `Tower.natUnion`,
-`ConLeche/SetModel/Iter.lean`. -/
+numeral read back as its number.  Con-leche: `Tower.omegaUnion`, over the
+members of its own `ω` (`ConLeche/SetModel/Iter.lean`). -/
 noncomputable def natUnion (F : Nat → V) : V := famUnion omega fun z => F (idx z)
 
 theorem mem_natUnion {F : Nat → V} {z : V} : z ∈ˢ natUnion F ↔ ∃ k, z ∈ˢ F k := by
@@ -224,7 +224,7 @@ theorem mem_natUnion {F : Nat → V} {z : V} : z ∈ˢ natUnion F ↔ ∃ k, z �
     exact ⟨nat k, mem_omega.mpr ⟨k, rfl⟩, by rw [idx_nat]; exact hk⟩
 
 /-- A countable union of members of a positive universe is a member —
-the one use of `ω`.  Con-leche: `Tower.natUnion_mem_univ_pos`,
+the one use of `ω`.  Con-leche: `Tower.omegaUnion_mem_tg_pos`,
 `ConLeche/SetModel/Iter.lean`. -/
 theorem natUnion_mem_univ {n : Nat} {F : Nat → V} (hn : n ≠ 0) (h : ∀ k, F k ∈ˢ univ n) :
     natUnion F ∈ˢ (univ n : V) :=

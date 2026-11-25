@@ -1019,7 +1019,9 @@ theorem dyn_holeRel (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat
     (hG : ∀ b' c t y, G b' c t y →
       y ∈ˢ app ((lfpSClause (nlDb mpC d ns b') (nlψ envC ns ψ b')
         (pinIdx (nlDb mpC d ns b') (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b')
-          (nlLive mpC ctx d ns ψ ρ xs b'))).carrier (nlFr mpC ctx d ns ψ ρ xs b') c) t)
+          (nlLive mpC ctx d ns ψ ρ xs b'))
+        (nlFrLen d ns xs b') (nlTail mpC ctx d ns ψ ρ xs b')).carrier
+          (nlFrFin mpC ctx d ns ψ ρ xs b') c) t)
     {t : PosTree} (ht : t ∈ ns) :
     HoleRel mk.base2 ψ ctx t.anc (ctx.hiAt t.anc.length)
       (stackCtx mk.base2 ψ ctx t.anc (d.holeCtx ψ).reverse)
@@ -1038,7 +1040,8 @@ theorem dyn_holeRel (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat
     by_cases hc : SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t' ψ) is
     · have hy' := hG _ _ _ _ (g1 hc)
       rw [pinIdx_of (show nlLive mpC ctx d ns ψ ρ xs 0 by unfold nlLive; rw [ite_eq_left rfl]; trivial),
-        lfpSClause_carrier rfl] at hy'
+        lfpSClause_carrier (prepend_nlFrFin_nlTail mpC ctx d ns ψ ρ xs 0 ▸ rfl),
+        prepend_nlFrFin_nlTail] at hy'
       simp only [nlDb, nlψ, nlFr, ite_eq_left] at hy'
       rw [dyn_memberLeaf H ψ ρ xs hparams hxs t.anc ht' hc]
       exact hy'
@@ -1053,7 +1056,9 @@ theorem dyn_holeRel (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat
     · rw [(dyn_ownerLeaf H ψ ρ xs hxs (by omega)
         (getD_mem_of_lt (ns := ns) (b := o) ho0 hol) hki hsuf hmem hfit.1 hfit.2).2]
       have hy' := hG _ _ _ _ (g1 hfit)
-      rwa [pinIdx_of hfit.1, lfpSClause_carrier rfl] at hy'
+      rwa [pinIdx_of hfit.1,
+        lfpSClause_carrier (prepend_nlFrFin_nlTail mpC ctx d ns ψ ρ xs o ▸ rfl),
+        prepend_nlFrFin_nlTail] at hy'
     · exact g2 hfit
   dsScoped := (H.hok t ht).2.2.2.1
 
@@ -1069,8 +1074,9 @@ theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
       (∀ b' c t y, G b' c t y →
         y ∈ˢ app ((lfpSClause (nlDb mpC d ns b') (nlψ envC ns ψ b')
           (pinIdx (nlDb mpC d ns b') (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b')
-            (nlLive mpC ctx d ns ψ ρ xs b'))).carrier
-          (nlFr mpC ctx d ns ψ ρ xs b') c) t) →
+            (nlLive mpC ctx d ns ψ ρ xs b'))
+          (nlFrLen d ns xs b') (nlTail mpC ctx d ns ψ ρ xs b')).carrier
+          (nlFrFin mpC ctx d ns ψ ρ xs b') c) t) →
       ∀ ρ', nodeAdm mk mpC ctx d ns ψ ρ xs par b G ρ' → ∀ Y,
       InTupleSpace ((nlDb mpC d ns b).w (nlψ envC ns ψ b)) (nlDb mpC d ns b).N
         ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y →
@@ -1133,6 +1139,553 @@ theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
   rw [hwid] at hc'
   exact grp_idx_eq mk hD hnN hkN H.hcov.find hlps hws hdsa (hlenP _) hg hin hΔ hC hL (hall c' hc')
     hσ.agree hσ.sat hsT hkσ hlive
+
+/-! ## First-order set-parameterized wrapper for `TgtNodeDyn` -/
+
+/-- **Admissible finite frames over unbounded set hypotheses `G : V`**:
+element hypotheses encoded via `nenc b' c t y ∈ˢ G`, evaluated on
+`prepend ρ' (nlTail ... b)`. -/
+@[expose] def nodeAdmSet (mk : EnvModelM V envI) (mpC : EnvModelM V envC) (ctx : NestCtx)
+    (d : BlockData V) (ns : List PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    (par : Nat → Nat) (b : Nat) (G : V) (ρ' : Fin (nlFrLen d ns xs b) → V) : Prop :=
+  nodeAdm mk mpC ctx d ns ψ ρ xs par b
+    (fun b' c t y => nenc b' c t y ∈ˢ G)
+    (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b))
+
+omit [SetTheory V] in
+private theorem prepend_eq_prepend_iff {len : Nat} {as bs : Fin len → V} {t₁ t₂ : Nat → V} :
+    prepend as t₁ = prepend bs t₂ ↔
+      (∀ i : Fin len, as i = bs i) ∧ (∀ q : Nat, t₁ q = t₂ q) := by
+  constructor
+  · intro h
+    refine ⟨fun i => ?_, fun q => ?_⟩
+    · have hi := congrFun h i.val
+      simpa only [prepend, dite_eq_left i.isLt] using hi
+    · have hq := congrFun h (q + len)
+      simpa only [prepend, dite_eq_right (by omega : ¬ q + len < len), Nat.add_sub_cancel] using hq
+  · rintro ⟨h1, h2⟩
+    funext i
+    by_cases hi : i < len
+    · simp only [prepend, dite_eq_left hi]; exact h1 ⟨i, hi⟩
+    · simp only [prepend, dite_eq_right hi]; exact h2 (i - len)
+
+private theorem defFun_foldl_app_ofFn_do {k : Nat}
+    (X : (Fin k → V) → V) (hX : DefFun k X) :
+    ∀ {r : Nat} (As : Fin r → (Fin k → V) → V), (∀ i, DefFun k (As i)) →
+      DefFun k fun env => (List.ofFn fun i => As i env).foldl app (X env)
+  | 0, _, _ => hX.congr fun env => by simp
+  | r + 1, As, hAs => by
+    have hX' : DefFun k fun env => app (X env) (As 0 env) := DefFun.app_apply hX (hAs 0)
+    have hrec := defFun_foldl_app_ofFn_do (fun env => app (X env) (As 0 env)) hX'
+      (fun i : Fin r => As i.succ) (fun i => hAs i.succ)
+    exact hrec.congr fun env => by rw [List.ofFn_succ, List.foldl_cons]
+
+private theorem defFun_mkTower_ofFn_do {k : Nat} :
+    ∀ {r : Nat} (As : Fin r → (Fin k → V) → V), (∀ i, DefFun k (As i)) →
+      DefFun k fun env => Tower.mkTower (List.ofFn fun i => As i env)
+  | 0, _, _ => DefFun.empty.congr fun _ => by simp [Tower.mkTower]
+  | r + 1, As, hAs => by
+    have hrest := defFun_mkTower_ofFn_do (fun i : Fin r => As i.succ) (fun i => hAs i.succ)
+    exact (DefFun.spair_apply (hAs 0) hrest).congr fun env => by
+      simp [List.ofFn_succ, Tower.mkTower]
+
+private theorem defFun_tupW_ofFn_do (u : Nat) {k r : Nat}
+    (As : Fin r → (Fin k → V) → V) (hAs : ∀ i, DefFun k (As i)) :
+    DefFun k fun env => tupW u (List.ofFn fun i => As i env) := by
+  by_cases hu : u = 0
+  · subst hu; exact DefFun.pt.congr fun _ => (tupW_zero _).symm
+  · exact (defFun_mkTower_ofFn_do As hAs).congr fun _ => (tupW_pos hu _).symm
+
+private theorem defRel_spineFit_prepend_ofFn_do {k : Nat} (tail : Nat → V) :
+    ∀ (Fs : List Term) {d r : Nat}
+      (Xs : Fin d → (Fin k → V) → V), (∀ i, DefFun k (Xs i)) →
+      ∀ (As : Fin r → (Fin k → V) → V), (∀ i, DefFun k (As i)) →
+      DefRel k fun env =>
+        SpineFit (prepend (fun i => Xs i env) tail) Fs (List.ofFn fun i => As i env)
+  | [], _, 0, _, _, _, _ => DefRel.true
+  | [], _, _ + 1, _, _, _, _ => DefRel.false.congr fun _ => by simp [SpineFit]
+  | _ :: _, _, 0, _, _, _, _ => DefRel.false.congr fun _ => by simp [SpineFit]
+  | F :: Fs, d, r + 1, Xs, hXs, As, hAs => by
+    let Xs' : Fin (d + 1) → (Fin k → V) → V := fun i env =>
+      if h0 : i.val = 0 then As 0 env else Xs ⟨i.val - 1, by omega⟩ env
+    have hXs' : ∀ i, DefFun k (Xs' i) := fun ⟨i, hi⟩ => by
+      dsimp only [Xs']; split
+      · exact hAs 0
+      · exact hXs _
+    have hrest := defRel_spineFit_prepend_ofFn_do tail Fs Xs' hXs'
+      (fun i : Fin r => As i.succ) (fun i => hAs i.succ)
+    refine (DefRel.and
+      (DefRel.mem_apply (hAs 0) ((interp_defFun_prepend tail d F).comp hXs))
+      hrest).congr fun env => ?_
+    rw [List.ofFn_succ]
+    refine and_congr_right fun _ => ?_
+    have hp : prepend (fun i => Xs' i env) tail = cons (As 0 env) (prepend (fun i => Xs i env) tail) := by
+      funext j
+      cases j with
+      | zero => simp [prepend, Xs', cons]
+      | succ j =>
+        by_cases hj : j < d
+        · simp [prepend, Xs', hj, show j + 1 < d + 1 by omega, cons]
+        · have hj1 : ¬ (j + 1 < d + 1) := by omega
+          simp only [prepend, hj, hj1, ↓reduceDIte, cons]
+          congr 1; omega
+    rw [hp]
+
+private theorem defRel_spineFit_const_ofFn_do {k : Nat} (σ : Nat → V)
+    (Fs : List Term) {r : Nat} (As : Fin r → (Fin k → V) → V) (hAs : ∀ i, DefFun k (As i)) :
+    DefRel k fun env => SpineFit σ Fs (List.ofFn fun i => As i env) := by
+  refine (defRel_spineFit_prepend_ofFn_do σ Fs
+    (Fin.elim0 : Fin 0 → (Fin k → V) → V) (fun i => Fin.elim0 i) As hAs).congr fun env => ?_
+  have hp : prepend (Fin.elim0 : Fin 0 → V) σ = σ := prepend_zero σ
+  change SpineFit (prepend Fin.elim0 σ) Fs _ ↔ _
+  rw [hp]
+
+theorem dyn_nodeAdmSet_def (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) (par : Nat → Nat) :
+    ∀ b, DefRel (nlFrLen d ns xs b + 1) fun v =>
+      nodeAdmSet mk mpC ctx d ns ψ ρ xs par b (v 0) (ftail v) := by
+  intro b
+  by_cases hb0 : b = 0
+  · subst hb0
+    have h0 : DefRel (V := V) (nlFrLen d ns xs 0 + 1) fun v =>
+        ∀ i : Fin (nlFrLen d ns xs 0), ftail v i = nlFrFin mpC ctx d ns ψ ρ xs 0 i :=
+      DefRel.finForall (V := V) fun i => DefRel.eq_apply
+        (DefFun.proj (V := V) ⟨i.val + 1, by omega⟩)
+        (DefFun.const (V := V) (nlFrFin mpC ctx d ns ψ ρ xs 0 i))
+    refine h0.congr fun v => ?_
+    unfold nodeAdmSet nodeAdm
+    rw [ite_eq_left rfl, ← prepend_nlFrFin_nlTail mpC ctx d ns ψ ρ xs 0, prepend_eq_prepend_iff]
+    exact ⟨fun h => ⟨h, fun _ => rfl⟩, fun ⟨h, _⟩ => h⟩
+  · let t := ns.getD (b - 1) default
+    let hi := ctx.hiAt t.anc.length
+    let tv := trueVal mpC ctx ψ ρ xs t.anc
+    let tailT : Nat → V := fun q => tv (q + hi)
+    let M := hi + (nlFrLen d ns xs b + 1)
+    let σ_fn : (Fin M → V) → Nat → V := fun v => prepend (ftake v) tailT
+    let Δ := stackCtx mk.base2 ψ ctx t.anc (d.holeCtx ψ).reverse
+    let SatIdx (idx : Nat) (v : Fin M → V) : Prop :=
+      ∀ Aa, Δ[idx]? = some Aa → σ_fn v idx ∈ˢ interp V (fun j => σ_fn v (j + idx + 1)) Aa
+    have hSatIdx : ∀ idx, DefRel M (SatIdx idx) := fun idx => by
+      cases hopt : Δ[idx]? with
+      | none => exact DefRel.true.congr fun _ => ⟨(fun _ _ h => by rw [hopt] at h; cases h), fun _ => trivial⟩
+      | some Aa =>
+        have hLHS : DefFun M fun v => σ_fn v idx := by
+          by_cases hlt : idx < hi
+          · exact (DefFun.proj (V := V) ⟨idx, by omega⟩).congr fun v => by
+              simp only [σ_fn, prepend, dite_eq_left hlt]; rfl
+          · exact (DefFun.const (V := V) (tailT (idx - hi))).congr fun v => by
+              simp only [σ_fn, prepend, dite_eq_right hlt]
+        let rem := if idx + 1 < hi then hi - (idx + 1) else 0
+        let off := if hi ≤ idx + 1 then idx + 1 - hi else 0
+        let tail_i : Nat → V := fun q => tailT (q + off)
+        let Xs_i : Fin rem → (Fin M → V) → V := fun j v =>
+          v ⟨j.val + (idx + 1), by
+            have hj := j.isLt; dsimp [rem] at hj
+            by_cases h1 : idx + 1 < hi
+            · simp [h1] at hj; omega
+            · simp [h1] at hj⟩
+        have hXs_i : ∀ j, DefFun M (Xs_i j) := fun j =>
+          DefFun.proj ⟨j.val + (idx + 1), by
+            have hj := j.isLt; dsimp [rem] at hj
+            by_cases h1 : idx + 1 < hi
+            · simp [h1] at hj; omega
+            · simp [h1] at hj⟩
+        have hRHS_eq : ∀ v, (fun j => σ_fn v (j + idx + 1)) = prepend (fun j => Xs_i j v) tail_i := by
+          intro v; funext j
+          by_cases hj : j < rem
+          · have hlt : j + idx + 1 < hi := by
+              dsimp [rem] at hj
+              by_cases h1 : idx + 1 < hi
+              · simp [h1] at hj; omega
+              · simp [h1] at hj
+            simp only [σ_fn, prepend, dite_eq_left hlt, dite_eq_left hj, Xs_i]
+            exact congrArg (v ·) (Fin.ext (by dsimp; omega))
+          · have hge : ¬ j + idx + 1 < hi := by
+              dsimp [rem] at hj
+              by_cases h1 : idx + 1 < hi
+              · simp [h1] at hj; omega
+              · simp [h1] at hj; omega
+            simp only [σ_fn, prepend, dite_eq_right hge, dite_eq_right hj, tail_i]
+            congr 1
+            dsimp [rem, off] at hj ⊢
+            by_cases h1 : idx + 1 < hi
+            · have h2 : ¬ hi ≤ idx + 1 := by omega
+              simp only [h1, ↓reduceIte] at hj ⊢; simp only [h2, ↓reduceIte]; omega
+            · have h2 : hi ≤ idx + 1 := by omega
+              simp only [h1, ↓reduceIte] at hj ⊢; simp only [h2, ↓reduceIte]; omega
+        have hRHS : DefFun M fun v => interp V (fun j => σ_fn v (j + idx + 1)) Aa :=
+          ((interp_defFun_prepend tail_i rem Aa).comp hXs_i).congr fun v => by rw [hRHS_eq v]; rfl
+        refine (DefRel.mem_apply hLHS hRHS).congr fun v => ?_
+        exact ⟨fun hm _ he => by rw [hopt] at he; cases he; exact hm, fun h => h Aa hopt⟩
+    have hSat : DefRel M fun v => Sat V Δ (σ_fn v) :=
+      (DefRel.finForall_lt (n := Δ.length) fun idx _ => hSatIdx idx).congr fun v =>
+        ⟨fun h idx Aa hiA => h idx (List.getElem?_eq_some_iff.mp hiA).1 Aa hiA,
+         fun h idx _ Aa hiA => h idx Aa hiA⟩
+    let AgrIdx (j : Nat) (v : Fin M → V) : Prop :=
+      ¬ holeP hi ctx.nP hi j → σ_fn v j = tv j
+    have hAgrIdx : ∀ j, j < hi → DefRel M (AgrIdx j) := fun j hj => by
+      by_cases hp : holeP hi ctx.nP hi j
+      · exact DefRel.true.congr fun _ => ⟨(fun _ hnp => absurd hp hnp), fun _ => trivial⟩
+      · exact (DefRel.eq_apply (DefFun.proj ⟨j, Nat.lt_of_lt_of_le hj (Nat.le_add_right _ _)⟩)
+          (DefFun.const (tv j))).congr fun v => by
+          simp only [AgrIdx, σ_fn, prepend, dite_eq_left hj, ftake]
+          exact ⟨fun h _ => h, fun h => h hp⟩
+    have hAgree : DefRel M fun v => AgreeOff (holeP hi ctx.nP hi) (σ_fn v) tv :=
+      (DefRel.finForall_lt hAgrIdx).congr fun v =>
+        ⟨fun h j hnp => by
+          by_cases hj : j < hi
+          · exact h j hj hnp
+          · simp only [σ_fn, prepend, dite_eq_right hj, tailT, tv, Nat.sub_add_cancel (Nat.le_of_not_lt hj)],
+         fun h j _ hnp => h j hnp⟩
+    let G_fn : (Fin M → V) → V := fun v => fdrop v 0
+    have hG_fn : DefFun M G_fn := DefFun.fdrop_proj 0
+    have hMember : DefRel M fun v => ∀ t', t' < ctx.names.length →
+        ∀ is : List V, is.length = ctx.nIdxs.getD t' 0 →
+        ∀ y, y ∈ˢ is.foldl app (σ_fn v (hi - 1 - (ctx.nP + t'))) →
+          (SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t' ψ) is →
+            nenc 0 t' (tupW (d.toLfp.u t' ψ) is) y ∈ˢ G_fn v) ∧
+          (¬ SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t' ψ) is →
+            y ∈ˢ is.foldl app (tv (hi - 1 - (ctx.nP + t')))) := by
+      refine DefRel.finForall_lt fun t' ht' => ?_
+      let nI := ctx.nIdxs.getD t' 0
+      let M₁ := nI + M
+      let M₂ := M₁ + 1
+      let Y_fn : (Fin M₂ → V) → V := fun w => w 0
+      have hY_fn : DefFun M₂ Y_fn := DefFun.proj 0
+      let is_fn : Fin nI → (Fin M₂ → V) → V := fun i w => w ⟨i.val + 1, by omega⟩
+      have his_fn : ∀ i, DefFun M₂ (is_fn i) := fun i => DefFun.proj ⟨i.val + 1, by omega⟩
+      let idxM := hi - 1 - (ctx.nP + t')
+      let slot_fn : (Fin M₂ → V) → V := fun w => σ_fn (fdrop (ftail w)) idxM
+      have hslot_fn : DefFun M₂ slot_fn := by
+        by_cases hlt : idxM < hi
+        · exact (DefFun.proj (V := V) ⟨1 + nI + idxM, by omega⟩).congr fun w => by
+            simp only [slot_fn, σ_fn, prepend, dite_eq_left hlt, fdrop, ftail, ftake]
+            congr 1; apply Fin.ext; dsimp; omega
+        · exact (DefFun.const (V := V) (tailT (idxM - hi))).congr fun w => by
+            simp only [slot_fn, σ_fn, prepend, dite_eq_right hlt]
+      have hMemFold := DefRel.mem_apply hY_fn (defFun_foldl_app_ofFn_do slot_fn hslot_fn is_fn his_fn)
+      have hFitRel := defRel_spineFit_const_ofFn_do (consList (xs.take ctx.nP) ρ)
+        (d.toLfp.ids t' ψ) is_fn his_fn
+      have hGMem := DefRel.mem_apply
+        (DefFun.nenc_apply 0 t' (defFun_tupW_ofFn_do (d.toLfp.u t' ψ) is_fn his_fn) hY_fn)
+        ((hG_fn.fdrop_apply (k := nI)).weaken)
+      have hTrueMem := DefRel.mem_apply hY_fn
+        (defFun_foldl_app_ofFn_do (fun _ => tv idxM) (DefFun.const (tv idxM)) is_fn his_fn)
+      have hBody := hMemFold.imp ((hFitRel.imp hGMem).and (hFitRel.not.imp hTrueMem))
+      have hForAll := DefRel.forall_fin (DefRel.forall_ hBody)
+      refine hForAll.congr fun v => ?_
+      have hSimp : ∀ (isVec : Fin nI → V) (y : V),
+          (Y_fn (fcons y (fappend isVec v)) = y) ∧
+          ((fun i => is_fn i (fcons y (fappend isVec v))) = isVec) ∧
+          (fdrop (ftail (fcons y (fappend isVec v))) = v) := by
+        intro isVec y
+        have hft : ftail (fcons y (fappend isVec v)) = fappend isVec v := rfl
+        have hfd : fdrop (fappend isVec v) = v := by
+          funext i; simp only [fdrop, fappend, dite_eq_right (by omega : ¬ nI + i.val < nI)]
+          congr 1; apply Fin.ext; dsimp; omega
+        have his : (fun i => is_fn i (fcons y (fappend isVec v))) = isVec := by
+          funext i
+          simp only [is_fn, fcons, fappend, dite_eq_left i.isLt]
+        exact ⟨rfl, his, hft ▸ hfd⟩
+      constructor
+      · intro h is hlen y hy
+        have his_eq : is = List.ofFn fun i : Fin nI => is[i.val]'(hlen ▸ i.isLt) := by
+          apply List.ext_getElem (by simp [hlen, nI, List.getD_eq_getElem?_getD]); intro j hj1 hj2; simp
+        have hs := hSimp (fun i => is[i.val]'(hlen ▸ i.isLt)) y
+        have hres := h (fun i => is[i.val]'(hlen ▸ i.isLt)) y
+        dsimp only [slot_fn] at hres
+        rw [hs.1, hs.2.1, hs.2.2, ← his_eq] at hres
+        exact hres hy
+      · intro h isVec y hy
+        have hs := hSimp isVec y
+        have hres := h (List.ofFn isVec) (by simp [nI, List.getD_eq_getElem?_getD]) y
+        dsimp only [slot_fn] at hy ⊢
+        rw [hs.1, hs.2.1, hs.2.2] at hy ⊢
+        exact hres hy
+    let FrameIdx (i : Nat) (v : Fin M → V) : Prop :=
+      ∀ hk : NestHole, t.anc.reverse[i]? = some hk →
+        0 < holeOwner ns par b i ∧ holeOwner ns par b i ≤ ns.length ∧
+          hk ∈ ConLeche.grpNews (ns.getD (holeOwner ns par b i - 1) default).key.lvls
+            (ns.getD (holeOwner ns par b i - 1) default).key.ds
+            (ctx.hiAt (ns.getD (holeOwner ns par b i - 1) default).anc.length)
+            (ns.getD (holeOwner ns par b i - 1) default).grp ∧
+          (∃ Y, t.anc.drop (t.anc.length - i) =
+            Y ++ (ns.getD (holeOwner ns par b i - 1) default).anc) ∧
+          (∀ dsa', DenoteSpine mk.base2.acval envI ψ hi hk.key.ds dsa' →
+            keyFrame dsa' hi tv = nlFr mpC ctx d ns ψ ρ xs (holeOwner ns par b i)) ∧
+          ∀ is : List V, is.length = hk.nIdx →
+          ∀ y, y ∈ˢ is.foldl app (σ_fn v (hi - 1 - (ctx.hiAt 0 + i))) →
+            (nlLive mpC ctx d ns ψ ρ xs (holeOwner ns par b i) ∧
+              SpineFit (nlFr mpC ctx d ns ψ ρ xs (holeOwner ns par b i))
+                ((nlDb mpC d ns (holeOwner ns par b i)).ids
+                  (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                  (nlψ envC ns ψ (holeOwner ns par b i))) is →
+              nenc (holeOwner ns par b i) (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                (tupW ((nlDb mpC d ns (holeOwner ns par b i)).u
+                  (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                  (nlψ envC ns ψ (holeOwner ns par b i))) is) y ∈ˢ G_fn v) ∧
+            (¬ (nlLive mpC ctx d ns ψ ρ xs (holeOwner ns par b i) ∧
+                SpineFit (nlFr mpC ctx d ns ψ ρ xs (holeOwner ns par b i))
+                  ((nlDb mpC d ns (holeOwner ns par b i)).ids
+                    (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                    (nlψ envC ns ψ (holeOwner ns par b i))) is) →
+              y ∈ˢ is.foldl app (tv (hi - 1 - (ctx.hiAt 0 + i))))
+    have hFrameIdx : ∀ i, DefRel M (FrameIdx i) := fun i => by
+      cases hopt : t.anc.reverse[i]? with
+      | none => exact DefRel.true.congr fun _ => ⟨(fun _ _ h => by rw [hopt] at h; cases h), fun _ => trivial⟩
+      | some hk =>
+        let ownI := holeOwner ns par b i
+        let compI := nlComp mpC d ns ownI hk.key.cname
+        let cSide : Prop := 0 < ownI ∧ ownI ≤ ns.length ∧
+          hk ∈ ConLeche.grpNews (ns.getD (ownI - 1) default).key.lvls
+            (ns.getD (ownI - 1) default).key.ds
+            (ctx.hiAt (ns.getD (ownI - 1) default).anc.length)
+            (ns.getD (ownI - 1) default).grp ∧
+          (∃ Y, t.anc.drop (t.anc.length - i) = Y ++ (ns.getD (ownI - 1) default).anc)
+        have hDsaRel : DefRel M fun _ => ∀ dsa', DenoteSpine mk.base2.acval envI ψ hi hk.key.ds dsa' →
+            keyFrame dsa' hi tv = nlFr mpC ctx d ns ψ ρ xs ownI :=
+          DefRel.constProp (V := V) (k := M) _
+        let M₁ := hk.nIdx + M
+        let M₂ := M₁ + 1
+        let Y_fn : (Fin M₂ → V) → V := fun w => w 0
+        have hY_fn : DefFun M₂ Y_fn := DefFun.proj 0
+        let is_fn : Fin hk.nIdx → (Fin M₂ → V) → V := fun q w => w ⟨q.val + 1, by omega⟩
+        have his_fn : ∀ q, DefFun M₂ (is_fn q) := fun q => DefFun.proj ⟨q.val + 1, by omega⟩
+        let idxF := hi - 1 - (ctx.hiAt 0 + i)
+        let slot_fn : (Fin M₂ → V) → V := fun w => σ_fn (fdrop (ftail w)) idxF
+        have hslot_fn : DefFun M₂ slot_fn := by
+          by_cases hlt : idxF < hi
+          · exact (DefFun.proj (V := V) ⟨1 + hk.nIdx + idxF, by omega⟩).congr fun w => by
+              simp only [slot_fn, σ_fn, prepend, dite_eq_left hlt, fdrop, ftail, ftake]
+              congr 1; apply Fin.ext; dsimp; omega
+          · exact (DefFun.const (V := V) (tailT (idxF - hi))).congr fun w => by
+              simp only [slot_fn, σ_fn, prepend, dite_eq_right hlt]
+        have hMemFold := DefRel.mem_apply hY_fn (defFun_foldl_app_ofFn_do slot_fn hslot_fn is_fn his_fn)
+        have hFitRel := DefRel.and
+          (DefRel.constProp (nlLive mpC ctx d ns ψ ρ xs ownI))
+          (defRel_spineFit_const_ofFn_do (nlFr mpC ctx d ns ψ ρ xs ownI)
+            ((nlDb mpC d ns ownI).ids compI (nlψ envC ns ψ ownI)) is_fn his_fn)
+        have hGMem := DefRel.mem_apply
+          (DefFun.nenc_apply ownI compI
+            (defFun_tupW_ofFn_do ((nlDb mpC d ns ownI).u compI (nlψ envC ns ψ ownI)) is_fn his_fn)
+            hY_fn)
+          ((hG_fn.fdrop_apply (k := hk.nIdx)).weaken)
+        have hTrueMem := DefRel.mem_apply hY_fn
+          (defFun_foldl_app_ofFn_do (fun _ => tv idxF) (DefFun.const (tv idxF)) is_fn his_fn)
+        have hBody := hMemFold.imp ((hFitRel.imp hGMem).and (hFitRel.not.imp hTrueMem))
+        have hForAll := DefRel.forall_fin (DefRel.forall_ hBody)
+        have hForIs : DefRel M fun v => ∀ is : List V, is.length = hk.nIdx →
+            ∀ y, y ∈ˢ is.foldl app (σ_fn v idxF) →
+              (nlLive mpC ctx d ns ψ ρ xs ownI ∧
+                SpineFit (nlFr mpC ctx d ns ψ ρ xs ownI)
+                  ((nlDb mpC d ns ownI).ids compI (nlψ envC ns ψ ownI)) is →
+                nenc ownI compI (tupW ((nlDb mpC d ns ownI).u compI (nlψ envC ns ψ ownI)) is) y ∈ˢ
+                  G_fn v) ∧
+              (¬ (nlLive mpC ctx d ns ψ ρ xs ownI ∧
+                SpineFit (nlFr mpC ctx d ns ψ ρ xs ownI)
+                  ((nlDb mpC d ns ownI).ids compI (nlψ envC ns ψ ownI)) is) →
+                y ∈ˢ is.foldl app (tv idxF)) := by
+          refine hForAll.congr fun v => ?_
+          have hSimp : ∀ (isVec : Fin hk.nIdx → V) (y : V),
+              (Y_fn (fcons y (fappend isVec v)) = y) ∧
+              ((fun q => is_fn q (fcons y (fappend isVec v))) = isVec) ∧
+              (fdrop (ftail (fcons y (fappend isVec v))) = v) := by
+            intro isVec y
+            have hft : ftail (fcons y (fappend isVec v)) = fappend isVec v := rfl
+            have hfd : fdrop (fappend isVec v) = v := by
+              funext q; simp only [fdrop, fappend, dite_eq_right (by omega : ¬ hk.nIdx + q.val < hk.nIdx)]
+              congr 1; apply Fin.ext; dsimp; omega
+            have his : (fun q => is_fn q (fcons y (fappend isVec v))) = isVec := by
+              funext q
+              simp only [is_fn, fcons, fappend, dite_eq_left q.isLt]
+            exact ⟨rfl, his, hft ▸ hfd⟩
+          constructor
+          · intro h is hlen y hy
+            have his_eq : is = List.ofFn fun q : Fin hk.nIdx => is[q.val]'(Nat.lt_of_lt_of_eq q.isLt hlen.symm) := by
+              apply List.ext_getElem (by simp [hlen]); intro q hq1 hq2; simp
+            have hs := hSimp (fun q => is[q.val]'(Nat.lt_of_lt_of_eq q.isLt hlen.symm)) y
+            have hres := h (fun q => is[q.val]'(Nat.lt_of_lt_of_eq q.isLt hlen.symm)) y
+            dsimp only [slot_fn] at hres
+            rw [hs.1, hs.2.1, hs.2.2, ← his_eq] at hres
+            exact hres hy
+          · intro h isVec y hy
+            have hs := hSimp isVec y
+            have hres := h (List.ofFn isVec) (by simp) y
+            dsimp only [slot_fn] at hy ⊢
+            rw [hs.1, hs.2.1, hs.2.2] at hy ⊢
+            exact hres hy
+        refine (DefRel.and (DefRel.constProp cSide) (DefRel.and hDsaRel hForIs)).congr fun v => ?_
+        constructor
+        · intro h hk' heq
+          rw [hopt] at heq; cases heq
+          dsimp only [cSide, ownI, compI, idxF] at h
+          exact ⟨h.1.1, h.1.2.1, h.1.2.2.1, h.1.2.2.2, h.2.1, h.2.2⟩
+        · intro h
+          dsimp only [cSide, ownI, compI, idxF]
+          obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h hk hopt
+          exact ⟨⟨h1, h2, h3, h4⟩, h5, h6⟩
+    have hFrame : DefRel M fun v => ∀ i hk, t.anc.reverse[i]? = some hk →
+        0 < holeOwner ns par b i ∧ holeOwner ns par b i ≤ ns.length ∧
+          hk ∈ ConLeche.grpNews (ns.getD (holeOwner ns par b i - 1) default).key.lvls
+            (ns.getD (holeOwner ns par b i - 1) default).key.ds
+            (ctx.hiAt (ns.getD (holeOwner ns par b i - 1) default).anc.length)
+            (ns.getD (holeOwner ns par b i - 1) default).grp ∧
+          (∃ Y, t.anc.drop (t.anc.length - i) =
+            Y ++ (ns.getD (holeOwner ns par b i - 1) default).anc) ∧
+          (∀ dsa', DenoteSpine mk.base2.acval envI ψ hi hk.key.ds dsa' →
+            keyFrame dsa' hi tv = nlFr mpC ctx d ns ψ ρ xs (holeOwner ns par b i)) ∧
+          ∀ is : List V, is.length = hk.nIdx →
+          ∀ y, y ∈ˢ is.foldl app (σ_fn v (hi - 1 - (ctx.hiAt 0 + i))) →
+            (nlLive mpC ctx d ns ψ ρ xs (holeOwner ns par b i) ∧
+              SpineFit (nlFr mpC ctx d ns ψ ρ xs (holeOwner ns par b i))
+                ((nlDb mpC d ns (holeOwner ns par b i)).ids
+                  (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                  (nlψ envC ns ψ (holeOwner ns par b i))) is →
+              nenc (holeOwner ns par b i) (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                (tupW ((nlDb mpC d ns (holeOwner ns par b i)).u
+                  (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                  (nlψ envC ns ψ (holeOwner ns par b i))) is) y ∈ˢ G_fn v) ∧
+            (¬ (nlLive mpC ctx d ns ψ ρ xs (holeOwner ns par b i) ∧
+                SpineFit (nlFr mpC ctx d ns ψ ρ xs (holeOwner ns par b i))
+                  ((nlDb mpC d ns (holeOwner ns par b i)).ids
+                    (nlComp mpC d ns (holeOwner ns par b i) hk.key.cname)
+                    (nlψ envC ns ψ (holeOwner ns par b i))) is) →
+              y ∈ˢ is.foldl app (tv (hi - 1 - (ctx.hiAt 0 + i)))) :=
+      (DefRel.finForall_lt (n := t.anc.reverse.length) fun i _ => hFrameIdx i).congr fun v =>
+        ⟨fun h i hk hiH => h i (List.getElem?_eq_some_iff.mp hiH).1 hk hiH,
+         fun h i _ hk hiH => h i hk hiH⟩
+    let dsa := nodeDsaI mk ctx ψ t
+    have hLen : dsa.length = nlFrLen d ns xs b := by
+      simp only [dsa, nodeDsaI, nlFrLen, hb0, ite_false, List.length_map, t, List.getD_eq_getElem?_getD]
+    let tailB := nlTail mpC ctx d ns ψ ρ xs b
+    let ρ'_fn : Fin (nlFrLen d ns xs b) → (Fin M → V) → V := fun q v =>
+      (ftail (fdrop v)) q
+    have hρ'_fn : ∀ q, DefFun M (ρ'_fn q) := fun q =>
+      (DefFun.proj (V := V) (k := M) ⟨hi + 1 + q.val, by have hq := q.isLt; omega⟩).congr fun v => by
+        simp only [ρ'_fn, ftail, fdrop]
+        congr 1; apply Fin.ext; dsimp; omega
+    have hKeyEq : DefRel M fun v =>
+        prepend (ftail (fdrop v)) tailB = keyFrame dsa hi (σ_fn v) := by
+      let As_k : Fin (nlFrLen d ns xs b) → (Fin M → V) → V := fun q v =>
+        interp V (σ_fn v) (dsa[dsa.length - 1 - q.val]'(by have hq := q.isLt; rw [hLen]; omega))
+      have hAs_k : ∀ q, DefFun M (As_k q) := fun q =>
+        (interp_defFun_prepend tailT hi _).comp fun l => DefFun.ftake_proj l
+      have hEq := DefRel.and
+        (DefRel.finForall fun q => DefRel.eq_apply (hρ'_fn q) (hAs_k q))
+        (DefRel.constProp (∀ q : Nat, tailB q = tailT q))
+      refine hEq.congr fun v => ?_
+      have hkf : keyFrame dsa hi (σ_fn v) = prepend (fun q => As_k q v) tailT := by
+        unfold keyFrame
+        funext idx
+        have hl : (dsa.map (interp V (σ_fn v))).length = nlFrLen d ns xs b := by simp [hLen]
+        by_cases hidx : idx < nlFrLen d ns xs b
+        · rw [consList_getD_of_lt _ _ _ (by omega)]
+          simp only [List.getD_eq_getElem?_getD, hl, prepend, dite_eq_left hidx, As_k]
+          rw [List.getElem?_eq_getElem (by rw [hl]; omega), Option.getD_some, List.getElem_map]
+          congr 2; omega
+        · obtain ⟨q, rfl⟩ : ∃ q, idx = q + nlFrLen d ns xs b := ⟨idx - nlFrLen d ns xs b, by omega⟩
+          have hca := consList_apply_add (dsa.map (interp V (σ_fn v))) (fun j => σ_fn v (j + hi)) q
+          rw [hl] at hca
+          rw [hca]
+          simp only [prepend, dite_eq_right (by omega : ¬ q + nlFrLen d ns xs b < nlFrLen d ns xs b),
+            Nat.add_sub_cancel, σ_fn, dite_eq_right (by omega : ¬ q + hi < hi),
+            Nat.add_sub_cancel, tailT]
+      rw [hkf, prepend_eq_prepend_iff]
+    have hBig := DefRel.and (DefRel.constProp (nlLive mpC ctx d ns ψ ρ xs b))
+      (DefRel.exists_fin (DefRel.and (DefRel.and hSat (DefRel.and hAgree (DefRel.and hMember hFrame))) hKeyEq))
+    refine hBig.congr fun v' => ?_
+    have hσ_app : ∀ (σf : Fin hi → V), σ_fn (fappend σf v') = prepend σf tailT := fun σf => by
+      have hft : ftake (fappend σf v') = σf := by
+        funext i; simp only [ftake, fappend, dite_eq_left i.isLt]
+      dsimp only [σ_fn]; rw [hft]
+    have hG_app : ∀ (σf : Fin hi → V), G_fn (fappend σf v') = v' 0 := fun σf => by
+      simp only [G_fn, fdrop, fappend]
+      have hne : ¬ hi + (0 : Fin (nlFrLen d ns xs b + 1)).val < hi := by omega
+      rw [dite_eq_right hne]
+      congr 1; apply Fin.ext; dsimp; omega
+    have hDropTail : ∀ (σf : Fin hi → V), ftail (fdrop (fappend σf v')) = ftail v' := fun σf => by
+      funext q
+      simp only [ftail, fdrop, fappend]
+      have hne : ¬ hi + q.succ.val < hi := by omega
+      rw [dite_eq_right hne]
+      congr 1; apply Fin.ext; dsimp; omega
+    unfold nodeAdmSet nodeAdm
+    rw [ite_eq_right hb0]
+    refine and_congr_right fun _ => ?_
+    constructor
+    · rintro ⟨σf, ⟨h1, h2, h3, h4⟩, h5⟩
+      rw [hσ_app] at h1 h2
+      rw [hσ_app, hG_app] at h3 h4
+      rw [hσ_app, hDropTail] at h5
+      exact ⟨prepend σf tailT, ⟨h1, h2, h3, h4⟩, h5⟩
+    · rintro ⟨σ, ⟨h1, h2, h3, h4⟩, h5⟩
+      have htail : ∀ j, hi ≤ j → σ j = tv j := fun j hj => h2 j (fun h => by exact absurd h.1 (Nat.not_lt.mpr hj))
+      have hσ_eq : σ = prepend (fun i : Fin hi => σ i.val) tailT := by
+        funext j
+        by_cases hj : j < hi
+        · simp only [prepend, dite_eq_left hj]
+        · simp only [prepend, dite_eq_right hj, tailT, htail j (Nat.le_of_not_lt hj)]
+          congr 1; omega
+      rw [hσ_eq] at h1 h2 h3 h4 h5
+      refine ⟨fun i => σ i.val, ⟨?_, ?_, ?_, ?_⟩, ?_⟩
+      · rw [hσ_app]; exact h1
+      · rw [hσ_app]; exact h2
+      · rw [hσ_app, hG_app]; exact h3
+      · rw [hσ_app, hG_app]; exact h4
+      · rw [hσ_app, hDropTail]; exact h5
+
+theorem dyn_hAdmSet (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length) (par : Nat → Nat) :
+    ∀ b, b < ns.length + 1 → ∀ (G : V) (ρ' : Fin (nlFrLen d ns xs b) → V),
+      nodeAdmSet mk mpC ctx d ns ψ ρ xs par b G ρ' →
+      nlLive mpC ctx d ns ψ ρ xs b ∧
+      Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse
+        (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) ∧
+      ∀ c, c < (nlDb mpC d ns b).N →
+        (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) c =
+          (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b) c :=
+  fun b hb G ρ' h =>
+    dyn_hAdm H ψ ρ xs hparams hxs par b hb (fun b' c t y => nenc b' c t y ∈ˢ G)
+      (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) h
+
+theorem dyn_topSet (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
+    {par : Nat → Nat} (hPP : ParentPtrs ns par) :
+    ∀ b, b < ns.length + 1 → nlLive mpC ctx d ns ψ ρ xs b → ∀ G : V,
+      (∀ b' c t y, b' < ns.length + 1 → nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
+        nlLive mpC ctx d ns ψ ρ xs b' →
+        t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
+        y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c) t →
+        nenc b' c t y ∈ˢ G) →
+      nodeAdmSet mk mpC ctx d ns ψ ρ xs par b G (nlFrFin mpC ctx d ns ψ ρ xs b) := by
+  intro b hb hlv G hG
+  unfold nodeAdmSet
+  rw [prepend_nlFrFin_nlTail]
+  exact dyn_top H ψ ρ xs hparams hxs hPP b hb hlv (fun b' c t y => nenc b' c t y ∈ˢ G) hG
+
+theorem dyn_transSet (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    (hparams : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hxs : d.nP ≤ xs.length)
+    (par : Nat → Nat) :
+    ∀ b, b < ns.length + 1 → ∀ G : V,
+      (∀ b' c t y, nenc b' c t y ∈ˢ G →
+        y ∈ˢ app ((lfpSClause (nlDb mpC d ns b') (nlψ envC ns ψ b')
+          (pinIdx (nlDb mpC d ns b') (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b')
+            (nlLive mpC ctx d ns ψ ρ xs b'))
+          (nlFrLen d ns xs b') (nlTail mpC ctx d ns ψ ρ xs b')).carrier
+          (nlFrFin mpC ctx d ns ψ ρ xs b') c) t) →
+      ∀ ρ' : Fin (nlFrLen d ns xs b) → V, nodeAdmSet mk mpC ctx d ns ψ ρ xs par b G ρ' → ∀ Y,
+      InTupleSpace ((nlDb mpC d ns b).w (nlψ envC ns ψ b)) (nlDb mpC d ns b).N
+        ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y →
+      TupleLe (nlDb mpC d ns b).N
+        ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y
+        ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) →
+      ∀ t c j fs, c < (nlDb mpC d ns b).N →
+        (nlDb mpC d ns b).HFits (nlψ envC ns ψ b)
+          (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) Y t c j fs →
+        (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
+          ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t c j fs :=
+  fun b hb G hG ρ' hadm Y hY hle t c j fs hc hf =>
+    dyn_trans H ψ ρ xs hparams hxs par b hb (fun b' c t y => nenc b' c t y ∈ˢ G) hG
+      (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) hadm Y hY hle t c j fs hc hf
 
 end Frames
 

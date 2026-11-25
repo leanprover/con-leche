@@ -120,8 +120,9 @@ theorem spineFit_of_wellDenoted_lams {b : Term} :
     rw [WellDenoted_app] at hokfa
     obtain ⟨-, -, hap⟩ := hokfa
     have hf' : interp V ρ f
-        = lamV (interp V σ d) fun x => interp V (cons x σ) (mkLamsAV ds b) := by
-      rw [hf]; rfl
+        = lamV (interp V σ d) (fun x => interp V (cons x σ) (mkLamsAV ds b))
+            (interp_hasGraph_cons σ (interp V σ d) (mkLamsAV ds b)) := by
+      rw [hf, mkLamsAV, interp_lam]
     have hfne : interp V ρ f ≠ pt := by
       intro h0
       apply hne
@@ -925,8 +926,9 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
       Sat V (((ppsAll ψ).take nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP)) bs →
         interp V (consList bs ρ) (ctorBodyAVI m T nP nF ψ (Es ψ))
-          = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
-              (rChains nIdx nIdx (Fss ψ) (Ess ψ))))
+          = sumSet (resSort.eval ψ) (rChains nIdx nIdx (Fss ψ) (Ess ψ)).length
+              (sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
+                (rChains nIdx nIdx (Fss ψ) (Ess ψ))))
     (hFsj : ∀ ψ, (Fss ψ)[j]? = some (((ds ψ).drop nP)))
     (hEsj : ∀ ψ, (Ess ψ)[j]? = some (Es ψ))
     (hiff : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -985,8 +987,10 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
   refine ⟨SumFieldsOkB_uChains hokFss, by rw [uChains_getElem?, hFsj ψ]; rfl, fun bs hsp => ?_⟩
   have hlenI : (idxValsAt ρ (Es ψ) bs).length = nIdx := by
     simp [idxValsAt, hCD.lenE ψ]
-  refine ⟨sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
-    (rChains nIdx nIdx (Fss ψ) (Ess ψ)), ?_, ?_⟩
+  refine ⟨(rChains nIdx nIdx (Fss ψ) (Ess ψ)).length,
+    sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
+      (rChains nIdx nIdx (Fss ψ) (Ess ψ)),
+    (List.getElem?_eq_some_iff.mp hchain).1, ?_, ?_⟩
   · exact hfold ψ ρ hρt bs hsp
   · -- the point-terminated tuple lives in the fibre at the index tuple
     rw [sumFibre_of_getElem? hchain]
@@ -1023,8 +1027,9 @@ theorem stageCtorGen {T : Name}
       Sat V (((ppsAll ψ).take nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP)) bs →
         interp V (consList bs ρ) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))
-          = sumSet (resSort.eval ψ) (sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
-              (rChains nIdx nIdx (Fss ψ) (Ess ψ))))
+          = sumSet (resSort.eval ψ) (rChains nIdx nIdx (Fss ψ) (Ess ψ)).length
+              (sumFibre (resSort.eval ψ) (consList (idxValsAt ρ (Es ψ) bs) ρ)
+                (rChains nIdx nIdx (Fss ψ) (Ess ψ))))
     (hFsj : ∀ ψ, (Fss ψ)[j]? = some (((ds ψ).drop nP)))
     (hEsj : ∀ ψ, (Ess ψ)[j]? = some (Es ψ))
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat,

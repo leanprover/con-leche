@@ -67,7 +67,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       ∃ A, (d.w ψ ≠ 0 → A ∈ˢ (tg (d.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A)
     (hcarrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
-        d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
+        d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) (d.hΦ ψ ρp)) t c j fs ↔
           d.DeclaredFit ψ ρp t c j fs)
     -- the members' leaves — the block operator at chains `Chs` graded at
     -- every parameter frame and agreeing with `d.Φ` on the tuple space (the

@@ -75,22 +75,37 @@ theorem bval_mem_natSucc (us : List Nat) (ρ : Nat → V) :
 applied) is the one the tower is written with (`natsucc`): they agree
 on `ω`. -/
 theorem natStepSpace_eq (M : V) :
-    (piV (omega : V) fun n => piV (app M n) fun _ => app M (app (natSuccV V) n))
+    (piV (omega : V) (fun n => piV (app M n) (fun _ => app M (app (natSuccV V) n))
+        (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_of_defFun1
+        (DefFun.piV_apply_curry
+          (DefFun.app_apply (DefFun.const M) (DefFun.proj 0))
+          (DefFun.app_apply (DefFun.const M)
+            (DefFun.app_apply (DefFun.const (natSuccV V)) (DefFun.proj 1))))))
       = natStepSpace V M :=
-  piV_congr fun n hn => by rw [natSuccV_app V hn]
+  piV_congr _ _ fun n hn => piV_congr _ _ fun _ _ => by rw [natSuccV_app V hn]
 
 /-- `Nat.rec`'s type, as `interp` produces it. -/
 theorem interp_type_natRec (us : List Nat) (ρ : Nat → V) :
     interp V ρ (BConst.typeAV .natRec us) =
-      piV (natMotiveSpace V (lv us 0)) fun M =>
-        piV (app M natzero) fun _ =>
-          piV (natStepSpace V M) fun _ =>
-            piV omega fun n => app M n := by
+      piV (natMotiveSpace V (lv us 0)) (fun M =>
+        piV (app M natzero) (fun _ =>
+          piV (natStepSpace V M) (fun _ =>
+            piV omega (fun n => app M n)
+              (hasSigmaPairs_of_defFun1 (DefFun.app_apply (DefFun.const M) (DefFun.proj 0))))
+            (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry (DefFun.app_apply (DefFun.proj 0) DefFun.natzero)
+            (DefFun.piV_apply_curry (defFun_natStepSpace (DefFun.proj 1))
+              (DefFun.piV_apply_curry DefFun.omega_const
+                (DefFun.app_apply (DefFun.proj 3) (DefFun.proj 0)))))) := by
   simp only [BConst.typeAV, arrowA, natTyAV, natZeroAV, natSuccAV,
     interp_pi, interp_const, interp_app, interp_bvar, interp_sort,
-    Term.lift, Term.liftN, cons_zero, cons_succ, bval, natMotiveSpace]
-  refine piV_congr fun M _ => piV_congr fun z _ => ?_
-  rw [natStepSpace_eq]
+    Term.lift, Term.liftN, cons_zero, cons_succ, bval]
+  refine piV_ext (piV_congr _ _ fun _ _ => rfl) _ _ fun M _ => piV_congr _ _ fun z _ => ?_
+  exact piV_ext (piV_congr _ _ fun n hn => piV_congr _ _ fun _ _ => by rw [natSuccV_app V hn]) _ _
+    fun _ _ => piV_congr _ _ fun _ _ => rfl
 
 theorem bval_mem_natRec (us : List Nat) (ρ : Nat → V) :
     bval V .natRec us ∈ˢ interp V ρ (BConst.typeAV .natRec us) := by
@@ -146,7 +161,7 @@ theorem bval_mem_psigma (us : List Nat) (ρ : Nat → V) :
 theorem IsTy_psigmaV_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
     (hB : B ∈ˢ psigmaFibreSpace V v A) : IsTy (app (app (psigmaV V u v) A) B) := by
   rw [psigmaV_app V hA hB]
-  exact IsTy_of_mem_univ (sigma_mem_univ hA fun x hx => psigmaFibre_apply V hB hx)
+  exact IsTy_of_mem_univ (sigma_mem_univ hA (fun x hx => psigmaFibre_apply V hB hx) _)
 
 /-- **`.psigmaMk`**: four abstractions; the pair is the point where its
 type is a truth value (`max u v = 0`). -/
@@ -204,11 +219,15 @@ theorem bval_mem_quotLift (us : List Nat) (ρ : Nat → V) :
   simp only [BConst.typeAV, relAV, quotAV, interp_pi, interp_bvar,
     interp_sort, interp_app, interp_const, interp_eqE, Term.lift,
     Term.liftN, Term.mkAppN, cons_zero, cons_succ, bval, lv, List.getD_cons_zero]
-  refine lamV_mem (fun A hA => lamV_mem (fun R hR => lamV_mem (fun B hB =>
-    lamV_mem (fun f hf => lamV_mem (fun _ _ => ?_) fun _ _ => IsTy_piV)
-    fun _ _ => IsTy_piV) fun _ _ => IsTy_piV) fun _ _ => IsTy_piV) fun _ _ => IsTy_piV
-  rw [quotV_app V hA hR]
-  exact quotLiftR_mem V hf (IsTy_of_mem_univ hB)
+  have hm := quotLiftV_mem V (lv us 0) (lv us 1)
+  refine Eq.subst (motive := fun T => quotLiftV V (lv us 0) (lv us 1) ∈ˢ T) ?_ hm
+  refine piV_congr _ _ fun A hA =>
+    piV_ext (piV_congr _ _ fun _ _ => piV_congr _ _ fun _ _ => rfl) _ _ fun R hR =>
+      piV_congr _ _ fun B _ =>
+        piV_ext (piV_congr _ _ fun _ _ => rfl) _ _ fun f _ =>
+          piV_ext (piV_congr _ _ fun _ _ =>
+            piV_congr _ _ fun _ _ => piV_congr _ _ fun _ _ => rfl) _ _ fun _ _ =>
+            piV_ext (quotV_app V hA hR).symm _ _ fun _ _ => rfl
 
 /-! ## The `pt`-valued propositions
 
@@ -218,9 +237,10 @@ abstraction of the point is the point (`pt_mem_piV_ty`). -/
 
 /-- The point inhabits a function space whose fibres are types holding
 it. -/
-theorem pt_mem_piV_ty {A : V} {B : V → V} (h : ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x)
-    (hB : ∀ x, x ∈ˢ A → IsTy (B x)) : (pt : V) ∈ˢ piV A B := by
-  have hm := lamV_mem (F := fun _ => (pt : V)) h hB
+theorem pt_mem_piV_ty {A : V} {B : V → V} {hS : HasSigmaPairs A B}
+    (h : ∀ x, x ∈ˢ A → (pt : V) ∈ˢ B x)
+    (hB : ∀ x, x ∈ˢ A → IsTy (B x)) : (pt : V) ∈ˢ piV A B hS := by
+  have hm := @lamV_mem V _ A (fun _ => (pt : V)) B (hasGraph_of_defFun1 DefFun.pt) hS h hB
   rwa [lamV_eq_pt fun _ _ => rfl] at hm
 
 theorem bval_mem_quotInd (us : List Nat) (ρ : Nat → V) :
@@ -279,8 +299,12 @@ theorem bval_mem_choice (us : List Nat) (ρ : Nat → V) :
   show choiceV V (lv us 0) ∈ˢ _
   simp only [BConst.typeAV, negTyAV, arrowA, emptyT, interp_pi,
     interp_bvar, interp_sort, interp_const, Term.lift, Term.liftN, cons_zero,
-    cons_succ, bval, piV_dneg_eq]
-  exact choiceV_mem V _
+    cons_succ, bval]
+  have hm := choiceV_mem V (lv us 0)
+  refine Eq.subst (motive := fun T => choiceV V (lv us 0) ∈ˢ T) ?_ hm
+  refine piV_congr _ _ fun A _ =>
+    piV_ext (by rw [piV_dneg_eq V A])
+      _ _ fun _ _ => rfl
 
 /-! ## `lfpFam` (task #188) -/
 
@@ -289,7 +313,12 @@ theorem bval_mem_lfpFam (us : List Nat) (ρ : Nat → V) :
   show lfpFamV V (lv us 0) (lv us 1) ∈ˢ _
   simp only [BConst.typeAV, arrowA, interp_pi, interp_sort, interp_bvar, Term.lift,
     Term.liftN, cons_zero, cons_succ]
-  exact lfpFamV_mem V (lv us 0) (lv us 1)
+  have hm := lfpFamV_mem V (lv us 0) (lv us 1)
+  refine Eq.subst (motive := fun T => lfpFamV V (lv us 0) (lv us 1) ∈ˢ T) ?_ hm
+  refine piV_congr _ _ fun I _ =>
+    piV_ext (piV_ext (piV_congr _ _ fun _ _ => rfl) _ _ fun _ _ =>
+      piV_congr _ _ fun _ _ => rfl) _ _ fun _ _ =>
+      piV_congr _ _ fun _ _ => rfl
 
 /-! ## `lfpTuple k` (#315)
 
@@ -317,12 +346,18 @@ theorem projNV_interp :
 membership (`sigma_mem_univ` at the joint level `max r r = r`). -/
 theorem psigmaV_rr_mem (r : Nat) :
     psigmaV V r r ∈ˢ piR (r + 1) (univ r : V)
-      (fun A => piR (r + 1) (psigmaFibreSpace V r A) fun _ => (univ r : V)) := by
-  rw [psigmaV_eq_lamR, show Nat.max r r = r from Nat.max_self r]
-  exact lamR_mem fun A hA => lamR_mem fun B hB => by
-    have h := sigma_mem_univ (u := r) (v := r) hA
-      (fun x hx => psigmaFibre_apply V hB hx)
-    rwa [show Nat.max r r = r from Nat.max_self r] at h
+      (fun A => piR (r + 1) (psigmaFibreSpace V r A) (fun _ => (univ r : V))
+        (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_of_defFun1
+        (DefFun.piR_apply_curry (r + 1) (defFun_psigmaFibreSpace r (DefFun.proj 0))
+          (DefFun.univ_const r))) := by
+  rw [psigmaV_eq_lamR, lamR_pos (Nat.succ_ne_zero _), piR_pos (Nat.succ_ne_zero r)]
+  refine graph_mem_piSet fun A _ => ?_
+  rw [lamR_pos (Nat.succ_ne_zero _), piR_pos (Nat.succ_ne_zero r)]
+  refine graph_mem_piSet fun B hB => ?_
+  have h := sigma_mem_univ (u := r) (v := r) ‹_› (fun x hx => psigmaFibre_apply V hB hx)
+    (hasSigmaPairs_of_defFun1 (DefFun.app_apply (DefFun.const B) (DefFun.proj 0)))
+  simpa only [Nat.max_self] using h
 
 /-- **The non-dependent tower reads back as its carrier.**  Its
 components are read at the BASE frame `ρ` — the former lifted them to
@@ -342,21 +377,13 @@ theorem ndTowerAV_interp {r : Nat} {F : Nat → V} {G : Nat → Term} {ρ : Nat 
       ndTowerAV_interp n (s + 1) (d + 1) (cons x σ)
         (by rw [shiftE_succ_cons]; exact hσ) (fun m hm => hG m (by omega))
         (fun m hm => hF m (by omega))
-    have hB : (lamV (interp V σ ((G s).liftN d 0))
-          fun x => interp V (cons x σ) (ndTowerAV r G (s + 1) (d + 1) n))
-        ∈ˢ psigmaFibreSpace V r (interp V σ ((G s).liftN d 0)) :=
-      lamV_mem_psigmaFibreSpace V fun x _ => by
-        rw [hrest x]; exact ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
     have hbv : bval V .psigma [r, r] = psigmaV V r r := rfl
-    show SetTheory.app (SetTheory.app (bval V .psigma [r, r])
-        (interp V σ ((G s).liftN d 0)))
-        (lamV (interp V σ ((G s).liftN d 0))
-          fun x => interp V (cons x σ) (ndTowerAV r G (s + 1) (d + 1) n))
-      = ndTowerSet V r F s (n + 1)
-    rw [hbv, psigmaV_app V hA hB, show Nat.max r r = r from Nat.max_self r]
-    show sigmaSet r _ _ = sigmaSet r (F s) _
-    rw [← hC]
-    exact sigma_congr fun x hx => by rw [app_lamV hx, hrest x]
+    simp only [ndTowerAV, interp_app, interp_const, interp_lam]
+    rw [hbv, psigmaV_app V hA ?_, show Nat.max r r = r from Nat.max_self r]
+    · show sigmaSet r _ _ _ = sigmaSet r (F s) _ _
+      exact sigmaSet_ext hC _ _ fun x hx => by rw [app_lamV hx, hrest x]
+    · exact lamV_mem_psigmaFibreSpace V fun x _ => by
+        rw [hrest x]; exact ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)
 
 /-- **The non-dependent tower is graded** (`WellDenoted`). -/
 theorem ndTowerAV_wellDenoted {r : Nat} {F : Nat → V} {G : Nat → Term} {ρ : Nat → V} :
@@ -395,12 +422,13 @@ theorem ndTowerAV_wellDenoted {r : Nat} {F : Nat → V} {G : Nat → Term} {ρ :
           (by rw [shiftE_succ_cons]; exact hσ) (fun m hm => hG m (by omega))
           (fun m hm => hok m (by omega)) (fun m hm => hF m (by omega))⟩
     · refine appliesTo_of_mem_piR (v := r + 1) (A := psigmaFibreSpace V r
-        (interp V σ ((G s).liftN d 0))) (B := fun _ => (univ r : V)) ?_ IsTy_piV ?_
+        (interp V σ ((G s).liftN d 0))) (B := fun _ => (univ r : V))
+        (hS := hasSigmaPairs_const _ _) ?_ IsTy_piV ?_
       · show SetTheory.app (interp V σ (.const .psigma [r, r]))
           (interp V σ ((G s).liftN d 0)) ∈ˢ _
         rw [hbv]
         exact app_mem_piR_pos hvac (psigmaV_rr_mem V r) hA
-      · exact lamV_mem_psigmaFibreSpace V hfib
+      · rw [interp_lam]; exact lamV_mem_psigmaFibreSpace V hfib
 
 /-- **The projection chain into a tower is graded.** -/
 theorem projNV_wellDenoted_ndTower {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
@@ -410,18 +438,22 @@ theorem projNV_wellDenoted_ndTower {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
       WellDenoted V ρ (projNV i e)
   | _, 0, _, _, _, hi, _, _, _ => absurd hi (Nat.not_lt_zero _)
   | 0, n + 1, s, e, ρ, _, hF, hok, he => by
-    have he' : interp V ρ e ∈ˢ sigmaSet r (F s) fun _ => ndTowerSet V r F (s + 1) n := he
+    have he' : interp V ρ e ∈ˢ
+        sigmaSet r (F s) (fun _ => ndTowerSet V r F (s + 1) n) (hasSigmaPairs_const _ _) := he
     show WellDenoted V ρ (.fst e)
     rw [WellDenoted_fst]
-    refine ⟨hok, r, r, F s, (fun _ => ndTowerSet V r F (s + 1) n), ?_, hF s (by omega),
+    refine ⟨hok, r, r, F s, (fun _ => ndTowerSet V r F (s + 1) n),
+      hasSigmaPairs_const _ _, ?_, hF s (by omega),
       fun _ _ => ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)⟩
     rwa [show Nat.max r r = r from Nat.max_self r]
   | i + 1, n + 1, s, e, ρ, hi, hF, hok, he => by
-    have he' : interp V ρ e ∈ˢ sigmaSet r (F s) fun _ => ndTowerSet V r F (s + 1) n := he
+    have he' : interp V ρ e ∈ˢ
+        sigmaSet r (F s) (fun _ => ndTowerSet V r F (s + 1) n) (hasSigmaPairs_const _ _) := he
     obtain ⟨a, b, ha, hb, -, hpos⟩ := mem_sigma_elim he'
     have hsnd : WellDenoted V ρ (.snd e) := by
       rw [WellDenoted_snd]
-      refine ⟨hok, r, r, F s, (fun _ => ndTowerSet V r F (s + 1) n), ?_, hF s (by omega),
+      refine ⟨hok, r, r, F s, (fun _ => ndTowerSet V r F (s + 1) n),
+        hasSigmaPairs_const _ _, ?_, hF s (by omega),
         fun _ _ => ndTowerSet_mem_univ V n (s + 1) fun m hm => hF m (by omega)⟩
       rwa [show Nat.max r r = r from Nat.max_self r]
     have hmem : interp V ρ (.snd e) ∈ˢ ndTowerSet V r F (s + 1) n := by
@@ -451,7 +483,7 @@ theorem famComp_mem_univ {k : Nat} {us : List Nat} {Is : V}
   have hproj : projS m Is ∈ˢ (univ (lv us m) : V) := by
     have := projS_mem_ndTowerSet V (tupleIdxSort_ne_zero us) k 0 hIs m hm
     rwa [Nat.zero_add] at this
-  have h := piV_mem_univ (u := lv us m) (v := lv us k + 1) hproj
+  have h := piV_mem_univ (u := lv us m) (v := lv us k + 1) (hS := hasSigmaPairs_const _ _) hproj
     (fun _ _ => univ_mem_univ (lv us k))
   rw [ite_eq_right (Nat.succ_ne_zero _)] at h
   refine univ_mono ?_ _ h
@@ -477,9 +509,8 @@ theorem tupleFamsAV_facts {k : Nat} {us : List Nat} {j : Nat} {ρ : Nat → V}
   have hG : ∀ m, m < k → interp V ρ (.pi (projNV m (.bvar j))
       (.sort (lv us k)) : Term) = lfpFamSpace V (lv us k) (projS m (ρ j)) := by
     intro m _
-    show piV (interp V ρ (projNV m (.bvar j))) _ = _
-    rw [projNV_interp, interp_bvar]
-    rfl
+    rw [interp_pi]
+    exact piV_ext (by rw [projNV_interp, interp_bvar]) _ _ fun _ _ => rfl
   have hok : ∀ m, m < k → WellDenoted V ρ (.pi (projNV m (.bvar j))
       (.sort (lv us k)) : Term) := by
     intro m hm
@@ -507,17 +538,20 @@ theorem bval_mem_lfpTuple (k : Nat) (us : List Nat) (ρ : Nat → V) :
       interp V (cons x (cons Is ρ)) (tupleFamsAV k us 1) = tupleFamsSpace V k us Is :=
     fun Is x hIs => (tupleFamsAV_facts V (j := 1) (ρ := cons x (cons Is ρ)) hIs).1
   have hdom : ∀ Is : V, Is ∈ˢ tupleSortsSpace V k us →
-      (piV (interp V (cons Is ρ) (tupleFamsAV k us 0)) fun x =>
-          interp V (cons x (cons Is ρ)) (tupleFamsAV k us 1))
-        = piV (tupleFamsSpace V k us Is) fun _ => tupleFamsSpace V k us Is := fun Is hIs => by
-    rw [(tupleFamsAV_facts V (j := 0) (ρ := cons Is ρ) hIs).1]
-    exact piV_congr fun x _ => hfams1 Is x hIs
+      (piV (interp V (cons Is ρ) (tupleFamsAV k us 0))
+          (fun x => interp V (cons x (cons Is ρ)) (tupleFamsAV k us 1))
+          (interp_hasSigmaPairs_cons _ _ _))
+        = piV (tupleFamsSpace V k us Is) (fun _ => tupleFamsSpace V k us Is)
+            (hasSigmaPairs_const _ _) := fun Is hIs =>
+    piV_ext (tupleFamsAV_facts V (j := 0) (ρ := cons Is ρ) hIs).1 _ _ fun x _ => hfams1 Is x hIs
   have h := lfpTupleV_mem V k us
-  rw [piV_congr fun Is hIs => show _ = piV (interp V (cons Is ρ) (.pi (tupleFamsAV k us 0)
-      (tupleFamsAV k us 1))) (fun x => interp V (cons x (cons Is ρ)) (tupleFamsAV k us 1)) by
-    rw [interp_pi, hdom Is hIs]
-    exact piV_congr fun x _ => (hfams1 Is x hIs).symm] at h
-  exact h
+  refine Eq.subst (motive := fun T => lfpTupleV V k us ∈ˢ T) ?_ h
+  refine piV_congr _ _ (fun Is hIs => by
+    have hinner := piV_ext (hdom Is hIs).symm
+      (hasSigmaPairs_const _ _)
+      (interp_hasSigmaPairs_cons (cons Is ρ) _ _)
+      fun x _ => (hfams1 Is x hIs).symm
+    simpa [interp_pi] using hinner)
 
 /-! ## The capstone
 

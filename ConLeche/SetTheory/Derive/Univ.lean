@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.SetTheory.Derive.TypeU
+public import ConLeche.SetTheory.Derive.Choice
 
 @[expose] public section
 
@@ -33,6 +34,10 @@ closures are read at `tg` (`mem_tg_of_mem_univ` going down,
 
 /-- **What `Sort n` means**: the universe of types `tyU n`. -/
 noncomputable def univ : Nat → V := tyU
+
+theorem DefFun.univ_const {k : Nat} (n : Nat) :
+    DefFun k fun _ => (univ n : V) :=
+  DefFun.const (univ n)
 
 theorem univ_zero : (univ 0 : V) = univZero := tyU_zero
 
@@ -101,5 +106,27 @@ theorem empty_mem_univ (n : Nat) : (empty : V) ∈ˢ univ n :=
 
 theorem unitSet_mem_univ (n : Nat) : (unitSet : V) ∈ˢ univ n :=
   mem_univ_of_mem_univZero (mem_univZero.mpr (Subset.refl _))
+
+/-! ## Universe-level choice function -/
+
+theorem hasSep_nonempty (u : V) : HasSep u (fun A => ∃ y, y ∈ˢ A) :=
+  hasSep_of_defPred (DefRel.exists_curry (DefRel.mem_apply (DefFun.proj 0) (DefFun.proj 1)))
+
+/-- A set-theoretic choice function on all nonempty members of `univ u`,
+replacing the old non-first-order global selector `schoice`. -/
+noncomputable def univChoiceFn (u : Nat) : V :=
+  choiceFn (sep (univ u) (fun A => ∃ y, y ∈ˢ A) (hasSep_nonempty (univ u)))
+    (fun _ hA => (mem_sep.mp hA).2)
+
+theorem app_univChoiceFn_mem {u : Nat} {A : V} (hA : A ∈ˢ (univ u : V))
+    (hne : ∃ y, y ∈ˢ A) : app (univChoiceFn u) A ∈ˢ A := by
+  unfold univChoiceFn
+  exact app_choiceFn_mem _ (mem_sep.mpr ⟨hA, hne⟩)
+
+theorem DefFun.univChoiceFn_const {k : Nat} (u : Nat) :
+    DefFun k fun _ => (univChoiceFn u : V) :=
+  DefFun.const (univChoiceFn u)
+
+attribute [irreducible] univChoiceFn
 
 end ConLeche.SetTheory

@@ -705,7 +705,6 @@ namespace LfpDatum
 
 variable {D : LfpDatum V}
 
-omit [SetTheory V] in
 /-- **The hole chains are closed below the operator's frame** — every
 chain of every member, when the members' telescopes are, the fields with
 holes are below the parameters and the holes, and the result index
@@ -803,7 +802,6 @@ theorem blockHoleChains_facts {env : Env} {m : EnvModel V env} {d : BlockData V}
 
 /-! ## Congruences of the hole form -/
 
-omit [SetTheory V] in
 /-- The result index readings with holes are congruent in the readings. -/
 theorem BlockData.absE_congr {d d' : BlockData V} {ψ ψ' : Name → Nat} {c j : Nat}
     (hk : d.k = d'.k) (hes : (d.Ess c ψ).getD j [] = (d'.Ess c ψ').getD j [])
@@ -812,7 +810,6 @@ theorem BlockData.absE_congr {d d' : BlockData V} {ψ ψ' : Name → Nat} {c j :
   unfold BlockData.absE
   rw [hes, hlen, hk]
 
-omit [SetTheory V] in
 /-- **The hole chains are congruent** in the lfp datum's readings. -/
 theorem LfpDatum.holeChains_congr {D D' : LfpDatum V} {ψ ψ' : Name → Nat} (hk : D.k = D'.k)
     (hu : ∀ m, D.u m ψ = D'.u m ψ')

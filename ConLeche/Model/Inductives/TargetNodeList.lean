@@ -70,6 +70,28 @@ variable {envC : Env} (mpC : EnvModelM V envC) (ctx : NestCtx) (d : BlockData V)
   if b = 0 then consList (xs.take d.nP) ρ
   else nodeFr mpC.base2.acval envC ctx ψ ρ xs (ns.getD (b - 1) default)
 
+/-- Node `b`'s finite frame prefix length: the parameter prefix at `0`, the
+key's parameters above. -/
+@[expose] def nlFrLen (d : BlockData V) (ns : List PosTree) (xs : List V) (b : Nat) : Nat :=
+  if b = 0 then (xs.take d.nP).length else (ns.getD (b - 1) default).key.ds.length
+
+/-- Node `b`'s tail above `nlFrLen`: the remaining valuation above its
+finite frame prefix. -/
+@[expose] noncomputable def nlTail (b : Nat) : Nat → V :=
+  fun j => nlFr mpC ctx d ns ψ ρ xs b (j + nlFrLen d ns xs b)
+
+/-- Node `b`'s TRUE finite frame prefix at the prefix spine `xs`. -/
+@[expose] noncomputable def nlFrFin (b : Nat) : Fin (nlFrLen d ns xs b) → V :=
+  fun i => nlFr mpC ctx d ns ψ ρ xs b i.val
+
+theorem prepend_nlFrFin_nlTail (b : Nat) :
+    prepend (nlFrFin mpC ctx d ns ψ ρ xs b) (nlTail mpC ctx d ns ψ ρ xs b) =
+      nlFr mpC ctx d ns ψ ρ xs b := by
+  funext i
+  by_cases hi : i < nlFrLen d ns xs b
+  · simp only [prepend, dite_eq_left hi, nlFrFin]
+  · simp only [prepend, dite_eq_right hi, nlTail, Nat.sub_add_cancel (Nat.le_of_not_lt hi)]
+
 /-- Node `b` is live: node `0` always (the prefix fits the block's
 parameters wherever a class is guarded), a listed node where its true frame
 fits its recorded block (`LfpDatum.FrFit`). -/
@@ -187,30 +209,39 @@ structure TgtNodeDyn (F : Nat) {envC : Env} (mpC : EnvModelM V envC)
     (out : List (ConstantVal × TargetMajor × List Expr)) (Dc : Nat → LfpDatum V)
     (mc : Nat → Nat) (cvc : Nat → ConstantVal) (ns : List PosTree) (ψ : Name → Nat)
     (ρ : Nat → V) (xs : List V) (call : List V → Nat → Nat → List V → V → Prop) where
-  Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
-  hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' → nlLive mpC ctx d ns ψ ρ xs b ∧
-    Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
-      ∀ c, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).idx (nlψ envC ns ψ b) ρ' c
-        = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b) c
-  top : ∀ b, b < ns.length + 1 → nlLive mpC ctx d ns ψ ρ xs b → ∀ G, (∀ b' c t y,
+  Adm : (b : Nat) → V → (Fin (nlFrLen d ns xs b) → V) → Prop
+  hAdm_def : ∀ b, b < ns.length + 1 →
+    DefRel (nlFrLen d ns xs b + 1) fun v => Adm b (v 0) (ftail v)
+  hAdm : ∀ b, b < ns.length + 1 → ∀ (G : V) (ρ' : Fin (nlFrLen d ns xs b) → V),
+    Adm b G ρ' → nlLive mpC ctx d ns ψ ρ xs b ∧
+    Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse
+        (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) ∧
+      ∀ c, c < (nlDb mpC d ns b).N →
+        (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) c
+          = (nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b) c
+  top : ∀ b, b < ns.length + 1 → nlLive mpC ctx d ns ψ ρ xs b → ∀ G : V, (∀ b' c t y,
       b' < ns.length + 1 → nlDp ns b' < nlDp ns b → c < (nlDb mpC d ns b').N →
-      nlLive mpC ctx d ns ψ ρ xs b' → t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
+      nlLive mpC ctx d ns ψ ρ xs b' →
+      t ∈ˢ (nlDb mpC d ns b').idx (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b') c →
       y ∈ˢ app ((nlDb mpC d ns b').carrier (nlψ envC ns ψ b')
-        (nlFr mpC ctx d ns ψ ρ xs b') c) t → G b' c t y) →
-    Adm b G (nlFr mpC ctx d ns ψ ρ xs b)
-  trans : ∀ b, b < ns.length + 1 → ∀ G,
-    (∀ b' c t y, G b' c t y →
+        (nlFr mpC ctx d ns ψ ρ xs b') c) t → nenc b' c t y ∈ˢ G) →
+    Adm b G (nlFrFin mpC ctx d ns ψ ρ xs b)
+  trans : ∀ b, b < ns.length + 1 → ∀ G : V,
+    (∀ b' c t y, nenc b' c t y ∈ˢ G →
       y ∈ˢ app ((lfpSClause (nlDb mpC d ns b') (nlψ envC ns ψ b')
         (pinIdx (nlDb mpC d ns b') (nlψ envC ns ψ b') (nlFr mpC ctx d ns ψ ρ xs b')
-          (nlLive mpC ctx d ns ψ ρ xs b'))).carrier
-        (nlFr mpC ctx d ns ψ ρ xs b') c) t) →
-    ∀ ρ', Adm b G ρ' → ∀ Y,
+          (nlLive mpC ctx d ns ψ ρ xs b'))
+        (nlFrLen d ns xs b') (nlTail mpC ctx d ns ψ ρ xs b')).carrier
+        (nlFrFin mpC ctx d ns ψ ρ xs b') c) t) →
+    ∀ ρ' : Fin (nlFrLen d ns xs b) → V, Adm b G ρ' → ∀ Y,
     InTupleSpace ((nlDb mpC d ns b).w (nlψ envC ns ψ b)) (nlDb mpC d ns b).N
       ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y →
     TupleLe (nlDb mpC d ns b).N
       ((nlDb mpC d ns b).idx (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) Y
       ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) →
-    ∀ t c j fs, c < (nlDb mpC d ns b).N → (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) ρ' Y t c j fs →
+    ∀ t c j fs, c < (nlDb mpC d ns b).N →
+      (nlDb mpC d ns b).HFits (nlψ envC ns ψ b)
+        (prepend ρ' (nlTail mpC ctx d ns ψ ρ xs b)) Y t c j fs →
       (nlDb mpC d ns b).HFits (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)
         ((nlDb mpC d ns b).carrier (nlψ envC ns ψ b) (nlFr mpC ctx d ns ψ ρ xs b)) t c j fs
   hcall : ∀ c b, c < (tgtRs out).length →
@@ -227,8 +258,8 @@ structure TgtNodeDyn (F : Nat) {envC : Env} (mpC : EnvModelM V envC)
       call xs c j fs (tagged c' t' y) →
       ∃ b', nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c' b' ∧
         NodeLands (ns.length + 1) (nlDb mpC d ns) (nlψ envC ns ψ)
-          (nlFr mpC ctx d ns ψ ρ xs) (nlDp ns) Adm b (tgtClsM mc p out c) t j fs b'
-          (tgtClsM mc p out c') t' y
+          (nlFrLen d ns xs) (nlTail mpC ctx d ns ψ ρ xs) (nlFrFin mpC ctx d ns ψ ρ xs)
+          (nlDp ns) Adm b (tgtClsM mc p out c) t j fs b' (tgtClsM mc p out c') t' y
 
 /-! ## A clause's own `trans`, and the fit's dependence on the tuple -/
 
@@ -243,7 +274,7 @@ theorem lfp_trans_self (hcl : LfpClause acval D) {F : Nat → V}
     (hY : InTupleSpace (D.w ψ) D.N (D.idx ψ F) Y)
     (hle : TupleLe D.N (D.idx ψ F) Y (D.carrier ψ F)) {t : V} {c j : Nat} {fs : List V}
     (hc : c < D.N) (hf : D.HFits ψ F Y t c j fs) : D.HFits ψ F (D.carrier ψ F) t c j fs :=
-  hcl.fitsMono ψ F hsat Y _ hY (lfpTuple_mem _ _ _ _) hle c hc t j fs hf
+  hcl.fitsMono ψ F hsat Y _ hY (lfpTuple_mem _ _ _ _ _) hle c hc t j fs hf
 
 /-- **The hole fit reads the tuple only at the members**: the hole frame
 holds one hole value per MEMBER (`LfpDatum.frame`), each reading its own
@@ -255,7 +286,8 @@ theorem LfpDatum.frame_congr_members {ρp X X' : Nat → V} (h : ∀ m, m < D.k 
   refine List.map_congr_left fun m hm => ?_
   have hmk : m < D.k := List.mem_range.mp hm
   unfold LfpDatum.holeVal
-  rw [h m hmk]
+  congr 1
+  funext vs; rw [h m hmk]
 
 theorem LfpDatum.hfits_congr_members {ρp X X' : Nat → V} (h : ∀ m, m < D.k → X m = X' m)
     {t : V} {c j : Nat} {fs : List V} : D.HFits ψ ρp X t c j fs ↔ D.HFits ψ ρp X' t c j fs := by
@@ -376,16 +408,29 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
     nC := ns.length + 1
     Db := nlDb mpC d ns
     ψb := nlψ envC ns ψ
-    frb := nlFr mpC ctx d ns ψ ρ xs
+    frLen := nlFrLen d ns xs
+    tailb := nlTail mpC ctx d ns ψ ρ xs
+    frb := nlFrFin mpC ctx d ns ψ ρ xs
     live := nlLive mpC ctx d ns ψ ρ xs
     dp := nlDp ns
     Dd := nlDd ns
     hD := nlDp_lt ns
     Adm := Dy.Adm
+    hAdm_def := Dy.hAdm_def
     hcl := fun b hb => mpC.lfpClause_of_mem (hmemB b hb)
-    hAdm := Dy.hAdm
-    top := Dy.top
-    trans := Dy.trans
+    hAdm := fun b hb G ρ' hρ' => by
+      simpa only [prepend_nlFrFin_nlTail] using Dy.hAdm b hb G ρ' hρ'
+    top := fun b hb hlv G hG => by
+      refine Dy.top b hb hlv G fun b' c t y hb' hdp hc hlv' ht hy => ?_
+      have ht' := ht
+      have hy' := hy
+      rw [← prepend_nlFrFin_nlTail] at ht' hy'
+      exact hG b' c t y hb' hdp hc hlv' ht' hy'
+    trans := fun b hb G hG ρ' hρ' Y hY hle t c j fs hc hf => by
+      rw [prepend_nlFrFin_nlTail] at hY hle ⊢
+      refine Dy.trans b hb G (fun b' c t y hmem => ?_) ρ' hρ' Y hY hle t c j fs hc hf
+      have hG' := hG b' c t y hmem
+      rwa [prepend_nlFrFin_nlTail] at hG'
     Rel := fun c b => nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c b ∧
       tgtClsLive d Dc cvc mpC.base2.acval envC p out ψ ρ xs c
     mOf := fun c _ => tgtClsM mc p out c
@@ -406,14 +451,18 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
         exact Nat.lt_of_lt_of_le hcl.hmm (mpC.lfpClause_of_mem hcl.hD).kN
     hDb := fun c b hc hR => (htie c b hc hR.1).1
     hψb := fun c b hc hR => (htie c b hc hR.1).2.1
-    hfr := fun c b hc hR => (htie c b hc hR.1).2.2
+    hfr := fun c b hc hR => by
+      rw [prepend_nlFrFin_nlTail]
+      exact (htie c b hc hR.1).2.2
     hmc := fun _ _ _ _ => rfl
     hG := fun _ _ _ hR => ⟨hR.1.1, hR.2⟩
     hlive := fun c b hc hR => hliveR c b hc hR.1 hR.2
     hnCt := fun c b hc hR t j fs hf => by
       rw [hnCt c hc, (htie c b hc hR.1).1]
+      rw [prepend_nlFrFin_nlTail] at hf
       exact hf.1
     hcall := fun c b hc hR t j fs ht hf c' t' y hc' ht' hy hcl => by
+      rw [prepend_nlFrFin_nlTail] at ht hf
       obtain ⟨b', hR', hL⟩ := Dy.hcall c b hc hR.1 hR.2 t j fs ht hf c' t' y hc' ht' hy hcl
       exact ⟨b', ⟨hR', (tgtClsIs_guard ht').2⟩, hL⟩ }, ?_⟩
   intro c hc hg hl

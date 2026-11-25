@@ -54,14 +54,15 @@ value-read regimes (`propN`). -/
 /-- A binary head over the frame's `Nat`, with codomain set `codS`. -/
 def DmBinV (natS codS f : V) : Prop :=
   ∃ b₁ b₂ : Nat,
-    f ∈ˢ piR b₁ natS (fun _ => piR b₂ natS (fun _ => codS)) ∧
+    f ∈ˢ piR b₁ natS (fun _ => piR b₂ natS (fun _ => codS) (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_const _ _) ∧
     (b₁ = 0 → ∀ x, x ∈ˢ natS →
-      piR b₂ natS (fun _ => codS) ∈ˢ (univZero : V)) ∧
+      piR b₂ natS (fun _ => codS) (hasSigmaPairs_const _ _) ∈ˢ (univZero : V)) ∧
     (b₂ = 0 → ∀ x, x ∈ˢ natS → codS ∈ˢ (univZero : V)) ∧ IsTy natS
 
 /-- A unary head over the frame's `Nat`. -/
 def DmUnV (natS codS f : V) : Prop :=
-  ∃ b₁ : Nat, f ∈ˢ piR b₁ natS (fun _ => codS) ∧
+  ∃ b₁ : Nat, f ∈ˢ piR b₁ natS (fun _ => codS) (hasSigmaPairs_const _ _) ∧
     (b₁ = 0 → ∀ x, x ∈ˢ natS → codS ∈ˢ (univZero : V)) ∧ IsTy natS
 
 /-- The binary rule, at the value level. -/
@@ -69,7 +70,7 @@ theorem DmBinV.app {natS codS f x y : V} (h : DmBinV natS codS f)
     (hx : x ∈ˢ natS) (hy : y ∈ˢ natS) :
     SetTheory.app (SetTheory.app f x) y ∈ˢ codS := by
   obtain ⟨b₁, b₂, hm, hB1, hB2, -⟩ := h
-  have hinner : SetTheory.app f x ∈ˢ piR b₂ natS (fun _ => codS) :=
+  have hinner : SetTheory.app f x ∈ˢ piR b₂ natS (fun _ => codS) (hasSigmaPairs_const _ _) :=
     app_mem_piR hm hx hB1
   exact app_mem_piR hinner hy hB2
 
@@ -103,7 +104,7 @@ theorem DmBinV.wellDenoted {natS codS f x y : V} (h : DmBinV natS codS f)
   rw [WellDenoted_app]
   refine ⟨hok1, hya, ?_⟩
   rw [interp_app, hf, hxv, hyv]
-  have hinner : SetTheory.app f x ∈ˢ piR b₂ natS (fun _ => codS) :=
+  have hinner : SetTheory.app f x ∈ˢ piR b₂ natS (fun _ => codS) (hasSigmaPairs_const _ _) :=
     app_mem_piR hm hx hB1
   exact appliesTo_of_mem_piR hinner hN hy
 
@@ -144,20 +145,15 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
   have hin : ∀ x, interp V (cons x ρ)
         ((.pi (m.acval ConLeche.natName ψ) (m.acval codN ψ)) : Term)
       = piV (interp V ρ (m.acval ConLeche.natName ψ))
-          (fun _ => interp V ρ (m.acval codN ψ)) := fun x => by
+          (fun _ => interp V ρ (m.acval codN ψ)) (hasSigmaPairs_const _ _) := fun x => by
     rw [interp_pi]
-    congr 1
-    · exact acval_interp_closed m _ ψ _ ρ
-    · funext y
-      exact acval_interp_closed m _ ψ _ ρ
+    exact piV_ext (acval_interp_closed m _ ψ _ ρ) _ _ fun y _ => acval_interp_closed m _ ψ _ ρ
   have hm : interp V ρ fa ∈ˢ piV (interp V ρ (m.acval ConLeche.natName ψ))
       (fun _ => piV (interp V ρ (m.acval ConLeche.natName ψ))
-        (fun _ => interp V ρ (m.acval codN ψ))) := by
+        (fun _ => interp V ρ (m.acval codN ψ)) (hasSigmaPairs_const _ _))
+      (hasSigmaPairs_const _ _) := by
     rw [interp_pi] at hmem
-    rwa [show (fun x => interp V (cons x ρ)
-          ((.pi (m.acval ConLeche.natName ψ) (m.acval codN ψ)) : Term))
-        = fun _ => piV (interp V ρ (m.acval ConLeche.natName ψ))
-            (fun _ => interp V ρ (m.acval codN ψ)) from funext hin] at hmem
+    rwa [piV_congr _ (hasSigmaPairs_const _ _) fun x _ => hin x] at hmem
   exact ⟨_, _, hm, fun h => propN_eq_zero.mp h, fun h => propN_eq_zero.mp h,
     (cast (WellDenoted_pi V ρ _ _) htok).2.1⟩
 
@@ -173,12 +169,9 @@ theorem dmUnV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     DmUnV (interp V ρ (m.acval ConLeche.natName ψ))
       (interp V ρ (m.acval codN ψ)) (interp V ρ fa) := by
   have hm : interp V ρ fa ∈ˢ piV (interp V ρ (m.acval ConLeche.natName ψ))
-      (fun _ => interp V ρ (m.acval codN ψ)) := by
+      (fun _ => interp V ρ (m.acval codN ψ)) (hasSigmaPairs_const _ _) := by
     rw [interp_pi] at hmem
-    rwa [show (fun x => interp V (cons x ρ) (m.acval codN ψ))
-        = fun _ => interp V ρ (m.acval codN ψ) from by
-      funext x
-      exact acval_interp_closed m _ ψ _ ρ] at hmem
+    rwa [piV_congr _ (hasSigmaPairs_const _ _) fun x _ => acval_interp_closed m _ ψ _ ρ] at hmem
   exact ⟨_, hm, fun h => propN_eq_zero.mp h, (cast (WellDenoted_pi V ρ _ _) htok).2.1⟩
 
 /-- **A stored pinned binary head, at the value level.** -/

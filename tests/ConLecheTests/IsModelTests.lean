@@ -71,47 +71,75 @@ theorem T_a_ne_T_b {ds : List Declaration} {model : Name → List Nat → V}
     (hrec (.ctorInfo tbCV 0 0 tN) (by simp [tBlock]) [] rfl).1
   -- the recursor, at the motive `fun _ => Prop` and the minors `∅` and `{pt}`
   obtain ⟨hR, hrules⟩ := hrec (.recInfo trecCV 3 3 false [ruleA, ruleB]) (by simp [tBlock]) [1] rfl
-  let m : V := lamV (model tN []) fun _ => univ 0
-  have hm : m ∈ˢ piV (model tN []) (fun _ => (univ 1 : V)) :=
+  let m : V := lamV (model tN []) (fun _ => univ 0) (hasGraph_of_defFun1 (DefFun.const _))
+  have hm : m ∈ˢ piV (model tN []) (fun _ => (univ 1 : V)) (hasSigmaPairs_const _ _) :=
     lamV_mem (fun _ _ => univ_mem_univ 0) (fun _ _ => IsTy_of_mem_univ (univ_mem_univ 1))
   have hmc : ∀ c, c ∈ˢ model tN [] → app m c = univ 0 := fun c hc => app_lamV hc
   have hmA : (empty : V) ∈ˢ app m (model taN []) := by rw [hmc _ hTa]; exact empty_mem_univ 0
   have hmB : (unitSet : V) ∈ˢ app m (model tbN []) := by rw [hmc _ hTb]; exact unitSet_mem_univ 0
-  have hR' : model trecN [1] ∈ˢ piV (piV (model tN []) fun _ => (univ 1 : V)) (fun mo =>
-      piV (app mo (model taN [])) fun _ => piV (app mo (model tbN [])) fun _ =>
-        piV (model tN []) fun t => app mo t) := hR
+  simp only [trecCV, tMotive, tMinA, tMinB, pi, piA, srt, cnst, bv] at hR
   have hrecAt : ∀ c, c ∈ˢ model tN [] →
       app (app (app (app (model trecN [1]) m) empty) unitSet) c ∈ˢ (univ 0 : V) := by
     intro c hc
-    have h1 := app_mem_piV hR' hm
+    have h1 := app_mem_piV hR hm
     have h2 := app_mem_piV h1 hmA
     have h3 := app_mem_piV h2 hmB
     have h4 := app_mem_piV h3 hc
     rw [← hmc c hc]
     exact h4
   -- a rule's equation at the motive and the minors
-  have hrule : ∀ (ca : Name) (x : V) (sel : V → V → V), model ca [] ∈ˢ model tN [] →
+  have hrule : ∀ (ca : Name) (r : Expr) (x : V) (sel : V → V → V), model ca [] ∈ˢ model tN [] →
       (∀ a b, a ∈ˢ (univ 0 : V) → b ∈ˢ (univ 0 : V) → sel a b ∈ˢ (univ 0 : V)) →
-      x ∈ˢ piV (piV (model tN []) fun _ => (univ 1 : V)) (fun mo =>
-        piV (app mo (model taN [])) fun a => piV (app mo (model tbN [])) fun b =>
-          app (app (app (model eqName [1]) (app mo (model ca [])))
-            (app (app (app (app (model trecN [1]) mo) a) b) (model ca [])))
-            (app (app (app (lamV (piV (model tN []) fun _ => (univ 1 : V)) fun mo' =>
-              lamV (app mo' (model taN [])) fun a' => lamV (app mo' (model tbN [])) fun b' =>
-                sel a' b') mo) a) b)) →
+      Expr.eval model φ1 (push unitSet (push empty (push m ρ₀)))
+        (Expr.mkAppN r [bv 2, bv 1, bv 0]) = sel empty unitSet →
+      x ∈ˢ Expr.eval model φ1 ρ₀ (tEq ca r) →
       app (app (app (app (model trecN [1]) m) empty) unitSet) (model ca []) = sel empty unitSet := by
-    intro ca x sel hca hsel hx
+    intro ca r x sel hca hsel hr hx
+    simp only [tEq, tMotive, tMinA, tMinB, ap3, pi, piA, srt, cnst, bv, u, Expr.mkAppN,
+      eval_forallE, eval_app, eval_const, eval_sort, eval_bvar, List.map_cons, List.map_nil,
+      Level.eval, φ1, Level.assign, ite_true] at hx
     have h1 := app_mem_piV hx hm
     have h2 := app_mem_piV h1 hmA
     have h3 := app_mem_piV h2 hmB
-    rw [app_lamV hm, app_lamV hmA, app_lamV hmB, hmc _ hca,
-      IsModel.eq_eqv h hE (univ_mem_univ 0) (hrecAt _ hca)
+    have hr' := hr
+    simp only [bv, Expr.mkAppN, eval_app, eval_bvar, push, φ1, Level.assign] at hr'
+    simp only [push] at h3
+    rw [hmc _ hca, hr', IsModel.eq_eqv h hE (univ_mem_univ 0) (hrecAt _ hca)
         (hsel _ _ (empty_mem_univ 0) (unitSet_mem_univ 0))] at h3
     exact eq_of_mem_eqv h3
   obtain ⟨xa, hxa⟩ := hrules 0 ruleA rfl _ iotaEqOf_ruleA
   obtain ⟨xb, hxb⟩ := hrules 1 ruleB rfl _ iotaEqOf_ruleB
-  have ha := hrule taN xa (fun a _ => a) hTa (fun a _ ha _ => ha) hxa
-  have hb := hrule tbN xb (fun _ b => b) hTb (fun _ b _ hb => hb) hxb
+  have hrm : m ∈ˢ Expr.eval model φ1 (push unitSet (push empty (push m ρ₀))) tMotive := by
+    simp only [tMotive, piA, srt, cnst, u, eval_forallE, eval_const, eval_sort, List.map_nil,
+      Level.eval, φ1, Level.assign, ite_true]
+    exact hm
+  have hrmA : empty ∈ˢ Expr.eval model φ1 (push m (push unitSet (push empty (push m ρ₀)))) tMinA := by
+    simp only [tMinA, bv, cnst, eval_app, eval_bvar, eval_const, push, List.map_nil]
+    exact hmA
+  have hrmB : unitSet ∈ˢ
+      Expr.eval model φ1 (push empty (push m (push unitSet (push empty (push m ρ₀))))) tMinB := by
+    simp only [tMinB, bv, cnst, eval_app, eval_bvar, eval_const, push, List.map_nil]
+    exact hmB
+  have hrStep : ∀ body : Expr,
+      Expr.eval model φ1 (push unitSet (push empty (push m ρ₀)))
+          ((lm "motive" tMotive <| lm "a" tMinA <| lm "b" tMinB <| body).mkAppN [bv 2, bv 1, bv 0]) =
+        Expr.eval model φ1
+          (push unitSet (push empty (push m (push unitSet (push empty (push m ρ₀)))))) body := by
+    intro body
+    simp only [lm, bv, Expr.mkAppN]
+    rw [eval_app, eval_app, eval_app, eval_lam, eval_bvar, eval_bvar, eval_bvar]
+    simp only [push]
+    rw [app_lamV hrm, eval_lam, app_lamV hrmA, eval_lam, app_lamV hrmB]
+  have hrA : Expr.eval model φ1 (push unitSet (push empty (push m ρ₀)))
+      (Expr.mkAppN ruleA.rhs [bv 2, bv 1, bv 0]) = empty := by
+    rw [ruleA, rule, hrStep]
+    simp only [bv, eval_bvar, push]
+  have hrB : Expr.eval model φ1 (push unitSet (push empty (push m ρ₀)))
+      (Expr.mkAppN ruleB.rhs [bv 2, bv 1, bv 0]) = unitSet := by
+    rw [ruleB, rule, hrStep]
+    simp only [bv, eval_bvar, push]
+  have ha := hrule taN ruleA.rhs xa (fun a _ => a) hTa (fun a _ ha _ => ha) hrA hxa
+  have hb := hrule tbN ruleB.rhs xb (fun _ b => b) hTb (fun _ b _ hb => hb) hrB hxb
   rw [hab, hb] at ha
   exact not_mem_empty _ (ha ▸ pt_mem_unitSet)
 

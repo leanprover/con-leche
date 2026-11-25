@@ -13,7 +13,11 @@ name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
 rev = "v4.36.0"
 
-# ConLeche itself, by path: the bridge imports `ConLeche.SetTheory.Core` only.
+# ConLeche itself, by path.  `Carneiro.lean` imports `ConLeche.SetTheory.Core`
+# only; the `Nat` modules (`IsModelNat.lean`, `StandardNat.lean`,
+# `Accepted.lean`) import the statement (`ConLeche.IsModel`), the semantics
+# tier and the pure checker's main theorem (`ConLeche.Model.PureChecker`),
+# hence all of the proof.
 [[require]]
 name = "con-leche"
 path = "../.."

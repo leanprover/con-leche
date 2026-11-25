@@ -35,7 +35,7 @@ theorem tupW_pos {u : Nat} (hu : u ≠ 0) (is : List V) : tupW u is = mkTower is
 
 /-- The index-tuple set at a parameter frame. -/
 noncomputable def idxSet (u : Nat) (ρp : Nat → V) (Ids : List Term) : V :=
-  towerSet u (teleOfFields ρp Ids)
+  towerSet u (teleOfFields ρp Ids) (hasTeleS_teleOfFields u ρp Ids)
 
 /-- The index tuple type, spelled at the parameter frame. -/
 def idxTyAV (u : Nat) (Ids : List Term) : Term := towerBodyAV u Ids
@@ -56,8 +56,8 @@ theorem tupW_mem {u : Nat} {ρp : Nat → V} {Ids : List Term} {is : List V}
     (hsp : SpineFit ρp Ids is) : tupW u is ∈ˢ idxSet u ρp Ids := by
   unfold tupW idxSet
   split
-  · next hu => exact hu ▸ pt_mem_tower (fitsS_teleOfFields.mpr hsp)
-  · next hu => exact mkTower_mem hu (fitsS_teleOfFields.mpr hsp)
+  · next hu => exact hu ▸ pt_mem_tower_teleOfFields hsp
+  · next hu => exact mkTower_mem_teleOfFields hu hsp
 
 theorem foldl_app_pt' : ∀ (ts : List V), ts.foldl SetTheory.app (pt : V) = pt
   | [] => rfl
@@ -79,7 +79,8 @@ theorem famTyAV_facts {u w : Nat} {ρp : Nat → V} {Ids : List Term} (h : IdxOk
     rw [interp_pi, hv]
     rfl
   · unfold lfpFamSpace
-    have := piV_mem_univ (u := u) (v := w + 1) hu (fun _ _ => univ_mem_univ w)
+    have := piV_mem_univ (u := u) (v := w + 1) (hS := hasSigmaPairs_const _ _)
+      hu (fun _ _ => univ_mem_univ w)
     rwa [ite_eq_right (Nat.succ_ne_zero w)] at this
   · unfold famTyAV
     rw [WellDenoted_pi]
@@ -216,7 +217,7 @@ theorem WellDenoted_mkPisAV_of {w : Nat} {R : Term} :
       | nil =>
         have := hRt [x] ⟨hx, trivial⟩
         simpa [mkPisAV, consList] using this
-      | cons _ _ => exact IsTy_piR _ _ _
+      | cons _ _ => exact IsTy_piV
 
 end Fam
 
@@ -429,7 +430,8 @@ theorem mem_idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List Term} {t : V}
     (ht : t ∈ˢ idxSet u ρp Ids) : ∃ is : List V, SpineFit ρp Ids is ∧ t = tupW u is := by
   by_cases hu : u = 0
   · subst hu
-    obtain ⟨rfl, as, has⟩ := towerSet_zero_elim (teleOfFields ρp Ids) ht
+    obtain ⟨rfl, as, has⟩ :=
+      towerSet_zero_elim (teleOfFields ρp Ids) (hT := hasTeleS_teleOfFields 0 ρp Ids) ht
     exact ⟨as, fitsS_teleOfFields.mp has, (tupW_zero as).symm⟩
   · obtain ⟨hsp, heq⟩ := towerSet_elim_teleOfFields hu ht
     exact ⟨_, hsp, by rw [tupW_pos hu]; exact heq⟩

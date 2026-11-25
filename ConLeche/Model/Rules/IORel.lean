@@ -60,7 +60,8 @@ other type. -/
     Nat → Expr → (Nat → V) → V → Prop
   | d, .forallE ty body, ρ, v =>
     ∃ tya, denote m.acval env φ d ty = some tya ∧ WellDenotedTy V ρ tya ∧
-      (∃ F : V → V, v = graph F (interp V ρ tya)) ∧
+      (∃ (F : V → V) (hG : HasGraph (interp V ρ tya) F),
+        v = graph F (interp V ρ tya) hG) ∧
       (∃ x, x ∈ˢ interp V ρ tya ∧ SetTheory.app v x ≠ pt) ∧
       ∀ x, x ∈ˢ interp V ρ tya →
         SetTheory.app v x = pt ∨
@@ -90,7 +91,8 @@ theorem IOHered_forallE {d : Nat} {ty body : Expr}
     {ρ : Nat → V} {v : V} :
     IOHered m φ d (.forallE ty body) ρ v ↔
       ∃ tya, denote m.acval env φ d ty = some tya ∧ WellDenotedTy V ρ tya ∧
-        (∃ F : V → V, v = graph F (interp V ρ tya)) ∧
+        (∃ (F : V → V) (hG : HasGraph (interp V ρ tya) F),
+        v = graph F (interp V ρ tya) hG) ∧
         (∃ x, x ∈ˢ interp V ρ tya ∧ SetTheory.app v x ≠ pt) ∧
         ∀ x, x ∈ˢ interp V ρ tya →
           IORel m φ (d + 1) (body.instantiate1 (.fvar d ty)) (cons x ρ)
@@ -191,7 +193,7 @@ theorem IORel_substFvarAt {p : Nat} {a : Expr} {x : Term}
     · exact Or.inl h
     · exact Or.inr (Or.inl (IOMem_substFvarAt hwa hba ha hpD hfb hwx h))
     · rw [IOHered_forallE] at h
-      obtain ⟨tya, htya, hwT, ⟨F, hF⟩, ⟨x₀, hx₀, hne⟩, hall⟩ := h
+      obtain ⟨tya, htya, hwT, ⟨F, hG, hF⟩, ⟨x₀, hx₀, hne⟩, hall⟩ := h
       have hfb' : Expr.fvarsBelow (D + 1) ty ∧ Expr.fvarsBelow (D + 1) body := hfb
       refine Or.inr (Or.inr ?_)
       show IOHered m φ D
@@ -202,7 +204,7 @@ theorem IORel_substFvarAt {p : Nat} {a : Expr} {x : Term}
         interp_inst V tya x (D - p) ρ
       refine ⟨tya.inst x (D - p), ?_,
         ⟨(WellDenoted_inst V tya x (D - p) ρ hwx).mpr hwT.1, by rw [hint]; exact hwT.2⟩,
-        ⟨F, by rw [hint]; exact hF⟩, ⟨x₀, by rw [hint]; exact hx₀, hne⟩, fun y hy => ?_⟩
+        ⟨F, hint ▸ hG, by simp only [hint]; exact hF⟩, ⟨x₀, by rw [hint]; exact hx₀, hne⟩, fun y hy => ?_⟩
       · rw [denote_substFvarAt m.acval_closed (acval_inst_self m) hwa hba ha ty D hpD
           hfb'.1, htya]; rfl
       rw [hint] at hy

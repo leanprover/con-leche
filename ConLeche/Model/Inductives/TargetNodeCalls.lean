@@ -50,35 +50,12 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Small kit -/
 
-/-- **The least tuple reads only the index sets below its width.** -/
-theorem lfpTuple_congr_Is {w k : Nat} {Is Is' : Nat → V} {Φ : (Nat → V) → Nat → V}
-    (h : ∀ m, m < k → Is m = Is' m) {m : Nat} (hm : m < k) :
-    lfpTuple w k Is Φ m = lfpTuple w k Is' Φ m := by
-  have hP : IsClosedTuple w k Is Φ = IsClosedTuple w k Is' Φ := by
-    funext X
-    apply propext
-    unfold IsClosedTuple InTupleSpace TupleLe
-    constructor
-    · rintro ⟨h1, h2⟩
-      exact ⟨fun c hc => h c hc ▸ h1 c hc, fun c hc => h c hc ▸ h2 c hc⟩
-    · rintro ⟨h1, h2⟩
-      exact ⟨fun c hc => (h c hc).symm ▸ h1 c hc, fun c hc => (h c hc).symm ▸ h2 c hc⟩
-  have hch : ∀ {p q : (Nat → V) → Prop} (e : p = q) (hp : ∃ L, p L) (hq : ∃ L, q L),
-      Classical.choose hp = Classical.choose hq := by
-    intro p q e hp hq; subst e; rfl
-  unfold lfpTuple
-  rw [h m hm]
-  by_cases hc : ∃ L, IsClosedTuple w k Is Φ L
-  · have hc' : ∃ L, IsClosedTuple w k Is' Φ L := hP ▸ hc
-    rw [dite_eq_left hc, dite_eq_left hc', hch hP hc hc', hP]
-  · have hc' : ¬ ∃ L, IsClosedTuple w k Is' Φ L := hP ▸ hc
-    rw [dite_eq_right hc, dite_eq_right hc']
-
 /-- **A carrier at an admissible frame is the clause's** there, the index
 sets agreeing below the width. -/
-theorem lfpSClause_carrier_of {D : LfpDatum V} {ψ : Name → Nat} {ρp : Nat → V} {Is : Nat → V}
-    (hIs : ∀ c, c < D.N → D.idx ψ ρp c = Is c) {m : Nat} (hm : m < D.N) :
-    (lfpSClause D ψ Is).carrier ρp m = D.carrier ψ ρp m :=
+theorem lfpSClause_carrier_of {D : LfpDatum V} {ψ : Name → Nat} {len : Nat}
+    {tail : Nat → V} {ρp : Fin len → V} {Is : Nat → V}
+    (hIs : ∀ c, c < D.N → D.idx ψ (prepend ρp tail) c = Is c) {m : Nat} (hm : m < D.N) :
+    (lfpSClause D ψ Is len tail).carrier ρp m = D.carrier ψ (prepend ρp tail) m :=
   (lfpTuple_congr_Is hIs hm).symm
 
 /-! ## K.53′ at the node's own entry -/

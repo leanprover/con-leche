@@ -19,9 +19,9 @@ lake build          # `lake update` was already run; the manifest is committed.
 The first build fetches Mathlib's oleans automatically (Mathlib's
 post-update hook runs `cache get`; if it did not, run `lake exe cache
 get` first).  `lean-toolchain` is a copy of the repository's; Mathlib is
-pinned to the matching tag (`v4.36.0`).  `ConLeche.SetTheory.Core` is built
-from `../..` by the path `require`.  Everything lands in this
-directory's `.lake` (gitignored).
+pinned to the matching tag (`v4.36.0`).  The ConLeche modules the bridge
+imports are built from `../..` by the path `require`.  Everything lands
+in this directory's `.lake` (gitignored).
 
 ## Contents
 
@@ -43,20 +43,20 @@ directory's `.lake` (gitignored).
   ¬ ∃ e, env.HasType U [] e Term.false` (sorried there, pending his
   model construction).
 
-* `isTGUniverse_vonNeumann : κ.IsInaccessible → ConLeche.IsTGUniverse (· ∈ ·) (V_ κ.ord)`
-  — Mathlib's von Neumann stage at an inaccessible is a Grothendieck
-  universe in Tarski's form.  Transitivity, subset- and power-set
-  closure are Mathlib's `ZFSet.vonNeumann` lemmas; Tarski's cardinality
-  clause is the work: a subset `y ⊆ V_ κ` has rank `≤ κ`; if `< κ` it
-  is a member (`mem_vonNeumann`); otherwise `|y| ≥ κ` by **regularity**
-  (`rank_lt_ord_of_card_lt`: fewer than `κ` ordinals below `κ` are
-  bounded), and `|V_ κ| = ℶ_κ = κ` by **strong limitness**
-  (`card_vonNeumann_ord`), so `|y| = |V_ κ|` and a bijection exists.
+* `isGrothendieck_vonNeumann : κ.IsInaccessible → ConLeche.IsGrothendieck (· ∈ ·) (V_ κ.ord)`
+  — Mathlib's von Neumann stage at an inaccessible is an SGA4 Grothendieck
+  universe.  Transitivity, pairing, and power-set closure follow from
+  Mathlib's `ZFSet.vonNeumann` lemmas; indexed-union closure over an
+  internal function graph `g : I → V_ κ.ord` with `I ∈ V_ κ.ord` uses
+  strong limitness (`card_lt_of_mem_vonNeumann`: `I.card < κ` via
+  `preBeth_lt_of_lt_ord`) and regularity (`κ.ord.cof = κ`) to bound
+  `⨆ i ∈ I, (F i).rank + 1 < κ.ord`.
 
 * `setTheoryOfChain κ hmono hinacc : ConLeche.SetTheory ZFSet.{u}` — the
-  explicit instance: ZF⁻ fields from Mathlib (`ZFSet.ext`, `{a, b}`,
-  `⋃₀`, `powerset`, `mem_wf`, `image` under
-  `Classical.allZFSetDefinable`), `univChain n := V_ (κ n).ord`.
+  explicit instance: ZFC⁻ fields from Mathlib (`ZFSet.ext`, `{a, b}`,
+  `⋃₀`, `powerset`, `mem_wf`, first-order replacement over `Formula` via
+  `image` under `Classical.allZFSetDefinable`, Jech-form `choice` via
+  Kuratowski pairs `zfKPair` and `Classical.choose`), `univChain n := V_ (κ n).ord`.
 
 * `carneiro_implies_conleche : OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V)`.
 
@@ -67,31 +67,79 @@ Nothing beyond Carneiro's hypothesis was needed: `ℵ₀ < κ` is used only
 to make `κ.ord` a limit ordinal (for `powerset y ∈ V_ κ`), regularity
 and strong limitness exactly as described above.
 
+### `Nat` denotes the standard naturals
+
+`SetTheory` is first-order, so if it has a model it has one whose `ω` is
+not standard (by compactness; not mechanized).  The set theory built
+above is not one of them, and in it Lean's `Nat` denotes exactly the
+standard naturals.  Three modules, each importing the one before:
+
+`ConLecheBridge/IsModelNat.lean` — about every `SetTheory V` (no
+Mathlib), for a stream that declares the prelude's `Nat` and `Eq`
+(`DeclaresNat`, `DeclaresEq`):
+
+* `nat_eq_omega` — in every model, what `Nat` denotes is a copy of `V`'s
+  own `ω`: the numerals `natOfOmega model i` at `i ∈ ω` (`⟦Nat.succ⟧`
+  iterated on `⟦Nat.zero⟧` by `V`'s recursion on `ω`) are exactly its
+  members, each once.  Surjectivity is `Nat.rec`'s typing clause at a
+  motive into `Prop` (`nat_ind`); injectivity is `Nat.rec`'s two rule
+  equations (`natRec_rules`, giving `natSucc_ne_zero` and `natSucc_inj`).
+* `nat_standard` — if `ω` is standard (`OmegaStandard`: every member is
+  a meta-level `vnat k`), the literals' values `natLitVal model : Nat → V`
+  are exactly the members of what `Nat` denotes, each once.
+  `omegaStandard_of_nat` is the converse.
+
+`ConLecheBridge/StandardNat.lean`:
+
+* `omegaStandard_chain` — the `ω` of `setTheoryOfChain κ` is standard:
+  `ZFSet.sep` separates by an arbitrary Lean predicate, and `ω` is the
+  least inductive set.  This is the one second-order step.
+* `carneiro_nat_standard` — under `OmegaInaccessibles`, in every model in
+  `setTheoryOfCarneiro` of a stream declaring `Nat` and `Eq`,
+  `natLitVal model : ℕ → ZFSet` is injective and its values are exactly
+  the members of `model natName []`.  It takes `0` to `⟦Nat.zero⟧` and
+  `k + 1` to `⟦Nat.succ⟧` at `k`'s value by definition, so it is an
+  isomorphism of Lean's `ℕ` with what `Nat` denotes.
+
+`ConLecheBridge/Accepted.lean`:
+
+* `checkDecls_declaresNat` — an accepted stream that stores `Nat`
+  declares the prelude's `Nat` (the pin comparison, as
+  `Cached.checkDecls_declaresEq` for `Eq`).
+* `carneiro_accepted_nat_standard` — under `OmegaInaccessibles`, every
+  stream `checkDecls` accepts that stores `Nat` and `Eq` has a model in
+  `setTheoryOfCarneiro` in which `Nat` is the standard naturals.
+
+`carneiro_nat_standard`, `nat_eq_omega` and
+`carneiro_accepted_nat_standard` carry axiom pins: `propext`,
+`Classical.choice`, `Quot.sound`.
+
+"Standard" compares with the `ℕ` of the Lean the theorems are stated in;
+there is no other way to say it.
+
 ## The converse
 
-The briefing for this task expected the converse to fail, with `H(κ)`
-for a *singular* strong-limit `κ` (hereditarily `< κ`-sized sets) as a
-Tarski-form universe that is not a `V_λ` for `λ` inaccessible.  **That
-countermodel is wrong.**  Take `κ = ℶ_ω` and `y = {V_{ω+n} | n < ω}`:
-every member is in `H(κ)` (`|TC(V_{ω+n})| = ℶ_n < κ`), so `y ⊆ H(κ)`;
-but `|TC(y)| = ℶ_ω = κ`, so `y ∉ H(κ)`; and `|y| = ℵ₀ ≠ κ = |H(κ)|`, so
-`y` is not equinumerous with `H(κ)`.  Tarski's clause fails.
+With the first-order `SetTheory` the converse is not available:
+`ModelExists` is much weaker than `OmegaInaccessibles`.  By the
+completeness theorem a model exists as soon as the theory is consistent
+(the `ModelExists` docstring in `ConLeche/SetTheory/Core.lean`), and such
+a model need not be well-founded or have a standard `ω`, so its
+universes are not inaccessible cardinals of the Lean it lives in.
 
-In fact, over any model with the ambient cardinal arithmetic, a
-transitive Tarski-form universe `U` is `∅`, `V_ω`, or `V_κ` with `κ`
-strongly inaccessible.  Sketch, with `κ := |U|`: `U` is closed under
-power sets of members, so every member has size `< κ` and `κ` is a
-strong limit; the ordinals in `U` are exactly those `< κ`; and `κ` is
-regular because `U` contains **every** subset of itself of size `< κ`
-(Tarski's clause), of which there are `κ^{<κ}` many, while
-`κ^{<κ} ≥ κ^{cof κ} > κ` for singular `κ` (König).  Hence
-`U = V_κ`.  Applied to ConLeche's chain, `univChain (n + 2)` is `V_{κ_n}` for
-a strictly increasing sequence of inaccessibles (the bottom two may be
-`∅` and `V_ω`), so the two hypotheses are **equivalent up to that
-shift**.  The converse is not mechanized here (the counting argument
-needs a lower bound on the number of small subsets that Mathlib does
-not provide off the shelf); it is recorded in `DESIGN.md` as a
-follow-up.
+What holds is the statement inside the theory.  In ZFC, a universe in
+the four-clause form of `IsGrothendieck` is `∅`, `V_ω`, or `V_κ` with
+`κ` strongly inaccessible: the classical characterization of
+Grothendieck universes.  (The indexed-union clause is what excludes a
+singular strong limit: for `κ = ℶ_ω`, the family `n ↦ V_{ω+n}` is
+indexed by `ω ∈ H(κ)` with values in `H(κ)`, and its union `V_{ω+ω}`
+has `ℶ_ω = κ` members, so it is not in `H(κ)`.)  Applied to ConLeche's
+chain, the theory proves that `univChain (n + 2)` is `V_{κ_n}` for a
+strictly increasing sequence of inaccessibles (the bottom two may be
+`∅` and `V_ω`), hence "there are `n` inaccessible cardinals" for every
+`n`; and each finite part of the theory holds in ZFC with enough
+inaccessibles.  So the theory is equiconsistent with ZFC plus `n`
+inaccessible cardinals for every `n`, the strength Carneiro's thesis
+assigns to Lean.  None of this is mechanized here.
 
 ## CI
 

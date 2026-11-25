@@ -47,12 +47,61 @@ variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 /-! ## Moving a frame's accessibility -/
 
+private noncomputable def downOccN_ca : Nat → V → V
+  | 0, o => o
+  | n + 1, o => downOcc (downOccN_ca n o)
+
+private theorem defFun_downOccN_ca {k : Nat} :
+    ∀ (n : Nat) {O : (Fin k → V) → V}, DefFun k O → DefFun k fun env => downOccN_ca n (O env)
+  | 0, _, hO => hO
+  | n + 1, _, hO => DefFun.downOcc_apply (defFun_downOccN_ca n hO)
+
+private theorem downOccN_ca_occEncItem :
+    ∀ {n i : Nat}, n ≤ i → ∀ (vs : List V) (y : V),
+      downOccN_ca n (occEncItem i vs y) = occEncItem (i - n) vs y
+  | 0, _, _, _, _ => rfl
+  | n + 1, i, hni, vs, y => by
+    obtain ⟨q, hq⟩ : ∃ q, i - n = q + 1 := ⟨i - (n + 1), by omega⟩
+    unfold downOccN_ca
+    rw [downOccN_ca_occEncItem (by omega) vs y, hq, downOcc_occEncItem]
+    congr 1; omega
+
+private noncomputable def upOcc_ca (o : V) : V :=
+  kpair (vsucc (sfst o)) (ssnd o)
+
+private theorem defFun_upOcc_ca {k : Nat} {O : (Fin k → V) → V} (hO : DefFun k O) :
+    DefFun k fun env => upOcc_ca (O env) :=
+  DefFun.kpair_apply (DefFun.vsucc_apply (DefFun.sfst_apply hO)) (DefFun.ssnd_apply hO)
+
+private theorem upOcc_ca_occEncItem (i : Nat) (vs : List V) (y : V) :
+    upOcc_ca (occEncItem i vs y) = occEncItem (i + 1) vs y := by
+  unfold upOcc_ca occEncItem
+  rw [sfst_kpair, ssnd_kpair]
+  rfl
+
+private noncomputable def upOccN_ca : Nat → V → V
+  | 0, o => o
+  | n + 1, o => upOcc_ca (upOccN_ca n o)
+
+private theorem defFun_upOccN_ca {k : Nat} :
+    ∀ (n : Nat) {O : (Fin k → V) → V}, DefFun k O → DefFun k fun env => upOccN_ca n (O env)
+  | 0, _, hO => hO
+  | n + 1, _, hO => defFun_upOcc_ca (defFun_upOccN_ca n hO)
+
+private theorem upOccN_ca_occEncItem :
+    ∀ (n i : Nat) (vs : List V) (y : V),
+      upOccN_ca n (occEncItem i vs y) = occEncItem (i + n) vs y
+  | 0, _, _, _ => rfl
+  | n + 1, i, vs, y => by
+    unfold upOccN_ca
+    rw [upOccN_ca_occEncItem n i vs y, upOcc_ca_occEncItem, Nat.add_assoc]
+
 theorem FrameAccOut.mono {w : Nat} {ctx : NestCtx} {prog : List NestHole} {hi : Nat}
     {R₀ : FrameRel V} {D : LfpDatum V} {ψ : Name → Nat} {dsa : List Term} {G G' : Nat → Prop}
     (h : FrameAccOut w ctx prog hi R₀ D ψ dsa G) (hG : ∀ c, G' c → G c) :
     FrameAccOut w ctx prog hi R₀ D ψ dsa G' := by
-  obtain ⟨A, hA, hinv, hacc⟩ := h
-  exact ⟨A, hA, hinv, fun c hc => hacc c (hG c hc)⟩
+  obtain ⟨A, hA, hinv, hdef, hacc⟩ := h
+  exact ⟨A, hA, hinv, hdef, fun c hc => hacc c (hG c hc)⟩
 
 /-- **A frame's accessibility at empty enclosing frames, read back at the
 frameless relation** (the push of a cached key): no item sits at an
@@ -65,7 +114,7 @@ theorem frameAccOut_unextend {w : Nat} {ctx : NestCtx} {prog : List NestHole}
         (dsa0.map (Term.liftN prog.length · 0)) (ctx.hiAt prog.length)) D ψ
       (dsa0.map (Term.liftN prog.length · 0)) G) :
     FrameAccOut w ctx [] (ctx.hiAt 0) (fitRel R00 D ψ dsa0 (ctx.hiAt 0)) D ψ dsa0 G := by
-  obtain ⟨A, hA, hinv, hacc⟩ := h
+  obtain ⟨A, hA, hinv, hdef, hacc⟩ := h
   have hhi : ctx.hiAt prog.length = ctx.hiAt 0 + prog.length := by
     simp only [NestCtx.hiAt]; omega
   have hkf : ∀ ρ : Nat → V, keyFrame (dsa0.map (Term.liftN prog.length · 0))
@@ -84,8 +133,33 @@ theorem frameAccOut_unextend {w : Nat} {ctx : NestCtx} {prog : List NestHole}
     intro σ q
     have := consList_apply_add (List.replicate prog.length (empty : V)) σ q
     rwa [List.length_replicate] at this
+  have hdef' : DefBound (ctx.hiAt 0) fun ρ => A (consList (List.replicate prog.length empty) ρ) := by
+    intro tail
+    let Gs : Fin (ctx.hiAt prog.length) → (Fin (ctx.hiAt 0) → V) → V := fun j xs =>
+      if hj : j.val < prog.length then empty else xs ⟨j.val - prog.length, by omega⟩
+    have hGs : ∀ j, DefFun (ctx.hiAt 0) (Gs j) := fun j => by
+      dsimp only [Gs]
+      split
+      · exact DefFun.empty
+      · exact DefFun.proj _
+    refine ((hdef tail).comp hGs).congr fun xs => ?_
+    congr 1
+    funext j
+    by_cases hj : j < prog.length
+    · have hj' : j < ctx.hiAt prog.length := by omega
+      simp only [Semantics.prepend, hj', ↓reduceDIte, Gs, hj]
+      exact (consList_replicate_lt prog.length empty _ hj).symm
+    · by_cases hj' : j < ctx.hiAt prog.length
+      · obtain ⟨q, rfl⟩ : ∃ q, j = q + prog.length := ⟨j - prog.length, by omega⟩
+        have hq : q < ctx.hiAt 0 := by omega
+        simp only [Semantics.prepend, hj', hq, ↓reduceDIte, Gs, hj, hadd]
+        simp
+      · obtain ⟨q, rfl⟩ : ∃ q, j = q + prog.length := ⟨j - prog.length, by omega⟩
+        have hnq : ¬ q < ctx.hiAt 0 := by omega
+        simp only [Semantics.prepend, hj', hnq, ↓reduceDIte, hadd]
+        congr 1; omega
   refine ⟨fun ρ => A (consList (List.replicate prog.length empty) ρ), fun ρ => hA _,
-    fun ρ ρ' hag => hinv _ _ fun p hp => ?_, fun c hc ρ ρ₀ hR i hi x hx => ?_⟩
+    fun ρ ρ' hag => hinv _ _ fun p hp => ?_, hdef', fun c hc ρ ρ₀ hR i hi x hx => ?_⟩
   · -- a parameter position is past the empty frames
     obtain ⟨hp1, hp2⟩ := hp
     have hge : prog.length ≤ p := by simp only [NestCtx.hiAt] at hp1 hp2 hhi; omega
@@ -93,43 +167,59 @@ theorem frameAccOut_unextend {w : Nat} {ctx : NestCtx} {prog : List NestHole}
     rw [hadd, hadd]
     exact hag q ⟨by omega, by omega⟩
   · rw [← hkf] at hi hx
-    obtain ⟨B, g, hB, hg, hs⟩ := hacc c hc _ _ ⟨⟨ρ, ρ₀, hR.1, rfl, rfl⟩, hkF ρ hR.2.1, hkF ρ₀ hR.2.2⟩
-      i hi x hx
+    obtain ⟨B, g, hB, ⟨U, hgU⟩, hitems, hs⟩ := hacc c hc _ _
+      ⟨⟨ρ, ρ₀, hR.1, rfl, rfl⟩, hkF ρ hR.2.1, hkF ρ₀ hR.2.2⟩ i hi x hx
     -- no item at an empty frame hole
-    have hge : ∀ b, b ∈ˢ B → prog.length ≤ (g b).1 := by
+    have hitem_ok : ∀ b, b ∈ˢ B → ∃ qi vs y, app g b = occEncItem qi vs y ∧
+        prog.length ≤ qi ∧ HoleQ ctx prog (ctx.hiAt prog.length) qi vs.length ∧
+        NoPtPrefix (consList (List.replicate prog.length empty) ρ qi) vs ∧
+        y ∈ˢ vs.foldl app (consList (List.replicate prog.length empty) ρ qi) := by
       intro b hb
-      refine Nat.le_of_not_lt fun hlt => ?_
-      have hH := (hg b hb).2
-      unfold Holds at hH
-      rw [consList_replicate_lt _ _ _ hlt, foldlApp_empty] at hH
-      exact not_mem_empty _ hH
-    refine ⟨B, fun b => ((g b).1 - prog.length, (g b).2), hB, fun b hb => ⟨?_, ?_⟩,
-      fun ρ' hR' hheld => ?_⟩
-    · obtain ⟨hQ, -⟩ := hg b hb
-      have hgb := hge b hb
-      unfold Adm at hQ ⊢
-      rcases hQ with ⟨t, ht, hlt, hi', hn⟩ | ⟨j, hk, hj, hlt, hi', hn⟩
-      · exact Or.inl ⟨t, ht, by simp only [NestCtx.hiAt] at hlt ⊢; omega,
-          by simp only [NestCtx.hiAt] at hi' ⊢; omega, hn⟩
-      · exfalso
-        have := (List.getElem?_eq_some_iff.mp hj).1
-        simp only [List.length_reverse] at this
-        simp only [NestCtx.hiAt] at hi'; omega
-    · have hH := (hg b hb).2
-      have hgb := hge b hb
-      unfold Holds at hH ⊢
-      obtain ⟨q, hq⟩ : ∃ q, (g b).1 = q + prog.length := ⟨(g b).1 - prog.length, by omega⟩
-      rw [hq, hadd] at hH
-      simp only [hq, Nat.add_sub_cancel]
-      exact hH
+      obtain ⟨hQ, hH⟩ := hitems b hb
+      obtain ⟨qi, vs, y, heq, hQ'⟩ := hQ
+      obtain ⟨qi', vs', y', heq', hnp, hy⟩ := hH
+      rw [heq] at heq'
+      obtain ⟨rfl, rfl, rfl⟩ := occEncItem_inj heq'
+      have hge : prog.length ≤ qi := Nat.le_of_not_lt fun hlt => by
+        rw [consList_replicate_lt _ _ _ hlt, foldlApp_empty] at hy
+        exact not_mem_empty _ hy
+      exact ⟨qi, vs, y, heq, hge, hQ', hnp, hy⟩
+    let g' : V := graph (fun b => downOccN_ca prog.length (app g b)) B
+      (hasGraph_of_defFun1 (defFun_downOccN_ca prog.length
+        (DefFun.app_apply (DefFun.const g) (DefFun.proj 0))))
+    refine ⟨B, g', hB,
+      ⟨image (downOccN_ca prog.length) U
+          (hasImage_of_defFun1 (defFun_downOccN_ca prog.length (DefFun.proj 0)) U),
+        graph_mem_piSet fun b hb => mem_image.mpr ⟨app g b, app_mem_of_mem_piSet hgU hb, rfl⟩⟩,
+      fun b hb => ?_, fun ρ' hR' hheld => ?_⟩
+    · obtain ⟨qi, vs, y, heq, hge, hQ, hnp, hy⟩ := hitem_ok b hb
+      have hg_app : app g' b = occEncItem (qi - prog.length) vs y := by
+        rw [app_graph hb, heq, downOccN_ca_occEncItem hge]
+      refine ⟨⟨qi - prog.length, vs, y, hg_app, ?_⟩, ?_⟩
+      · unfold HoleQ at hQ ⊢
+        rcases hQ with ⟨t, ht, hlt, hi', hn⟩ | ⟨j, hk, hj, hlt, hi', hn⟩
+        · exact Or.inl ⟨t, ht, by simp only [NestCtx.hiAt] at hlt ⊢; omega,
+            by simp only [NestCtx.hiAt] at hi' ⊢; omega, hn⟩
+        · exfalso
+          have := (List.getElem?_eq_some_iff.mp hj).1
+          simp only [List.length_reverse] at this
+          simp only [NestCtx.hiAt] at hi'; omega
+      · obtain ⟨q, hq⟩ : ∃ q, qi = q + prog.length := ⟨qi - prog.length, by omega⟩
+        rw [hq, hadd] at hnp hy
+        refine ⟨qi - prog.length, vs, y, hg_app, ?_, ?_⟩
+        · simpa [hq] using hnp
+        · simpa [hq] using hy
     · have := hs _ ⟨⟨ρ, ρ', hR'.1, rfl, rfl⟩, hkF ρ hR'.2.1, hkF ρ' hR'.2.2⟩ fun b hb => by
-        have hH := hheld b hb
-        have hgb := hge b hb
-        unfold Holds at hH ⊢
-        obtain ⟨q, hq⟩ : ∃ q, (g b).1 = q + prog.length := ⟨(g b).1 - prog.length, by omega⟩
-        simp only [hq, Nat.add_sub_cancel] at hH
+        obtain ⟨qi, vs, y, heq, hge, -, -, -⟩ := hitem_ok b hb
+        obtain ⟨qi', vs', y', heq', hy'⟩ := hheld b hb
+        rw [app_graph hb, heq, downOccN_ca_occEncItem hge] at heq'
+        obtain ⟨rqi, rvs, ry⟩ := occEncItem_inj heq'
+        obtain ⟨q, hq⟩ : ∃ q, qi = q + prog.length := ⟨qi - prog.length, by omega⟩
+        refine ⟨qi, vs, y, heq, ?_⟩
         rw [hq, hadd]
-        exact hH
+        subst rvs ry
+        rw [← rqi, show qi - prog.length = q by omega] at hy'
+        exact hy'
       rwa [hkf] at this
 
 /-- **A frame's accessibility, read at the reduct** (the leaf, `keyLeaf`):
@@ -170,8 +260,21 @@ theorem accConcl_of_frameAccOut (mp : EnvModelM V env)
   have hpair : ∀ ρ ρ', R ρ ρ' → fitRel (FrameRel.drop R (dep - b)) D ψ dsa b
       (dropV (dep - b) ρ) (dropV (dep - b) ρ') := fun ρ ρ' hr =>
     ⟨⟨ρ, ρ', hr, rfl, rfl⟩, hkF ρ (hR.dom ρ ρ' hr).1, hkF ρ' (hR.dom ρ ρ' hr).2⟩
-  obtain ⟨A, hA, hinv, hacc⟩ := hacc
-  refine ⟨?_, ⟨fun ρ => A (dropV (dep - b) ρ), ?_, fun ρ _ _ => hA _, ?_⟩, outMent_self _ _⟩
+  obtain ⟨A, hA, hinv, hdef, hacc⟩ := hacc
+  have hdef' : DefBound dep fun ρ => A (dropV (dep - b) ρ) := by
+    intro tail
+    refine ((hdef tail).comp fun j : Fin b => DefFun.proj ⟨j.val + (dep - b), by omega⟩).congr
+      fun xs => ?_
+    congr 1
+    funext i
+    by_cases hi : i < b
+    · have hid : i + (dep - b) < dep := by omega
+      simp [dropV, Semantics.prepend, hi, hid]
+    · have hnd : ¬ (i + (dep - b) < dep) := by omega
+      simp only [dropV, Semantics.prepend, hi, hnd, ↓reduceDIte]
+      congr 1; omega
+  refine ⟨?_, ⟨fun ρ => A (dropV (dep - b) ρ), ?_, fun ρ _ _ => hA _, ?_, hdef'⟩,
+    outMent_self _ _⟩
   · -- the point (at a `Type`-valued level): the instance is the carrier's
     -- fibre, whose elements are injections, never the point
     intro hw ρ ρ' hr hpt
@@ -188,18 +291,36 @@ theorem accConcl_of_frameAccOut (mp : EnvModelM V env)
     obtain ⟨h1, -⟩ := hR.dom ρ ρ₀ hr
     obtain ⟨-, hf1, he1⟩ := hk ρ (hgr ρ h1)
     rw [he1] at hx
-    obtain ⟨B, g, hB, hg, hs⟩ := hacc mm hG (dropV (dep - b) ρ) (dropV (dep - b) ρ₀)
+    obtain ⟨B, g, hB, ⟨U, hgU⟩, hitems, hs⟩ := hacc mm hG (dropV (dep - b) ρ) (dropV (dep - b) ρ₀)
       (hpair ρ ρ₀ hr) _ (tupW_mem hf1) x hx
-    refine ⟨B, fun q => ((g q).1 + (dep - b), (g q).2), hB, fun q hq => ⟨?_, ?_⟩,
-      fun ρ' hr' hheld => ?_⟩
-    · have := holeQ_shift (k := dep - b) (hg q hq).1
-      rw [show b + (dep - b) = dep by omega] at this
-      exact this
-    · exact holds_drop.mp (hg q hq).2
+    let g' : V := graph (fun q => upOccN_ca (dep - b) (app g q)) B
+      (hasGraph_of_defFun1 (defFun_upOccN_ca (dep - b)
+        (DefFun.app_apply (DefFun.const g) (DefFun.proj 0))))
+    refine ⟨B, g', hB,
+      ⟨image (upOccN_ca (dep - b)) U
+          (hasImage_of_defFun1 (defFun_upOccN_ca (dep - b) (DefFun.proj 0)) U),
+        graph_mem_piSet fun q hq => mem_image.mpr ⟨app g q, app_mem_of_mem_piSet hgU hq, rfl⟩⟩,
+      fun q hq => ?_, fun ρ' hr' hheld => ?_⟩
+    · obtain ⟨⟨qi, vs, y, heq, hQ⟩, ⟨qi', vs', y', heq', hnp, hy⟩⟩ := hitems q hq
+      rw [heq] at heq'
+      obtain ⟨rfl, rfl, rfl⟩ := occEncItem_inj heq'
+      have hg_app : app g' q = occEncItem (qi + (dep - b)) vs y := by
+        rw [app_graph hq, heq, upOccN_ca_occEncItem]
+      have hQ' : HoleQ ctx prog dep (qi + (dep - b)) vs.length := by
+        have := holeQ_shift (k := dep - b) hQ
+        rwa [show b + (dep - b) = dep by omega] at this
+      exact ⟨⟨qi + (dep - b), vs, y, hg_app, hQ'⟩, ⟨qi + (dep - b), vs, y, hg_app, hnp, hy⟩⟩
     · obtain ⟨-, h2⟩ := hR.dom ρ ρ' hr'
       obtain ⟨-, -, he2⟩ := hk ρ' (hgr ρ' h2)
       rw [he2, ← hmap ρ ρ' hr']
-      exact hs (dropV (dep - b) ρ') (hpair ρ ρ' hr') fun q hq => holds_drop.mpr (hheld q hq)
+      exact hs (dropV (dep - b) ρ') (hpair ρ ρ' hr') fun q hq => by
+        obtain ⟨⟨qi, vs, y, heq, -⟩, -⟩ := hitems q hq
+        obtain ⟨qi', vs', y', heq', hy'⟩ := hheld q hq
+        rw [app_graph hq, heq, upOccN_ca_occEncItem] at heq'
+        obtain ⟨rqi, rvs, ry⟩ := occEncItem_inj heq'
+        refine ⟨qi, vs, y, heq, ?_⟩
+        change y ∈ˢ vs.foldl app (ρ' (qi + (dep - b)))
+        rwa [rqi, rvs, ry]
   · -- the bound reads parameter positions only
     intro ρ ρ' hag
     refine hinv _ _ fun p hp => ?_
@@ -212,10 +333,12 @@ admissible there too. -/
 theorem FrameAccOut.progNil {w : Nat} {ctx : NestCtx} {prog : List NestHole} {hi : Nat}
     {R₀ : FrameRel V} {D : LfpDatum V} {ψ : Name → Nat} {dsa : List Term} {G : Nat → Prop}
     (h : FrameAccOut w ctx [] hi R₀ D ψ dsa G) : FrameAccOut w ctx prog hi R₀ D ψ dsa G := by
-  obtain ⟨A, hA, hinv, hacc⟩ := h
-  refine ⟨A, hA, hinv, fun c hc ρ ρ₀ hR i hi x hx => ?_⟩
-  obtain ⟨B, g, hB, hg, hs⟩ := hacc c hc ρ ρ₀ hR i hi x hx
-  exact ⟨B, g, hB, fun b hb => ⟨holeQ_nil (hg b hb).1, (hg b hb).2⟩, hs⟩
+  obtain ⟨A, hA, hinv, hdef, hacc⟩ := h
+  refine ⟨A, hA, hinv, hdef, fun c hc ρ ρ₀ hR i hi x hx => ?_⟩
+  obtain ⟨B, g, hB, hgU, hitems, hs⟩ := hacc c hc ρ ρ₀ hR i hi x hx
+  refine ⟨B, g, hB, hgU, fun b hb => ?_, hs⟩
+  obtain ⟨⟨qi, vs, y, heq, hQ⟩, hH⟩ := hitems b hb
+  exact ⟨⟨qi, vs, y, heq, holeQ_nil hQ⟩, hH⟩
 
 /-! ## A key, at the block's own depth -/
 

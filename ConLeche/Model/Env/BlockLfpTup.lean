@@ -38,13 +38,14 @@ inhabit the codomain at every fitting spine and the codomain is a type
 there (`lamV_mem`: the fibres are types — inner Π-types, or the
 codomain). -/
 theorem holeFam_mem_mkPisAV :
-    ∀ {ab : List Term} {ρ : Nat → V} {B : Term} {g : List V → V},
+    ∀ {ab : List Term} {ρ : Nat → V} {B : Term} {g : List V → V} {hg : DefHoleFn ab.length g},
       (∀ vs, SpineFit ρ ab vs → g vs ∈ˢ interp V (consList vs ρ) B) →
       (∀ vs, SpineFit ρ ab vs → IsTy (interp V (consList vs ρ) B)) →
-      holeFam ρ ab g ∈ˢ interp V ρ (mkPisAV ab B)
-  | [], _, _, _, h, _ => h [] trivial
-  | d :: ab, ρ, B, g, h, hT => by
-    show lamV _ _ ∈ˢ interp V ρ (.pi d (mkPisAV ab B))
+      holeFam ρ ab g hg ∈ˢ interp V ρ (mkPisAV ab B)
+  | [], _, _, _, _, h, _ => by rw [holeFam_nil]; exact h [] trivial
+  | d :: ab, ρ, B, g, hg, h, hT => by
+    rw [holeFam_cons]
+    show lamV _ _ _ ∈ˢ interp V ρ (.pi d (mkPisAV ab B))
     rw [interp_pi]
     refine lamV_mem (fun x hx => holeFam_mem_mkPisAV (fun vs hvs => h (x :: vs) ⟨hx, hvs⟩)
       (fun vs hvs => hT (x :: vs) ⟨hx, hvs⟩)) fun x hx => ?_
@@ -85,10 +86,10 @@ theorem holeVal_mem (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp X : Nat → V}
     D.holeVal ψ ρp X t ∈ˢ interp V ρp (mkPisAV ab (.sort (D.w ψ))) := by
   have htN : t < D.N := Nat.lt_of_lt_of_le ht hkN
   unfold holeVal
-  rw [← hab]
+  subst hab
   refine holeFam_mem_mkPisAV (fun vs hvs => ?_) fun vs _ => by rw [interp_sort]; exact IsTy_univ _
   rw [interp_sort]
-  exact famSpaceIn_app (hX t htN) (tupW_mem (hab ▸ hvs))
+  exact famSpaceIn_app (hX t htN) (tupW_mem hvs)
 
 end LfpDatum
 

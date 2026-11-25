@@ -40,14 +40,17 @@ A declaration called [`False`](https://github.com/leanprover/con-leche/blob/mast
 
 ```lean
 open Frontend in
-theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+theorem main_no_False (hM : ModelExists.{w}) {file : String} {fs : FS} {b : ByteArray}
     (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
     (hF : jsonWithTheoremFalse [b]) : False
 ```
 
+Note the assumption `hM : ModelExists.{w}`, which requires that a specific first-order set theory has a model, i.e. that it is consistent.
+More information on that theory below.
+
 ### The Main Theorem
 
-The theorem [`main_no_False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L55-L57) is mostly a corollary of [a stronger statement](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L47-L49), namely that the declarations of an accepted file have a model in a suitable set theory:
+The theorem [`main_no_False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L57-L59) is mostly a corollary of [a stronger statement](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L47-L49), namely that the declarations of an accepted file have a model in a suitable set theory:
 
 ```lean
 open Frontend in
@@ -56,7 +59,7 @@ theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b 
     ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList)
 ```
 
-This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. In particular, every accepted theorem's statement is true in the model. The [`IsModel`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L212-L213) expresses that a model (a mapping from Lean names to such sets) is valid for a set of Lean declarations, expressed using the function [`Expr.eval`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L128-L129), which gives each Lean expression (types and terms) an interpretation as sets.
+This is the interesting theorem if you want to be sure that con-leche interprets your Lean terms and types the way you intend them. In particular, every accepted theorem's statement is true in the model. The [`IsModel`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L424-L425) expresses that a model (a mapping from Lean names to such sets) is valid for a set of Lean declarations, expressed using the function [`Expr.eval`](https://github.com/leanprover/con-leche/blob/master/ConLeche/IsModel.lean#L275-L276), which gives each Lean expression (types and terms) an interpretation as sets.
 
 ### Proofs about IO
 
@@ -81,9 +84,16 @@ If you find this deeply unnerving, you can look at [`model_exists`](https://gith
 
 ### Set theory assumption
 
-The set model we assume in [`[SetTheory V]`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L95-L133) is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`ConLeche/SetTheory/Core.lean`](./ConLeche/SetTheory/Core.lean) for the precise formulation of our set theory.
+The set model we assume in [`[SetTheory V]`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L69-L110) is fairly standard. We assume *first-order* ZFC, without the axiom of infinity, but with an ω-chain of Grothendieck universes (`univChain 0 ∈ univChain 1 ∈ ...`). The axiom of infinity can be proven from this universe assumption. More precisely, we have the following axioms:
 
-The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): see the theorem [`carneiro_implies_conleche`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202) in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (separate package due to the Mathlib dependency).
+* The axioms of extensionality, regularity, pairing, union, and power set.
+* The axiom of replacement as a first-order axiom schema, requiring a first-order formula encoding a functional relation.
+* The axiom of choice, in Jech form: every set of nonempty sets has a choice function.
+* The Grothendieck universe chain, giving such an universe for each natural number. The universes are closed under transitive members (members of members are members), power sets, pairing, and indexed unions.
+
+See [`ConLeche/SetTheory/Core.lean`](./ConLeche/SetTheory/Core.lean) for the precise formulation of our set theory.
+
+The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): see the theorem [`carneiro_implies_conleche`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L336-L338) in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (separate package due to the Mathlib dependency).
 
 Future work: The assumption that we need a ω-chain is maybe unnecessarily strong. Every concrete stream has an upper bound of universe levels it needs, and we could assume only a chain of length `k`. For every concrete `k` we can prove their existence in lean without further assumptions, just not for all `k`.
 
@@ -125,7 +135,7 @@ The `.olean` “format” is not well-specified. We ship our own “naive” par
 
 ## Modular checking
 
-In addition to checking all declarations of a development in one go, `con-leche` can perform checks in a modular fashion, building on [Lean's module system](https://lean-lang.org/doc/reference/latest/Source-Files-and-Modules/#module-scopes). In this mode, every module's content is checked in the context of just its imports. That, plus one check that the module dependency graph is acyclic, proves consistency. The main theorem is [`main_modular_one`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L126-L134):
+In addition to checking all declarations of a development in one go, `con-leche` can perform checks in a modular fashion, building on [Lean's module system](https://lean-lang.org/doc/reference/latest/Source-Files-and-Modules/#module-scopes). In this mode, every module's content is checked in the context of just its imports. That, plus one check that the module dependency graph is acyclic, proves consistency. The main theorem is [`main_modular_one`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L128-L136):
 
 ```lean
 open Frontend in
@@ -145,7 +155,7 @@ Note that this theorem does *not* say that there is one global model that works 
 * each module has a model
 * whenever two modules `m` and `m'` [see](https://github.com/leanprover/con-leche/blob/master/ConLeche/OleanInput.lean#L97-L98) the same name `n`, the model agrees. This means [Lean's module system visibility rules](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Snapshot.lean#L52-L66) are part of the trusted specification here.
 
-The [`--modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L201) flag loads and checks all modules in one process, and is not that useful – if you can do that, you might as well use the [`--olean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L165) that ignores the module system. To get the benefit of modular checking (e.g. lower memory usage) you can use [`con-leche --schedule`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L206). Then an (unverified) scheduler will invoke a fresh `con-leche` process on each module, keep memory usage in check, resumes from aborted runs, etc. See `con-leche --help` or the OVERVIEW section. The meaning of the commands that are executed by the scheduler together forms theorem [`main_modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L109-L120).
+The [`--modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L201) flag loads and checks all modules in one process, and is not that useful – if you can do that, you might as well use the [`--olean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L165) that ignores the module system. To get the benefit of modular checking (e.g. lower memory usage) you can use [`con-leche --schedule`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L206). Then an (unverified) scheduler will invoke a fresh `con-leche` process on each module, keep memory usage in check, resumes from aborted runs, etc. See `con-leche --help` or the OVERVIEW section. The meaning of the commands that are executed by the scheduler together forms theorem [`main_modular`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L111-L122).
 
 If the scheduler does not serve you well you can use [`con-leche --schedule-commands`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L226) to get the list of commands to run and schedule them yourself (possibly even distributed to multiple machines, if that is necessary).
 
@@ -155,7 +165,7 @@ In addition to just checking one set of declarations, con-leche can also perform
 
 The rules of comparison differ from `lake comparator`. You do not explicitly specify which declarations are to be filled by the solution. Instead, [every axiom and every definition or theorem with a `:= sorry` body are holes](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Justify.lean#L73), and `con-leche` [checks that the solution has a regular declaration](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Justify.lean#L187) with the same type, with all the used definitions agreeing between challenge and solution.
 
-The main theorem [`main_compare_json_model`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L63-L66) shows this in action:
+The main theorem [`main_compare_json_model`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L65-L68) shows this in action:
 
 ```lean
 open Frontend in
@@ -167,7 +177,7 @@ theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : 
 
 It is worth noting that the conclusion of the theorem says nothing about the solution. It just says that the challenge has a model. This is intentional: The solution is what allows the checker to *accept* the challenge, but it does not and must not affect what the challenge *means*.
 
-When reading olean files, one can pass different search directories for the challenge and the solution. The proof also says that the meaning of the challenge, i.e. whether it has a model or not, only depends on the files in the [trusted search path](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L189), nothing else on the file system. This is part of the statement of [`main_compare_model`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L88-L94) (and of [`main_modular_compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L143-L155) for `--modular`):
+When reading olean files, one can pass different search directories for the challenge and the solution. The proof also says that the meaning of the challenge, i.e. whether it has a model or not, only depends on the files in the [trusted search path](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L189), nothing else on the file system. This is part of the statement of [`main_compare_model`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L90-L96) (and of [`main_modular_compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L145-L157) for `--modular`):
 
 ```lean
 open Frontend in

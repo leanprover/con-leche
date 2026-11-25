@@ -115,10 +115,10 @@ theorem lamTower_mem_piTower :
       interp V σ (mkLamsAV tl b) ∈ˢ interp V σ' (mkPisAV tl C)
   | [], D, σ, σ', b, C, _, _, h, _ => by simpa [mkLamsAV, mkPisAV] using h [] trivial
   | A :: tl, D, σ, σ', b, C, hb, hag, h, hC => by
-    show lamV (interp V σ A) (fun x => interp V (cons x σ) (mkLamsAV tl b))
-      ∈ˢ piV (interp V σ' A) (fun x => interp V (cons x σ') (mkPisAV _ C))
+    simp only [mkLamsAV, mkPisAV, interp_lam, interp_pi]
     have hA : interp V σ A = interp V σ' A := interp_congr_below V A D σ σ' hb.1 hag
-    rw [hA]
+    rw [lamV_ext hA (interp_hasGraph_cons σ (interp V σ A) (mkLamsAV tl b))
+      (interp_hasGraph_cons σ (interp V σ' A) (mkLamsAV tl b)) (fun _ _ => rfl)]
     refine lamV_mem (fun x hx => ?_) fun x hx =>
       IsTy_mkPisAV_of tl fun bs hbs => by simpa [consList_cons] using hC (x :: bs) ⟨hx, hbs⟩
     refine lamTower_mem_piTower tl (D := D + 1) hb.2 (fun i hi => ?_) (fun bs hbs => ?_)

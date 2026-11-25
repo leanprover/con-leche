@@ -261,15 +261,45 @@ theorem AccOn.congrQ {w : Nat} {Q Q' : Nat → Nat → Prop} (hQ : ∀ i n, Q i 
     {R : FrameRel V} {A : (Nat → V) → V} {a : Term} (h : AccOn w Q R A a) :
     AccOn w Q' R A a := by
   intro ρ ρ₀ hR x hxw hx
-  obtain ⟨B, g, hB, hg, hs⟩ := h ρ ρ₀ hR x hxw hx
-  exact ⟨B, g, hB, fun b hb => ⟨(hQ _ _).mp (hg b hb).1, (hg b hb).2⟩, hs⟩
+  obtain ⟨B, g, hB, ⟨U, hg⟩, hitems, hs⟩ := h ρ ρ₀ hR x hxw hx
+  exact ⟨B, g, hB, ⟨U, hg⟩,
+    fun b hb => ⟨(admItem_congrQ hQ).mp (hitems b hb).1, (hitems b hb).2⟩, hs⟩
+
+theorem finQ_holeQ (ctx : NestCtx) (prog : List NestHole) (d : Nat) :
+    FinQ (HoleQ ctx prog d) := by
+  let l1 : List (Nat × Nat) := (List.range ctx.names.length).filterMap fun t =>
+    if ctx.nP + t < d then some (d - 1 - (ctx.nP + t), ctx.nIdxs.getD t 0) else none
+  let l2 : List (Nat × Nat) := (List.range prog.length).filterMap fun j =>
+    match prog.reverse[j]? with
+    | some hk => if ctx.hiAt 0 + j < d then some (d - 1 - (ctx.hiAt 0 + j), hk.nIdx) else none
+    | none => none
+  refine ⟨l1 ++ l2, fun i n => ?_⟩
+  simp only [HoleQ, List.mem_append, l1, l2, List.mem_filterMap, List.mem_range]
+  constructor
+  · rintro (⟨t, ht, hlt, rfl, rfl⟩ | ⟨j, hk, hj, hlt, rfl, rfl⟩)
+    · exact Or.inl ⟨t, ht, by simp [hlt]⟩
+    · refine Or.inr ⟨j, ?_, by rw [hj]; simp [hlt]⟩
+      have := (List.getElem?_eq_some_iff.mp hj).1
+      simpa using this
+  · rintro (⟨t, ht, h⟩ | ⟨j, _, h⟩)
+    · split at h
+      · obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj h)
+        exact Or.inl ⟨t, ht, by assumption, rfl, rfl⟩
+      · exact nomatch h
+    · cases hget : prog.reverse[j]? with
+      | none => simp only [hget] at h; exact nomatch h
+      | some hk =>
+        simp only [hget] at h
+        split at h
+        · obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj h)
+          exact Or.inr ⟨j, hk, hget, by assumption, rfl, rfl⟩
+        · exact nomatch h
 
 /-- **The hole relation for accessibility** at depth `d` under the frames
-`prog`: related frames satisfy the context and agree off the hole
-positions; the relation is symmetric and left-reflexive, and at a
-`Type`-valued block its holes at their full arity never hold the point
-(`PtFreeOn`: a hole stands for a whole application, it takes no
-parameters, and its values are strict sets or `∅`). -/
+`prog`: related frames satisfy the context, agree off the hole
+positions, are first-order finite-support definable (`FrameRel.Def d`),
+symmetric, left-reflexive, `pt`-stable (`FrameRel.PtHitStable`), and at
+a `Type`-valued block its holes at their full arity never hold the point. -/
 structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (w : Nat) (ctx : NestCtx)
     (prog : List NestHole)
     (d : Nat) (Δa : List Term) (R : FrameRel V) : Prop where
@@ -281,12 +311,17 @@ structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (w : Nat) (ctx : Nes
   ptFree : w ≠ 0 → PtFreeOn (HoleQ ctx prog d) R
   /-- left-reflexive -/
   lrefl : ∀ ρ ρ₀, R ρ ρ₀ → R ρ ρ
+  /-- first-order finite-support definability at depth `d` (B2) -/
+  defRel : R.Def d
+  /-- `pt`-stability along admissible holes (`AccOn.holeApp`, B1/B2) -/
+  ptHit : R.PtHitStable (HoleQ ctx prog d)
 
-/-- **A hole relation restricted to the pairs whose frames both pass a test** is one: every
-field is a statement about each related pair, and the test is on each frame alone. -/
+/-- **A hole relation restricted to the pairs whose frames both pass a test**
+(which is definable on `d`-prefixes) is one: every field is a statement
+about each related pair, and the test is on each frame alone. -/
 theorem HoleRelA.restrict {w : Nat} {ctx : NestCtx} {prog : List NestHole} {d : Nat}
     {Δa : List Term} {R : FrameRel V} (h : HoleRelA m φ w ctx prog d Δa R)
-    (P : (Nat → V) → Prop) :
+    (P : (Nat → V) → Prop) (hP : ∀ tail : Nat → V, DefRel d fun v => P (prepend v tail)) :
     HoleRelA m φ w ctx prog d Δa (fun ρ ρ' => R ρ ρ' ∧ P ρ ∧ P ρ') where
   dom ρ ρ' hr := h.dom ρ ρ' hr.1
   agree ρ ρ' hr := h.agree ρ ρ' hr.1
@@ -294,6 +329,18 @@ theorem HoleRelA.restrict {w : Nat} {ctx : NestCtx} {prog : List NestHole} {d : 
   symm ρ ρ' hr := ⟨h.symm ρ ρ' hr.1, hr.2.2, hr.2.1⟩
   ptFree hw ρ ρ₀ hr := h.ptFree hw ρ ρ₀ hr.1
   lrefl ρ ρ₀ hr := ⟨h.lrefl ρ ρ₀ hr.1, hr.2.1, hr.2.1⟩
+  defRel := by
+    refine ⟨fun ρ ρ' hr => h.defRel.1 ρ ρ' hr.1, fun tail => ?_⟩
+    have h1 : DefRel (d + d) fun v => P (prepend (ftake v) tail) :=
+      ((hP tail).reIndex fun i => ⟨i.val, Nat.lt_of_lt_of_le i.isLt (Nat.le_add_right d d)⟩).congr
+        fun v => iff_of_eq <| congrArg (fun f => P (prepend f tail)) <|
+          funext fun ⟨i, hi⟩ => by simp [ftake]
+    have h2 : DefRel (d + d) fun v => P (prepend (fdrop v) tail) :=
+      ((hP tail).reIndex fun i => ⟨d + i.val, by omega⟩).congr
+        fun v => iff_of_eq <| congrArg (fun f => P (prepend f tail)) <|
+          funext fun ⟨i, hi⟩ => by simp [fdrop]
+    exact DefRel.and (h.defRel.2 tail) (DefRel.and h1 h2)
+  ptHit ρ ρ' hr := h.ptHit ρ ρ' hr.1
 
 /-- **Under a binder** (a hole-free domain, or an earlier field): the
 relation one level deeper, the bound value in the domain at both
@@ -315,17 +362,19 @@ theorem HoleRelA.underBoth {w : Nat} {ctx : NestCtx} {prog : List NestHole} {d :
   lrefl := by
     rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx, -⟩
     exact ⟨x, ρ, ρ, rfl, rfl, h.lrefl ρ ρ' hR, hx, hx⟩
+  defRel := h.defRel.underBoth ta
+  ptHit := FrameRel.PtHitStable.congrQ (shiftQ_holeQ hd) (h.ptHit.underBoth ta)
 
 /-! ## What a field proves -/
 
 /-- **What a field proves of its reading** along an accessibility hole
 relation: the point's stability (at a `Type`-valued block), and
-accessibility with a bound of the level reading only the non-hole
-positions the output mentions. -/
+accessibility with a definable bound of the level reading only the non-hole
+positions the output mentions (`DefBound`). -/
 @[expose] def AccConcl (w : Nat) (ctx : NestCtx) (prog : List NestHole) (dep : Nat) (e nf : Expr)
     (R : FrameRel V) (ea : Term) : Prop :=
   (w ≠ 0 → PtOn R ea) ∧ (∃ A, AccOn w (HoleQ ctx prog dep) R A ea ∧ SizeOn w R A ∧
-    InvOn (MentP ctx.nP (ctx.hiAt prog.length) dep nf) A) ∧ OutMent dep e nf
+    InvOn (MentP ctx.nP (ctx.hiAt prog.length) dep nf) A ∧ DefBound dep A) ∧ OutMent dep e nf
 
 /-- **What a field proves of its OUTPUT**:
 the output is scoped and bvar-closed, hole-free at an ordinary kind, and
@@ -353,21 +402,21 @@ theorem interp_pi_congr_body {A B B' : Term} {ρ : Nat → V}
     (h : ∀ x, x ∈ˢ interp V ρ A → interp V (cons x ρ) B = interp V (cons x ρ) B') :
     interp V ρ (.pi A B) = interp V ρ (.pi A B') := by
   rw [interp_pi, interp_pi]
-  exact piV_congr h
+  exact piV_congr _ _ h
 
 /-! ## A constructor's field telescope -/
 
 /-- **The first `n` Π-domains of a reading accessible**, each under the
-earlier ones (`underBoth`), with a bound of the level reading only the
+earlier ones (`underBoth`), with a definable bound of the level reading only the
 non-hole positions of its walk's output (`nds`, one per field, at their
-depths from `d`), and `Q` of the relation and the reading below them. -/
+depths from `d`, `DefBound`), and `Q` of the relation and the reading below them. -/
 @[expose] def PiAccThen (w : Nat) (ctx : NestCtx) (prog : List NestHole)
     (Q : FrameRel V → Term → Prop) :
     Nat → Nat → List Expr → FrameRel V → Term → Prop
   | 0, _, _, R, r => Q R r
   | n + 1, d, nd :: nds, R, .pi A B =>
     (∃ Af, AccOn w (HoleQ ctx prog d) R Af A ∧ SizeOn w R Af ∧
-      InvOn (MentP ctx.nP (ctx.hiAt prog.length) d nd) Af) ∧
+      InvOn (MentP ctx.nP (ctx.hiAt prog.length) d nd) Af ∧ DefBound d Af) ∧
       PiAccThen w ctx prog Q n (d + 1) nds (R.underBoth A) B
   | _ + 1, _, _, _, _ => False
 

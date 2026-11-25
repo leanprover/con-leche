@@ -331,8 +331,8 @@ theorem nat_heads (φ : Name → Nat) : NatHeads S.base φ := by
     (S.m natName).base2.acval_pinned_free hEZ (by decide) (pin_natZero)
   have f3 : (S.m natName).base2.acval natSuccName (Level.substFn φ [] []) = .const .natSucc [] :=
     (S.m natName).base2.acval_pinned_free hES (by decide) (pin_natSucc)
-  rw [f1, f2, f3] at h
-  rw [e1, e2, e3]
+  simp only [f1, f2, f3] at h
+  simp only [e1, e2, e3]
   exact h
 
 theorem eq_law : EqLaw S.base := by

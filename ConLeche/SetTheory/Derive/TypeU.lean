@@ -38,16 +38,13 @@ variable {V : Type u} [SetTheory V]
 
 /-! ## The point is not a natural number -/
 
-/-- `pt ∉ ω`: every nonzero von Neumann numeral has `∅` as a member,
+/-- `pt ∉ ω`: every nonzero ordinal in `ω` has `∅` as a member,
 and the point's one member `ptTag` is not `∅` (it has `∅` as a member). -/
 theorem pt_not_mem_omega : ¬ (pt : V) ∈ˢ omega := by
   intro h
-  obtain ⟨k, hk⟩ := mem_omega_iff.mp h
-  match k, hk with
-  | 0, hk => exact pt_ne_empty hk
-  | k + 1, hk =>
-    have h0 : (vnat 0 : V) ∈ˢ pt := hk ▸ vnat_mem_vnat_of_lt (Nat.succ_pos k)
-    have h1 : (empty : V) = ptTag := mem_pt.mp h0
+  rcases empty_mem_omega_or_eq h with h0 | h0
+  · exact pt_ne_empty h0
+  · have h1 : (empty : V) = ptTag := mem_pt.mp h0
     have h2 := empty_mem_ptTag (V := V)
     rw [← h1] at h2
     exact not_mem_empty _ h2
@@ -59,6 +56,28 @@ def Strict (X : V) : Prop := X ≠ pt ∧ ¬ pt ∈ˢ X
 
 /-- A **type**: a truth value, or a strict set. -/
 def IsTy (X : V) : Prop := X ∈ˢ univZero ∨ Strict X
+
+theorem DefRel.strict_apply {k : Nat} {X : (Fin k → V) → V}
+    (hX : DefFun k X) : DefRel k fun env => Strict (X env) :=
+  DefRel.and
+    (DefRel.not (DefRel.eq_apply hX DefFun.pt))
+    (DefRel.not (DefRel.mem_apply DefFun.pt hX))
+
+theorem defPred_strict : DefPred (Strict (V := V)) :=
+  DefRel.strict_apply (DefFun.proj 0)
+
+theorem hasSep_strict (a : V) : HasSep a Strict :=
+  hasSep_of_defPred defPred_strict
+
+theorem DefRel.isTy_apply {k : Nat} {X : (Fin k → V) → V}
+    (hX : DefFun k X) : DefRel k fun env => IsTy (X env) :=
+  DefRel.or (DefRel.mem_apply hX DefFun.univZero) (DefRel.strict_apply hX)
+
+theorem defPred_isTy : DefPred (IsTy (V := V)) :=
+  DefRel.isTy_apply (DefFun.proj 0)
+
+theorem hasSep_isTy (a : V) : HasSep a IsTy :=
+  hasSep_of_defPred defPred_isTy
 
 /-- The regime of a fibre: a truth value at a proposition, strict above. -/
 def Fib : Bool → V → Prop
@@ -72,7 +91,12 @@ open Classical in
 /-- **The strict universe**: the truth values at `0`, the strict
 members of the axiomatic level `tg n` above (the fibre space of the
 least fixed points). -/
-noncomputable def strictU (n : Nat) : V := if n = 0 then tg 0 else sep (tg n) Strict
+noncomputable def strictU (n : Nat) : V :=
+  if n = 0 then tg 0 else sep (tg n) Strict (hasSep_strict (tg n))
+
+theorem DefFun.strictU_const {k : Nat} (n : Nat) :
+    DefFun k fun _ => (strictU n : V) :=
+  DefFun.const (strictU n)
 
 theorem strictU_zero : (strictU 0 : V) = univZero := by
   unfold strictU; rw [ite_eq_left rfl, tg_zero]
@@ -154,16 +178,18 @@ theorem strict_omega : Strict (omega : V) := by
 
 /-- A function space is strict: its members are graphs, and the point's
 member is not one. -/
-theorem strict_piSet {A : V} {B : V → V} : Strict (piSet A B) := by
-  refine ⟨?_, fun h => ne_pt_of_mem_piSet h rfl⟩
+theorem strict_piSet {A : V} {B : V → V} {h : HasSigmaPairs A B} : Strict (piSet A B h) := by
+  refine ⟨?_, fun hf => ne_pt_of_mem_piSet hf rfl⟩
   intro he
-  have hz : (ptTag : V) ∈ˢ piSet A B := he ▸ ptTag_mem_pt
+  have hz : (ptTag : V) ∈ˢ piSet A B h := he ▸ ptTag_mem_pt
   have h1 := eq_graph_app_of_mem_piSet hz
-  have h2 : graph (fun x => app ptTag x) A ∈ˢ (pt : V) := by rw [h1]; exact ptTag_mem_pt
+  have h2 : graph (fun x => app ptTag x) A (hasGraph_app ptTag A) ∈ˢ (pt : V) := by
+    rw [h1]; exact ptTag_mem_pt
   exact graph_not_mem_pt h2
 
 /-- A dependent pair set is strict: its members are pairs. -/
-theorem strict_sigmaPairs {A : V} {B : V → V} : Strict (sigmaPairs A B) :=
+theorem strict_sigmaPairs {A : V} {B : V → V} {h : HasSigmaPairs A B} :
+    Strict (sigmaPairs A B h) :=
   strict_of_kpairs fun z hz => by
     obtain ⟨x, -, y, -, rfl⟩ := mem_sigmaPairs.mp hz
     exact ⟨x, y, rfl⟩
@@ -195,7 +221,12 @@ theorem unitSet_mem_strictU_zero : (unitSet : V) ∈ˢ strictU 0 :=
 open Classical in
 /-- **The universe of types at level `n`**: the truth values at `0`,
 above the members of the axiomatic level `tg n` that are types. -/
-noncomputable def tyU (n : Nat) : V := if n = 0 then tg 0 else sep (tg n) IsTy
+noncomputable def tyU (n : Nat) : V :=
+  if n = 0 then tg 0 else sep (tg n) IsTy (hasSep_isTy (tg n))
+
+theorem DefFun.tyU_const {k : Nat} (n : Nat) :
+    DefFun k fun _ => (tyU n : V) :=
+  DefFun.const (tyU n)
 
 theorem tyU_zero : (tyU 0 : V) = univZero := by
   unfold tyU; rw [ite_eq_left rfl, tg_zero]
@@ -257,7 +288,7 @@ theorem tyU_mem_tg_succ (n : Nat) : (tyU n : V) ∈ˢ tg (n + 1) := by
   by_cases hn : n = 0
   · subst hn; rw [tyU_zero]; exact univZero_mem_tg_succ 0
   · unfold tyU; rw [ite_eq_right hn]
-    exact (tg_isTGUniverse (Nat.succ_ne_zero n)).sep_mem (tg_mem_tg n)
+    exact (tg_isGrothendieck (Nat.succ_ne_zero n)).sep_mem (tg_mem_tg n) (hasSep_isTy (tg n))
 
 /-- `Sort n : Sort (n+1)`. -/
 theorem tyU_mem_tyU_succ (n : Nat) : (tyU n : V) ∈ˢ tyU (n + 1) :=

@@ -74,10 +74,15 @@ theorem genUniq (D : Nat → LfpDatum V) (ψ : Nat → Name → Nat) (fr : Nat �
         v' ∈ˢ blockRecMot K concl uX nIdxX ρ xs u →
         v = v' := by
   by_cases hℓ : ℓ = 0
-  · refine huniq_of_prop fun u hu => ?_
-    have hmem := blockRecMot_mem_univ (K := K) hconclTy u hu
-    rwa [hℓ] at hmem
-  refine huniq_of_dec fun u _ e e' he he' => ?_
+  · intro u hu _ _ _ _
+    have hmem : blockRecMot K concl uX nIdxX ρ xs u ∈ˢ (univ 0 : V) := by
+      have h0 := blockRecMot_mem_univ (K := K) hconclTy u hu
+      rwa [hℓ] at h0
+    exact Or.inr fun v v' hv hv' =>
+      (eq_pt_of_mem_univZero (univ_zero (V := V) ▸ hmem) hv).trans
+        (eq_pt_of_mem_univZero (univ_zero (V := V) ▸ hmem) hv').symm
+  intro u _ e e' he he'
+  refine Or.inl ?_
   obtain ⟨c, j, fs⟩ := e
   obtain ⟨c', j', fs'⟩ := e'
   obtain ⟨hc, -, i, hi, hf, rfl⟩ := he

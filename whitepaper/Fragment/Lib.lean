@@ -23,10 +23,10 @@ singleton if `P` holds, empty if not — and its membership law is a
 theorem of separation.
 
 Con-leche derives all of this from a much smaller axiomatic core
-(`ConLeche/SetTheory/Core.lean`: ZF⁻ plus an ω-chain of Grothendieck
-universes; `ConLeche/SetTheory/Derive/*` builds the operators).  The
-fragment takes the derived surface as its interface, which is what the
-proof reads anyway.
+(`ConLeche/SetTheory/Core.lean`: first-order ZFC without infinity plus a chain
+of Grothendieck universes; `ConLeche/SetTheory/Derive/*` builds the operators,
+each for what a first-order formula defines).  The fragment takes the derived
+surface as its interface, at every predicate and function of Lean's logic.
 
 Below the class, the **two-regime operators** `piR`/`lamR` of
 `ConLeche/SetModel/Ops.lean`: the function space and abstraction at

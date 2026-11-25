@@ -384,14 +384,18 @@ the union over $omega$. This is
 the hereditarily finite sets satisfy every other law in this list.
 
 #real[
-  The set theory is one class: ZF without infinity, plus a chain of
-  universes each of which is a Grothendieck universe stated as the
-  matrix of Tarski's Axiom A with transitivity
-  (#src("ConLeche/SetTheory/Core.lean", 89, 93)[the universe property],
-  #src("ConLeche/SetTheory/Core.lean", 95, 100)[the class]). The
+  The set theory is one class: first-order ZFC without infinity, plus
+  a chain of universes each of which is a Grothendieck universe:
+  transitive, and closed under pairs, power sets and the unions of
+  families indexed by a member
+  (#src("ConLeche/SetTheory/Core.lean", 56, 67)[the universe property],
+  #src("ConLeche/SetTheory/Core.lean", 69, 73)[the class]). The
   closure laws of the list, and infinity, are derived from it; the
   fragment takes the derived laws as its interface, as it does for
-  the rest of §2's laws.
+  the rest of §2's laws. Replacement there is the first-order schema:
+  the real proof's $F$ is a function that a formula of set theory
+  defines, and its countable union is indexed by the members of the
+  set theory's own $omega$, not by the numbers of the meta-theory.
 ]
 
 === The operator
@@ -533,26 +537,26 @@ which holds in both cases, is used here only for monotonicity.
 #real[
   The operator is read off the stored constructor types with the
   positivity check's variable (a _hole_) standing for the family
-  (#src("ConLeche/Model/Env/LfpHoleOp.lean", 104, 106)[the hole operator]),
+  (#src("ConLeche/Model/Env/LfpHoleOp.lean", 114, 116)[the hole operator]),
   and monotonicity and accessibility are read off the positivity
   check's run, case by case. A reading that mentions no hole is
   #src("ConLeche/Semantics/Inductives/HoleMono.lean", 71, 73)[constant]
   (the ordinary field); a function space over a hole-free domain,
   its fibres types, is
   #src("ConLeche/Semantics/Inductives/HoleMono.lean", 130, 139)[positive when its body is]
-  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 233, 243)[accessible with its body's bound glued over the domain]
+  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 849, 857)[accessible with its body's bound glued over the domain]
   (the reflexive field); a hole applied to hole-free arguments is
   #src("ConLeche/Semantics/Inductives/HoleMono.lean", 158, 162)[positive]
-  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 321, 324)[accessible with the bound ${pt}$]
+  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 1072, 1078)[accessible with the bound ${pt}$]
   (the recursive field). Assembled along the fields, that is
-  #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 311, 316)[the fit's accessibility, for both kinds of family, with a bound in the universe for a type-valued one]
-  (#src("ConLeche/SetModel/Access.lean", 56, 63)[the notion above]), and
-  #src("ConLeche/Model/Env/BlockLfp.lean", 527, 531)[the operator's monotonicity] follows from it, as in the fragment.
+  #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 418, 424)[the fit's accessibility, for both kinds of family, with a bound in the universe for a type-valued one]
+  (#src("ConLeche/SetModel/Access.lean", 177, 186)[the notion above]), and
+  #src("ConLeche/Model/Env/BlockLfp.lean", 883, 887)[the operator's monotonicity] follows from it, as in the fragment.
   The fragment's simplification is to take the field kinds from the
   specification instead of the run. The universe bound on the fields the real proof records
   from a check made for the proof alone, the constructor type-checked
   with the holes in context
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 466, 472)[the recorded bound]);
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 822, 828)[the recorded bound]);
   the fragment reads it off the constructor's ordinary typing.
 ]
 
@@ -566,7 +570,7 @@ member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise.
   Let $n >= 1$. An operator $Phi$ on families that maps families in
   $cal(U)_n$ to families in $cal(U)_n$ and is accessible with a bound
   $A in cal(U)_n$ #src("whitepaper/Fragment/Access.lean", 292, 303)[has a closed family] in $cal(U)_n$
-  (#src("ConLeche/SetModel/Access.lean", 240, 244)[as in con-leche]):
+  (#src("ConLeche/SetModel/Access.lean", 916, 922)[as in con-leche]):
   $ exists L in cal(U)_n. thin Phi(L) subset.eq L. $
 ] <thm:closed-of-acc>
 
@@ -650,26 +654,26 @@ every constructor denotes the point.
 
 #real[
   The least fixed point is
-  #src("ConLeche/SetTheory/Derive/LfpTuple.lean", 78, 87)[the same construction]
+  #src("ConLeche/SetTheory/Derive/LfpTuple.lean", 472, 478)[the same construction]
   over a tuple of families, one per type former of the block, each a
   graph over an index set. What the model records of an installed
   block is one clause: the operator maps the universe to itself and
   its fit is accessible, for both kinds of family
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 404, 411)[the operator]).
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 760, 767)[the operator]).
   So it has a closed family
-  (#src("ConLeche/SetModel/Access.lean", 298, 303)[the constant family at a proposition, and from accessibility for a type-valued family])
+  (#src("ConLeche/SetModel/Access.lean", 1039, 1045)[the constant family at a proposition, and from accessibility for a type-valued family])
   and is
-  #src("ConLeche/Model/Env/BlockLfp.lean", 527, 531)[monotone]\;
+  #src("ConLeche/Model/Env/BlockLfp.lean", 883, 887)[monotone]\;
   its fibres are the tagged tuples of fitting fields
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 412, 417)[the fibres]),
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 768, 773)[the fibres]),
   and the type former denotes
-  #src("ConLeche/Model/Env/BlockLfp.lean", 188, 190)[the least fixed point]
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 533, 536)[the fixed-point equation]).
+  #src("ConLeche/Model/Env/BlockLfp.lean", 462, 464)[the least fixed point]
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 889, 892)[the fixed-point equation]).
   Its constructors are
-  #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
-  #src("ConLeche/SetModel/TupleTower.lean", 93)[nested pairs], the
+  #src("ConLeche/SetModel/TaggedSum.lean", 240)[tagged pairs] of
+  #src("ConLeche/SetModel/TupleTower.lean", 149)[nested pairs], the
   two kinds of family in
-  #src("ConLeche/SetModel/TaggedSum.lean", 61, 62)[one carrier].
+  #src("ConLeche/SetModel/TaggedSum.lean", 228, 229)[one carrier].
 ]
 
 === The recursor
@@ -732,14 +736,14 @@ is read by its values, and there is nothing to construct.
   least fixed point inside the set theory (the proof calls this the
   _graph route_), and one construction serves every sort. Over the set
   of majors, the graph is
-  #src("ConLeche/SetModel/GraphRec.lean", 100, 104)[the least relation]
+  #src("ConLeche/SetModel/GraphRec.lean", 340, 345)[the least relation]
   closed under the rules, each read over the decodings of a major.
   The graph has
-  #src("ConLeche/SetModel/GraphRec.lean", 232, 234)[exactly one value at every major]
+  #src("ConLeche/SetModel/GraphRec.lean", 554, 556)[exactly one value at every major]
   by the family's own induction, and the equation at any decoding is
-  #src("ConLeche/SetModel/GraphRec.lean", 270, 274)[the $iota$ law].
+  #src("ConLeche/SetModel/GraphRec.lean", 594, 599)[the $iota$ law].
   The one fact about sorts it asks is a premise: at every major,
-  #src("ConLeche/SetModel/GraphRec.lean", 190, 192)[two decodings are equal, or the motive's value there has at most one member].
+  #src("ConLeche/SetModel/GraphRec.lean", 501, 503)[two decodings are equal, or the motive's value there has at most one member].
   This is the elimination rule of @sec:ind-checks, read three ways
   (#src("ConLeche/Model/Inductives/ClassGenUniq.lean", 13, 19)[the three cases],
   #src("ConLeche/Model/Inductives/ClassGenUniq.lean", 57)[the theorem]).
@@ -1108,7 +1112,7 @@ block's auxiliary recursor reads the minor premises of its own motive,
   #src("whitepaper/Fragment/Main.lean", 76, 79)[no constant of the input has type $I$],
   a theorem among them; this follows from
   #src("whitepaper/Fragment/Main.lean", 59, 62)[any model of constants that include $I$'s recursor]
-  (#src("ConLeche/Semantics/IsModelBasis.lean", 136, 137)[as in con-leche]).
+  (#src("ConLeche/Semantics/IsModelBasis.lean", 176, 177)[as in con-leche]).
   In the environment the input ends in,
   #src("whitepaper/Fragment/Main.lean", 89, 91)[no closed term $e$ has] $tack e => I$.
 ] <cor:consistency>

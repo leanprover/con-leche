@@ -97,7 +97,7 @@ theorem admVal_memberLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ
         (d.toLfp.carrier ψ (consList (xs.take ctx.nP) ρ)) t) ≠ pt := by
       unfold LfpDatum.holeVal
       refine holeFam_foldl_ne_pt (fun ws hws => (IsTy_of_mem_strictU (famSpace_app
-        ((lfpTuple_mem _ _ _ _ : InTupleSpace (d.toLfp.w ψ) d.toLfp.N
+        ((lfpTuple_mem _ _ _ _ _ : InTupleSpace (d.toLfp.w ψ) d.toLfp.N
           (d.toLfp.idx ψ (consList (xs.take ctx.nP) ρ))
           (d.toLfp.carrier ψ (consList (xs.take ctx.nP) ρ))) t htN) (tupW_mem hws))).ne_pt)
         (by rw [hids]; exact his) hext
@@ -170,11 +170,12 @@ theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ 
     -- extends (`hext`), and the carrier's fibres are never the point
     have hmmN : mm' < (lfpSel mpC d.toLfp u.key.cname).N :=
       Nat.lt_of_lt_of_le hmm' (mk.lfpClause_of_mem hD).kN
-    have hne := holeFam_foldl_ne_pt (g := fun ws => app
+    have hne := holeFam_foldl_ne_pt (hg_def := DefHoleFn.of_app_tupW _ _ _)
+      (g := fun ws => app
         ((lfpSel mpC d.toLfp u.key.cname).carrier (nodeψ envC ψ u)
           (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc))
           mm') (tupW ((lfpSel mpC d.toLfp u.key.cname).u mm' (nodeψ envC ψ u)) ws))
-      (fun ws hws => (IsTy_of_mem_strictU (famSpace_app ((lfpTuple_mem _ _ _ _ : InTupleSpace
+      (fun ws hws => (IsTy_of_mem_strictU (famSpace_app ((lfpTuple_mem _ _ _ _ _ : InTupleSpace
         ((lfpSel mpC d.toLfp u.key.cname).w (nodeψ envC ψ u)) (lfpSel mpC d.toLfp u.key.cname).N
         ((lfpSel mpC d.toLfp u.key.cname).idx (nodeψ envC ψ u)
           (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc)))

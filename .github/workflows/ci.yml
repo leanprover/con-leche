@@ -177,6 +177,13 @@ jobs:
       - name: whitepaper/fragment-gate.sh
         run: whitepaper/fragment-gate.sh
 
+      # THE OLD SET THEORY: the test library proves the current class
+      # from the second-order `SetTheory` class it replaced (`lake test`
+      # below builds that).  This gate checks that the old class's file
+      # is the old `ConLeche/SetTheory/Core.lean` but for its namespace.
+      - name: tests/old-set-theory.sh
+        run: tests/old-set-theory.sh
+
       # `lake test` builds the ConLecheTests library.  The suite is
       # `#guard`/`example`-based and the axiom pin is
       # `#guard_msgs in #print axioms`, so *elaboration* is the test:

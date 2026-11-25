@@ -58,11 +58,11 @@ def WellDenoted : (Nat → V) → Term → Prop
     WellDenoted ρ f ∧ WellDenoted ρ a ∧ AppliesTo (interp V ρ f) (interp V ρ a)
   | ρ, .fst e =>
     WellDenoted ρ e ∧
-    ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+    ∃ u v A Bf, ∃ hS : HasSigmaPairs A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf hS ∧
       A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
   | ρ, .snd e =>
     WellDenoted ρ e ∧
-    ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+    ∃ u v A Bf, ∃ hS : HasSigmaPairs A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf hS ∧
       A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
   | ρ, .eqE a b => WellDenoted ρ a ∧ WellDenoted ρ b
   | ρ, .letE v b => WellDenoted ρ v ∧ WellDenoted (cons (interp V ρ v) ρ) b
@@ -101,13 +101,15 @@ theorem WellDenoted_app (ρ : Nat → V) (f a : Term) :
 theorem WellDenoted_fst (ρ : Nat → V) (e : Term) :
     WellDenoted V ρ (.fst e) =
       (WellDenoted V ρ e ∧
-        ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+        ∃ u v A Bf, ∃ hS : HasSigmaPairs A Bf,
+          interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf hS ∧
           A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v) := by
   rw [WellDenoted]
 theorem WellDenoted_snd (ρ : Nat → V) (e : Term) :
     WellDenoted V ρ (.snd e) =
       (WellDenoted V ρ e ∧
-        ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+        ∃ u v A Bf, ∃ hS : HasSigmaPairs A Bf,
+          interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf hS ∧
           A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v) := by
   rw [WellDenoted]
 theorem WellDenoted_eqE (ρ : Nat → V) (a b : Term) :
@@ -279,7 +281,9 @@ theorem WellDenoted_beta {A b a : Term} {ρ : Nat → V}
   have hlne : interp V ρ (.lam A b) ≠ pt := by
     intro h0; apply hne; rw [interp_app, h0, app_pt]
   obtain ⟨-, -, hbody⟩ := (WellDenoted_lam V ρ A b).mp hlam
-  have hgraph : interp V ρ (.lam A b) = graph (fun x => interp V (cons x ρ) b) (interp V ρ A) := by
+  have hgraph : interp V ρ (.lam A b) =
+      graph (fun x => interp V (cons x ρ) b) (interp V ρ A)
+        (interp_hasGraph_cons ρ (interp V ρ A) b) := by
     rw [interp_lam] at hlne ⊢; exact lamV_eq_graph hlne
   have haA : interp V ρ a ∈ˢ interp V ρ A := by
     rw [hgraph] at hap; exact (appliesTo_graph.mp hap).2

@@ -268,7 +268,7 @@ environment with $t$ has no model at all.
   for the checker's functions: if `checkDecls` accepts the solution's
   records and `checkChallenge` accepts the challenge's with them, the
   challenge's own constants have a model.
-  #src("ConLeche/MainTheorem.lean", 61, 66)[Its corollary for the command line]
+  #src("ConLeche/MainTheorem.lean", 63, 68)[Its corollary for the command line]
   says the same of an exit 0 of
   `--compare CHALLENGE.ndjson SOLUTION.ndjson`. A model of the
   challenge holds no hole of type `False`, since `False` denotes the
@@ -401,12 +401,12 @@ model of the compatible family.
   Each module of the challenge's closure is read from the trusted
   directories alone.
 
-  #src("ConLeche/MainTheorem.lean", 138, 175)[The modular capstones]
+  #src("ConLeche/MainTheorem.lean", 140, 177)[The modular capstones]
   state @thm:cmp for an exit 0 of every command of such a run, and of
   the run in one process: on every snapshot that agrees with the run's
   under the challenge's directories, every module of the challenge's
   closure, the challenge with its copies among them, has a model of
   its constants, and a name a module sees as another module's has the
   value that module's model gives it. In particular,
-  #src("ConLeche/MainTheorem.lean", 179, 198)[a challenge module with a constant of type `False`, a hole `x : False` among them, is never solved].
+  #src("ConLeche/MainTheorem.lean", 181, 201)[a challenge module with a constant of type `False`, a hole `x : False` among them, is never solved].
 ]

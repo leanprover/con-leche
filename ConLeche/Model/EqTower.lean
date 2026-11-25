@@ -43,13 +43,54 @@ theorem eqReflValT_congr {ψ₁ ψ₂ : Name → Nat} (h : ψ₁ uN = ψ₂ uN) 
 
 /-! ## `Eq`'s tower, interpreted -/
 
+theorem hasGraph_eqValT_y (a x : V) :
+    HasGraph a fun y => eqv x y :=
+  hasGraph_of_defFun1 (DefFun.eqv_apply (DefFun.const x) (DefFun.proj 0))
+
+theorem hasGraph_eqValT_x (a : V) :
+    HasGraph a fun x => lamV a (fun y => eqv x y) (hasGraph_eqValT_y a x) :=
+  hasGraph_of_defFun1
+    (DefFun.lamV_apply_curry
+      (DefFun.eqv_apply (DefFun.proj 1) (DefFun.proj 0))
+      (DefFun.const a))
+
+theorem hasGraph_eqValT_a (ψ : Name → Nat) :
+    HasGraph (univ (ψ uN) : V) fun a =>
+      lamV a (fun x => lamV a (fun y => eqv x y) (hasGraph_eqValT_y a x))
+        (hasGraph_eqValT_x a) :=
+  hasGraph_of_defFun1
+    (DefFun.lamV_apply_curry
+      (DefFun.lamV_apply_curry
+        (DefFun.eqv_apply (DefFun.proj 1) (DefFun.proj 0))
+        (DefFun.proj 1))
+      (DefFun.proj 0))
+
+theorem hasSigmaPairs_eqValT_a (ψ : Name → Nat) :
+    HasSigmaPairs (univ (ψ uN) : V) fun a =>
+      piV a (fun _ => piV a (fun _ => univZero) (hasSigmaPairs_const a univZero))
+        (hasSigmaPairs_const a _) :=
+  hasSigmaPairs_of_defFun1
+    (DefFun.piV_apply_curry (DefFun.proj 0)
+      (DefFun.piV_apply_curry (DefFun.proj 1) DefFun.univZero))
+
+theorem hasSigmaPairs_eqRefl_x (a : V) :
+    HasSigmaPairs a fun x => eqv x x :=
+  hasSigmaPairs_of_defFun1 (DefFun.eqv_apply (DefFun.proj 0) (DefFun.proj 0))
+
+theorem hasSigmaPairs_eqRefl_a (ψ : Name → Nat) :
+    HasSigmaPairs (univ (ψ uN) : V) fun a => piV a (fun x => eqv x x) (hasSigmaPairs_eqRefl_x a) :=
+  hasSigmaPairs_of_defFun1
+    (DefFun.piV_apply_curry (DefFun.proj 0) (DefFun.eqv_apply (DefFun.proj 0) (DefFun.proj 0)))
+
 /-- **`Eq`'s tower, interpreted**: a three-deep `lamV` over the
 truth-set former. -/
 theorem eqValT_interp (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (eqValT ψ)
       = lamV (univ (ψ uN))
-        (fun a => lamV a (fun x => lamV a (fun y => eqv x y))) := by
-  simp [eqValT, cons]
+        (fun a => lamV a (fun x => lamV a (fun y => eqv x y) (hasGraph_eqValT_y a x))
+          (hasGraph_eqValT_x a))
+        (hasGraph_eqValT_a ψ) := by
+  simp only [eqValT, interp_lam, interp_sort, interp_eqE, interp_bvar, cons]
 
 /-- **The full spine's value** — `EqLaw`'s first conjunct at the tower:
 three `app_lamV`, one per binder, each on its domain. -/
@@ -62,7 +103,9 @@ theorem eqValT_app₃ (ψ : Name → Nat) (ρ : Nat → V) (A a b : V)
 /-- The tower inhabits the `Eq` former's function-space tower. -/
 theorem eqValT_mem (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (eqValT ψ) ∈ˢ piV (univ (ψ uN) : V)
-      (fun a => piV a (fun _ => piV a (fun _ => univZero))) := by
+      (fun a => piV a (fun _ => piV a (fun _ => univZero) (hasSigmaPairs_const a univZero))
+        (hasSigmaPairs_const a _))
+      (hasSigmaPairs_eqValT_a ψ) := by
   rw [eqValT_interp]
   exact lamV_mem (fun _a _ => lamV_mem (fun _x _ =>
     lamV_mem (fun _y _ => eqv_mem_univZero _ _) (fun _ _ => IsTy_univZero))
@@ -89,7 +132,8 @@ are truth values, so it is `pt_mem_piR_zero_of` twice, bottoming at
 `pt_mem_eqv_self`. -/
 theorem eqReflValT_mem (ψ : Name → Nat) (ρ : Nat → V) :
     interp V ρ (eqReflValT ψ) ∈ˢ piV (univ (ψ uN) : V)
-      (fun a => piV a (fun x => eqv x x)) := by
+      (fun a => piV a (fun x => eqv x x) (hasSigmaPairs_eqRefl_x a))
+      (hasSigmaPairs_eqRefl_a ψ) := by
   rw [eqReflValT_interp, piV_eq_zero fun A _ => by
     rw [piV_eq_zero fun x _ => eqv_mem_univZero x x]; exact piR_zero_mem_univZero]
   exact pt_mem_piR_zero_of fun A _ => by
@@ -130,11 +174,12 @@ theorem eqValT_app₃_okP (ψ : Name → Nat) (ρ : Nat → V)
   have hmem := eqValT_mem (V := V) ψ ρ
   have h1 : SetTheory.app (interp V ρ (eqValT ψ)) (interp V ρ Aa)
       ∈ˢ piV (interp V ρ Aa)
-        (fun _ => piV (interp V ρ Aa) (fun _ => univZero)) :=
+        (fun _ => piV (interp V ρ Aa) (fun _ => univZero) (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_const _ _) :=
     app_mem_piV hmem hA
   have h2 : SetTheory.app (SetTheory.app (interp V ρ (eqValT ψ))
         (interp V ρ Aa)) (interp V ρ la)
-      ∈ˢ piV (interp V ρ Aa) (fun _ => univZero) :=
+      ∈ˢ piV (interp V ρ Aa) (fun _ => univZero) (hasSigmaPairs_const _ _) :=
     app_mem_piV h1 ha
   have hAty : IsTy (interp V ρ Aa) := IsTy_of_mem_univ hA
   refine ⟨⟨⟨⟨eqValT_wellDenoted ψ ρ, hAa, appliesTo_of_mem_piV hmem (IsTy_univ _) hA⟩,

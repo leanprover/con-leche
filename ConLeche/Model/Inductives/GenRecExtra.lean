@@ -522,7 +522,8 @@ theorem genMem_major
       (d.IdsM t ψ) ((xs.drop (pp.rulePrefixAt j)).map (interp V ρ)) ∧
     interp V ρ a ∈ˢ app (lfpTuple (d.w ψ) d.N
         (d.idx ψ (consList (((xs.take (pp.rulePrefixAt j)).map (interp V ρ)).take d.nP) ρ))
-        (d.Φ ψ (consList (((xs.take (pp.rulePrefixAt j)).map (interp V ρ)).take d.nP) ρ)) t)
+        (d.Φ ψ (consList (((xs.take (pp.rulePrefixAt j)).map (interp V ρ)).take d.nP) ρ))
+        (d.hΦ ψ (consList (((xs.take (pp.rulePrefixAt j)).map (interp V ρ)).take d.nP) ρ)) t)
       (d.tup ψ t ((xs.drop (pp.rulePrefixAt j)).map (interp V ρ))) := by
   have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
   have hmS : (tgtMajor out j).member.isSome = true := by rw [hm]; rfl

@@ -314,8 +314,8 @@ head's domain**: the head is not the point (`app_pt`), so it is read at a
 positive kind (`eq_pt_of_mem_piR_zero`), where its application clause
 reads the argument off the graph (`AppliesTo.mem`). -/
 theorem arg_mem_of_head {σ : Nat → V} {f a : Term} {b : Nat} {N : V}
-    {Y : V → V} (hg : WellDenoted V σ (.app f a))
-    (hne : interp V σ (.app f a) ≠ pt) (hf : interp V σ f ∈ˢ piR b N Y) :
+    {Y : V → V} {hS : HasSigmaPairs N Y} (hg : WellDenoted V σ (.app f a))
+    (hne : interp V σ (.app f a) ≠ pt) (hf : interp V σ f ∈ˢ piR b N Y hS) :
     interp V σ a ∈ˢ N := by
   have hw := hg
   rw [WellDenoted_app] at hw
@@ -441,7 +441,8 @@ theorem Red.natOp_sound (hin : RulesInputs V m φ) {d : Nat} {c : Name}
   -- both arguments lie in `Nat`, through the head's graph
   have haN := arg_mem_of_head hg.app_fn hne₁ hmem
   have hmem₂ : interp V σ (.app ca aa) ∈ˢ
-      piR b₂ (interp V σ (m.acval natName (Level.substFn φ [] []))) (fun _ => X) := by
+      piR b₂ (interp V σ (m.acval natName (Level.substFn φ [] []))) (fun _ => X)
+        (hasSigmaPairs_const _ _) := by
     rw [interp_app]
     exact app_mem_piR_pos hb₁ hmem haN
   have hbN := arg_mem_of_head hg hne hmem₂

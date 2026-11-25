@@ -182,6 +182,17 @@ if whitepaper/links-gate.sh; then :; else fail=1; fi
 # the theorems to the three standard axioms.  A build, seconds.
 if whitepaper/fragment-gate.sh; then :; else fail=1; fi
 
+# THE OLD SET THEORY GATE.  `tests/ConLecheTests/OldSetTheory.lean` is
+# the second-order `ConLeche/SetTheory/Core.lean` from before the
+# first-order rewrite, with one name changed: its namespace, so that the
+# test library can import it beside the current class.
+# `tests/ConLecheTests/SetTheoryFO.lean` turns its class into the current
+# one (`setTheoryOfSecondOrder`, built by `lake test`): every old model
+# is a model of the new class.  `tests/old-set-theory.sh` checks that the
+# file is the old one but for that rename, by git blob id.  Source-tree
+# only, no build, milliseconds.
+if tests/old-set-theory.sh; then :; else fail=1; fi
+
 # THE DOCUMENT QUOTE GATE (task #302).  The same two documents also
 # QUOTE the code: a fenced ```lean block holding a theorem's statement
 # for the reader.  That rots more quietly than a line anchor — a renamed

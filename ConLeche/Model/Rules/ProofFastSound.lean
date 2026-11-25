@@ -329,7 +329,8 @@ theorem typeFormer_mem_univ (hin : RulesInputs V m φ) {d : Nat}
       have hCTy' : CtxOkS m φ d Δa (.forallE A B) := hC.of_subset hsubTy'
       have hLTy' : LeavesGr m φ d (.forallE A B) ρ := hL.of_subset hsubTy'
       have hmem' : interp V ρ Ha ∈ˢ piV (interp V ρ Aa)
-          (fun y => interp V (cons y ρ) Ba) := by
+          (fun y => interp V (cons y ρ) Ba)
+          (interp_hasSigmaPairs_cons ρ (interp V ρ Aa) Ba) := by
         have h2 := hmem
         rw [heq, interp_pi] at h2
         exact h2

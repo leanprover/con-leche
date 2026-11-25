@@ -140,7 +140,6 @@ theorem canonCrest_of_walk {ctx : NestCtx} {holes : List Expr} {cty crest : Expr
   · obtain ⟨t', rfl⟩ := hholes _ a ha
     exact ⟨t', by congr 1; omega⟩
 
-omit [SetTheory V] in
 /-- **The canonical crest names no member constant, from the positivity
 stage's run** (official's uniform check `nestUniform`). -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}

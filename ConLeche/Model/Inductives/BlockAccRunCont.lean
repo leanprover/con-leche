@@ -39,6 +39,103 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## One constructor -/
 
+private theorem defBound_le {d1 d2 : Nat} {A : (Nat → V) → V}
+    (hle : d1 ≤ d2) (hA : DefBound d2 A) : DefBound d1 A := by
+  intro tail
+  let tail' : Nat → V := fun j => tail (j + (d2 - d1))
+  let Gs : Fin d2 → (Fin d1 → V) → V := fun j xs =>
+    if hj : j.val < d1 then xs ⟨j.val, hj⟩ else tail (j.val - d1)
+  have hGs : ∀ j, DefFun d1 (Gs j) := fun j => by
+    dsimp only [Gs]
+    split
+    · exact DefFun.proj _
+    · exact DefFun.const _
+  refine ((hA tail').comp hGs).congr fun xs => ?_
+  congr 1
+  funext i
+  by_cases hi1 : i < d1
+  · have hi2 : i < d2 := Nat.lt_of_lt_of_le hi1 hle
+    simp [Semantics.prepend, hi1, hi2, Gs]
+  · by_cases hi2 : i < d2
+    · simp [Semantics.prepend, hi1, hi2, Gs]
+    · simp only [Semantics.prepend, hi1, hi2, ↓reduceDIte, tail']
+      congr 1; omega
+
+private theorem teleAccP_of_piAccThen_def_bc {w : Nat} {ctx : NestCtx} {prog : List NestHole}
+    {Qf : FrameRel V → Term → Prop} :
+    ∀ (abD abN : List Term) (B : Term) (d l : Nat) (nds : List Expr)
+      (Δ : List Term) (R : FrameRel V) (Q : Nat → Nat → Prop),
+      FieldsEqOn V Δ abD abN →
+      (∀ ρ ρ₀, R ρ ρ₀ → Sat V Δ ρ ∧ Sat V Δ ρ₀) →
+      (∀ ρ ρ₀, R ρ ρ₀ → w ≠ 0 → FieldsBound w ρ abN) →
+      (∀ i n, HoleQ ctx prog d i n ↔ Q i n) → ctx.hiAt prog.length ≤ d →
+      PiAccThen w ctx prog Qf abD.length d nds R (mkPisAV abD B) →
+      ∃ Af : Nat → (Nat → V) → V, TeleAccP w Af l Q R abN ∧
+        (∀ (i : Nat) (nd : Expr), i < abD.length → nds[i]? = some nd →
+          InvOn (MentP ctx.nP (ctx.hiAt prog.length) (d + i) nd) (Af (l + i))) ∧
+        (∀ l', l ≤ l' → l' < l + abD.length → DefBound (d + (l' - l)) (Af l')) ∧
+        Qf (R.underBothTele abN) B
+  | [], [], B, _, _, _, _, R, _, _, _, _, _, _, hP =>
+    ⟨fun _ _ => empty, trivial, fun _ _ h => absurd h (Nat.not_lt_zero _),
+      fun _ _ hl2 => absurd hl2 (by simp at hl2 ⊢; omega), hP⟩
+  | x :: abD, y :: abN, B, d, l, nds, Δ, R, Q, hE, hdom, hok, hQ, hd, hP => by
+    obtain ⟨h0, hrest⟩ := hE
+    match nds, hP with
+    | [], hP => exact hP.elim
+    | nd :: nds', ⟨⟨Af0, hacc0, hsz0, hinv0, hdef0⟩, hP'⟩ =>
+      have hUE : R.underBoth x = R.underBoth y := underBoth_eq_of_eqOn h0 hdom
+      have hok' : ∀ σ σ₀, R.underBoth x σ σ₀ → w ≠ 0 → FieldsBound w σ abN := by
+        rintro _ _ ⟨a, ρ, ρ₀, rfl, rfl, hR, ha, -⟩ hw
+        have hok0 := hok ρ ρ₀ hR hw
+        exact hok0.2 a (h0 ρ (hdom ρ ρ₀ hR).1 ▸ ha)
+      have hQ' : ∀ i n, HoleQ ctx prog (d + 1) i n ↔ shiftQ Q i n := by
+        intro i n
+        rw [← shiftQ_holeQ hd i n]
+        exact shiftQ_congr hQ i n
+      obtain ⟨Af', htele', hinv', hdef', hQf⟩ :=
+        teleAccP_of_piAccThen_def_bc abD abN B (d + 1) (l + 1) nds' (x :: Δ) (R.underBoth x)
+          (shiftQ Q) hrest (underBoth_dom hdom) hok' hQ' (by omega) hP'
+      classical
+      refine ⟨fun l' => if l' = l then Af0 else Af' l', ?_, ?_, ?_, ?_⟩
+      · refine ⟨?_, ?_, fun ρ ρ₀ hR => ?_, ?_⟩
+        · simp only
+          exact AccOn.of_eqOn (P := Sat V Δ) hdom (fun ρ hρ => (h0 ρ hρ).symm)
+            (AccOn.congrQ hQ hacc0)
+        · simp only
+          exact hsz0
+        · intro hw
+          have hok0 := hok ρ ρ₀ hR hw
+          exact mem_tg_of_mem_univ hok0.1
+        · rw [← hUE]
+          exact TeleAccP.congr _ (l + 1) (shiftQ Q) _
+            (fun l' hl' _ => by simp only [ite_eq_right (show l' ≠ l by omega)]) htele'
+      · intro i nd' hi hnd
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hnd
+          subst hnd
+          simp only [Nat.add_zero]
+          exact hinv0
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hnd
+          simp only [ite_eq_right (show l + (i + 1) ≠ l by omega)]
+          have := hinv' i nd' (by simpa using hi) hnd
+          rwa [show d + 1 + i = d + (i + 1) by omega, show l + 1 + i = l + (i + 1) by omega]
+            at this
+      · intro l' hl1 hl2
+        by_cases hll : l' = l
+        · subst hll
+          simp only [↓reduceIte, Nat.sub_self, Nat.add_zero]
+          exact hdef0
+        · simp only [ite_eq_right hll]
+          have hd' := hdef' l' (by omega) (by simp only [List.length_cons] at hl2; omega)
+          rwa [show d + 1 + (l' - (l + 1)) = d + (l' - l) by omega] at hd'
+      · show Qf ((R.underBoth y).underBothTele abN) B
+        rw [← hUE]
+        exact hQf
+  | [], _ :: _, _, _, _, _, _, _, _, hE, _, _, _, _, _ => hE.elim
+  | _ :: _, [], _, _, _, _, _, _, _, hE, _, _, _, _, _ => hE.elim
+
 /-- **A member constructor's field telescope is accessible along the
 accessibility relation at the hole frame**, at every level, with
 bounds reading only the agreeing positions, its ordinary fields' readings
@@ -80,6 +177,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
     ∃ (ord : Nat → Bool) (Af : Nat → (Nat → V) → V),
       TeleAccP (d.w ψ) Af 0 (d.toLfp.MemberQ ψ) (d.toLfp.accRel ψ ρp) (d.absF ψ c j) ∧
       (∀ l τ τ', TAgr d.k ord l τ τ' → Af l τ = Af l τ') ∧
+      (∀ l, DefBound (d.k + l) (Af l)) ∧
       (∀ (i : Nat) (G : Term), (d.absF ψ c j)[i]? = some G → ord i = true →
         ∀ τ τ', TAgr d.k ord i τ τ' → interp V τ G = interp V τ' G) ∧
       (∀ X X', InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
@@ -118,7 +216,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
   obtain ⟨nds, cur, hteleD, htyN, hU4, hhead, hok⟩ := hd
   have hPi := memberCtorD_acc mp hin hteleD hhead hok hcovk hfr hCP hca hgr hR
   rw [← habLen] at hPi
-  obtain ⟨Af, htele, hinv, hQf⟩ := teleAccP_of_piAccThen ab abN _ (ctx.hiAt 0) 0
+  obtain ⟨Af, htele, hinv, hdef, hQf⟩ := teleAccP_of_piAccThen_def_bc ab abN _ (ctx.hiAt 0) 0
     nds L.reverse _ (d.toLfp.MemberQ ψ) hEq hR.dom
     (fun ρ ρ₀ h hw => (hG' ρ ρ₀ h).toBound hw)
     (holeQ_top_iff hhi hcNl hcP har) (Nat.le_refl _) hPi
@@ -137,7 +235,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
   have hxl : xs.length = ctor.2 := ConLeche.Verify.openPisAtFvars_length ctor.2 hopN
   classical
   let ord : Nat → Bool := fun l => !(ksD.getD l .ordinary != .ordinary)
-  refine ⟨ord, fun l => if l < ctor.2 then Af l else fun _ => empty, ?_, ?_, ?_, ?_⟩
+  refine ⟨ord, fun l => if l < ctor.2 then Af l else fun _ => empty, ?_, ?_, ?_, ?_, ?_⟩
   · -- the telescope
     rw [← hab]
     refine TeleAccP.congr _ 0 _ _ (fun l' _ hl' => ?_) htele
@@ -175,6 +273,15 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
         simp only [holeP, List.length_nil, hhi]
         omega
     · simp only [ite_eq_right hl]
+  · -- definability of the fields' bounds
+    intro l
+    by_cases hl : l < ctor.2
+    · simp only [ite_eq_left hl]
+      have hdl := hdef l (Nat.zero_le l) (by rw [Nat.zero_add, habLen]; exact hl)
+      rw [Nat.sub_zero] at hdl
+      exact defBound_le (by simp only [hhi]; omega) hdl
+    · simp only [ite_eq_right hl]
+      exact DefBound.const (d.k + l) empty
   · -- the ordinary fields read the agreeing positions
     intro i G hGi hoi τ τ' hag
     rw [← hab] at hGi
@@ -223,7 +330,6 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
       ⟨X, X', hX, hX', rfl, rfl⟩ fs hf hf' e he
 
 
-omit [SetTheory V] in
 /-- **The walk context's sort is the block's level**: the caller's side
 of the container case's level link (`grp_sort`) — `NestCtx.sort` is the
 block's result sort. -/
@@ -275,6 +381,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
       c < d.toLfp.N → j < d.toLfp.nctors c →
         TeleAccP (d.w ψ) oa.2 0 (d.toLfp.MemberQ ψ) (d.toLfp.accRel ψ ρp) (d.absF ψ c j) ∧
         (∀ l τ τ', TAgr d.k oa.1 l τ τ' → oa.2 l τ = oa.2 l τ') ∧
+        (∀ l, DefBound (d.k + l) (oa.2 l)) ∧
         (∀ (i : Nat) (G : Term), (d.absF ψ c j)[i]? = some G → oa.1 i = true →
           ∀ τ τ', TAgr d.k oa.1 i τ τ' → interp V τ G = interp V τ' G) ∧
         (∀ X X', InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
@@ -293,10 +400,10 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
       obtain ⟨crest, ksr, tsr, hcrest, hd, -, ⟨ty, u, hty, hsort⟩, -⟩ :=
         hder c (d.ctorsM c) (hmemberCtors c hck) j _ hcj
       obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
-      obtain ⟨ord, Af, h1, h2, h3, h4⟩ := blockCtorAcc_of_walk mp hin hN hcore hnames hlps hread hnP
+      obtain ⟨ord, Af, h1, h2, hdef, h3, h4⟩ := blockCtorAcc_of_walk mp hin hN hcore hnames hlps hread hnP
         hnIdxs hk hcv0 hop0 hholes hcj hCf hCb hcrest hd (fun _ => hcovk fvsP) hty hsort
         (hnfs c j _ hcj) hs (hG c hc j hj)
-      exact ⟨(ord, Af), fun _ _ => ⟨h1, h2, h3, h4⟩⟩
+      exact ⟨(ord, Af), fun _ _ => ⟨h1, h2, hdef, h3, h4⟩⟩
     · exact ⟨(fun _ => true, fun _ _ => empty), fun hc hj => absurd ⟨hc, hj⟩ hcj'⟩
   let oa : Nat → Nat → (Nat → Bool) × (Nat → (Nat → V) → V) :=
     fun c j => Classical.choose (hper c j)
@@ -304,8 +411,9 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
     fun c j => Classical.choose_spec (hper c j)
   exact LfpDatum.fitAcc_holeOp hkN (fun c j => (oa c j).1)
     (fun c j => (oa c j).2) (fun c hc j hj => (hoa c j hc hj).2.1)
-    (fun c hc j hj => (hoa c j hc hj).2.2.1) (fun c hc j hj => (hoa c j hc hj).1)
-    (fun c hc j hj => (hoa c j hc hj).2.2.2)
+    (fun c hc j hj => (hoa c j hc hj).2.2.1)
+    (fun c hc j hj => (hoa c j hc hj).2.2.2.1) (fun c hc j hj => (hoa c j hc hj).1)
+    (fun c hc j hj => (hoa c j hc hj).2.2.2.2)
 
 /-- **The hole fit of a uniform block is accessible at every parameter
 frame**, with a bound that is a set of the level at a `Type`-valued one

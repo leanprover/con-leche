@@ -67,7 +67,7 @@ set, the point. That is the proof-irrel case of @thm:sound, which
 propositions that imply each other have
 #src("whitepaper/Fragment/Lib.lean", 172, 173)[the same truth value], by extensionality of sets. This is Lean's
 axiom `propext`, which therefore
-#src("ConLeche/Model/AxiomMem.lean", 261, 268)[holds in the model].
+#src("ConLeche/Model/AxiomMem.lean", 264, 271)[holds in the model].
 
 == η for structures <sec:ext-eta>
 
@@ -153,7 +153,7 @@ not a rule of its relations.
   The checker has the rule as Lean has it,
   #src("ConLeche/Rules/Rel.lean", 449, 460)[the constructor's fields compared with the projections of the other side],
   with
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 554, 556)[its soundness case].
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 555, 557)[its soundness case].
   It uses the same law when it prepares the major premise of a
   recursor on a structure that is never a proposition at the instance.
   The major is taken as found, before any head normalisation, and the
@@ -170,7 +170,7 @@ not a rule of its relations.
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,
   index-free type (@sec:left-out, "Projections")
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 673, 674)[a member is the constructor at the parameters and its own projections]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 680, 681)[a member is the constructor at the parameters and its own projections]).
   It is proved when
   #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the checker stores the table],
   by the argument above on the tagged tuple.
@@ -206,7 +206,7 @@ type-valued, and a truth value when it is proposition-valued.
   #src("ConLeche/Rules/Rel.lean", 485, 485)[any unit-like type] (Lean's:
   a Π-type whose codomain is unit-like, or a structure whose fields are
   propositions or unit-like), with
-  #src("ConLeche/Model/Rules/UnitSound.lean", 487, 487)[its soundness case].
+  #src("ConLeche/Model/Rules/UnitSound.lean", 489, 489)[its soundness case].
   A structure is unit-like by its η law and its fields'
   unit-likeness; a structure without fields has no field to check. The
   η law is its projection table's, which every structure-like block

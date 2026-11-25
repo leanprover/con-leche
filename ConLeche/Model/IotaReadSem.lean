@@ -73,14 +73,14 @@ theorem Denotes_lvlEq :
     rcases h with rfl | h; · exact hd
     cases c <;> simp at h
     cases hd with
-    | lam hA hF => exact .lam (iht _ h.1 hA) fun x hx => ihb _ h.2 (hF x hx)
+    | lam hA hF hG => exact .lam (iht _ h.1 hA) (fun x hx => ihb _ h.2 (hF x hx)) hG
   | forallE t b iht ihb =>
     intro c ρ X h hd
     unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
     rcases h with rfl | h; · exact hd
     cases c <;> simp at h
     cases hd with
-    | pi hA hB => exact .pi (iht _ h.1 hA) fun x hx => ihb _ h.2 (hB x hx)
+    | pi hA hB hS => exact .pi (iht _ h.1 hA) (fun x hx => ihb _ h.2 (hB x hx)) hS
   | letE t v b iht ihv ihb =>
     intro c ρ X h hd
     unfold Expr.lvlEq at h; simp only [Bool.or_eq_true, beq_iff_eq] at h
@@ -144,19 +144,19 @@ theorem ann2_app {n : Name} (hid : annIdent env.find? n 2 = true) {l : Level} {�
   obtain ⟨p, D, hlp, rfl, hD⟩ := annIdentVal_two_inv hv
   generalize Level.substFn φ cv.levelParams [l] = ψ at hd
   cases hd with
-  | lam hA hB =>
+  | lam hA hB hG0 =>
     cases hA
     rename_i F0
     -- the inner abstraction at a type `A₀`: over the reading of `D`, constantly `A₀`
     have hinner : ∀ A₀, A₀ ∈ˢ univ (Level.eval ψ (.param p)) → ∃ S : V,
-        ((∃ y, y ∈ˢ A₀) → ∃ y, y ∈ˢ S) ∧ F0 A₀ = lamV S fun _ => A₀ := by
+        ((∃ y, y ∈ˢ A₀) → ∃ y, y ∈ˢ S) ∧ F0 A₀ = lamV S (fun _ => A₀) (hasGraph_const _ _) := by
       intro A₀ hA₀
       have hb := hB A₀ hA₀
       generalize hZ : F0 A₀ = Z at hb
       cases hb with
-      | lam hS hG =>
+      | lam hS hG hGG =>
         rename_i S G
-        refine ⟨S, ?_, lamV_congr fun y hy => ?_⟩
+        refine ⟨S, ?_, lamV_congr hGG (hasGraph_const _ _) fun y hy => ?_⟩
         · rcases hD with rfl | hW
           · cases hS; exact id
           · obtain ⟨m, c, rfl, hc, hct, hcl⟩ := annWitness_inv hW
@@ -167,7 +167,7 @@ theorem ann2_app {n : Name} (hid : annIdent env.find? n 2 = true) {l : Level} {�
         · have := hG y hy
           generalize G y = Z' at this
           cases this; rfl
-    have hne : lamV (univ (Level.eval ψ (.param p))) F0 ≠ (pt : V) := by
+    have hne : lamV (univ (Level.eval ψ (.param p))) F0 hG0 ≠ (pt : V) := by
       refine lamV_ne_pt_of (truthTrue_mem_univ _) ?_
       obtain ⟨S, hS, he⟩ := hinner _ (truthTrue_mem_univ _)
       obtain ⟨y, hy⟩ := hS ⟨pt, pt_mem_truthVal trivial⟩
@@ -179,7 +179,8 @@ theorem ann2_app {n : Name} (hid : annIdent env.find? n 2 = true) {l : Level} {�
     obtain ⟨S, hS, he⟩ := hinner A hA
     rw [he] at h2 ⊢
     obtain ⟨y, hy⟩ := hS ⟨x, hx⟩
-    have hne' : lamV S (fun _ => A) ≠ (pt : V) := lamV_ne_pt_of hy (ne_pt_of_mem_univ hA)
+    have hne' : lamV S (fun _ => A) (hasGraph_const _ _) ≠ (pt : V) :=
+      lamV_ne_pt_of hy (ne_pt_of_mem_univ hA)
     rw [lamV_eq_graph hne'] at h2
     have hB' := (appliesTo_graph.mp h2).2
     exact app_lamV hB'
@@ -193,14 +194,14 @@ theorem ann1_app {n : Name} (hid : annIdent env.find? n 1 = true) {l : Level} {�
   obtain ⟨p, hlp, rfl⟩ := annIdentVal_one_inv hv
   generalize Level.substFn φ cv.levelParams [l] = ψ at hd
   cases hd with
-  | lam hA hB =>
+  | lam hA hB hG0 =>
     cases hA
     rename_i F0
     have hF0 : ∀ y, y ∈ˢ univ (Level.eval ψ (.param p)) → F0 y = y := fun y hy => by
       have := hB y hy
       generalize F0 y = Z at this
       cases this; rfl
-    have hne : lamV (univ (Level.eval ψ (.param p))) F0 ≠ (pt : V) :=
+    have hne : lamV (univ (Level.eval ψ (.param p))) F0 hG0 ≠ (pt : V) :=
       lamV_ne_pt_of (truthTrue_mem_univ _) (by
         rw [hF0 _ (truthTrue_mem_univ _)]
         exact ne_pt_of_mem_univ (truthTrue_mem_univ 0))

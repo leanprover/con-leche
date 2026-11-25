@@ -1,1 +1,4 @@
 import ConLecheBridge.Carneiro
+import ConLecheBridge.IsModelNat
+import ConLecheBridge.StandardNat
+import ConLecheBridge.Accepted

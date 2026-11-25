@@ -300,20 +300,22 @@ theorem natOpHead_of (mp : EnvModelM V env) (φ : Name → Nat) :
       hcodF hcodLp
   have hmem := mp.mem_type _ (ConLeche.Env.find?_mem hf) φ _ hta ρ
   rw [ConLeche.Env.find?_name hf, interp_pi] at hmem
-  rw [substFn_nil]
-  have hfib : (fun x => interp V (cons x ρ)
+  have hfib : ∀ x : V, interp V (cons x ρ)
         ((.pi (mp.base2.acval ConLeche.natName φ)
-          (mp.base2.acval codN φ)) : Term))
-      = fun _ => piV (interp V ρ (mp.base2.acval ConLeche.natName φ))
-          (fun _ => interp V ρ (mp.base2.acval codN φ)) := by
-    funext x
+          (mp.base2.acval codN φ)) : Term)
+      = piV (interp V ρ (mp.base2.acval ConLeche.natName φ))
+          (fun _ => interp V ρ (mp.base2.acval codN φ)) (hasSigmaPairs_const _ _) := by
+    intro x
     rw [interp_pi]
-    congr 1
-    · exact acval_interp_closed mp.base2 _ φ _ ρ
-    · funext y
-      exact acval_interp_closed mp.base2 _ φ _ ρ
-  rw [hfib] at hmem
+    exact piV_ext (acval_interp_closed mp.base2 _ φ _ ρ) _ _ fun y _ =>
+      acval_interp_closed mp.base2 _ φ _ ρ
+  rw [piV_congr _ (hasSigmaPairs_const _ _) fun x _ => hfib x] at hmem
   unfold piV at hmem
+  have hnat : interp V ρ (mp.base2.acval ConLeche.natName φ) =
+      interp V ρ (mp.base2.acval ConLeche.natName (Level.substFn φ [] [])) := by
+    rw [substFn_nil]
+  rw [piR_ext hnat _ (hasSigmaPairs_const _ _) fun _ _ =>
+    piR_ext hnat _ (hasSigmaPairs_const _ _) fun _ _ => rfl] at hmem
   exact ⟨_, _, _, hmem⟩
 
 end ConLeche.Model

@@ -35,17 +35,29 @@ theorem eval_instantiateLevelParams (model : Name → List Nat → V) (φ : Leve
   induction e with
   | bvar i => intro ρ; rfl
   | fvar i t _ => intro ρ; rfl
-  | sort u => intro ρ; simp [Expr.instantiateLevelParams, Expr.eval, Level.eval_subst]
+  | sort u => intro ρ; simp only [Expr.instantiateLevelParams, eval_sort, Level.eval_subst]
   | const n us' =>
     intro ρ
-    simp [Expr.instantiateLevelParams, Expr.eval, List.map_map, Function.comp_def,
+    simp only [Expr.instantiateLevelParams, eval_const, List.map_map, Function.comp_def,
       Level.eval_subst]
-  | app f a ihf iha => intro ρ; simp [Expr.instantiateLevelParams, Expr.eval, ihf, iha]
-  | lam t b iht ihb => intro ρ; simp [Expr.instantiateLevelParams, Expr.eval, iht, ihb]
-  | forallE t b iht ihb => intro ρ; simp [Expr.instantiateLevelParams, Expr.eval, iht, ihb]
-  | letE t v b iht ihv ihb => intro ρ; simp [Expr.instantiateLevelParams, Expr.eval, ihv, ihb]
-  | lit l => intro ρ; cases l <;> rfl
-  | proj s i e ih => intro ρ; simp [Expr.instantiateLevelParams, Expr.eval, ih]
+  | app f a ihf iha => intro ρ; simp only [Expr.instantiateLevelParams, eval_app, ihf, iha]
+  | lam t b iht ihb =>
+    intro ρ
+    simp only [Expr.instantiateLevelParams, eval_lam]
+    exact lamV_ext (iht ρ) _ _ fun x _ => ihb (push x ρ)
+  | forallE t b iht ihb =>
+    intro ρ
+    simp only [Expr.instantiateLevelParams, eval_forallE]
+    exact piV_ext (iht ρ) _ _ fun x _ => ihb (push x ρ)
+  | letE t v b iht ihv ihb =>
+    intro ρ
+    simp only [Expr.instantiateLevelParams, eval_letE, ihv, ihb]
+  | lit l =>
+    intro ρ
+    cases l
+    · simp only [Expr.instantiateLevelParams, eval_lit_nat]
+    · simp only [Expr.instantiateLevelParams, eval_lit_str]
+  | proj s i e ih => intro ρ; simp only [Expr.instantiateLevelParams, eval_proj, ih]
 
 /-- A level reads its parameters only. -/
 theorem Level.eval_congr_params {φ φ' : LevelParam → Nat} {ps : List Name}
@@ -78,37 +90,40 @@ theorem eval_congr_levels (model : Name → List Nat → V) {φ φ' : LevelParam
   | sort u =>
     intro ρ hd
     simp only [Expr.allLevelParamsDefined] at hd
-    simp [Expr.eval, Level.eval_congr_params h u hd]
+    simp only [eval_sort, Level.eval_congr_params h u hd]
   | const n us =>
     intro ρ hd
     simp only [Expr.allLevelParamsDefined, List.all_eq_true] at hd
-    simp only [Expr.eval]
+    simp only [eval_const]
     congr 1
     exact List.map_congr_left fun u hu => Level.eval_congr_params h u (hd u hu)
   | app f a ihf iha =>
     intro ρ hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    simp [Expr.eval, ihf ρ hd.1, iha ρ hd.2]
+    simp only [eval_app, ihf ρ hd.1, iha ρ hd.2]
   | lam t b iht ihb =>
     intro ρ hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    simp only [Expr.eval, iht ρ hd.1]
-    congr 1; funext x; exact ihb _ hd.2
+    simp only [eval_lam]
+    exact lamV_ext (iht ρ hd.1) _ _ fun x _ => ihb _ hd.2
   | forallE t b iht ihb =>
     intro ρ hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    simp only [Expr.eval, iht ρ hd.1]
-    congr 1; funext x; exact ihb _ hd.2
+    simp only [eval_forallE]
+    exact piV_ext (iht ρ hd.1) _ _ fun x _ => ihb _ hd.2
   | letE t v b iht ihv ihb =>
     intro ρ hd
     simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hd
-    simp only [Expr.eval, ihv ρ hd.1.2]
-    exact ihb _ hd.2
-  | lit l => intro ρ _; cases l <;> rfl
+    simp only [eval_letE, ihv ρ hd.1.2, ihb _ hd.2]
+  | lit l =>
+    intro ρ _
+    cases l
+    · simp only [eval_lit_nat]
+    · simp only [eval_lit_str]
   | proj s i e ih =>
     intro ρ hd
     simp only [Expr.allLevelParamsDefined] at hd
-    simp [Expr.eval, ih ρ hd]
+    simp only [eval_proj, ih ρ hd]
 
 /-- A substitution by parameters reads the assignment on those parameters only. -/
 theorem substFn_params_congr {φ φ' : LevelParam → Nat} :

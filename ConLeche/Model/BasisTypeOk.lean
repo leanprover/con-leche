@@ -71,23 +71,28 @@ theorem WellDenoted_lfpTuple (k : Nat) (us : List Nat) (ρ : Nat → V) :
 /-- A member of a function space into one universe, applied on its
 domain, is a type. -/
 theorem IsTy_app_piV_univ {u : Nat} {f a S : V}
-    (hf : f ∈ˢ piV S fun _ => (univ u : V)) (ha : a ∈ˢ S) : IsTy (app f a) :=
+    (hf : f ∈ˢ piV S (fun _ => (univ u : V)) (hasSigmaPairs_const _ _)) (ha : a ∈ˢ S) :
+    IsTy (app f a) :=
   IsTy_of_mem_univ (app_mem_piV hf ha)
 
 /-- A member of a two-binder function space into one universe, applied
 twice on its domains, is a type (a relation's value). -/
 theorem IsTy_app2_piV_univ {u : Nat} {R a b A : V} {A2 : V → V}
-    (hR : R ∈ˢ piV A fun x => piV (A2 x) fun _ => (univ u : V)) (ha : a ∈ˢ A)
-    (hb : b ∈ˢ A2 a) : IsTy (app (app R a) b) := by
-  have h1 : app R a ∈ˢ piV (A2 a) fun _ => (univ u : V) := app_mem_piV hR ha
+    {hS : HasSigmaPairs A fun x => piV (A2 x) (fun _ => (univ u : V)) (hasSigmaPairs_const _ _)}
+    (hR : R ∈ˢ piV A (fun x => piV (A2 x) (fun _ => (univ u : V)) (hasSigmaPairs_const _ _)) hS)
+    (ha : a ∈ˢ A) (hb : b ∈ˢ A2 a) : IsTy (app (app R a) b) := by
+  have h1 : app R a ∈ˢ piV (A2 a) (fun _ => (univ u : V)) (hasSigmaPairs_const _ _) :=
+    app_mem_piV hR ha
   exact IsTy_of_mem_univ (app_mem_piV h1 hb)
 
 /-- A two-binder member applied once (a relation applied to its first
 argument) applies to the second. -/
 theorem appliesTo_app_piV {R a b A : V} {A2 : V → V} {B2 : V → V → V}
-    (hR : R ∈ˢ piV A fun x => piV (A2 x) (B2 x)) (ha : a ∈ˢ A) (hb : b ∈ˢ A2 a)
-    (hS : IsTy (A2 a)) : AppliesTo (app R a) b :=
-  appliesTo_of_mem_piV (app_mem_piV hR ha) hS hb
+    {hS2 : ∀ x, HasSigmaPairs (A2 x) (B2 x)}
+    {hS : HasSigmaPairs A fun x => piV (A2 x) (B2 x) (hS2 x)}
+    (hR : R ∈ˢ piV A (fun x => piV (A2 x) (B2 x) (hS2 x)) hS) (ha : a ∈ˢ A) (hb : b ∈ˢ A2 a)
+    (hTy : IsTy (A2 a)) : AppliesTo (app R a) b :=
+  appliesTo_of_mem_piV (app_mem_piV hR ha) hTy hb
 
 /-- **The `.app` clause at a basis constant's head.**  The function space
 is `typeAV`'s own outer binder's reading, the membership is

@@ -193,7 +193,6 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
         = some (bs, Expr.mkAppN (.const (D.member c) (cv.levelParams.map .param)) args) ∧
       ∀ ψ, args.length = nPc + (D.ids c ψ).length
 
-omit [SetTheory V] in
 /-- Ownership across a change of environment that keeps its members' and
 constructors' lookups, and every member's constructor list. -/
 theorem LfpOwn.monoOn {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
@@ -217,7 +216,6 @@ theorem LfpOwn.monoOn {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
     obtain ⟨cv, nPc, nF, iT, hf, hsh⟩ := h.ctorConcl c hc j hj
     exact ⟨cv, nPc, nF, iT, (hC c hc j hj).trans hf, hsh⟩
 
-omit [SetTheory V] in
 /-- Ownership across an extension that keeps every lookup and every
 recorded member's constructor list. -/
 theorem LfpOwn.mono {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
@@ -276,7 +274,6 @@ theorem hhead_ctor {env : Env} {ex : List Name} {c₀ : ConstantInfo} {cv : Cons
   rw [ctorEntry_head hc hs hg h]
   exact hT
 
-omit [SetTheory V] in
 /-- **Ownership at a one-member block**, from its former, its stored
 constructor entries and their lookups. -/
 theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
@@ -319,7 +316,6 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     rw [hm]
     exact hconcl nP' L hL j hjL
 
-omit [SetTheory V] in
 /-- **Ownership at a one-member block without constructors**, recorded
 right after its former's cons. -/
 theorem lfpOwn_former0 {env : Env} {c₀ : ConstantInfo}
@@ -766,7 +762,6 @@ theorem coverTo_addLfp {env env' : Env} {mp : EnvModelM V env} {ex ex' ex'' : Li
 /-- A one-member block's names are distinct. -/
 theorem nodup_one (n : Name) : [n].Nodup := by simp
 
-omit [SetTheory V] in
 /-- `LfpCover.addLfp`'s `all` premise at a one-member block: its former's
 stored `all`. -/
 theorem lfpAll_one {env' : Env} {D : LfpDatum V} {n : Name} {c : ConstantInfo} (hk : D.k = 1)

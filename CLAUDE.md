@@ -39,7 +39,8 @@ current fact changed.
     `theorem <name>`/`def <name>` in those two documents must match the
     source's statement TEXTUALLY (indentation included). No `--update`:
     the source is the truth; re-sync the quote.
-  - `tests/pindump.sh`, `tests/no-local-paths.sh`, `tests/challenge.sh`.
+  - `tests/pindump.sh`, `tests/no-local-paths.sh`, `tests/challenge.sh`,
+    `tests/old-set-theory.sh`.
 * Every design corner case gets an end-to-end fixture right away (today's
   verdict, with a comment naming the target verdict).
 * Load the `lean-rc-linearity` skill before touching hot-path state

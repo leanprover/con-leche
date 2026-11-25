@@ -267,7 +267,6 @@ theorem memberCtors_names_getD :
       simpa [List.map_map, Function.comp_def] using h1
     | succ m => exact memberCtors_names_getD h.2 m
 
-omit [SetTheory V] in
 /-- **The block's constructor ownership at its constructors'
 environment**: every member's recorded constructor names
 (`IndCaps.ctors`, the member's constructors in order) look up the

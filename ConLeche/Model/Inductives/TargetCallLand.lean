@@ -41,30 +41,36 @@ fitting spine is not the point**: no level along the spine is the point
 (each has a fitting continuation and leaves never the point at a fit),
 so off the fit a graph is applied off its domain, giving `∅`. -/
 theorem holeFam_foldl_ne_pt :
-    ∀ {ρ : Nat → V} {Fs : List Term} {vs : List V} {g : List V → V},
+    ∀ {ρ : Nat → V} {Fs : List Term} {vs : List V} {g : List V → V}
+      {hg_def : DefHoleFn Fs.length g},
       (∀ ws, SpineFit ρ Fs ws → g ws ≠ pt) → vs.length = Fs.length →
       (∀ k, SpineFit ρ (Fs.take k) (vs.take k) →
         ∃ ws, SpineFit ρ Fs ws ∧ ws.take k = vs.take k) →
-      vs.foldl app (holeFam ρ Fs g) ≠ pt
-  | _, [], [], _, hg, _, _ => hg [] trivial
-  | _, [], _ :: _, _, _, h, _ => by simp at h
-  | _, _ :: _, [], _, _, h, _ => by simp at h
-  | ρ, F :: Fs, a :: vs, g, hg, hlen, hext => by
-    show vs.foldl app (app (lamV (interp V ρ F) _) a) ≠ pt
+      vs.foldl app (holeFam ρ Fs g hg_def) ≠ pt
+  | _, [], [], _, _, hg, _, _ => by
+    rw [List.foldl_nil, holeFam_nil]
+    exact hg [] trivial
+  | _, [], _ :: _, _, _, _, h, _ => by simp at h
+  | _, _ :: _, [], _, _, _, h, _ => by simp at h
+  | ρ, F :: Fs, a :: vs, g, hg_def, hg, hlen, hext => by
+    rw [List.foldl_cons, holeFam_cons]
     obtain ⟨ws, hws, -⟩ := hext 0 trivial
     obtain ⟨w0, ws', rfl⟩ : ∃ w0 ws', ws = w0 :: ws' := by
       cases ws with
       | nil => exact hws.elim
       | cons w0 ws' => exact ⟨w0, ws', rfl⟩
-    have hlv : lamV (interp V ρ F) (fun x => holeFam (cons x ρ) Fs fun as => g (x :: as)) ≠ pt := by
+    have hlv : lamV (interp V ρ F)
+        (fun x => holeFam (cons x ρ) Fs (fun as => g (x :: as)) (hg_def.cons x))
+        (holeFam_hasGraph ρ F Fs g hg_def) ≠ pt := by
       refine lamV_ne_pt_of hws.1 fun h0 => ?_
-      have h1 := holeFam_app (ρ := cons w0 ρ) (Fs := Fs) (fun as => g (w0 :: as)) hws.2
+      have h1 := holeFam_app (ρ := cons w0 ρ) (Fs := Fs) (hg := hg_def.cons w0)
+        (fun as => g (w0 :: as)) hws.2
       rw [h0, foldlApp_pt] at h1
       exact hg (w0 :: ws') hws h1.symm
     by_cases ha : a ∈ˢ interp V ρ F
     · rw [app_lamV ha]
-      refine holeFam_foldl_ne_pt (fun ws hws => hg (a :: ws) ⟨ha, hws⟩) (by simpa using hlen)
-        fun k hk => ?_
+      refine holeFam_foldl_ne_pt (hg_def := hg_def.cons a)
+        (fun ws hws => hg (a :: ws) ⟨ha, hws⟩) (by simpa using hlen) fun k hk => ?_
       obtain ⟨ws, hws, htk⟩ := hext (k + 1) ⟨ha, hk⟩
       cases ws with
       | nil => exact hws.elim
@@ -139,7 +145,7 @@ theorem former_foldl_mem {env : Env} (mp : EnvModelM V env)
   have hne : is.foldl app (D.holeVal ψ ρp (D.carrier ψ ρp) mm) ≠ pt := by
     unfold LfpDatum.holeVal
     exact holeFam_foldl_ne_pt (fun ws hws => (IsTy_of_mem_strictU (famSpace_app
-      ((lfpTuple_mem _ _ _ _ : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) (D.carrier ψ ρp)) mm hmmN)
+      ((lfpTuple_mem _ _ _ _ _ : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) (D.carrier ψ ρp)) mm hmmN)
       (tupW_mem hws))).ne_pt) his
       (idx_ext_of_tupW_mem (hcl.idxOk ψ ρp hs mm hmmN) his ht)
   exact holeVal_foldl_mem his hne hy

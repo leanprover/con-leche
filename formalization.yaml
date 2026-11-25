@@ -64,8 +64,8 @@ status:
     naive reference, the chunk boundaries are proved invisible, and
     the parse is proved to read the template's lines into the record);
     not covered: the `--trusted` mode.  The proof is parametric in a
-    type satisfying the `SetTheory` interface (ZF without infinity and
-    choice plus an omega-chain of Grothendieck universes); the
+    type satisfying the `SetTheory` interface (first-order ZFC without
+    infinity plus an omega-chain of Grothendieck universes); the
     corollary's hypothesis is syntactic (the bytes match the template,
     whose type line is literally the pinned `False`).
   # The only `sorry` in the repository is the deliberate hole in the

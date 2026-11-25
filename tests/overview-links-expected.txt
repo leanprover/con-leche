@@ -22,13 +22,13 @@
     33      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
     34      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
 
-== ConLeche/IsModel.lean#L128-L129
-   128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
-   129      (BVarIdx → V) → Expr → V
+== ConLeche/IsModel.lean#L275-L276
+   275  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat)
+   276      (ρ : BVarIdx → V) (e : Expr) : V :=
 
-== ConLeche/IsModel.lean#L212-L213
-   212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   213      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L424-L425
+   424  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   425      (C : ConstantInfo → Prop) : Prop :=
 
 == ConLeche/Semantics/NoFalse.lean#L41-L45
     41  theorem checkDecls_declaresFalse_of_constant {pins : List NatOpPinSet} {maxNatSize : Nat}
@@ -43,10 +43,10 @@
     49      ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList) :=
     50    json_isModel V h hb
 
-== ConLeche/MainTheorem.lean#L55-L57
-    55  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-    56      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
-    57      (hF : jsonWithTheoremFalse [b]) : False :=
+== ConLeche/MainTheorem.lean#L57-L59
+    57  theorem main_no_False (hM : ModelExists.{w}) {file : String} {fs : FS} {b : ByteArray}
+    58      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
+    59      (hF : jsonWithTheoremFalse [b]) : False :=
 
 == ConLeche/Accepts.lean#L53-L63
     53  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -108,48 +108,48 @@
     61          (dev j).src n ≤ i ∧ model j n = model ((dev j).src n) n := by
     62    classical
 
-== ConLeche/MainTheorem.lean#L109-L120
-   109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
-   110      (hr : Olean.parseModName root = some r)
-   111      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   112        fs 0)
-   113      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   114        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   115          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   116      ∃ model : Name → (Name → List Nat → V),
-   117        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   118          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
-   119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L111-L122
+   111  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   112      (hr : Olean.parseModName root = some r)
+   113      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   114        fs 0)
+   115      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   116        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   117          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   118      ∃ model : Name → (Name → List Nat → V),
+   119        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   120          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   121        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   122          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
-== ConLeche/MainTheorem.lean#L88-L94
-    88  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
-    89      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    90      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-    91        "--search-path=" ++ D, "--", c, s]) fs 0) :
-    92      ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
-    93        ∃ model, IsModel V model (Olean.closureConstants
-    94          (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
+== ConLeche/MainTheorem.lean#L90-L96
+    90  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+    91      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    92      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+    93        "--search-path=" ++ D, "--", c, s]) fs 0) :
+    94      ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
+    95        ∃ model, IsModel V model (Olean.closureConstants
+    96          (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
 
-== ConLeche/MainTheorem.lean#L143-L160
-   143  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   144      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   145      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   146        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   147      (hwork : ∀ m, Olean.HdrClosure
-   148          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   149          [C, S] m → m ≠ C →
-   150        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   151          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   152            root']) fs 0)
-   153      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   154        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   155      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
-   156      ∀ fs', FS.AgreeUnder sp fs fs' →
-   157        ∃ model : Name → (Name → List Nat → V),
-   158          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
-   159          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
-   160            model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L145-L162
+   145  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   146      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   147      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   148        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   149      (hwork : ∀ m, Olean.HdrClosure
+   150          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   151          [C, S] m → m ≠ C →
+   152        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   153          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   154            root']) fs 0)
+   155      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   156        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   157      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+   158      ∀ fs', FS.AgreeUnder sp fs fs' →
+   159        ∃ model : Name → (Name → List Nat → V),
+   160          (∀ m, Olean.InClosure sp fs' #[C] m → IsModel V (model m) (Olean.moduleConstants sp fs' m)) ∧
+   161          (∀ m n m', Olean.InClosure sp fs' #[C] m → Olean.Sees sp fs' m n m' →
+   162            model m n = model m' n) :=
 
 == tests/ConLecheTests/Axioms.lean#L126-L130
    126  /--
@@ -526,19 +526,9 @@
    218    | prf
    219    deriving Repr, Inhabited
 
-== ConLeche/Semantics/Interp.lean#L134-L145
-   134  noncomputable def interp : (Nat → V) → Term → V
-   135    | ρ, .bvar i => ρ i
-   136    | _, .sort u => univ u
-   137    | _, .const c us => bval V c us
-   138    | ρ, .app f a => SetTheory.app (interp ρ f) (interp ρ a)
-   139    | ρ, .lam A b => lamV (interp ρ A) fun x => interp (cons x ρ) b
-   140    | ρ, .pi A B => piV (interp ρ A) fun x => interp (cons x ρ) B
-   141    | ρ, .letE v b => interp (cons (interp ρ v) ρ) b
-   142    | ρ, .eqE a b => eqv (interp ρ a) (interp ρ b)
-   143    | ρ, .fst e => sfst (interp ρ e)
-   144    | ρ, .snd e => ssnd (interp ρ e)
-   145    | _, .prf => pt
+== ConLeche/Semantics/Interp.lean#L291-L292
+   291  noncomputable def interp (ρ : Nat → V) (t : Term) : V :=
+   292    (interpDef V ρ 0 t).val Fin.elim0
 
 == ConLeche/Semantics/WellDenoted.lean#L49-L72
     49  def WellDenoted : (Nat → V) → Term → Prop
@@ -553,11 +543,11 @@
     58      WellDenoted ρ f ∧ WellDenoted ρ a ∧ AppliesTo (interp V ρ f) (interp V ρ a)
     59    | ρ, .fst e =>
     60      WellDenoted ρ e ∧
-    61      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+    61      ∃ u v A Bf, ∃ hS : HasSigmaPairs A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf hS ∧
     62        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
     63    | ρ, .snd e =>
     64      WellDenoted ρ e ∧
-    65      ∃ u v A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf ∧
+    65      ∃ u v A Bf, ∃ hS : HasSigmaPairs A Bf, interp V ρ e ∈ˢ sigmaSet (Nat.max u v) A Bf hS ∧
     66        A ∈ˢ univ u ∧ ∀ x, x ∈ˢ A → Bf x ∈ˢ univ v
     67    | ρ, .eqE a b => WellDenoted ρ a ∧ WellDenoted ρ b
     68    | ρ, .letE v b => WellDenoted ρ v ∧ WellDenoted (cons (interp V ρ v) ρ) b
@@ -566,172 +556,174 @@
     71    | _, .const _ _ => True
     72    | _, .prf => True
 
-== ConLeche/Semantics/WellDenoted.lean#L123-L287
-   123  /-! ### The substitution metatheory -/
-   124  
-   125  /-- Truthfulness through lifting. -/
-   126  theorem WellDenoted_liftN (n : Nat) :
-   127      ∀ (e : Term) (k : Nat) (ρ : Nat → V),
-   128        WellDenoted V ρ (e.liftN n k) ↔ WellDenoted V (shiftE n k ρ) e := by
-   129    intro e
-   130    induction e with
-   131    | bvar i =>
-   132      intro k ρ
-   133      simp only [Term.liftN_bvar]
-   134      split <;> simp
-   135    | sort u => intro k ρ; simp
-   136    | const c us => intro k ρ; simp
-   137    | app f a ihf iha =>
-   138      intro k ρ
-   139      rw [Term.liftN_app, WellDenoted_app, WellDenoted_app, ihf, iha,
-   140        interp_liftN, interp_liftN]
-   141    | lam A b ihA ihb =>
-   142      intro k ρ
-   143      rw [Term.liftN_lam, WellDenoted_lam, WellDenoted_lam, ihA, interp_liftN]
-   144      refine and_congr Iff.rfl (and_congr Iff.rfl
-   145        (forall_congr' fun x => imp_congr Iff.rfl ?_))
-   146      rw [ihb, cons_shiftE]
-   147    | pi A B ihA ihB =>
-   148      intro k ρ
-   149      rw [Term.liftN_pi, WellDenoted_pi, WellDenoted_pi, ihA, interp_liftN]
-   150      refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-   151        (forall_congr' fun x => imp_congr Iff.rfl ?_)
-   152        (forall_congr' fun x => imp_congr Iff.rfl ?_)))
-   153      · rw [ihB, cons_shiftE]
-   154      · rw [interp_liftN, cons_shiftE]
-   155    | letE v b ihv ihb =>
-   156      intro k ρ
-   157      rw [Term.liftN_letE, WellDenoted_letE, WellDenoted_letE, ihv,
-   158        interp_liftN, ihb, cons_shiftE]
-   159    | eqE a b iha ihb =>
-   160      intro k ρ
-   161      rw [Term.liftN_eqE, WellDenoted_eqE, WellDenoted_eqE, iha, ihb]
-   162    | fst e ihe =>
-   163      intro k ρ
-   164      rw [Term.liftN_fst, WellDenoted_fst, WellDenoted_fst, ihe,
-   165        interp_liftN]
-   166    | snd e ihe =>
-   167      intro k ρ
-   168      rw [Term.liftN_snd, WellDenoted_snd, WellDenoted_snd, ihe,
-   169        interp_liftN]
-   170    | prf => intro k ρ; simp
-   171  
-   172  /-- Truthfulness through instantiation. -/
-   173  theorem WellDenoted_inst :
-   174      ∀ (e a : Term) (k : Nat) (ρ : Nat → V),
-   175        WellDenoted V (shiftE k 0 ρ) a →
-   176        (WellDenoted V ρ (e.inst a k) ↔
-   177          WellDenoted V (instE k (interp V (shiftE k 0 ρ) a) ρ) e) := by
-   178    intro e
-   179    induction e with
-   180    | bvar i =>
-   181      intro a k ρ ha
-   182      show WellDenoted V ρ
-   183          (if i < k then .bvar i
-   184           else if i = k then Term.liftN k a else .bvar (i - 1)) ↔ _
-   185      by_cases h : i < k
-   186      · simp [ite_eq_left h]
-   187      · by_cases h2 : i = k
-   188        · simp only [ite_eq_right h, ite_eq_left h2, WellDenoted_bvar, iff_true]
-   189          exact (WellDenoted_liftN V k a 0 ρ).mpr ha
-   190        · simp [ite_eq_right h, ite_eq_right h2]
-   191    | sort u => intro a k ρ _; simp [Term.inst]
-   192    | const c us => intro a k ρ _; simp [Term.inst]
-   193    | app f b ihf ihb =>
-   194      intro a k ρ ha
-   195      rw [Term.inst_app, WellDenoted_app, WellDenoted_app, ihf a k ρ ha,
-   196        ihb a k ρ ha, interp_inst, interp_inst]
-   197    | lam A b ihA ihb =>
-   198      intro a k ρ ha
-   199      rw [Term.inst_lam, WellDenoted_lam, WellDenoted_lam, ihA a k ρ ha,
-   200        interp_inst]
-   201      refine and_congr Iff.rfl (and_congr Iff.rfl
-   202        (forall_congr' fun x => imp_congr Iff.rfl ?_))
-   203      have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
-   204        rw [shiftE_succ_cons]; exact ha
-   205      rw [ihb a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
-   206    | pi A B ihA ihB =>
-   207      intro a k ρ ha
-   208      rw [Term.inst_pi, WellDenoted_pi, WellDenoted_pi, ihA a k ρ ha,
-   209        interp_inst]
-   210      refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
-   211        (forall_congr' fun x => imp_congr Iff.rfl ?_)
-   212        (forall_congr' fun x => imp_congr Iff.rfl ?_)))
-   213      · have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
-   214          rw [shiftE_succ_cons]; exact ha
-   215        rw [ihB a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
-   216      · rw [interp_inst, shiftE_succ_cons, cons_instE]
-   217    | letE v b ihv ihb =>
-   218      intro a k ρ ha
-   219      rw [Term.inst_letE, WellDenoted_letE, WellDenoted_letE, ihv a k ρ ha,
-   220        interp_inst]
-   221      refine and_congr Iff.rfl ?_
-   222      have ha' : WellDenoted V (shiftE (k + 1) 0
-   223          (cons (interp V (instE k (interp V (shiftE k 0 ρ) a) ρ) v) ρ)) a := by
-   224        rw [shiftE_succ_cons]; exact ha
-   225      rw [ihb a (k + 1) _ ha', shiftE_succ_cons, cons_instE]
-   226    | eqE x y ihx ihy =>
-   227      intro a k ρ ha
-   228      rw [Term.inst_eqE, WellDenoted_eqE, WellDenoted_eqE, ihx a k ρ ha,
-   229        ihy a k ρ ha]
-   230    | fst e ihe =>
-   231      intro a k ρ ha
-   232      rw [Term.inst_fst, WellDenoted_fst, WellDenoted_fst, ihe a k ρ ha,
-   233        interp_inst]
-   234    | snd e ihe =>
-   235      intro a k ρ ha
-   236      rw [Term.inst_snd, WellDenoted_snd, WellDenoted_snd, ihe a k ρ ha,
-   237        interp_inst]
-   238    | prf => intro a k ρ _; simp [Term.inst]
-   239  
-   240  /-- Substitution at the outermost binder — the β/ζ transport form. -/
-   241  theorem WellDenoted_inst0 {e a : Term} {ρ : Nat → V}
-   242      (ha : WellDenoted V ρ a) :
-   243      WellDenoted V ρ (e.inst a) ↔
-   244        WellDenoted V (cons (interp V ρ a) ρ) e := by
-   245    have h := WellDenoted_inst V e a 0 ρ (by rwa [shiftE_zero_zero])
-   246    rwa [shiftE_zero_zero, instE_zero] at h
-   247  
-   248  /-- **ζ, graded**: a `let` interprets as its reduct, and with its value
-   249  graded it is graded exactly when its reduct is.  Unconditional: no
-   250  binder, so no regime. -/
-   251  theorem interp_zeta (v b : Term) (ρ : Nat → V) :
-   252      interp V ρ (.letE v b) = interp V ρ (b.inst v) := by
-   253    rw [interp_letE, interp_inst0]
-   254  
-   255  theorem WellDenoted_zeta {v b : Term} {ρ : Nat → V}
-   256      (hv : WellDenoted V ρ v) :
-   257      WellDenoted V ρ (.letE v b) ↔ WellDenoted V ρ (b.inst v) := by
-   258    rw [WellDenoted_letE, WellDenoted_inst0 V hv]
-   259    exact and_iff_right hv
-   260  
-   261  /-! ### The graded β step
+== ConLeche/Semantics/WellDenoted.lean#L125-L291
+   125  /-! ### The substitution metatheory -/
+   126  
+   127  /-- Truthfulness through lifting. -/
+   128  theorem WellDenoted_liftN (n : Nat) :
+   129      ∀ (e : Term) (k : Nat) (ρ : Nat → V),
+   130        WellDenoted V ρ (e.liftN n k) ↔ WellDenoted V (shiftE n k ρ) e := by
+   131    intro e
+   132    induction e with
+   133    | bvar i =>
+   134      intro k ρ
+   135      simp only [Term.liftN_bvar]
+   136      split <;> simp
+   137    | sort u => intro k ρ; simp
+   138    | const c us => intro k ρ; simp
+   139    | app f a ihf iha =>
+   140      intro k ρ
+   141      rw [Term.liftN_app, WellDenoted_app, WellDenoted_app, ihf, iha,
+   142        interp_liftN, interp_liftN]
+   143    | lam A b ihA ihb =>
+   144      intro k ρ
+   145      rw [Term.liftN_lam, WellDenoted_lam, WellDenoted_lam, ihA, interp_liftN]
+   146      refine and_congr Iff.rfl (and_congr Iff.rfl
+   147        (forall_congr' fun x => imp_congr Iff.rfl ?_))
+   148      rw [ihb, cons_shiftE]
+   149    | pi A B ihA ihB =>
+   150      intro k ρ
+   151      rw [Term.liftN_pi, WellDenoted_pi, WellDenoted_pi, ihA, interp_liftN]
+   152      refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
+   153        (forall_congr' fun x => imp_congr Iff.rfl ?_)
+   154        (forall_congr' fun x => imp_congr Iff.rfl ?_)))
+   155      · rw [ihB, cons_shiftE]
+   156      · rw [interp_liftN, cons_shiftE]
+   157    | letE v b ihv ihb =>
+   158      intro k ρ
+   159      rw [Term.liftN_letE, WellDenoted_letE, WellDenoted_letE, ihv,
+   160        interp_liftN, ihb, cons_shiftE]
+   161    | eqE a b iha ihb =>
+   162      intro k ρ
+   163      rw [Term.liftN_eqE, WellDenoted_eqE, WellDenoted_eqE, iha, ihb]
+   164    | fst e ihe =>
+   165      intro k ρ
+   166      rw [Term.liftN_fst, WellDenoted_fst, WellDenoted_fst, ihe,
+   167        interp_liftN]
+   168    | snd e ihe =>
+   169      intro k ρ
+   170      rw [Term.liftN_snd, WellDenoted_snd, WellDenoted_snd, ihe,
+   171        interp_liftN]
+   172    | prf => intro k ρ; simp
+   173  
+   174  /-- Truthfulness through instantiation. -/
+   175  theorem WellDenoted_inst :
+   176      ∀ (e a : Term) (k : Nat) (ρ : Nat → V),
+   177        WellDenoted V (shiftE k 0 ρ) a →
+   178        (WellDenoted V ρ (e.inst a k) ↔
+   179          WellDenoted V (instE k (interp V (shiftE k 0 ρ) a) ρ) e) := by
+   180    intro e
+   181    induction e with
+   182    | bvar i =>
+   183      intro a k ρ ha
+   184      show WellDenoted V ρ
+   185          (if i < k then .bvar i
+   186           else if i = k then Term.liftN k a else .bvar (i - 1)) ↔ _
+   187      by_cases h : i < k
+   188      · simp [ite_eq_left h]
+   189      · by_cases h2 : i = k
+   190        · simp only [ite_eq_right h, ite_eq_left h2, WellDenoted_bvar, iff_true]
+   191          exact (WellDenoted_liftN V k a 0 ρ).mpr ha
+   192        · simp [ite_eq_right h, ite_eq_right h2]
+   193    | sort u => intro a k ρ _; simp [Term.inst]
+   194    | const c us => intro a k ρ _; simp [Term.inst]
+   195    | app f b ihf ihb =>
+   196      intro a k ρ ha
+   197      rw [Term.inst_app, WellDenoted_app, WellDenoted_app, ihf a k ρ ha,
+   198        ihb a k ρ ha, interp_inst, interp_inst]
+   199    | lam A b ihA ihb =>
+   200      intro a k ρ ha
+   201      rw [Term.inst_lam, WellDenoted_lam, WellDenoted_lam, ihA a k ρ ha,
+   202        interp_inst]
+   203      refine and_congr Iff.rfl (and_congr Iff.rfl
+   204        (forall_congr' fun x => imp_congr Iff.rfl ?_))
+   205      have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
+   206        rw [shiftE_succ_cons]; exact ha
+   207      rw [ihb a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
+   208    | pi A B ihA ihB =>
+   209      intro a k ρ ha
+   210      rw [Term.inst_pi, WellDenoted_pi, WellDenoted_pi, ihA a k ρ ha,
+   211        interp_inst]
+   212      refine and_congr Iff.rfl (and_congr Iff.rfl (and_congr
+   213        (forall_congr' fun x => imp_congr Iff.rfl ?_)
+   214        (forall_congr' fun x => imp_congr Iff.rfl ?_)))
+   215      · have ha' : WellDenoted V (shiftE (k + 1) 0 (cons x ρ)) a := by
+   216          rw [shiftE_succ_cons]; exact ha
+   217        rw [ihB a (k + 1) (cons x ρ) ha', shiftE_succ_cons, cons_instE]
+   218      · rw [interp_inst, shiftE_succ_cons, cons_instE]
+   219    | letE v b ihv ihb =>
+   220      intro a k ρ ha
+   221      rw [Term.inst_letE, WellDenoted_letE, WellDenoted_letE, ihv a k ρ ha,
+   222        interp_inst]
+   223      refine and_congr Iff.rfl ?_
+   224      have ha' : WellDenoted V (shiftE (k + 1) 0
+   225          (cons (interp V (instE k (interp V (shiftE k 0 ρ) a) ρ) v) ρ)) a := by
+   226        rw [shiftE_succ_cons]; exact ha
+   227      rw [ihb a (k + 1) _ ha', shiftE_succ_cons, cons_instE]
+   228    | eqE x y ihx ihy =>
+   229      intro a k ρ ha
+   230      rw [Term.inst_eqE, WellDenoted_eqE, WellDenoted_eqE, ihx a k ρ ha,
+   231        ihy a k ρ ha]
+   232    | fst e ihe =>
+   233      intro a k ρ ha
+   234      rw [Term.inst_fst, WellDenoted_fst, WellDenoted_fst, ihe a k ρ ha,
+   235        interp_inst]
+   236    | snd e ihe =>
+   237      intro a k ρ ha
+   238      rw [Term.inst_snd, WellDenoted_snd, WellDenoted_snd, ihe a k ρ ha,
+   239        interp_inst]
+   240    | prf => intro a k ρ _; simp [Term.inst]
+   241  
+   242  /-- Substitution at the outermost binder — the β/ζ transport form. -/
+   243  theorem WellDenoted_inst0 {e a : Term} {ρ : Nat → V}
+   244      (ha : WellDenoted V ρ a) :
+   245      WellDenoted V ρ (e.inst a) ↔
+   246        WellDenoted V (cons (interp V ρ a) ρ) e := by
+   247    have h := WellDenoted_inst V e a 0 ρ (by rwa [shiftE_zero_zero])
+   248    rwa [shiftE_zero_zero, instE_zero] at h
+   249  
+   250  /-- **ζ, graded**: a `let` interprets as its reduct, and with its value
+   251  graded it is graded exactly when its reduct is.  Unconditional: no
+   252  binder, so no regime. -/
+   253  theorem interp_zeta (v b : Term) (ρ : Nat → V) :
+   254      interp V ρ (.letE v b) = interp V ρ (b.inst v) := by
+   255    rw [interp_letE, interp_inst0]
+   256  
+   257  theorem WellDenoted_zeta {v b : Term} {ρ : Nat → V}
+   258      (hv : WellDenoted V ρ v) :
+   259      WellDenoted V ρ (.letE v b) ↔ WellDenoted V ρ (b.inst v) := by
+   260    rw [WellDenoted_letE, WellDenoted_inst0 V hv]
+   261    exact and_iff_right hv
    262  
-   263  At a redex that is not the point, from the subject's `WellDenoted`
-   264  alone: the λ is not the point (`app_pt`), so it is a graph and the
-   265  application clause reads the argument off the graph: it lies in the
-   266  λ's domain (`appliesTo_graph`), and β is `app_lamV`.  At the point there
-   267  is nothing to show: the claims that read this are conditional on "not
-   268  the point". -/
-   269  
-   270  /-- **The graded β step** at a redex that is not the point. -/
-   271  theorem WellDenoted_beta {A b a : Term} {ρ : Nat → V}
-   272      (h : WellDenoted V ρ (.app (.lam A b) a))
-   273      (hne : interp V ρ (.app (.lam A b) a) ≠ pt) :
-   274      interp V ρ a ∈ˢ interp V ρ A ∧
-   275      interp V ρ (.app (.lam A b) a) = interp V ρ (b.inst a) ∧
-   276      WellDenoted V ρ (b.inst a) := by
-   277    rw [WellDenoted_app] at h
-   278    obtain ⟨hlam, ha, hap⟩ := h
-   279    have hlne : interp V ρ (.lam A b) ≠ pt := by
-   280      intro h0; apply hne; rw [interp_app, h0, app_pt]
-   281    obtain ⟨-, -, hbody⟩ := (WellDenoted_lam V ρ A b).mp hlam
-   282    have hgraph : interp V ρ (.lam A b) = graph (fun x => interp V (cons x ρ) b) (interp V ρ A) := by
-   283      rw [interp_lam] at hlne ⊢; exact lamV_eq_graph hlne
-   284    have haA : interp V ρ a ∈ˢ interp V ρ A := by
-   285      rw [hgraph] at hap; exact (appliesTo_graph.mp hap).2
-   286    refine ⟨haA, ?_, (WellDenoted_inst0 V ha).mpr (hbody _ haA)⟩
-   287    rw [interp_app, interp_lam, app_lamV haA, interp_inst0]
+   263  /-! ### The graded β step
+   264  
+   265  At a redex that is not the point, from the subject's `WellDenoted`
+   266  alone: the λ is not the point (`app_pt`), so it is a graph and the
+   267  application clause reads the argument off the graph: it lies in the
+   268  λ's domain (`appliesTo_graph`), and β is `app_lamV`.  At the point there
+   269  is nothing to show: the claims that read this are conditional on "not
+   270  the point". -/
+   271  
+   272  /-- **The graded β step** at a redex that is not the point. -/
+   273  theorem WellDenoted_beta {A b a : Term} {ρ : Nat → V}
+   274      (h : WellDenoted V ρ (.app (.lam A b) a))
+   275      (hne : interp V ρ (.app (.lam A b) a) ≠ pt) :
+   276      interp V ρ a ∈ˢ interp V ρ A ∧
+   277      interp V ρ (.app (.lam A b) a) = interp V ρ (b.inst a) ∧
+   278      WellDenoted V ρ (b.inst a) := by
+   279    rw [WellDenoted_app] at h
+   280    obtain ⟨hlam, ha, hap⟩ := h
+   281    have hlne : interp V ρ (.lam A b) ≠ pt := by
+   282      intro h0; apply hne; rw [interp_app, h0, app_pt]
+   283    obtain ⟨-, -, hbody⟩ := (WellDenoted_lam V ρ A b).mp hlam
+   284    have hgraph : interp V ρ (.lam A b) =
+   285        graph (fun x => interp V (cons x ρ) b) (interp V ρ A)
+   286          (interp_hasGraph_cons ρ (interp V ρ A) b) := by
+   287      rw [interp_lam] at hlne ⊢; exact lamV_eq_graph hlne
+   288    have haA : interp V ρ a ∈ˢ interp V ρ A := by
+   289      rw [hgraph] at hap; exact (appliesTo_graph.mp hap).2
+   290    refine ⟨haA, ?_, (WellDenoted_inst0 V ha).mpr (hbody _ haA)⟩
+   291    rw [interp_app, interp_lam, app_lamV haA, interp_inst0]
 
 == ConLeche/Model/Env/EnvModel.lean#L35-L63
     35  structure EnvModel (env : Env) where
@@ -981,12 +973,13 @@
 == ConLeche/Kernel/Inductives/IotaRead.lean#L211
    211  def blockReadsOk (find? : Name → Option ConstantInfo) (p : BlockShape) :
 
-== ConLeche/SetModel/Value.lean#L387-L388
-   387  /-- `I → Sort w`, the family space, as the value reading has it. -/
-   388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piV I fun _ => univ w
+== ConLeche/SetModel/Value.lean#L838-L840
+   838  /-- `I → Sort w`, the family space, as the value reading has it. -/
+   839  noncomputable def lfpFamSpace (w : Nat) (I : V) : V :=
+   840    piV I (fun _ => univ w) (hasSigmaPairs_const _ _)
 
-== ConLeche/SetModel/Access.lean#L243
-   243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
+== ConLeche/SetModel/Access.lean#L919
+   919  theorem closed_of_acc {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V} {A : V}
 
 == ConLeche/Model/Inductives/BlockRunFacts.lean#L127-L136
    127  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
@@ -1110,8 +1103,8 @@
    111      else pure false
    112  
 
-== ConLeche/Model/NatEqs.lean#L1046
-  1046  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+== ConLeche/Model/NatEqs.lean#L1045
+  1045  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
 
 == ConLeche/Kernel/CoreDefs.lean#L479
    479  def natDivModNames : List Name :=
@@ -1148,8 +1141,8 @@
     17  
     18  The proofs are written with *controlled* dependencies: no `simp`, no
 
-== ConLeche/Model/DivModCert.lean#L1968
-  1968  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
+== ConLeche/Model/DivModCert.lean#L1961
+  1961  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
 == ConLeche/Cached/StateC.lean#L227-L240
    227  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
@@ -1268,77 +1261,147 @@
    175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    176        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
-== ConLeche/SetTheory/Core.lean#L95-L156
-    95  /-- A model of set theory of exactly the strength the checker needs:
-    96  membership, the six ZF⁻ axioms (extensionality, pairing, union, power
-    97  set, regularity, Lean-level replacement), and an ω-chain of
-    98  Grothendieck universes.  Infinity is derivable; choice is inherited
-    99  from the meta-logic (`Classical.choice`); see the module docstring. -/
-   100  class SetTheory (V : Type u) where
-   101    /-- Set membership. -/
-   102    Mem : V → V → Prop
-   103    /-- Extensionality: sets with the same members are equal. -/
-   104    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
-   105    /-- Pairing: the unordered pair. -/
-   106    upair : V → V → V
-   107    /-- Characterization of the unordered pair. -/
-   108    mem_upair : ∀ {z a b : V}, Mem z (upair a b) ↔ z = a ∨ z = b
-   109    /-- Union: the union of the members. -/
-   110    sUnion : V → V
-   111    /-- Characterization of the union. -/
-   112    mem_sUnion : ∀ {z x : V}, Mem z (sUnion x) ↔ ∃ y, Mem y x ∧ Mem z y
-   113    /-- Power set. -/
-   114    power : V → V
-   115    /-- Characterization of the power set: members are the subsets. -/
-   116    mem_power : ∀ {z x : V}, Mem z (power x) ↔ ∀ w, Mem w z → Mem w x
-   117    /-- Regularity: every nonempty set has an `∈`-minimal member. -/
-   118    regularity : ∀ x : V, (∃ y, Mem y x) → ∃ y, Mem y x ∧ ¬ ∃ z, Mem z y ∧ Mem z x
-   119    /-- Replacement, as a Lean-level scheme: the image of a set under an
-   120    arbitrary function `V → V`. -/
-   121    image : (V → V) → V → V
-   122    /-- Characterization of the replacement image. -/
-   123    mem_image : ∀ {f : V → V} {a z : V}, Mem z (image f a) ↔ ∃ w, Mem w a ∧ z = f w
-   124    /-- An ω-chain of Grothendieck universes: the sets interpreting the
-   125    universe tower (Carneiro's ω-many inaccessibles, op. cit.;
-   126    intended model `V_{κ n}`). -/
-   127    univChain : Nat → V
-   128    /-- The chain increases strictly: each universe is a member of the
-   129    next. -/
-   130    univChain_mem : ∀ n : Nat, Mem (univChain n) (univChain (n + 1))
-   131    /-- Each chain member is a Grothendieck universe (Tarski's Axiom A
-   132    matrix with transitivity, `IsTGUniverse`). -/
-   133    univChain_tg : ∀ n : Nat, IsTGUniverse Mem (univChain n)
-   134  
-   135  namespace SetTheory
-   136  
-   137  @[inherit_doc] scoped infix:50 " ∈ˢ " => Mem
-   138  
-   139  variable {V : Type u} [SetTheory V]
-   140  
-   141  /-- Subset, from membership. -/
-   142  protected def Subset (x y : V) : Prop := ∀ z, z ∈ˢ x → z ∈ˢ y
-   143  
-   144  @[inherit_doc] scoped infix:50 " ⊆ˢ " => SetTheory.Subset
+== ConLeche/SetTheory/Core.lean#L69-L172
+    69  /-- A strictly first-order model of set theory of the strength the
+    70  checker needs: membership, extensionality, pairing, union, power set,
+    71  regularity, the first-order replacement schema, Jech-form choice, and
+    72  an ω-chain of SGA4 Grothendieck universes. -/
+    73  class SetTheory (V : Type u) where
+    74    /-- Set membership. -/
+    75    Mem : V → V → Prop
+    76    /-- Extensionality: sets with the same members are equal. -/
+    77    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
+    78    /-- Pairing: the unordered pair. -/
+    79    upair : V → V → V
+    80    /-- Characterization of the unordered pair. -/
+    81    mem_upair : ∀ {z a b : V}, Mem z (upair a b) ↔ z = a ∨ z = b
+    82    /-- Union: the union of the members. -/
+    83    sUnion : V → V
+    84    /-- Characterization of the union. -/
+    85    mem_sUnion : ∀ {z x : V}, Mem z (sUnion x) ↔ ∃ y, Mem y x ∧ Mem z y
+    86    /-- Power set. -/
+    87    power : V → V
+    88    /-- Characterization of the power set: members are the subsets. -/
+    89    mem_power : ∀ {z x : V}, Mem z (power x) ↔ ∀ w, Mem w z → Mem w x
+    90    /-- Regularity: every nonempty set has an `∈`-minimal member. -/
+    91    regularity : ∀ x : V, (∃ y, Mem y x) → ∃ y, Mem y x ∧ ¬ ∃ z, Mem z y ∧ Mem z x
+    92    /-- First-order replacement schema: for any formula `φ` in `2 + p` free
+    93    variables and parameters `params : Fin p → V`, if `φ` is functional on
+    94    `a` (relating each `x ∈ a` to a unique `y`), the image exists as a set.
+    95    Index `0` is `y` and index `1` is `x`, aligning with `DefFun 1`. -/
+    96    replacement : ∀ {p : Nat} (φ : Formula (2 + p)) (params : Fin p → V) (a : V),
+    97      (∀ x, Mem x a →
+    98        ExistsUnique fun y => φ.eval Mem (fappend (fcons y (fcons x Fin.elim0)) params)) →
+    99      ∃ b : V, ∀ z, Mem z b ↔
+   100        ∃ x, Mem x a ∧ φ.eval Mem (fappend (fcons z (fcons x Fin.elim0)) params)
+   101    /-- Axiom of Choice (Jech form): every set of nonempty sets admits a
+   102    set-level choice function. -/
+   103    choice : ∀ x : V, (∀ a, Mem a x → ∃ y, Mem y a) → ∃ f : V, IsChoiceFn Mem f x
+   104    /-- An ω-chain of Grothendieck universes: the sets interpreting the
+   105    universe tower (intended model `V_{κ n}`). -/
+   106    univChain : Nat → V
+   107    /-- The chain increases strictly: each universe is a member of the next. -/
+   108    univChain_mem : ∀ n : Nat, Mem (univChain n) (univChain (n + 1))
+   109    /-- Each chain member is a Grothendieck universe (`IsGrothendieck`). -/
+   110    univChain_grothendieck : ∀ n : Nat, IsGrothendieck Mem (univChain n)
+   111  
+   112  namespace SetTheory
+   113  
+   114  @[inherit_doc] scoped infix:50 " ∈ˢ " => Mem
+   115  
+   116  variable {V : Type u} [SetTheory V]
+   117  
+   118  /-- Subset, from membership. -/
+   119  protected def Subset (x y : V) : Prop := ∀ z, z ∈ˢ x → z ∈ˢ y
+   120  
+   121  @[inherit_doc] scoped infix:50 " ⊆ˢ " => SetTheory.Subset
+   122  
+   123  theorem Subset.refl (x : V) : x ⊆ˢ x := fun _ hz => hz
+   124  
+   125  theorem Subset.trans {x y z : V} (h₁ : x ⊆ˢ y) (h₂ : y ⊆ˢ z) : x ⊆ˢ z :=
+   126    fun w hw => h₂ w (h₁ w hw)
+   127  
+   128  theorem Subset.antisymm {x y : V} (h₁ : x ⊆ˢ y) (h₂ : y ⊆ˢ x) : x = y :=
+   129    ext fun z => ⟨h₁ z, h₂ z⟩
+   130  
+   131  theorem mem_power_iff_subset {z x : V} : z ∈ˢ power x ↔ z ⊆ˢ x := mem_power
+   132  
+   133  /-- Proof-carrying predicate asserting that the image `{f w : w ∈ a}`
+   134  exists as a set in `V`. -/
+   135  def HasImage (f : V → V) (a : V) : Prop :=
+   136    ∃ b : V, ∀ z, z ∈ˢ b ↔ ∃ w, w ∈ˢ a ∧ z = f w
+   137  
+   138  /-- Proof-carrying, zero-junk replacement image `{f w : w ∈ a}`. -/
+   139  noncomputable def image (f : V → V) (a : V) (h : HasImage f a) : V :=
+   140    Classical.choose h
+   141  
+   142  theorem mem_image {f : V → V} {a z : V} {h : HasImage f a} :
+   143      z ∈ˢ image f a h ↔ ∃ w, w ∈ˢ a ∧ z = f w :=
+   144    Classical.choose_spec h z
    145  
-   146  theorem Subset.refl (x : V) : x ⊆ˢ x := fun _ hz => hz
-   147  
-   148  theorem Subset.trans {x y z : V} (h₁ : x ⊆ˢ y) (h₂ : y ⊆ˢ z) : x ⊆ˢ z :=
-   149    fun w hw => h₂ w (h₁ w hw)
-   150  
-   151  theorem Subset.antisymm {x y : V} (h₁ : x ⊆ˢ y) (h₂ : y ⊆ˢ x) : x = y :=
-   152    ext fun z => ⟨h₁ z, h₂ z⟩
-   153  
-   154  theorem mem_power_iff_subset {z x : V} : z ∈ˢ power x ↔ z ⊆ˢ x := mem_power
-   155  
-   156  end SetTheory
+   146  theorem HasImage.congr {a : V} {f g : V → V}
+   147      (hfg : ∀ x, x ∈ˢ a → f x = g x) (hf : HasImage f a) : HasImage g a := by
+   148    obtain ⟨b, hb⟩ := hf
+   149    refine ⟨b, fun z => (hb z).trans ?_⟩
+   150    exact ⟨fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (hfg w hw)⟩,
+   151           fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (hfg w hw).symm⟩⟩
+   152  
+   153  theorem HasImage.ext {a b : V} {f g : V → V} (hab : a = b)
+   154      (hfg : ∀ x, x ∈ˢ a → f x = g x) (hf : HasImage f a) : HasImage g b :=
+   155    hab ▸ hf.congr hfg
+   156  
+   157  theorem image_congr {a : V} {f g : V → V} (hf : HasImage f a) (hg : HasImage g a)
+   158      (h : ∀ x, x ∈ˢ a → f x = g x) : image f a hf = image g a hg :=
+   159    ext fun z => by
+   160      rw [mem_image (h := hf), mem_image (h := hg)]
+   161      exact ⟨fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (h w hw)⟩,
+   162             fun ⟨w, hw, hz⟩ => ⟨w, hw, hz.trans (h w hw).symm⟩⟩
+   163  
+   164  theorem image_ext {a b : V} {f g : V → V} (hab : a = b)
+   165      (hf : HasImage f a) (hg : HasImage g b)
+   166      (h : ∀ x, x ∈ˢ a → f x = g x) : image f a hf = image g b hg := by
+   167    subst hab
+   168    exact image_congr hf hg h
+   169  
+   170  attribute [irreducible] image
+   171  
+   172  end SetTheory
 
-== ConLeche/SetTheory/Core.lean#L89
-    89  def IsTGUniverse {V : Type u} (mem : V → V → Prop) (u : V) : Prop :=
+== ConLeche/SetTheory/Core.lean#L56-L67
+    56  structure IsGrothendieck {V : Type u} (Mem : V → V → Prop) (u : V) : Prop where
+    57    /-- *Transitivity*: members of members are members. -/
+    58    transitivity : ∀ y z, Mem y u → Mem z y → Mem z u
+    59    /-- *Pairing*: unordered pairs of members are members. -/
+    60    pairing : ∀ a b, Mem a u → Mem b u → ∃ p, Mem p u ∧ IsUpair Mem p a b
+    61    /-- *Power sets*: power sets of members are members. -/
+    62    powerSet : ∀ y, Mem y u → ∃ p, Mem p u ∧ ∀ z, Mem z p ↔ ∀ w, Mem w z → Mem w y
+    63    /-- *Indexed union*: the union of the range of any internal function graph
+    64    `g : I → u` with `I ∈ u` is a member of `u`. -/
+    65    indexedUnion : ∀ I g, Mem I u → IsFunGraph Mem g I u →
+    66      ∃ w, Mem w u ∧ ∀ z, Mem z w ↔
+    67        ∃ i y p, Mem i I ∧ Mem y u ∧ Mem p g ∧ IsKPair Mem p i y ∧ Mem z y
 
-== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
-   200  theorem carneiro_implies_conleche :
-   201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
-   202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
+== ConLeche/SetTheory/Core.lean#L174-L188
+   174  /-- **Model existence (consistency / non-vacuity assumption).**
+   175  There exists a model `(V, SetTheory V)` of our strictly first-order set theory
+   176  (`ZFC⁻` + an ω-chain of SGA4 Grothendieck universes).
+   177  
+   178  Because `SetTheory` is strictly first-order (`Formula`, `IsGrothendieck`,
+   179  Jech-form `choice`), model existence is essentially the consistency of this
+   180  set theory: classically, by Gödel's completeness theorem, a first-order theory
+   181  has a model iff it is syntactically consistent (and by downward
+   182  Löwenheim–Skolem already at `Type 0`).  The `*_no_False` theorems take
+   183  `ModelExists` explicitly — rather than an unused `(V : Type w) [SetTheory V]`
+   184  parameter — because we need the background set theory to be non-vacuous
+   185  (consistent) for those theorems to be meaningful. -/
+   186  def ModelExists : Prop :=
+   187    Nonempty (Σ V : Type u, SetTheory V)
+   188  
+
+== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L336-L338
+   336  theorem carneiro_implies_conleche :
+   337      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
+   338    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 == ConLeche/Kernel/StdAxioms.lean#L33-L37
     33  /-- The name `propext`. -/
@@ -1402,23 +1465,23 @@
 == ConLeche/Accepts.lean#L53
     53  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
 
-== ConLeche/MainTheorem.lean#L55-L57
-    55  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-    56      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
-    57      (hF : jsonWithTheoremFalse [b]) : False :=
+== ConLeche/MainTheorem.lean#L57-L59
+    57  theorem main_no_False (hM : ModelExists.{w}) {file : String} {fs : FS} {b : ByteArray}
+    58      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b)
+    59      (hF : jsonWithTheoremFalse [b]) : False :=
 
 == ConLeche/MainTheorem.lean#L47-L49
     47  theorem main_json_model (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
     48      (h : ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0) (hb : fs.file file = some b) :
     49      ∃ r, parseChunks [b] = .ok r ∧ ∃ model, IsModel V model (· ∈ constantsOf r.decls.toList) :=
 
-== ConLeche/IsModel.lean#L212-L213
-   212  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
-   213      (C : ConstantInfo → Prop) : Prop :=
+== ConLeche/IsModel.lean#L424-L425
+   424  def IsModel (V : Type w) [SetTheory V] (model : Name → List Nat → V)
+   425      (C : ConstantInfo → Prop) : Prop :=
 
-== ConLeche/IsModel.lean#L128-L129
-   128  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat) :
-   129      (BVarIdx → V) → Expr → V
+== ConLeche/IsModel.lean#L275-L276
+   275  noncomputable def Expr.eval (model : Name → List Nat → V) (φ : LevelParam → Nat)
+   276      (ρ : BVarIdx → V) (e : Expr) : V :=
 
 == ConLeche/Driver/Cli.lean#L403
    403  here, not in `main`, so that the model sees it.  A verdict that is
@@ -1457,51 +1520,54 @@
     33      (accepted : (checkDecls .verified pins maxNatSize ds).isOk) :
     34      ∃ model, IsModel V model (· ∈ constantsOf ds.toList) := by
 
-== ConLeche/SetTheory/Core.lean#L95-L133
-    95  /-- A model of set theory of exactly the strength the checker needs:
-    96  membership, the six ZF⁻ axioms (extensionality, pairing, union, power
-    97  set, regularity, Lean-level replacement), and an ω-chain of
-    98  Grothendieck universes.  Infinity is derivable; choice is inherited
-    99  from the meta-logic (`Classical.choice`); see the module docstring. -/
-   100  class SetTheory (V : Type u) where
-   101    /-- Set membership. -/
-   102    Mem : V → V → Prop
-   103    /-- Extensionality: sets with the same members are equal. -/
-   104    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
-   105    /-- Pairing: the unordered pair. -/
-   106    upair : V → V → V
-   107    /-- Characterization of the unordered pair. -/
-   108    mem_upair : ∀ {z a b : V}, Mem z (upair a b) ↔ z = a ∨ z = b
-   109    /-- Union: the union of the members. -/
-   110    sUnion : V → V
-   111    /-- Characterization of the union. -/
-   112    mem_sUnion : ∀ {z x : V}, Mem z (sUnion x) ↔ ∃ y, Mem y x ∧ Mem z y
-   113    /-- Power set. -/
-   114    power : V → V
-   115    /-- Characterization of the power set: members are the subsets. -/
-   116    mem_power : ∀ {z x : V}, Mem z (power x) ↔ ∀ w, Mem w z → Mem w x
-   117    /-- Regularity: every nonempty set has an `∈`-minimal member. -/
-   118    regularity : ∀ x : V, (∃ y, Mem y x) → ∃ y, Mem y x ∧ ¬ ∃ z, Mem z y ∧ Mem z x
-   119    /-- Replacement, as a Lean-level scheme: the image of a set under an
-   120    arbitrary function `V → V`. -/
-   121    image : (V → V) → V → V
-   122    /-- Characterization of the replacement image. -/
-   123    mem_image : ∀ {f : V → V} {a z : V}, Mem z (image f a) ↔ ∃ w, Mem w a ∧ z = f w
-   124    /-- An ω-chain of Grothendieck universes: the sets interpreting the
-   125    universe tower (Carneiro's ω-many inaccessibles, op. cit.;
-   126    intended model `V_{κ n}`). -/
-   127    univChain : Nat → V
-   128    /-- The chain increases strictly: each universe is a member of the
-   129    next. -/
-   130    univChain_mem : ∀ n : Nat, Mem (univChain n) (univChain (n + 1))
-   131    /-- Each chain member is a Grothendieck universe (Tarski's Axiom A
-   132    matrix with transitivity, `IsTGUniverse`). -/
-   133    univChain_tg : ∀ n : Nat, IsTGUniverse Mem (univChain n)
+== ConLeche/SetTheory/Core.lean#L69-L110
+    69  /-- A strictly first-order model of set theory of the strength the
+    70  checker needs: membership, extensionality, pairing, union, power set,
+    71  regularity, the first-order replacement schema, Jech-form choice, and
+    72  an ω-chain of SGA4 Grothendieck universes. -/
+    73  class SetTheory (V : Type u) where
+    74    /-- Set membership. -/
+    75    Mem : V → V → Prop
+    76    /-- Extensionality: sets with the same members are equal. -/
+    77    ext : ∀ {x y : V}, (∀ z, Mem z x ↔ Mem z y) → x = y
+    78    /-- Pairing: the unordered pair. -/
+    79    upair : V → V → V
+    80    /-- Characterization of the unordered pair. -/
+    81    mem_upair : ∀ {z a b : V}, Mem z (upair a b) ↔ z = a ∨ z = b
+    82    /-- Union: the union of the members. -/
+    83    sUnion : V → V
+    84    /-- Characterization of the union. -/
+    85    mem_sUnion : ∀ {z x : V}, Mem z (sUnion x) ↔ ∃ y, Mem y x ∧ Mem z y
+    86    /-- Power set. -/
+    87    power : V → V
+    88    /-- Characterization of the power set: members are the subsets. -/
+    89    mem_power : ∀ {z x : V}, Mem z (power x) ↔ ∀ w, Mem w z → Mem w x
+    90    /-- Regularity: every nonempty set has an `∈`-minimal member. -/
+    91    regularity : ∀ x : V, (∃ y, Mem y x) → ∃ y, Mem y x ∧ ¬ ∃ z, Mem z y ∧ Mem z x
+    92    /-- First-order replacement schema: for any formula `φ` in `2 + p` free
+    93    variables and parameters `params : Fin p → V`, if `φ` is functional on
+    94    `a` (relating each `x ∈ a` to a unique `y`), the image exists as a set.
+    95    Index `0` is `y` and index `1` is `x`, aligning with `DefFun 1`. -/
+    96    replacement : ∀ {p : Nat} (φ : Formula (2 + p)) (params : Fin p → V) (a : V),
+    97      (∀ x, Mem x a →
+    98        ExistsUnique fun y => φ.eval Mem (fappend (fcons y (fcons x Fin.elim0)) params)) →
+    99      ∃ b : V, ∀ z, Mem z b ↔
+   100        ∃ x, Mem x a ∧ φ.eval Mem (fappend (fcons z (fcons x Fin.elim0)) params)
+   101    /-- Axiom of Choice (Jech form): every set of nonempty sets admits a
+   102    set-level choice function. -/
+   103    choice : ∀ x : V, (∀ a, Mem a x → ∃ y, Mem y a) → ∃ f : V, IsChoiceFn Mem f x
+   104    /-- An ω-chain of Grothendieck universes: the sets interpreting the
+   105    universe tower (intended model `V_{κ n}`). -/
+   106    univChain : Nat → V
+   107    /-- The chain increases strictly: each universe is a member of the next. -/
+   108    univChain_mem : ∀ n : Nat, Mem (univChain n) (univChain (n + 1))
+   109    /-- Each chain member is a Grothendieck universe (`IsGrothendieck`). -/
+   110    univChain_grothendieck : ∀ n : Nat, IsGrothendieck Mem (univChain n)
 
-== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
-   200  theorem carneiro_implies_conleche :
-   201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
-   202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
+== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L336-L338
+   336  theorem carneiro_implies_conleche :
+   337      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
+   338    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 == ConLeche/Driver/Cli.lean#L145
    145    "  --trusted           Skip the checks only the proof needs; outside the theorem",
@@ -1517,16 +1583,16 @@
     84    ∃ f d e, ModelIO.CanGive (readFiles sp m p) fs (.ok f) ∧ decodeModuleSpec f p = some d ∧
     85      e ∈ d.constants ∧ c ∈ entryConstants e
 
-== ConLeche/MainTheorem.lean#L126-L134
-   126  theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
-   127      (hr : Olean.parseModName root = some r)
-   128      (h : ModelIO.CanGive
-   129        (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0) :
-   130      ∃ model : Name → (Name → List Nat → V),
-   131        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   132          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
-   133        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   134          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L128-L136
+   128  theorem main_modular_one (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   129      (hr : Olean.parseModName root = some r)
+   130      (h : ModelIO.CanGive
+   131        (Driver.runArgs ["--olean", "--modular", "--search-path=" ++ dirs, "--", root]) fs 0) :
+   132      ∃ model : Name → (Name → List Nat → V),
+   133        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   134          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   135        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   136          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
 == ConLeche/OleanInput.lean#L97-L98
     97  def Sees (sp : Roots) (fs : FS) (m n m' : Name) : Prop :=
@@ -1558,19 +1624,19 @@
 == ConLeche/Driver/Cli.lean#L206
    206    "  --schedule          Check every module of MODULE's closure by a --module",
 
-== ConLeche/MainTheorem.lean#L109-L120
-   109  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
-   110      (hr : Olean.parseModName root = some r)
-   111      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
-   112        fs 0)
-   113      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
-   114        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
-   115          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
-   116      ∃ model : Name → (Name → List Nat → V),
-   117        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   118          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
-   119        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
-   120          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
+== ConLeche/MainTheorem.lean#L111-L122
+   111  theorem main_modular (V : Type w) [SetTheory V] {dirs root : String} {r : Name} {fs : FS}
+   112      (hr : Olean.parseModName root = some r)
+   113      (h : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root])
+   114        fs 0)
+   115      (hwork : ∀ m', Olean.HdrClosure (Driver.searchPathOf dirs) fs [r] m' → ∃ root',
+   116        Olean.parseModName root' = some m' ∧ ModelIO.CanGive
+   117          (Driver.runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root']) fs 0) :
+   118      ∃ model : Name → (Name → List Nat → V),
+   119        (∀ m, Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   120          IsModel V (model m) (Olean.moduleConstants (Driver.searchPathOf dirs) fs m)) ∧
+   121        (∀ m n m', Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m →
+   122          Olean.Sees (Driver.searchPathOf dirs) fs m n m' → model m n = model m' n) :=
 
 == ConLeche/Driver/Cli.lean#L226
    226    "  --schedule-commands      start nothing; print on stdout, one per line and",
@@ -1581,36 +1647,36 @@
 == ConLeche/Cached/Justify.lean#L187
    187  def justifyWhy (J : Solution) (fe : FEnv) (cv : ConstantVal) : Option String :=
 
-== ConLeche/MainTheorem.lean#L63-L66
-    63  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
-    64      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
-    65      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
-    66        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
+== ConLeche/MainTheorem.lean#L65-L68
+    65  theorem main_compare_json_model (V : Type w) [SetTheory V] {c s : String} {fs : FS}
+    66      (h : ModelIO.CanGive (Driver.runArgs ["--compare", "--", c, s]) fs 0) :
+    67      ∃ bC rC, fs.file c = some bC ∧ parseChunks [bC] = .ok rC ∧
+    68        ∃ model, IsModel V model (· ∈ constantsOf rC.decls.toList) :=
 
 == ConLeche/Driver/Cli.lean#L189
    189    "  --trusted-search-path=DIRS",
 
-== ConLeche/MainTheorem.lean#L88-L94
-    88  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
-    89      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-    90      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
-    91        "--search-path=" ++ D, "--", c, s]) fs 0) :
-    92      ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
-    93        ∃ model, IsModel V model (Olean.closureConstants
-    94          (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
+== ConLeche/MainTheorem.lean#L90-L96
+    90  theorem main_compare_model (V : Type w) [SetTheory V] {T D c s : String} {C S : Name} {fs : FS}
+    91      (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+    92      (h : ModelIO.CanGive (Driver.runArgs ["--olean", "--compare", "--trusted-search-path=" ++ T,
+    93        "--search-path=" ++ D, "--", c, s]) fs 0) :
+    94      ∀ fs', FS.AgreeUnder (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs fs' →
+    95        ∃ model, IsModel V model (Olean.closureConstants
+    96          (Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)) fs' #[C]) :=
 
-== ConLeche/MainTheorem.lean#L143-L155
-   143  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
-   144      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
-   145      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
-   146        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
-   147      (hwork : ∀ m, Olean.HdrClosure
-   148          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
-   149          [C, S] m → m ≠ C →
-   150        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
-   151          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
-   152            root']) fs 0)
-   153      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
-   154        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
-   155      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
+== ConLeche/MainTheorem.lean#L145-L157
+   145  theorem main_modular_compare (V : Type w) [SetTheory V] {T D c s : String} {C S : Name}
+   146      {fs : FS} (hc : Olean.parseModName c = some C) (hs : Olean.parseModName s = some S)
+   147      (hgraph : ModelIO.CanGive (Driver.runArgs ["--check-graph", "--compare",
+   148        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0)
+   149      (hwork : ∀ m, Olean.HdrClosure
+   150          (⟨C, S, Driver.searchPathOf T, Driver.searchPathOf D, none⟩ : Driver.CmpReq).solRoots fs
+   151          [C, S] m → m ≠ C →
+   152        ∃ root', Olean.parseModName root' = some m ∧ ModelIO.CanGive (Driver.runArgs
+   153          ["--olean", "--module", "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--",
+   154            root']) fs 0)
+   155      (hcmp : ModelIO.CanGive (Driver.runArgs ["--olean", "--module", "--compare",
+   156        "--trusted-search-path=" ++ T, "--search-path=" ++ D, "--", c, s]) fs 0) :
+   157      let sp := Driver.trustedOr (Driver.searchPathOf T) (Driver.searchPathOf D)
 

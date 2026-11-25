@@ -81,14 +81,16 @@ which `fit` that constructor. -/
 /-- **A decoding's predecessors, over ANY classes**: the majors among
 the targets the rule's guarded calls name at its fields. -/
 @[expose] noncomputable def graphPredG (Is Cr : List V → Nat → V) (K : Nat)
-    (call : List V → Nat → Nat → List V → V → Prop) (xs : List V) (e : Nat × Nat × List V) :
+    (call : List V → Nat → Nat → List V → V → Prop) (xs : List V) (e : Nat × Nat × List V)
+    (hSep : HasSep (unionSet K (Is xs) (Cr xs)) (call xs e.1 e.2.1 e.2.2)) :
     V :=
-  sep (unionSet K (Is xs) (Cr xs)) (call xs e.1 e.2.1 e.2.2)
+  sep (unionSet K (Is xs) (Cr xs)) (call xs e.1 e.2.1 e.2.2) hSep
 
 theorem mem_graphPredG {Is Cr : List V → Nat → V} {K : Nat}
     {call : List V → Nat → Nat → List V → V → Prop} {xs : List V} {e : Nat × Nat × List V}
+    {hSep : HasSep (unionSet K (Is xs) (Cr xs)) (call xs e.1 e.2.1 e.2.2)}
     {v : V} :
-    v ∈ˢ graphPredG Is Cr K call xs e ↔
+    v ∈ˢ graphPredG Is Cr K call xs e hSep ↔
       v ∈ˢ unionSet K (Is xs) (Cr xs) ∧ call xs e.1 e.2.1 e.2.2 v :=
   mem_sep
 

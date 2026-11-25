@@ -336,13 +336,8 @@ theorem reduceOps_install
   have hgradeApp : ∀ ρ' : Nat → V, Sat V (elemCtx mp.base2 cv.name ψ) ρ' →
       WellDenoted V ρ' (.app (A ψ) (.bvar 0)) := by
     intro ρ' hsat
-    have hfib : (fun y => interp V (cons y ρ')
-          (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ))
-        = fun _ : V => interp V ρ'
-            (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
-      funext fun y => acval_interp_closed mp.base2 _ ψ _ ρ'
     have hm := hmemA ψ ρ'
-    rw [hTaShape ψ, interp_pi, hfib] at hm
+    rw [hTaShape ψ, interp_pi] at hm
     rw [WellDenoted_app]
     exact ⟨hAok ψ ρ', by simp, appliesTo_of_mem_piV hm (helemTy ψ ρ') (hslot ρ' hsat)⟩
   -- both sides are members of the element type
@@ -350,15 +345,11 @@ theorem reduceOps_install
       interp V ρ' (.app (A ψ) (.bvar 0))
         ∈ˢ interp V ρ' (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) := by
     intro ρ' hsat
-    have hfib : (fun y => interp V (cons y ρ')
-          (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ))
-        = fun _ : V => interp V ρ'
-            (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
-      funext fun y => acval_interp_closed mp.base2 _ ψ _ ρ'
     have hm := hmemA ψ ρ'
-    rw [hTaShape ψ, interp_pi, hfib] at hm
+    rw [hTaShape ψ, interp_pi] at hm
     rw [interp_app, interp_bvar]
-    exact app_mem_piV hm (hslot ρ' hsat)
+    have h1 := app_mem_piV hm (hslot ρ' hsat)
+    rwa [acval_interp_closed mp.base2 _ ψ _ ρ'] at h1
   -- the run, converted: two members of one type, so the point does not
   -- separate them
   have hsatx := sat_elemCtx mp.base2 hx

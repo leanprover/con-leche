@@ -351,10 +351,10 @@ root's hole read as $W$ and the frame's own hole as its argument, the
 container's own family; the field ranges over its least fixed point
 $op("lfp")(H_W)$. Read as an operator of the two arguments, the
 container's operator is accessible by
-#src("ConLeche/Semantics/Inductives/HoleAcc.lean", 50, 55)[the same case-by-case argument as §4's],
+#src("ConLeche/Semantics/Inductives/HoleAcc.lean", 8, 28)[the same case-by-case argument as §4's],
 #src("ConLeche/Model/Inductives/ContAcc.lean", 14, 33)[run on the frame]\;
 and
-#src("ConLeche/SetModel/Access.lean", 530, 540)[the least fixed point of such an operator is accessible in its first argument]:
+#src("ConLeche/SetModel/Access.lean", 1537, 1543)[the least fixed point of such an operator is accessible in its first argument]:
 the supports of an element's sub-values are collected along paths into
 one support, so $W |-> op("lfp")(H_W)$ is accessible. Monotonicity
 follows from accessibility as in §4. Nothing about the container's
@@ -400,8 +400,8 @@ induction over all the classes together: the induction principle of
 `Tree`'s family, which at the nested field `List (Tree α)` hands over
 to the induction principle of `List`'s family at that instantiation,
 and so on as deep as the walk went
-(#src("ConLeche/SetModel/NestRec.lean", 8, 46)[the induction over the classes],
-#src("ConLeche/SetModel/NestRecCls.lean", 6, 29)[read at the recursors' classes]).
+(#src("ConLeche/SetModel/NestRec.lean", 8, 41)[the induction over the classes],
+#src("ConLeche/SetModel/NestRecCls.lean", 6, 32)[read at the recursors' classes]).
 Each recursor is then this relation restricted to its class, curried
 over its arguments.
 

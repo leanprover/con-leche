@@ -44,23 +44,25 @@ variable {V : Type w} [SetTheory V]
 /-! ## A clause as a class presentation -/
 
 /-- **The lfp clause of `D` at `ψ` as a class presentation** over
-parameter frames, its index sets pinned at `Is`. -/
-@[expose] noncomputable def lfpSClause (D : LfpDatum V) (ψ : Name → Nat) (Is : Nat → V) :
-    SClause V (Nat → V) where
+finite parameter frames `Fin len → V` (with fixed tail `tail`), its index sets pinned at `Is`. -/
+@[expose] noncomputable def lfpSClause (D : LfpDatum V) (ψ : Name → Nat) (Is : Nat → V)
+    (len : Nat) (tail : Nat → V) :
+    SClause V len where
   w := D.w ψ
   N := D.N
   Is := Is
-  Φ := D.Φ ψ
-  Fits := fun ρp X t c j fs => D.HFits ψ ρp X t c j fs
+  Φ := fun ρ => D.Φ ψ (prepend ρ tail)
+  hΦ := fun ρ => D.hΦ ψ (prepend ρ tail)
+  Fits := fun ρ X t c j fs => D.HFits ψ (prepend ρ tail) X t c j fs
   inj := D.inj ψ
 
 variable {acval : Name → (Name → Nat) → Term} {D : LfpDatum V} {ψ : Name → Nat}
-  {Is : Nat → V} {ρp : Nat → V}
+  {Is : Nat → V} {len : Nat} {tail : Nat → V} {ρp : Fin len → V}
 
 /-- The class's carrier at a frame whose index sets are `Is` is the
 datum's carrier there. -/
-theorem lfpSClause_carrier (hIs : D.idx ψ ρp = Is) :
-    (lfpSClause D ψ Is).carrier ρp = D.carrier ψ ρp := by
+theorem lfpSClause_carrier (hIs : D.idx ψ (prepend ρp tail) = Is) :
+    (lfpSClause D ψ Is len tail).carrier ρp = D.carrier ψ (prepend ρp tail) := by
   subst hIs; rfl
 
 /-- **The kit's `ok`, from the clause**: at a frame satisfying the
@@ -68,23 +70,26 @@ parameter telescope whose index sets are `Is`, the class is a clause —
 monotone (`LfpClause.mono`), mapping the tuple space into itself
 (`LfpClause.maps`), with a closed tuple (`LfpClause.closed`) and its fibre the fitting
 constructors' injections (`fibre`). -/
-theorem lfpSClause_okAt (h : LfpClause acval D) (hsat : Sat V (D.params ψ).reverse ρp)
-    (hIs : ∀ c, c < D.N → D.idx ψ ρp c = Is c) : (lfpSClause D ψ Is).OkAt ρp := by
+theorem lfpSClause_okAt (h : LfpClause acval D)
+    (hsat : Sat V (D.params ψ).reverse (prepend ρp tail))
+    (hIs : ∀ c, c < D.N → D.idx ψ (prepend ρp tail) c = Is c) :
+    (lfpSClause D ψ Is len tail).OkAt ρp := by
   have hmono := h.mono hsat
-  have hmaps := h.maps ψ ρp hsat
+  have hmaps := h.maps ψ (prepend ρp tail) hsat
   obtain ⟨L, hL⟩ := h.closed hsat
-  have hsp : ∀ X, InTupleSpace (D.w ψ) D.N Is X ↔ InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X :=
+  have hsp : ∀ X, InTupleSpace (D.w ψ) D.N Is X ↔
+      InTupleSpace (D.w ψ) D.N (D.idx ψ (prepend ρp tail)) X :=
     fun X => ⟨fun hX m hm => by rw [hIs m hm]; exact hX m hm,
       fun hX m hm => by rw [← hIs m hm]; exact hX m hm⟩
-  have hle : ∀ X Y, TupleLe D.N Is X Y ↔ TupleLe D.N (D.idx ψ ρp) X Y :=
+  have hle : ∀ X Y, TupleLe D.N Is X Y ↔ TupleLe D.N (D.idx ψ (prepend ρp tail)) X Y :=
     fun X Y => ⟨fun hXY m hm => by rw [hIs m hm]; exact hXY m hm,
       fun hXY m hm => by rw [← hIs m hm]; exact hXY m hm⟩
   refine ⟨fun X Y hX hY hXY => (hle _ _).mpr (hmono X Y ((hsp X).mp hX) ((hsp Y).mp hY)
       ((hle X Y).mp hXY)), fun X hX => (hsp _).mpr (hmaps X ((hsp X).mp hX)),
     ⟨L, (hsp L).mpr hL.1, (hle _ _).mpr hL.2⟩,
     fun X hX c hc t ht x => ?_⟩
-  have ht' : t ∈ˢ D.idx ψ ρp c := by rw [hIs c hc]; exact ht
-  exact h.fibre ψ ρp hsat X ((hsp X).mp hX) c hc t ht' x
+  have ht' : t ∈ˢ D.idx ψ (prepend ρp tail) c := by rw [hIs c hc]; exact ht
+  exact h.fibre ψ (prepend ρp tail) hsat X ((hsp X).mp hX) c hc t ht' x
 
 /-! ## The kit over clause classes -/
 
@@ -113,40 +118,53 @@ where it is live (`pinIdx`); it is visited at admissible parameter frames
 frame's index sets, `hAdm`).  `ok` is the clause's (`lfpSClause_okAt`);
 `trans`, `calls` and `top` are the run's. -/
 @[expose] noncomputable def lfpNestKit (nC : Nat) (Db : Nat → LfpDatum V)
-    (ψb : Nat → Name → Nat) (frb : Nat → Nat → V) (live : Nat → Prop) (dp : Nat → Nat) (Dd : Nat)
+    (ψb : Nat → Name → Nat) (frLen : Nat → Nat) (tailb : Nat → Nat → V)
+    (frb : (b : Nat) → Fin (frLen b) → V) (live : Nat → Prop) (dp : Nat → Nat) (Dd : Nat)
     (hD : ∀ b, b < nC → dp b < Dd)
-    (Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop)
+    (Adm : (b : Nat) → V → (Fin (frLen b) → V) → Prop)
     (pred : NDec V → V)
     (hcl : ∀ b, b < nC → LfpClause acval (Db b))
-    (hAdm : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → live b ∧
-      Sat V ((Db b).params (ψb b)).reverse ρ ∧
-        ∀ c, c < (Db b).N → (Db b).idx (ψb b) ρ c = (Db b).idx (ψb b) (frb b) c)
-    (trans : ∀ b, b < nC → ∀ G,
-      (∀ b' c t y, G b' c t y →
-        y ∈ˢ app ((lfpSClause (Db b') (ψb b') (pinIdx (Db b') (ψb b') (frb b') (live b'))).carrier
-          (frb b') c) t) →
+    (hAdm : ∀ b, b < nC → ∀ (G : V) (ρ : Fin (frLen b) → V), Adm b G ρ → live b ∧
+      Sat V ((Db b).params (ψb b)).reverse (prepend ρ (tailb b)) ∧
+        ∀ c, c < (Db b).N →
+          (Db b).idx (ψb b) (prepend ρ (tailb b)) c =
+            (Db b).idx (ψb b) (prepend (frb b) (tailb b)) c)
+    (trans : ∀ b, b < nC → ∀ G : V,
+      (∀ b' c t y, nenc b' c t y ∈ˢ G →
+        y ∈ˢ app ((lfpSClause (Db b') (ψb b')
+          (pinIdx (Db b') (ψb b') (prepend (frb b') (tailb b')) (live b'))
+          (frLen b') (tailb b')).carrier (frb b') c) t) →
       ∀ ρ, Adm b G ρ → ∀ Y,
-      InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
-      TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y ((Db b).carrier (ψb b) (frb b)) →
-      ∀ t c j fs, c < (Db b).N → (Db b).HFits (ψb b) ρ Y t c j fs →
-        (Db b).HFits (ψb b) (frb b) ((Db b).carrier (ψb b) (frb b)) t c j fs)
-    (calls : ∀ b, b < nC → ∀ G ρ, Adm b G ρ → ∀ Y,
-      InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y →
-      ∀ c t j fs, c < (Db b).N → t ∈ˢ (Db b).idx (ψb b) (frb b) c →
-      (Db b).HFits (ψb b) ρ Y t c j fs →
+      InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (prepend (frb b) (tailb b))) Y →
+      TupleLe (Db b).N ((Db b).idx (ψb b) (prepend (frb b) (tailb b))) Y
+        ((Db b).carrier (ψb b) (prepend (frb b) (tailb b))) →
+      ∀ t c j fs, c < (Db b).N →
+        (Db b).HFits (ψb b) (prepend ρ (tailb b)) Y t c j fs →
+        (Db b).HFits (ψb b) (prepend (frb b) (tailb b))
+          ((Db b).carrier (ψb b) (prepend (frb b) (tailb b))) t c j fs)
+    (calls : ∀ b, b < nC → ∀ (G : V) ρ, Adm b G ρ → ∀ Y,
+      InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (prepend (frb b) (tailb b))) Y →
+      ∀ c t j fs, c < (Db b).N → t ∈ˢ (Db b).idx (ψb b) (prepend (frb b) (tailb b)) c →
+      (Db b).HFits (ψb b) (prepend ρ (tailb b)) Y t c j fs →
       ∀ u, u ∈ˢ pred ⟨b, c, t, j, fs⟩ → ∃ b' c' t' y, b' < nC ∧ c' < (Db b').N ∧ live b' ∧
-        t' ∈ˢ (Db b').idx (ψb b') (frb b') c' ∧ u = nenc b' c' t' y ∧
-        ((b' = b ∧ y ∈ˢ app (Y c') t') ∨ G b' c' t' y ∨
-          (dp b < dp b' ∧ ∃ ρ', Adm b' (addOwn G b (Db b).N ((Db b).idx (ψb b) (frb b)) Y) ρ' ∧
-            y ∈ˢ app ((lfpSClause (Db b') (ψb b') ((Db b').idx (ψb b') (frb b'))).carrier
-              ρ' c') t')))
-    (top : ∀ b, b < nC → live b → ∀ G, (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
-        live b' → t ∈ˢ (Db b').idx (ψb b') (frb b') c →
-        y ∈ˢ app ((Db b').carrier (ψb b') (frb b') c) t → G b' c t y) →
+        t' ∈ˢ (Db b').idx (ψb b') (prepend (frb b') (tailb b')) c' ∧ u = nenc b' c' t' y ∧
+        ((b' = b ∧ y ∈ˢ app (Y c') t') ∨ nenc b' c' t' y ∈ˢ G ∨
+          (dp b < dp b' ∧ ∃ ρ',
+            Adm b' (addOwn G b (Db b).N ((Db b).idx (ψb b) (prepend (frb b) (tailb b))) Y) ρ' ∧
+            y ∈ˢ app ((lfpSClause (Db b') (ψb b')
+              ((Db b').idx (ψb b') (prepend (frb b') (tailb b')))
+              (frLen b') (tailb b')).carrier ρ' c') t')))
+    (top : ∀ b, b < nC → live b → ∀ G : V,
+      (∀ b' c t y, b' < nC → dp b' < dp b → c < (Db b').N →
+        live b' → t ∈ˢ (Db b').idx (ψb b') (prepend (frb b') (tailb b')) c →
+        y ∈ˢ app ((Db b').carrier (ψb b') (prepend (frb b') (tailb b')) c) t →
+        nenc b' c t y ∈ˢ G) →
       Adm b G (frb b)) :
-    NestKit V (Nat → V) where
+    NestKit V where
   nC := nC
-  cl := fun b => lfpSClause (Db b) (ψb b) (pinIdx (Db b) (ψb b) (frb b) (live b))
+  frLen := frLen
+  cl := fun b => lfpSClause (Db b) (ψb b)
+    (pinIdx (Db b) (ψb b) (prepend (frb b) (tailb b)) (live b)) (frLen b) (tailb b)
   fr := frb
   dp := dp
   D := Dd
@@ -159,13 +177,15 @@ frame's index sets, `hAdm`).  `ok` is the clause's (`lfpSClause_okAt`);
     rw [pinIdx_of hl]; exact hidx c hc
   trans := fun b hb G hG ρ hρ Y hY hle t c j fs hc hf => by
     have hl := (hAdm b hb G ρ hρ).1
-    show (Db b).HFits (ψb b) (frb b)
-      ((lfpSClause (Db b) (ψb b) (pinIdx (Db b) (ψb b) (frb b) (live b))).carrier (frb b)) t c j fs
+    show (Db b).HFits (ψb b) (prepend (frb b) (tailb b))
+      ((lfpSClause (Db b) (ψb b) (pinIdx (Db b) (ψb b) (prepend (frb b) (tailb b)) (live b))
+        (frLen b) (tailb b)).carrier (frb b)) t c j fs
     rw [pinIdx_of hl, lfpSClause_carrier rfl]
-    have hY' : InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y := by
+    have hY' : InTupleSpace ((Db b).w (ψb b)) (Db b).N
+        ((Db b).idx (ψb b) (prepend (frb b) (tailb b))) Y := by
       have := hY; simp only [lfpSClause] at this; rw [pinIdx_of hl] at this; exact this
-    have hle' : TupleLe (Db b).N ((Db b).idx (ψb b) (frb b)) Y
-        ((Db b).carrier (ψb b) (frb b)) := by
+    have hle' : TupleLe (Db b).N ((Db b).idx (ψb b) (prepend (frb b) (tailb b))) Y
+        ((Db b).carrier (ψb b) (prepend (frb b) (tailb b))) := by
       have := hle
       simp only [SClause.carrier, lfpSClause] at this
       rw [pinIdx_of hl] at this
@@ -173,19 +193,21 @@ frame's index sets, `hAdm`).  `ok` is the clause's (`lfpSClause_okAt`);
     exact trans b hb G hG ρ hρ Y hY' hle' t c j fs hc hf
   calls := fun b hb G ρ hρ Y hY c t j fs hc ht hf u hu => by
     have hl := (hAdm b hb G ρ hρ).1
-    have hY' : InTupleSpace ((Db b).w (ψb b)) (Db b).N ((Db b).idx (ψb b) (frb b)) Y := by
+    have hY' : InTupleSpace ((Db b).w (ψb b)) (Db b).N
+        ((Db b).idx (ψb b) (prepend (frb b) (tailb b))) Y := by
       have := hY; simp only [lfpSClause] at this; rw [pinIdx_of hl] at this; exact this
-    have ht' : t ∈ˢ (Db b).idx (ψb b) (frb b) c := by
+    have ht' : t ∈ˢ (Db b).idx (ψb b) (prepend (frb b) (tailb b)) c := by
       have := ht; simp only [lfpSClause] at this; rw [pinIdx_of hl] at this; exact this
     obtain ⟨b', c', t', y, hb', hc', hl', ht'', rfl, hcase⟩ :=
       calls b hb G ρ hρ Y hY' c t j fs hc ht' hf u hu
     refine ⟨b', c', t', y, hb', hc', ?_, rfl, ?_⟩
-    · show t' ∈ˢ pinIdx (Db b') (ψb b') (frb b') (live b') c'
+    · show t' ∈ˢ pinIdx (Db b') (ψb b') (prepend (frb b') (tailb b')) (live b') c'
       rw [pinIdx_of hl']; exact ht''
-    · show (b' = b ∧ _) ∨ G b' c' t' y ∨ (dp b < dp b' ∧ ∃ ρ', Adm b'
-        (addOwn G b (Db b).N (pinIdx (Db b) (ψb b) (frb b) (live b)) Y) ρ' ∧
-        y ∈ˢ app ((lfpSClause (Db b') (ψb b') (pinIdx (Db b') (ψb b') (frb b') (live b'))).carrier
-          ρ' c') t')
+    · show (b' = b ∧ _) ∨ nenc b' c' t' y ∈ˢ G ∨ (dp b < dp b' ∧ ∃ ρ', Adm b'
+        (addOwn G b (Db b).N (pinIdx (Db b) (ψb b) (prepend (frb b) (tailb b)) (live b)) Y) ρ' ∧
+        y ∈ˢ app ((lfpSClause (Db b') (ψb b')
+          (pinIdx (Db b') (ψb b') (prepend (frb b') (tailb b')) (live b'))
+          (frLen b') (tailb b')).carrier ρ' c') t')
       rw [pinIdx_of hl]
       rcases hcase with h | h | ⟨hlt, ρ', hρ', hy⟩
       · exact Or.inl h
@@ -196,10 +218,11 @@ frame's index sets, `hAdm`).  `ok` is the clause's (`lfpSClause_okAt`);
     obtain ⟨c, -, t, ht⟩ := hne
     have hl : live b := live_of_mem_pinIdx ht
     refine top b hb hl G fun b' c t y hb' hdp hc hl' ht' hy => hG b' c t y hb' hdp hc ?_ ?_
-    · show t ∈ˢ pinIdx (Db b') (ψb b') (frb b') (live b') c
+    · show t ∈ˢ pinIdx (Db b') (ψb b') (prepend (frb b') (tailb b')) (live b') c
       rw [pinIdx_of hl']; exact ht'
-    · show y ∈ˢ app ((lfpSClause (Db b') (ψb b') (pinIdx (Db b') (ψb b') (frb b') (live b'))).carrier
-        (frb b') c) t
+    · show y ∈ˢ app ((lfpSClause (Db b') (ψb b')
+        (pinIdx (Db b') (ψb b') (prepend (frb b') (tailb b')) (live b'))
+        (frLen b') (tailb b')).carrier (frb b') c) t
       rw [pinIdx_of hl', lfpSClause_carrier rfl]; exact hy
 
 end ConLeche.Model

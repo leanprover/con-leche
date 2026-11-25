@@ -112,7 +112,6 @@ theorem BlockCtorsCore.holeCtx {env : Env} {m : EnvModel V env} {d : BlockData V
   ⟨fun c cvTb hc => ⟨(h.1 c cvTb hc).1, (h.1 c cvTb hc).2.2.2⟩,
     fun c j ctor hj => ⟨(h.2.1 c j ctor hj).2.2.1, (h.2.1 c j ctor hj).2.2.2⟩, hlpsA, hparsT⟩
 
-omit [SetTheory V] in
 /-- **Every stored constructor at the block's own levels** (the root
 frame's key levels), positionally over the run's constructor list. -/
 theorem ctorLps_of {d : BlockData V} {lps : List Name}

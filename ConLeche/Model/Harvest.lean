@@ -110,7 +110,6 @@ theorem natHeads_cons_fresh (mp : EnvModelM V env)
     (hacval : m2.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : NatHeads m2 φ := by
   intro hg ρ
-  rw [hacval]
   have hgold : ConLeche.natLitSupported env = true :=
     natLitSupported_cons_back hknd hg
   have hstored : ∀ n0, (env.find? n0).isSome = true → n0 ≠ c₀.name := by
@@ -132,17 +131,13 @@ theorem natHeads_cons_fresh (mp : EnvModelM V env)
     simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hgg
     obtain ⟨⟨hn0, -⟩, -⟩ := hgg
     revert hn0; cases env.find? natName <;> simp [natIndOk]
-  have e1 : acvalWith mp.base2.acval c₀.name A natZeroName
-      = mp.base2.acval natZeroName :=
-    acvalWith_ne (hstored _ hz)
-  have e2 : acvalWith mp.base2.acval c₀.name A natSuccName
-      = mp.base2.acval natSuccName :=
-    acvalWith_ne (hstored _ hsc)
-  have e3 : acvalWith mp.base2.acval c₀.name A natName
-      = mp.base2.acval natName :=
-    acvalWith_ne (hstored _ hn)
-  have := mp.nat_heads φ hgold ρ
-  simpa only [e1, e2, e3] using this
+  have e1 : m2.acval natZeroName = mp.base2.acval natZeroName := by
+    rw [hacval]; exact acvalWith_ne (hstored _ hz)
+  have e2 : m2.acval natSuccName = mp.base2.acval natSuccName := by
+    rw [hacval]; exact acvalWith_ne (hstored _ hsc)
+  have e3 : m2.acval natName = mp.base2.acval natName := by
+    rw [hacval]; exact acvalWith_ne (hstored _ hn)
+  simpa only [e1, e2, e3] using mp.nat_heads φ hgold ρ
 
 /-- **A type that reads as a truth value** under the leaves `acval`, at every level assignment:
 where the step gives a constant the canonical proof (`DeclProofLeaf`), and what every model of an
@@ -444,7 +439,7 @@ theorem harvestDefn
         ∈ˢ piR 1 (interp V ρ (acvalWith mp.base2.acval cv.name L
             natName (Level.substFn φ [] [])))
           (fun _ => interp V ρ (acvalWith mp.base2.acval cv.name L
-            natName (Level.substFn φ [] []))) ∧
+            natName (Level.substFn φ [] []))) (hasSigmaPairs_const _ _) ∧
       IsTy (interp V ρ (acvalWith mp.base2.acval cv.name L
             natName (Level.substFn φ [] [])))
     have hgold : ConLeche.natLitSupported env = true :=

@@ -137,10 +137,10 @@ checker is verified to be consistent.
 
 ## The model
 
-* The target theory is **ZF (minus Infinity) plus an ω-chain of Grothendieck
-  universes** — the consistency strength of Lean itself: the
-  `OmegaInaccessibles` hypothesis of Mario Carneiro, *The Type Theory
-  of Lean*, master's thesis, Carnegie Mellon University, 2019 (ZFC +
+* The target theory is **first-order ZFC (minus Infinity) plus an ω-chain of
+  Grothendieck universes** — the consistency strength of Lean itself; it has a
+  model under the `OmegaInaccessibles` hypothesis of Mario Carneiro, *The Type
+  Theory of Lean*, master's thesis, Carnegie Mellon University, 2019 (ZFC +
   a strictly increasing ω-sequence of inaccessibles; model the chain
   by `V_{κ n}`). Inside Lean it is
   expressed as an interface (`ConLeche.SetTheory`, see
@@ -360,8 +360,9 @@ below).  The interpretation never reads what is erased
 facts from the pin to the stored type).  Models: `propext` is the
 proof point `pt`, true by propositional extensionality of the set
 model (`SetTheory.prop_ext`) via the stored `Iff.rec`'s member fact;
-`Classical.choice` is a function tower ending in a global choice
-operator (`SetTheory.schoice`), with nonemptiness extracted from the
+`Classical.choice` is a function tower ending in the universe's choice
+function (`SetTheory.univChoiceFn`, from the set theory's axiom of
+choice), with nonemptiness extracted from the
 stored `Nonempty.rec`'s member fact (`ConLeche/Model/StdAxioms.lean`).
 
 Consequence for the arena's non-tutorial good roots (finding,

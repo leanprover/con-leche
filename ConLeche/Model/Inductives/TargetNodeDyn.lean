@@ -62,7 +62,7 @@ theorem trans_of_frameConcl (hcl : LfpClause acval D) (hwid : D.N = D.k)
     (hle : TupleLe D.N (D.idx ψ ρt) Y (D.carrier ψ ρt)) {t : V} {c j : Nat} {fs : List V}
     (hc : c < D.N) (hf : D.HFits ψ ρs Y t c j fs) : D.HFits ψ ρt (D.carrier ψ ρt) t c j fs := by
   have hC : InTupleSpace (D.w ψ) D.N (D.idx ψ ρs) (D.carrier ψ ρt) := fun m hm => by
-    rw [hidx m hm]; exact lfpTuple_mem _ _ _ _ m hm
+    rw [hidx m hm]; exact lfpTuple_mem _ _ _ _ _ m hm
   have hY' : InTupleSpace (D.w ψ) D.N (D.idx ψ ρs) Y := fun m hm => by
     rw [hidx m hm]; exact hY m hm
   have hle' : TupleLe D.N (D.idx ψ ρs) Y (D.carrier ψ ρt) := fun m hm => by

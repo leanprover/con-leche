@@ -384,12 +384,15 @@ def quotIndMinorTy (u : Nat) : Term :=
 /-- The motive space: `Quot A r → Prop`. -/
 noncomputable def quotIndMotiveSpace (V : Type w) [SetTheory V]
     (u : Nat) (Aset R : V) : V :=
-  piV (quotSet u Aset R) fun _ => (univ 0 : V)
+  piV (quotSet u Aset R) (fun _ => (univ 0 : V)) (hasSigmaPairs_const _ _)
 
 /-- The minor space: `∀ a, M (Quot.mk a)`. -/
 noncomputable def quotIndMinorSpace (V : Type w) [SetTheory V]
     (u : Nat) (Aset R M : V) : V :=
-  piV Aset fun a => app M (quotClass u Aset R a)
+  piV Aset (fun a => app M (quotClass u Aset R a))
+    (hasSigmaPairs_of_defFun1
+      (DefFun.app_apply (DefFun.const M)
+        (defFun_quotClass_apply u (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))))
 
 /-! ### The two applied formers, graded and evaluated
 
@@ -487,7 +490,7 @@ theorem quotIndMotiveTy_interp {u : Nat} {Aset R : V} (ρ : Nat → V)
   rw [quotIndMotiveTy, interp_pi, quotIndMotiveSpace,
     (quotApp_data (u := u) (i := 1) (j := 0) (ρ := cons R (cons Aset ρ))
       (by simp [cons]) (by simp [cons]) hA hR).2]
-  exact piV_congr fun _ _ => by rw [interp_sort]
+  exact piV_congr _ _ fun _ _ => by rw [interp_sort]
 
 theorem quotIndMinorTy_interp {u : Nat} {Aset R M : V} (ρ : Nat → V)
     (hA : Aset ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V Aset) :
@@ -495,7 +498,7 @@ theorem quotIndMinorTy_interp {u : Nat} {Aset R M : V} (ρ : Nat → V)
       = quotIndMinorSpace V u Aset R M := by
   rw [quotIndMinorTy, interp_pi, quotIndMinorSpace]
   simp only [interp_bvar, cons]
-  refine piV_congr fun a ha => ?_
+  refine piV_congr _ _ fun a ha => ?_
   rw [interp_app,
     (quotMkApp_data (u := u) (i := 3) (j := 2) (k := 0)
       (ρ := cons a (cons M (cons R (cons Aset ρ))))
@@ -1082,9 +1085,7 @@ theorem quotIndFit {m : EnvModel V env}
   have f2' : interp V ρ x2 ∈ˢ relSpace V (interp V ρ x1) := by
     rwa [quotRelTy_interp] at f2
   have f3' : interp V ρ x3 ∈ˢ quotIndMotiveSpace V (ψ uN) (interp V ρ x1) (interp V ρ x2) := by
-    rw [quotIndMotiveTy, interp_pi, (quotApp_data (by simp [cons]) (by simp [cons]) f1' f2').2]
-      at f3
-    exact f3
+    rwa [quotIndMotiveTy_interp _ f1' f2'] at f3
   refine ⟨fun _ _ _ _ => ?_, fun fs is restC hfl hil _ _ hfit _ => ?_⟩
   · -- the parameters fit `Quot.mk`'s binders
     have hfit : TeleFit V ρ (quotMkTy (ψ uN)) ([p1, p2].map (interp V ρ))
@@ -1321,7 +1322,8 @@ theorem denote_eqLeaf {c₀ : ConstantInfo} (ψ : Name → Nat) (l : Level)
 /-- The relation, applied to two of its arguments, is a type. -/
 theorem IsTy_relV_app {Aset R a b : V} (hR : R ∈ˢ relSpace V Aset)
     (ha : a ∈ˢ Aset) (hb : b ∈ˢ Aset) : IsTy (app (app R a) b) :=
-  have hRa : app R a ∈ˢ piV Aset fun _ => (univ 0 : V) := app_mem_piV hR ha
+  have hRa : app R a ∈ˢ piV Aset (fun _ => (univ 0 : V)) (hasSigmaPairs_const _ _) :=
+    app_mem_piV hR ha
   IsTy_of_mem_univ (app_mem_piV hRa hb)
 
 /-- The relation, applied to two of its arguments. -/
@@ -1335,7 +1337,8 @@ theorem relApp_data {i j k : Nat} {ρ : Nat → V} {Aset R a b : V}
   have hRi : interp V ρ (Term.bvar i) = R := by rw [interp_bvar, hi]
   have haj : interp V ρ (Term.bvar j) = a := by rw [interp_bvar, hj]
   have hbk : interp V ρ (Term.bvar k) = b := by rw [interp_bvar, hk]
-  have hRa : app R a ∈ˢ piV Aset fun _ => (univ 0 : V) := app_mem_piV hR ha
+  have hRa : app R a ∈ˢ piV Aset (fun _ => (univ 0 : V)) (hasSigmaPairs_const _ _) :=
+    app_mem_piV hR ha
   refine ⟨?_, ?_⟩
   · rw [WellDenoted_app]
     refine ⟨?_, trivial, ?_⟩
@@ -1560,9 +1563,9 @@ theorem quotSoundTy_wellDenoted {E : Term} {u : Nat} (ρ : Nat → V)
 
 /-- A function space whose fibres are inhabited truth values is an
 inhabited truth value. -/
-theorem pt_tv {A : V} {B : V → V}
+theorem pt_tv {A : V} {B : V → V} {hS : HasSigmaPairs A B}
     (h : ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ B x) :
-    piV A B ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ piV A B := by
+    piV A B hS ∈ˢ (univZero : V) ∧ (pt : V) ∈ˢ piV A B hS := by
   rw [piV_eq_zero fun x hx => (h x hx).1]
   exact ⟨piR_zero_mem_univZero, pt_mem_piR_zero_of fun x hx => (h x hx).2⟩
 
@@ -1684,8 +1687,9 @@ concludes at the `Eq` former read **at `v`**, so the bridge is
 /-- One application step, with the fibre named — the shape every
 `RecRuleLaw` transport peels with. -/
 theorem WellDenoted_app_fibre {ρ : Nat → V} {f a : Term} {S : V}
-    {F : V → V} (hf : WellDenoted V ρ f) (ha : WellDenoted V ρ a)
-    (hfm : interp V ρ f ∈ˢ piV S F) (ham : interp V ρ a ∈ˢ S) (hS : IsTy S) :
+    {F : V → V} {hSP : HasSigmaPairs S F}
+    (hf : WellDenoted V ρ f) (ha : WellDenoted V ρ a)
+    (hfm : interp V ρ f ∈ˢ piV S F hSP) (ham : interp V ρ a ∈ˢ S) (hS : IsTy S) :
     WellDenoted V ρ (.app f a) ∧
       interp V ρ (.app f a) ∈ˢ F (interp V ρ a) :=
   ⟨by rw [WellDenoted_app]; exact ⟨hf, ha, appliesTo_of_mem_piV hfm hS ham⟩,
@@ -1708,12 +1712,13 @@ theorem IsTy_interp_pi {ρ : Nat → V} {Aa B : Term} :
 basis tower's walk takes: the body's grading and its placement in the
 function space (`lamV_mem`). -/
 theorem WellDenoted_lam_piV {ρ : Nat → V} {Aa bd : Term}
-    {F : V → V} (hA : WellDenoted V ρ Aa) (hAt : IsTy (interp V ρ Aa))
+    {F : V → V} {hS : HasSigmaPairs (interp V ρ Aa) F}
+    (hA : WellDenoted V ρ Aa) (hAt : IsTy (interp V ρ Aa))
     (hb : ∀ x, x ∈ˢ interp V ρ Aa → WellDenoted V (cons x ρ) bd ∧
       interp V (cons x ρ) bd ∈ˢ F x)
     (hFt : ∀ x, x ∈ˢ interp V ρ Aa → IsTy (F x)) :
     WellDenoted V ρ (.lam Aa bd) ∧
-      interp V ρ (.lam Aa bd) ∈ˢ piV (interp V ρ Aa) F := by
+      interp V ρ (.lam Aa bd) ∈ˢ piV (interp V ρ Aa) F hS := by
   refine ⟨⟨hA, hAt, fun x hx => (hb x hx).1⟩, ?_⟩
   rw [interp_lam]
   exact lamV_mem (fun x hx => (hb x hx).2) hFt
@@ -1752,7 +1757,7 @@ theorem quotLiftInvTy_data {E : Term} {v : Nat} {Aset R B f : V}
         interp V ρ' (.app (.app (.app E Aa) la) ra)
           ∈ˢ (univZero : V))
     (hR : R ∈ˢ relSpace V Aset) (hAty : IsTy Aset) (hB : B ∈ˢ (univ v : V))
-    (hf : f ∈ˢ piV Aset fun _ => B) :
+    (hf : f ∈ˢ piV Aset (fun _ => B) (hasSigmaPairs_const _ _)) :
     interp V (cons f (cons B (cons R (cons Aset ρ))))
         (quotLiftInvTy E) = quotInvSpace V Aset R f ∧
       WellDenoted V (cons f (cons B (cons R (cons Aset ρ))))
@@ -1846,15 +1851,15 @@ theorem quotLiftInvTy_data {E : Term} {v : Nat} {Aset R B f : V}
       (fun b hb => (hstep a ha b (by rwa [hd2 a] at hb)).2)
   constructor
   · rw [quotLiftInvTy, interp_pi, quotInvSpace, hd1]
-    refine piV_congr fun a ha => ?_
+    refine piV_congr _ _ fun a ha => ?_
     rw [interp_pi, hd2 a]
-    refine piV_congr fun b hb => ?_
+    refine piV_congr _ _ fun b hb => ?_
     obtain ⟨-, hrint⟩ := relApp_data (i := 4) (j := 1)
       (k := 0) (ρ := cons b (cons a (cons f (cons B (cons R (cons Aset ρ))))))
       (by simp [cons]) (by simp [cons]) (by simp [cons])
       hR ha hb hAty
     rw [interp_pi, hrint]
-    exact piV_congr fun w _ => (hbody a b ha hb w).1
+    exact piV_congr _ _ fun w _ => (hbody a b ha hb w).1
   · rw [quotLiftInvTy]
     exact (WellDenoted_pi_zero (Aa := .bvar 3) trivial
       (by rw [hd1]; exact hAty)
@@ -1894,14 +1899,14 @@ theorem quotLiftTy_wellDenoted {E : Term} {u v : Nat}
         exact IsTy_of_mem_univ hB)
   have h5 : ∀ Aset R B f : V, Aset ∈ˢ (univ u : V) →
       R ∈ˢ relSpace V Aset → B ∈ˢ (univ v : V) →
-      f ∈ˢ piV Aset (fun _ => B) →
+      f ∈ˢ piV Aset (fun _ => B) (hasSigmaPairs_const _ _) →
       WellDenoted V (cons f (cons B (cons R (cons Aset ρ))))
         (.pi (quotLiftInvTy E)
           (.pi (quotApp u 4 3) (.bvar 3))) := by
     intro Aset R B f hAset hR hB hf
     obtain ⟨hinvEq, hinv⟩ := quotLiftInvTy_data ρ hval hgr hR
       (IsTy_of_mem_univ hAset) hB hf
-    exact WellDenoted_pi_of hinv (by rw [hinvEq]; exact IsTy_piR _ _ _)
+    exact WellDenoted_pi_of hinv (by rw [hinvEq]; exact IsTy_piR _ _ _ _)
       (fun h _ => h6 Aset R B f h hAset hR hB) (fun _ _ => IsTy_interp_pi)
   have h4 : ∀ Aset R B : V, Aset ∈ˢ (univ u : V) →
       R ∈ˢ relSpace V Aset → B ∈ˢ (univ v : V) →
@@ -1912,7 +1917,7 @@ theorem quotLiftTy_wellDenoted {E : Term} {u v : Nat}
     intro Aset R B hAset hR hB
     have hdom : interp V (cons B (cons R (cons Aset ρ)))
         (Term.pi (.bvar 2) (.bvar 1))
-        = piV Aset (fun _ => B) := by
+        = piV Aset (fun _ => B) (hasSigmaPairs_const _ _) := by
       rw [interp_pi]
       simp only [interp_bvar, cons]
     refine WellDenoted_pi_of ?_ IsTy_interp_pi
@@ -1966,27 +1971,24 @@ theorem quotLiftTy_mem {E : Term} {u v : Nat}
           ∈ˢ (univZero : V))
     (ρ : Nat → V) :
     quotLiftV V u v ∈ˢ interp V ρ (quotLiftTy E u v) := by
-  suffices heq : interp V ρ (quotLiftTy E u v) = piV (univ u : V) fun A =>
-      piV (relSpace V A) fun R => piV (univ v : V) fun B =>
-        piV (piV A fun _ => B) fun f => piV (quotInvSpace V A R f) fun _ =>
-          piV (quotSet u A R) fun _ => B by
-    rw [heq]; exact quotLiftV_mem V u v
+  refine Eq.subst (motive := fun T => quotLiftV V u v ∈ˢ T) ?_ (quotLiftV_mem V u v)
   rw [quotLiftTy, interp_pi, interp_sort]
-  refine piV_congr fun Aset hA => ?_
+  refine piV_congr _ _ fun Aset hA => ?_
   rw [interp_pi, quotRelTy_interp]
-  refine piV_congr fun R hR => ?_
+  refine piV_congr _ _ fun R hR => ?_
   rw [interp_pi, interp_sort]
-  refine piV_congr fun B hB => ?_
+  refine piV_congr _ _ fun B hB => ?_
   have hdom : interp V (cons B (cons R (cons Aset ρ)))
-      (Term.pi (.bvar 2) (.bvar 1)) = piV Aset (fun _ => B) := by
+      (Term.pi (.bvar 2) (.bvar 1)) = piV Aset (fun _ => B) (hasSigmaPairs_const _ _) := by
     rw [interp_pi]; simp only [interp_bvar, cons]
-  rw [interp_pi, hdom]
-  refine piV_congr fun f hf => ?_
-  rw [interp_pi, (quotLiftInvTy_data ρ hval hgr hR (IsTy_of_mem_univ hA) hB hf).1]
-  refine piV_congr fun _ _ => ?_
-  rw [interp_pi, (quotApp_data (u := u) (i := 4) (j := 3) (by simp [cons]) (by simp [cons])
-    hA hR).2]
-  exact piV_congr fun _ _ => by simp [interp_bvar, cons]
+  rw [interp_pi]
+  refine piV_ext hdom.symm _ _ fun f hf => ?_
+  rw [interp_pi]
+  refine piV_ext (quotLiftInvTy_data ρ hval hgr hR (IsTy_of_mem_univ hA) hB hf).1.symm
+    _ _ fun _ _ => ?_
+  rw [interp_pi]
+  refine piV_ext (quotApp_data (u := u) (i := 4) (j := 3) (by simp [cons]) (by simp [cons])
+    hA hR).2.symm _ _ fun _ _ => by simp [interp_bvar, cons]
 
 /-! ### `Quot.lift`'s type reading, and its rule -/
 
@@ -2071,12 +2073,38 @@ theorem denote_quotLift_rhs (ψ : Name → Nat)
 /-- The function space the RHS tower inhabits. -/
 noncomputable def quotLiftRaSpace (V : Type w) [SetTheory V]
     (u v : Nat) : V :=
-  piV (univ u : V) fun Aset =>
-    piV (relSpace V Aset) fun R =>
-      piV (univ v : V) fun B =>
-        piV (piV Aset fun _ => B) fun f =>
-          piV (quotInvSpace V Aset R f) fun _ =>
-            piV Aset fun _ => B
+  piV (univ u : V) (fun Aset =>
+    piV (relSpace V Aset) (fun R =>
+      piV (univ v : V) (fun B =>
+        piV (piV Aset (fun _ => B) (hasSigmaPairs_const _ _)) (fun f =>
+          piV (quotInvSpace V Aset R f) (fun _ =>
+            piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+            (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_of_defFun1
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B)))))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3))))))
+      (hasSigmaPairs_of_defFun1
+        (DefFun.piV_apply_curry (DefFun.univ_const v)
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.proj 2) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3)))))))
+    (hasSigmaPairs_of_defFun1
+      (DefFun.piV_apply_curry (defFun_relSpace (DefFun.proj 0))
+        (DefFun.piV_apply_curry (DefFun.univ_const v)
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.proj 2) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.proj 3) (DefFun.proj 2) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.proj 4) (DefFun.proj 3)))))))
 
 /-- **The RHS tower is graded, and a member of `quotLiftRaSpace`.** -/
 theorem quotLiftRa_facts {E : Term} {u v : Nat}
@@ -2096,17 +2124,18 @@ theorem quotLiftRa_facts {E : Term} {u v : Nat}
       interp V ρ (quotLiftRa E u v) ∈ˢ quotLiftRaSpace V u v := by
   have h6 : ∀ Aset R B f h : V, Aset ∈ˢ (univ u : V) →
       R ∈ˢ relSpace V Aset → B ∈ˢ (univ v : V) →
-      f ∈ˢ piV Aset (fun _ => B) →
+      f ∈ˢ piV Aset (fun _ => B) (hasSigmaPairs_const _ _) →
       WellDenoted V (cons h (cons f (cons B (cons R (cons Aset ρ)))))
           (.lam (.bvar 4) (.app (.bvar 2) (.bvar 0))) ∧
         interp V (cons h (cons f (cons B (cons R (cons Aset ρ)))))
           (.lam (.bvar 4) (.app (.bvar 2) (.bvar 0)))
-          ∈ˢ piV Aset (fun _ => B) := by
+          ∈ˢ piV Aset (fun _ => B) (hasSigmaPairs_const _ _) := by
     intro Aset R B f h hAset hR hB hf
     have hdom : interp V (cons h (cons f (cons B
         (cons R (cons Aset ρ))))) (Term.bvar 4) = Aset := by
       simp [interp_bvar, cons]
     have := WellDenoted_lam_piV (F := fun _ => B) (bd := .app (.bvar 2) (.bvar 0))
+      (hS := by rw [hdom]; exact hasSigmaPairs_const _ _)
       (ρ := cons h (cons f (cons B (cons R (cons Aset ρ))))) (Aa := .bvar 4) trivial
       (by rw [hdom]; exact IsTy_of_mem_univ hAset)
       (fun a ha => WellDenoted_app_fibre (S := Aset) (F := fun _ => B)
@@ -2116,10 +2145,10 @@ theorem quotLiftRa_facts {E : Term} {u v : Nat}
         (by rw [hdom] at ha; simpa [interp_bvar, cons] using ha)
         (IsTy_of_mem_univ hAset))
       (fun _ _ => IsTy_of_mem_univ hB)
-    rwa [hdom] at this
+    simpa only [hdom] using this
   have h5 : ∀ Aset R B f : V, Aset ∈ˢ (univ u : V) →
       R ∈ˢ relSpace V Aset → B ∈ˢ (univ v : V) →
-      f ∈ˢ piV Aset (fun _ => B) →
+      f ∈ˢ piV Aset (fun _ => B) (hasSigmaPairs_const _ _) →
       WellDenoted V (cons f (cons B (cons R (cons Aset ρ))))
           (.lam (quotLiftInvTy E)
             (.lam (.bvar 4) (.app (.bvar 2) (.bvar 0)))) ∧
@@ -2127,14 +2156,16 @@ theorem quotLiftRa_facts {E : Term} {u v : Nat}
           (.lam (quotLiftInvTy E)
             (.lam (.bvar 4) (.app (.bvar 2) (.bvar 0))))
           ∈ˢ piV (quotInvSpace V Aset R f)
-            (fun _ => piV Aset (fun _ => B)) := by
+            (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+            (hasSigmaPairs_const _ _) := by
     intro Aset R B f hAset hR hB hf
     obtain ⟨hinvint, hinvok⟩ := quotLiftInvTy_data ρ hval hgr
       hR (IsTy_of_mem_univ hAset) hB hf
-    have := WellDenoted_lam_piV (F := fun _ => piV Aset (fun _ => B)) hinvok
-      (by rw [hinvint]; exact IsTy_piR _ _ _)
+    have := WellDenoted_lam_piV (F := fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+      (hS := hasSigmaPairs_const _ _) hinvok
+      (by rw [hinvint]; exact IsTy_piR _ _ _ _)
       (fun h _ => h6 Aset R B f h hAset hR hB hf) (fun _ _ => IsTy_piV)
-    rwa [hinvint] at this
+    simpa only [hinvint] using this
   have h4 : ∀ Aset R B : V, Aset ∈ˢ (univ u : V) →
       R ∈ˢ relSpace V Aset → B ∈ˢ (univ v : V) →
       WellDenoted V (cons B (cons R (cons Aset ρ)))
@@ -2145,13 +2176,18 @@ theorem quotLiftRa_facts {E : Term} {u v : Nat}
           (.lam (.pi (.bvar 2) (.bvar 1))
             (.lam (quotLiftInvTy E)
               (.lam (.bvar 4) (.app (.bvar 2) (.bvar 0)))))
-          ∈ˢ piV (piV Aset (fun _ => B))
+          ∈ˢ piV (piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
             (fun f => piV (quotInvSpace V Aset R f)
-              (fun _ => piV Aset (fun _ => B))) := by
+              (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+              (hasSigmaPairs_const _ _))
+            (hasSigmaPairs_of_defFun1
+              (DefFun.piV_apply_curry
+                (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+                (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B)))) := by
     intro Aset R B hAset hR hB
     have hdom : interp V (cons B (cons R (cons Aset ρ)))
         (Term.pi (.bvar 2) (.bvar 1))
-        = piV Aset (fun _ => B) := by
+        = piV Aset (fun _ => B) (hasSigmaPairs_const _ _) := by
       rw [interp_pi]; simp only [interp_bvar, cons]
     have hdok : WellDenoted V (cons B (cons R (cons Aset ρ)))
         (Term.pi (.bvar 2) (.bvar 1)) :=
@@ -2160,10 +2196,15 @@ theorem quotLiftRa_facts {E : Term} {u v : Nat}
         (fun _ _ => trivial)
         (fun a _ => by simpa [interp_bvar, cons] using IsTy_of_mem_univ hB)
     have := WellDenoted_lam_piV (F := fun f => piV (quotInvSpace V Aset R f)
-        (fun _ => piV Aset (fun _ => B))) hdok IsTy_interp_pi
+        (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _)) (hasSigmaPairs_const _ _))
+      (hS := hasSigmaPairs_of_defFun1
+        (DefFun.piV_apply_curry
+          (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+          (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B))))
+      hdok IsTy_interp_pi
       (fun f hf => h5 Aset R B f hAset hR hB (by rwa [hdom] at hf))
       (fun _ _ => IsTy_piV)
-    rwa [hdom] at this
+    simpa only [hdom] using this
   have h3 : ∀ Aset R : V, Aset ∈ˢ (univ u : V) →
       R ∈ˢ relSpace V Aset →
       WellDenoted V (cons R (cons Aset ρ))
@@ -2177,16 +2218,39 @@ theorem quotLiftRa_facts {E : Term} {u v : Nat}
               (.lam (quotLiftInvTy E)
                 (.lam (.bvar 4) (.app (.bvar 2) (.bvar 0))))))
           ∈ˢ piV (univ v : V) (fun B =>
-            piV (piV Aset (fun _ => B))
+            piV (piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
               (fun f => piV (quotInvSpace V Aset R f)
-                (fun _ => piV Aset (fun _ => B)))) := by
+                (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+                (hasSigmaPairs_const _ _))
+              (hasSigmaPairs_of_defFun1
+                (DefFun.piV_apply_curry
+                  (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+                  (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B)))))
+            (hasSigmaPairs_of_defFun1
+              (DefFun.piV_apply_curry
+                (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+                (DefFun.piV_apply_curry
+                  (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+                  (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3))))) := by
     intro Aset R hAset hR
-    have := WellDenoted_lam_piV (F := fun B => piV (piV Aset (fun _ => B))
-        (fun f => piV (quotInvSpace V Aset R f) (fun _ => piV Aset (fun _ => B))))
+    have := WellDenoted_lam_piV
+      (F := fun B => piV (piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+        (fun f => piV (quotInvSpace V Aset R f)
+          (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _)) (hasSigmaPairs_const _ _))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry
+            (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B)))))
+      (hS := hasSigmaPairs_of_defFun1
+        (DefFun.piV_apply_curry
+          (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+          (DefFun.piV_apply_curry
+            (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3)))))
       (Aa := .sort v) (ρ := cons R (cons Aset ρ)) trivial (IsTy_univ v)
       (fun B hB => h4 Aset R B hAset hR (by rwa [interp_sort] at hB))
       (fun _ _ => IsTy_piV)
-    rwa [interp_sort] at this
+    simpa only [interp_sort, quotLiftRa, quotLiftRaSpace] using this
   have h2 : ∀ Aset : V, Aset ∈ˢ (univ u : V) →
       WellDenoted V (cons Aset ρ)
           (.lam quotRelTy
@@ -2202,27 +2266,90 @@ theorem quotLiftRa_facts {E : Term} {u v : Nat}
                   (.lam (.bvar 4) (.app (.bvar 2) (.bvar 0)))))))
           ∈ˢ piV (relSpace V Aset) (fun R =>
             piV (univ v : V) (fun B =>
-              piV (piV Aset (fun _ => B))
+              piV (piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
                 (fun f => piV (quotInvSpace V Aset R f)
-                  (fun _ => piV Aset (fun _ => B))))) := by
+                  (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+                  (hasSigmaPairs_const _ _))
+                (hasSigmaPairs_of_defFun1
+                  (DefFun.piV_apply_curry
+                    (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+                    (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B)))))
+              (hasSigmaPairs_of_defFun1
+                (DefFun.piV_apply_curry
+                  (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+                  (DefFun.piV_apply_curry
+                    (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+                    (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3))))))
+            (hasSigmaPairs_of_defFun1
+              (DefFun.piV_apply_curry (DefFun.univ_const v)
+                (DefFun.piV_apply_curry
+                  (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+                  (DefFun.piV_apply_curry
+                    (defFun_quotInvSpace (DefFun.const Aset) (DefFun.proj 2) (DefFun.proj 0))
+                    (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3)))))) := by
     intro Aset hAset
-    have := WellDenoted_lam_piV (F := fun R => piV (univ v : V) (fun B =>
-        piV (piV Aset (fun _ => B))
-          (fun f => piV (quotInvSpace V Aset R f) (fun _ => piV Aset (fun _ => B)))))
+    have := WellDenoted_lam_piV
+      (F := fun R => piV (univ v : V) (fun B =>
+        piV (piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+          (fun f => piV (quotInvSpace V Aset R f)
+            (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _)) (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_of_defFun1
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B)))))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3))))))
+      (hS := hasSigmaPairs_of_defFun1
+        (DefFun.piV_apply_curry (DefFun.univ_const v)
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.proj 2) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3))))))
       (quotRelTy_wellDenoted _ (IsTy_of_mem_univ hAset))
       (by rw [quotRelTy_interp]; exact IsTy_relSpace _)
       (fun R hR => h3 Aset R hAset (by rwa [quotRelTy_interp] at hR))
       (fun _ _ => IsTy_piV)
-    rwa [quotRelTy_interp] at this
-  have := WellDenoted_lam_piV (F := fun Aset => piV (relSpace V Aset) (fun R =>
+    simpa only [quotRelTy_interp] using this
+  have := WellDenoted_lam_piV
+    (F := fun Aset => piV (relSpace V Aset) (fun R =>
       piV (univ v : V) (fun B =>
-        piV (piV Aset (fun _ => B))
-          (fun f => piV (quotInvSpace V Aset R f) (fun _ => piV Aset (fun _ => B))))))
+        piV (piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
+          (fun f => piV (quotInvSpace V Aset R f)
+            (fun _ => piV Aset (fun _ => B) (hasSigmaPairs_const _ _)) (hasSigmaPairs_const _ _))
+          (hasSigmaPairs_of_defFun1
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.const B)))))
+        (hasSigmaPairs_of_defFun1
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.const R) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3))))))
+      (hasSigmaPairs_of_defFun1
+        (DefFun.piV_apply_curry (DefFun.univ_const v)
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.const Aset) (DefFun.proj 2) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.const Aset) (DefFun.proj 3)))))))
+    (hS := hasSigmaPairs_of_defFun1
+      (DefFun.piV_apply_curry (defFun_relSpace (DefFun.proj 0))
+        (DefFun.piV_apply_curry (DefFun.univ_const v)
+          (DefFun.piV_apply_curry
+            (DefFun.piV_apply_curry (DefFun.proj 2) (DefFun.proj 1))
+            (DefFun.piV_apply_curry
+              (defFun_quotInvSpace (DefFun.proj 3) (DefFun.proj 2) (DefFun.proj 0))
+              (DefFun.piV_apply_curry (DefFun.proj 4) (DefFun.proj 3)))))))
     (Aa := .sort u) (ρ := ρ) trivial (IsTy_univ u)
     (fun Aset hAset => h2 Aset (by rwa [interp_sort] at hAset))
     (fun _ _ => IsTy_piV)
-  rw [interp_sort] at this
-  exact this
+  simpa only [interp_sort, quotLiftRa, quotLiftRaSpace] using this
 
 theorem quotLiftRa_wellDenoted {E : Term} {u v : Nat}
     (hval : ∀ (ρ' : Nat → V) (T x y : V), T ∈ˢ (univ v : V) →
@@ -2248,15 +2375,12 @@ quotient's own `app_eq_of_quotClass_eq`; at `v = 0` both sides are the
 canonical proof, because a `piR 0`-valued function *is* one. -/
 theorem quotLiftV_fired {u v : Nat} {Aset R B f h a : V}
     (hAset : Aset ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V Aset)
-    (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piV Aset fun _ => B)
+    (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
     (hh : h ∈ˢ quotInvSpace V Aset R f) (ha : a ∈ˢ Aset) :
     app (app (app (app (app (app (quotLiftV V u v) Aset) R) B) f) h)
         (quotClass u Aset R a) = app f a := by
-  rw [quotLiftV_app V hAset hR hB hf hh, quotLiftR_app V (quotClass_mem ha)]
-  obtain ⟨hrep, hcls⟩ :=
-    qrep_spec (u := u) (R := R) (quotClass_mem (u := u) ha)
-  exact app_eq_of_quotClass_eq hAset hrep ha (quotInv_of_mem V hh)
-    hcls.symm
+  rw [quotLiftV_app V hAset hR hB hf hh]
+  exact quotLiftR_app V hAset hf (quotInv_of_mem V hh) ha
 
 /-- …and the RHS tower's own six-fold application is the same value
 (`app_lamV` six times, on the domains). -/
@@ -2274,12 +2398,12 @@ theorem quotLiftRa_app {E : Term} {u v : Nat}
           ∈ˢ (univZero : V))
     (ρ : Nat → V) {Aset R B f h a : V}
     (hAset : Aset ∈ˢ (univ u : V)) (hR : R ∈ˢ relSpace V Aset)
-    (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piV Aset fun _ => B)
+    (hB : B ∈ˢ (univ v : V)) (hf : f ∈ˢ piV Aset (fun _ => B) (hasSigmaPairs_const _ _))
     (hh : h ∈ˢ quotInvSpace V Aset R f) (ha : a ∈ˢ Aset) :
     app (app (app (app (app (app (interp V ρ (quotLiftRa E u v))
         Aset) R) B) f) h) a = app f a := by
   have hdom : interp V (cons B (cons R (cons Aset ρ)))
-      (Term.pi (.bvar 2) (.bvar 1)) = piV Aset (fun _ => B) := by
+      (Term.pi (.bvar 2) (.bvar 1)) = piV Aset (fun _ => B) (hasSigmaPairs_const _ _) := by
     rw [interp_pi]; simp only [interp_bvar, cons]
   obtain ⟨hinvint, -⟩ := quotLiftInvTy_data ρ hval hgr hR
     (IsTy_of_mem_univ hAset) hB hf
@@ -2764,7 +2888,7 @@ theorem quotLiftLaw {m : EnvModel V env}
     have h2 := WellDenoted_app_fibre h1.1 (hxsA x2 (by simp)) h1.2 f2 (IsTy_relSpace _)
     have h3 := WellDenoted_app_fibre h2.1 (hxsA x3 (by simp)) h2.2 f3 (IsTy_univ _)
     have h4 := WellDenoted_app_fibre h3.1 (hxsA x4 (by simp)) h3.2 f4 IsTy_piV
-    have h5 := WellDenoted_app_fibre h4.1 (hxsA x5 (by simp)) h4.2 f5 (IsTy_piR _ _ _)
+    have h5 := WellDenoted_app_fibre h4.1 (hxsA x5 (by simp)) h4.2 f5 (IsTy_piR _ _ _ _)
     exact (WellDenoted_app_fibre h5.1 (hysA y3 (by simp)) h5.2 hg3
       (IsTy_of_mem_univ f1)).1
 
