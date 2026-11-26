@@ -126778,4 +126778,25 @@ rejected).
 All verdicts unchanged (exit 0). The step sits on the stuck path behind a syntactic gate; the
 largest relative deltas are again the two small `discarded-argument` streams (+0.7 M and
 +0.8 M instructions absolute, the same streams as task #515's), not attributed further.
-||||||| bc6676101
+
+
+## TASK #636 — a `quot` record off its pin is a reject (2026-11-25, agent/quot-reject; base master 92b1c6fc4)
+
+Maintainer's ruling: the arena's `bugs/quot-bad-type` (a `quot` record whose
+type is neither form the checker knows) must be rejected, as the arena expects and
+the other checkers do.  (Official's kernel makes the package itself and reads no
+record, so it accepts such a stream; the arena's verdict is the reference here.)
+This replaces "declines as such a record always did" in the #480 (lane 5) record on quotient
+records at the stream's names.
+
+* `checkQuotRecord` / `checkQuotRecordC`: a `quot` record failing `quotPinHit`
+  throws `.invalid "quotient declaration mismatch"`; a record before the slots it
+  needs (`quotPredsOk`) throws `.invalid` too (it mentions an unknown constant).
+  That second throw is not reachable from a parsed stream today (the fold orders
+  records by dependency, and the prelude supplies an absent `Quot`/`Eq`), so it
+  has no fixture.
+* `Quot.sound` off its pin stays a DECLINE: for official it is an ordinary
+  `axiom`, accepted at any type, so the mismatch is ours, not the input's.
+* Verdicts: `tower_quot` and `basis_quot_lift_type_bad` 2 → 1 (`tests/e2e-expected.txt`,
+  the tower battery in `tests/arena.sh`); `tower_axiom` stays 2.
+* Proofs: unchanged (they propagate the error, whatever its kind).

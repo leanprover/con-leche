@@ -1431,8 +1431,9 @@
 # (`ConstantInfo.canonEq`).
 2 tower_axiom.ndjson
 # tower_quot: a `quot` record for `Quot` with a tower type -> divergent
-# quotient pin (`ConstantVal.canonEq`).
-2 tower_quot.ndjson
+# quotient pin (`ConstantVal.canonEq`); a `quot` record off its pin is a
+# REJECT (task #636), as in official's `add_quot` and the other checkers.
+1 tower_quot.ndjson
 # tower_prelude: an inductive block named `Bool` with a tower in its
 # constructor field.  Until task #293 this DECLINED, at the prelude
 # dedupe's `Declaration.sameCanon` — the point being that the comparison
@@ -3398,8 +3399,9 @@
 # every record at its own names, the reductions used: no record reads another's.
 0 basis_quot_all_other_names.ndjson
 # `Quot.lift.{y, z}` whose result is another variable: not the pin beyond its names.
-# DECLINE, as a quotient record that disagrees with its pin always did.
-2 basis_quot_lift_type_bad.ndjson
+# REJECT (task #636): a `quot` record that disagrees with its pin is invalid input,
+# as for the other checkers (arena `bugs/quot-bad-type`).
+1 basis_quot_lift_type_bad.ndjson
 # -- task #630: `Quot` in either result-sort form.  lean4#15023 declares `Quot` at
 # `Sort (max 1 u)` and `Quot.sound`'s equation at `Eq.{max 1 u}`: a quotient of a proposition is
 # a type.  The record's form is the one stored, so proof irrelevance follows the declared sort.
@@ -3411,8 +3413,9 @@
 0 quot_released_rfl.ndjson
 # `Quot.sound` in the released form beside the lifted `Quot`: ill-typed (official 1).
 1 quot_lifted_mixed_sound_bad.ndjson
-# `Quot` at `Sort (u+1)`: neither form of the pin, declined as any mismatching quotient record.
-2 quot_other_sort_bad.ndjson
+# `Quot` at `Sort (u+1)`: neither form of the pin, rejected as any quotient record off its pin
+# (task #636).
+1 quot_other_sort_bad.ndjson
 # quot_lifted_no_sound: quot_lifted without the `Quot.sound` record (and
 # `squash_sound`, its one use), as an export that never uses the axiom has it.
 # The built-in prelude carries no quotient record, so nothing in the released
