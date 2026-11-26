@@ -1854,32 +1854,28 @@ termination_by n _ _ => (lv, 59, n, 0)
 
 /-- Twin of `lazyDeltaProjReduction`. -/
 def lazyDeltaProjReductionI (eager : Bool) (lv : Nat) (depth : Nat)
-    (sn : Name) (i : Nat) (as bs : List Expr) : Nat → Expr → Expr → CheckCM Bool
+    (sn : Name) (i : Nat) : Nat → Expr → Expr → CheckCM Bool
   | 0, _, _ => throw (.internal "fuel exhausted: lazy delta projection loop")
   | n + 1, a, b => do
     match ← lazyDeltaStepI eager lv depth a b with
-    | .cont a' b' => lazyDeltaProjReductionI eager lv depth sn i as bs n a' b'
-    | .eq => defEqListI eager lv depth as.reverse bs.reverse
+    | .cont a' b' => lazyDeltaProjReductionI eager lv depth sn i n a' b'
+    | .eq => pure true
     | .diff | .unknown =>
-      if as.isEmpty && bs.isEmpty then
-        match ← reduceProjCoreI eager lv depth sn i a with
-        | some x =>
-          match ← reduceProjCoreI eager lv depth sn i b with
-          | some y => defeqI eager lv depth x y
-          | none => defeqI eager lv depth a b
+      match ← reduceProjCoreI eager lv depth sn i a with
+      | some x =>
+        match ← reduceProjCoreI eager lv depth sn i b with
+        | some y => defeqI eager lv depth x y
         | none => defeqI eager lv depth a b
-      else pure false
+      | none => defeqI eager lv depth a b
 termination_by n _ _ => (lv, 60, n, 0)
 
 /-- Twin of `defeqProjPair`. -/
 def defeqProjPairI (eager : Bool) (lv : Nat) (depth : Nat) (a b : Expr) :
     CheckCM Bool :=
-  match Expr.getAppFn a, Expr.getAppFn b with
-  | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
-    let as ← pure (Expr.getAppArgsC a)
-    let bs ← pure (Expr.getAppArgsC b)
-    if s₁ == s₂ && i₁ == i₂ && as.length == bs.length then
-      lazyDeltaProjReductionI eager lv depth s₁ i₁ as bs defeqLoopFuel e₁ e₂
+  match a, b with
+  | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ =>
+    if s₁ == s₂ && i₁ == i₂ then
+      lazyDeltaProjReductionI eager lv depth s₁ i₁ defeqLoopFuel e₁ e₂
     else pure false
   | _, _ => pure false
 termination_by (lv, 61, 0, 0)

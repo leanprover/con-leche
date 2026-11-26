@@ -126283,7 +126283,7 @@ e2e 635/635, arena tutorial 90/92 as recorded, trusted/`--jobs=1`/`--jobs=4` swe
 self-check both forms, 77 axiom pins, shake, pub-imports, plain-reach, binary-link, link and
 quote gates).
 
-## TASK #633 — applied projections compared by their structures, lazily (lean4#16613) (2026-11-25, agent/633-proj-app-lazy)
+## TASK #633 — applied projections compared by their structures, lazily (lean4#16613) — REVERTED by #637 (2026-11-25, agent/633-proj-app-lazy)
 
 **Why.**  The arena test `perf/proj-app-lazy-delta` (from
 [lean4#16613](https://github.com/leanprover/lean4/issues/16613)) compares `small.1 a =?= (big N).1 a`
@@ -126419,3 +126419,39 @@ records at the stream's names.
 * Verdicts: `tower_quot` and `basis_quot_lift_type_bad` 2 → 1 (`tests/e2e-expected.txt`,
   the tower battery in `tests/arena.sh`); `tower_axiom` stays 2.
 * Proofs: unchanged (they propagate the error, whatever its kind).
+
+## TASK #637 — #633 reverted: applied projections again as in the official kernel (2026-11-26, agent/637-revert-633; base master 9de5e511d)
+
+Maintainer's ruling: revert #633 (the lazy comparison of applied projections,
+lean4#16613), on master and on `renovation`.  #634 (the node hash) stays.
+
+**Why.**  The arena test `perf/ite-taken-branch` compares
+`(if true = true then piA else tA) =?= piA`, where `piA := invCand 300 tA` is
+computed by a `for` loop over `Array.set!` in `Id`.  With #633 con-leche ran
+past the test's 230 s (and con-ron, its port, out of memory); without it, 80.8 G
+instructions, accepted (a9446bf83 with `a89a30f4c`/`5a45beb0d` reverted; #634
+reverted alone: still a timeout).  Rewriting `invCand` as structural recursion
+(same `Array.set!` and `t[i]!`) makes the two builds equal, 78.5 G each: the
+regression is specific to the loop in `Id`, which steps through the fields of
+`Id`'s `Monad`/`ForIn` instances, i.e. projections applied to the loop's
+intermediate states.  #633 compared such a pair argument by argument once the
+instances agreed (at once); those arguments are two points of the same
+computation, and comparing them costs far more than the evaluation the official
+order then does anyway.  The profile is the hash-orbit signature of #634's
+record (`Expr.beqGoX` and memo probes on long terms), so the detour builds terms
+the official order never builds.  Which pair exactly, and why the cost is
+super-linear rather than doubled, was not traced.
+
+**Lesson.**  Argument-wise comparison of two applications of the same
+projection is not the same heuristic as official's same-head-constant
+argument comparison: class-instance fields are applied to the computation's
+data (every `bind` of a `do` block), so the pair is common in evaluation, and a
+departure from official's order here needs evidence from evaluation-heavy
+input, not only from Init and the Mathlib prefix.
+
+**Cost.**  #633's saving goes: init-full and the Mathlib prefix about +1.3 % back
+(its record: −1.35 % / −1.22 %).
+
+**Removed with it.**  The e2e fixture `proj_app_lazy_delta` (it times out again,
+like official, lean4#16613) and the OVERVIEW §14 departure line.  `ite-taken-branch`
+gets no e2e fixture: its export is 4.5 MB; the arena runs it.

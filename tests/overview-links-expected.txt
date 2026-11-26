@@ -264,26 +264,26 @@
 == ConLeche/Kernel/Core.lean#L1157
   1157  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1887-L1905
-  1887  def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  1888    fun depth a b => do
-  1889      if a == b then pure true else
-  1890      match ctorTargetFor env eager a b with
-  1891      | some c =>
-  1892        let w ← r.whnf depth a
-  1893        match ctorHeadAgainst env c w with
-  1894        | some true => defeqLazy mode eager r env depth w b
-  1895        | some false => pure false
-  1896        | none => defeqLazy mode eager r env depth a b
-  1897      | none =>
-  1898      match ctorTargetFor env eager b a with
-  1899      | some c =>
-  1900        let w ← r.whnf depth b
-  1901        match ctorHeadAgainst env c w with
-  1902        | some true => defeqLazy mode eager r env depth a w
-  1903        | some false => pure false
-  1904        | none => defeqLazy mode eager r env depth a b
-  1905      | none => defeqLazy mode eager r env depth a b
+== ConLeche/Kernel/Core.lean#L1866-L1884
+  1866  def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
+  1867    fun depth a b => do
+  1868      if a == b then pure true else
+  1869      match ctorTargetFor env eager a b with
+  1870      | some c =>
+  1871        let w ← r.whnf depth a
+  1872        match ctorHeadAgainst env c w with
+  1873        | some true => defeqLazy mode eager r env depth w b
+  1874        | some false => pure false
+  1875        | none => defeqLazy mode eager r env depth a b
+  1876      | none =>
+  1877      match ctorTargetFor env eager b a with
+  1878      | some c =>
+  1879        let w ← r.whnf depth b
+  1880        match ctorHeadAgainst env c w with
+  1881        | some true => defeqLazy mode eager r env depth a w
+  1882        | some false => pure false
+  1883        | none => defeqLazy mode eager r env depth a b
+  1884      | none => defeqLazy mode eager r env depth a b
 
 == ConLeche/Kernel/Core.lean#L1341
   1341  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=

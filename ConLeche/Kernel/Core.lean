@@ -1686,55 +1686,34 @@ def lazyDeltaReduction (eager : Bool) (r : CoreFns m) (env : Env) (depth : Nat) 
     | .diff => pure (.verdict false)
     | .unknown => pure (.unknown a b)
 
-/-- **`a.i as =?= b.i bs` by its scrutinees** (the official kernel's
-`lazy_delta_proj_reduction`, extended to applied projections, task #633):
-lazy-delta steps on the two scrutinees; once a step finds them equal,
-the argument lists are compared, last to first as in `defeqSpine`
-(official `is_def_eq_args`: a differing last argument such as
-`1 =?= 2` in `inst.1 (M+1) 1 =?= inst.1 M 2` fails at once, where
-`M+1 =?= M` would descend through every `succ` of `M`).  When neither unfolds any more (or the
-step found them different), a bare pair (`as = bs = []`) is projected on
-both sides (`reduceProjCore`) and only the projected fields are
-compared, failing that the scrutinees themselves; an applied pair gives
-up here (`false`), and `defeqLazy` goes on to the full `whnfCore`, as
-the official kernel does for every applied pair.
-
-**The deviation (task #633, lean4#16613).**  The official kernel runs
-this loop on bare projections only; two applied projections
-`s.i a =?= t.i a` have their structures reduced to constructors first,
-even where one delta step makes `s` and `t` equal (Mathlib's `Set` is a
-structure, so `a ∈ s` is such an applied projection).  The loop decides
-nothing the restart would not: a `true` here is projection and
-application congruence, and every other outcome falls through to the
-official path. -/
+/-- **`a.i =?= b.i` by its scrutinees** (the official kernel's
+`lazy_delta_proj_reduction`): lazy-delta steps on the two scrutinees;
+when neither unfolds any more (or the step found them different), the
+projection is tried on both (`reduceProjCore`) and only the projected
+fields are compared; failing that, the scrutinees themselves. -/
 def lazyDeltaProjReduction (r : CoreFns m) (env : Env) (depth : Nat)
-    (sn : Name) (i : Nat) (as bs : List Expr) : Nat → Expr → Expr → m Bool
+    (sn : Name) (i : Nat) : Nat → Expr → Expr → m Bool
   | 0, _, _ => throw (.internal "fuel exhausted: lazy delta projection loop")
   | n + 1, a, b => do
     match ← lazyDeltaStep mode r env depth a b with
-    | .cont a' b' => lazyDeltaProjReduction r env depth sn i as bs n a' b'
-    | .eq => defEqList r env depth as.reverse bs.reverse
+    | .cont a' b' => lazyDeltaProjReduction r env depth sn i n a' b'
+    | .eq => pure true
     | .diff | .unknown =>
-      if as.isEmpty && bs.isEmpty then
-        match ← reduceProjCore mode r env depth sn i a with
-        | some x =>
-          match ← reduceProjCore mode r env depth sn i b with
-          | some y => r.defeq depth x y
-          | none => r.defeq depth a b
+      match ← reduceProjCore mode r env depth sn i a with
+      | some x =>
+        match ← reduceProjCore mode r env depth sn i b with
+        | some y => r.defeq depth x y
         | none => r.defeq depth a b
-      else pure false
+      | none => r.defeq depth a b
 
 /-- The proj/proj check of `is_def_eq_core`: two projections at the
-same slot, bare or applied to equally many arguments, go through
-`lazyDeltaProjReduction` on their scrutinees. -/
+same slot go through `lazyDeltaProjReduction` on their scrutinees. -/
 def defeqProjPair (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool :=
-  match a.getAppFn, b.getAppFn with
+  match a, b with
   | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ =>
-    if s₁ == s₂ && i₁ == i₂ &&
-        a.getAppArgs.length == b.getAppArgs.length then
-      lazyDeltaProjReduction mode r env depth s₁ i₁ a.getAppArgs
-        b.getAppArgs defeqLoopFuel e₁ e₂
+    if s₁ == s₂ && i₁ == i₂ then
+      lazyDeltaProjReduction mode r env depth s₁ i₁ defeqLoopFuel e₁ e₂
     else pure false
   | _, _ => pure false
 

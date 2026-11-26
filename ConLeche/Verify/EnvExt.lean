@@ -299,11 +299,10 @@ theorem lazyDeltaReduction_rel (K : KR env₁ r₂ r₁) (d : Nat) (mode : Check
 
 omit K hx in
 theorem lazyDeltaProjReduction_rel (K : KR env₁ r₂ r₁) (d : Nat) (mode : CheckMode)
-    (hx : EnvExt env₁ env₂) {sn : Name} (i : Nat) (hsn : (env₁.find? sn).isSome = true)
-    {as bs : List Expr} (has : ∀ x ∈ as, Res env₁ x) (hbs : ∀ x ∈ bs, Res env₁ x) :
+    (hx : EnvExt env₁ env₂) {sn : Name} (i : Nat) (hsn : (env₁.find? sn).isSome = true) :
     ∀ (n : Nat) {a b : Expr}, Res env₁ a → Res env₁ b →
-      Rel TT (lazyDeltaProjReduction mode r₂ env₂ d sn i as bs n a b)
-        (lazyDeltaProjReduction mode r₁ env₁ d sn i as bs n a b)
+      Rel TT (lazyDeltaProjReduction mode r₂ env₂ d sn i n a b)
+        (lazyDeltaProjReduction mode r₁ env₁ d sn i n a b)
   | 0, _, _, _, _ => Rel.err _
   | n + 1, a, b, ha, hb => by
     simp only [lazyDeltaProjReduction]
@@ -330,27 +329,18 @@ theorem lazyDeltaProjReduction_rel (K : KR env₁ r₂ r₁) (d : Nat) (mode : C
         | some y => exact K.defeq d (ho _ rfl) (ho' _ rfl)
     refine Rel.bind (lazyDeltaStep_rel K d mode hx ha hb) fun st hst => ?_
     cases st with
-    | cont a' b' => exact lazyDeltaProjReduction_rel K d mode hx i hsn has hbs n hst.1 hst.2
-    | eq =>
-      have has' : ∀ x ∈ as.reverse, Res env₁ x := fun x hx => has x (List.mem_reverse.mp hx)
-      have hbs' : ∀ x ∈ bs.reverse, Res env₁ x := fun x hx => hbs x (List.mem_reverse.mp hx)
-      exact defEqList_rel K d _ _ has' hbs'
-    | diff => exact Rel.ite (fun _ => htail) fun _ => Rel.ok trivial
-    | unknown => exact Rel.ite (fun _ => htail) fun _ => Rel.ok trivial
+    | cont a' b' => exact lazyDeltaProjReduction_rel K d mode hx i hsn n hst.1 hst.2
+    | eq => exact Rel.ok trivial
+    | diff => exact htail
+    | unknown => exact htail
 
 theorem defeqProjPair_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
     Rel TT (defeqProjPair mode r₂ env₂ d a b) (defeqProjPair mode r₁ env₁ d a b) := by
   unfold defeqProjPair
-  have hfa := res_getAppFn ha
-  have hfb := res_getAppFn hb
-  split
-  · next ha' hb' =>
-    rw [ha'] at hfa
-    rw [hb'] at hfb
-    exact Rel.ite (fun _ => lazyDeltaProjReduction_rel K d mode hx _ (res_proj.mp hfa).1
-      (res_getAppArgs ha) (res_getAppArgs hb) _ (res_proj.mp hfa).2 (res_proj.mp hfb).2)
-      fun _ => Rel.ok trivial
-  · exact Rel.ok trivial
+  cases a <;> cases b <;> first
+    | exact Rel.ok trivial
+    | exact Rel.ite (fun _ => lazyDeltaProjReduction_rel K d mode hx _ (res_proj.mp ha).1 _
+        (res_proj.mp ha).2 (res_proj.mp hb).2) fun _ => Rel.ok trivial
 
 theorem defeqStuck_rel {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
     Rel TT (defeqStuck mode r₂ env₂ d a b) (defeqStuck mode r₁ env₁ d a b) := by

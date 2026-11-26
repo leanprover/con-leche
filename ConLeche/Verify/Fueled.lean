@@ -635,14 +635,14 @@ theorem lazyDeltaReduction_atF (d : Nat) (F : Nat) :
     unfold lazyDeltaReduction
     atF_core3 (first | rw [lazyDeltaStep_atF] | rw [defeqOffset_atF] | rw [lazyDeltaReduction_atF d F n])
 
-theorem lazyDeltaProjReduction_atF (d : Nat) (sn : Name) (i : Nat) (as bs : List Expr) (F : Nat) :
+theorem lazyDeltaProjReduction_atF (d : Nat) (sn : Name) (i : Nat) (F : Nat) :
     ∀ (n : Nat) (a b : Expr),
-      (lazyDeltaProjReduction mi (fueledFns mode eager env) env d sn i as bs n a b).val F =
-        lazyDeltaProjReduction mi (pureFns mode eager env F) env d sn i as bs n a b
+      (lazyDeltaProjReduction mi (fueledFns mode eager env) env d sn i n a b).val F =
+        lazyDeltaProjReduction mi (pureFns mode eager env F) env d sn i n a b
   | 0, _, _ => rfl
   | n + 1, a, b => by
     unfold lazyDeltaProjReduction
-    atF_core3 (first | rw [lazyDeltaStep_atF] | rw [reduceProjCore_atF] | rw [defEqList_atF] | rw [lazyDeltaProjReduction_atF d sn i as bs F n])
+    atF_core3 (first | rw [lazyDeltaStep_atF] | rw [reduceProjCore_atF] | rw [lazyDeltaProjReduction_atF d sn i F n])
 
 theorem defeqProjPair_atF (d : Nat) (a b : Expr) (F : Nat) :
     (defeqProjPair mi (fueledFns mode eager env) env d a b).val F =

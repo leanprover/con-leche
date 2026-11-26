@@ -334,9 +334,6 @@ arena_half() {
 # lit_hash_low_bits: BELOW the default — checks in under a second, and a
 # literal hash that reads only the low 64 bits (lean4#15686) makes it
 # quadratic, minutes, so it fails here instead.
-# proj_app_lazy_delta: BELOW the default — checks at once, and a checker
-# that reduces the structures of applied projections before comparing
-# them (task #633, lean4#16613) evaluates four billion steps.
 # whnf_delta_loop, whnf_core_loop: their expected verdict IS the timeout
 # (exit 124: a head normalization that does not terminate, run in
 # constant stack); 5 s is plenty to tell it from a stack overflow.
@@ -346,7 +343,6 @@ declare -A E2E_TIMEOUT=(
   [complete_c05b_nest30_pi1000.ndjson]=600
   [proj_stuck_struct.ndjson]=10
   [strict_succ_counter.ndjson]=10
-  [proj_app_lazy_delta.ndjson]=10
   [omega_kloop.ndjson]=10
   [omega_demo2.ndjson]=10
   [k_rescue_stuck.ndjson]=10
