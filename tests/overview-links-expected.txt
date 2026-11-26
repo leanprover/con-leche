@@ -264,26 +264,26 @@
 == ConLeche/Kernel/Core.lean#L1211
   1211  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1941-L1959
-  1941  def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  1942    fun depth a b => do
-  1943      if a == b then pure true else
-  1944      match ctorTargetFor env eager a b with
-  1945      | some c =>
-  1946        let w ← r.whnf depth a
-  1947        match ctorHeadAgainst env c w with
-  1948        | some true => defeqLazy mode eager r env depth w b
-  1949        | some false => pure false
-  1950        | none => defeqLazy mode eager r env depth a b
-  1951      | none =>
-  1952      match ctorTargetFor env eager b a with
-  1953      | some c =>
-  1954        let w ← r.whnf depth b
-  1955        match ctorHeadAgainst env c w with
-  1956        | some true => defeqLazy mode eager r env depth a w
-  1957        | some false => pure false
-  1958        | none => defeqLazy mode eager r env depth a b
-  1959      | none => defeqLazy mode eager r env depth a b
+== ConLeche/Kernel/Core.lean#L1920-L1938
+  1920  def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
+  1921    fun depth a b => do
+  1922      if a == b then pure true else
+  1923      match ctorTargetFor env eager a b with
+  1924      | some c =>
+  1925        let w ← r.whnf depth a
+  1926        match ctorHeadAgainst env c w with
+  1927        | some true => defeqLazy mode eager r env depth w b
+  1928        | some false => pure false
+  1929        | none => defeqLazy mode eager r env depth a b
+  1930      | none =>
+  1931      match ctorTargetFor env eager b a with
+  1932      | some c =>
+  1933        let w ← r.whnf depth b
+  1934        match ctorHeadAgainst env c w with
+  1935        | some true => defeqLazy mode eager r env depth a w
+  1936        | some false => pure false
+  1937        | none => defeqLazy mode eager r env depth a b
+  1938      | none => defeqLazy mode eager r env depth a b
 
 == ConLeche/Kernel/Core.lean#L1006
   1006  def recEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :

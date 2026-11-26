@@ -592,46 +592,43 @@ specification (the induction hypothesis as an atom). -/
 @[expose] def LazyProjSpec (mode : CheckMode) (eager : Bool) (env : Env) (f d : Nat) (sn : Name)
     (ip n : Nat) :
     Prop :=
-  ∀ {as bs : List Expr} {a b : Expr} {s₀ : CState}, CSOK mode eager env s₀ → AllWS d as →
-    AllWS d bs → Expr.WScoped d a → Expr.WScoped d b →
+  ∀ {a b : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d a → Expr.WScoped d b →
     ⦃fun s => s = s₀⦄
-      lazyDeltaProjReductionI mode (mkFEnv env) eager f d sn ip as bs n a b
+      lazyDeltaProjReductionI mode (mkFEnv env) eager f d sn ip n a b
     ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (lazyDeltaProjReduction mode (fueledFns mode eager env) env d sn ip as bs n a b) v; ⊤⦄
+      Runs (lazyDeltaProjReduction mode (fueledFns mode eager env) env d sn ip n a b) v; ⊤⦄
 
 theorem LazyProjSpec.triple {d : Nat} {sn : Name} {ip n : Nat}
-    (h : LazyProjSpec mode eager env f d sn ip n) {as bs : List Expr} {a b : Expr} {s₀ : CState}
-    (hs : CSOK mode eager env s₀) (has : AllWS d as) (hbs : AllWS d bs)
-    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    (h : LazyProjSpec mode eager env f d sn ip n) {a b : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     ⦃fun s => s = s₀⦄
-      lazyDeltaProjReductionI mode (mkFEnv env) eager f d sn ip as bs n a b
+      lazyDeltaProjReductionI mode (mkFEnv env) eager f d sn ip n a b
     ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (lazyDeltaProjReduction mode (fueledFns mode eager env) env d sn ip as bs n a b) v; ⊤⦄ :=
-  h hs has hbs hwa hwb
+      Runs (lazyDeltaProjReduction mode (fueledFns mode eager env) env d sn ip n a b) v; ⊤⦄ :=
+  h hs hwa hwb
 
 /-- By induction on the step budget. -/
 theorem lazyProjSpec_all (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {sn : Name}
     {ip : Nat} (n : Nat) : LazyProjSpec mode eager env f d sn ip n := by
   induction n with
   | zero =>
-    intro as bs a b s₀ hs _ _ _ _
+    intro a b s₀ hs _ _
     sym only [conleche_grind] => vcgen [lazyDeltaProjReductionI.eq_def] <;> finish
   | succ n ihn =>
-    intro as bs a b s₀ hs _ _ _ _
+    intro a b s₀ hs _ _
     sym only [conleche_grind, lazyDeltaProjReduction] =>
       vcgen [lazyDeltaProjReductionI.eq_def, lazyDeltaStepC_spec ih henv, reduceProjCoreC_spec ih,
-        ih.defeq_spec, defEqListC_spec ih, ihn.triple] <;> finish
+        ih.defeq_spec, ihn.triple] <;> finish
 
 /-- `lazy_delta_proj_reduction` simulates its specification. -/
 theorem lazyDeltaProjReductionC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat}
-    {sn : Name} {ip : Nat} (n : Nat) {as bs : List Expr} {a b : Expr} {s₀ : CState}
-    (hs : CSOK mode eager env s₀) (has : AllWS d as) (hbs : AllWS d bs)
+    {sn : Name} {ip : Nat} (n : Nat) {a b : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     ⦃fun s => s = s₀⦄
-      lazyDeltaProjReductionI mode (mkFEnv env) eager f d sn ip as bs n a b
+      lazyDeltaProjReductionI mode (mkFEnv env) eager f d sn ip n a b
     ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (lazyDeltaProjReduction mode (fueledFns mode eager env) env d sn ip as bs n a b) v; ⊤⦄ :=
-  LazyProjSpec.triple (lazyProjSpec_all ih henv n) hs has hbs hwa hwb
+      Runs (lazyDeltaProjReduction mode (fueledFns mode eager env) env d sn ip n a b) v; ⊤⦄ :=
+  LazyProjSpec.triple (lazyProjSpec_all ih henv n) hs hwa hwb
 
 /-- The proj/proj check simulates its specification. -/
 theorem defeqProjPairC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}

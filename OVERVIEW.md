@@ -780,7 +780,7 @@ projection and quotient reduction; [`whnf`](https://github.com/leanprover/con-le
 also unfolds definitions and reduces supported `Nat` operations on literals.
 Theorems are opaque: reduction never unfolds their values.
 
-[Definitional equality](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1941-L1959)
+[Definitional equality](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1920-L1938)
 uses lazy unfolding, function and structure η, proof irrelevance, and the
 inductive type's flags for unit-likeness and K-like reduction. A recursor of a
 K-like or η type, applied to fewer arguments than its major premise needs, is
@@ -1450,13 +1450,6 @@ ConLeche uses the following conversion and elimination rules:
   never a proposition, has no η law and is not `Nat`, the other side is
   head-normalized at once. The official kernel does this only for
   `Bool.true` (§3).
-* Two applications of the same projection to equally many arguments,
-  `s.i a₁ … aₙ` and `t.i b₁ … bₙ`, are compared like bare projections:
-  `s` and `t` are unfolded lazily, and once they agree the arguments are
-  compared; otherwise the comparison continues as in the official kernel.
-  The official kernel reduces `s` and `t` to constructors first,
-  which can be expensive where one unfolding step makes them equal
-  ([lean4#16613](https://github.com/leanprover/lean4/issues/16613)).
 * A `Nat` literal's hash reads all its bits; the released kernel hashes its
   low 64 bits, so literals that agree there share a memo bucket (§9).
 

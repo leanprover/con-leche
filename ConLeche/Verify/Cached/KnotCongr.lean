@@ -673,13 +673,12 @@ theorem lazyDeltaReductionI_congr (hfe : fe₁.find? = fe₂.find?) (h : SlotsEq
 theorem lazyDeltaProjReductionI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
     lazyDeltaProjReductionI mode fe₁ eager lv = lazyDeltaProjReductionI mode fe₂ eager lv := by
-  funext depth sn i as bs n
+  funext depth sn i n
   induction n with
   | zero => funext a b; rw [lazyDeltaProjReductionI.eq_def, lazyDeltaProjReductionI.eq_def]
   | succ n ih =>
     funext a b; rw [lazyDeltaProjReductionI.eq_def, lazyDeltaProjReductionI.eq_def]
-    simp only [ih, lazyDeltaStepI_congr hfe h, reduceProjCoreI_congr hfe htb h,
-      defEqListI_congr hfe h, h]
+    simp only [ih, lazyDeltaStepI_congr hfe h, reduceProjCoreI_congr hfe htb h, h]
 
 /-- `defeqStuckI` reads `fe` only through `find?` and `findTable?`. -/
 theorem defeqStuckI_congr (hfe : fe₁.find? = fe₂.find?)
