@@ -126836,3 +126836,64 @@ input, not only from Init and the Mathlib prefix.
 **Removed with it.**  The e2e fixture `proj_app_lazy_delta` (it times out again,
 like official, lean4#16613) and the OVERVIEW §14 departure line.  `ite-taken-branch`
 gets no e2e fixture: its export is 4.5 MB; the arena runs it.
+
+## TASK #638 — the node hash combines children with `mixHash32`, as lean4#16107 (2026-11-26, agent/638-mixhash32; base master 5a851da56)
+
+**Why.**  After #634 and #637, con-leche still timed out on the arena test
+`perf/proj-app-lazy-delta` (> 120 s; official v4.33.0 12.62 G instructions).  It
+evaluates `slow 100000`, an `acc + 1` chain, and 97 % of the time was
+`Expr.beqGoX`: the chain's 32-bit hashes repeat (with con-leche's hash at step
+49 162, tail 36 253, cycle 12 909; computed with our own `Expr.hash`), and from
+there every whnf-memo lookup on a chain element walks an older one.  #634's
+model is right: across 150 random contexts, the old combine on 32-bit hashes,
+official's v4.36 combine on 64-bit data words, and our #634 combine all run
+into a cycle after 79k–88k steps on average.  Official's `Lean.Expr.hash` has
+no repeat within 400k steps on this chain: luck of its context, not design.
+
+**Upstream.**  lean4#16107 (2026-10-30, first in v4.37.0-rc1) fixed exactly
+this: `mixHash32 : UInt32 → UInt32 → UInt32`, the block step of
+MurmurHash3_x86_32, a bijection in each argument when the other is fixed,
+combines the 32-bit hashes of subterms in `Expr.data`.  Then a fixed-context
+chain's hash step is a bijection, and its hashes repeat only by returning to
+the start's (about 2³¹ steps on average).  The PR also gives `lam`/`forallE`
+distinct tags (we had them), hashes `letE`'s `nondep` (we have no such flag)
+and drops `approxDepth` from the hash (we never mixed it in).
+
+**The change.**  `Kernel/MixHash.lean`: `mixHash32` as an `@[inline] def`
+with upstream's arithmetic, pinned by `#guard`s against five values of
+upstream's C (`ExprHashTests`).  `Expr.data`: `mix32 h k` (the two 32-bit
+hashes through `mixHash32`) for every child: an application is
+`mix32 h_f h_a`; `lam`/`forallE`/`letE` fold tag 29/31/37 and their children
+in order; `proj` and `fvar` mix their 64-bit leaf values with `mixHash` into
+one 32-bit tag word first, then `mix32` the child.  Leaves are unchanged.  No
+proof reads hash values; nothing else changed.  At the bump to v4.37 the
+module goes and `Expr.data` uses Init's `mixHash32`.
+
+**Lean, not vendored C** (maintainer: vendor the C, then "if pure lean is
+faster, sure").  A vendored `lean_uint32_mix_hash` is seen by Lean's generated
+C only through a prototype, so every combine was an out-of-line call; the
+Lean `UInt32` operations compile to `lean.h`'s `static inline` arithmetic and
+inline into `Expr.app` and the other constructors (checked in the generated
+`Expr.c`), the code v4.37's `static inline` C gives.
+
+**Measurements** (instructions:u, `--jobs=1`, one run each; master / vendored C /
+Lean): init-full 252.700 / 254.338 / 252.699 G (Lean −0.00 % against master,
+C +0.65 %); the 21 arena perf streams of `_tmp/ref/arena-tests/good/perf`:
+Lean within −0.06/+0.63 % of master (let-ladder +0.63 %, beta-ladder +0.48 %,
+the rest within ±0.21 %), C 0.3–2.3 % above Lean on every one.  The two arena
+tests, re-exported with v4.36.0's `leanexport` (the arena's exports are in
+lean4export 3.2.0, which only `renovation` reads): `proj-app-lazy-delta`
+master timeout (120 s) → 11.36 G (official v4.33.0 12.62 G);
+`ite-taken-branch` 80.69 → 80.69 G (official 136.8 G).
+
+**Tests.**  `ExprHashTests`: the `mixHash32` values; bijectivity in the
+function slot (as before) and in the argument slot (2^18 variables as
+arguments); an `acc + 1` chain of 2^18 steps with no repeated hash.  No e2e
+fixture: the unit test pins the property, and the arena runs the test.
+
+**Also touched.**  The three pinners with an explicit module cone
+(v4.33.0, v4.34.0-rc2, nightly-2026-09-10) list `Kernel/MixHash`; the
+nightly-2026-11-16 pinner, whose Init has its own `mixHash32`, builds
+unchanged (`ConLeche.mixHash32` shadows it inside the namespace).  The
+whitepaper's citations of `Kernel/Expr.lean` moved by one and seven lines.
+OVERVIEW §14 lists the combine beside the literal hash.

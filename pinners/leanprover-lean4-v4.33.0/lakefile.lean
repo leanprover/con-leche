@@ -23,6 +23,7 @@ open System Lake DSL
 --     ConLeche.PinGen.Certs                  the certificate theorems
 --     ConLeche.Kernel.{PtrDecEq,Name,PropWhen,Exclusive,Expr}
 --                                            the checker's Expr datatypes
+--     ConLeche.Kernel.MixHash                the node-hash combinator
 --     ConLeche.Kernel.NatHash                the literal hash (its C below)
 --
 -- — and the last two lines are the reason the generator is not free-standing:
@@ -62,7 +63,7 @@ lean_lib ConLecheShared where
   srcDir := "../.."
   roots := #[`ConLeche.PinGen, `ConLeche.PinGen.Dump, `ConLeche.PinGen.Prelude,
     `ConLeche.PinGen.Certs, `ConLeche.Kernel.Name, `ConLeche.Kernel.PropWhen,
-    `ConLeche.Kernel.Expr, `ConLeche.Kernel.Exclusive]
+    `ConLeche.Kernel.Expr, `ConLeche.Kernel.Exclusive, `ConLeche.Kernel.MixHash]
 
 lean_lib PinnerFork where
   srcDir := "."

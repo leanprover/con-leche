@@ -3,6 +3,7 @@ module
 public import ConLeche.Kernel.Name
 public import ConLeche.Kernel.Exclusive
 public import ConLeche.Kernel.NatHash
+public import ConLeche.Kernel.MixHash
 
 /-!
 # Kernel expressions
@@ -290,6 +291,12 @@ the roundtrip lemmas `omega`-provable. -/
 /-- Truncate a mixed hash to the packed word's 32 bits. -/
 @[inline] def hash32 (w : UInt64) : UInt64 := w % 4294967296
 
+/-- Combine two 32-bit hashes (held in `UInt64`s) with `mixHash32`, the
+combinator that is a bijection in each argument when the other is fixed
+(`Kernel/MixHash.lean`, lean4#16107). -/
+@[inline] def mix32 (h k : UInt64) : UInt64 :=
+  (mixHash32 h.toUInt32 k.toUInt32).toUInt64
+
 /-- A leaf's range field: `n + 1`, saturating. -/
 @[inline] def satSucc (n : Nat) : UInt64 := UInt64.ofNat (min (n + 1) satRange)
 
@@ -440,22 +447,22 @@ with
   /-- The packed derived-data word: `hash` (32) ǀ reserved (1) ǀ
   `bvarB` (15, saturating) ǀ `fvarB` (15, saturating) ǀ `hasLP` (1).
 
-  Truncated to the 32 bits kept here, `mixHash h k` is a bijection in
-  the low 32 bits of `h` and ignores the rest of `h`; it reads all of `k`
-  but loses information there (like a random function).  So every
-  64-bit value (an index, a name's, level's or literal's hash) enters
-  through `k`, and every child's 32-bit hash passes through `k` at most
-  once: an application keeps `f` in the `h` slot and the tag last.  On a
+  A node combines its children's 32-bit hashes with `mix32`
+  (`mixHash32`, lean4#16107), which is a bijection in each argument when
+  the other is fixed: an application is `mix32 h_f h_a`, a binder or a
+  let-expression folds a tag and its children in order, a projection and
+  an `fvar` put their 64-bit leaf values into one tag word first.  So on a
   chain `x ↦ C[x]` with a fixed context `C` (an accumulator `acc + 1`, a
-  successor tower) the hashes run through a random-function orbit, which
-  closes after about `√(π·2³²/2) ≈ 82k` steps; every lossy pass more per
-  step shortens that, and from there each memo lookup collides with an
-  older chain element and the structural comparison walks it (task #634). -/
+  successor tower) the hash step is a bijection, and the hashes repeat
+  only by returning to the start's.  Leaves (indices, names, levels,
+  literals) mix their 64-bit values with `mixHash` and keep its low 32
+  bits; nothing chains through a leaf, so the loss there is harmless
+  (tasks #634, #638). -/
   @[computed_field] data : Expr → UInt64
     | .bvar i =>
       packData (hash32 (mixHash 3 (Hashable.hash i))) (satSucc i) 0 false
     | .fvar idx ty =>
-      packData (hash32 (mixHash (mixHash 5 (Hashable.hash idx))
+      packData (hash32 (mix32 (hash32 (mixHash 5 (Hashable.hash idx)))
           (hashOfData ty.data)))
         0 (satSucc idx) (lpOfData ty.data)
     | .sort u =>
@@ -464,27 +471,25 @@ with
       packData (hash32 (mixHash 11 (mixHash (Hashable.hash n)
           (levelsHash us)))) 0 0 (levelsHaveParam us)
     | .app f a =>
-      packData (hash32 (mixHash
-          (mixHash (hashOfData f.data) (hashOfData a.data)) 17))
+      packData (hash32 (mix32 (hashOfData f.data) (hashOfData a.data)))
         (max (bvarOfData f.data) (bvarOfData a.data))
         (max (fvarOfData f.data) (fvarOfData a.data))
         (lpOfData f.data || lpOfData a.data)
     | .lam ty b =>
-      packData (hash32 (mixHash
-          (mixHash (hashOfData ty.data) (hashOfData b.data)) 19))
+      packData (hash32 (mix32 (mix32 29 (hashOfData ty.data))
+          (hashOfData b.data)))
         (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
         (max (fvarOfData ty.data) (fvarOfData b.data))
         (lpOfData ty.data || lpOfData b.data)
     | .forallE ty b =>
-      packData (hash32 (mixHash
-          (mixHash (hashOfData ty.data) (hashOfData b.data)) 23))
+      packData (hash32 (mix32 (mix32 31 (hashOfData ty.data))
+          (hashOfData b.data)))
         (max (bvarOfData ty.data) (satPred (bvarOfData b.data)))
         (max (fvarOfData ty.data) (fvarOfData b.data))
         (lpOfData ty.data || lpOfData b.data)
     | .letE ty v b =>
-      packData (hash32 (mixHash
-          (mixHash (mixHash (hashOfData ty.data) (hashOfData v.data))
-            (hashOfData b.data)) 29))
+      packData (hash32 (mix32 (mix32 (mix32 37 (hashOfData ty.data))
+          (hashOfData v.data)) (hashOfData b.data)))
         (max (max (bvarOfData ty.data) (bvarOfData v.data))
           (satPred (bvarOfData b.data)))
         (max (max (fvarOfData ty.data) (fvarOfData v.data))
@@ -492,8 +497,8 @@ with
         (lpOfData ty.data || lpOfData v.data || lpOfData b.data)
     | .lit l => packData (hash32 (mixHash 31 (Hashable.hash l))) 0 0 false
     | .proj s i e =>
-      packData (hash32 (mixHash
-          (mixHash (mixHash 37 (Hashable.hash s)) (Hashable.hash i))
+      packData (hash32 (mix32
+          (hash32 (mixHash (mixHash 23 (Hashable.hash s)) (Hashable.hash i)))
           (hashOfData e.data)))
         (bvarOfData e.data) (fvarOfData e.data) (lpOfData e.data)
 deriving Repr, Inhabited
