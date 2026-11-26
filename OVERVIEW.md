@@ -1386,6 +1386,11 @@ ConLeche uses the following conversion and elimination rules:
   `Bool.true` (§3).
 * A `Nat` literal's hash reads all its bits; the released kernel hashes its
   low 64 bits, so literals that agree there share a memo bucket (§9).
+* A term's hash combines its subterms' hashes with a function that is a
+  bijection in each argument, as Lean does from v4.37. The released
+  kernel's combination loses information in the argument, so along a long
+  chain `f (f (… a))` the hashes repeat and memo lookups compare the
+  chain's terms structurally.
 
 The soundness proof covers the checker's acceptances beyond the official
 kernel.
