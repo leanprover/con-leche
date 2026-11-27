@@ -40,7 +40,7 @@ only at EXACTLY ONE constructor. -/
 theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
     (∃ c : ConstantVal × Nat, (p₁.members.getD mi default).ctors = [c] ∧
       ConLeche.blockCapsAt p₁ mi isRec =
-        { eta := (p₁.members.getD mi default).nIdx == 0 && !isRec
+        { eta := (p₁.members.getD mi default).nIdx == 0 && !isRec && (p₁.flagsAt mi).hasEta
           all := p₁.memberNames
           nparams := p₁.nP
           nIdx := (p₁.members.getD mi default).nIdx

@@ -46,7 +46,7 @@ theorem declBlockRun_recsWF {F : Nat} {env₁ envC : Env} (henvC : EnvWF envC) {
     (hRec : checkBlockRec (m := ConLeche.CheckM) (fueledOps .verified F) envC p₁ nestedBit
       ctx.params tbl rd Ms block = .ok out)
     (hS : streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F)
-      (mkFEnv (consBlockRecsT p₁ 0 out envC)) p₁.recs out = .ok ()) :
+      (mkFEnv (consBlockRecsT p₁ 0 out envC)) p₁.recs (p₁.ruleOut out) = .ok ()) :
     EnvWF (consBlockRecsT p₁ 0 (ConLeche.streamRecs p₁.recs out) envC) := by
   have hRec' : ConLeche.genRecCheck (fueledOps .verified F) (mkFEnv envC) p₁
       nestedBit ctx.params tbl rd Ms block = .ok out := hRec

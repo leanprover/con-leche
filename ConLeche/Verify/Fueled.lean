@@ -448,8 +448,8 @@ theorem structUnitCert_atF (d : Nat) (a b : Expr) (F : Nat) :
 -- body outgrew the split-driven macro.
 set_option maxHeartbeats 800000 in
 theorem majorToCtor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) (F : Nat) :
-    (majorToCtor mode (fueledFns mode eager env) env d c isK rules e).val F =
-      majorToCtor mode (pureFns mode eager env F) env d c isK rules e := by
+    (majorToCtor mi (fueledFns mode eager env) env d c isK rules e).val F =
+      majorToCtor mi (pureFns mode eager env F) env d c isK rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -492,8 +492,8 @@ theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
 
 theorem prepareMajor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr)
     (F : Nat) :
-    (prepareMajor mode (fueledFns mode eager env) env d c isK rules e).val F =
-      prepareMajor mode (pureFns mode eager env F) env d c isK rules e := by
+    (prepareMajor mi (fueledFns mode eager env) env d c isK rules e).val F =
+      prepareMajor mi (pureFns mode eager env F) env d c isK rules e := by
   unfold prepareMajor
   split
   · repeat (first
@@ -549,17 +549,34 @@ macro "atF_tac3" : tactic =>
     atF_step3 <;> atF_step3 <;> atF_step3 <;> atF_step3 <;>
     atF_step3 <;> atF_step3 <;> atF_step3)
 
-theorem stuckIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (stuckIrrel (fueledFns mode eager env) env d a b).val F =
-      stuckIrrel (pureFns mode eager env F) env d a b := by
-  unfold stuckIrrel
-  atF_tac3
-
 theorem iotaRec_atF (d : Nat) (e : Expr) (F : Nat) :
-    (iotaRec mode (fueledFns mode eager env) env d e).val F =
-      iotaRec mode (pureFns mode eager env F) env d e := by
+    (iotaRec mi (fueledFns mode eager env) env d e).val F =
+      iotaRec mi (pureFns mode eager env F) env d e := by
   unfold iotaRec
   atF_tac3
+
+theorem recEtaTele_atF (F : Nat) :
+    ∀ (k d : Nat) (f T : Expr),
+      (recEtaTele mi (fueledFns mode eager env) env k d f T).val F =
+        recEtaTele mi (pureFns mode eager env F) env k d f T
+  | 0, d, f, T => by
+    unfold recEtaTele
+    atF_core3 (rw [iotaRec_atF])
+  | k + 1, d, f, T => by
+    unfold recEtaTele
+    atF_core3 (rw [recEtaTele_atF F k (d + 1)])
+
+theorem recEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (recEtaCert mi (fueledFns mode eager env) env d a b).val F =
+      recEtaCert mi (pureFns mode eager env F) env d a b := by
+  unfold recEtaCert
+  atF_core3 (rw [recEtaTele_atF])
+
+theorem stuckIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (stuckIrrel mi (fueledFns mode eager env) env d a b).val F =
+      stuckIrrel mi (pureFns mode eager env F) env d a b := by
+  unfold stuckIrrel
+  atF_core3 (rw [recEtaCert_atF])
 
 theorem reduceProjCore_atF (d : Nat) (sn : Name) (i : Nat) (e : Expr) (F : Nat) :
     (reduceProjCore mi (fueledFns mode eager env) env d sn i e).val F =

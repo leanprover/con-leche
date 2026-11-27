@@ -9,7 +9,7 @@ import ConLeche.Verify.Cached.JustifyBridge
 import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Cached.BlockPushes
 import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.PinRen
+import ConLeche.Verify.Inductives.BlockShapeInv
 
 /-!
 # Accepted environments are read-scoped (task #619)
@@ -346,10 +346,6 @@ theorem justifiable_names {pd : Declaration} {cv : ConstantVal} (h : justifiable
 
 /-! ## The quotient package's records -/
 
-theorem quotAt_name (k : QuotKind) (cv : ConstantVal) :
-    (quotAt k cv).toConstantVal.name = (quotPin k).toConstantVal.name :=
-  atLps_name _ _
-
 theorem quotPin_names (k : QuotKind) :
     natOpName (quotPin k).toConstantVal.name = false ∧
       reduceOpNames.contains (quotPin k).toConstantVal.name = false := by
@@ -359,7 +355,7 @@ theorem quotPin_names (k : QuotKind) :
 no block member, and no slot takes a pinned name. -/
 theorem declQuotRun_scoped {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
     (hS : Scoped env) (hwf : EnvWF env₂) (h : DeclQuotRun env k cv env₂) : Scoped env₂ := by
-  obtain ⟨-, hp, -, rfl⟩ := h
+  obtain ⟨-, hp, -, -, rfl⟩ := h
   -- `Quot.lift`'s and `Quot.ind`'s rules fire at `Quot.mk`, stored before them
   have hM : (k = .lift ∨ k = .ind) →
       (Env.find? ⟨quotAt k cv :: env.consts, env.tables⟩ quotMkName).isSome = true := by
@@ -369,20 +365,29 @@ theorem declQuotRun_scoped {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
         simp only [quotPredsOk, Bool.and_eq_true] at hp <;> exact hp.2
     exact find?_isSome_of_sub (fun c hc => List.mem_cons_of_mem _ hc) hm
   refine hS.cons_of hwf (fun cv' mI rP isK rules he => ?_) (fun cv' caps he => ?_) ?_
-  · cases k <;> simp [quotAt, quotPin, ConstantInfo.atLps, BasisKind.decls, QuotKind.slot,
-      quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at he
-    all_goals
-      obtain ⟨-, -, -, -, rfl⟩ := he
-      intro r hr
-      simp only [List.mem_singleton] at hr
-      subst hr
-      first | exact hM (.inl rfl) | exact hM (.inr rfl)
-  · cases k <;> simp [quotAt, quotPin, ConstantInfo.atLps, BasisKind.decls, QuotKind.slot,
-      quotBasis, quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] at he
-    obtain ⟨-, rfl⟩ := he
-    intro m hm
-    exact nomatch hm
-  · rw [quotAt_name]
+  · have he' := he
+    unfold quotAt at he'
+    generalize quotLifted k cv = b at he'
+    cases k <;> cases b <;> first
+      | (change ConstantInfo.recInfo _ _ _ _ _ = _ at he'
+         injection he' with _ _ _ _ e5
+         subst e5
+         intro r hr
+         simp only [List.map_cons, List.map_nil, List.mem_singleton] at hr
+         subst hr
+         first | exact hM (.inl rfl) | exact hM (.inr rfl))
+      | exact nomatch he'
+  · have he' := he
+    unfold quotAt at he'
+    generalize quotLifted k cv = b at he'
+    cases k <;> cases b <;> first
+      | (change ConstantInfo.indInfo _ _ = _ at he'
+         injection he' with _ e2
+         subst e2
+         intro m hm
+         exact nomatch hm)
+      | exact nomatch he'
+  · rw [show (quotAt k cv).toConstantVal.name = (quotPin k).toConstantVal.name from quotAt_name k cv]
     exact footprint_of_nil (quotPin_names k).1 (quotPin_names k).2
 
 /-! ## The value and axiom kinds -/
@@ -739,7 +744,8 @@ theorem blockRun_scoped {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
         rw [← hmy, ← (hall m hm).name]
         exact footprint_of_nil h1 h2
   · -- a table: its constructor is its member's
-    obtain ⟨ms', hms', x, hx, he⟩ := blockTables_ctor p₁ p₁.members Q hQ t (List.mem_reverse.mp ht)
+    obtain ⟨ms', hms', x, hx, he⟩ := blockTables_ctor p₁ p₁.projMembers Q hQ t (List.mem_reverse.mp ht)
+    have hms' := mem_projMembers hms'
     rw [he]
     exact hctorS ms' hms' x hx
 

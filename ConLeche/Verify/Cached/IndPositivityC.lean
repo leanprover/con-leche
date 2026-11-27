@@ -152,6 +152,25 @@ theorem nestGrowGroupC_eq (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : Lis
   | c :: cs, grp => by
     simp only [nestGrowGroupC, nestGrowGroup, nestInstTypeC_eq, nestGrowGroupC_eq ctx hi us ds cs]
 
+theorem checkStructFieldSortsIC_eq (isProp large : Bool) (s : Level) (nP : Nat)
+    (fvs idxArgs : List Expr) : ∀ j,
+      checkStructFieldSortsIC mode fe isProp large s nP fvs idxArgs j =
+        checkStructFieldSortsI (sharedOpsC mode fe) fe.env isProp large s nP fvs idxArgs j
+  | 0 => rfl
+  | j + 1 => by
+    simp only [checkStructFieldSortsIC, checkStructFieldSortsI,
+      checkStructFieldSortsIC_eq isProp large s nP fvs idxArgs j]
+    rfl
+
+theorem nestFrameSortsC_eq (sort : Level) (hi : Nat) :
+    ∀ cs os, nestFrameSortsC mode fe sort hi cs os =
+      nestFrameSorts (sharedOpsC mode fe) fe.env sort hi cs os
+  | c :: cs, o :: os => by
+    simp only [nestFrameSortsC, nestFrameSorts, openPisAtFvarsC_eq, checkStructFieldSortsIC_eq,
+      nestFrameSortsC_eq sort hi cs os]
+  | [], _ => by simp only [nestFrameSortsC, nestFrameSorts]
+  | _ :: _, [] => by simp only [nestFrameSortsC, nestFrameSorts]
+
 theorem nestFrameC_eq (ctx : NestCtx)
     (rec : List NestHole → Nat → Nat → Expr → NestState →
       CheckCM (NestFieldKind × Expr × NestState))
@@ -159,7 +178,7 @@ theorem nestFrameC_eq (ctx : NestCtx)
     (grp : List (Name × Expr)) (st : NestState) :
     nestFrameC mode ctx fe rec prog hi us ds nPc grp st =
       nestFrame ctx (sharedOpsC mode fe) fe.env rec prog hi us ds nPc grp st := by
-  simp only [nestFrameC, nestFrame, familyKeyChecksC_eq, nestCtorsC_eq]
+  simp only [nestFrameC, nestFrame, familyKeyChecksC_eq, nestCtorsC_eq, nestFrameSortsC_eq]
 
 theorem nestContNewC_eq (ctx : NestCtx)
     (rec : List NestHole → Nat → Nat → Expr → NestState →
@@ -243,16 +262,6 @@ theorem nestSeedsC_eq (ctx : NestCtx) : ∀ (ks : List (NestKey × Nat)) (st : N
   | (key, nPc) :: ks, st => by
     simp only [nestSeedsC, nestSeeds, whnfWalkFuelC_eq, nestInstTypeC_eq, nestPosC_eq,
       nestContKeyC_eq, nestSeedsC_eq ctx ks]
-
-theorem checkStructFieldSortsIC_eq (isProp large : Bool) (s : Level) (nP : Nat)
-    (fvs idxArgs : List Expr) : ∀ j,
-      checkStructFieldSortsIC mode fe isProp large s nP fvs idxArgs j =
-        checkStructFieldSortsI (sharedOpsC mode fe) fe.env isProp large s nP fvs idxArgs j
-  | 0 => rfl
-  | j + 1 => by
-    simp only [checkStructFieldSortsIC, checkStructFieldSortsI,
-      checkStructFieldSortsIC_eq isProp large s nP fvs idxArgs j]
-    rfl
 
 theorem checkAbsCtorSortsC_eq (ctx : NestCtx) : ∀ (cs : List (ConstantVal × Nat))
     (os : List (List NestFieldKind × Expr)),

@@ -297,7 +297,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
   · -- `eq_law`: `Eq` is stored as an `indInfo`, so it is never swapped
     intro ci p hf hp
     exact mp.eq_law ci p ((hsame eqName ci
-      (eqCopy_not_rec (hbp₃ eqName ci hf (by decide)).1)).mp hf) hp
+      (eqCopy_not_rec (hbp₃.copy hf (by decide) (by decide) (by decide)))).mp hf) hp
   · -- `reduce_ops`
     intro c hc cv hf hpin
     obtain ⟨hs, hlaw⟩ := mp.reduce_ops c hc cv

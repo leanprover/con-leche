@@ -540,8 +540,13 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx)
   · simp at h
   rename_i v' hv'
   obtain ⟨os, st₂⟩ := v'
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
+  have hst : st' = st₂ := by
+    split at h
+    · split at h
+      · simp at h
+      · simpa [pure, Except.pure] using h.symm
+    · simpa [pure, Except.pure] using h.symm
+  subst st'
   have hwc' : nestCtors ctx ops env (fun _ => rec)
       ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds (grp.map (·.1))
       (grpHoles hi grp) ctors st = .ok (os, st₂) := by

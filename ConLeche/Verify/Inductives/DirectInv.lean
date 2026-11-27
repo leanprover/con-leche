@@ -4,6 +4,7 @@ public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Kernel.Inductives.SumInstall
+import ConLeche.Verify.Inductives.BlockShapeInv
 
 public section
 
@@ -177,11 +178,14 @@ theorem blockTables_names (p : BlockShape) :
 
 /-- Every table a block installs (none where its tables are refused) is at a member's name. -/
 theorem blockTables_getD_names (p : BlockShape) {t : ProjTable}
-    (h : t ∈ (blockTables p p.members).getD []) :
+    (h : t ∈ (blockTables p p.projMembers).getD []) :
     ∃ ms ∈ p.members, t.structName = ms.declared.name := by
-  cases hQ : blockTables p p.members with
+  cases hQ : blockTables p p.projMembers with
   | none => rw [hQ] at h; exact absurd h List.not_mem_nil
-  | some Q => rw [hQ] at h; exact blockTables_names p p.members Q hQ t h
+  | some Q =>
+    rw [hQ] at h
+    obtain ⟨ms, hms, he⟩ := blockTables_names p p.projMembers Q hQ t h
+    exact ⟨ms, mem_projMembers hms, he⟩
 
 /-- `checkStructDomsAt`, inverted: every position below the walk's
 bound carries a successful `isDefEqCore` at its own frame. -/

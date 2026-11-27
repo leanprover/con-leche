@@ -358,6 +358,23 @@ graded type are equal. -/
       interp V ρ aa ∈ˢ interp V ρ Ta → interp V ρ ba ∈ˢ interp V ρ Ta →
       interp V ρ aa = interp V ρ ba
 
+/-- **The reduced η-expansion's motive** (`RecEtaTele`): the result
+reads, its leaves are the side's or its type's, and at a valuation where
+the side is a member of its graded type the result is graded and has the
+side's value — the point included. -/
+@[expose] def RecEtaTeleSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (d : Nat) (f T e : Expr) : Prop :=
+  Frame d f → Frame d T →
+  ∀ {Δa : List Term} {fa Ta : Term},
+    CtxOkS m φ d Δa f → CtxOkS m φ d Δa T →
+    denote m.acval env φ d f = some fa →
+    denote m.acval env φ d T = some Ta →
+    Frame d e ∧ (∀ l ∈ e.fvarLeaves, l ∈ f.fvarLeaves ∨ l ∈ T.fvarLeaves) ∧
+      ∃ ea, denote m.acval env φ d e = some ea ∧
+        ∀ ρ : Nat → V, Sat V Δa ρ → LeavesGr m φ d f ρ → LeavesGr m φ d T ρ →
+          WellDenoted V ρ fa → WellDenotedTy V ρ Ta → interp V ρ fa ∈ˢ interp V ρ Ta →
+          WellDenoted V ρ ea ∧ interp V ρ ea = interp V ρ fa
+
 /-! ### The unconditional motives weaken to the conditional ones -/
 
 

@@ -151,14 +151,14 @@ not a rule of its relations.
 
 #real[
   The checker has the rule as Lean has it,
-  #src("ConLeche/Rules/Rel.lean", 449, 460)[the constructor's fields compared with the projections of the other side],
+  #src("ConLeche/Rules/Rel.lean", 451, 462)[the constructor's fields compared with the projections of the other side],
   with
   #src("ConLeche/Model/Rules/DefEqSound.lean", 554, 556)[its soundness case].
   It uses the same law when it prepares the major premise of a
   recursor on a structure that is never a proposition at the instance.
   The major is taken as found, before any head normalisation, and the
   constructor is applied to its projections, with no further check
-  (#src("ConLeche/Rules/Rel.lean", 272, 281)[the rule],
+  (#src("ConLeche/Rules/Rel.lean", 274, 283)[the rule],
   #src("ConLeche/Model/Rules/IotaSound.lean", 763, 764)[its soundness case]).
   Only if that does not give a constructor application is the major
   head-normalised, and the same expansion is tried once more on the
@@ -172,7 +172,7 @@ not a rule of its relations.
   index-free type (@sec:left-out, "Projections")
   (#src("ConLeche/Model/Inductives/FixKit.lean", 673, 674)[a member is the constructor at the parameters and its own projections]).
   It is proved when
-  #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the checker stores the table],
+  #src("ConLeche/Model/Inductives/BlockStageTables.lean", 11, 13)[the checker stores the table],
   by the argument above on the tagged tuple.
 ]
 
@@ -203,7 +203,7 @@ type-valued, and a truth value when it is proposition-valued.
 
 #real[
   The checker has the rule for
-  #src("ConLeche/Rules/Rel.lean", 485, 485)[any unit-like type] (Lean's:
+  #src("ConLeche/Rules/Rel.lean", 487, 487)[any unit-like type] (Lean's:
   a Π-type whose codomain is unit-like, or a structure whose fields are
   propositions or unit-like), with
   #src("ConLeche/Model/Rules/UnitSound.lean", 487, 487)[its soundness case].

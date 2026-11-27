@@ -108,7 +108,7 @@ theorem denote_emptyRecA_type {m : EnvModel V env}
             (.app (.bvar 1) (.bvar 0)))) := by
   have hpd : ConLeche.Verify.pinnedStructT emptyName ψ
       = some (Term.const .empty [1]) := by
-    simp +decide [ConLeche.Verify.pinnedStructT]
+    simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt]
   have hleaf : acvalWith m.acval emptyRecA.name A emptyName ψ
       = Term.const .empty [1] := by
     rw [acvalWith_ne (by decide)]

@@ -55,7 +55,7 @@ interpretations of a binder from §2, decided for a whole family at
 once. The fragment takes a block with one type former, neither mutual
 nor nested; nested blocks are the subject of @sec:nested. The block is given by a
 #src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
-(#src("ConLeche/Kernel/Inductives/BlockShape.lean", 116, 134)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockShape.lean", 116, 137)[as in con-leche]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -85,7 +85,7 @@ mentions $I$ anywhere else; this is
 #src("whitepaper/Fragment/Decl.lean", 641, 655)[strict positivity].
 And nothing after a reflexive field
 #src("whitepaper/Fragment/Decl.lean", 658, 663)[may depend on its value]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 721, 724)[as in con-leche] and the
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 726, 729)[as in con-leche] and the
 official kernel), so that the model can read a constructor's domains
 without knowing the values of its reflexive fields.
 
@@ -96,7 +96,7 @@ without knowing the values of its reflexive fields.
   domain after weak head normal form, with $I$ at the block's
   parameters replaced by a variable standing for the family being
   defined; @sec:nested uses the same check
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 910, 911)[positivity]).
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 928, 929)[positivity]).
 ]
 
 Reflexive fields with a non-empty telescope matter to the model. A
@@ -126,7 +126,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   them. The checker recovers the specification from the type former's and
   the constructors' types, and checks and stores those two as the
   stream declares them
-  (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 67, 68)[a constructor]).
+  (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 41, 42)[a constructor]).
   The recursor it _generates_, as the official kernel does. From the
   stream's recursor record it takes only the name, the level
   parameters and the type, which must be definitionally equal to the
@@ -232,7 +232,7 @@ eliminator on a family whose sort _may_ be zero
   The checker asks the constructor count of every family whose sort
   may be zero (#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the guard],
   #src("ConLeche/Kernel/Inductives/GenRec.lean", 560, 562)[applied])
-  but the #src("ConLeche/Kernel/Inductives/SumInstall.lean", 51, 65)[per-field condition]
+  but the #src("ConLeche/Kernel/Inductives/StructInstall.lean", 85, 99)[per-field condition]
   only of a family whose sort is provably zero, which is sound because
   the universe bound (the third check below) makes every field a
   proposition at any valuation that sends the result sort to zero.
@@ -275,7 +275,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 732, 777)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 153, 163)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 161, 171)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -793,7 +793,7 @@ that is the function space's domain, which therefore holds the argument.
 #real[
   The checker substitutes the arguments and fields into $R_j$'s body
   under its leading lambdas at once, the application's β steps
-  (#src("ConLeche/Rules/Rel.lean", 190, 242)[the rule there]).
+  (#src("ConLeche/Rules/Rel.lean", 192, 244)[the rule there]).
   In the checker's rule every premise on the constructor application
   is conditional on the certified case. A K rule, and a family that is
   never a proposition, fire comparing nothing, as in the official
@@ -1139,7 +1139,7 @@ block's auxiliary recursor reads the minor premises of its own motive,
   corollary can read off the declarations' own clauses that `False`
   denotes the empty set and `Eq` equality, in every model of the
   input (#overview(1)); and its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 493, 495)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 495, 497)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

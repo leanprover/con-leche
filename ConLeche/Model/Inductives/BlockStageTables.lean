@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Cover
+import ConLeche.Verify.Inductives.BlockShapeInv
 public section
 
 /-!
@@ -189,20 +190,20 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     (hN : BlockNamesOk (V := V) d formersAll)
     (hS : BlockTablesStage (V := V) F d lps formersAll p₁ isRec A envI sortsOf)
     (hqlps : q.lps = lps) (hqnP : q.nP = d.nP)
-    {E : Env} {ex : List Name} :
+    {E : Env} {ex : List Name} {pf : BlockShape} :
     ∀ (l : List MemberShape) (Q : List ProjTable) (i : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ (c : Nat) (e : MemberShape), l[c]? = some e →
         i + c < d.k ∧ e.cvT.name = d.memberName (i + c) ∧ e.declared.name = e.cvT.name ∧
           e.nIdx = d.nIdxAt (i + c) ∧ e.ctors = d.ctorsM (i + c)) →
       (l.map (·.cvT.name)).Nodup →
       (∀ n ci, E.find? n = some ci → env.find? n = some ci) →
-      ConLeche.blockTables q l = some Q →
+      ConLeche.blockTables q (ConLeche.projMembersFrom pf i l) = some Q →
       (∀ t ∈ Q, ConLeche.checkStructProjTable (m := ConLeche.CheckM) t E = .ok () ∧
         env.findTable? t.structName = none) →
       BlockTablesCore mp.base2 d lps formersAll p₁ isRec A →
       CoverTo mp ex (env.pushDelta [] Q) ex
   | [], Q, i, env, mp, _, _, _, hQ, _, _ => by
-    simp only [ConLeche.blockTables, Option.some.injEq] at hQ
+    simp only [ConLeche.projMembersFrom, ConLeche.blockTables, Option.some.injEq] at hQ
     subst hQ
     exact CoverTo.refl mp ex
   | ms :: rest, Q, i, env, mp, hl, hnd, hfE, hQ, hchk, hcore => by
@@ -217,6 +218,11 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
       have := hl (c + 1) e' (by simpa using hc)
       rwa [show i + (c + 1) = i + 1 + c from by omega] at this
     have hndR : (rest.map (·.cvT.name)).Nodup := (List.nodup_cons.mp hnd).2
+    -- a member without projections has no table
+    unfold ConLeche.projMembersFrom at hQ
+    split at hQ
+    case isFalse =>
+      exact stageBlockTables hN hS hqlps hqnP rest Q (i + 1) env mp hl' hndR hfE hQ hchk hcore
     -- a table is installed only at a member with ONE constructor and no index
     cases hsc : ms.structCtor? with
     | none =>
@@ -317,7 +323,8 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     rw [hEnv]
     have hne : ∀ t ∈ Qr, tbl.structName ≠ t.structName := by
       intro t ht hc
-      obtain ⟨e, he, hn⟩ := ConLeche.blockTables_names q rest Qr hQr t ht
+      obtain ⟨e, he, hn⟩ := ConLeche.blockTables_names q _ Qr hQr t ht
+      have he := ConLeche.mem_projMembersFrom he
       obtain ⟨c, hc'⟩ := List.getElem?_of_mem he
       have hm : ms.cvT.name ∈ rest.map (·.cvT.name) := by
         have : ms.cvT.name = e.cvT.name := by

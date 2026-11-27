@@ -39,7 +39,7 @@ built-in `empty` at level `0` is `Sort 0`-valued, and
 
 Each would have been caught only here: nothing before the install
 asserts the valuation's level parameters for a basis constant. -/
-@[expose] def pinnedStructT (n : Name) (ψ : Name → Nat) : Option Term :=
+@[expose] def pinnedStructTAt (lifted : Bool) (n : Name) (ψ : Name → Nat) : Option Term :=
   if n = natName then some (.const .nat [])
   else if n = natZeroName then some (.const .natZero [])
   else if n = natSuccName then some (.const .natSucc [])
@@ -50,13 +50,18 @@ asserts the valuation's level parameters for a basis constant. -/
   else if n = falseName then some (.const .empty [0])
   else if n = falseName.str "rec" then
     some (.const .emptyRec [0, ψ uN])
-  else if n = quotName then some (.const .quot [ψ uN])
-  else if n = quotMkName then some (.const .quotMk [ψ uN])
-  else if n = quotLiftName then some (.const .quotLift [ψ uN, ψ vN])
-  else if n = quotIndName then some (.const .quotInd [ψ uN])
+  else if n = quotName then some (.const .quot [ψ uN, lifted.toNat])
+  else if n = quotMkName then some (.const .quotMk [ψ uN, lifted.toNat])
+  else if n = quotLiftName then some (.const .quotLift [ψ uN, ψ vN, lifted.toNat])
+  else if n = quotIndName then some (.const .quotInd [ψ uN, lifted.toNat])
   -- a proof: the canonical one, the leaf of every proof (an importer may meet another copy)
   else if n = quotSoundName then some .prf
   else none
+
+/-- The pinned leaves in the released kernel's quotient form. -/
+@[expose] def pinnedStructT (n : Name) (ψ : Name → Nat) : Option Term :=
+  pinnedStructTAt false n ψ
+
 
 /-- **A constant is a copy of a pin**: the pin at the constant's own
 level-parameter names, distinct and as many as the pin's. -/
@@ -64,6 +69,32 @@ level-parameter names, distinct and as many as the pin's. -/
   ci = pin.atLps ci.toConstantVal.levelParams ∧
   ci.toConstantVal.levelParams.Nodup ∧
   ci.toConstantVal.levelParams.length = pin.toConstantVal.levelParams.length
+
+/-- **The quotient constants whose leaf reads the stored `Quot`'s form**: the type former, its
+constructor and its two eliminators (`Quot.sound`'s leaf is the canonical proof). -/
+@[expose] def quotFormNames : List Name := [quotName, quotMkName, quotLiftName, quotIndName]
+
+/-- **A quotient constant is read in the stored `Quot`'s form**: at one of `quotFormNames`,
+`Quot` is stored, as a copy of its pin in the form `lifted`. -/
+@[expose] def QuotForm (env : Env) (n : Name) (lifted : Bool) : Prop :=
+  quotFormNames.contains n = true →
+    ∃ ciQ, env.find? quotName = some ciQ ∧ PinCopy ciQ (pinnedInfoAt lifted quotName)
+
+/-- Away from `quotFormNames`, the form clause is vacuous. -/
+theorem QuotForm.of_not_mem {env : Env} {n : Name} {lifted : Bool}
+    (h : quotFormNames.contains n = false) : QuotForm env n lifted :=
+  fun h' => absurd (h.symm.trans h') (by decide)
+
+/-- Away from `quotFormNames`, a pinned leaf does not read the form. -/
+theorem pinnedStructTAt_of_not_mem {n : Name} (b : Bool) (ψ : Name → Nat)
+    (h : quotFormNames.contains n = false) : pinnedStructTAt b n ψ = pinnedStructT n ψ := by
+  have h1 : n ≠ quotName := by rintro rfl; exact absurd h (by decide)
+  have h2 : n ≠ quotMkName := by rintro rfl; exact absurd h (by decide)
+  have h3 : n ≠ quotLiftName := by rintro rfl; exact absurd h (by decide)
+  have h4 : n ≠ quotIndName := by rintro rfl; exact absurd h (by decide)
+  cases b
+  · rfl
+  · simp only [pinnedStructT, pinnedStructTAt, h1, h2, h3, h4, ite_false]
 
 /-- **The assignment a copy's leaf reads the pin's parameters at**: the
 pin's `i`-th parameter at the copy's `i`-th name. -/
@@ -99,26 +130,103 @@ The valuation clause makes a reduction's *syntactic* match usable: a
 constructor head matched by name denotes the pinned built-in.
 
 **The declaration clause is unconditional** (task #283): a stored
-reserved name holds a copy of the pin whatever its kind — which is what
+reserved name holds a copy of the pin, in one of its forms (`pinnedInfoAt`: `Quot` and
+`Quot.sound` have two), whatever its kind; the quotient package's type former, constructor and
+eliminators are read in the stored `Quot`'s form (`QuotForm`), and so are their leaves
+(`pinnedStructTAt`) — which is what
 lets `Model.eq_equality_of` (`ConLeche/Model/OfEnvModelM.lean`)
 speak about the stored `Eq` without hypothesising its declaration. -/
 @[expose] def BasisPinnedTT (env : Env) (cval : Name → (Name → Nat) → Term) : Prop :=
   ∀ (n : Name) (ci : ConstantInfo),
     env.find? n = some ci →
     reservedBasisNames.contains n = true →
-    PinCopy ci (pinnedInfo n) ∧ PinLinked env n ci ∧
+    ∃ lifted, PinCopy ci (pinnedInfoAt lifted n) ∧ QuotForm env n lifted ∧ PinLinked env n ci ∧
     ∀ (t : Term) (ψ : Name → Nat),
-      pinnedStructT n (pinVal (pinnedInfo n).toConstantVal.levelParams
+      pinnedStructTAt lifted n (pinVal (pinnedInfo n).toConstantVal.levelParams
         ci.toConstantVal.levelParams ψ) = some t →
       cval n ψ = t
+
+/-- A basis constant other than `Quot` and `Quot.sound` has one form. -/
+theorem pinnedInfoAt_of_ne {n : Name} (b : Bool) (hq : n ≠ quotName) (hs : n ≠ quotSoundName) :
+    pinnedInfoAt b n = pinnedInfo n := by
+  cases b
+  · rfl
+  · simp only [pinnedInfo, pinnedInfoAt, hq, hs, ite_false]
+
+/-- Both forms of a basis constant have its level parameters. -/
+theorem pinnedInfoAt_lps (b : Bool) (n : Name) :
+    (pinnedInfoAt b n).toConstantVal.levelParams = (pinnedInfo n).toConstantVal.levelParams := by
+  by_cases hq : n = quotName
+  · subst hq; cases b <;> rfl
+  by_cases hs : n = quotSoundName
+  · subst hs; cases b <;> rfl
+  rw [pinnedInfoAt_of_ne b hq hs]
+
+/-- **Which form a copy of `Quot` or `Quot.sound` is in**: whether its universe is the lifted
+`max 1 u` (lean4#15023), read where the two forms differ: `Quot`'s result sort, `Quot.sound`'s
+`Eq` level.  A renaming of level parameters keeps the `max`. -/
+@[expose] def pinFormOf : ConstantInfo → Bool
+  | .indInfo cv _ =>
+    match cv.type with
+    | .forallE _ (.forallE _ (.sort (.max _ _))) => true
+    | _ => false
+  | .axiomInfo cv =>
+    match cv.type with
+    | .forallE _ (.forallE _ (.forallE _ (.forallE _ (.forallE _
+        (.app (.app (.app (.const _ [.max _ _]) _) _) _))))) => true
+    | _ => false
+  | _ => false
+
+/-- **A constant copies one form of its pin**: the two forms of `Quot` and of `Quot.sound` have no
+common copy, and every other pin has one form. -/
+theorem PinCopy.form_unique {c : ConstantInfo} {b b' : Bool} {n : Name}
+    (h : PinCopy c (pinnedInfoAt b n)) (h' : PinCopy c (pinnedInfoAt b' n)) :
+    pinnedInfoAt b n = pinnedInfoAt b' n := by
+  have hl : c.toConstantVal.levelParams.length = 1 → ∃ q, c.toConstantVal.levelParams = [q] :=
+    fun hl => match c.toConstantVal.levelParams, hl with | [q], _ => ⟨q, rfl⟩
+  by_cases hq : n = quotName
+  · subst hq
+    obtain ⟨q, hq⟩ := hl (by rw [h.2.2]; cases b <;> rfl)
+    have e := congrArg pinFormOf (h.1.symm.trans h'.1)
+    rw [hq] at e
+    cases b <;> cases b' <;> first
+      | rfl
+      | (change true = false at e; cases e)
+      | (change false = true at e; cases e)
+  by_cases hs : n = quotSoundName
+  · subst hs
+    obtain ⟨q, hq⟩ := hl (by rw [h.2.2]; cases b <;> rfl)
+    have e := congrArg pinFormOf (h.1.symm.trans h'.1)
+    rw [hq] at e
+    cases b <;> cases b' <;> first
+      | rfl
+      | (change true = false at e; cases e)
+      | (change false = true at e; cases e)
+  rw [pinnedInfoAt_of_ne b hq hs, pinnedInfoAt_of_ne b' hq hs]
+
+/-- **A stored basis constant other than `Quot` and `Quot.sound` is a copy of its one pin.** -/
+theorem BasisPinnedTT.copy {env : Env} {cval : Name → (Name → Nat) → Term}
+    (h : BasisPinnedTT env cval) {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
+    (hres : reservedBasisNames.contains n = true) (hq : n ≠ quotName) (hs : n ≠ quotSoundName) :
+    PinCopy ci (pinnedInfo n) := by
+  obtain ⟨b, hc, -⟩ := h n ci hf hres
+  rwa [pinnedInfoAt_of_ne b hq hs] at hc
+
+/-- A stored basis constant has its pin's level-parameter count. -/
+theorem BasisPinnedTT.lps_length {env : Env} {cval : Name → (Name → Nat) → Term}
+    (h : BasisPinnedTT env cval) {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
+    (hres : reservedBasisNames.contains n = true) :
+    ci.toConstantVal.levelParams.length = (pinnedInfo n).toConstantVal.levelParams.length := by
+  obtain ⟨b, ⟨-, -, hl⟩, -⟩ := h n ci hf hres
+  rw [hl, pinnedInfoAt_lps]
 
 /-- A stored `Nat`, `Nat.zero`, `Nat.succ` is a copy of its pin, so of its pin's kind. -/
 theorem BasisPinnedTT.natKinds {env : Env} {cval : Name → (Name → Nat) → Term}
     (h : BasisPinnedTT env cval) : NatKinds env := by
   refine ⟨fun c hf => ?_, fun c hf => ?_, fun c hf => ?_⟩
-  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, rfl⟩
-  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, _, rfl⟩
-  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, _, rfl⟩
+  · rw [(h.copy hf (by decide) (by decide) (by decide)).1]; exact ⟨_, _, rfl⟩
+  · rw [(h.copy hf (by decide) (by decide) (by decide)).1]; exact ⟨_, _, _, _, rfl⟩
+  · rw [(h.copy hf (by decide) (by decide) (by decide)).1]; exact ⟨_, _, _, _, rfl⟩
 
 /-- The one level parameter the stored `Eq` is at. -/
 @[expose] def eqLp (env : Env) : Name :=
@@ -144,7 +252,7 @@ theorem eqCopy_not_rec {ci : ConstantInfo} (h : PinCopy ci (pinnedInfo eqName))
 theorem BasisPinnedTT.eqStored {env : Env} {cval : Name → (Name → Nat) → Term}
     (h : BasisPinnedTT env cval) (hs : (env.find? eqName).isSome = true) : EqStored env := by
   obtain ⟨ci, hf⟩ := Option.isSome_iff_exists.mp hs
-  obtain ⟨-, -, hl⟩ := (h eqName ci hf (by decide)).1
+  have hl := h.lps_length hf (by decide)
   refine ⟨ci, hf, ?_⟩
   have hl' : ci.toConstantVal.levelParams.length = 1 := hl
   simp only [eqLp, hf]

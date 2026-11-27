@@ -126399,6 +126399,387 @@ was unscripted), merges a partial run's cells last-wins into `perf-data/table.ts
 the declaration count from the `accepted N declarations` line (Mathlib prints a hoisting
 notice with a count first).
 
+
+## TASK #630 (parse lane) — the inductive feature flags of lean4export 3.2.0, read (2026-11-22, agent/630-flags-parse; base agent/630-flags = master bc6676101)
+
+lean4 PR #16595 (the kernel renovation's per-inductive feature flags) has the exporter write five
+booleans on every `inductive.types` record: `isImpredicative`, `isK`, `hasProjections`,
+`hasEta`, `hasLargeElim` (format 3.2.0; the PR itself still says 3.1.0).  This lane only reads
+them; the install lane of #630 validates and uses them.
+
+*Data.*  `IndFlags` (`Kernel/Env.lean`), five `Bool`s, and `IndCaps.flags : Option IndFlags :=
+none`, last field: the stream's type record carries what it declares (`none` without flags),
+the install decides what is stored.
+
+*Recogniser.*  Five new `Key`s; `keyAt` classifies them (`hasEta` at length 6, `hasLargeElim`
+12, `hasProjections` 14 under `h`; `isK` beside `idx` at length 3, `isImpredicative` 15 under
+`i`; new unrolled compares `lit11`, `lit13`, `lit14`).  In both recognisers they are OPTIONAL
+slots of the type record (bits 2048…32768, outside the required mask 2046), stored as five
+`Option Bool` fields of `IndTypeRec`; a repeated one is `duplicateKey`, a non-boolean the
+boolean scanner's error.  The equivalence proof is repaired, not restated: `keyOf_104`/`keyOf_105`
+and the `h`/`i` branches of `keyAt_eq` are regenerated in the existing case-by-case shape
+(the generator is not committed, as the original's was not), `scanIndTypeLoop_eq` gains the
+five state arguments and five `obj_sub` groups.  The format version is still not read.
+
+*Parse.*  `IndTypeRec.flags` is `some` exactly when all five keys are present.  `validateIndF`
+rejects (exit 1) a type record with some but not all of them, and a block whose type records
+disagree on carrying them; `indBlockOfF` stores the record's flags in its `indInfo`'s caps.
+The `.olean` reader emits records without them (`none`).
+
+*Tests.*  `ScanTests`: a flagged record decodes to its flags in either key order, no keys to
+`none`, two keys to a partial record, a non-boolean and a repeated key fail; the probes run
+the naive and fast recognisers on these lines.  Fixtures (`scripts/mk_ind_flags_parse.py`,
+twins of `direct_fix_nat`): `ind_flags_parse` (each record with the flags official accepts for
+it) 0, `ind_flags_partial_bad` 1.  The block-level disagreement has no fixture (no small
+multi-type block at hand); the install lane's fixtures can cover it.
+
+## TASK #630 (install lane) — the block's check at the declared feature flags (2026-11-22, agent/630-flags-install; base agent/630-flags)
+
+lean4 PR #16595 makes `isImpredicative`, `isK`, `hasProjections`, `hasEta`, `hasLargeElim`
+inputs of the inductive declaration. The parse lane reads them onto the stream's type records
+(`IndCaps.flags`); this lane checks a block at them. Ruling (maintainer): supple — flags present:
+use them, reject any the declaration does not support; absent: today's behaviour.
+
+*Where the flags live.* `BlockShape.flags : Option (List IndFlags)` (member order), read by
+`readBlock = readBlockShape + blockFlagsOf`. Not on the installed `IndCaps`: the pinned basis
+blocks' install is stated as `kind.storedAt`, which carries no flags, and nothing after the install
+needs them. `blockFlagsOf` reads a block whose records disagree on carrying flags as unflagged; the
+parse rejects such a block, so that never reaches the fold.
+
+*Checks* (`blockFlagsCheck`, a pure function both twins run through `ofExcept` at the start of the
+tail): block-uniform `isImpredicative`/`hasLargeElim`; `isImpredicative` ⇒ `isProp`;
+`hasLargeElim = p.large` (the recursors' read shape), and allowed only at ¬impredicative ∧
+(never zero ∨ one member ∧ (no ctor ∨ one ctor ∧ (hasEta ∨ isK))); per member `isK` (first, sole,
+Prop, one fieldless ctor), `hasProjections` (one ctor, no index, ¬impredicative), `hasEta`
+(hasProjections ∧ ¬isRec); a nested outside class that is a proposition with one fieldless
+constructor is rejected (the official auxiliary type copies `isK` from the container and is not
+first). That last check reads the K condition, not the container's flag (not stored): a departure
+in a corner (§14).
+
+*Effects.* `blockCapsAt`'s `eta` gains `p.etaAt mi`; projection tables are read off
+`p.projMembers` (members with `hasProjections`, all at no flags); `recKExpected` gains
+`p.kAllowed`; at `p.noRules` (flagged, ¬hasLargeElim) `streamKCheck` rejects a record with rules
+and the stream records are compared with `p.ruleOut out` (no rules, no constructors to compare),
+so the installed recursors (the stream's) have none. A flagged ¬impredicative `Prop` block
+without large eliminator (`boundedProp`) re-runs the constructors' stage at `{ p with isProp :=
+false }` (`checkBlockBound`): official's `u ≤ s`. The first attempt passed a modified `isProp` to
+the constructors' stage itself; the model's block datum threads that argument as the block's
+`isProp`, so it was reverted in favour of the extra run. With a large eliminator the per-field
+criterion already is the bound (hasEta ⇒ no index; isK ⇒ no field).
+
+*Proofs.* Repair only, no new model content: every stored-rule fact the model reads
+(`storedSwap_sem`) is taken from a rule's membership in the record, so a rule-less record makes it
+vacuous; `hposQ` states the rule facts under `rc.rules ≠ []`. New small lemmas:
+`readBlock_shape`, `projMembersFrom_sublist`/`mem_projMembers`/`projMembersFrom_map`,
+`blockTables_flags`, `blockTables_projMembersFrom_nil`, `streamRecCheck_of_ruleOut`,
+`ruleOut_getElem?`, `sumRules_of_ruleShape`, `ne_nil_of_mem_generatedRules`,
+`checkBlockBound_datF`, `checkBlockBoundC_congr`. `stageBlockTables` runs over
+`projMembersFrom pf i l`.
+
+*Fixtures.* `scripts/mk_ind_flags_install.py` forges 23 `ind_flags_*` fixtures from existing
+ones (8 accept, 15 reject; verdicts in `tests/e2e-expected.txt`). A real Init with flags needs the
+renovated toolchain (`Acc.rec` small); not attempted. The `.olean` reader emits no flags.
+
+*Nested auxiliary types (fix lane, branch `agent/630-flags-nestproj`).* The arena PR's 91
+renovation tests (leanprover/lean-kernel-arena#391, exported with the lean4#16595 PR release
+53e1623) gave 90/91: `091_NPImpTree`, an impredicative `Prop` block nested through `NPBox`, a
+proposition with projections, was accepted. Official's auxiliary type takes `isImpredicative`
+and `hasLargeElim` from the block's first type, `isK` and `hasProjections` from the container `J`,
+`hasEta` false, and is checked like a member. Going through each rule: `hasLargeElim` on a nested
+possibly-`Prop` block needs hasEta (impossible: nesting makes it recursive) or isK (no fields), so
+the existing guard covers it; isK is the K-shape rule above; two were missing.
+* impredicative ∧ J has projections ⇒ reject. "J has projections" is J's projection table
+  (`env.findTable?`): a flagged J's `hasProjections`, an unflagged one's structure-likeness.
+  `blockFlagsCheck` takes the lookup as an argument (`hasProj`), the pure tail
+  `q.env₁.findTable?`, the cached `env₁.findTable?` (`mkFEnv_findTable?`).
+* the field bound on the auxiliary constructors: at a `boundedProp` block, every field of every
+  container constructor at its instantiation has sort ≤ the block's. Found by a probe with the
+  PR toolchain (`FlagNestExTree`: a non-impredicative `Prop` nesting an impredicative `Prop`
+  with a field in `Type`; official rejects). Checked in the container frame
+  (`nestFrame` → `nestFrameSorts`, on the walked telescopes `nestCtors` returns, which
+  `nestCtorsS_spec` already proves scoped), gated on the new `NestCtx.bound :=
+  p.boundedProp`. `checkStructFieldSortsI` moved from `SumInstall` to `StructInstall` so that
+  `Positivity` can use it (the message is the existing "field universe too large").
+  `Complete/PosDerivComplete`'s completeness of the walk now assumes `ctx.bound = false`.
+Fixtures: `src/ind_flags_nest_prop.lean` (exported with the pinned `lean4export`), forged by
+`scripts/mk_ind_flags_install.py` into `ind_flags_nest` (0), `ind_flags_nest_impred_proj_bad`
+(1), `ind_flags_nest_bound_bad` (1). After the fix: 91/91 on the arena tests. They are not in
+`tests/arena.sh`: it runs a vendored snapshot of the published arena tests, which will carry them
+once the arena PR lands and the snapshot is refreshed.
+
+
+## TASK #630 (totality lane) — every block at total feature flags; what stays two-path (2026-11-22, agent/630-flags-total; base agent/630-flags dd60b1fe7)
+
+Maintainer's ruling (2026-11-22) on normalising the flags: "yes, that sounds like the right way.
+we never *use* small elim rules, so it should be ok to drop them (just don't complain about them
+if they are in the input). projections of prop may need a backward compat flag? 'has some
+projections'?"
+
+**Landed.** `BlockShape.flagsAt p i` is total: a block's declared flags, or at a block whose
+records carry none the ones official computed from the declaration (`derivedFlags`):
+`isImpredicative` = the block is a proposition, `isK` = one member, a proposition, one
+constructor without fields, `hasProjections` = `hasEta` = structure-like (one constructor, no
+index), `hasLargeElim` = the records' eliminator. The derivation reads the records and the
+block's sort only (`isProp`, final after the formers' stage, `withSort`); it adds no inference
+or comparison. The readers each read one flag: η (`blockCapsAt`), the K flag a recursor must
+have (`recKExpected`), the members with projection tables (`projAllowed`), the field bound
+(`boundedProp`). The `Option` readers `flagAt`/`etaAt`/`kAllowed` are gone. No verdict changes
+(e2e and the 91 arena renovation tests unchanged); the auxiliary field-bound reject's message
+lost its internal "direct sum:" prefix (shared with the members' bound, and its two cached
+twins).
+
+**Where a consumer keeps the shape beside the flag.** η is `nIdx == 0 && !isRec && hasEta`
+and the projection tables are built only at a structure-like member (`structCtor?`), as before:
+the table needs the constructor, η's arm builds `ctors := [c]`, and the pinned-basis theorem
+(`blockInstall_pinned`) is stated for any declared flags, so a capability may not depend on a
+declared flag that only the validation makes consistent. `isRec` stays an argument (computed
+once by the install, with a cached twin `blockIsRecC`), so a derived `hasEta` is the structure
+shape and the capability takes `!isRec` beside it — which is also what a declared `hasEta`
+must satisfy.
+
+**Not done, with the reason.**
+* *Dropping the small eliminators' rules at blocks without flags.* It would need a new
+  `ruleRecs` view of the records (installed and compared without rules) and a weaker
+  `blockInstall_pinned`: a pinned block whose recursor record reads as a small eliminator
+  (e.g. `Eq.rec` declared at `[c, d]` with `d` not the type's name, which the pin-copy check
+  admits and the recursor stage rejects) would no longer store the pin's rules, so the theorem
+  would need the run's fact that the block's eliminator is large. It simplifies nothing today;
+  it is free once input without flags goes, since then no input carries such rules. So
+  `noRules` is `p.flags.isSome && !p.large`: a flagged block without `hasLargeElim` has no
+  rules (a record with rules is rejected, official's and the arena's test 116); an unflagged
+  one keeps them, checked against the generated ones, as before.
+* *The tri-state projection mode (skip the guard at a flagged type).* `checkProjGuard`'s success
+  is a premise of the relational rule `ProjGuard` (`Rules/Rel.lean`, motive `ProjGuardSem`,
+  `Model/Rules/GuardSound.lean`); skipping it needs a new model fact — at a flagged type with
+  projections the install's field bound makes every row a proposition wherever the structure is
+  one — which is new model content, not repair. The verdicts do not change: at such a type the
+  guard never fails. The guard keeps running at every type.
+
+**What stays two-path**, flagged vs not: (1) the large-elimination criterion (the spec's rule vs
+the old guard `blockLargeElimAllowed` with the per-field subsingleton criterion of
+`checkStructFieldSortsI`); (2) the small eliminators' rules; (3) the field-sort exemption
+(`isImpredicative` vs `isProp`, i.e. `boundedProp` and its second constructor pass
+`checkBlockBound`, the auxiliary frame's `NestCtx.bound`); (4) validation itself
+(`blockFlagsCheck`), which a derived flag never needs.
+
+**What dropping input without flags would delete**: `derivedFlags` and the `Option` around
+`BlockShape.flags`; the old large-elimination half (the one-constructor clause of
+`blockLargeElimAllowed` and the `large` arm of `checkStructFieldSortsI`, replaced by the spec's
+rule); the small eliminators' rules (generation, `ruleOut`/`ruleCtors`, the comparison); the
+`isProp` exemption of the field bound with `boundedProp`'s second pass (the first pass bounds at
+`isImpredicative`); and, with the model fact above, the projection guard (`checkProjGuard`,
+`projGuardRows`, the `ProjGuard` rule and its motive) — a type with projections is then never
+impredicative, so a proposition with projections has only proofs as fields. OVERVIEW §9's and
+§14's "large eliminator under a per-field criterion" departure goes with them.
+
+## TASK #630 (isReflexive) — the type record's `isReflexive` key is optional (2026-11-24, agent/630-refl; base renovation d8c8c2278)
+
+lean4 (with the renovation PR #16595) dropped `isReflexive` from `InductiveVal`, so its exporter
+stops writing the key. The checker never read it: the scan record carried it and nothing
+consumed it. Now both decoders treat it like `all` — accepted when present (a boolean; a
+non-boolean or a repeated key stays a scan error, as for every key), dropped, and not in the
+required mask (2046 → 2038 in `naiveIndType` and `scanIndTypeLoop`); `IndTypeRec` loses the
+field, and the `.olean` emitter no longer copies the olean record's flag into it (the olean
+`InductiveVal` layout still has it; `Olean/Spec.lean` reads it as before). Tests: `ScanTests`
+(the spec/fast probes absent, non-boolean, repeated; the record read alike with and without it)
+and the e2e twin `ind_flags_no_reflexive` (0), from `scripts/mk_ind_flags_parse.py`.
+
+## TASK #630 (lifted `Quot`) — `Quot` in either result-sort form, lean4#15023 (2026-11-24, agent/630-quot; base renovation 216031bf5)
+
+Maintainer ruling: "we need it now, else we cannot merge the lean4 PR." lean4#15023 declares
+`Quot.{u} {α : Sort u} (r : α → α → Prop) : Sort (max 1 u)` and, with it, `Quot.sound`'s
+equation at `Eq.{max 1 u}`; `Quot.mk`, `Quot.lift`, `Quot.ind` are unchanged. A quotient of a
+proposition is a type, so proof irrelevance no longer identifies its elements.
+
+**Checker.** `Quot` and `Quot.sound` have two pins (`quotAOf`, `quotSoundAOf`, read by
+`quotPinOf b k`). A record matches either (`quotLifted`, `quotPinHit`); `quotAt` stores the form
+it matches, so the stored type decides whether a quotient is a proposition, and nothing else in
+the checker reads the form. `quotFormOk` rejects a `Quot.sound` whose form is not the stored
+`Quot`'s (official: ill-typed). A record matching neither form is declined as before.
+
+**Model.** The released form's meaning cannot serve the lifted one: a quotient of a proposition
+denotes `{pt}` or `∅` with `Quot.mk` at `pt`, the value of every proof, while the model requires
+a never-proposition family to have no value `pt` (`quotMk_neverProp_ne_zero`). So every quotient
+constant carries a construction level beside its domain level (`qcl`, `quotCl`; `quotV`,
+`quotMkV`, `quotLiftV`, `quotIndV` built at it): `u` in the released form, `max 1 u` in the lifted
+one, where classes are tagged and never `pt`. One parametric development: the leaves
+(`pinnedStructTAt b`) end in the form, the pin invariant reads
+`∃ b, PinCopy ci (pinnedInfoAt b n) ∧ QuotForm env n b ∧ …`, where `QuotForm` ties `Quot.mk`,
+`Quot.lift`, `Quot.ind` to the stored `Quot`'s form (their records are the same in both forms),
+and `Model/BasisQuot.lean` is parametric in it (`declQuotPB b`).
+
+New general facts: `PinCopy.form_unique` (a constant copies one form of a pin, by `pinFormOf`),
+`RenEnv.pinCopy` (a copy keeps its form across a level renaming), `PinPair`/`ConstRen` over
+`pinnedInfoAt b`, `quotStoredLifted_of`, `quotAt_name` (Kernel/Basis), and in the modular
+context `quotName_read` (a copy of `Quot.mk`/`lift`/`ind` reads `Quot`, so the source's stored
+`Quot` is the context's, `CtxSrc.findC`). `coverStep_head` takes only what it uses of the head
+(`pin.name = quotName` at a former, `pin = quotMkA` at a constructor).
+
+**Fixtures** (`scripts/mk_quot_lifted_fixtures.py` from the PR toolchain's export
+`quot_lifted`): `quot_lifted` 0, `quot_lifted_rfl_bad` 1 (`s = Squash.mk True.intro` by `rfl`),
+`quot_released_rfl` 0 (the same at the released form, pinned toolchain), `quot_lifted_mixed_sound_bad`
+1, `quot_other_sort_bad` 2 (`Sort (u+1)`).
+
+## TASK #630 (prelude without `Quot`) — the built-in prelude carries no quotient record (2026-11-24, agent/630-prelude-quot; base renovation 3d91c5a5b)
+
+**The bug.** An arena export with the lifted `Quot` (lean4-kernel-arena-beta, branch
+`renovation`, `quotOfPropIsType`) declares the four quotient constants in the new form and no
+`Quot.sound`: the exporter emits what the stream uses. `preparePrelude` synthesised the missing
+`Quot.sound` from the built-in prelude, in the released form, and `quotFormOk` rejected the pair, a
+good test failing; its bad twin `quotOfPropNoProofIrrel` was rejected for that pairing too, not
+for the missing proof irrelevance.
+
+**The fix** (maintainer: "do we need it in the built-in prelude?"): the prelude carries no quotient
+record at all. `basisRoots` (`ConLeche/PinGen/Prelude.lean`) lists the four inductive basis blocks;
+the committed prelude (`pins/leanprover-lean4-v4.36.0.prelude.ndjson`) is regenerated and holds six
+records (`Eq`, `Nat`, `Empty`, `False`, `And`, `Bool`), and the four pin dumps' `preludeNames`
+receipts (read by nothing) are regenerated by their pinners. Nothing else the prelude holds
+mentions a quotient constant: the Nat-op certificates are funext-free by design
+(`ConLeche/PinGen/Certs.lean`), and the regenerated prelude has no `Quot` name. `Quot` stays a
+pinned primitive, checked when the stream declares it. `preparePrelude` and its theorems are
+unchanged (they are generic in the prelude); the prelude tests count six records and 18 constants.
+
+**Verdicts.** The arena renovation suite at `pr-release-16595-55bd690` (101 tests, 57 good, 44
+bad, the last two the `Quot` pair): 101/101; `quotOfPropNoProofIrrel` is rejected as a type
+mismatch in the theorem. Own fixtures: `quot_lifted_no_sound` (0) and
+`quot_lifted_no_sound_rfl_bad` (1), from `scripts/mk_quot_lifted_fixtures.py`.
+
+## TASK #632 — η-expansion of partially applied recursors, lean4#15374 (2026-11-25, agent/632-rec-eta; base renovation c8e13b0f1)
+
+**Why.** The arena preview of the renovation (lean-kernel-arena PR #391) runs this branch; its
+only red results were `renovation/etaRecStruct` and `renovation/etaRuleK` (the long-standing
+`perf/proj-app-lazy-delta` timeout aside). Both are lean4#15374 (merged 2026-11-24): a recursor of
+a K-like type, or of a type with η, applied to fewer arguments than its major premise needs, is
+η-expanded and ι-reduced when compared with another term.
+
+**Rulings (coordinator).** Port official's rule in both tiers, verified like every other defeq
+step; the structure gate is the inductive's η flag (`IndCaps.eta`, lean4#16595's `hasEta`), K the
+recursor's stored K flag; the step goes first in the stuck fallback, for pairs where neither side
+is a λ, both directions, before structure η; official's shape (all missing arguments at once,
+ι with the existing rescues, compared against the λ), no one-binder-at-a-time substitute.
+
+**Official** (`type_checker.cpp`, `eta_expand_iota_reduce_recursor` and
+`try_eta_expansion_core`). `s`'s head is a recursor applied to at most `major_idx` arguments,
+the recursor is K or `has_eta(major_induct)`; `n = major_idx + 1 - #args` fresh variables are
+taken along `whnf(infer_type(s))`, each rest head-normalised, giving up at a rest that is no Π;
+`inductive_reduce_rec` (full `whnf` of the major, the K and structure rescues) on `s x⃗`; on
+success `λ x⃗. r`. `try_eta_expansion_core(t, s)`: a λ `t` against a non-λ `s` takes the function
+η, else the recursor expansion of `s` is compared with `t`; `try_eta_expansion` tries both
+orders. It runs after `is_def_eq_app`, before `try_eta_struct`; so a λ side never reaches it.
+
+**Checker** (`Kernel/Core.lean`, twins in `Cached/CoreC.lean`, `Cached/StateC.lean`).
+* `recEtaPartial` (`Kernel/CoreDefs.lean`; twin `recEtaPartialC`): the gate, read off the
+  records before any inference: a stored recursor head, `#args ≤ mI`, `isK` or `recMajorEta`
+  (the single rule's constructor's family carries `caps.eta`; an η family has one constructor,
+  so its recursor one rule, whose constructor's family is the major's inductive — official's
+  `get_major_induct`). The guard follows the rescue's (`etaRescueTable?` reads `caps.eta` too);
+  `recMajorEta` reads only the flag, as official's `has_eta` does, not the rescue's table and
+  level-parameter conditions: the gate only decides whether to try, and the ι step's rescues
+  decide whether anything fires.
+* `recEtaTele k depth f T`: at `k + 1` `whnf T`, a ∀ `dom body` opens `.fvar depth dom`,
+  recursion on `.app f fv` at the opened body, result `.lam dom (e.abstract1 depth)`; at `0`
+  `iotaRec` on the full application (the ι step with `prepareMajor`'s full `whnf`, K, η and
+  `And` rescues), and, at the verified mode, **the typing certificate** (below). The final rest
+  is not head-normalised (official's last `whnf` is unused). Cached: the ι dispatch is
+  `iotaRecAtI` (as `whnfAppI`'s: the head's record, `iotaNumArgs = mI + 1`, the level count, then
+  `iotaRecI` on the argument array), the abstraction `abstract1M` (memoized).
+* `recEtaCert a b`: `a` neutral (in the stuck fallback the sides are weak-head normal, so this
+  is "`a` is no λ", official's arm order), `recEtaPartial b = some k`, io-infer `b`,
+  `recEtaTele`, then `defeq a λ`. `stuckIrrel` (now taking the mode) tries it `a b` then `b a`,
+  then structure η both ways, unit-likeness, proof irrelevance.
+
+**The typing certificate — the one addition to official's shape.** At the verified mode the
+reduct's full-grade type is compared with the codomain at the variables (`defeq (infer r) T`), as
+the λ/η tax does at η (task #342 S0, T2). Without it the rule is not provable: `Red`'s claim
+says nothing where the redex is the point, and `b x⃗` is the point wherever the codomain at `x⃗`
+is a proposition (a motive into `Prop` at some arguments), while `b` itself is not; there the
+reduct's value is unknown, so `λ x⃗. r` and `b` could differ. The certificate puts the reduct
+and the application in one type, both the point or neither. It changes no verdict on the
+fixtures, the renovation suite or the perf streams; it is listed with the other verified-only
+checks in OVERVIEW §14. Cost: one full inference of the reduct per expansion, on the stuck path
+only.
+
+**Rules tier** (`Rules/Rel.lean`). `DefEq.recEta` (`b.ioNeutral`, `Infer .io b tb`,
+`RecEtaTele env d b tb lam`, `DefEq a lam` ⟹ `DefEq a b`; the other direction by `symm`) and the
+new relation `RecEtaTele` in the mutual block: `done` (`Red f e`, `Infer .full e te`,
+`DefEq te T`), `step` (`Red T (∀ dom body)`, the expansion one level down at
+`.app f (.fvar d dom)`, result `.lam dom (e.abstract1 d)`). The recursor and the gate are the
+checker's business: the rule holds of any neutral side. `Refine.lean`: two more cases (the rule
+reads no environment).
+
+**Soundness** (`Model/Rules/RecEtaSound.lean`, motive `RecEtaTeleSem` in `Motive.lean`: the
+result reads, its leaves are the side's or its type's, and where the side is a member of its
+graded type the result is graded and equal to it, the point included). `done`: the reduct's
+full-grade inference makes it a member of its type, the comparison makes that type the side's
+(types are never the point), `IsTy.eq_of_ne_pt` and the reduction equate them. `step`: the
+reduct's leaves at index `d` are the variable's (`LeafCond`), so the abstraction round-trips
+(`abstract1_instantiate1`), the result reads as `.lam doma ea`, and at every value of the domain
+`ea` is the side's application (the opened claim, `open_app`), so the λ is `lamV A (app f ·)`,
+which is `f` (`lamV_congr`, `lamV_eta`). The rule: a neutral side not the point is a member of
+its io type (`IORelN`), hence equal to its expansion, which is then not the point, and the
+comparison equates the other side with it. No new law, no new axiom.
+
+**Verify.** Inversions `recEtaTele_zero_inv`, `recEtaTele_succ_inv`, `recEtaCert_inv`,
+`ioNeutral_of_recEtaPartial` (`InferLemmas`); bridges `recEtaTele_bridge`, `recEtaCert_bridge`
+and the six-arm `stuckIrrel_bridge`, moved from `Rules/Certs.lean` to `Rules/DefEqBridge.lean`
+(they need `iotaRec_bridge`) and at `.verified`; fuel (`Fueled`: `iotaRec_atF`,
+`prepareMajor_atF`, `majorToCtor_atF` generalised to the body mode `mi`), pair monad (`PairM`),
+shift (`Deep`: `recEtaPartial_shiftFrom`, `recEtaTele_WScoped`, `recEtaTele_shift` through
+`shiftFrom_abstract1`, `recEtaCert_shift`, `stuckIrrel_shift` moved after `iotaRec_shift`),
+environment extension (`EnvExt/Reads`: `recMajorEta_ext`, `recEtaPartial_ext`;
+`EnvExt/Whnf`: `recEtaTele_rel`, `recEtaCert_rel`, `stuckIrrel_rel` moved there from
+`EnvExt/Rel`), cached congruences (`KnotCongr`) and the cached simulation (`DiscC4`:
+`iotaRecAtC_spec`, `recEtaTeleC_spec` by induction, `recEtaCertC_spec`, `stuckIrrelC_spec`
+moved from `DiscC2`, each one `sym … => vcgen … <;> finish`; `wscoped_abstract1` moved up).
+`iotaRecC_spec` is stated at `.verified` only, so `stuckIrrelC_spec`, `defeqStuckC_spec` and the
+`DiscC5` body specs after it are now at `.verified` (their only consumer, `KnotC`, is). The
+plain-reach allowlist gains `recMajorEta` (a two-lookup reader, the best code).
+
+**Fixtures** (`tests/e2e`, exported with the pinned v4.29.1 recipe, the good ones through
+`rfl_unchecked`): `rec_eta` 0 (lean4's `tests/elab/12520_2.lean` good examples: `Eq.rec` with K
+against `fun h => a h` and against `a`, both orientations; `PUnit.rec`; `Prod.rec` against
+`fun b => a b`, against `a` both orientations, and under a binder — the arena's `etaRuleK` and
+`etaRecStruct` are `re_k` and `re_prod`); must-reject controls, all terminating: `rec_eta_eqrec_bad`
+(`@Eq.rec = g`: the K rescue's type check fails at the fresh major), `rec_eta_andrec_bad`
+(`@And.rec = g`), `rec_eta_noeta_bad` (a two-constructor recursor, not expanded),
+`rec_eta_struct_bad` (`Prod.rec` with swapped fields). Before this task `rec_eta` was 1; the
+controls 1 before and after. The vendored tutorial test `bad/tutorial/114_etaRuleK` (the same
+statement as the renovation's `etaRuleK`) is now accepted, as by the official kernel since
+lean4#15374: its row in `tests/arena-expected.txt` is 0 with the reason, as 115's (task #515).
+The renovation arena tests are not wired into `tests/arena.sh`; regenerated from
+`_tmp/arena-beta/renovation` (toolchain `pr-release-16595-55bd690`, `OUT=… lake build`), the
+suite is 129/129 (base binary: 127/129, the two `good/` tests 122_etaRecStruct and 123_etaRuleK
+rejected).
+
+**Performance** (`perf stat -e instructions:u`, one run each, `--verified --jobs=1`, base
+`c8e13b0f1`):
+
+| stream | base | task #632 | Δ |
+|---|---:|---:|---:|
+| `app-lam` | 22 173 322 348 | 22 173 095 797 | -0.001 % |
+| `args-before-unfold` | 73 375 202 | 73 382 325 | +0.010 % |
+| `beta-ladder` | 4 962 363 381 | 4 948 268 830 | -0.284 % |
+| `church-numerals` | 216 550 150 | 216 665 331 | +0.053 % |
+| `discarded-argument-match` | 216 886 128 | 217 689 392 | +0.370 % |
+| `discarded-argument` | 86 413 606 | 87 152 578 | +0.855 % |
+| `folded-constant-first` | 85 580 555 | 85 569 638 | -0.013 % |
+| `folded-constant-last` | 85 519 023 | 85 520 738 | +0.002 % |
+| `grind-ring-5` | 8 665 749 643 | 8 666 335 637 | +0.007 % |
+| `identical-nesting` | 41 385 000 | 41 371 028 | -0.034 % |
+| `irrelevance-before-evaluation` | 43 081 218 | 43 073 774 | -0.017 % |
+| `let-ladder` | 2 579 336 417 | 2 579 347 122 | +0.000 % |
+| `repeated-subproblem` | 42 690 268 | 42 697 721 | +0.017 % |
+| `shared-subterm` | 149 361 803 | 149 350 583 | -0.008 % |
+| `shift-cascade` | 71 619 435 | 71 604 027 | -0.022 % |
+| `unroll-versus-evaluate` | 47 748 927 | 47 736 740 | -0.026 % |
+| `init-prelude` | 1 130 490 545 | 1 130 524 561 | +0.003 % |
+| `init-full` | 253 983 142 028 | 254 166 228 782 | +0.072 % |
+
+All verdicts unchanged (exit 0). The step sits on the stuck path behind a syntactic gate; the
+largest relative deltas are again the two small `discarded-argument` streams (+0.7 M and
++0.8 M instructions absolute, the same streams as task #515's), not attributed further.
+
+
 ## TASK #636 — a `quot` record off its pin is a reject (2026-11-25, agent/quot-reject; base master 92b1c6fc4)
 
 Maintainer's ruling: the arena's `bugs/quot-bad-type` (a `quot` record whose

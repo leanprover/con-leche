@@ -43,9 +43,11 @@ def BasisInstallRun (env : Env) : List ConstantInfo → Env → Prop
     BasisInstallRun ⟨ci :: env.consts, env.tables⟩ rest env₂
 
 /-- A quotient record: the comparison with its slot's pin, the slots it
-needs stored, and the slot's constant stored. -/
+needs stored, the agreement of `Quot.sound`'s form with the stored `Quot`'s, and the slot's
+constant stored. -/
 def DeclQuotRun (env : Env) (k : QuotKind) (cv : ConstantVal) (env₂ : Env) : Prop :=
   quotPinHit k cv = true ∧ quotPredsOk env.find? k = true ∧
+    quotFormOk env.find? k cv = true ∧
     (env.find? (quotAt k cv).name).isNone = true ∧
     env₂ = ⟨quotAt k cv :: env.consts, env.tables⟩
 

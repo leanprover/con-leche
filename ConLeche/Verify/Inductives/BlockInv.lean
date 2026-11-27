@@ -525,14 +525,39 @@ theorem getD_map_congr {α β : Type} [Inhabited α] {f : α → β} {l l' : Lis
   simp only [List.getD_eq_getElem?_getD]
   cases h₁ : l[i]? <;> cases h₂ : l'[i]? <;> simp_all
 
+/-- A member's `hasEta` and `hasProjections`, at two blocks with the same declared flags whose
+members agree on their constructors and index counts. -/
+theorem flagsAt_shape_congr {p q : BlockShape}
+    (hc : p.members.map (·.ctors) = q.members.map (·.ctors))
+    (hi : p.members.map (·.nIdx) = q.members.map (·.nIdx)) (hfl : p.flags = q.flags) (i : Nat) :
+    (p.flagsAt i).hasEta = (q.flagsAt i).hasEta ∧
+      (p.flagsAt i).hasProjections = (q.flagsAt i).hasProjections := by
+  have gc : (p.members.getD i default).ctors = (q.members.getD i default).ctors := by
+    have h := congrArg (·[i]?) hc
+    simp only [List.getElem?_map] at h
+    simp only [List.getD_eq_getElem?_getD]
+    cases h₁ : p.members[i]? <;> cases h₂ : q.members[i]? <;> simp_all
+  have gi : (p.members.getD i default).nIdx = (q.members.getD i default).nIdx := by
+    have h := congrArg (·[i]?) hi
+    simp only [List.getElem?_map] at h
+    simp only [List.getD_eq_getElem?_getD]
+    cases h₁ : p.members[i]? <;> cases h₂ : q.members[i]? <;> simp_all
+  unfold BlockShape.flagsAt
+  rw [hfl]
+  cases q.flags with
+  | some _ => exact ⟨rfl, rfl⟩
+  | none => simp only [BlockShape.derivedFlags, gc, gi, and_self]
+
 theorem blockCapsAt_congr {p q : BlockShape} (hnP : p.nP = q.nP)
     (hnm : p.memberNames = q.memberNames)
     (hc : p.members.map (·.ctors) = q.members.map (·.ctors))
     (hi : p.members.map (·.nIdx) = q.members.map (·.nIdx))
-    (hd : p.members.map (·.declared) = q.members.map (·.declared)) (mi : Nat) (isRec : Bool) :
+    (hd : p.members.map (·.declared) = q.members.map (·.declared)) (hfl : p.flags = q.flags)
+    (mi : Nat) (isRec : Bool) :
     blockCapsAt p mi isRec = blockCapsAt q mi isRec := by
+  have he := (flagsAt_shape_congr hc hi hfl mi).1
   unfold blockCapsAt
-  rw [getD_map_congr hc mi, getD_map_congr hi mi, getD_map_congr hd mi, hnP, hnm]
+  rw [getD_map_congr hc mi, getD_map_congr hi mi, getD_map_congr hd mi, hnP, hnm, he]
 
 theorem blockRecs_congr {p q : BlockShape} (hk : p.k = q.k) :
     ∀ l : List RecShape, blockRecs p l = blockRecs q l
@@ -557,19 +582,45 @@ theorem blockTables_congr {p q : BlockShape} (hnP : p.nP = q.nP) (hlps : p.lps =
       rw [hc.1, hi.1]
     simp only [blockTables, hs, hd.1, hnP, hlps, blockTables_congr hnP hlps hd.2 hc.2 hi.2]
 
+/-- Which members may have projections, at two blocks with the same declared flags whose members
+agree on their constructors and index counts. -/
+theorem projAllowed_congr {p q : BlockShape}
+    (hc : p.members.map (·.ctors) = q.members.map (·.ctors))
+    (hi : p.members.map (·.nIdx) = q.members.map (·.nIdx)) (hfl : p.flags = q.flags) :
+    ∀ i, p.projAllowed i = q.projAllowed i := fun i =>
+  (flagsAt_shape_congr hc hi hfl i).2
+
+/-- The members that may have projections, read through any field, at two blocks that agree on
+which members may have them and members agreeing on that field. -/
+theorem projMembersFrom_map {β : Type} (f : MemberShape → β) {p q : BlockShape}
+    (hfl : ∀ i, p.projAllowed i = q.projAllowed i) :
+    ∀ (i : Nat) {l l' : List MemberShape}, l.map f = l'.map f →
+      (projMembersFrom p i l).map f = (projMembersFrom q i l').map f
+  | _, [], [], _ => rfl
+  | _, [], _ :: _, h => nomatch h
+  | _, _ :: _, [], h => nomatch h
+  | i, a :: l, b :: l', h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    unfold projMembersFrom
+    rw [hfl i]
+    split
+    · simp only [List.map_cons, h.1, projMembersFrom_map f hfl (i + 1) h.2]
+    · exact projMembersFrom_map f hfl (i + 1) h.2
+
 /-- **What a reduction of its formers leaves of a block's install**: nothing changes. -/
 theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockShape} {ms : List MemberShape}
     (hd : ∀ m ∈ p₀.members, m.declared = m.cvT)
     (h : reduceMembers (m := CheckM) (fueledOps .verified F) env p₀.nP p₀.members = .ok ms) :
     blockConstants { p₀ with members := ms } = blockConstants p₀ ∧
-    blockTables ({ p₀ with members := ms } : BlockShape) ms
-      = blockTables p₀ p₀.members := by
+    blockTables ({ p₀ with members := ms } : BlockShape)
+        ({ p₀ with members := ms } : BlockShape).projMembers
+      = blockTables p₀ p₀.projMembers := by
   obtain ⟨hAt, hdecl, hname, hidx, hctors⟩ := reduceMembers_inv hd h
   have hnm : ({ p₀ with members := ms } : BlockShape).memberNames = p₀.memberNames := hname
   have hcaps : ∀ i r, blockCapsAt ({ p₀ with members := ms } : BlockShape) i r
       = blockCapsAt p₀ i r := fun i r =>
     blockCapsAt_congr (p := ({ p₀ with members := ms } : BlockShape))
-      (q := p₀) rfl hnm hctors hidx hdecl i r
+      (q := p₀) rfl hnm hctors hidx hdecl rfl i r
   have hlen : ms.length = p₀.members.length := by
     simpa using congrArg List.length hdecl
   have hrec : blockIsRec ({ p₀ with members := ms } : BlockShape) = blockIsRec p₀ := by
@@ -603,7 +654,9 @@ theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockShape} {ms : Lis
         rw [(hAt a (by rw [hm]; exact List.mem_cons_self)).lps, hdecl.1,
           hd b (by rw [hp]; exact List.mem_cons_self)]
   refine ⟨?_, blockTables_congr (p := ({ p₀ with members := ms } : BlockShape))
-    (q := p₀) rfl hlps hdecl hctors hidx⟩
+    (q := p₀) rfl hlps (projMembersFrom_map (p := { p₀ with members := ms }) (q := p₀) _ (projAllowed_congr hctors hidx rfl) 0 hdecl)
+    (projMembersFrom_map (p := { p₀ with members := ms }) (q := p₀) _ (projAllowed_congr hctors hidx rfl) 0 hctors)
+    (projMembersFrom_map (p := { p₀ with members := ms }) (q := p₀) _ (projAllowed_congr hctors hidx rfl) 0 hidx)⟩
   unfold blockConstants blockFormers blockCtors
   simp only [hrec, hall, hcaps]
   rw [blockRecs_congr (p := ({ p₀ with members := ms } : BlockShape))
@@ -630,12 +683,24 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
         q.p (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block = .ok out ∧
       streamKCheck (m := CheckM) q.p q.p.recs out = .ok () ∧
       streamRecsCheck (m := CheckM) (fueledOps mode F)
-        (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.ctorGroups q.env₁))) q.p.recs out
-        = .ok () ∧
+        (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.ctorGroups q.env₁))) q.p.recs
+        (q.p.ruleOut out) = .ok () ∧
       checkBlockTables (m := CheckM) (consBlockCtors q.p.nP q.p.ctorGroups q.env₁) Q
         = .ok () := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
+  cases hfl : ofExcept (m := CheckM) (blockFlagsCheck q.p (blockIsRec q.p) q.cls fun n => (q.env₁.findTable? n).isSome) with
+  | error e => rw [hfl] at h; exact nomatch h
+  | ok u =>
+  cases u
+  rw [hfl] at h
+  dsimp only at h
+  cases hbd : checkBlockBound (m := CheckM) (fueledOps mode F) q.env₁ q.p with
+  | error e => rw [hbd] at h; exact nomatch h
+  | ok u =>
+  cases u
+  rw [hbd] at h
+  dsimp only at h
   cases hsorts : checkBlockIdxSorts (m := CheckM) (fueledOps mode F) q.env₁ q.p
       q.p.members with
   | error e => rw [hsorts] at h; exact nomatch h
@@ -658,7 +723,8 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {Q : 
   rw [hK] at h
   dsimp only at h
   cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F)
-      (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.ctorGroups q.env₁))) q.p.recs out with
+      (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.ctorGroups q.env₁))) q.p.recs
+      (q.p.ruleOut out) with
   | error e => rw [hS] at h; exact nomatch h
   | ok u =>
   cases u

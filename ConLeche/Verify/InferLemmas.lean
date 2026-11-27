@@ -1860,6 +1860,119 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | false => simp [pure, Except.pure] at h
   | true => exact Or.inr ⟨k, ta, tb, hna, rfl, rfl, rfl, hde, h⟩
 
+/-- Inversion of the reduced η-expansion at `0`: the ι step fired, and at
+the verified mode the reduct's full-grade type is the type. -/
+theorem recEtaTele_zero_inv {env : Env} {fuel d : Nat} {f T e : Expr}
+    (h : recEtaTeleFueled mode eager env fuel 0 d f T = .ok (some e)) :
+    iotaRecFueled mode eager env fuel d f = .ok (some e) ∧
+      (mode.verifiedChecks = true → ∃ te, inferTypeCore mode eager env fuel d e = .ok te ∧
+        isDefEqCore mode eager env fuel d te T = .ok true) := by
+  dsimp only [recEtaTeleFueled] at h
+  simp only [recEtaTele, Bind.bind, Except.bind, infer_def, defeq_def, iotaRec_fold] at h
+  cases hi : iotaRecFueled mode eager env fuel d f with
+  | error err => rw [hi] at h; exact nomatch h
+  | ok o =>
+  rw [hi] at h
+  dsimp only at h
+  cases o with
+  | none => simp [pure, Except.pure] at h
+  | some e' =>
+  dsimp only at h
+  cases hv : mode.verifiedChecks with
+  | false =>
+    simp only [hv, Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq,
+      Option.some.injEq] at h
+    subst h
+    exact ⟨rfl, fun h => nomatch h⟩
+  | true =>
+  simp only [hv, ↓reduceIte] at h
+  cases hte : inferTypeCore mode eager env fuel d e' with
+  | error err => rw [hte] at h; exact nomatch h
+  | ok te =>
+  rw [hte] at h
+  dsimp only at h
+  cases hde : isDefEqCore mode eager env fuel d te T with
+  | error err => rw [hde] at h; exact nomatch h
+  | ok v =>
+  rw [hde] at h
+  cases v with
+  | false => simp [pure, Except.pure] at h
+  | true =>
+    simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+    subst h
+    exact ⟨rfl, fun _ => ⟨te, hte, hde⟩⟩
+
+/-- Inversion of the reduced η-expansion at `k + 1`: the type reduces to a
+`∀`, and the result is the abstraction of the expansion one level down. -/
+theorem recEtaTele_succ_inv {env : Env} {fuel k d : Nat} {f T e : Expr}
+    (h : recEtaTeleFueled mode eager env fuel (k + 1) d f T = .ok (some e)) :
+    ∃ dom body e', whnf mode eager env fuel d T = .ok (.forallE dom body) ∧
+      recEtaTeleFueled mode eager env fuel k (d + 1) (.app f (.fvar d dom))
+        (body.instantiate1 (.fvar d dom)) = .ok (some e') ∧
+      e = .lam dom (e'.abstract1 d) := by
+  dsimp only [recEtaTeleFueled] at h
+  simp only [recEtaTele, Bind.bind, Except.bind, whnf_def, recEtaTele_fold] at h
+  cases hw : whnf mode eager env fuel d T with
+  | error err => rw [hw] at h; exact nomatch h
+  | ok w =>
+  rw [hw] at h
+  dsimp only at h
+  cases w with
+  | forallE dom body =>
+    dsimp only at h
+    cases hr : recEtaTeleFueled mode eager env fuel k (d + 1) (.app f (.fvar d dom))
+        (body.instantiate1 (.fvar d dom)) with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok o =>
+    rw [hr] at h
+    cases o with
+    | none => simp [pure, Except.pure] at h
+    | some e' =>
+      simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+      exact ⟨dom, body, e', rfl, hr, h.symm⟩
+  | _ => simp [pure, Except.pure] at h
+
+/-- A partially applied recursor is neutral: its head is a constant. -/
+theorem ioNeutral_of_recEtaPartial {env : Env} {b : Expr} {k : Nat}
+    (h : recEtaPartial env b = some k) : b.ioNeutral = true := by
+  unfold recEtaPartial at h
+  unfold Expr.ioNeutral
+  revert h
+  cases b.getAppFn <;> intro h <;> first | rfl | exact nomatch h
+
+/-- Inversion of recursor η: a neutral partially applied recursor, its
+io-inferred type, the reduced expansion along it, and the comparison. -/
+theorem recEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
+    (h : recEtaCertFueled mode eager env fuel d a b = .ok true) :
+    ∃ k tb lam, recEtaPartial env b = some k ∧
+      inferTypeIO mode eager env fuel d b = .ok tb ∧
+      recEtaTeleFueled mode eager env fuel k d b tb = .ok (some lam) ∧
+      isDefEqCore mode eager env fuel d a lam = .ok true := by
+  dsimp only [recEtaCertFueled] at h
+  rw [recEtaCert] at h
+  cases hn : a.ioNeutral with
+  | false => simp [hn, pure, Except.pure] at h
+  | true =>
+  simp only [hn, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+  revert h
+  cases hp : recEtaPartial env b with
+  | none => intro h; exact nomatch h
+  | some k =>
+  intro h
+  simp only [Bind.bind, Except.bind, inferTypeIO_def, defeq_def, recEtaTele_fold] at h
+  cases htb : inferTypeIO mode eager env fuel d b with
+  | error err => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hr : recEtaTeleFueled mode eager env fuel k d b tb with
+  | error err => rw [hr] at h; exact nomatch h
+  | ok o =>
+  rw [hr] at h
+  cases o with
+  | none => simp [pure, Except.pure] at h
+  | some lam => exact ⟨k, tb, lam, rfl, rfl, hr, h⟩
+
 /-- Inversion of the proposition test (official's `is_prop`). -/
 theorem isPropType_inv {env : Env} {fuel d : Nat} {T : Expr}
     (h : isPropTypeFueled mode eager env fuel d T = .ok true) :

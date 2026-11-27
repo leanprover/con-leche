@@ -93,6 +93,18 @@ theorem sumRules_of_shape {rec : Name} :
     · rw [ite_eq_right hc] at h
       exact nomatch h
 
+/-- The rules' shape checked against the constructors the rules are for (`BlockShape.ruleCtors`):
+the same, and no rule at a block whose recursors carry none. -/
+theorem sumRules_of_ruleShape {rec : Name} {p : BlockShape} {M : TargetMajor} {rs : List RecRule}
+    (h : streamRulesShape (m := CheckM) rec rs (p.ruleCtors M) = .ok ()) :
+    sumRules M.ctors (rs.map (·.rhs)) = rs.map ({ · with fire := .plain }) := by
+  unfold BlockShape.ruleCtors at h
+  split at h
+  · cases rs with
+    | nil => cases M.ctors <;> rfl
+    | cons _ _ => simp [streamRulesShape, throw, throwThe, MonadExceptOf.throw] at h
+  · exact sumRules_of_shape h
+
 /-- **What the checks say of one recursor**: the stream's record, firing as `recFire` reads, is the
 generated recursor with the stream's type and right-hand sides. -/
 structure RecAgrees (p : BlockShape) (rc : RecShape) (o : ConstantVal × TargetMajor × List Expr) :
@@ -101,7 +113,7 @@ structure RecAgrees (p : BlockShape) (rc : RecShape) (o : ConstantVal × TargetM
   tgt : rc.tgt = o.2.1.member.getD p.k
   lt : ∀ m, o.2.1.member = some m → m < p.k
   isK : rc.isK = recKExpected p o.2.1
-  shape : streamRulesShape (m := CheckM) rc.cvR.name rc.rules o.2.1.ctors = .ok ()
+  shape : streamRulesShape (m := CheckM) rc.cvR.name rc.rules (p.ruleCtors o.2.1) = .ok ()
   nested : streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire o.2.1 rc.rP) = true
 
 theorem RecAgrees.rules {p : BlockShape} {rc : RecShape} {o : ConstantVal × TargetMajor × List Expr}
@@ -109,7 +121,7 @@ theorem RecAgrees.rules {p : BlockShape} {rc : RecShape} {o : ConstantVal × Tar
     rc.rules.map ({ · with fire := recFire p rc })
       = generatedRules rc.rP o.2.1 (rc.rules.map (·.rhs)) := by
   unfold generatedRules
-  rw [sumRules_of_shape h.shape]
+  rw [sumRules_of_ruleShape h.shape]
   have hn := h.nested
   have ht := h.tgt
   have hl := h.lt
@@ -164,6 +176,9 @@ theorem streamKCheck_inv {p : BlockShape} :
   | rc :: rcs, g :: gs, h, i, rc', o, h₁, h₂ => by
     unfold streamKCheck at h
     dsimp only at h
+    by_cases hr : (p.noRules && !rc.rules.isEmpty) = true
+    · rw [ite_eq_left hr] at h; exact nomatch h
+    rw [ite_eq_right hr] at h
     by_cases hc : (rc.isK == recKExpected p g.2.1) = true
     · rw [ite_eq_left hc] at h
       cases i with
@@ -282,7 +297,8 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
       p₁ nestedBit params tbl rd Ms₀ block = .ok out)
     (hK : streamKCheck (m := CheckM) p₁ p₁.recs out = .ok ())
     {fe : FEnv}
-    (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) fe p₁.recs out = .ok ()) :
+    (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) fe p₁.recs (p₁.ruleOut out)
+      = .ok ()) :
     env.pushDelta (blockConstants p₀) Q =
       (consBlockRecsT p₁ 0 (streamRecs p₁.recs out)
         (consBlockCtors p₁.nP p₁.ctorGroups env₁)).pushDelta [] Q := by
@@ -290,12 +306,20 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
   subst hq
   have hctors : (p₀.withSort s0).ctorGroups = p₀.ctorGroups := rfl
   obtain ⟨hlenR, hallS⟩ := streamRecsCheck_inv hS
+  replace hlenR : (p₀.withSort s0).recs.length = out.length := by
+    rw [hlenR]; unfold BlockShape.ruleOut; split <;> simp
   have hrecsP : (p₀.withSort s0).recs = p₀.recs := rfl
   have hAg : ∀ i rc o, p₀.recs[i]? = some rc → out[i]? = some o →
       p₀.recs[0 + i]? = some rc ∧ RecAgrees (p₀.withSort s0) rc o := by
     intro i rc o hrc ho
     refine ⟨by simpa using hrc, ?_⟩
-    obtain ⟨hshape, hnested, -⟩ := streamRecCheck_inv (hallS i rc o hrc ho)
+    obtain ⟨hshape, hnested, -⟩ := streamRecCheck_inv (hallS i rc _ hrc
+      (by rw [ruleOut_getElem?, ho]; rfl))
+    replace hshape : streamRulesShape (m := CheckM) rc.cvR.name rc.rules
+        ((p₀.withSort s0).ruleCtors o.2.1) = .ok () := by
+      unfold BlockShape.ruleCtors; split <;> simp_all
+    replace hnested : streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire o.2.1 rc.rP) = true := by
+      split at hnested <;> first | exact hnested | (simp only [generatedFire] at hnested ⊢; exact hnested)
     obtain ⟨ht, hl⟩ := genRecCheck_outMajor hcls hRec hrc ho
     exact { cv := (Cached.genRecCheck_outCv hRec).2 i rc o hrc ho, tgt := ht, lt := hl,
             isK := streamKCheck_inv hK i rc o hrc ho, shape := hshape, nested := hnested }
@@ -304,7 +328,8 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     rw [blockRecs_congr (p := p₀) (q := p₀.withSort s0) rfl]
     exact blockRecs_eq_infos _ _ _ 0 hlenR hAg
   have hcaps : ∀ i, blockCapsAt (p₀.withSort s0) i (blockIsRec p₀)
-      = blockCapsAt p₀ i (blockIsRec p₀) := fun _ => rfl
+      = blockCapsAt p₀ i (blockIsRec p₀) := fun i =>
+    blockCapsAt_congr (p := p₀.withSort s0) (q := p₀) rfl rfl rfl rfl rfl rfl i _
   rw [hrecsP, consBlockRecsT_eq_infos, consBlockCtors_eq, hcons, consBlockInds_consts']
   unfold Env.pushDelta blockConstants blockFormers blockCtors
   rw [hrecs, hctors]

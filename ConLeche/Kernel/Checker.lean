@@ -473,6 +473,8 @@ def checkQuotRecord (env : Env) (k : QuotKind) (cv : ConstantVal) : m Env := do
       | _ => .invalid "quotient declaration mismatch")
   unless quotPredsOk env.find? k do
     throw (.invalid "quotient declaration before what it needs")
+  unless quotFormOk env.find? k cv do
+    throw (.invalid "Quot.sound's equation is at another universe than the stored Quot's type")
   installBasisDecl env (quotAt k cv)
 
 end ConLeche

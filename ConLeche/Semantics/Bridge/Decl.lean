@@ -69,8 +69,12 @@ theorem declQuotRunOf {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
   · rw [ite_eq_left h1] at h
     by_cases h2 : quotPredsOk env.find? k = true
     · rw [ite_eq_left h2] at h
-      obtain ⟨hfresh, rfl⟩ := installBasisDecl_inv h
-      exact ⟨h1, h2, Option.isNone_iff_eq_none.mpr hfresh, rfl⟩
+      by_cases h3 : quotFormOk env.find? k cv = true
+      · rw [ite_eq_left h3] at h
+        obtain ⟨hfresh, rfl⟩ := installBasisDecl_inv h
+        exact ⟨h1, h2, h3, Option.isNone_iff_eq_none.mpr hfresh, rfl⟩
+      · rw [ite_eq_right h3] at h
+        exact nomatch h
     · rw [ite_eq_right h2] at h
       exact nomatch h
   · rw [ite_eq_right h1] at h

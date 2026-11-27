@@ -641,16 +641,16 @@ theorem defeqProjPairC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d 
     vcgen [defeqProjPairI.eq_def, lazyDeltaProjReductionC_spec ih henv] <;> finish
 
 /-- The stuck comparison simulates its specification. -/
-theorem defeqStuckC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+theorem defeqStuckC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
     {s₀ : CState}
-    (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ defeqStuckI mode (mkFEnv env) eager f d a b
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (defeqStuck mode (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
+    (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ defeqStuckI .verified (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (defeqStuck .verified (fueledFns .verified eager env) env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, defeqStuck, mkFEnv_strLit, strLitToConstructor_WScoped] =>
     vcgen [defeqStuckI.eq_def, ih.defeq_spec, stuckIrrelC_spec ih henv, etaCertC_spec ih, defEqListC_spec ih,
-      isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
-      liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;> finish
+      isEquivListLM_spec (mode := .verified) (eager := eager) (env := env),
+      liftFueled_spec (mode := .verified) (eager := eager) (env := env)] <;> finish
 
 section PureBody
 
@@ -815,100 +815,100 @@ theorem defeqBodyI_eq (fe : FEnv) (lv : Nat) (depth : Nat) (a b : Expr) :
         ctorRightTI mode fe eager lv depth a b (ctorTargetForC fe eager a b) : CheckCM Bool) := by
   rw [defeqBodyI.eq_def]; rfl
 
-theorem bodyTailC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
-    {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ bodyTailI mode (mkFEnv env) eager f d a b
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (bodyTailP (fueledFns mode eager env) env d mode a b) v; ⊤⦄ := by
+theorem bodyTailC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ bodyTailI .verified (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (bodyTailP (fueledFns .verified eager env) env d .verified a b) v; ⊤⦄ := by
   sym only [conleche_grind, bodyTailP] =>
     vcgen [bodyTailI, defeqProjPairC_spec ih henv, defeqStuckC_spec ih henv, ih.whnfCore_spec,
       ih.defeq_spec] <;> finish
 
-theorem bodyLazyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {s₀ : CState}
-    (hs : CSOK mode eager env s₀) (lr : LazyRes) (hlr : LazyPairWS d lr) :
-    ⦃fun s => s = s₀⦄ bodyLazyI mode (mkFEnv env) eager f d lr
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (bodyLazyP (fueledFns mode eager env) env d mode lr) v; ⊤⦄ := by
+theorem bodyLazyC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {s₀ : CState}
+    (hs : CSOK .verified eager env s₀) (lr : LazyRes) (hlr : LazyPairWS d lr) :
+    ⦃fun s => s = s₀⦄ bodyLazyI .verified (mkFEnv env) eager f d lr
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (bodyLazyP (fueledFns .verified eager env) env d .verified lr) v; ⊤⦄ := by
   sym only [conleche_grind, bodyLazyP] =>
     vcgen [bodyLazyI, bodyTailC_spec ih henv] <;> finish
 
-theorem bodyQ2C_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
-    {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
+theorem bodyQ2C_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
     (o : Option Bool) :
-    ⦃fun s => s = s₀⦄ bodyQ2I mode (mkFEnv env) eager f d a b o
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (bodyQ2P (fueledFns mode eager env) env d mode eager a b o) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ bodyQ2I .verified (mkFEnv env) eager f d a b o
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (bodyQ2P (fueledFns .verified eager env) env d .verified eager a b o) v; ⊤⦄ := by
   sym only [conleche_grind, bodyQ2P] =>
     vcgen [bodyQ2I, lazyDeltaReductionC_spec ih henv, bodyLazyC_spec ih henv] <;> finish
 
-theorem bodyPIC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
-    {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ bodyPII mode (mkFEnv env) eager f d a b
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (bodyPIP (fueledFns mode eager env) env d mode eager a b) v; ⊤⦄ := by
+theorem bodyPIC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ bodyPII .verified (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (bodyPIP (fueledFns .verified eager env) env d .verified eager a b) v; ⊤⦄ := by
   sym only [conleche_grind, bodyPIP] =>
     vcgen [bodyPII, propIrrelC_spec ih, ih.whnfCore_spec, quickDefEqC_spec ih,
       bodyQ2C_spec ih henv] <;> finish
 
-theorem bodyQ1C_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
-    {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
+theorem bodyQ1C_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b)
     (o : Option Bool) :
-    ⦃fun s => s = s₀⦄ bodyQ1I mode (mkFEnv env) eager f d a b o
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (bodyQ1P (fueledFns mode eager env) env d mode eager a b o) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ bodyQ1I .verified (mkFEnv env) eager f d a b o
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (bodyQ1P (fueledFns .verified eager env) env d .verified eager a b o) v; ⊤⦄ := by
   sym only [conleche_grind, bodyQ1P] =>
     vcgen [bodyQ1I, bodyPIC_spec ih henv] <;> finish
 
 /-- The lazy comparison simulates its specification. -/
-theorem defeqLazyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {s₀ : CState} {d : Nat}
-    {a b : Expr} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ defeqLazyI mode (mkFEnv env) eager f d a b
-    ⦃fun v s' => CSOK mode eager env s' ∧ Runs (defeqLazy mode eager (fueledFns mode eager env)
+theorem defeqLazyC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {s₀ : CState} {d : Nat}
+    {a b : Expr} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ defeqLazyI .verified (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK .verified eager env s' ∧ Runs (defeqLazy .verified eager (fueledFns .verified eager env)
         env d a b) v; ⊤⦄ := by
   sym only [conleche_grind, defeqLazy_eq] =>
     vcgen [defeqLazyI_eq, quickDefEqC_spec ih, bodyQ1C_spec ih henv] <;> finish
 
-theorem ctorRightC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {c : Name}
-    {a b w : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+theorem ctorRightC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {c : Name}
+    {a b w : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) (hww : Expr.WScoped d w) :
-    ⦃fun s => s = s₀⦄ ctorRightI mode (mkFEnv env) eager f d c a b w
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (ctorRightP (fueledFns mode eager env) env d mode eager c a b w) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ ctorRightI .verified (mkFEnv env) eager f d c a b w
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (ctorRightP (fueledFns .verified eager env) env d .verified eager c a b w) v; ⊤⦄ := by
   sym only [conleche_grind, ctorRightP] =>
     vcgen [ctorRightI, defeqLazyC_spec ih henv] <;> finish
 
-theorem ctorLeftC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {c : Name}
-    {a b w : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+theorem ctorLeftC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat} {c : Name}
+    {a b w : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) (hww : Expr.WScoped d w) :
-    ⦃fun s => s = s₀⦄ ctorLeftI mode (mkFEnv env) eager f d c a b w
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (ctorLeftP (fueledFns mode eager env) env d mode eager c a b w) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ ctorLeftI .verified (mkFEnv env) eager f d c a b w
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (ctorLeftP (fueledFns .verified eager env) env d .verified eager c a b w) v; ⊤⦄ := by
   sym only [conleche_grind, ctorLeftP] =>
     vcgen [ctorLeftI, defeqLazyC_spec ih henv] <;> finish
 
-theorem ctorLeftTC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat}
-    {a b : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+theorem ctorLeftTC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) (o : Option Name) :
-    ⦃fun s => s = s₀⦄ ctorLeftTI mode (mkFEnv env) eager f d a b o
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (ctorLeftTP (fueledFns mode eager env) env d mode eager a b o) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ ctorLeftTI .verified (mkFEnv env) eager f d a b o
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (ctorLeftTP (fueledFns .verified eager env) env d .verified eager a b o) v; ⊤⦄ := by
   sym only [conleche_grind, ctorLeftTP] =>
     vcgen [ctorLeftTI, ih.whnf_spec, ctorLeftC_spec ih henv, defeqLazyC_spec ih henv] <;> finish
 
-theorem ctorRightTC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat}
-    {a b : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a)
+theorem ctorRightTC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) (o : Option Name) :
-    ⦃fun s => s = s₀⦄ ctorRightTI mode (mkFEnv env) eager f d a b o
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (ctorRightTP (fueledFns mode eager env) env d mode eager a b o) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ ctorRightTI .verified (mkFEnv env) eager f d a b o
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (ctorRightTP (fueledFns .verified eager env) env d .verified eager a b o) v; ⊤⦄ := by
   sym only [conleche_grind, ctorRightTP] =>
     vcgen [ctorRightTI, ih.whnf_spec, ctorRightC_spec ih henv, ctorLeftTC_spec ih henv] <;> finish
 
 /-- The definitional-equality body simulates its specification. -/
-theorem defeqBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {s₀ : CState} {d : Nat}
-    {a b : Expr} (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ defeqBodyI mode (mkFEnv env) eager f d a b
-    ⦃fun v s' => CSOK mode eager env s' ∧ Runs (defeqBody mode eager (fueledFns mode eager env) env
+theorem defeqBodyC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {s₀ : CState} {d : Nat}
+    {a b : Expr} (hs : CSOK .verified eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ defeqBodyI .verified (mkFEnv env) eager f d a b
+    ⦃fun v s' => CSOK .verified eager env s' ∧ Runs (defeqBody .verified eager (fueledFns .verified eager env) env
         d a b) v; ⊤⦄ := by
   sym only [conleche_grind, defeqBody_eq] =>
     vcgen [defeqBodyI_eq, ctorRightTC_spec ih henv] <;> finish

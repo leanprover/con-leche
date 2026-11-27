@@ -381,9 +381,12 @@ for m in UpCommSol UpDefHoleSol UpKindDefOpqSol UpKindThmOpqSol UpKindThmDefSol 
   case_ "upstream merged: $m" 0 --olean --search-path=$MSP "$m"
 done
 case_ "upstream merged: check-multi's two roots" 0 --olean --search-path=$MSP UpMultiA UpMultiB
-# quot_mismatch's modules both store Quot.lift: rejected
-case_ "upstream merged: UpQuot" 1 --olean --search-path=$MSP UpQuot
-case_ "upstream merged: UpQuotSol" 1 --olean --search-path=$MSP UpQuotSol
+# quot_mismatch's modules both store Quot.lift (a theorem: the built-in prelude
+# carries no quotient record, so it stays where the module declares it).  Each
+# declines at its stand-in `Nat.sub` (a definition the fast path cannot certify); upstream
+# comparator rejects the pair on `Quot.lift` (#630)
+case_ "upstream merged: UpQuot" 2 --olean --search-path=$MSP UpQuot
+case_ "upstream merged: UpQuotSol" 2 --olean --search-path=$MSP UpQuotSol
 case_grep "upstream merged: UpBoomOleanSol (olean-issue, check-audit-reject)" 3 "malformed .olean data" \
   --olean --search-path=$MSP UpBoomOleanSol
 # module names on the command line: an unclosed escape
@@ -1125,7 +1128,10 @@ cmp_case "upstream opaque-value" 2 UpBoom UpBoomOpqSol
 # closures)
 cmp_grep "upstream primitive-issue" 2 "unsupported Nat.div/mod spelling" UpGcd UpGcdSol
 cmp_grep "upstream proj_trick" 1 "axiom tgt is not justified by the solution: its type reads S" UpProj UpProjSol
-cmp_case "upstream quot_mismatch" 1 UpQuot UpQuotSol
+# (#630: 1 -> 2.  The solution's own check declines its stand-in `Nat.sub`, as `--olean
+# UpQuotSol` does; before, the prelude's quotient slot moved the theorem `Quot.lift` ahead of the
+# `True` it reads, an unknown-constant reject.  Upstream rejects on `Quot.lift`)
+cmp_grep "upstream quot_mismatch" 2 "the solution UpQuotSol: not implemented yet: nonstandard structural Nat operation" UpQuot UpQuotSol
 cmp_grep "upstream theorem_hole_issue" 0 "theorem hw justified by the solution" UpThmHole UpThmHoleSol
 # (#619: 1 -> 0.  `a_thm` is the challenge's own theorem, no hole: checked by its own check, the
 # solution need not hold it, as `cmp_missing` of the lean4export comparison)

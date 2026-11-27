@@ -211,7 +211,7 @@ def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys 
 looked up by the names its stored record lists (`nestContainer`'s
 reading). -/
 def targetCtorsOf (fe : FEnv) (I : Name) : Option (Nat × List (ConstantVal × Nat)) :=
-  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?, []⟩ I
+  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?, [], false⟩ I
 
 /-- The instantiated type former of an OUTSIDE major `I.{us} ds`: its
 index count and its result sort (a syntactic telescope, as
@@ -454,6 +454,17 @@ def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRul
     rules.map fun rl => { rl with fire := fire }
   | some _ => rules
 
+/-- **The constructors a recursor's rules are for**: its class's, except at a block whose
+recursors carry no rules (`BlockShape.noRules`). -/
+def BlockShape.ruleCtors (p : BlockShape) (M : TargetMajor) : List (ConstantVal × Nat) :=
+  if p.noRules then [] else M.ctors
+
+/-- **The generated recursors the stream's are compared with**: as generated, except at a block
+whose recursors carry no rules, where none has rules or constructors to compare. -/
+def BlockShape.ruleOut (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
+    List (ConstantVal × TargetMajor × List Expr) :=
+  if p.noRules then out.map fun g => (g.1, { g.2.1 with ctors := [] }, []) else out
+
 /-- **The K flag a recursor of this block has** (official's
 `is_K_target`, `inductive.cpp`): the block is a proposition with one
 member, and the recursor's major is that member, with one constructor
@@ -462,7 +473,7 @@ and no fields.  An outside major's recursor is never K (official's
 checks the record's flag against it. -/
 def recKExpected (p : BlockShape) (M : TargetMajor) : Bool :=
   match M.member, M.ctors with
-  | some _, [c] => p.k == 1 && p.isProp && c.2 == 0
+  | some _, [c] => (p.flagsAt 0).isK && c.2 == 0
   | _, _ => false
 
 /-- What the K flag says of a member major: one constructor, no fields. -/

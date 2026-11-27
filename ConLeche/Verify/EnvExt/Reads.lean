@@ -254,6 +254,48 @@ theorem etaCtorPartial_ext {e : Expr} (he : Res env₁ e) :
     have hT := res_head (res_piResult hty) hft
     rw [hx.find_of_isSome hT, hx.table _ hT]
 
+/-- `recMajorEta` reads the single rule's constructor, resolved, and the
+family its stored type ends in. -/
+theorem recMajorEta_ext {rules : List RecRule}
+    (hrc : ∀ rl ∈ rules, (env₁.find? rl.ctor).isSome = true) :
+    recMajorEta env₂.find? rules = recMajorEta env₁.find? rules := by
+  match rules, hrc with
+  | [], _ => rfl
+  | _ :: _ :: _, _ => rfl
+  | [rl], hrc =>
+    unfold recMajorEta
+    dsimp only
+    rw [hx.find_of_isSome (hrc rl List.mem_cons_self)]
+    cases hf : env₁.find? rl.ctor with
+    | none => rfl
+    | some ci =>
+      cases ci <;> try rfl
+      rename_i cvj cnP cnF T
+      dsimp only
+      obtain ⟨_, hft⟩ := hx.facts.wf.ctorHead hf
+      have hT := res_head (res_piResult (hx.facts.type hf)) hft
+      rw [hx.find_of_isSome hT]
+
+/-- `recEtaPartial` reads the head recursor, resolved, and its major's
+family (`recMajorEta`). -/
+theorem recEtaPartial_ext {e : Expr} (he : Res env₁ e) :
+    recEtaPartial env₂ e = recEtaPartial env₁ e := by
+  unfold recEtaPartial
+  cases hfn : e.getAppFn <;> try rfl
+  rename_i c us
+  dsimp only
+  rw [hx.find_of_isSome (res_head he hfn)]
+  cases hfc : env₁.find? c with
+  | none => rfl
+  | some ci =>
+    cases ci <;> try rfl
+    rename_i cv mI rP isK rules
+    dsimp only
+    have hrc : ∀ rl ∈ rules, (env₁.find? rl.ctor).isSome = true := fun rl hrl => by
+      obtain ⟨cvj, cnP, cnF, _, h⟩ := hx.facts.recCtors c cv mI rP isK rules hfc rl hrl
+      exact res_of_find h
+    rw [recMajorEta_ext hx hrc]
+
 /-- `ctorTarget` reads the head constructor and the family its stored
 type ends in, both resolved. -/
 theorem ctorTarget_ext {e : Expr} (he : Res env₁ e) :

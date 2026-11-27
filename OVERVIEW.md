@@ -667,7 +667,7 @@ accepting its records.
 The driver can check records in parallel. It first builds an index of the
 records, then checks each record against a view that exposes only earlier
 declarations. Results are collected in record order. If all jobs pass,
-[`checkDecls_of_jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L527-L531)
+[`checkDecls_of_jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamIndex.lean#L529-L533)
 gives acceptance by the sequential fold `checkDecls`.
 
 ### From the fold to a model
@@ -776,13 +776,16 @@ results.
 
 The checker reduces terms to weak-head normal form and uses reduction to
 compare terms for definitional equality. `whnfCore` performs β, ζ, ι,
-projection and quotient reduction; [`whnf`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1157)
+projection and quotient reduction; [`whnf`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1211)
 also unfolds definitions and reduces supported `Nat` operations on literals.
 Theorems are opaque: reduction never unfolds their values.
 
-[Definitional equality](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1866-L1884)
+[Definitional equality](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1920-L1938)
 uses lazy unfolding, function and structure η, proof irrelevance, and the
-inductive type's flags for unit-likeness and K-like reduction. It tries easy
+inductive type's flags for unit-likeness and K-like reduction. A recursor of a
+K-like or η type, applied to fewer arguments than its major premise needs, is
+η-expanded and ι-reduced
+([`recEtaCert`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1006)). It tries easy
 cases and proof irrelevance before head-normalizing the terms. For certain
 fully applied constructors of non-propositional types, it can head-normalize
 the other term immediately to compare constructor heads.
@@ -803,19 +806,20 @@ when `h` is an opaque theorem. The declaration of `And` is pinned (§5).
 ### Type inference
 
 The checker uses full inference for a declaration's own terms and
-[infer-only inference](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1341)
+[infer-only inference](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1395)
 for terms encountered during reduction and equality checking. Infer-only
 inference skips checks on application arguments, lambda domains, and
 let-expression types and values. Verified mode also compares the types of
 opened lambda bodies when comparing lambda expressions and during η
-comparison.
+comparison, and the type of the reduct with the expected type when it
+η-expands a partially applied recursor.
 
 ### Fuel and caching
 
 The pure checker uses fuel to bound recursion; exhausting it is an error,
 not a rejection of the input. Reduction loops have separate fuel budgets.
 The cached checker uses memoization, and
-[`checkDeclStepC_run`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L285)
+[`checkDeclStepC_run`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/BridgeC.lean#L289)
 relates a successful verified cached declaration check to a successful pure
 check with sufficient fuel.
 
@@ -887,7 +891,7 @@ accommodates checks that infer-only mode omits.
 
 The proof factors the checker claims through a relational description
 of its operations. The
-[relations](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L18-L45)
+[relations](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L18-L47)
 describe reduction, definitional equality, inference and auxiliary
 checks on the checker's expressions. Their rules capture the checks
 needed for soundness while leaving fuel and dispatch details out.
@@ -897,7 +901,7 @@ The argument has three steps:
 1. The [bridge](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Rules/Bridge.lean#L29-L32)
    turns a successful checker run into a derivation of the corresponding
    relation.
-2. The [soundness proof](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L75-L78)
+2. The [soundness proof](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L76-L79)
    proves the semantic conclusion by induction on the derivation, using
    laws of the environment.
 3. [Recomposition](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Recompose.lean#L49-L54)
@@ -928,7 +932,7 @@ which to compare the recursors supplied by the stream.
 
 The installer checks type formers, constructors, positivity and recursors
 before adding a block to the environment
-([`checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L153)).
+([`checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L161)).
 It supports parameters and indices, recursive and function-valued recursive
 fields, and nested occurrences such as `List T`. Blocks may be in `Prop` or
 `Type`. The checks include uniform application of parameters, universe bounds
@@ -937,7 +941,7 @@ and elimination restrictions.
 For a nested occurrence, the positivity check examines the stored
 constructors of the container at the actual instantiation. It records their
 normal forms for recursor generation and the model
-([`checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L283)).
+([`checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L284)).
 The official kernel instead transforms nested declarations into an auxiliary
 mutual block.
 
@@ -960,6 +964,49 @@ definition. A nested occurrence is rejected if its container or a member of the
 container's block is def-headed and is absent from the families shown
 syntactically in the block's constructor types.
 
+### Feature flags
+
+An inductive type's record may declare the feature flags `isImpredicative`,
+`isK`, `hasProjections`, `hasEta` and `hasLargeElim`. The checker takes them as
+inputs and rejects a block whose declaration does not allow them
+([`blockFlagsCheck` in `ConLeche/Kernel/Inductives/StreamRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StreamRecs.lean#L258)):
+
+* `isImpredicative` and `hasLargeElim` agree across the block;
+  `isImpredicative` holds only at a proposition.
+* `hasLargeElim` matches the eliminator of the recursor records. It requires
+  a block that is not impredicative and either has a sort that is never zero,
+  or is a single type with no constructor, or has one constructor with
+  `hasEta` or `isK`.
+* `isK` holds only at the first type of a single-type block that is a
+  proposition with one constructor without fields.
+* `hasProjections` requires one constructor, no index and a type that is not
+  impredicative; `hasEta` requires `hasProjections` and a block that is not
+  recursive.
+
+A flag that is off withdraws its feature. Without `hasProjections` a type has
+no projection table, so its projections are rejected; without `hasEta` it has
+no structure η and is not unit-like; without `isK` it has no K-like reduction;
+without `hasLargeElim` the recursors have no rules, and a recursor record with
+rules is rejected. A proposition that is neither impredicative nor large
+eliminating must have propositions as fields.
+
+Nested occurrences are checked against the flags the official kernel's
+auxiliary types would get: a nested proposition with one constructor without
+fields is rejected, an impredicative block may not nest a type with
+projections, and in a proposition whose fields must be propositions, so must
+the fields of a nested container's constructors
+([`nestFrameSorts` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L794)).
+
+A block whose records declare no flags is checked at flags derived from its
+declaration
+([`derivedFlags` in `ConLeche/Kernel/Inductives/BlockShape.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockShape.lean#L155)):
+impredicative exactly at a proposition, K-like under the conditions above,
+projections and η where the type is structure-like (η only in a block that is
+not recursive), and the eliminator its recursor records declare. Its large
+eliminator is allowed by the per-field criterion of §14, and a small
+eliminator keeps its rules. The records' `isReflexive` key is optional and
+ignored.
+
 ### Pinned declarations
 
 The checker reserves the declarations of `Eq`, `Nat`, `Empty` and `False`.
@@ -974,12 +1021,20 @@ handling of numeric literals and `Nat` operations (§6). The declarations of
 `Quot` is a kernel primitive, not an inductive type. Its records, including
 `Quot.sound`, must match their pins; the quotient eliminators and their
 reduction rule are primitive as well (§8)
-([`quotPinHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L175-L178)).
+([`quotPinHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L205-L206)).
+`Quot` and `Quot.sound` have two forms: `Quot` at `Sort u` with `Quot.sound`'s
+equation in `Eq.{u}`, or at `Sort (max 1 u)` with `Eq.{max 1 u}`, in which a
+quotient of a proposition is a type. The checker stores the form a record
+declares, so proof irrelevance applies to quotients of propositions only in
+the first form. A `Quot.sound` in a different form from the stored `Quot` is
+rejected
+([`quotFormOk`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L231)). The model builds
+the quotient at the level of `Quot`'s declared sort.
 
 `And` is pinned because the checker constructs an `And.intro` application
 when rescuing a stuck proof (§3). A declaration using a name in the `And`
 block must match the pin
-([`andPinOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L209-L214)).
+([`andPinOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L251-L256)).
 The matching block uses the ordinary installer. If the stream does not declare
 `And`, the built-in prelude supplies it (§6).
 
@@ -1016,7 +1071,8 @@ identifies the certified names.
 When checking a definition at one of those names, the checker verifies its
 expected type and checks its recurrence equations by definitional equality.
 It performs the equation checks before storing the operation, so the operation's
-own fast path cannot justify them. The model proof derives the literal results
+own fast path cannot justify them. A definition that fails these checks is
+declined. The model proof derives the literal results
 from the certified equations
 ([`natOps_install`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1046)).
 
@@ -1044,10 +1100,12 @@ operations ([`natOpGuard`](https://github.com/leanprover/con-leche/blob/master/C
 `Bool` is installed from the stream like other inductive blocks; it is not
 pinned.
 
-Before checking declarations, the frontend puts the built-in prelude first,
+The built-in prelude holds the four pinned inductive blocks, `Bool` and
+`And`; quotient records come only from the stream. Before checking
+declarations, the frontend puts the built-in prelude first,
 using the stream's own declarations where available, and moves the structural
 operations needed by certificates ahead of the corresponding well-founded
-operations ([`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L168-L175)).
+operations ([`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L167-L174)).
 The prepared records are a permutation of the stream's records together with
 any missing prelude records
 ([`preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L171-L176)).
@@ -1064,7 +1122,7 @@ For `Nat.pow` and `Nat.shiftLeft`, the checker can refuse an operation before
 computing its result based on its operands. It also refuses an exponent that
 does not fit in 32 bits, and a shift count that does not fit in 32 bits when
 the shifted value is nonzero
-([`natOpRefusal`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L227-L240)).
+([`natOpRefusal`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StateC.lean#L239-L252)).
 A refusal rejects the declaration.
 
 ## 7. The set-theory assumption
@@ -1304,7 +1362,7 @@ it if needed, then run `tests/overview-links.sh --update`.
 
 ## 13. What the environment stores beyond Lean's
 
-The checker's [`Env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L464-L467)
+The checker's [`Env`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L477-L480)
 stores constants and projection tables derived from declarations. Some stored
 information corresponds to Lean's environment; other information is computed
 from the declarations to support checking.
@@ -1313,12 +1371,12 @@ from the declarations to support checking.
 
 The environment records information about inductive families, constructors
 and recursors alongside their types
-([`IndCaps`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L193-L228) and
-[`ConstantInfo`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L291-L313)).
+([`IndCaps`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L203-L238) and
+[`ConstantInfo`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L304-L326)).
 
 | Entry | Stored information |
 |---|---|
-| Inductive family | Its block members, parameter and index counts, constructors, whether it is structure-like, and a flag indicating that its result sort is never zero at any universe instantiation. |
+| Inductive family | Its block members, parameter and index counts, constructors, whether it has structure η (structure-like, in a block that is not recursive, and `hasEta` where the record declares flags), and a flag indicating that its result sort is never zero at any universe instantiation. |
 | Constructor | Its family name and its parameter and field counts. |
 | Recursor | Its major premise's argument position, the length of the argument prefix used by its rules, its K flag and its rules. |
 
@@ -1331,14 +1389,15 @@ from the recursor declaration
 
 ### Projection tables
 
-A [`ProjTable`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L255-L266)
-stores a structure-like member's constructor and the result-type body of each
-field projection. The installer derives the table from the constructor type
+A [`ProjTable`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L268-L279)
+stores the constructor and the result-type body of each field projection of a
+structure-like member, or, where the record declares flags, of a member with
+`hasProjections`. The installer derives the table from the constructor type
 ([`blockTables`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Install.lean#L60-L69)).
 Lean's kernel instead computes projection types from the constructor type when
 needed. For a projection from a propositional structure, the checker verifies
 the required proposition restrictions at the use, rather than storing them
-([`checkProjGuard`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1205-L1215)).
+([`checkProjGuard`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1259-L1269)).
 
 ### Lookup indexes and omitted values
 
@@ -1368,8 +1427,15 @@ ConLeche uses the following conversion and elimination rules:
 * The checker supports η for partially applied constructors and a wider
   notion of unit-likeness, including function spaces into unit-like types
   and structures whose fields are propositions or unit-like types (§3).
+* A partially applied recursor of a K-like or η type is η-expanded and
+  ι-reduced, as in lean4#15374 (§3).
+* An input whose inductive types declare the feature flags is checked at them,
+  so `Acc` and other recursive predicates have only a small eliminator there
+  (§5). Without flags, the features are derived from the declarations.
+* An input that declares `Quot` at `Sort (max 1 u)` has quotients of
+  propositions as types, as in lean4#15023 (§5).
 * Universe levels are compared semantically.
-* A non-nested block with one family and one constructor, whose result sort
+* Without declared feature flags, a non-nested block with one family and one constructor, whose result sort
   can be zero, can have a large eliminator; the released kernel gives it a
   small eliminator. For a `Prop` family, each field must be a proof or a
   result index; otherwise each field's sort must be at most the result sort.
@@ -1418,8 +1484,13 @@ its treatment of input records:
   `semiOutParam` by name.
 * Declarations at `Lean.reduceBool` and `Lean.reduceNat` must be opaque
   constants, and `sorryAx` must be an axiom (§8).
-* The structural `Nat` operations' fast path is certified at install; the
-  official kernel trusts it by name (§6).
+* The structural `Nat` operations' fast path is certified at install, and a
+  definition that fails the certification is declined; the official kernel
+  trusts the fast path by name (§6).
+* With declared feature flags, a nested occurrence of a proposition with one
+  constructor without fields is rejected even where that type is declared
+  without `isK`; the official kernel rejects it only where it is declared
+  with `isK`. The checker does not store a type's flags (§5).
 * A nested block is checked through its containers at their concrete
   instantiations, without an auxiliary mutual block (§5).
 * The stream's recursors are installed after comparison with the generated
@@ -1445,7 +1516,7 @@ Verified mode performs checks that the soundness proof uses and the official
 kernel does not make:
 
 * It checks the full-grade types of opened bodies in lambda comparisons and
-  η, and proof irrelevance between the major and the constructor application
+  η, the type of the reduct at the η of a partially applied recursor, and proof irrelevance between the major and the constructor application
   in K-like and `And` rescues (§3).
 * It performs three additional checks in the inductive installer:
   * For a `Type` block, the fields of each constructor's positivity normal

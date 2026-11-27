@@ -21,9 +21,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 115, 131)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 464)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 477)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 66, 106)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 291, 314)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 304, 327)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -51,8 +51,8 @@ of constants
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
 levels it is used at, and two constants of the same name
 #src("whitepaper/Fragment/Rules.lean", 563, 566)[are compared] through the level oracle
-(in con-leche: #src("ConLeche/Rules/Rel.lean", 599, 605)[inference]
-and #src("ConLeche/Rules/Rel.lean", 371, 376)[equality]).
+(in con-leche: #src("ConLeche/Rules/Rel.lean", 631, 637)[inference]
+and #src("ConLeche/Rules/Rel.lean", 373, 378)[equality]).
 
 #rules(
   rule(name: "const",
@@ -65,7 +65,7 @@ and #src("ConLeche/Rules/Rel.lean", 371, 376)[equality]).
 
 *The $delta$ rule.* A definition #src("whitepaper/Fragment/Rules.lean", 88, 94)[unfolds to its value] at the levels
 it is used at
-(#src("ConLeche/Rules/Rel.lean", 142, 146)[as in con-leche]). With the
+(#src("ConLeche/Rules/Rel.lean", 144, 148)[as in con-leche]). With the
 head rule of @sec:rules, an applied definition unfolds at its head.
 
 #rules(
@@ -202,7 +202,7 @@ gains three cases, one per rule.
   parameters $arrow(p)$, type $T$ and value $v$ pass the four checks
   above. Then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 351, 356)[extended with $c$ has a model]
-  $M'$ (#src("ConLeche/Model/Install.lean", 353, 355)[as in con-leche])
+  $M'$ (#src("ConLeche/Model/Install.lean", 413, 415)[as in con-leche])
   that agrees with $M$ on every constant of $E$ and gives $c$ its
   value's set: for every list $arrow(n)$ of natural numbers of the
   length of $arrow(p)$, every valuation $phi$ and every variable

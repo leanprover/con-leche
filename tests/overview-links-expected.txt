@@ -227,12 +227,12 @@
    418        Frontend.parseChunks [b] = .ok r ∧
    419        Cached.checkDecls mode natOpPinSets maxNatSize (Frontend.preparePrelude pre r.decls) = .ok env := by
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L527-L531
-   527  theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
-   528      (hds : sideRecords justify ds = ds)
-   529      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
-   530        (buildIndex ds).freeze k ds[k] = .ok ()) :
-   531      checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L529-L533
+   529  theorem checkDecls_of_jobs {ds : Array Declaration} {justify : Option Env}
+   530      (hds : sideRecords justify ds = ds)
+   531      (h : ∀ k (hk : k < ds.size), recordJob mode pins maxNatSize (solutionOf justify ds)
+   532        (buildIndex ds).freeze k ds[k] = .ok ()) :
+   533      checkDeclsWith mode pins maxNatSize ds justify = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Cached/Decls.lean#L61-L62
     61  inductive DeclsRun (pins : List NatOpPinSet) (maxNatSize : Nat) (J : Option Solution) :
@@ -261,35 +261,38 @@
 == ConLeche/Kernel/Env.lean#L55
     55  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1157
-  1157  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1211
+  1211  def whnfBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1866-L1884
-  1866  def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  1867    fun depth a b => do
-  1868      if a == b then pure true else
-  1869      match ctorTargetFor env eager a b with
-  1870      | some c =>
-  1871        let w ← r.whnf depth a
-  1872        match ctorHeadAgainst env c w with
-  1873        | some true => defeqLazy mode eager r env depth w b
-  1874        | some false => pure false
-  1875        | none => defeqLazy mode eager r env depth a b
-  1876      | none =>
-  1877      match ctorTargetFor env eager b a with
-  1878      | some c =>
-  1879        let w ← r.whnf depth b
-  1880        match ctorHeadAgainst env c w with
-  1881        | some true => defeqLazy mode eager r env depth a w
-  1882        | some false => pure false
-  1883        | none => defeqLazy mode eager r env depth a b
-  1884      | none => defeqLazy mode eager r env depth a b
+== ConLeche/Kernel/Core.lean#L1920-L1938
+  1920  def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
+  1921    fun depth a b => do
+  1922      if a == b then pure true else
+  1923      match ctorTargetFor env eager a b with
+  1924      | some c =>
+  1925        let w ← r.whnf depth a
+  1926        match ctorHeadAgainst env c w with
+  1927        | some true => defeqLazy mode eager r env depth w b
+  1928        | some false => pure false
+  1929        | none => defeqLazy mode eager r env depth a b
+  1930      | none =>
+  1931      match ctorTargetFor env eager b a with
+  1932      | some c =>
+  1933        let w ← r.whnf depth b
+  1934        match ctorHeadAgainst env c w with
+  1935        | some true => defeqLazy mode eager r env depth a w
+  1936        | some false => pure false
+  1937        | none => defeqLazy mode eager r env depth a b
+  1938      | none => defeqLazy mode eager r env depth a b
 
-== ConLeche/Kernel/Core.lean#L1341
-  1341  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1006
+  1006  def recEtaCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Verify/Cached/BridgeC.lean#L285
-   285  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
+== ConLeche/Kernel/Core.lean#L1395
+  1395  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+
+== ConLeche/Verify/Cached/BridgeC.lean#L289
+   289  theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
 
 == ConLeche/Term/Syntax.lean#L188-L219
    188  inductive Term where
@@ -513,7 +516,7 @@
     78      (ρ : Nat → V) (v : V) : Prop :=
     79    v = pt ∨ IOMem m φ d T ρ v ∨ IOHered m φ d T ρ v
 
-== ConLeche/Rules/Rel.lean#L18-L45
+== ConLeche/Rules/Rel.lean#L18-L47
     18    rule, literal acceleration, δ, the two literal expansions, and the
     19    congruences the bodies recurse through (`appFn`, `projArg`).  `refl`
     20    and `trans` are constructors: a reduction is a denotation identity,
@@ -531,17 +534,19 @@
     32    at the innermost level only (`inner`/`outer`).
     33  * `DefEqExpand env d a b T` — two sides of one type compared after
     34    their η-expansion along the type's binders (task #515).
-    35  * `UnitLike env d T`, `UnitFields env d tele n` — official's
-    36    `is_unit_like` (task #515): a ∀ with a unit-like codomain, or an η
-    37    family whose fields (possibly none) are propositions or unit-like.
-    38  * `Infer env g d e t` — type inference at a grade `g` (`Grade.full` for
-    39    the front door, `Grade.io` for the infer-only lane).  The grade
-    40    propagates to the recursive premises as `CoreFns.ioView` does.  The
-    41    io grade is Lean's `infer_only` (task #346; the fragment's `InferIO`,
-    42    `whitepaper/Fragment/IOGrade.lean`): the application rule runs no
-    43    argument certificate, the λ rule no domain-sort check, the `let` rule
-    44    no check of the value (the `g = .full →` premises).  Its claim is the
-    45    hereditary `IORel`, keyed on the type's syntax, not membership.
+    35  * `RecEtaTele env d f T e` — a side η-expanded along its type and
+    36    reduced, abstracted back to a λ (task #632).
+    37  * `UnitLike env d T`, `UnitFields env d tele n` — official's
+    38    `is_unit_like` (task #515): a ∀ with a unit-like codomain, or an η
+    39    family whose fields (possibly none) are propositions or unit-like.
+    40  * `Infer env g d e t` — type inference at a grade `g` (`Grade.full` for
+    41    the front door, `Grade.io` for the infer-only lane).  The grade
+    42    propagates to the recursive premises as `CoreFns.ioView` does.  The
+    43    io grade is Lean's `infer_only` (task #346; the fragment's `InferIO`,
+    44    `whitepaper/Fragment/IOGrade.lean`): the application rule runs no
+    45    argument certificate, the λ rule no domain-sort check, the `let` rule
+    46    no check of the value (the `g = .full →` premises).  Its claim is the
+    47    hereditary `IORel`, keyed on the type's syntax, not membership.
 
 == ConLeche/Verify/Rules/Bridge.lean#L29-L32
     29  theorem bridgeAt (env : Env) :
@@ -549,11 +554,11 @@
     31        WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
     32          DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
 
-== ConLeche/Model/Rules/Sound.lean#L75-L78
-    75  mutual
-    76  
-    77  theorem red_sound (hin : RulesInputs V m φ) :
-    78      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
+== ConLeche/Model/Rules/Sound.lean#L76-L79
+    76  mutual
+    77  
+    78  theorem red_sound (hin : RulesInputs V m φ) :
+    79      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
 
 == ConLeche/Model/Rules/Recompose.lean#L49-L54
     49  theorem checkSoundAtP5
@@ -563,11 +568,11 @@
     53          DefEqClaim m φ fuel ∧ InferClaim m φ fuel ∧
     54            InferClaimIO m φ fuel := by
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L153
-   153  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L161
+   161  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L283
-   283  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L284
+   284  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L552
    552  def genRecCheck (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
@@ -581,6 +586,15 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L99
     99  def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
 
+== ConLeche/Kernel/Inductives/StreamRecs.lean#L258
+   258  def blockFlagsCheck (p : BlockShape) (isRec : Bool) (Ms : List TargetMajor)
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L794
+   794  def nestFrameSorts (ops : CheckerOps m) (env : Env) (sort : Level) (hi : Nat) :
+
+== ConLeche/Kernel/Inductives/BlockShape.lean#L155
+   155  def BlockShape.derivedFlags (p : BlockShape) (i : Nat) : IndFlags :=
+
 == ConLeche/Kernel/Basis.lean#L144-L151
    144  def basisNamesOk : Declaration → Bool
    145    | .indDecl block _ =>
@@ -591,19 +605,20 @@
    150    | .quotDecl _ _ => true
    151    | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => !reservedBasisNames.contains cv.name
 
-== ConLeche/Kernel/Basis.lean#L175-L178
-   175  def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
-   176    Name.nodup cv.levelParams &&
-   177      cv.levelParams.length == (quotPin k).toConstantVal.levelParams.length &&
-   178      cv.beqP ((quotPin k).toConstantVal.atLps cv.levelParams)
+== ConLeche/Kernel/Basis.lean#L205-L206
+   205  def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
+   206    quotPinHitAt (quotPinOf (quotLifted k cv) k) cv
 
-== ConLeche/Kernel/Basis.lean#L209-L214
-   209  def andPinOk : Declaration → Bool
-   210    | .indDecl block nP =>
-   211      !(block.any fun c => andPinNames.contains c.name) ||
-   212        (nP == 2 && canonEqList block andPin)
-   213    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
-   214    | .quotDecl _ cv => !andPinNames.contains cv.name
+== ConLeche/Kernel/Basis.lean#L231
+   231  def quotFormOk (find? : Name → Option ConstantInfo) (k : QuotKind) (cv : ConstantVal) : Bool :=
+
+== ConLeche/Kernel/Basis.lean#L251-L256
+   251  def andPinOk : Declaration → Bool
+   252    | .indDecl block nP =>
+   253      !(block.any fun c => andPinNames.contains c.name) ||
+   254        (nP == 2 && canonEqList block andPin)
+   255    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
+   256    | .quotDecl _ cv => !andPinNames.contains cv.name
 
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
@@ -702,15 +717,15 @@
    675       | none => false)
    676    else e == .const natName []
 
-== ConLeche/Frontend/Prepare.lean#L168-L175
-   168  the prelude's declarations first (the stream's own copies where it has
-   169  them), the rest of the stream after them, every pinned `Nat`
-   170  operation's stream-certified ground ahead of it.  Total, pure, and the
-   171  fold's input — an array in and an array out, the shape the parse
-   172  returns and the fold consumes. -/
-   173  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   174    (prepareD pre ds).decls
-   175  
+== ConLeche/Frontend/Prepare.lean#L167-L174
+   167  the prelude's declarations first (the stream's own copies where it has
+   168  them), the rest of the stream after them, every pinned `Nat`
+   169  operation's stream-certified ground ahead of it.  Total, pure, and the
+   170  fold's input — an array in and an array out, the shape the parse
+   171  returns and the fold consumes. -/
+   172  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   173    (prepareD pre ds).decls
+   174  
 
 == ConLeche/Verify/Frontend/Prepare.lean#L171-L176
    171  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
@@ -720,21 +735,21 @@
    175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    176        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
-== ConLeche/Cached/StateC.lean#L227-L240
-   227  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
-   228  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
-   229  bytes, and `0 <<< b = 0`. -/
-   230  def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
-   231    match op with
-   232    | .pow =>
-   233      if b > natCountMax then some (natCountTooBig "Nat.pow")
-   234      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
-   235        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
-   236          exceed the maximum numeral size; raise it with --max-nat-size")
-   237      else none
-   238    | .shiftLeft =>
-   239      if a = 0 then none
-   240      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
+== ConLeche/Cached/StateC.lean#L239-L252
+   239  compute.  `a ^ b` has at most `natSizeBytes a * b` bytes, and a base
+   240  `≤ 1` gives `0` or `1`; `a <<< b` has about `natSizeBytes a + b / 8`
+   241  bytes, and `0 <<< b = 0`. -/
+   242  def natOpRefusal (maxNatSize : Nat) (op : NatBinOp) (a b : Nat) : Option CheckError :=
+   243    match op with
+   244    | .pow =>
+   245      if b > natCountMax then some (natCountTooBig "Nat.pow")
+   246      else if a > 1 && b != 0 && natSizeBytes a > maxNatSize / b then
+   247        some (.invalid "the kernel refused to evaluate `Nat.pow` because the result would \
+   248          exceed the maximum numeral size; raise it with --max-nat-size")
+   249      else none
+   250    | .shiftLeft =>
+   251      if a = 0 then none
+   252      else if b > natCountMax then some (natCountTooBig "Nat.shiftLeft")
 
 == ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:
@@ -853,74 +868,74 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Env.lean#L464-L467
-   464  structure Env where
-   465    consts : List ConstantInfo
-   466    tables : List ProjTable
-   467    deriving Repr, Inhabited
+== ConLeche/Kernel/Env.lean#L477-L480
+   477  structure Env where
+   478    consts : List ConstantInfo
+   479    tables : List ProjTable
+   480    deriving Repr, Inhabited
 
-== ConLeche/Kernel/Env.lean#L193-L228
-   193  structure IndCaps where
-   194    /-- Official's `is_non_rec_structure`: one constructor, no index, a block that
-   195    is not recursive.  A proposition may have it: a proof is the point, and the
-   196    η laws speak of what is not. -/
-   197    eta : Bool := false
-   198    /-- **The block's members** (official's `all`): the formers installed
-   199    together with this one, in block
-   200    order, itself included.  Read by nested positivity alone — a container
-   201    frame's restart (`nestFrame`) abstracts only group-mates listed here,
-   202    so an accepted frame's holes are members of ONE recorded block (a pinned
-   203    basis type records `[T]`, as official does; `Quot` alone keeps `[]`). -/
-   204    all : List Name := []
-   205    /-- **The family's parameter count** (official's `inductive_val.nparams`):
-   206    the block's declared parameter count, recorded at every install
-   207    (uniform: `BlockShape.nP`; basis: the pin's).  Read by nested positivity
-   208    alone, and only for a
-   209    container WITHOUT constructors (`nestContainer`), whose parameter count
-   210    no constructor record carries. -/
-   211    nparams : Nat := 0
-   212    /-- **The family's index count** (official's `inductive_val.nindices`), read
-   213    off the block's recursor record: how many binders past the parameters the
-   214    reading of the family's sort walks (`formerSortLoop`). -/
-   215    nIdx : Nat := 0
-   216    /-- **The family's constructors, in declaration order** (official's
-   217    `inductive_val.cnstrs`): recorded at its check (uniform: the member's
-   218    constructors; basis: the pin's).  Read by nested positivity alone
-   219    (`nestContainer`): a container's constructors are looked up by name,
-   220    never by a scan of the environment.  `Quot` records none (it is no
-   221    container). -/
-   222    ctors : List Name := []
-   223    /-- **The family's sort is never zero** (official's `is_never_zero` at
-   224    every level instantiation): the former's stored type ends in a sort
-   225    whose zero-ness datum is unsatisfiable (`formerZ`), read off it at its
-   226    check (`blockCapsAt`).  `false` claims nothing.  The ι step's case split
-   227    reads it in place of the walk to the family's sort. -/
-   228    neverZero : Bool := false
+== ConLeche/Kernel/Env.lean#L203-L238
+   203  structure IndCaps where
+   204    /-- Official's `is_non_rec_structure`: one constructor, no index, a block that
+   205    is not recursive.  A proposition may have it: a proof is the point, and the
+   206    η laws speak of what is not. -/
+   207    eta : Bool := false
+   208    /-- **The block's members** (official's `all`): the formers installed
+   209    together with this one, in block
+   210    order, itself included.  Read by nested positivity alone — a container
+   211    frame's restart (`nestFrame`) abstracts only group-mates listed here,
+   212    so an accepted frame's holes are members of ONE recorded block (a pinned
+   213    basis type records `[T]`, as official does; `Quot` alone keeps `[]`). -/
+   214    all : List Name := []
+   215    /-- **The family's parameter count** (official's `inductive_val.nparams`):
+   216    the block's declared parameter count, recorded at every install
+   217    (uniform: `BlockShape.nP`; basis: the pin's).  Read by nested positivity
+   218    alone, and only for a
+   219    container WITHOUT constructors (`nestContainer`), whose parameter count
+   220    no constructor record carries. -/
+   221    nparams : Nat := 0
+   222    /-- **The family's index count** (official's `inductive_val.nindices`), read
+   223    off the block's recursor record: how many binders past the parameters the
+   224    reading of the family's sort walks (`formerSortLoop`). -/
+   225    nIdx : Nat := 0
+   226    /-- **The family's constructors, in declaration order** (official's
+   227    `inductive_val.cnstrs`): recorded at its check (uniform: the member's
+   228    constructors; basis: the pin's).  Read by nested positivity alone
+   229    (`nestContainer`): a container's constructors are looked up by name,
+   230    never by a scan of the environment.  `Quot` records none (it is no
+   231    container). -/
+   232    ctors : List Name := []
+   233    /-- **The family's sort is never zero** (official's `is_never_zero` at
+   234    every level instantiation): the former's stored type ends in a sort
+   235    whose zero-ness datum is unsatisfiable (`formerZ`), read off it at its
+   236    check (`blockCapsAt`).  `false` claims nothing.  The ι step's case split
+   237    reads it in place of the walk to the family's sort. -/
+   238    neverZero : Bool := false
 
-== ConLeche/Kernel/Env.lean#L291-L313
-   291  inductive ConstantInfo where
-   292    | axiomInfo (val : ConstantVal)
-   293    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   294    | thmInfo (val : ConstantVal)
-   295    /-- An inductive type former (whnf-stuck) with its capabilities. -/
-   296    | indInfo (val : ConstantVal) (caps : IndCaps)
-   297    /-- A constructor (whnf-stuck; the iota target), with its family's name
-   298    (official's `ConstructorVal.induct`): the head constant of its declared
-   299    type's result, which its install reads off the member it is checked
-   300    against (an environment invariant, `CtorWF`).  The readers that need the
-   301    family (the ι case split, the rescues, η) look it up by this name instead
-   302    of walking the type. -/
-   303    | ctorInfo (val : ConstantVal) (numParams numFields : Nat) (induct : Name)
-   304    /-- A recursor with its iota rules and the record's K flag (official's
-   305    `recursor_val::is_k`, read off the stream's record; the block's job
-   306    checks it).  Only the two sums the
-   307    firing path reads are stored: `majorIdx` (= numParams + numMotives +
-   308    numMinors + numIndices, the major premise's argument position) and
-   309    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
-   310    argument prefix a rule's rhs is applied to).  The individual counts
-   311    are consumed at its check only and are not stored. -/
-   312    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-   313        (isK : Bool) (rules : List RecRule)
+== ConLeche/Kernel/Env.lean#L304-L326
+   304  inductive ConstantInfo where
+   305    | axiomInfo (val : ConstantVal)
+   306    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   307    | thmInfo (val : ConstantVal)
+   308    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   309    | indInfo (val : ConstantVal) (caps : IndCaps)
+   310    /-- A constructor (whnf-stuck; the iota target), with its family's name
+   311    (official's `ConstructorVal.induct`): the head constant of its declared
+   312    type's result, which its install reads off the member it is checked
+   313    against (an environment invariant, `CtorWF`).  The readers that need the
+   314    family (the ι case split, the rescues, η) look it up by this name instead
+   315    of walking the type. -/
+   316    | ctorInfo (val : ConstantVal) (numParams numFields : Nat) (induct : Name)
+   317    /-- A recursor with its iota rules and the record's K flag (official's
+   318    `recursor_val::is_k`, read off the stream's record; the block's job
+   319    checks it).  Only the two sums the
+   320    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   321    numMinors + numIndices, the major premise's argument position) and
+   322    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   323    argument prefix a rule's rhs is applied to).  The individual counts
+   324    are consumed at its check only and are not stored. -/
+   325    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+   326        (isK : Bool) (rules : List RecRule)
 
 == ConLeche/Kernel/Env.lean#L134-L140
    134  structure RecRule where
@@ -952,19 +967,19 @@
     49        | _ => .plain
     50      | _ => .plain
 
-== ConLeche/Kernel/Env.lean#L255-L266
-   255  structure ProjTable where
-   256    structName : Name
-   257    /-- the parent type former's level parameters -/
-   258    levelParams : List Name
-   259    /-- the parent's parameter count -/
-   260    numParams : Nat
-   261    /-- the single constructor (the structural rule's head) -/
-   262    ctor : Name
-   263    /-- its field count -/
-   264    numFields : Nat
-   265    /-- per field, the projection's result-type body (see above) -/
-   266    bodies : Array Expr
+== ConLeche/Kernel/Env.lean#L268-L279
+   268  structure ProjTable where
+   269    structName : Name
+   270    /-- the parent type former's level parameters -/
+   271    levelParams : List Name
+   272    /-- the parent's parameter count -/
+   273    numParams : Nat
+   274    /-- the single constructor (the structural rule's head) -/
+   275    ctor : Name
+   276    /-- its field count -/
+   277    numFields : Nat
+   278    /-- per field, the projection's result-type body (see above) -/
+   279    bodies : Array Expr
 
 == ConLeche/Kernel/Install.lean#L60-L69
     60  its constructor's type (`structProjBodies`).  `none` where a structure-like member's constructor
@@ -978,18 +993,18 @@
     68        (structProjBodies ms.declared.name p.nP c.2 c.1.type).bind fun bodies =>
     69          (blockTables p rest).map (⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: ·)
 
-== ConLeche/Kernel/Core.lean#L1205-L1215
-  1205  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
-  1206      (us : List Level) : m Unit :=
-  1207    match env.find? entry.structName with
-  1208    | some (.indInfo cvT caps) => do
-  1209      match ← projGuardSort wh cvT caps us with
-  1210      | none => pure ()
-  1211      | some guardSort =>
-  1212        match projGuardRows env.find? entry us with
-  1213        | some rows => checkGuardRows inf wh guardSort rows
-  1214        | none => throw (.invalid "projection from a propositional structure must be a proposition")
-  1215    | _ => throw (.invalid "projection from a propositional structure must be a proposition")
+== ConLeche/Kernel/Core.lean#L1259-L1269
+  1259  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+  1260      (us : List Level) : m Unit :=
+  1261    match env.find? entry.structName with
+  1262    | some (.indInfo cvT caps) => do
+  1263      match ← projGuardSort wh cvT caps us with
+  1264      | none => pure ()
+  1265      | some guardSort =>
+  1266        match projGuardRows env.find? entry us with
+  1267        | some rows => checkGuardRows inf wh guardSort rows
+  1268        | none => throw (.invalid "projection from a propositional structure must be a proposition")
+  1269    | _ => throw (.invalid "projection from a propositional structure must be a proposition")
 
 == ConLeche/Kernel/FEnv.lean#L193-L218
    193  structure FEnv where
@@ -1037,9 +1052,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L304-L305
-   304          else throw (.notImplemented
-   305            s!"unsupported Lean.trustCompiler shape ({cv.name})")
+== ConLeche/Cached/ParsedC.lean#L315-L316
+   315        else if cv.name = sorryAxName then
+   316          pure fe
 
 == ConLeche/Driver/Cli.lean#L142
    142    "  --compare           Check SOLUTION, then CHALLENGE with its axioms and",

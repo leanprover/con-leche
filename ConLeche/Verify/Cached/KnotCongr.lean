@@ -347,14 +347,6 @@ theorem etaCertI_congr (_hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe�
     etaCertI mode fe₁ eager lv = etaCertI mode fe₂ eager lv := by
   funext depth ty₁ body₁ b; rw [etaCertI.eq_def, etaCertI.eq_def]; simp only [h]
 
-/-- `stuckIrrelI` reads `fe` only through `find?` and `findTable?`. -/
-theorem stuckIrrelI_congr (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
-    stuckIrrelI mode fe₁ eager lv = stuckIrrelI mode fe₂ eager lv := by
-  funext depth a b; rw [stuckIrrelI.eq_def, stuckIrrelI.eq_def]
-  simp only [structEtaCertI_congr hfe htb h, structUnitCertI_congr hfe htb h,
-    proofIrrelI_congr hfe h]
-
 /-- `formerSortLoopI` only threads `fe`. -/
 theorem formerSortLoopI_congr (_hfe : fe₁.find? = fe₂.find?) (h : SlotsEq mode fe₁ fe₂ lv) :
     formerSortLoopI mode fe₁ eager lv = formerSortLoopI mode fe₂ eager lv := by
@@ -415,6 +407,46 @@ theorem iotaRecI_congr (hfe : fe₁.find? = fe₂.find?)
   simp only [hfe, prepareMajorI_congr hfe htb h, defEqListI_congr hfe h,
     constTyAtM_congr hfe, iotaCertsFullI_congr hfe h, iotaCase3I_congr hfe h,
     iotaIndexOkI_congr hfe h, ruleBodyAtM_congr hfe]
+
+/-- `iotaRecAtI` reads `fe` only through `find?` and `findTable?`. -/
+theorem iotaRecAtI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    iotaRecAtI mode fe₁ eager lv = iotaRecAtI mode fe₂ eager lv := by
+  funext depth e; rw [iotaRecAtI.eq_def, iotaRecAtI.eq_def]
+  simp only [hfe, iotaRecI_congr hfe htb h]
+
+/-- `recEtaTeleI` reads `fe` only through `find?` and `findTable?`. -/
+theorem recEtaTeleI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    recEtaTeleI mode fe₁ eager lv = recEtaTeleI mode fe₂ eager lv := by
+  funext k
+  induction k with
+  | zero =>
+    funext depth f T; rw [recEtaTeleI.eq_def, recEtaTeleI.eq_def]
+    simp only [iotaRecAtI_congr hfe htb h, h]
+  | succ k ih =>
+    funext depth f T; rw [recEtaTeleI.eq_def, recEtaTeleI.eq_def]
+    simp only [ih, h]
+
+/-- `recEtaPartialC` reads `fe` only through `find?`. -/
+theorem recEtaPartialC_congr (hfe : fe₁.find? = fe₂.find?) :
+    recEtaPartialC fe₁ = recEtaPartialC fe₂ := by
+  funext e; unfold recEtaPartialC; simp only [hfe]
+
+/-- `recEtaCertI` reads `fe` only through `find?` and `findTable?`. -/
+theorem recEtaCertI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    recEtaCertI mode fe₁ eager lv = recEtaCertI mode fe₂ eager lv := by
+  funext depth a b; rw [recEtaCertI.eq_def, recEtaCertI.eq_def]
+  simp only [recEtaPartialC_congr hfe, recEtaTeleI_congr hfe htb h, h]
+
+/-- `stuckIrrelI` reads `fe` only through `find?` and `findTable?`. -/
+theorem stuckIrrelI_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (h : SlotsEq mode fe₁ fe₂ lv) :
+    stuckIrrelI mode fe₁ eager lv = stuckIrrelI mode fe₂ eager lv := by
+  funext depth a b; rw [stuckIrrelI.eq_def, stuckIrrelI.eq_def]
+  simp only [recEtaCertI_congr hfe htb h, structEtaCertI_congr hfe htb h,
+    structUnitCertI_congr hfe htb h, proofIrrelI_congr hfe h]
 
 /-- `reduceProjCoreI` reads `fe` only through `find?` and `findTable?`. -/
 theorem reduceProjCoreI_congr (hfe : fe₁.find? = fe₂.find?)

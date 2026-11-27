@@ -81,6 +81,10 @@ theorem unwrapOr_atF {α : Type} (o : Option α) (e : CheckError)
     (unwrapOr o e : FueledM α).val F = (unwrapOr o e : CheckM α) := by
   cases o <;> rfl
 
+theorem ofExcept_atF {α : Type} (r : Except CheckError α) (F : Nat) :
+    (ofExcept r : FueledM α).val F = (ofExcept r : CheckM α) := by
+  cases r <;> rfl
+
 theorem fueledOpsM_inferType_atF (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
     ((fueledOpsM mode).inferType env d a).val F =
@@ -286,6 +290,16 @@ theorem nestCtors_datF {F : Nat}
       unwrapOr_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
       nestFields_datF (hrec _), nestCtors_datF hrec ctx env prog hi us ds names holes cs]
 
+theorem nestFrameSorts_datF (env : Env) (sort : Level) (hi : Nat) (F : Nat) :
+    ∀ cs os, (nestFrameSorts (fueledOpsM mode) env sort hi cs os).val F
+      = nestFrameSorts (fueledOps mode F) env sort hi cs os
+  | c :: cs, o :: os => by
+    unfold nestFrameSorts
+    simp only [FueledM.atF_bind, unwrapOr_atF, checkStructFieldSortsI_datF,
+      nestFrameSorts_datF env sort hi F cs os]
+  | [], _ => by unfold nestFrameSorts; rfl
+  | _ :: _, [] => by unfold nestFrameSorts; rfl
+
 theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (nPc : Nat) (grp : List (Name × Expr)) (st : NestState) :
@@ -297,7 +311,8 @@ theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = 
   funext _
   congr 1
   funext q
-  simp only [FueledM.atF_bind, FueledM.atF_pure, nestCtors_datF (fun _ => hrec)]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, nestCtors_datF (fun _ => hrec),
+    nestFrameSorts_datF]
 
 theorem nestContNew_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
@@ -465,6 +480,13 @@ theorem checkBlockCtors_datF (env₀ env : Env) (p : BlockShape)
     unfold checkBlockCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtors_datF,
       checkBlockCtors_datF env₀ env p F rest]
+
+theorem checkBlockBound_datF (env : Env) (p : BlockShape) (F : Nat) :
+    (checkBlockBound (fueledOpsM mode) env p).val F = checkBlockBound (fueledOps mode F) env p := by
+  unfold checkBlockBound
+  split
+  · exact checkBlockCtors_datF env env _ F _
+  · rfl
 
 theorem checkBlockIdxSorts_datF (env₁ : Env) (p : BlockShape) (F : Nat) :
     ∀ l : List MemberShape,
@@ -1005,8 +1027,8 @@ theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
       checkBlockTail (fueledOps mode F) block q Q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF, streamRecsCheck_datF,
-    checkBlockTables_datF]
+    ofExcept_atF, checkBlockBound_datF, checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF,
+    streamRecsCheck_datF, checkBlockTables_datF]
 
 
 theorem reduceMember_datF (env : Env) (nP : Nat) (ms : MemberShape) (F : Nat) :
@@ -1175,7 +1197,12 @@ theorem checkQuotRecord_datF (env : Env) (k : QuotKind) (cv : ConstantVal) (F : 
   · rw [ite_eq_left h, ite_eq_left h]
     by_cases h2 : quotPredsOk env.find? k = true
     · rw [ite_eq_left h2, ite_eq_left h2]
-      exact installBasisDecl_datF _ _ _
+      by_cases h3 : quotFormOk env.find? k cv = true
+      · rw [ite_eq_left h3, ite_eq_left h3]
+        exact installBasisDecl_datF _ _ _
+      · rw [ite_eq_right h3, ite_eq_right h3, FueledM.atF_bind]
+        simp only [FueledM.atF_throw]
+        rfl
     · rw [ite_eq_right h2, ite_eq_right h2, FueledM.atF_bind]
       simp only [FueledM.atF_throw]
       rfl

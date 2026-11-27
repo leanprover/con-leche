@@ -19,7 +19,7 @@ This README is actually human written (with AI only doing copy-editing, fact che
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axioms in the input stream.
 
-  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L304-L305) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L315-L316) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   With [`--compare`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L142), axioms in the challenge are accepted when justified by the solution.
 

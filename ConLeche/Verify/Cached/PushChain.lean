@@ -416,6 +416,8 @@ theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q 
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block) fun _ hrs =>
     Yields.const hrs
 
@@ -516,6 +518,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     rw [← h.find?]
     exact hfe
   · obtain ⟨m, hm, hn⟩ := blockTables_names _ _ Q hQ t ht
+    have hm := mem_projMembers hm
     rw [hn, hd m hm]
     have hm' : m.cvT.name ∈ ms.map (·.cvT.name) := by rw [e₁]; exact List.mem_map_of_mem hm
     obtain ⟨m', hm'm, he⟩ := List.mem_map.mp hm'

@@ -508,6 +508,68 @@ theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
       | _ => exact Rel.ok resO_none
   | _ => exact Rel.ok resO_none
 
+omit d in
+theorem recEtaTele_rel (mode : CheckMode) :
+    ∀ (k d : Nat) {f T : Expr}, Res env₁ f → Res env₁ T →
+      Rel (ResO env₁) (recEtaTele mode r₂ env₂ k d f T) (recEtaTele mode r₁ env₁ k d f T)
+  | 0, d, f, T, hf, hT => by
+    unfold recEtaTele
+    refine Rel.bind (iotaRec_rel K d hx mode hf) fun o ho => ?_
+    cases o with
+    | none => exact Rel.ok resO_none
+    | some e =>
+      have he : Res env₁ e := ho e rfl
+      dsimp only
+      refine Rel.ite (fun _ => ?_) fun _ => Rel.ok fun _ h => Option.some.inj h ▸ he
+      refine Rel.bind (K.infer d he) fun te hte => Rel.bind (K.defeq d hte hT) fun v _ => ?_
+      exact Rel.iteB v (fun _ => Rel.ok fun _ h => Option.some.inj h ▸ he)
+        fun _ => Rel.ok resO_none
+  | k + 1, d, f, T, hf, hT => by
+    unfold recEtaTele
+    refine Rel.bind (K.whnf d hT) fun w hw => ?_
+    cases w with
+    | forallE dom body =>
+      obtain ⟨hd, hbd⟩ := res_forall.mp hw
+      have hv : Res env₁ (Expr.fvar d dom) := res_fvar.mpr hd
+      dsimp only
+      refine Rel.bind (recEtaTele_rel mode k (d + 1) (res_app.mpr ⟨hf, hv⟩) (res_open hd hbd))
+        fun o ho => ?_
+      cases o with
+      | none => exact Rel.ok resO_none
+      | some e =>
+        exact Rel.ok fun _ h => Option.some.inj h ▸
+          res_lam.mpr ⟨hd, res_abstract1 d e 0 (ho e rfl)⟩
+    | _ => exact Rel.ok resO_none
+
+theorem recEtaCert_rel (mode : CheckMode) {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
+    Rel TT (recEtaCert mode r₂ env₂ d a b) (recEtaCert mode r₁ env₁ d a b) := by
+  unfold recEtaCert
+  rw [recEtaPartial_ext hx hb]
+  refine Rel.ite (fun _ => Rel.ok trivial) fun _ => ?_
+  cases recEtaPartial env₁ b with
+  | none => exact Rel.ok trivial
+  | some k =>
+    dsimp only
+    refine Rel.bind (K.inferIO d hb) fun tb htb =>
+      Rel.bind (recEtaTele_rel K hx mode k d hb htb) fun o ho => ?_
+    cases o with
+    | none => exact Rel.ok trivial
+    | some lam => exact K.defeq d ha (ho lam rfl)
+
+theorem stuckIrrel_rel (mode : CheckMode) {a b : Expr} (ha : Res env₁ a) (hb : Res env₁ b) :
+    Rel TT (stuckIrrel mode r₂ env₂ d a b) (stuckIrrel mode r₁ env₁ d a b) := by
+  unfold stuckIrrel
+  refine Rel.bind (recEtaCert_rel K d hx mode ha hb) fun v₁ _ => ?_
+  refine Rel.iteB v₁ (fun _ => Rel.ok trivial) fun _ => ?_
+  refine Rel.bind (recEtaCert_rel K d hx mode hb ha) fun v₂ _ => ?_
+  refine Rel.iteB v₂ (fun _ => Rel.ok trivial) fun _ => ?_
+  refine Rel.bind (structEtaCert_rel K d hx ha hb) fun v _ => ?_
+  refine Rel.iteB v (fun _ => Rel.ok trivial) fun _ => ?_
+  refine Rel.bind (structEtaCert_rel K d hx hb ha) fun v' _ => ?_
+  refine Rel.iteB v' (fun _ => Rel.ok trivial) fun _ => ?_
+  refine Rel.bind (structUnitCert_rel K d hx ha hb) fun v'' _ => ?_
+  exact Rel.iteB v'' (fun _ => Rel.ok trivial) fun _ => proofIrrel_rel K d ha hb
+
 theorem reduceProjCore_rel (mode : CheckMode) {sn : Name} (i : Nat) {c : Expr}
     (hsn : (env₁.find? sn).isSome = true) (hc : Res env₁ c) :
     Rel (ResO env₁) (reduceProjCore mode r₂ env₂ d sn i c) (reduceProjCore mode r₁ env₁ d sn i c) := by

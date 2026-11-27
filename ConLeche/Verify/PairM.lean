@@ -1146,18 +1146,6 @@ macro "snd_tac3" : tactic =>
     snd_step3 <;> snd_step3 <;> snd_step3 <;> snd_step3 <;>
     snd_step3 <;> snd_step3 <;> snd_step3)
 
-theorem stuckIrrel_fst_proj (d : Nat) (a b : Expr) :
-    (stuckIrrel (pairFns r₁ r₂ h) env d a b).val.1 =
-      stuckIrrel r₁ env d a b := by
-  unfold stuckIrrel
-  fst_tac3
-
-theorem stuckIrrel_snd_proj (d : Nat) (a b : Expr) :
-    (stuckIrrel (pairFns r₁ r₂ h) env d a b).val.2 =
-      stuckIrrel r₂ env d a b := by
-  unfold stuckIrrel
-  snd_tac3
-
 theorem iotaRec_fst_proj (d : Nat) (e : Expr) :
     (iotaRec mode (pairFns r₁ r₂ h) env d e).val.1 =
       iotaRec mode r₁ env d e := by
@@ -1169,6 +1157,52 @@ theorem iotaRec_snd_proj (d : Nat) (e : Expr) :
       iotaRec mode r₂ env d e := by
   unfold iotaRec
   snd_tac3
+
+theorem recEtaTele_fst_proj :
+    ∀ (k d : Nat) (f T : Expr),
+      (recEtaTele mode (pairFns r₁ r₂ h) env k d f T).val.1 =
+        recEtaTele mode r₁ env k d f T
+  | 0, d, f, T => by
+    unfold recEtaTele
+    fst_core3 (rw [iotaRec_fst_proj])
+  | k + 1, d, f, T => by
+    unfold recEtaTele
+    fst_core3 (rw [recEtaTele_fst_proj k (d + 1)])
+
+theorem recEtaTele_snd_proj :
+    ∀ (k d : Nat) (f T : Expr),
+      (recEtaTele mode (pairFns r₁ r₂ h) env k d f T).val.2 =
+        recEtaTele mode r₂ env k d f T
+  | 0, d, f, T => by
+    unfold recEtaTele
+    snd_core3 (rw [iotaRec_snd_proj])
+  | k + 1, d, f, T => by
+    unfold recEtaTele
+    snd_core3 (rw [recEtaTele_snd_proj k (d + 1)])
+
+theorem recEtaCert_fst_proj (d : Nat) (a b : Expr) :
+    (recEtaCert mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      recEtaCert mode r₁ env d a b := by
+  unfold recEtaCert
+  fst_core3 (rw [recEtaTele_fst_proj])
+
+theorem recEtaCert_snd_proj (d : Nat) (a b : Expr) :
+    (recEtaCert mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      recEtaCert mode r₂ env d a b := by
+  unfold recEtaCert
+  snd_core3 (rw [recEtaTele_snd_proj])
+
+theorem stuckIrrel_fst_proj (d : Nat) (a b : Expr) :
+    (stuckIrrel mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      stuckIrrel mode r₁ env d a b := by
+  unfold stuckIrrel
+  fst_core3 (rw [recEtaCert_fst_proj])
+
+theorem stuckIrrel_snd_proj (d : Nat) (a b : Expr) :
+    (stuckIrrel mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      stuckIrrel mode r₂ env d a b := by
+  unfold stuckIrrel
+  snd_core3 (rw [recEtaCert_snd_proj])
 
 theorem reduceProjCore_fst_proj (d : Nat) (sn : Name) (i : Nat) (e : Expr) :
     (reduceProjCore mode (pairFns r₁ r₂ h) env d sn i e).val.1 =

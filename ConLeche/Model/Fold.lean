@@ -79,15 +79,16 @@ theorem axiomStepPB_of : AxiomStepPB V := by
   -- the `Quot.sound` arm is a quotient record
   rcases hR with ⟨hn, hq⟩ | ⟨hnq, hR⟩
   · obtain ⟨mp', hrel, hcov⟩ := declQuotPB_at mp hq hwf
-    obtain ⟨-, -, -, rfl⟩ := hq
+    obtain ⟨-, -, -, -, rfl⟩ := hq
     refine ⟨mp', hrel, fun _ => funext fun ψ => ?_, hcov⟩
     have hname : (ConLeche.quotAt .sound cv).name = cv.name := by
-      rw [hn]; exact ConLeche.Verify.atLps_name _ _
+      rw [ConLeche.quotAt_name, hn]; rfl
     have hf : (⟨ConLeche.quotAt .sound cv :: _env.consts, _env.tables⟩ : Env).find? cv.name =
         some (ConLeche.quotAt .sound cv) := by
       simp only [ConLeche.Env.find?_cons, hname, ↓reduceIte]
     exact mp'.base2.acval_pinned_free hf (by rw [hn]; decide)
-      (fun _ => by rw [hn]; simp (decide := true) [ConLeche.Verify.pinnedStructT])
+      (fun _ => by rw [hn]; simp (decide := true) [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt])
+      (by rw [hn]; decide)
   obtain ⟨type', hopn, hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, hsorry, rfl⟩
@@ -172,9 +173,9 @@ theorem PlainStep.cons {env : Env} {c : ConstantInfo}
 /-- A quotient record is a plain step. -/
 theorem plainStep_quot {env env₂ : Env} {k : ConLeche.QuotKind} {cv : ConstantVal}
     (h : DeclQuotRun env k cv env₂) : PlainStep env env₂ := by
-  obtain ⟨-, -, -, rfl⟩ := h
+  obtain ⟨-, -, -, -, rfl⟩ := h
   refine ⟨[_], rfl, rfl, fun _ hc => ?_⟩
-  rw [List.mem_singleton.mp hc, show (quotAt k cv).name = (quotPin k).name from atLps_name _ _]
+  rw [List.mem_singleton.mp hc, ConLeche.quotAt_name]
   cases k <;> decide
 
 /-- An axiom record is a plain step. -/
@@ -417,7 +418,7 @@ theorem declStep_agrees
     · rw [ite_eq_left hq, List.mem_singleton] at hci
       subst hci
       rw [show (ConLeche.quotAt .sound cv).toConstantVal.name = cv.name from by
-        rw [hq]; exact ConLeche.Verify.atLps_name _ _]
+        rw [hq]; exact ConLeche.quotAt_name _ _]
       exact h (.inl hq)
     · rw [ite_eq_right hq] at hci
       by_cases hy : cv.name = ConLeche.sorryAxName
@@ -435,23 +436,24 @@ theorem declStep_agrees
     simp only [declConstants, List.mem_singleton] at hci
     subst hci
     have hq := hrun
-    obtain ⟨-, -, -, rfl⟩ := hq
+    obtain ⟨-, -, -, -, rfl⟩ := hq
     cases k with
     | sound =>
       have hname : (ConLeche.quotAt .sound cv).name = quotSoundName :=
-        ConLeche.Verify.atLps_name _ _
+        ConLeche.quotAt_name _ _
       rw [show (ConLeche.quotAt .sound cv).toConstantVal.name = quotSoundName from hname]
       have hf : (⟨ConLeche.quotAt .sound cv :: env.consts, env.tables⟩ : Env).find?
           quotSoundName = some (ConLeche.quotAt .sound cv) := by
         simp only [ConLeche.Env.find?_cons, hname, ↓reduceIte]
       exact funext fun ψ => mp'.base2.acval_pinned_free hf (by decide)
-        (fun _ => by simp (decide := true) [ConLeche.Verify.pinnedStructT])
+        (fun _ => by simp (decide := true) [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt])
     | _ =>
       have hat : ∀ (c : ConstantInfo) (ps : List Name), (c.atLps ps).isStmtKind = c.isStmtKind :=
         fun c _ => by cases c <;> rfl
       unfold ConLeche.quotAt at hk
       rw [hat] at hk
-      exact absurd hk (by decide)
+      generalize ConLeche.quotLifted _ cv = b at hk
+      cases b <;> exact absurd hk (by decide)
   | indDecl block nP =>
     refine triv (fun _ ci hci hk _ => absurd hk (by rw [stmtKind_of_ind hci]; decide)) ?_
     have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun

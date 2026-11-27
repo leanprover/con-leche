@@ -101,6 +101,8 @@ def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEn
       | _ => .invalid "quotient declaration mismatch")
   unless quotPredsOk fe.find? k do
     throw (.invalid "quotient declaration before what it needs")
+  unless quotFormOk fe.find? k cv do
+    throw (.invalid "Quot.sound's equation is at another universe than the stored Quot's type")
   installBasisDeclF fe (quotAt k cv)
 
 /-- **An inductive block's install** (`checkDeclKind`'s `.indDecl` arm's

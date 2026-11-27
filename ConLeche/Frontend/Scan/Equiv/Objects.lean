@@ -1322,11 +1322,14 @@ theorem naiveIndType_rest_suffix (l : List UInt8) : (naiveIndType l).rest <:+ l 
   exact naiveObject_rest_suffix _ _ indTypeFields_read_suffix _ _ l
 
 theorem scanIndTypeLoop_eq (b : ByteArray) (i : USize) (wantMember : Bool) (seen : UInt32)
-    (ctors : List Nat) (isRec isRefl isUns : Bool) (lps : List Nat) (nm nIdx nNest nP ty : Nat) :
-    scanIndTypeLoop b i wantMember seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty =
-      liftRes b i ((naiveObjLoop indTypeFields 2046 (tailAt b i) wantMember seen ⟨⟨nm, lps, ty⟩, ctors, isRec, isRefl, isUns, nIdx, nNest, nP⟩).map
+    (ctors : List Nat) (isRec isUns : Bool) (lps : List Nat) (nm nIdx nNest nP ty : Nat)
+    (fI fK fP fE fL : Option Bool) :
+    scanIndTypeLoop b i wantMember seen ctors isRec isUns lps nm nIdx nNest nP ty fI fK fP fE fL =
+      liftRes b i ((naiveObjLoop indTypeFields 2038 (tailAt b i) wantMember seen
+        ⟨⟨nm, lps, ty⟩, ctors, isRec, isUns, nIdx, nNest, nP, fI, fK, fP, fE, fL⟩).map
         (id)) := by
-  fun_induction scanIndTypeLoop b i wantMember seen ctors isRec isRefl isUns lps nm nIdx nNest nP ty
+  fun_induction scanIndTypeLoop b i wantMember seen ctors isRec isUns lps nm nIdx nNest nP ty
+    fI fK fP fE fL
   obj_head indTypeFields_read_suffix
   obj_sub indTypeFields_read_suffix case10 case11 case12 case13
   obj_sub indTypeFields_read_suffix case14 case15 case16 case17
@@ -1339,14 +1342,20 @@ theorem scanIndTypeLoop_eq (b : ByteArray) (i : USize) (wantMember : Bool) (seen
   obj_num indTypeFields_read_suffix case42 case43 case44 case45
   obj_num indTypeFields_read_suffix case46 case47 case48 case49
   obj_num indTypeFields_read_suffix case50 case51 case52 case53
-  case case54 => o_unknown indTypeFields x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11
-  case case55 => o_other
-  case case56 => o_end
+  obj_sub indTypeFields_read_suffix case54 case55 case56 case57
+  obj_sub indTypeFields_read_suffix case58 case59 case60 case61
+  obj_sub indTypeFields_read_suffix case62 case63 case64 case65
+  obj_sub indTypeFields_read_suffix case66 case67 case68 case69
+  obj_sub indTypeFields_read_suffix case70 case71 case72 case73
+  case case74 => o_unknown indTypeFields x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16
+  case case75 => o_other
+  case case76 => o_end
 
 theorem scanIndType_eq (b : ByteArray) (i : USize) :
     scanIndType b i = liftRes b i (naiveIndType (tailAt b i)) := by
   unfold scanIndType naiveIndType
-  exact objWrap indTypeFields_read_suffix (scanIndTypeLoop_eq b (i + 1) true 0 [] false false false [] 0 0 0 0 0)
+  exact objWrap indTypeFields_read_suffix (scanIndTypeLoop_eq b (i + 1) true 0 [] false false [] 0 0 0 0 0
+    none none none none none)
 
 theorem naiveIndTypes_rest_suffix (l : List UInt8) : (naiveIndTypes l).rest <:+ l := by
   exact naiveList_rest_suffix _ _ naiveIndType_rest_suffix l

@@ -229,11 +229,14 @@ theorem substFn_ren :
 
 /-! ## The relation -/
 
-/-- **One constant, on both sides**: the same, or two copies of its pin. -/
+/-- **Two copies of one pin, in one form**: `Quot` and `Quot.sound` have two forms (the lifted
+one of lean4#15023), every other pin one (`pinnedInfoAt_of_ne`). -/
+@[expose] def PinPair (c c' : ConstantInfo) : Prop :=
+  ∃ b, PinCopy c (pinnedInfoAt b c.name) ∧ PinCopy c' (pinnedInfoAt b c.name)
+
+/-- **One constant, on both sides**: the same, or two copies of its pin, in one form. -/
 @[expose] def ConstRen (c c' : ConstantInfo) : Prop :=
-  c' = c ∨
-    (reservedBasisNames.contains c.name = true ∧
-      PinCopy c (pinnedInfo c.name) ∧ PinCopy c' (pinnedInfo c.name))
+  c' = c ∨ (reservedBasisNames.contains c.name = true ∧ PinPair c c')
 
 /-- `ConstRen`, position by position. -/
 inductive ConstsRen : List ConstantInfo → List ConstantInfo → Prop where
@@ -287,17 +290,52 @@ theorem pinnedInfo_wf {n : Name} (h : reservedBasisNames.contains n = true) :
 theorem PinCopy.name {c pin : ConstantInfo} (h : PinCopy c pin) : c.name = pin.name := by
   rw [h.1, atLps_name]
 
+/-- Either form of a pin is stored under its name. -/
+theorem pinnedInfoAt_name (b : Bool) {n : Name} (h : reservedBasisNames.contains n = true) :
+    (pinnedInfoAt b n).name = n := by
+  have hmem : n ∈ reservedBasisNames := by simpa using h
+  simp only [reservedBasisNames, List.mem_cons, List.not_mem_nil, or_false] at hmem
+  cases b <;> rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl | rfl | rfl <;> rfl
+
+/-- Either form of a pin is closed at its levels and of the pins' shape. -/
+theorem pinnedInfoAt_wf (b : Bool) {n : Name} (h : reservedBasisNames.contains n = true) :
+    (pinnedInfoAt b n).toConstantVal.type.allLevelParamsDefined
+        (pinnedInfoAt b n).toConstantVal.levelParams = true ∧
+      pinShapeOk (pinnedInfoAt b n) = true := by
+  have hmem : n ∈ reservedBasisNames := by simpa using h
+  simp only [reservedBasisNames, List.mem_cons, List.not_mem_nil, or_false] at hmem
+  cases b <;> rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl | rfl | rfl <;> exact ⟨by decide, by decide⟩
+
+/-- The two sides of a pair are named alike. -/
+theorem PinPair.name {c c' : ConstantInfo} (hr : reservedBasisNames.contains c.name = true)
+    (h : PinPair c c') : c'.name = c.name := by
+  obtain ⟨b, -, h'⟩ := h
+  rw [h'.name, pinnedInfoAt_name b hr]
+
+theorem PinPair.symm {c c' : ConstantInfo} (hr : reservedBasisNames.contains c.name = true)
+    (h : PinPair c c') : PinPair c' c := by
+  have hn := h.name hr
+  obtain ⟨b, h1, h2⟩ := h
+  exact ⟨b, by rw [hn]; exact h2, by rw [hn]; exact h1⟩
+
+/-- A pair, at the stored side's own name. -/
+theorem PinPair.of_name {c c' : ConstantInfo} {n : Name} (hn : c.name = n)
+    (h : ∃ b, PinCopy c (pinnedInfoAt b n) ∧ PinCopy c' (pinnedInfoAt b n)) : PinPair c c' := by
+  subst hn; exact h
+
 /-- Both sides of the relation name the same constant. -/
 theorem ConstRen.name {c c' : ConstantInfo} (h : ConstRen c c') : c'.name = c.name := by
-  rcases h with rfl | ⟨hr, -, h'⟩
+  rcases h with rfl | ⟨hr, hp⟩
   · rfl
-  · rw [h'.name, pinnedInfo_name hr]
+  · exact hp.name hr
 
 theorem ConstRen.symm {c c' : ConstantInfo} (h : ConstRen c c') : ConstRen c' c := by
   have hn := h.name
-  rcases h with rfl | ⟨hr, h1, h2⟩
+  rcases h with rfl | ⟨hr, hp⟩
   · exact .inl rfl
-  · exact .inr ⟨by rw [hn]; exact hr, by rw [hn]; exact h2, by rw [hn]; exact h1⟩
+  · exact .inr ⟨by rw [hn]; exact hr, hp.symm hr⟩
 
 theorem ConstsRen.symm {cs cs' : List ConstantInfo} (h : ConstsRen cs cs') : ConstsRen cs' cs := by
   induction h with
@@ -342,7 +380,7 @@ theorem RenEnv.find_nonres {env env' : Env} (h : RenEnv env env') {n : Name}
   rcases h.find n with ⟨h1, h2⟩ | ⟨c, c', h1, h2, hr⟩
   · rw [h1, h2]
   · rw [h1, h2]
-    rcases hr with rfl | ⟨hres, -, -⟩
+    rcases hr with rfl | ⟨hres, -⟩
     · rfl
     · have hnm : c.name = n := by simpa using Env.find?_name h1
       rw [hnm, hn] at hres
@@ -354,15 +392,33 @@ theorem RenEnv.find_noLps {env env' : Env} (h : RenEnv env env') {n : Name}
   rcases h.find n with ⟨h1, h2⟩ | ⟨c, c', h1, h2, hr⟩
   · rw [h1, h2]
   · rw [h1, h2]
-    rcases hr with rfl | ⟨-, h3, h4⟩
+    rcases hr with rfl | ⟨-, hp⟩
     · rfl
-    · have hnm : c.name = n := by simpa using Env.find?_name h1
+    · obtain ⟨b, h3, h4⟩ := hp
+      have hnm : c.name = n := by simpa using Env.find?_name h1
       rw [hnm] at h3 h4
       have e3 : c.toConstantVal.levelParams = [] := List.eq_nil_of_length_eq_zero (by
-        rw [h3.2.2, hl]; rfl)
+        rw [h3.2.2, pinnedInfoAt_lps, hl]; rfl)
       have e4 : c'.toConstantVal.levelParams = [] := List.eq_nil_of_length_eq_zero (by
-        rw [h4.2.2, hl]; rfl)
+        rw [h4.2.2, pinnedInfoAt_lps, hl]; rfl)
       rw [h3.1, h4.1, e3, e4]
+
+/-- **A copy of a pin, across the renaming**: the other side stores a copy of the same pin, in the
+same form (`PinCopy.form_unique`). -/
+theorem RenEnv.pinCopy {env env' : Env} (h : RenEnv env env') {n : Name} {c : ConstantInfo}
+    {b : Bool} (hf : env.find? n = some c) (hc : PinCopy c (pinnedInfoAt b n)) :
+    ∃ c', env'.find? n = some c' ∧ PinCopy c' (pinnedInfoAt b n) := by
+  rcases h.find n with ⟨h1, -⟩ | ⟨c₀, c', h1, h2, hr⟩
+  · rw [h1] at hf; exact nomatch hf
+  · rw [h1] at hf
+    obtain rfl := Option.some.inj hf
+    refine ⟨c', h2, ?_⟩
+    rcases hr with rfl | ⟨-, hp⟩
+    · exact hc
+    · obtain ⟨b', h3, h4⟩ := hp
+      have hnm : c₀.name = n := by simpa using Env.find?_name h1
+      rw [hnm] at h3 h4
+      rw [PinCopy.form_unique hc h3]; exact h4
 
 /-- Which names are stored is the same on both sides. -/
 theorem RenEnv.isSome {env env' : Env} (h : RenEnv env env') (n : Name) :
@@ -429,9 +485,10 @@ structure CopyEnv (env env' : Env) : Prop where
   findProj : ∀ (T : Name) (i : Nat), env'.findProj? T i = env.findProj? T i
 
 theorem ConstRen.lpsCopy {c c' : ConstantInfo} (h : ConstRen c c') : LpsCopy c c' := by
-  rcases h with rfl | ⟨-, h1, h2⟩
+  rcases h with rfl | ⟨-, hp⟩
   · exact .inl rfl
-  · exact .inr ⟨h2.2.1, by rw [h1.2.2, h2.2.2]⟩
+  · obtain ⟨_, h1, h2⟩ := hp
+    exact .inr ⟨h2.2.1, by rw [h1.2.2, h2.2.2]⟩
 
 /-- Two copies of the pins are copies in the reading's sense. -/
 theorem RenEnv.copy {env env' : Env} (h : RenEnv env env') : CopyEnv env env' where

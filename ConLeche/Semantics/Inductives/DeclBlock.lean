@@ -83,9 +83,10 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     streamKCheck (m := ConLeche.CheckM) p₁ p₁.recs out = .ok () ∧
     streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F)
       (mkFEnv (consBlockRecsT p₁ 0 out
-        (consBlockCtors p₁.nP p₁.ctorGroups env₁))) p₁.recs out = .ok () ∧
-    -- 9  the projection tables, read off the block, and their checks
-    blockTables p₁ p₁.members = some Q ∧
+        (consBlockCtors p₁.nP p₁.ctorGroups env₁))) p₁.recs (p₁.ruleOut out) = .ok () ∧
+    -- 9  the projection tables, read off the block's members that may have them, and their
+    --    checks
+    blockTables p₁ p₁.projMembers = some Q ∧
     checkBlockTables (m := ConLeche.CheckM) (consBlockCtors p₁.nP p₁.ctorGroups env₁) Q = .ok () ∧
     -- 10 the install: the formers and constructors above, the stream's recursors, the tables
     env₂ = (consBlockRecsT p₁ 0 (ConLeche.streamRecs p₁.recs out)
@@ -146,7 +147,7 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
   dsimp only at h
   obtain ⟨sortsss, nfs, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hP', hst, hpar, htbl⟩ :=
     ConLeche.checkBlockPass_inv hP
-  cases hQ₀ : blockTables p₀ p₀.members with
+  cases hQ₀ : blockTables p₀ p₀.projMembers with
   | none =>
     rw [hQ₀] at h
     exact absurd h (by simp [ConLeche.unwrapOr, throw, throwThe, MonadExceptOf.throw])
@@ -173,9 +174,19 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
     obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
     rw [hq]
     rfl
-  have hQ : blockTables q.p q.p.members = some Q := by
-    rw [← hQ₀, ← e₂, hmem]
-    exact ConLeche.blockTables_congr hnP hlps rfl rfl rfl
+  have hfl : q.p.flags = ({ p₀ with members := ms } : BlockShape).flags := by
+    obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
+    rw [hq]
+    rfl
+  have hQ : blockTables q.p q.p.projMembers = some Q := by
+    rw [← hQ₀, ← e₂]
+    exact ConLeche.blockTables_congr hnP hlps
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
   refine ⟨ms, hms, hall, hdecl, ?_, ?_, ?_, blockIsRec p₀, q.env₁, q.p,
     sortsss, ctx, holes, q.rd, q.cls, q.kinds, nfs, pos, st, isorts, rs, Q, hInd, hCtors, hctx,
     hcls, hP', hst, hraw.symm, hsorts, hRec, hK, hS, hQ, hTbl, ?_⟩
@@ -189,7 +200,7 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
 (`blockConstants`, `blockTables`). -/
 theorem blockRun_env {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
     (hd : ∀ m ∈ p₀.members, m.declared = m.cvT) (h : BlockRun F env block p₀ env₂) :
-    env₂ = env.pushDelta (blockConstants p₀) ((blockTables p₀ p₀.members).getD []) := by
+    env₂ = env.pushDelta (blockConstants p₀) ((blockTables p₀ p₀.projMembers).getD []) := by
   obtain ⟨ms, hms, -, -, hR⟩ := h
   obtain ⟨-, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds, nfs, pos, st, isorts, out,
     Q, hInd, -, -, hcls, -, -, hraw, -, hRec, hK, hS, hQ₁, -, hfin⟩ := hR
@@ -204,9 +215,19 @@ theorem blockRun_env {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p
     obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd
     rw [hq]
     rfl
-  have hQ : blockTables p₁ p₁.members = blockTables p₀ p₀.members := by
-    rw [← e₂, hmem]
-    exact ConLeche.blockTables_congr hnP hlps rfl rfl rfl
+  have hfl : p₁.flags = ({ p₀ with members := ms } : BlockShape).flags := by
+    obtain ⟨_, _, _, _, _, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd
+    rw [hq]
+    rfl
+  have hQ : blockTables p₁ p₁.projMembers = blockTables p₀ p₀.projMembers := by
+    rw [← e₂]
+    exact ConLeche.blockTables_congr hnP hlps
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
+      (ConLeche.projMembersFrom_map _
+        (ConLeche.projAllowed_congr (by rw [hmem]) (by rw [hmem]) hfl) 0 (by rw [hmem]))
   rw [hfin, ← hQ, hQ₁, Option.getD_some, ← e₁]
   exact (ConLeche.blockInstall_of_checks (Q := Q) hInd hcls hRec hK hS).symm
 

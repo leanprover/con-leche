@@ -257,11 +257,10 @@ theorem eqLaw_cons_valueKind {m : EnvModel V env}
   by_cases hn : eqName = c₀.name
   · intro ci _ hfind hp ψ
     exfalso
-    obtain ⟨-, -, -⟩ := (m₂.basis_pinned eqName ci hfind (by decide)).1
     rw [ConLeche.Env.find?_cons, ite_eq_left hn.symm] at hfind
     obtain rfl := Option.some.inj hfind
-    obtain ⟨hc, -, -⟩ := (m₂.basis_pinned eqName c₀
-      (by rw [ConLeche.Env.find?_cons, ite_eq_left hn.symm]) (by decide)).1
+    obtain ⟨hc, -, -⟩ := m₂.basis_pinned.copy (n := eqName) (ci := c₀)
+      (by rw [ConLeche.Env.find?_cons, ite_eq_left hn.symm]) (by decide) (by decide) (by decide)
     generalize hcp : c₀.toConstantVal.levelParams = ps at hc
     exact hnotind _ _ hc
   · exact eqLaw_cons_fresh hprev hn m₂ hac

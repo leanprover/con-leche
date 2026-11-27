@@ -137,4 +137,10 @@ def unwrapOr {α : Type} (o : Option α) (err : CheckError) : m α :=
   | some a => pure a
   | none => throw err
 
+/-- A pure check's verdict in the checker's monad: its value, or its error thrown. -/
+def ofExcept {α : Type} (r : Except CheckError α) : m α :=
+  match r with
+  | .ok a => pure a
+  | .error e => throw e
+
 end ConLeche

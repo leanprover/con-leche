@@ -134,7 +134,7 @@ def checkStructFieldSortsC (fe : FEnv) (isProp large : Bool) (s : Level) (nP : N
     let u ← ensureSortI mode fe false checkFuel (nP + j) ty
     if !isProp then
       unless ← liftFueled "level comparison" (Level.leq u s) do
-        throw (.invalid "direct sum: field universe too large")
+        throw (.invalid "a constructor field lives in a larger universe than its inductive type")
     else if large then
       unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
         throw (.invalid "direct sum: large eliminator with a non-propositional \
@@ -185,6 +185,11 @@ def checkBlockCtorsC (fe₀ fe : FEnv) (p : BlockShape) : List MemberShape → C
     checkSumCtorsC mode fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large ms.cvT ms.ctors
     checkBlockCtorsC fe₀ fe p rest
+
+/-- The cached `checkBlockBound`. -/
+def checkBlockBoundC (fe : FEnv) (p : BlockShape) : CheckCM Unit :=
+  if p.boundedProp then checkBlockCtorsC mode fe fe { p with isProp := false } p.members
+  else pure ()
 
 /-- The cached `checkBlockIdxSorts` (the tail's index sorts), over
 positivity's `checkStructFieldSortsIC`. -/

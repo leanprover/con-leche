@@ -215,7 +215,13 @@ abbrev propIrrelFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat
 
 abbrev stuckIrrelFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
     Expr →
-    CheckM Bool := stuckIrrel (pureFns mode eager env fuel) env
+    CheckM Bool := stuckIrrel mode (pureFns mode eager env fuel) env
+
+abbrev recEtaCertFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
+    Expr → CheckM Bool := recEtaCert mode (pureFns mode eager env fuel) env
+
+abbrev recEtaTeleFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Nat →
+    Expr → Expr → CheckM (Option Expr) := recEtaTele mode (pureFns mode eager env fuel) env
 
 abbrev structEtaCertFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr
     → Expr →
@@ -333,7 +339,11 @@ theorem proofIrrel_fold (env : Env) (fuel : Nat) :
 theorem propIrrel_fold (env : Env) (fuel : Nat) :
     propIrrel (pureFns mode eager env fuel) env = propIrrelFueled mode eager env fuel := rfl
 theorem stuckIrrel_fold (env : Env) (fuel : Nat) :
-    stuckIrrel (pureFns mode eager env fuel) env = stuckIrrelFueled mode eager env fuel := rfl
+    stuckIrrel mode (pureFns mode eager env fuel) env = stuckIrrelFueled mode eager env fuel := rfl
+theorem recEtaCert_fold (env : Env) (fuel : Nat) :
+    recEtaCert mode (pureFns mode eager env fuel) env = recEtaCertFueled mode eager env fuel := rfl
+theorem recEtaTele_fold (env : Env) (fuel : Nat) :
+    recEtaTele mode (pureFns mode eager env fuel) env = recEtaTeleFueled mode eager env fuel := rfl
 theorem structEtaCert_fold (env : Env) (fuel : Nat) :
     structEtaCert (pureFns mode eager env fuel) env = structEtaCertFueled mode eager env fuel := rfl
 theorem structEtaCertWith_fold (env : Env) (fuel : Nat) :

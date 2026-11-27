@@ -43,8 +43,7 @@ record of the stream is dropped, rewritten or retagged**:
    still a valid stream.
 
 **Moving a record earlier can only reject, never accept.**  The
-prelude's declarations depend on nothing but each other (`Quot`'s
-package on the pinned `Eq`, which precedes it), so on any export that
+prelude's declarations depend on nothing but each other, so on any export that
 declares each of them in its own record the move is order-preserving
 where it matters; and where it would not be — a stream that declares
 `Bool` inside a block that references a later definition — the moved

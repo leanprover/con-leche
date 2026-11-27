@@ -90,9 +90,9 @@ theorem freshNames_one {e : Env} {c : ConstantInfo} (h : e.find? c.name = none) 
 theorem checkBlock_pushes {ops : CheckerOps CheckM} {env env' : Env}
     {block : List ConstantInfo} {p₀ : BlockShape}
     (h : checkBlock ops env block p₀ = .ok env') :
-    env' = env.pushDelta (blockConstants p₀) ((blockTables p₀ p₀.members).getD []) := by
+    env' = env.pushDelta (blockConstants p₀) ((blockTables p₀ p₀.projMembers).getD []) := by
   unfold checkBlock at h
-  cases ht : blockTables p₀ p₀.members with
+  cases ht : blockTables p₀ p₀.projMembers with
   | none =>
     simp only [ht, unwrapOr, bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
     repeat' split at h
@@ -340,7 +340,7 @@ theorem checkDecl_pushes_fresh {F : Nat} {env env' : Env} {d : Declaration}
     obtain ⟨rfl, hfr⟩ := constantValRun_type hcv
     exact ⟨rfl, freshNames_one hfr⟩
   | axiomDecl cv =>
-    rcases hrun with ⟨hq, -, -, hfr, rfl⟩ | ⟨hqs, type', -, hcv, hdisj⟩
+    rcases hrun with ⟨hq, -, -, -, hfr, rfl⟩ | ⟨hqs, type', -, hcv, hdisj⟩
     · simp only [declConstants, declTables, ite_eq_left hq]
       exact ⟨rfl, freshNames_one (Option.isNone_iff_eq_none.mp hfr)⟩
     · obtain ⟨rfl, hfr⟩ := constantValRun_type hcv
@@ -363,7 +363,7 @@ theorem checkDecl_pushes_fresh {F : Nat} {env env' : Env} {d : Declaration}
       · rw [ite_eq_left hs]
         exact ⟨rfl, List.nodup_nil, fun _ h => nomatch h⟩
   | quotDecl k cv =>
-    obtain ⟨-, -, hfr, rfl⟩ := hrun
+    obtain ⟨-, -, -, hfr, rfl⟩ := hrun
     exact ⟨rfl, freshNames_one (Option.isNone_iff_eq_none.mp hfr)⟩
   | indDecl block nP =>
     simp only [DeclKindRun, DeclIndRunDispatchK] at hrun
@@ -616,8 +616,9 @@ theorem _root_.ConLeche.PureRun.reads {ds : List Declaration} {E E' : Env} (h : 
         simp only [declConstants] at hci
         split at hci
         · rw [List.mem_singleton] at hci; subst hci
-          simp [quotAt, quotPin, BasisKind.decls, quotBasis, quotSoundA, QuotKind.slot,
-            ConstantInfo.atLps] at hcr
+          unfold quotAt at hcr
+          generalize quotLifted QuotKind.sound _ = b at hcr
+          cases b <;> exact nomatch hcr
         · split at hci
           · exact nomatch hci
           · rw [List.mem_singleton] at hci; subst hci; exact nomatch hcr

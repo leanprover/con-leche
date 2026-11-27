@@ -5,6 +5,7 @@ public import ConLeche.Verify.Rules.DefEqStepInv
 import ConLeche.Verify.Rules.Certs
 import ConLeche.Verify.Rules.RedBridge
 import ConLeche.Rules.Derived
+import ConLeche.Verify.InferLemmas
 
 public section
 
@@ -534,6 +535,86 @@ theorem defeqProjPair_bridge (hwc : WhnfCoreBridge .verified eager env fuel)
     · simp [pure, Except.pure] at h
   · simp [pure, Except.pure] at h
 
+/-- `recEtaTele` ⇒ `RecEtaTele`: one `step` per binder (`recEtaTele_succ_inv`),
+`done` by `iotaRec_bridge` and the typing certificate
+(`recEtaTele_zero_inv`). -/
+theorem recEtaTele_bridge (hw : WhnfBridge .verified eager env fuel)
+    (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel)
+    (hio : InferIOBridge .verified eager env fuel) :
+    ∀ (k d : Nat) {f T e : Expr},
+      recEtaTeleFueled .verified eager env fuel k d f T = .ok (some e) →
+      RecEtaTele env d f T e
+  | 0, _, _, _, _, h => by
+    obtain ⟨hiota, htax⟩ := recEtaTele_zero_inv h
+    obtain ⟨te, hte, hde⟩ := htax rfl
+    exact .done (iotaRec_bridge hw hd hi hio hiota) (hi hte) (hd hde)
+  | k + 1, d, _, _, _, h => by
+    obtain ⟨dom, body, e', hwh, hr, rfl⟩ := recEtaTele_succ_inv h
+    exact .step (hw hwh) (recEtaTele_bridge hw hd hi hio k (d + 1) hr)
+
+/-- `recEtaCert` ⇒ `DefEq.recEta` (`recEtaCert_inv`). -/
+theorem recEtaCert_bridge (hw : WhnfBridge .verified eager env fuel)
+    (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel)
+    (hio : InferIOBridge .verified eager env fuel) {d : Nat} {a b : Expr}
+    (h : recEtaCertFueled .verified eager env fuel d a b = .ok true) :
+    DefEq env d a b := by
+  obtain ⟨k, tb, lam, hp, htb, hr, hde⟩ := recEtaCert_inv h
+  exact .recEta (ioNeutral_of_recEtaPartial hp) (inferTypeIO_bridge hio htb)
+    (recEtaTele_bridge hw hd hi hio k d hr) (hd hde)
+
+/-- `stuckIrrel` ⇒ one of its six arms (`recEtaCert_bridge` and
+`structEtaCert_bridge` twice each — the second of each through `symm`
+—, `structUnitCert_bridge`, `proofIrrel_bridge`). -/
+theorem stuckIrrel_bridge (hw : WhnfBridge .verified eager env fuel)
+    (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel)
+    (hio : InferIOBridge .verified eager env fuel)
+    {d : Nat} {a b : Expr}
+    (h : stuckIrrelFueled .verified eager env fuel d a b = .ok true) :
+    DefEq env d a b := by
+  dsimp only [stuckIrrelFueled] at h
+  simp only [stuckIrrel, Bind.bind, Except.bind, recEtaCert_fold, structEtaCert_fold,
+    structUnitCert_fold, proofIrrel_fold] at h
+  cases h1 : recEtaCertFueled .verified eager env fuel d a b with
+  | error err => rw [h1] at h; exact nomatch h
+  | ok r1 =>
+  rw [h1] at h
+  dsimp only at h
+  cases r1 with
+  | true => exact recEtaCert_bridge hw hd hi hio h1
+  | false =>
+  cases h2 : recEtaCertFueled .verified eager env fuel d b a with
+  | error err => rw [h2] at h; exact nomatch h
+  | ok r2 =>
+  rw [h2] at h
+  dsimp only at h
+  cases r2 with
+  | true => exact (recEtaCert_bridge hw hd hi hio h2).symm
+  | false =>
+  cases h3 : structEtaCertFueled .verified eager env fuel d a b with
+  | error err => rw [h3] at h; exact nomatch h
+  | ok r3 =>
+  rw [h3] at h
+  dsimp only at h
+  cases r3 with
+  | true => exact structEtaCert_bridge hw hd hio h3
+  | false =>
+  cases h4 : structEtaCertFueled .verified eager env fuel d b a with
+  | error err => rw [h4] at h; exact nomatch h
+  | ok r4 =>
+  rw [h4] at h
+  dsimp only at h
+  cases r4 with
+  | true => exact .structEtaR (structEtaCert_bridge hw hd hio h4)
+  | false =>
+  cases h5 : structUnitCertFueled .verified eager env fuel d a b with
+  | error err => rw [h5] at h; exact nomatch h
+  | ok r5 =>
+  rw [h5] at h
+  dsimp only at h
+  cases r5 with
+  | true => exact structUnitCert_bridge hw hd hio h5
+  | false => exact proofIrrel_bridge hw hio h
+
 /-- The stuck comparison: one rule per exit. -/
 theorem defeqStuck_bridge (hw : WhnfBridge .verified eager env fuel) (hd :
     DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel)
@@ -541,7 +622,7 @@ theorem defeqStuck_bridge (hw : WhnfBridge .verified eager env fuel) (hd :
     (h : defeqStuckFueled .verified eager env fuel d a b = .ok true) :
     DefEq env d a b := by
   cases defeqStuck_inv h with
-  | fallback hs => exact stuckIrrel_bridge hw hd hio hs
+  | fallback hs => exact stuckIrrel_bridge hw hd hi hio hs
   | strLitL hg hde => exact .strLitL hg (hd hde)
   | strLitR hg hde => exact .strLitR hg (hd hde)
   | fvar => exact .fvar

@@ -286,7 +286,7 @@ theorem eval_eq {env : Env} (m : Model.EnvModelM V env) {φ : LevelParam → Nat
     simp only [↓reduceIte, List.headD_cons, eqRel]
     rw [app_lamV hT, app_lamV hL, app_lamV hR]
   | some ci =>
-    obtain ⟨-, -, hl⟩ := (m.base2.basis_pinned _ _ hfe (by decide)).1
+    have hl := m.base2.basis_pinned.lps_length hfe (by decide)
     have hD : Denotes (Model.cvalOf m.base2.acval) env φ ρ (.const eqName [u]) _ :=
       .const hfe (by rw [hl]; rfl)
     have hE : posModel (Model.cvalOf m.base2.acval) env eqName [Level.eval φ u] = _ :=
@@ -593,7 +593,7 @@ theorem quot_reads {env : Env} (m : Model.EnvModelM V env)
     intro hcn
     obtain ⟨cvj, cnP, cnF, T, hc⟩ := m.base2.rec_ctors _ cv mI rP isK rules hf rl hrlm
     rw [hcn] at hc
-    obtain ⟨⟨hcopy, -, hlen⟩, -⟩ := m.base2.basis_pinned _ _ hc (by decide)
+    obtain ⟨hcopy, -, hlen⟩ := m.base2.basis_pinned.copy hc (by decide) (by decide) (by decide)
     have hp : pinnedInfo quotMkName = quotMkA := by decide
     rw [hp] at hcopy hlen
     match hl : (ConstantInfo.ctorInfo cvj cnP cnF T).toConstantVal.levelParams, hlen with
@@ -604,13 +604,14 @@ theorem quot_reads {env : Env} (m : Model.EnvModelM V env)
       cv.levelParams.length = pin.toConstantVal.levelParams.length := by
     intro n pin hn hp hr
     rw [← hn] at hr
-    obtain ⟨⟨-, -, hlen⟩, -⟩ := m.base2.basis_pinned _ _ hf hr
+    have hlen := m.base2.basis_pinned.lps_length hf hr
     rw [hn, hp] at hlen
     exact hlen
   cases k with
   | type | ctor | sound =>
-    simp [quotAt, quotPin, BasisKind.decls, quotBasis, QuotKind.slot, quotA, quotMkA, quotSoundA,
-      ConstantInfo.atLps] at hq
+    unfold quotAt at hq
+    generalize quotLifted _ cvq = b at hq
+    cases b <;> exact nomatch hq
   | lift =>
     have hq' : ConstantInfo.recInfo cv mI rP isK rules = quotLiftA.atLps cvq.levelParams := hq
     have hcv : cv.name = quotLiftName ∧ cv.levelParams = cvq.levelParams := by

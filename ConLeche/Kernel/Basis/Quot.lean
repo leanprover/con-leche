@@ -14,7 +14,8 @@ synthetic rule each (applying the lift/ind slot to the packed
 element), and `Quot.sound` as a stored axiom (true in the set model).
 
 The pins below (`quotA`, …) match the exporter's `quot` records (and
-`Quot.sound`'s `axiom` record).  Each record stores its slot's pin at the
+`Quot.sound`'s `axiom` record), in either of two forms: the quotient's result sort `Sort u`,
+or `Sort (max 1 u)` (lean4 PR #15023; `quotSortOf`).  Each record stores its slot's pin at the
 level-parameter names it declares (`ConLeche/Kernel/Basis.lean`): references
 between the package's constants are positional, and the eliminators' rules
 carry their comparand level (`.levels`), so no record reads another's names.
@@ -28,11 +29,20 @@ open BasisDSL
 `α → α → Prop`. -/
 def quotRel : Expr := piA (bv 0) (piA (bv 1) prop)
 
-/-- `Quot.{u} {α : Sort u} (r : α → α → Prop) : Sort u`. -/
-def quotA : ConstantInfo :=
+/-- **The quotient's result level**, in either of the two forms a stream may declare: `u`, as the
+released kernel has it, or `max 1 u` (`lifted`), where a quotient of a proposition is a type
+(lean4 PR #15023).  `Quot` and `Quot.sound` are the only constants that mention it. -/
+def quotSortOf (lifted : Bool) : Level :=
+  if lifted then .max (.succ .zero) u else u
+
+/-- `Quot.{u} {α : Sort u} (r : α → α → Prop) : Sort u`, or `: Sort (max 1 u)` (`lifted`). -/
+def quotAOf (lifted : Bool) : ConstantInfo :=
   .indInfo ⟨quotName, [uN],
     piI "α" (srt u) <|
-    pi "r" quotRel (srt u)⟩ {}
+    pi "r" quotRel (srt (quotSortOf lifted))⟩ {}
+
+/-- `Quot` in the released kernel's form. -/
+def quotA : ConstantInfo := quotAOf false
 
 /-- `Quot.mk.{u} {α : Sort u} (r : α → α → Prop) (a : α) : Quot α r`. -/
 def quotMkA : ConstantInfo :=
@@ -101,18 +111,22 @@ def quotIndA : ConstantInfo :=
       lm "a" (bv 3) (.app (bv 1) (bv 0))]
 
 /-- `Quot.sound.{u} {α : Sort u} {r : α → α → Prop} {a b : α} :
-r a b → Quot.mk α r a = Quot.mk α r b`. -/
-def quotSoundA : ConstantInfo :=
+r a b → Quot.mk α r a = Quot.mk α r b`, its equation at the quotient's result level
+(`quotSortOf`). -/
+def quotSoundAOf (lifted : Bool) : ConstantInfo :=
   .axiomInfo ⟨quotSoundName, [uN],
     piI "α" (srt u) <|
     piI "r" quotRel <|
     piI "a" (bv 1) <|
     piI "b" (bv 2) <|
     piA (ap2 (bv 2) (bv 1) (bv 0)) <|
-    ap3 (cnst eqName [u])
+    ap3 (cnst eqName [quotSortOf lifted])
       (ap2 (cnst quotName [u]) (bv 4) (bv 3))
       (ap3 (cnst quotMkName [u]) (bv 4) (bv 3) (bv 2))
       (ap3 (cnst quotMkName [u]) (bv 4) (bv 3) (bv 1))⟩
+
+/-- `Quot.sound` in the released kernel's form. -/
+def quotSoundA : ConstantInfo := quotSoundAOf false
 
 /-- The pinned `Quot` basis block, in install order. -/
 def quotBasis : List ConstantInfo :=

@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Modular.RestrictAgree
 import ConLeche.Model.Harvest
 public import ConLeche.Verify.Cached.PushChain
-import ConLeche.Verify.PinRen
 
 public section
 
@@ -49,7 +48,7 @@ theorem ProofLeaves.thm {E : Env} {a : Name → (Name → Nat) → Term} (h : Pr
 theorem quotSound_leaf {E : Env} (mp : EnvModelM V E) {ci : ConstantInfo}
     (hf : E.find? quotSoundName = some ci) : mp.base2.acval quotSoundName = fun _ => .prf :=
   funext fun _ => mp.base2.acval_pinned_free hf (by decide)
-    (fun _ => by simp (decide := true) [ConLeche.Verify.pinnedStructT])
+    (fun _ => by simp (decide := true) [ConLeche.Verify.pinnedStructT, ConLeche.Verify.pinnedStructTAt])
 
 /-- **A truth value read alike is a truth value.** -/
 theorem SemPropType.of_denote {a₁ a₂ : Name → (Name → Nat) → Term} {E₁ E₂ : Env} {ty : Expr}
@@ -181,8 +180,7 @@ theorem stmt_of_record {d : Declaration} {ci : ConstantInfo} (hci : ci ∈ declC
     by_cases hs : cv.name = quotSoundName
     · simp only [hs, ↓reduceIte, List.mem_singleton] at hci
       subst hci
-      exact absurd (by rw [show (quotAt .sound cv).name = (quotPin .sound).name from
-        atLps_name _ _]; rfl) hq
+      exact absurd (by rw [quotAt_name]; rfl) hq
     · simp only [hs, ↓reduceIte] at hci
       by_cases hy : cv.name = sorryAxName
       · simp only [hy, ↓reduceIte] at hci; exact absurd hci List.not_mem_nil
@@ -193,9 +191,9 @@ theorem stmt_of_record {d : Declaration} {ci : ConstantInfo} (hci : ci ∈ declC
     subst hci
     exfalso
     cases k <;> first
-      | exact absurd (by rw [show (quotAt .sound cv).name = (quotPin .sound).name from
-          atLps_name _ _]; rfl) hq
-      | (unfold quotAt at hk; rw [atLps_stmtKind] at hk; revert hk; decide)
+      | exact absurd (by rw [quotAt_name]; rfl) hq
+      | (unfold quotAt at hk; rw [atLps_stmtKind] at hk; revert hk
+         generalize quotLifted _ cv = b; cases b <;> decide)
   | indDecl block nP =>
     exfalso
     simp only [declConstants] at hci
@@ -222,7 +220,9 @@ theorem stmt_of_record {d : Declaration} {ci : ConstantInfo} (hci : ci ∈ declC
 theorem thm_of_record {d : Declaration} {cv : ConstantVal}
     (hci : ConstantInfo.thmInfo cv ∈ declConstants d) : ∃ v, d = .thmDecl cv v := by
   have hq : ∀ k cv', quotAt k cv' ≠ .thmInfo cv := fun k cv' h => by
-    cases k <;> cases h
+    unfold quotAt at h
+    generalize quotLifted k cv' = b at h
+    cases b <;> cases k <;> cases h
   cases d with
   | defnDecl _ _ _ => cases List.mem_singleton.mp hci
   | thmDecl cv' v => cases List.mem_singleton.mp hci; exact ⟨v, rfl⟩

@@ -14,7 +14,6 @@ import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Prefix
 import ConLeche.Verify.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Prepare
-import ConLeche.Verify.PinRen
 import ConLeche.Verify.Cached.IndWalksC
 import ConLeche.Verify.Cached.OpsC
 import ConLeche.Verify.Driver.Reach
@@ -42,7 +41,7 @@ variable {pins : List NatOpPinSet} {sp : Roots} {fs : FS}
 
 /-- The quotient package's `Quot.sound` is named `Quot.sound`. -/
 theorem quotAt_sound_name (cv : ConstantVal) : (quotAt .sound cv).name = quotSoundName := by
-  rw [quotAt, ConLeche.Verify.atLps_name]
+  rw [quotAt_name]
   decide
 
 /-- **A stored constant with constants is kept, and no hole.** -/

@@ -156,9 +156,9 @@ theorem bconst_appliesTo_4 (c : BConst) (us : List Nat) (ρ : Nat → V)
 
 /-- `Quot.mk`'s spine inhabits its quotient — the argument membership
 `quotInd`'s and `quotSound`'s motive rows want. -/
-theorem quotMk_mem_quot {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
+theorem quotMk_mem_quot {u c : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
     (hR : R ∈ˢ relSpace V A) (ha : a ∈ˢ A) :
-    app (app (app (quotMkV V u) A) R) a ∈ˢ app (app (quotV V u) A) R := by
+    app (app (app (quotMkV V u c) A) R) a ∈ˢ app (app (quotV V u c) A) R := by
   rw [quotMkV_app V hA hR ha, quotV_app V hA hR]
   exact quotClass_mem ha
 
@@ -186,7 +186,7 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
       | exact IsTy_eqv _ _
       | exact IsTy_of_mem_univ ‹_›
       | exact IsTy_of_mem_univ (unitSetAt_mem_univ _)
-      | exact IsTy_quotV_app V ‹_› ‹_›
+      | exact IsTy_quotV_app V (ConLeche.Term.le_quotCl _ _) (by assumption) (by assumption)
       | exact IsTy_psigmaV_app V ‹_› ‹_›
       | exact IsTy_of_mem_univ (app_mem_piR_pos (Nat.succ_ne_zero _) ‹_› ‹_›)
       | exact IsTy_of_mem_univ (app_mem_piR_pos Nat.one_ne_zero ‹_› ‹_›)
@@ -226,9 +226,13 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
       | trivial)
   -- `Quot.ind`'s motive applied at a `Quot.mk` spine, and at a class
   all_goals first
-    | exact appliesTo_of_mem_piV ‹_› (IsTy_quotV_app V ‹_› ‹_›) (quotMk_mem_quot V ‹_› ‹_› ‹_›)
-    | exact IsTy_app_piV_univ V ‹_› (quotMk_mem_quot V ‹_› ‹_› ‹_›)
-    | exact appliesTo_of_mem_piV ‹_› (IsTy_quotV_app V ‹_› ‹_›) ‹_›
+    | (apply appliesTo_of_mem_piV <;> first
+        | assumption
+        | exact IsTy_quotV_app V (ConLeche.Term.le_quotCl _ _) (by assumption) (by assumption)
+        | exact quotMk_mem_quot V (by assumption) (by assumption) (by assumption))
+    | (apply IsTy_app_piV_univ V <;> first
+        | assumption
+        | exact quotMk_mem_quot V (by assumption) (by assumption) (by assumption))
 
 /-- **Every built-in constant's type reads to a type**: a
 dependent function space, a universe, `ω` (`Nat.zero : Nat`) or a unit type

@@ -20,9 +20,8 @@ and parses it at process initialisation; `preparePrelude`
 (`ConLeche/Frontend/Prepare.lean`) puts those declarations at the front
 of every stream it prepares — **the stream's own record where the
 stream has one**, one of these where it has none.  These guards pin the
-prelude's content — the four pinned inductive basis blocks, the four
-quotient records with the soundness axiom, `And` and `Bool`: eleven
-records — and run the verified fold over the prelude alone at both
+prelude's content — the four pinned inductive basis blocks, `And` and
+`Bool`: six records — and run the verified fold over the prelude alone at both
 modes: the prelude is itself an accepted stream, so prepending it can
 never be what fails a run.  (The pinned-block RECOGNITION is the fold's
 since task #293, and the `prelude_*` e2e fixtures exercise it end to
@@ -43,36 +42,32 @@ def preludeIx : PreludeIx :=
 -- the prelude parses
 #guard builtinPreludeE.toOption.isSome
 
--- eleven records, in the committed file's order: the four pinned
--- inductive basis blocks, the four `#QUOT` records, the `Quot.sound`
--- axiom record, and the `And` and `Bool` blocks (`And` is pinned by
+-- six records, in the committed file's order: the four pinned
+-- inductive basis blocks and the `And` and `Bool` blocks (no quotient
+-- records: a stream that uses `Quot` declares it) (`And` is pinned by
 -- the fold, `andPinOk`, so the prelude carries it for a stream that
 -- does not declare it: `ConLeche/PinGen/Prelude.lean`'s
 -- `pinnedPreludeMembers`)
-#guard preludeIx.decls.size == 11
+#guard preludeIx.decls.size == 6
 #guard preludeIx.decls.toList.map (fun d => (d.names.head?).getD .anonymous) ==
-  [eqName, natName, emptyName, falseName,
-   quotName, quotMkName, quotLiftName, quotIndName, quotSoundName,
-   andName, boolName]
--- and the kinds: four inductive blocks, four quotient records, one
--- axiom record, two more inductive blocks
+  [eqName, natName, emptyName, falseName, andName, boolName]
+-- and the kinds: six inductive blocks
 #guard preludeIx.decls.toList.map (fun d => match d with
   | .indDecl .. => 0 | .quotDecl .. => 1 | .axiomDecl _ => 2 | _ => 3) ==
-  [0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0]
+  [0, 0, 0, 0, 0, 0]
 
 /-- The fold accepts the prelude alone, at both modes, from the empty
-environment: 23 constants (16 basis + `And`, `And.intro`, `And.rec` +
+environment: 18 constants (11 basis + `And`, `And.intro`, `And.rec` +
 `Bool`, `Bool.false`, `Bool.true`, `Bool.rec`) and one projection
-table (`And`'s).  The four pinned blocks and the quotient package are
-compared with their pins (`pinListOk`, `quotPinHit`) and installed at the
-names their records declare. -/
+table (`And`'s).  The four pinned blocks are compared with their pins
+(`pinListOk`) and installed at the names their records declare. -/
 def preludeEnvSize (mode : CheckMode) : Option (Nat × Nat) :=
   match checkDecls mode natOpPinSets maxNatSizeDefault preludeIx.decls with
   | .ok env => some (env.consts.length, env.tables.length)
   | .error _ => none
 
-#guard preludeEnvSize .verified == some (23, 1)
-#guard preludeEnvSize .trusted == some (23, 1)
+#guard preludeEnvSize .verified == some (18, 1)
+#guard preludeEnvSize .trusted == some (18, 1)
 
 /-! The `And` pin (`andPinOk`, `ConLeche/Kernel/Basis.lean`): the
 prelude's `And` block — the toolchain's, as exported — IS the pin, up
@@ -81,7 +76,7 @@ another kind under a pinned `And` name, or the block with its
 parameter count changed, does not. -/
 
 /-- The prelude's `And` record. -/
-def preludeAnd : Declaration := preludeIx.decls.getD 9 default
+def preludeAnd : Declaration := preludeIx.decls.getD 4 default
 
 #guard preludeAnd.names == andPinNames
 #guard (match preludeAnd with
@@ -113,7 +108,7 @@ def preludeAnd : Declaration := preludeIx.decls.getD 9 default
 def probeRec : Declaration :=
   .axiomDecl ⟨.str .anonymous "ConLecheTests.probe", [], .sort .zero⟩
 
-#guard (preparePrelude preludeIx #[probeRec]).size == 12
+#guard (preparePrelude preludeIx #[probeRec]).size == 7
 #guard (preparePrelude preludeIx #[probeRec]).back? == some probeRec
 
 end ConLecheTests

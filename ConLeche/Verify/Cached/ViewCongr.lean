@@ -457,6 +457,16 @@ theorem checkAbsCtorSorts_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
   | [], _ => by unfold checkAbsCtorSorts; rfl
   | _ :: _, [] => by unfold checkAbsCtorSorts; rfl
 
+theorem nestFrameSorts_env (h : EnvFree ops) (env : Env) (sort : Level) (hi : Nat) :
+    ∀ cs os, nestFrameSorts ops env sort hi cs os = nestFrameSorts ops Env.empty sort hi cs os
+  | c :: cs, o :: os => by
+    have ih := nestFrameSorts_env h env sort hi cs os
+    unfold nestFrameSorts
+    simp only [checkStructFieldSortsI_env h env]
+    rw [ih]
+  | [], _ => by unfold nestFrameSorts; rfl
+  | _ :: _, [] => by unfold nestFrameSorts; rfl
+
 theorem checkAbsCtorSortsAll_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
     ∀ css oss, checkAbsCtorSortsAll ops env ctx css oss =
       checkAbsCtorSortsAll ops Env.empty ctx css oss
@@ -516,7 +526,7 @@ theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     nestFrame ctx ops env rec prog hi us ds nPc grp st =
       nestFrame ctx ops Env.empty rec prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [familyKeyChecks_env h env, nestCtors_env h ctx env]
+  simp only [familyKeyChecks_env h env, nestCtors_env h ctx env, nestFrameSorts_env h env]
 
 theorem nestInstType_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) :
     nestInstType ctx ops env hi key = nestInstType ctx ops Env.empty hi key := by
@@ -911,6 +921,12 @@ theorem checkBlockIdxSortsC_congr (hfe : fe₁.find? = fe₂.find?)
     unfold checkBlockIdxSortsC
     simp only [checkStructFieldSortsIC_congr hfe htb, ih]
 
+theorem checkBlockBoundC_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (p : BlockShape) :
+    checkBlockBoundC mode fe₁ p = checkBlockBoundC mode fe₂ p := by
+  unfold checkBlockBoundC
+  rw [checkBlockCtorsC_congr hfe hfe htb]
+
 end CStages
 
 /-! ## The pushes, as lists -/
@@ -1206,7 +1222,8 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     rw [sharedOpsC_congr hf htb]
     exact streamRecsCheck_twin (sharedOpsC_envFree mode _)
       (constsResolveF_congr hf) recs out
-  simp only [checkBlockIdxSortsC_congr htL.find htL.findTable, genRecCheckC_twin ht₂, hO]
+  simp only [htL.findTable, checkBlockBoundC_congr htL.find htL.findTable,
+    checkBlockIdxSortsC_congr htL.find htL.findTable, genRecCheckC_twin ht₂, hO]
   rw [hL₂, hL₂, checkBlockTablesC_twin (htL.pushAll L₂)]
   relrun
   all_goals exact RelRun.of_eq

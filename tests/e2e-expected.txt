@@ -749,6 +749,69 @@
 #                          2` with one index).
 1 ind_numparams_bad.ndjson
 0 ind_numparams_indices.ndjson
+# TASK #630 — THE FEATURE FLAGS of lean4export 3.2.0 (lean4 PR #16595),
+# five booleans on every inductive type record.  Two twins of
+# `direct_fix_nat.ndjson`, patched by `scripts/mk_ind_flags_parse.py`:
+#   ind_flags_parse:       every type record carries the flags official
+#                          accepts for it (0).
+#   ind_flags_partial_bad: one record carries two of the five — malformed,
+#                          rejected by the parse (1).
+#   ind_flags_no_reflexive: ind_flags_parse without `isReflexive`, which
+#                          lean4 dropped; the key is optional (0).
+0 ind_flags_parse.ndjson
+1 ind_flags_partial_bad.ndjson
+0 ind_flags_no_reflexive.ndjson
+# Task #630 (install lane): the block's check at the declared feature flags (lean4 PR
+# #16595).  Each fixture is an existing one with every type record carrying the flags official
+# allows and its elaborator writes (rule-less recursors at a block without large eliminator),
+# then one patch; `scripts/mk_ind_flags_install.py` forges them.  Official (with the PR): the
+# verdicts below; con-leche today: the same.
+#   accepted at their allowed flags: Or'-style small eliminator with no rules (ind_flags_or),
+#   fieldless and nested unit-like structures (ind_flags_unitlike), a recursive structure's
+#   projections (ind_flags_rec_struct), a Prop structure with eta and large elimination
+#   (ind_flags_prop_struct), mutual and nested blocks, Nat'/List'/Eq, an indexed family.
+0 ind_flags_or.ndjson
+0 ind_flags_unitlike.ndjson
+0 ind_flags_rec_struct.ndjson
+0 ind_flags_prop_struct.ndjson
+0 ind_flags_mutual.ndjson
+0 ind_flags_nested.ndjson
+0 ind_flags_nat.ndjson
+0 ind_flags_vec.ndjson
+#   rejected: Or'.rec keeps its rules at hasLargeElim = false; hasLargeElim claimed for a small
+#   recursor; isK on Or'; isImpredicative on a Type; hasEta withdrawn from a fieldless structure
+#   whose theorems need unit-likeness; hasEta on a recursive structure; hasProjections withdrawn
+#   where Chain.h projects; PropPair without hasEta, so no large eliminator is allowed; a Prop
+#   structure with a data field, impredicative so without projections, and not impredicative so
+#   over the field bound; Acc' with a large eliminator (no longer allowed); Eq without isK, so
+#   not allowed its large eliminator; a mutual block disagreeing on hasLargeElim; a mutual block
+#   where one type record carries the flags and the other does not (rejected by the parse).
+1 ind_flags_or_rules_bad.ndjson
+1 ind_flags_or_large_bad.ndjson
+1 ind_flags_or_k_bad.ndjson
+1 ind_flags_impred_type_bad.ndjson
+1 ind_flags_unitlike_eta_off_bad.ndjson
+1 ind_flags_rec_struct_eta_bad.ndjson
+1 ind_flags_rec_struct_proj_off_bad.ndjson
+1 ind_flags_prop_struct_eta_off_bad.ndjson
+1 ind_flags_prop_data_struct_bad.ndjson
+1 ind_flags_prop_data_bound_bad.ndjson
+1 ind_flags_acc_large_bad.ndjson
+1 ind_flags_eq_k_off_bad.ndjson
+1 ind_flags_mutual_disagree_bad.ndjson
+1 ind_flags_mixed_block_bad.ndjson
+# Nested Prop blocks (`src/ind_flags_nest_prop.lean`, unflagged: accepted), patched by
+# `scripts/mk_ind_flags_install.py`: official's auxiliary type takes isImpredicative from the
+# block and hasProjections from the container.
+#   ind_flags_nest:                 FlagNestTree not impredicative — accepted
+#   ind_flags_nest_impred_proj_bad: FlagNestTree impredicative, nesting a proposition with
+#                                   projections — rejected
+#   ind_flags_nest_bound_bad:       FlagNestExTree not impredicative, nesting a proposition
+#                                   with a field in Type — rejected
+0 ind_flags_nest_prop.ndjson
+0 ind_flags_nest.ndjson
+1 ind_flags_nest_impred_proj_bad.ndjson
+1 ind_flags_nest_bound_bad.ndjson
 0 direct_fix_refl.ndjson
 1 direct_fix_refl_neg_bad.ndjson
 1 direct_fix_refl_ih_bad.ndjson
@@ -3339,6 +3402,28 @@
 # REJECT (task #636): a `quot` record that disagrees with its pin is invalid input,
 # as for the other checkers (arena `bugs/quot-bad-type`).
 1 basis_quot_lift_type_bad.ndjson
+# -- task #630: `Quot` in either result-sort form.  lean4#15023 declares `Quot` at
+# `Sort (max 1 u)` and `Quot.sound`'s equation at `Eq.{max 1 u}`: a quotient of a proposition is
+# a type.  The record's form is the one stored, so proof irrelevance follows the declared sort.
+# quot_lifted: exported with that PR's toolchain; `Quot.lift` reduces on `Quot.mk` (official 0).
+0 quot_lifted.ndjson
+# `s = Squash.mk True.intro` by `rfl` at the lifted form: no proof irrelevance (official 1).
+1 quot_lifted_rfl_bad.ndjson
+# the same `rfl` at the released form, where `Squash True` is a proposition (official 0).
+0 quot_released_rfl.ndjson
+# `Quot.sound` in the released form beside the lifted `Quot`: ill-typed (official 1).
+1 quot_lifted_mixed_sound_bad.ndjson
+# `Quot` at `Sort (u+1)`: neither form of the pin, rejected as any quotient record off its pin
+# (task #636).
+1 quot_other_sort_bad.ndjson
+# quot_lifted_no_sound: quot_lifted without the `Quot.sound` record (and
+# `squash_sound`, its one use), as an export that never uses the axiom has it.
+# The built-in prelude carries no quotient record, so nothing in the released
+# form is synthesised beside the stream's lifted `Quot` (official 0).
+0 quot_lifted_no_sound.ndjson
+# quot_lifted_no_sound_rfl_bad: the same with `squash_sound` proved by `rfl`:
+# no proof irrelevance at a lifted quotient (official: reject).
+1 quot_lifted_no_sound_rfl_bad.ndjson
 # -- task #480: the literal fast path fires on a certified operation's name, as official's.
 # Only a definition may take such a name (its job holds it to the pin): a theorem or a family
 # there is refused.  natop_foreign_thm, natop_foreign_former: official 0 (run); 1 by the
@@ -3462,6 +3547,17 @@
 0 eta_partial_ctor.ndjson
 1 eta_partial_ctor_bad.ndjson
 1 eta_partial_ctor_alias_bad.ndjson
+# η for a partially applied recursor of a K or η family (task #632; official's
+# `eta_expand_iota_reduce_recursor` since lean4#15374, ported from lean4's
+# `tests/elab/12520_2.lean` and the renovation arena's `etaRecStruct` /
+# `etaRuleK`), and its must-reject controls: `@Eq.rec = g` and `@And.rec = g`
+# (the test's two), a recursor of neither kind, and a wrong minor.  Official
+# 0/1/1/1/1; before task #632 the first was 1.
+0 rec_eta.ndjson
+1 rec_eta_eqrec_bad.ndjson
+1 rec_eta_andrec_bad.ndjson
+1 rec_eta_noeta_bad.ndjson
+1 rec_eta_struct_bad.ndjson
 # lean4's tests whose master elaboration needs the wider unit-like η
 # (task #515): `tests/elab/13371.lean` and the family of
 # `tests/elab/match4.lean`, exported from a lean4 master build (the
